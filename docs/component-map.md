@@ -31,7 +31,12 @@ Defines where frontend components live and who owns them. Ownership rules come f
 | Library cards | feature | `components/feature/` — `CharacterCard` (disclosure), `SettingCard`, `ScenarioCard` (stretched select button), `BranchRow`. |
 | `LibraryTabs` | feature | `components/feature/LibraryTabs.tsx` — ARIA tablist w/ roving tabindex + arrow keys. |
 | `ScenarioCarousel` | feature | `components/feature/ScenarioCarousel.tsx` — recent-scenario hero w/ slide track, prev/next, dots. |
-| `LibraryView` + `useLibraryState` | feature module | `features/library/` — composes the Library; holds tab/featured/search/expand state over the seed. Route: `app/page.tsx`. |
+| `LibraryView` + `useLibraryState` | feature module | `features/library/` — composes the Library; holds tab/featured/search/expand + editor/modal/draft/profile state over the (now mutable) seed. Route: `app/page.tsx`. |
+| `CreateMenu` | feature | `components/feature/CreateMenu.tsx` — "+ Create" popover (outside-click + Esc). |
+| `EntityModal` + forms | feature | `components/feature/EntityModal.tsx` with `CharacterForm` / `SettingForm` / `ScenarioForm` / `BranchForm`; By-hand / Agentically (faked draft) modes; create/edit/delete. |
+| `CharacterProfileModal` | feature | `components/feature/CharacterProfileModal.tsx` — read-only profile + Edit. |
+| `BeginSceneModal` | feature | `components/feature/BeginSceneModal.tsx` — narrator opening + cast/setting/goal; "Enter Scene" → `/play/[scenarioId]`. |
+| `editor` helpers | feature module | `features/library/editor.ts` — Draft/ModalState types, defaults, validation, prompt copy. |
 
 ## Key Domain Components (planned)
 

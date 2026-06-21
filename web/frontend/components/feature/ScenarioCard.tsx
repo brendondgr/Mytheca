@@ -14,11 +14,13 @@ export function ScenarioCard({
   featured,
   onSelect,
   onEdit,
+  onProfile,
 }: {
   scenario: ResolvedScenario;
   featured: boolean;
   onSelect: () => void;
   onEdit?: () => void;
+  onProfile?: (id: string) => void;
 }) {
   const s = scenario;
   return (
@@ -65,9 +67,22 @@ export function ScenarioCard({
         </p>
         <div className="mt-[14px] flex items-center justify-between border-t border-hair pt-[11px]">
           <div className="flex items-center gap-[5px]">
-            {s.cast.map((c) => (
-              <Monogram key={c.id} mono={c.mono} color={c.color} size={27} />
-            ))}
+            {s.cast.map((c) =>
+              onProfile ? (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => onProfile(c.id)}
+                  aria-label={`View ${c.name}`}
+                  title={c.name}
+                  className="pointer-events-auto relative z-[2] rounded-full transition-transform hover:scale-110"
+                >
+                  <Monogram mono={c.mono} color={c.color} size={27} />
+                </button>
+              ) : (
+                <Monogram key={c.id} mono={c.mono} color={c.color} size={27} />
+              ),
+            )}
           </div>
           <span className="font-body text-[13px] text-ink-soft">◆ {s.setting.name}</span>
         </div>

@@ -25,6 +25,8 @@ export function ScenarioCarousel({
   onNext,
   onSelect,
   counterText,
+  onBegin,
+  onProfile,
 }: {
   slides: ResolvedScenario[];
   index: number;
@@ -32,6 +34,8 @@ export function ScenarioCarousel({
   onNext: () => void;
   onSelect: (id: string) => void;
   counterText: string;
+  onBegin?: (id: string) => void;
+  onProfile?: (id: string) => void;
 }) {
   return (
     <section
@@ -47,6 +51,7 @@ export function ScenarioCarousel({
           <div
             key={s.id}
             aria-hidden={i !== index}
+            inert={i !== index}
             className="flex h-full flex-[0_0_100%]"
             style={{ background: HERO.panel, border: "1px solid #1c150c" }}
           >
@@ -77,23 +82,38 @@ export function ScenarioCarousel({
               >
                 {s.goal}
               </p>
-              <div className="mt-[18px] flex items-center gap-[6px]">
-                {s.cast.map((c) => (
-                  <Monogram
-                    key={c.id}
-                    mono={c.mono}
-                    color={c.color}
-                    size={34}
-                    ring={1.5}
-                    bg={HERO.medBg}
-                  />
-                ))}
-                <span
-                  className="ml-[8px] font-mono text-[10.5px]"
-                  style={{ color: HERO.set }}
-                >
-                  ◆ {s.setting.name}
-                </span>
+              <div className="mt-[18px] flex items-center gap-[18px]">
+                <div className="flex items-center gap-[6px]">
+                  {s.cast.map((c) =>
+                    onProfile ? (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => onProfile(c.id)}
+                        aria-label={`View ${c.name}`}
+                        title={c.name}
+                        className="rounded-full transition-transform hover:scale-110"
+                      >
+                        <Monogram mono={c.mono} color={c.color} size={34} ring={1.5} bg={HERO.medBg} />
+                      </button>
+                    ) : (
+                      <Monogram key={c.id} mono={c.mono} color={c.color} size={34} ring={1.5} bg={HERO.medBg} />
+                    ),
+                  )}
+                  <span className="ml-[8px] font-mono text-[10.5px]" style={{ color: HERO.set }}>
+                    ◆ {s.setting.name}
+                  </span>
+                </div>
+                {onBegin ? (
+                  <button
+                    type="button"
+                    onClick={() => onBegin(s.id)}
+                    className="ml-auto rounded-[2px] px-[20px] py-[10px] font-mono text-[11px] uppercase tracking-[0.1em] hover:brightness-110"
+                    style={{ background: HERO.label, color: "#1f160c" }}
+                  >
+                    Begin Scene ▸
+                  </button>
+                ) : null}
               </div>
             </div>
             <div

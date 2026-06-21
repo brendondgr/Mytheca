@@ -40,7 +40,7 @@ describe("LibraryView", () => {
     const user = userEvent.setup();
     render(<LibraryView />);
     await user.click(screen.getByRole("tab", { name: /characters/i }));
-    const summary = screen.getByRole("button", { name: /maerin voss/i });
+    const summary = screen.getByRole("button", { name: /^maerin voss/i });
     expect(summary).toHaveAttribute("aria-expanded", "false");
     await user.click(summary);
     expect(summary).toHaveAttribute("aria-expanded", "true");
