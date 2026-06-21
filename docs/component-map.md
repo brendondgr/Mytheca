@@ -27,6 +27,11 @@ Defines where frontend components live and who owns them. Ownership rules come f
 | Domain types | lib | `lib/types.ts` — `Character` / `Setting` / `Branch` / `Scenario` / `ResolvedScenario` / `EventTag`. |
 | Seed data | lib | `lib/seed-data.ts` — Embergate cast/settings/scenarios + agentic-draft pools + `resolveScenario`. |
 | Helpers | lib | `lib/monogram.ts` (`monoOf`), `lib/cn.ts` (classnames joiner). |
+| `AppHeader` | layout | `components/layout/AppHeader.tsx` — wordmark, storyline affordance, search, theme switcher, create slot. |
+| Library cards | feature | `components/feature/` — `CharacterCard` (disclosure), `SettingCard`, `ScenarioCard` (stretched select button), `BranchRow`. |
+| `LibraryTabs` | feature | `components/feature/LibraryTabs.tsx` — ARIA tablist w/ roving tabindex + arrow keys. |
+| `ScenarioCarousel` | feature | `components/feature/ScenarioCarousel.tsx` — recent-scenario hero w/ slide track, prev/next, dots. |
+| `LibraryView` + `useLibraryState` | feature module | `features/library/` — composes the Library; holds tab/featured/search/expand state over the seed. Route: `app/page.tsx`. |
 
 ## Key Domain Components (planned)
 

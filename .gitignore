@@ -123,3 +123,5 @@ yarn-error.log*
 
 # OS / editor
 *.swp
+# Claude preview launch config (local dev only)
+.claude/launch.json

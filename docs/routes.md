@@ -8,7 +8,7 @@ Planned routes for the Next.js frontend. Routes are not yet implemented; this is
 
 | Path | Purpose | Auth | Data dependencies | Primary ownership | Backend endpoints | States to design |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/` | Landing / product intro with a real narrator-card + scene sample | Public | Static | `app/(marketing)/page.tsx` | — | loading, mobile |
+| `/` | **The Library** (storyline home): recent-scenario carousel + Characters/Settings/Scenarios/Storylines tabs. Implemented with in-memory seed data. (A separate marketing landing is deferred — `/` currently serves the Library.) | Public* | Seed (in-memory; Postgres later) | `app/page.tsx` → `features/library/LibraryView` | — | empty, mobile (auth/loading later) |
 | `/sign-in`, `/sign-up` | Auth | Public | — | `app/(auth)/...` | `POST /auth/*` | loading, error, success |
 | `/library` | The Library: user's storylines (and recent scenarios) | User | Postgres (storylines, scenarios) | `app/(app)/library` | `GET /storylines`, `GET /scenarios` | loading, empty, error, permission, mobile |
 | `/storylines/[id]` | Storyline home — tabs for Characters · Settings · Scenarios · Storyline branches; owns the stat schema | User | Postgres | `features/storylines` | `GET /storylines/{id}` (+ characters/settings/scenarios/stats) | loading, empty, error, partial-data, permission, mobile |
@@ -21,6 +21,7 @@ Planned routes for the Next.js frontend. Routes are not yet implemented; this is
 
 ## Notes
 
+- **Current implementation:** `/` serves the Library directly with in-memory seed data and no auth yet (the reserved marketing landing + auth gating are deferred). The Library tabs mirror the reference design in `docs/CharacterFrontpage/`.
 - The **story player** (`/play/[scenarioId]`) is the core surface: it consumes the NDJSON event stream and renders narrator cards + character bubbles + action cards + side panels (cast / turn order / scenario goal / tone / **stats** / relationships / branch choices). Its streaming and reconnect states are mandatory, not optional.
 - The **storyline home** (`/storylines/[id]`) is the authoring hub — a tabbed "library" (Characters · Settings · Scenarios · Storyline) where the cast and settings compose into playable scenarios, mirroring the reference design in `docs/CharacterFrontpage/`.
 - Protected routes redirect logged-out users to `/sign-in`.

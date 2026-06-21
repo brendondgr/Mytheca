@@ -1,0 +1,77 @@
+import { cn } from "@/lib/cn";
+import { Monogram } from "@/components/ui/Monogram";
+import { Eyebrow } from "@/components/ui/Eyebrow";
+import { IconButton } from "@/components/ui/IconButton";
+import type { ResolvedScenario } from "@/lib/types";
+
+/**
+ * Scenario card. The whole card is a single "feature this scenario" button
+ * (stretched, behind the content); secondary actions (edit, cast profiles) sit
+ * above it with `pointer-events-auto`, avoiding nested interactive elements.
+ */
+export function ScenarioCard({
+  scenario,
+  featured,
+  onSelect,
+  onEdit,
+}: {
+  scenario: ResolvedScenario;
+  featured: boolean;
+  onSelect: () => void;
+  onEdit?: () => void;
+}) {
+  const s = scenario;
+  return (
+    <div
+      className={cn(
+        "velora-card relative rounded-[4px] hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        featured
+          ? "border-2 border-accent bg-card2 p-[15px] shadow-[0_6px_18px_rgba(142,43,28,.16)]"
+          : "border border-cardbd bg-card p-[16px]",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={featured}
+        aria-label={`Feature scenario ${s.title}`}
+        className="absolute inset-0 z-0 cursor-pointer rounded-[4px]"
+      />
+      {onEdit ? (
+        <IconButton
+          label={`Edit ${s.title}`}
+          onClick={onEdit}
+          className="absolute right-[10px] top-[10px] z-[2]"
+        >
+          ✎
+        </IconButton>
+      ) : null}
+      <div className="pointer-events-none relative z-[1]">
+        <div className="flex items-baseline justify-between gap-[10px] pr-[22px]">
+          <h3 className="font-display text-[19px] font-bold leading-[1.08] text-ink">
+            {s.title}
+          </h3>
+          {featured ? (
+            <span className="rounded-full bg-accent px-[7px] py-[2px] font-mono text-[8px] uppercase tracking-[0.1em] whitespace-nowrap text-[#F6ECDA]">
+              Recent
+            </span>
+          ) : null}
+        </div>
+        <Eyebrow size={9} tracking="0.1em" color="#A8762A" className="mt-[6px] block">
+          {s.genre} · {s.tone}
+        </Eyebrow>
+        <p className="mt-[9px] font-body text-[14px] leading-[1.4] text-ink-soft">
+          {s.goal}
+        </p>
+        <div className="mt-[14px] flex items-center justify-between border-t border-hair pt-[11px]">
+          <div className="flex items-center gap-[5px]">
+            {s.cast.map((c) => (
+              <Monogram key={c.id} mono={c.mono} color={c.color} size={27} />
+            ))}
+          </div>
+          <span className="font-body text-[13px] text-ink-soft">◆ {s.setting.name}</span>
+        </div>
+      </div>
+    </div>
+  );
+}

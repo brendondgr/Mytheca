@@ -85,15 +85,19 @@
   background: var(--rail-grad);
 }
 
-/* Slow theme cross-fade on themed surfaces; buttons stay snappy with a hover lift. */
-.velora-themed,
-.velora-themed div,
-.velora-themed span,
-.velora-themed a,
-.velora-themed input,
-.velora-themed textarea,
-.velora-themed label {
-  transition: background-color 0.6s ease, border-color 0.6s ease, color 0.6s ease;
+/* Theme cross-fade lives on the page surface; interactive cards/rows and
+ * buttons carry their own (snappier) hover transitions so micro-interactions
+ * don't inherit the slow 0.6s color fade. */
+.velora-page {
+  transition: background-color 0.6s ease;
+}
+.velora-card {
+  transition: transform 0.14s ease, box-shadow 0.14s ease,
+    background-color 0.6s ease, border-color 0.6s ease;
+}
+.velora-row {
+  transition: transform 0.14s ease, background-color 0.6s ease,
+    border-color 0.6s ease;
 }
 .velora-themed button {
   transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease,
