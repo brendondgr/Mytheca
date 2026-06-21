@@ -37,6 +37,12 @@ Defines where frontend components live and who owns them. Ownership rules come f
 | `CharacterProfileModal` | feature | `components/feature/CharacterProfileModal.tsx` — read-only profile + Edit. |
 | `BeginSceneModal` | feature | `components/feature/BeginSceneModal.tsx` — narrator opening + cast/setting/goal; "Enter Scene" → `/play/[scenarioId]`. |
 | `editor` helpers | feature module | `features/library/editor.ts` — Draft/ModalState types, defaults, validation, prompt copy. |
+| `SceneHeader` | layout | `components/layout/SceneHeader.tsx` — back-to-Library, scene title/setting, theme, status. |
+| Transcript beats | feature | `components/feature/TranscriptBeat.tsx` — `NarratorCard` / `CharacterMessage` / `PlayerMessage` / `CheckCard` / `BranchChoices` + the `TranscriptBeat` router (event→component contract). |
+| `CastRail` / `TurnOrder` | feature | `components/feature/CastRail.tsx` — at-the-table cast (speaking marker) + turn order. |
+| `DirectorRail` | feature | `components/feature/DirectorRail.tsx` — goal · `TensionMeter` · `StateChips` · `Relationships`. |
+| `Composer` / `SceneLoader` | feature | `components/feature/{Composer,SceneLoader}.tsx` — roll/input/send; ❖ loader → reveal. |
+| `StoryPlayerView` + `useScenePlay` + `scene-data` | feature module | `features/story-player/` — composes the player; seeds + drives send/roll/choose over local state. Route: `app/play/[scenarioId]/page.tsx`. |
 
 ## Key Domain Components (planned)
 

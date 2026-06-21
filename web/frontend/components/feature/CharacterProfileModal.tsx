@@ -34,7 +34,8 @@ export function CharacterProfileModal({
 }: {
   character: Character | null;
   onClose: () => void;
-  onEdit: (id: string) => void;
+  /** Omit in read-only contexts (e.g. the story player) to hide the Edit button. */
+  onEdit?: (id: string) => void;
 }) {
   if (!character) return null;
   const c = character;
@@ -68,11 +69,13 @@ export function CharacterProfileModal({
         <ProfileLine label="Secret" color="var(--accent)">
           {c.secret}
         </ProfileLine>
-        <div className="flex justify-end pt-1">
-          <Button variant="secondary" onClick={() => onEdit(c.id)}>
-            ✎ Edit Character
-          </Button>
-        </div>
+        {onEdit ? (
+          <div className="flex justify-end pt-1">
+            <Button variant="secondary" onClick={() => onEdit(c.id)}>
+              ✎ Edit Character
+            </Button>
+          </div>
+        ) : null}
       </div>
     </Modal>
   );
