@@ -9,7 +9,7 @@
 
 ## Commands
 
-> Some commands depend on app code that is scaffolded in the next phase; they are the intended canonical commands.
+> The frontend (`web/frontend/`) is scaffolded and these commands run today. Backend commands still depend on app code added in a later phase.
 
 ### Backend (Python / uv)
 
@@ -25,6 +25,8 @@
 
 ### Frontend (Next.js)
 
+Installed stack: **Next.js 16** (App Router, Turbopack) · React 19 · TypeScript · **Tailwind CSS v4** (CSS-first `@theme`; Velora tokens surfaced as CSS variables) · **Framer Motion** · **Vitest + React Testing Library** (tests co-located beside components, e.g. `app/page.test.tsx`). The three brand fonts (Cinzel / EB Garamond / IBM Plex Mono) load via `next/font` in `app/layout.tsx`.
+
 Run from `web/frontend/`:
 
 | Action | Command |
@@ -32,9 +34,9 @@ Run from `web/frontend/`:
 | Install deps | `npm install` |
 | Dev server | `npm run dev` |
 | Build | `npm run build` |
-| Tests | `npm test` |
-| Lint (recommended) | `npm run lint` |
-| Type check (recommended) | `npx tsc --noEmit` |
+| Tests | `npm test` (Vitest, run once) / `npm run test:watch` |
+| Lint | `npm run lint` |
+| Type check | `npm run typecheck` (`tsc --noEmit`) |
 
 ## Validation Gate (before "done")
 

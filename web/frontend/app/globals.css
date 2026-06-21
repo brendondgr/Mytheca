@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ *
+ * Velora global base.
+ * The three-theme token system (Parchment / Ember / Slate) is layered
+ * on top of this in Phase 2 (styles/themes.css). Here we wire only the
+ * font tokens + reading defaults so the scaffold renders on-brand.
+ * ------------------------------------------------------------------ */
+
+@theme inline {
+  --font-display: var(--font-cinzel);
+  --font-body: var(--font-eb-garamond);
+  --font-mono: var(--font-ibm-plex-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-eb-garamond), Georgia, serif;
+  /* Parchment defaults — replaced by themed tokens in Phase 2. */
+  background: #e7dbc2;
+  color: #2a2016;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c7b68c;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

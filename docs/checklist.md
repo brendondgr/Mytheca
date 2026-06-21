@@ -36,12 +36,12 @@
 - [x] Final tree inspected after cleanup.
 - [x] Canonical docs and representative pointer files checked.
 - [x] Pointer targets verified to exist.
-- [ ] Validation commands run — **deferred**: app code not yet scaffolded, so `pytest`/frontend tests have nothing to run. Re-enable at first code phase.
+- [x] Validation commands run — frontend now runs `tsc` / `eslint` / `next build` / `vitest` (all green at scaffold). Backend `pytest` still N/A until backend code exists.
 
 ## Follow-up Work (next steps)
 
 ### Scaffolding (next step after init)
-- [ ] Scaffold the Next.js app in `web/frontend/` (`create-next-app`: TS, Tailwind, App Router) + add Framer Motion.
+- [x] Scaffold the Next.js app in `web/frontend/` (`create-next-app`: TS, Tailwind, App Router) + add Framer Motion. **Done:** Next.js 16 (Turbopack) · React 19 · Tailwind v4 (CSS-first `@theme`) · Framer Motion 12. Fonts via `next/font` (Cinzel / EB Garamond / IBM Plex Mono). Test runner: **Vitest + React Testing Library**, tests co-located as `*.test.tsx`.
 - [ ] Scaffold the FastAPI app in `web/backend/app/` and wire root `app.py` to it.
 - [ ] Add backend deps via `uv add` (fastapi, uvicorn, pydantic, sqlalchemy/psycopg, redis, httpx, pytest, ruff, mypy) and run `uv sync`.
 - [ ] Set up PostgreSQL + Redis connections in `app/core/`.
@@ -70,7 +70,7 @@
 
 ### Quality gates to enforce once code exists
 - [ ] pytest in `utils/tests/backend/`.
-- [ ] Frontend component/route tests in `utils/tests/frontend/` (or co-located) — pick the runner (e.g. Vitest + Testing Library; Playwright for e2e).
+- [x] Frontend test runner chosen: **Vitest + React Testing Library**, tests **co-located** beside components (`web/frontend/**/*.test.tsx`). Playwright e2e still optional/later.
 - [ ] Accessibility + responsive pass per `accessibility-mobile` + `ada-compliance`.
 
 ## Retained / Removed Setup Files

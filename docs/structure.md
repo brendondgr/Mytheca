@@ -25,14 +25,16 @@ velora/
 │   ├── design-system.md    # Visual motif, tokens, UI states
 │   └── api-contract.md     # API + NDJSON event contract
 ├── web/
-│   ├── frontend/           # Next.js (App Router) + React + TS + Tailwind + Framer Motion
-│   │   ├── app/            # Routes, layouts, route handlers
+│   ├── frontend/           # Live Next.js 16 app (App Router, Turbopack) + React 19 + TS + Tailwind v4 + Framer Motion
+│   │   ├── app/            # Routes, layouts, route handlers (+ co-located *.test.tsx)
 │   │   ├── components/{ui,layout,feature}/
 │   │   ├── features/       # Feature modules (story player, editors)
 │   │   ├── hooks/          # Shared hooks (event-stream consumer, etc.)
 │   │   ├── lib/            # Frontend helpers, API client
 │   │   ├── styles/         # Global styles / Tailwind target
-│   │   └── public/         # Static assets
+│   │   ├── public/         # Static assets
+│   │   ├── test/           # Vitest setup (jsdom, jest-dom)
+│   │   └── *config*        # package.json, next.config.ts, tsconfig.json, vitest.config.ts, eslint/postcss configs
 │   ├── backend/            # FastAPI "brain"
 │   │   └── app/
 │   │       ├── routes/     # API + SSE/WebSocket endpoints

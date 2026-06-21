@@ -18,6 +18,9 @@ eggs/
 *.egg
 lib/
 lib64/
+# `lib/` above is the Python-packaging ignore; the frontend's app source lives in
+# web/frontend/lib/ and must stay tracked.
+!web/frontend/lib/
 parts/
 sdist/
 wheels/
