@@ -1,0 +1,8 @@
+---
+description: Use when planning/scaffolding/documenting Velora's web surface: stack, routes, streaming boundary, data flow, design-quality gate.
+globs: ["**/*"]
+alwaysApply: false
+---
+
+Read `docs/skills/global-project-rules/SKILL.md` first, then `docs/skills/website-architecture/SKILL.md`.
+Also read: `docs/architecture.md` `docs/routes.md` `docs/data-flow.md` `docs/api-contract.md` `docs/design-system.md`.

@@ -1,0 +1,8 @@
+---
+description: Use when asked to create/refine an implementation plan or roadmap. Velora plans are full phase-by-phase, commit-per-phase, validated with pytest + frontend tests.
+globs: ["**/*"]
+alwaysApply: false
+---
+
+Read `docs/skills/global-project-rules/SKILL.md` first, then `docs/skills/planner/SKILL.md`.
+Also read: `docs/skills/planner/planner.md` `docs/workflow.md`.

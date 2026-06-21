@@ -1,0 +1,8 @@
+---
+description: Use when setting up, restructuring, documenting, or enforcing Velora's repo layout (web/ split, root app.py, contracts, utils/libs).
+globs: ["**/*"]
+alwaysApply: false
+---
+
+Read `docs/skills/global-project-rules/SKILL.md` first, then `docs/skills/repository-structure/SKILL.md`.
+Also read: `docs/structure.md` `docs/workflow.md`.

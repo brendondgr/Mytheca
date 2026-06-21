@@ -1,0 +1,8 @@
+---
+description: Use when implementing/auditing ADA-aligned accessibility (WCAG 2.2 AA): semantics, contrast, keyboard, forms, dynamic content, live regions.
+globs: ["**/*"]
+alwaysApply: false
+---
+
+Read `docs/skills/global-project-rules/SKILL.md` first, then `docs/skills/ada-compliance/SKILL.md`.
+Also read: `docs/skills/accessibility-mobile/SKILL.md`.

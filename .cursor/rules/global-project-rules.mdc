@@ -1,0 +1,8 @@
+---
+description: Read this first before any work in Velora. Universal rules: required reading, stack, environment, validation gate, docs maintenance, git workflow.
+globs: ["**/*"]
+alwaysApply: true
+---
+
+Read `docs/skills/global-project-rules/SKILL.md` first.
+Also read: `docs/documentation.md` `docs/structure.md` `docs/workflow.md` `docs/checklist.md`.

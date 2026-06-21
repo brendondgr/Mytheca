@@ -1,0 +1,8 @@
+---
+description: Use when implementing/auditing mobile-responsive, touch-friendly web UI: viewport, breakpoints, touch targets, mobile performance, forms, SEO parity.
+globs: ["**/*"]
+alwaysApply: false
+---
+
+Read `docs/skills/global-project-rules/SKILL.md` first, then `docs/skills/accessibility-mobile/SKILL.md`.
+Also read: `docs/skills/ada-compliance/SKILL.md` `docs/design-system.md`.

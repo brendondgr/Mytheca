@@ -1,0 +1,8 @@
+---
+description: Use when designing or building Velora frontend UI on Next.js/React/TS/Tailwind/Framer Motion: components, story player, responsive layout, motion, a11y polish.
+globs: ["**/*"]
+alwaysApply: false
+---
+
+Read `docs/skills/global-project-rules/SKILL.md` first, then `docs/skills/ui-frontend/SKILL.md`.
+Also read: `docs/skills/ui-frontend/ui/design-quality.md` `docs/design-system.md` `docs/component-map.md` `docs/skills/accessibility-mobile/SKILL.md` `docs/skills/ada-compliance/SKILL.md`.
