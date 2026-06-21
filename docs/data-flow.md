@@ -2,6 +2,8 @@
 
 How data originates and moves through Velora. The streaming/event path is first-class.
 
+> **Current implementation (frontend-only).** Until the backend exists, the Library and Story player run entirely on in-memory **seed data** (`web/frontend/lib/seed-data.ts`, `web/frontend/features/story-player/scene-data.ts`): create/edit/delete and send/roll/choose mutate React state and reset on reload. The read / write / streaming paths below are the planned design for when `web/backend` is built.
+
 ## Sources
 
 | Source | Examples | Where it lives |

@@ -60,6 +60,7 @@ export function LibraryView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <h1 className="sr-only">Velora — Library</h1>
       <AppHeader
         query={lib.query}
         onQuery={lib.setQuery}

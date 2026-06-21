@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import type { Character, ResolvedScenario } from "@/lib/types";
 import { useScenePlay } from "./useScenePlay";
 import { tensionLabel } from "./scene-data";
@@ -29,6 +30,7 @@ export function StoryPlayerView({ scenario }: { scenario: ResolvedScenario }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <h1 className="sr-only">{scenario.title} — live scene</h1>
       <SceneHeader title={scenario.title} settingName={scenario.setting.name} />
 
       <div className="flex min-h-0 flex-1">
@@ -41,7 +43,7 @@ export function StoryPlayerView({ scenario }: { scenario: ResolvedScenario }) {
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto p-[24px_30px_10px]">
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto p-[20px_16px_10px] sm:p-[24px_30px_10px]">
             <div
               className="mx-auto flex max-w-[720px] flex-col gap-4 transition-[opacity,transform] duration-[550ms]"
               style={{
@@ -56,7 +58,12 @@ export function StoryPlayerView({ scenario }: { scenario: ResolvedScenario }) {
                 — the scene is joined —
               </div>
               {scene.messages.map((m, i) => (
-                <div key={i} className="animate-[embMsg_.25s_ease] motion-reduce:animate-none">
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
+                >
                   <TranscriptBeat
                     message={m}
                     charById={byId}
@@ -64,7 +71,7 @@ export function StoryPlayerView({ scenario }: { scenario: ResolvedScenario }) {
                     choices={scene.choices}
                     onChoose={scene.choose}
                   />
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>

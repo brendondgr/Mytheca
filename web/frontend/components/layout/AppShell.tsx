@@ -1,3 +1,5 @@
+import { MotionProvider } from "@/components/layout/MotionProvider";
+
 /**
  * App chrome wrapper: paints the themed page background + glow and sets the
  * base ink color. The active theme class lives on <html> (set pre-paint by the
@@ -7,7 +9,7 @@
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="velora-themed velora-page flex min-h-dvh flex-col text-ink">
-      {children}
+      <MotionProvider>{children}</MotionProvider>
     </div>
   );
 }

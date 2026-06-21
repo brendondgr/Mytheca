@@ -35,7 +35,7 @@ export function AppHeader({
   createSlot?: React.ReactNode;
 }) {
   return (
-    <header className="velora-header flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[26px]">
+    <header className="velora-header flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] sm:px-[26px]">
       <div className="flex items-center gap-[13px]">
         <span aria-hidden className="text-[16px] text-accent">
           ❖
@@ -43,15 +43,15 @@ export function AppHeader({
         <span className="font-display text-[20px] font-bold leading-none tracking-[0.2em] text-ink">
           VELORA
         </span>
-        <span className="h-5 w-px bg-hair-strong" aria-hidden />
-        <span className="flex items-center gap-[6px] font-mono text-[10px] uppercase tracking-[0.14em] text-mute">
+        <span className="hidden h-5 w-px bg-hair-strong md:block" aria-hidden />
+        <span className="hidden items-center gap-[6px] font-mono text-[10px] uppercase tracking-[0.14em] text-mute md:flex">
           <span className="text-[#A8762A]">◆</span> {storylineName}{" "}
           <span className="text-[8px]">▾</span>
         </span>
       </div>
       <div className="flex items-center gap-3">
         <ThemeSwitcher />
-        <div className="relative flex items-center">
+        <div className="relative hidden items-center sm:flex">
           <SearchIcon />
           <input
             type="search"

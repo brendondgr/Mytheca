@@ -60,6 +60,13 @@ textarea::placeholder {
   color: var(--mute2);
 }
 
+/* Visible keyboard focus everywhere (mouse focus stays quiet). Inputs opt out
+ * via their own focus:border-accent indicator. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 ::-webkit-scrollbar {
   width: 9px;
   height: 9px;

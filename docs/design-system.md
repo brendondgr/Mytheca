@@ -100,6 +100,8 @@ Purposeful only, and always with a near-instant `prefers-reduced-motion` fallbac
 - **Hover affordances:** cards lift `translateY(-2px)`; rows nudge `translateX(2–3px)`.
 - **Scenario load:** a centered ❖ spinner with "Conjuring the scene…" then a content reveal; navigation between library/scene may use the page-flip transition from the reference (optional, reduced-motion → instant).
 
+**Implementation.** Framer Motion drives the signature **transcript beat entrances** (`StoryPlayerView`, opacity + 8px rise), wrapped in a `MotionConfig reducedMotion="user"` (`components/layout/MotionProvider`) so motion is dropped under `prefers-reduced-motion`. Simpler/continuous motion uses CSS keyframes from `styles/themes.css` — the modal (`embPop`/`embDim`, via Tailwind `motion-reduce:animate-none`), the scene loader (`embSpin`/`embDots`), the theme cross-fade (`.velora-page`/`.velora-card`/`.velora-row`), and the carousel slide. Keyboard focus is shown app-wide via a `:focus-visible` outline in `globals.css`. The full 3D page-flip is deferred.
+
 ## Meaningful Imagery
 
 Near the top of key pages show **real artifacts**: a live/sample scene transcript, a teal narrator card, a stat/tension panel, a character card with monogram and role — not abstract orbs, mesh gradients, or fake dashboards. The landing page should preview an actual narrator-card + dialogue exchange.

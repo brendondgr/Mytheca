@@ -11,7 +11,7 @@ export function Composer({
   onRoll: () => void;
 }) {
   return (
-    <div className="velora-header flex-none border-t border-hair-strong p-[13px_30px]">
+    <div className="velora-header flex-none border-t border-hair-strong p-[13px_16px] sm:p-[13px_30px]">
       <div className="mx-auto flex max-w-[720px] items-center gap-[10px]">
         <button
           type="button"

@@ -40,6 +40,15 @@
 
 ## Follow-up Work (next steps)
 
+### Frontend — Embergate UI (built from `docs/CharacterFrontpage/`)
+- [x] Library at `/` — header (wordmark/storyline/search/theme/create), recent-scenario carousel, ARIA tabs, character/setting/scenario/branch cards, create/edit/delete editors (By-hand + faked Agentic), character profile, begin-scene → `/play/[id]`.
+- [x] Story player at `/play/[scenarioId]` — three-zone scene: cast rail + turn order, transcript beats (narrator/dialogue/action/player/check/branch_choices), composer (send/roll/choose), director rail (goal/tension/state/relationships), ❖ loader.
+- [x] Three themes (Parchment/Ember/Slate) with persistence; Cinzel/EB Garamond/IBM Plex Mono via `next/font`.
+- [x] A11y/responsive pass: keyboard (tabs arrow-keys, modal focus-trap, menu/Esc), `:focus-visible`, polite live region on the transcript, `sr-only` page `<h1>`, and **no horizontal overflow at 320/375/768/1024**; reduced-motion via Framer `MotionConfig` + CSS `motion-reduce`.
+- [ ] **Deferred:** rails → mobile drawers (currently hidden < lg, transcript stays primary); the 3D page-flip nav transition; a formal automated WCAG contrast audit (tokens designed for AA); wiring all data to the backend (currently in-memory seed, resets on reload).
+
+
+
 ### Scaffolding (next step after init)
 - [x] Scaffold the Next.js app in `web/frontend/` (`create-next-app`: TS, Tailwind, App Router) + add Framer Motion. **Done:** Next.js 16 (Turbopack) · React 19 · Tailwind v4 (CSS-first `@theme`) · Framer Motion 12. Fonts via `next/font` (Cinzel / EB Garamond / IBM Plex Mono). Test runner: **Vitest + React Testing Library**, tests co-located as `*.test.tsx`.
 - [ ] Scaffold the FastAPI app in `web/backend/app/` and wire root `app.py` to it.

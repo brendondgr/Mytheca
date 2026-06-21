@@ -41,7 +41,7 @@ export function ScenarioCarousel({
     <section
       aria-roledescription="carousel"
       aria-label="Recent scenarios"
-      className="relative mx-[28px] mt-[18px] h-[246px] flex-none overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)]"
+      className="relative mx-[16px] mt-[18px] h-[246px] flex-none overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-[28px]"
     >
       <div
         className="flex h-full transition-transform duration-[550ms] ease-[cubic-bezier(.45,.05,.2,1)]"
@@ -55,9 +55,9 @@ export function ScenarioCarousel({
             className="flex h-full flex-[0_0_100%]"
             style={{ background: HERO.panel, border: "1px solid #1c150c" }}
           >
-            <div className="min-w-0 flex-1 p-[46px_30px_22px]">
+            <div className="min-w-0 flex-1 p-[40px_18px_18px] sm:p-[46px_30px_22px]">
               <h2
-                className="font-display text-[32px] font-bold leading-[1.05]"
+                className="font-display text-[24px] font-bold leading-[1.05] sm:text-[32px]"
                 style={{ color: HERO.title }}
               >
                 {s.title}
@@ -82,7 +82,7 @@ export function ScenarioCarousel({
               >
                 {s.goal}
               </p>
-              <div className="mt-[18px] flex items-center gap-[18px]">
+              <div className="mt-[18px] flex flex-wrap items-center gap-[14px] sm:gap-[18px]">
                 <div className="flex items-center gap-[6px]">
                   {s.cast.map((c) =>
                     onProfile ? (
@@ -117,7 +117,7 @@ export function ScenarioCarousel({
               </div>
             </div>
             <div
-              className="flex w-[200px] flex-none items-center justify-center"
+              className="hidden w-[200px] flex-none items-center justify-center sm:flex"
               style={{ background: HERO.art, borderLeft: "1px solid #1c150c" }}
             >
               <span
@@ -132,7 +132,7 @@ export function ScenarioCarousel({
       </div>
 
       {/* overlay: label + chevrons + counter */}
-      <div className="pointer-events-none absolute top-[16px] right-[212px] left-[30px] flex items-center gap-3">
+      <div className="pointer-events-none absolute top-[16px] right-[16px] left-[16px] flex items-center gap-3 sm:right-[212px] sm:left-[30px]">
         <span
           className="font-mono text-[9.5px] uppercase tracking-[0.22em]"
           style={{ color: HERO.label }}
@@ -165,7 +165,7 @@ export function ScenarioCarousel({
       </div>
 
       {/* overlay: dots */}
-      <div className="absolute right-[212px] bottom-[16px] flex gap-[7px]">
+      <div className="absolute right-[16px] bottom-[16px] flex gap-[7px] sm:right-[212px]">
         {slides.map((s, i) => {
           const on = i === index;
           return (
