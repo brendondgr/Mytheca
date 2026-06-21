@@ -55,6 +55,11 @@ body {
   color: var(--ink);
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: var(--mute2);
+}
+
 ::-webkit-scrollbar {
   width: 9px;
   height: 9px;

@@ -23,6 +23,10 @@ Defines where frontend components live and who owns them. Ownership rules come f
 | `useTheme` / `setTheme` | hook | `hooks/use-theme.tsx` — `useSyncExternalStore` over the `<html>` theme class + `localStorage`. |
 | Theme tokens | styles | `styles/themes.css` (token sets) + `app/globals.css` (`@theme inline` Tailwind mapping). |
 | Brand fonts | lib | `lib/fonts.ts` — Cinzel / EB Garamond / IBM Plex Mono via `next/font`. |
+| UI primitives | ui | `components/ui/` — `Monogram`, `Eyebrow`, `SectionHeader`, `Tag`, `Chip`, `ToggleChip`, `IconButton`, `Button`, `FieldLabel`, `TextField`, `TextArea`, `Modal` (portal + focus trap + Esc/backdrop). |
+| Domain types | lib | `lib/types.ts` — `Character` / `Setting` / `Branch` / `Scenario` / `ResolvedScenario` / `EventTag`. |
+| Seed data | lib | `lib/seed-data.ts` — Embergate cast/settings/scenarios + agentic-draft pools + `resolveScenario`. |
+| Helpers | lib | `lib/monogram.ts` (`monoOf`), `lib/cn.ts` (classnames joiner). |
 
 ## Key Domain Components (planned)
 
