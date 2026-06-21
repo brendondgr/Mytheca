@@ -19,38 +19,81 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Group | Endpoints | Notes |
 | --- | --- | --- |
 | Auth | `POST /auth/sign-up`, `POST /auth/sign-in`, `POST /auth/sign-out`, `GET /me`, `PATCH /me` | Backend owns session/token. |
-| Characters | `GET /characters`, `POST /characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Owned by the user. |
-| Scenes | `GET /scenes`, `POST /scenes`, `GET /scenes/{id}`, `PATCH /scenes/{id}`, `DELETE /scenes/{id}` | Owned by the user. |
-| Play | `POST /play/{sceneId}/turn` | Submit a user turn; triggers the orchestrator. |
+| Storylines | `GET /storylines`, `POST /storylines`, `GET /storylines/{id}`, `PATCH /storylines/{id}`, `DELETE /storylines/{id}` | The world container; owns the baseline stat schema. |
+| Stat definitions | `GET /storylines/{id}/stats`, `POST /storylines/{id}/stats`, `PATCH /storylines/{id}/stats/{key}` | Baseline stat schema (range locked at creation). |
+| Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. |
+| Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. |
+| Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. |
+| Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
 | Stream | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | NDJSON event stream (see below). |
-| Graph | `GET /graph/{sceneId}` | Relationship/KG data (Neo4j later). |
 | Admin (future) | `GET /admin/*` | High-permission only. |
+
+## Stat Definition Shape
+
+A stat definition (on a storyline, optionally overridden by a scenario):
+
+```json
+{
+  "key": "health",
+  "displayName": "Health",
+  "description": "Physical condition and vitality.",
+  "min": 0,
+  "max": 100,
+  "default": 100,
+  "guidance": "stats/health.md",
+  "visibility": "public",
+  "appliesTo": ["character"]
+}
+```
+
+`min`/`max`/`default` are **locked at creation**. The validator clamps every stat change to `[min, max]`. `visibility` ∈ `public | private_to_user | private_to_character | hidden`. A character holds values only: `{ "health": 80, "strength": 14 }`.
 
 ## NDJSON Event Stream
 
 The stream emits one JSON object per line. Every event shares a base envelope:
 
 ```json
-{ "type": "string", "id": "string", "seq": 0, "sessionId": "string", "ts": "ISO-8601", "data": {} }
+{ "type": "string", "id": "string", "seq": 0, "scenarioId": "string", "sessionId": "string", "ts": "ISO-8601", "visibility": "public", "data": {} }
 ```
 
-Planned `type` values:
+`visibility` ∈ `public | private_to_user | private_to_character | hidden` — some content is shown to the player, some only affects agent reasoning.
 
-| `type` | Meaning | `data` highlights |
+### Event types (minimal set to start)
+
+Start with **five** types, not thirty. Each maps to one frontend component.
+
+| `type` | UI rendering | `data` highlights |
 | --- | --- | --- |
-| `turn.character` | A character agent speaks/acts | `characterId`, `text` (may stream in chunks), `done` |
-| `turn.user` | Echo of the user's submitted turn | `text` |
-| `beat.narrator` | Structured narrator beat | `kind` (scene-change/outcome/recall), `title`, `body` |
-| `state.scene` | Scene/world state update | partial scene state |
-| `memory.recall` | Memory surfaced this turn | `memoryId`, `summary` |
-| `error` | Recoverable/terminal error | `code`, `message`, `fatal` |
-| `heartbeat` | Keep-alive | — |
+| `narration` | Teal narrator card | `text` (may delta-stream) |
+| `character_dialogue` | Character chat bubble (speaker's avatar/color) | `characterId`, `text` (may delta-stream), `done` |
+| `character_action` | Action / emote card | `characterId`, `text` |
+| `state_update` | Updates side panels (no chat message) | `patch` — partial scenario state; **stat changes ride here** |
+| `branch_choices` | Branch-choices panel | `choices[]` (`label`, `outcome`, optional `check`) |
 
-Rules:
+**Stat changes** are carried on `state_update`:
+
+```json
+{ "type": "state_update", "data": { "stat": {
+  "characterId": "kira", "key": "health", "delta": -25, "value": 55,
+  "reason": "Struck by the falling beam." } } }
+```
+
+The validator confirms the stat exists and clamps `value` to `[min, max]`; the Stats panel re-renders and the narrator may reference the new state next turn. When bespoke rendering is wanted (an animating bar, a floating "+5 / −10"), promote stat changes to a dedicated `stat_update` event later — the data shape is the same.
+
+Additional types to layer in later: `internal_thought` (with visibility controls), `relationship_update`, `goal_update`, `turn_update`, and the dice-resolution set (`check_request`, `roll_result`, `consequence`).
+
+### Streaming modes
+
+- **Full events** (one complete object) — used for `state_update` and `branch_choices`. Easy to validate and render.
+- **Delta streaming** — `message_start` → repeated `message_delta` → `message_end` — used for visible messages (`narration`, `character_dialogue`). The client renders deltas as they arrive and finalizes on `message_end`.
+
+### Rules
+
 - `seq` is monotonic per session so the client can detect gaps and reorder.
-- Chunked text turns set `done: false` until the final chunk sets `done: true`.
+- Chunked/delta text sets `done: false` until the final chunk sets `done: true`.
 - The client must handle reconnect (resume from last `seq` where possible) and stalled streams.
+- The validator runs `parse → validate (incl. stat clamping) → repair/retry` before anything reaches the stream.
 
 ## Shared Contracts Location
 
-TypeScript types for events and API payloads live in `web/shared/contracts/`. When an endpoint or event changes, update: the Pydantic schema, the shared contract type, and this document.
+TypeScript types for events and API payloads live in `web/shared/contracts/`. When an endpoint, event, or stat shape changes, update: the Pydantic schema, the shared contract type, and this document.

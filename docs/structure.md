@@ -36,13 +36,14 @@ velora/
 │   ├── backend/            # FastAPI "brain"
 │   │   └── app/
 │   │       ├── routes/     # API + SSE/WebSocket endpoints
-│   │       ├── services/   # Orchestrator, event engine, rules engine
-│   │       ├── agents/     # Narrator, Character, Rules, Memory agents
-│   │       ├── memory/     # Memory system (Postgres/Redis; vector/Neo4j later)
-│   │       ├── events/     # Event / NDJSON stream definitions
-│   │       ├── models/     # PostgreSQL models (users, characters, scenes, events)
-│   │       ├── schemas/    # Pydantic request/response schemas
-│   │       └── core/       # Config, db/redis clients, LLM provider interface
+│   │       ├── services/   # Orchestrator/Director, event engine, state manager, validator
+│   │       ├── agents/     # Narrator + Character agents
+│   │       ├── content/    # Authored YAML config + Markdown stat guidance (per-stat files)
+│   │       ├── memory/     # Memory seam (Postgres/Redis now; vector DB later)
+│   │       ├── events/     # Event / NDJSON stream definitions (5 event types)
+│   │       ├── models/     # PostgreSQL models (users, storylines, characters, settings, scenarios, events, stats)
+│   │       ├── schemas/    # Pydantic request/response + event schemas (stat clamping)
+│   │       └── core/       # Config, db/redis clients, LLM provider interface, YAML/Markdown loaders
 │   └── shared/
 │       └── contracts/      # Shared FE↔BE types / OpenAPI / event schemas
 ├── utils/                  # Small standalone helpers
@@ -60,8 +61,8 @@ velora/
 | --- | --- |
 | `app.py` | Single root entrypoint that runs the FastAPI backend (`web/backend`). |
 | `docs/` | All durable documentation and canonical skills — the source of truth. |
-| `web/frontend/` | The Next.js UI: story player, narrator cards, side panels, graph views. |
-| `web/backend/` | The FastAPI brain: routes, multi-agent logic, rules, events, persistence. |
+| `web/frontend/` | The Next.js UI: story player, narrator cards, character bubbles, stats/branch side panels. |
+| `web/backend/` | The FastAPI brain: routes, multi-agent logic, the stat system, events, validation, persistence. |
 | `web/shared/contracts/` | Types/contracts shared by both layers (events, API shapes). |
 | `utils/` | Small standalone Python helpers; also holds `utils/tests/` and `utils/scripts/`. |
 | `utils/tests/` | pytest + frontend tests, grouped by area. |

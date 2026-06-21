@@ -1,4 +1,5 @@
 # python/.gitignore
+docs/CharacterFrontpage/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

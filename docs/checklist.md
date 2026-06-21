@@ -5,6 +5,8 @@
 ### Intake
 - [x] Project goal, runtime, deliverables, target users, supported tools, validation workflow known.
 - [x] Web architecture decisions captured (`docs/architecture.md`, `docs/routes.md`, `docs/data-flow.md`, `docs/api-contract.md`, `docs/design-system.md`).
+- [x] Product/domain model captured from `docs/briefings/storyline-chat-briefing.md` (Storyline / Character / Setting / Scenario + Story Event + Stat system; five event types) and reflected across docs.
+- [x] Visual design system locked to the `docs/CharacterFrontpage/` reference (Cinzel / EB Garamond / IBM Plex Mono; Parchment / Ember / Slate themes) in `docs/design-system.md`.
 
 ### Canonical docs
 - [x] `docs/` exists with documentation, structure, workflow, checklist, architecture, routes, component-map, data-flow, deployment, design-system, api-contract.
@@ -43,18 +45,28 @@
 - [ ] Scaffold the FastAPI app in `web/backend/app/` and wire root `app.py` to it.
 - [ ] Add backend deps via `uv add` (fastapi, uvicorn, pydantic, sqlalchemy/psycopg, redis, httpx, pytest, ruff, mypy) and run `uv sync`.
 - [ ] Set up PostgreSQL + Redis connections in `app/core/`.
-- [ ] Create initial DB models (users, characters, scenes, events, memories) + migrations.
+- [ ] Create initial DB models (users, storylines, characters, settings, scenarios, events, stat definitions, stat values) + migrations.
+- [ ] Add YAML config + Markdown stat-guidance loaders in `app/core/` (`app/content/`).
+
+### Core domain & event system (next after scaffolding)
+- [ ] Lock the four core objects (Storyline / Character / Setting / Scenario) as Pydantic + shared-contract types.
+- [ ] Implement the five-event NDJSON schema (`narration`, `character_dialogue`, `character_action`, `state_update`, `branch_choices`) + the validator (parse → validate → repair/retry).
+- [ ] Stand up the NDJSON stream in full-event mode, then add delta streaming for visible messages.
+- [ ] Build the stat system: storyline stat schema, per-character values, validator clamping, the Stats panel, and `state_update`-carried stat changes with reasons.
+- [ ] Author guidance files for the first handful of stats and wire them into agent context.
+- [ ] Extend stats to relationship/mood values (same machinery, relational target).
 
 ### Architecture decisions to finalize
 - [ ] Auth mechanism (JWT vs. session cookie; provider) — currently "backend-owned, TBD".
 - [ ] SSE vs. WebSocket for the event stream (or both) — define before building the story player.
 - [ ] API base prefix and CORS origins.
 - [ ] LLM provider interface shape (OpenAI + local).
+- [ ] Stat lifecycle across scenarios (reset / persist / partial carry-over) and how hidden stats render.
 - [ ] Deployment target (containerized vs. split hosting).
 
 ### Deferred capabilities (design seams only for now)
-- [ ] Vector DB for semantic memory.
-- [ ] Neo4j graph DB for advanced KG.
+- [ ] Dice-based resolution (optional later layer: `check_request` → `roll_result` → `consequence` → `state_update`).
+- [ ] Vector DB for semantic memory / cross-scenario character & setting memory.
 
 ### Quality gates to enforce once code exists
 - [ ] pytest in `utils/tests/backend/`.

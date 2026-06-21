@@ -1,6 +1,6 @@
 # Velora
 
-Velora is an AI-driven interactive narrative engine. Users create characters and scenes and play through stories driven by a multi-agent AI backend (Narrator, Character, Rules, and Memory agents). Story output streams to the UI in real time as discrete events.
+Velora is an AI-driven, multi-character roleplay chat engine. Users build a **storyline** (the world) with its **characters**, **settings**, and **scenarios** (live situations), then play through scenes driven by a multi-agent backend (Orchestrator/Director, Narrator, and Character agents) with a State manager and a Validator. The AI emits small, validated **story events** that stream to the UI in real time, and a near-term **stat system** (bounded, guidance-driven numeric values) gives the world continuity and consequence.
 
 ## Documentation (source of truth)
 
@@ -18,15 +18,15 @@ Agents must read [docs/skills/global-project-rules/SKILL.md](docs/skills/global-
 
 - **Frontend:** Next.js (App Router) · React · TypeScript · Tailwind CSS · Framer Motion — in `web/frontend/`
 - **Backend:** FastAPI (Python 3.13, `uv`) — in `web/backend/`, launched from root `app.py`
-- **Data:** PostgreSQL (core) · Redis (live/cache) · Vector DB + Neo4j (planned)
-- **AI:** LLMs via OpenAI or local, multi-agent · **Streaming:** SSE/WebSocket NDJSON event stream
+- **Data:** PostgreSQL (core) · Redis (live scenario/cache) · Vector DB (deferred) — plus YAML config + Markdown stat guidance
+- **AI:** LLMs via OpenAI or local, multi-agent · **Streaming:** SSE/WebSocket NDJSON event stream (5 event types)
 
 ## Layout
 
 ```
 app.py            # root entrypoint → runs the FastAPI backend
 web/frontend/     # Next.js app
-web/backend/      # FastAPI app (routes, agents, services, memory, events, models)
+web/backend/      # FastAPI app (routes, agents, services, content, events, models)
 web/shared/       # shared FE↔BE contracts
 docs/             # documentation + canonical skills
 utils/            # helpers + utils/tests (pytest + frontend) + utils/scripts
