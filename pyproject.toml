@@ -27,7 +27,7 @@ dev = [
 package = false
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["utils/tests"]
 pythonpath = ["web/backend"]
 
 [tool.ruff]

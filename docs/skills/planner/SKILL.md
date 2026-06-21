@@ -14,7 +14,7 @@ Follow the planning format and quality rules in [planner.md](planner.md). The co
 ## Velora Conventions (locked)
 
 - **Granularity:** full phase-by-phase implementation plans (detailed engineering, not brief outlines).
-- **Validation per phase:** backend `uv run pytest` (relevant `tests/backend/...`) and frontend component/route tests. Web/UI phases additionally require an accessibility + responsive pass (`accessibility-mobile` + `ada-compliance`). Recommended hygiene: `ruff`/`mypy`, `tsc`/ESLint.
+- **Validation per phase:** backend `uv run pytest` (relevant `utils/tests/backend/...`) and frontend component/route tests. Web/UI phases additionally require an accessibility + responsive pass (`accessibility-mobile` + `ada-compliance`). Recommended hygiene: `ruff`/`mypy`, `tsc`/ESLint.
 - **Git workflow:** **commit per phase** — each completed phase ends with a local commit, no automatic push or PR unless the user asks.
 - **Audience:** agentic coding workflows and solo implementation.
 
@@ -26,6 +26,6 @@ Follow the planning format and quality rules in [planner.md](planner.md). The co
 ## Output Expectations
 
 - Clean Markdown: introduction, gaps & unanswered questions, hierarchical steps, deliverables table.
-- Concrete locations: exact files, classes, functions, and directories (use Velora's `web/frontend`, `web/backend/app`, `web/shared/contracts`, `tests/` paths).
+- Concrete locations: exact files, classes, functions, and directories (use Velora's `web/frontend`, `web/backend/app`, `web/shared/contracts`, `utils/tests/` paths).
 - State assumptions for simple gaps; explicitly flag complex gaps that need human input.
 - End every phase with the validation + commit action line (see planner.md).

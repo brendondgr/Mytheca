@@ -65,7 +65,7 @@ Update docs in the same change that alters behavior:
 ## Validation Gate (definition of "done")
 
 Before marking work complete, run the applicable checks (see `docs/workflow.md` for exact commands):
-- **Backend:** `pytest` (in `tests/backend/`) passes.
+- **Backend:** `pytest` (in `utils/tests/backend/`) passes.
 - **Frontend:** component/route tests pass.
 - **Web/UI changes additionally require:** an accessibility + responsive pass per `docs/skills/accessibility-mobile/SKILL.md` and `docs/skills/ada-compliance/SKILL.md` (keyboard, focus, contrast, 320/375/768/1024 viewports). Document any intentionally deferred a11y item in `docs/checklist.md`.
 - Recommended (not required) hygiene: `ruff` + `mypy` (backend), `tsc` + ESLint (frontend).

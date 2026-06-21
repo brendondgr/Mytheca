@@ -29,7 +29,7 @@ web/frontend/     # Next.js app
 web/backend/      # FastAPI app (routes, agents, services, memory, events, models)
 web/shared/       # shared FE↔BE contracts
 docs/             # documentation + canonical skills
-tests/            # pytest + frontend tests
+utils/            # helpers + utils/tests (pytest + frontend) + utils/scripts
 ```
 
 ## Getting Started

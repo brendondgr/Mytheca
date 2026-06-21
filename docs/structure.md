@@ -45,12 +45,13 @@ velora/
 │   │       └── core/       # Config, db/redis clients, LLM provider interface
 │   └── shared/
 │       └── contracts/      # Shared FE↔BE types / OpenAPI / event schemas
-├── tests/
-│   ├── backend/{api,agents,data}/
-│   └── frontend/
 ├── utils/                  # Small standalone helpers
+│   ├── tests/              # pytest + frontend tests, grouped by area
+│   │   ├── backend/{api,agents,data}/
+│   │   └── frontend/
+│   └── scripts/            # Dev/build/ops scripts
 ├── libs/                   # Internal shared packages
-└── scripts/                # Dev/build/ops scripts
+└── docs/                   # (see above)
 ```
 
 ## Top-Level Path Purpose
@@ -62,9 +63,9 @@ velora/
 | `web/frontend/` | The Next.js UI: story player, narrator cards, side panels, graph views. |
 | `web/backend/` | The FastAPI brain: routes, multi-agent logic, rules, events, persistence. |
 | `web/shared/contracts/` | Types/contracts shared by both layers (events, API shapes). |
-| `tests/` | pytest + frontend tests, grouped by area. |
-| `utils/` | Small standalone Python helpers. |
+| `utils/` | Small standalone Python helpers; also holds `utils/tests/` and `utils/scripts/`. |
+| `utils/tests/` | pytest + frontend tests, grouped by area. |
+| `utils/scripts/` | Dev/build/ops scripts. |
 | `libs/` | Internal shared packages that grow beyond a single helper. |
-| `scripts/` | Dev/build/ops scripts. |
 
 Agent-tool pointer folders (`.claude/`, `.agents/`, `.cursor/`) contain only pointers to `docs/skills/` and are intentionally not the source of truth.

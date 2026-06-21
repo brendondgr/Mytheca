@@ -31,7 +31,7 @@ Output the plan in clean Markdown following the structure below.
 
 Detail the work sequentially. Each phase must enable the next. For each step include:
 
-- **Locations:** exact file names, classes, and functions — use Velora paths (`web/frontend/...`, `web/backend/app/...`, `web/shared/contracts/...`, `tests/backend/...`).
+- **Locations:** exact file names, classes, and functions — use Velora paths (`web/frontend/...`, `web/backend/app/...`, `web/shared/contracts/...`, `utils/tests/backend/...`).
 - **Rationale:** why this step must happen here and now.
 - **NO large code blocks:** name the parts/files involved, not full implementations.
 - **Validation & Commit (end of every phase):**
@@ -41,20 +41,20 @@ Detail the work sequentially. Each phase must enable the next. For each step inc
 > #### Step 1: Define the event contract
 > - **Locations:** `web/shared/contracts/events.ts`, `web/backend/app/events/schema.py`.
 > - **Rationale:** Frontend and backend must agree on the NDJSON event shape before either side streams.
-> - **Action:** Run validation for this phase (pytest for `tests/backend/data`, frontend type check). Once green, commit: `Event Stream (1/4) Complete: Defined shared NDJSON event contract.`
+> - **Action:** Run validation for this phase (pytest for `utils/tests/backend/data`, frontend type check). Once green, commit: `Event Stream (1/4) Complete: Defined shared NDJSON event contract.`
 
 ---
 
 ### 4. Deliverables Table
 
-After all steps, list deliverables and locations. **Tests are required** — include small, focused tests under `tests/backend/...` or `tests/frontend/...` exercising the new behavior.
+After all steps, list deliverables and locations. **Tests are required** — include small, focused tests under `utils/tests/backend/...` or `utils/tests/frontend/...` exercising the new behavior.
 
 > | Deliverable | Description | Location |
 > | --- | --- | --- |
 > | Event contract | Shared NDJSON event types | `web/shared/contracts/events.ts` |
 > | SSE route | FastAPI streaming endpoint | `web/backend/app/routes/stream.py` |
 > | Stream hook | React hook consuming the stream | `web/frontend/hooks/use-event-stream.ts` |
-> | Stream tests | Backend stream + contract tests | `tests/backend/api/test_stream.py` |
+> | Stream tests | Backend stream + contract tests | `utils/tests/backend/api/test_stream.py` |
 
 ## Conventions (locked for Velora)
 

@@ -19,7 +19,7 @@
 - [x] No agent folder holds the only copy of instructions.
 
 ### Project structure
-- [x] Required top-level directories exist (`web/frontend`, `web/backend`, `web/shared`, `tests`, `utils`, `libs`, `scripts`, `docs`).
+- [x] Required top-level directories exist (`web/frontend`, `web/backend`, `web/shared`, `utils` (with `utils/tests` + `utils/scripts`), `libs`, `docs`).
 - [x] Web code is under `web/`; root `app.py` is the backend entrypoint.
 - [x] `pyproject.toml`, `.python-version`, `.env.example` exist.
 - [x] `README.md` points to canonical docs.
@@ -57,8 +57,8 @@
 - [ ] Neo4j graph DB for advanced KG.
 
 ### Quality gates to enforce once code exists
-- [ ] pytest in `tests/backend/`.
-- [ ] Frontend component/route tests in `tests/frontend/` (or co-located) — pick the runner (e.g. Vitest + Testing Library; Playwright for e2e).
+- [ ] pytest in `utils/tests/backend/`.
+- [ ] Frontend component/route tests in `utils/tests/frontend/` (or co-located) — pick the runner (e.g. Vitest + Testing Library; Playwright for e2e).
 - [ ] Accessibility + responsive pass per `accessibility-mobile` + `ada-compliance`.
 
 ## Retained / Removed Setup Files

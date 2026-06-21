@@ -45,12 +45,12 @@ velora/
 │   │       └── core/       # Config, db/redis clients, LLM provider interface
 │   └── shared/
 │       └── contracts/      # Shared types / OpenAPI / event schemas (FE↔BE)
-├── tests/                  # pytest, grouped by area
-│   ├── backend/{api,agents,data}/
-│   └── frontend/
 ├── utils/                  # Small standalone helpers
-├── libs/                   # Internal shared packages
-└── scripts/                # Dev/build/ops scripts
+│   ├── tests/              # pytest, grouped by area
+│   │   ├── backend/{api,agents,data}/
+│   │   └── frontend/
+│   └── scripts/            # Dev/build/ops scripts
+└── libs/                   # Internal shared packages
 ```
 
 ## Ownership Rules
@@ -73,7 +73,7 @@ velora/
 
 ## Test Layout
 
-Keep `tests/` small and grouped by area (`tests/backend/api/`, `tests/backend/agents/`, `tests/backend/data/`, `tests/frontend/`). Prefer `tests/<area>/test_<behavior>.py` over one flat folder.
+Tests live under `utils/tests/` (alongside `utils/scripts/`). Keep them small and grouped by area (`utils/tests/backend/api/`, `utils/tests/backend/agents/`, `utils/tests/backend/data/`, `utils/tests/frontend/`). Prefer `utils/tests/<area>/test_<behavior>.py` over one flat folder.
 
 ## Reference Structures
 
