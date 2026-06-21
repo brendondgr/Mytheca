@@ -1,16 +1,42 @@
 @import "tailwindcss";
+@import "../styles/themes.css";
 
 /* ------------------------------------------------------------------ *
- * Velora global base.
- * The three-theme token system (Parchment / Ember / Slate) is layered
- * on top of this in Phase 2 (styles/themes.css). Here we wire only the
- * font tokens + reading defaults so the scaffold renders on-brand.
+ * Velora global base + Tailwind token mapping.
+ * `@theme inline` maps Velora's CSS variables to Tailwind color/font
+ * utilities. `inline` makes utilities resolve the live variable (e.g.
+ * `bg-card` -> background-color: var(--card-bg)), so switching the
+ * `.theme-*` class on <html> re-themes every utility automatically.
  * ------------------------------------------------------------------ */
 
 @theme inline {
   --font-display: var(--font-cinzel);
   --font-body: var(--font-eb-garamond);
   --font-mono: var(--font-ibm-plex-mono);
+
+  /* Theme-driven surfaces + text (resolve from the active .theme-* class). */
+  --color-page: var(--page-bg);
+  --color-card: var(--card-bg);
+  --color-card2: var(--card-bg2);
+  --color-cardbd: var(--card-bd);
+  --color-hair: var(--hair);
+  --color-hair-strong: var(--hair-strong);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-mute: var(--mute);
+  --color-mute2: var(--mute2);
+  --color-field: var(--field-bg);
+  --color-field-bd: var(--field-bd);
+  --color-modal: var(--modal-bg);
+  --color-accent: var(--accent);
+  --color-tab-ink: var(--tab-ink);
+
+  /* Theme-agnostic semantic colors (same across all three themes). */
+  --color-gold: #c8862a;
+  --color-gold-soft: #a8762a;
+  --color-narrator: #1f8a82;
+  --color-success: #1f8a5b;
+  --color-danger: #9a3520;
 }
 
 * {
@@ -25,9 +51,8 @@ body {
 
 body {
   font-family: var(--font-eb-garamond), Georgia, serif;
-  /* Parchment defaults — replaced by themed tokens in Phase 2. */
-  background: #e7dbc2;
-  color: #2a2016;
+  background-color: var(--page-bg);
+  color: var(--ink);
 }
 
 ::-webkit-scrollbar {
@@ -35,7 +60,7 @@ body {
   height: 9px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #c7b68c;
+  background: var(--card-bd);
   border-radius: 6px;
 }
 ::-webkit-scrollbar-track {

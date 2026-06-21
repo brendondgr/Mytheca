@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { cinzel, ebGaramond, ibmPlexMono } from "@/lib/fonts";
+import { DEFAULT_THEME, themeClass, themeInitScript } from "@/lib/theme";
+import { AppShell } from "@/components/layout/AppShell";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,9 +17,13 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${cinzel.variable} ${ebGaramond.variable} ${ibmPlexMono.variable} h-full antialiased`}
+      className={`${themeClass(DEFAULT_THEME)} ${cinzel.variable} ${ebGaramond.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {/* Apply the persisted theme before paint to avoid a flash. */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

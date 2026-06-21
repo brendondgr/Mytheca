@@ -14,6 +14,16 @@ Defines where frontend components live and who owns them. Ownership rules come f
 | Helpers | `web/frontend/lib/` | API client, formatting, contract adapters. |
 | Styles/tokens | `web/frontend/styles/` + `docs/design-system.md` | Tailwind theme + the three Velora themes (Parchment/Ember/Slate). Token decisions documented in design-system. |
 
+## Implemented (frontend)
+
+| Component / module | Layer | Location |
+| --- | --- | --- |
+| `AppShell` | layout | `components/layout/AppShell.tsx` — themed page background/glow wrapper (server component). |
+| `ThemeSwitcher` | layout | `components/layout/ThemeSwitcher.tsx` — three-dot Parchment/Ember/Slate picker. |
+| `useTheme` / `setTheme` | hook | `hooks/use-theme.tsx` — `useSyncExternalStore` over the `<html>` theme class + `localStorage`. |
+| Theme tokens | styles | `styles/themes.css` (token sets) + `app/globals.css` (`@theme inline` Tailwind mapping). |
+| Brand fonts | lib | `lib/fonts.ts` — Cinzel / EB Garamond / IBM Plex Mono via `next/font`. |
+
 ## Key Domain Components (planned)
 
 | Component | Layer | Responsibility |

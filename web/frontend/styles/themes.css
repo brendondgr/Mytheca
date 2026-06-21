@@ -1,0 +1,144 @@
+/* ------------------------------------------------------------------ *
+ * Velora — three-theme token sets (Parchment / Ember / Slate).
+ * Values are the locked design tokens from docs/design-system.md,
+ * derived from docs/CharacterFrontpage/. The active theme class lives on
+ * <html> (set by the no-flash script in app/layout.tsx); every token is a
+ * CSS variable so components stay theme-agnostic. Tailwind maps these to
+ * color utilities via `@theme inline` in app/globals.css.
+ * ------------------------------------------------------------------ */
+
+.theme-light {
+  --page-bg: #e7dbc2;
+  --page-img: radial-gradient(at 16% 6%, rgba(255, 250, 235, 0.7), transparent 50%),
+    radial-gradient(at 88% 96%, rgba(120, 90, 40, 0.08), transparent 52%);
+  --card-bg: #f4ecda;
+  --card-bg2: #f8f1e0;
+  --card-bd: #d8c7a0;
+  --hair: #e0d2ae;
+  --hair-strong: #cbb78e;
+  --ink: #2a2016;
+  --ink-soft: #6b5b45;
+  --mute: #8e7a56;
+  --mute2: #9a875f;
+  --field-bg: #fbf6ea;
+  --field-bd: #cbb78e;
+  --header-grad: linear-gradient(#efe5cf, #e8dcc3);
+  --rail-grad: linear-gradient(#ebe0c8, #e6dac0);
+  --modal-bg: #eee3cc;
+  --accent: #8e2b1c;
+  --tab-ink: #6b5b45;
+}
+
+.theme-dark {
+  --page-bg: #14100a;
+  --page-img: radial-gradient(at 16% 6%, rgba(90, 66, 32, 0.22), transparent 55%),
+    radial-gradient(at 88% 96%, rgba(130, 74, 32, 0.16), transparent 55%);
+  --card-bg: #241c13;
+  --card-bg2: #2e2417;
+  --card-bd: #463a24;
+  --hair: #3a2e1e;
+  --hair-strong: #3a2e1e;
+  --ink: #f1e5cc;
+  --ink-soft: #c3b191;
+  --mute: #9c875d;
+  --mute2: #8c774f;
+  --field-bg: #1d160f;
+  --field-bd: #463a24;
+  --header-grad: linear-gradient(#221a11, #1a140c);
+  --rail-grad: linear-gradient(#1f1810, #1a140d);
+  --modal-bg: #221a11;
+  --accent: #cc5a41;
+  --tab-ink: #a8966f;
+}
+
+.theme-slate {
+  --page-bg: #0f141a;
+  --page-img: radial-gradient(at 16% 6%, rgba(70, 100, 140, 0.12), transparent 55%),
+    radial-gradient(at 88% 96%, rgba(60, 84, 120, 0.12), transparent 55%);
+  --card-bg: #1a2129;
+  --card-bg2: #222b35;
+  --card-bd: #303c47;
+  --hair: #2a333c;
+  --hair-strong: #2a333c;
+  --ink: #e7edf3;
+  --ink-soft: #a0b1bf;
+  --mute: #6f8495;
+  --mute2: #5f7384;
+  --field-bg: #141a21;
+  --field-bd: #303c47;
+  --header-grad: linear-gradient(#1a222b, #141a21);
+  --rail-grad: linear-gradient(#161d25, #11171e);
+  --modal-bg: #1a2129;
+  --accent: #e0654a;
+  --tab-ink: #afc0ce;
+}
+
+/* Gradient-backed surfaces (can't be expressed as Tailwind color utilities). */
+.velora-page {
+  background-color: var(--page-bg);
+  background-image: var(--page-img);
+}
+.velora-header {
+  background: var(--header-grad);
+}
+.velora-rail {
+  background: var(--rail-grad);
+}
+
+/* Slow theme cross-fade on themed surfaces; buttons stay snappy with a hover lift. */
+.velora-themed,
+.velora-themed div,
+.velora-themed span,
+.velora-themed a,
+.velora-themed input,
+.velora-themed textarea,
+.velora-themed label {
+  transition: background-color 0.6s ease, border-color 0.6s ease, color 0.6s ease;
+}
+.velora-themed button {
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease,
+    transform 0.12s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+/* Motion vocabulary from the reference (Framer Motion drives most entrances;
+ * these power CSS-only continuous effects like the scene loader). */
+@keyframes embFade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes embPop {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes embDim {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes embCard {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes embMsg {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes embSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes embDots {
+  0%, 20% { opacity: 0.2; }
+  50% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .velora-themed,
+  .velora-themed *,
+  .velora-page,
+  .velora-header,
+  .velora-rail {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
