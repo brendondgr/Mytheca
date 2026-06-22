@@ -17,15 +17,22 @@ import {
 } from "@/features/library/editor";
 import type { useLibraryState } from "@/features/library/useLibraryState";
 
+// Single-column widths (mobile / tablet, tab-switched) grow into a wide
+// two-column layout on desktop, where the agentic chat sits beside the form.
 const WIDTH: Record<EntityType, string> = {
-  character: "sm:w-[560px]",
-  setting: "sm:w-[520px]",
-  scenario: "sm:w-[600px]",
+  character: "sm:w-[560px] md:w-[920px]",
+  setting: "sm:w-[520px] md:w-[880px]",
+  scenario: "sm:w-[600px] md:w-[960px]",
 };
 
 const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
 
-/** Create/edit modal: a By-hand / Agentically mode toggle over a per-type form. */
+/**
+ * Create/edit modal. On mobile a By-hand / Agentically toggle swaps between the
+ * per-type form and the agentic draft panel. On desktop both show at once — the
+ * form fills the left, the agentic chat panel sits in a fixed right column so you
+ * can prompt Velora and watch it build live into the form fields.
+ */
 export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }) {
   const m = lib.modal;
   if (!m || m.type === "begin") return null;
@@ -58,7 +65,8 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
           <CloseButton onClose={lib.closeModal} />
         </div>
 
-        <div className="mt-[14px] inline-flex overflow-hidden rounded-full border border-field-bd bg-card">
+        {/* Mode toggle — mobile/tablet only. On desktop both panels show at once. */}
+        <div className="mt-[14px] inline-flex overflow-hidden rounded-full border border-field-bd bg-card md:hidden">
           <button
             type="button"
             onClick={() => lib.setMode("manual")}
@@ -76,50 +84,10 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
         </div>
         <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
-        {agentic ? (
-          <div>
-            <div className="mb-[11px] flex items-center gap-[9px]">
-              <span aria-hidden className="text-[15px] text-accent">
-                ❖
-              </span>
-              <p className="font-body text-[15px] text-ink">
-                Describe it in a sentence or two —{" "}
-                <span className="text-ink-soft italic">Velora drafts the rest.</span>
-              </p>
-            </div>
-            <TextArea
-              aria-label="Describe what to draft"
-              rows={4}
-              placeholder={PROMPT_PLACEHOLDERS[type]}
-              value={d._prompt || ""}
-              onChange={(e) => lib.setDraft("_prompt", e.target.value)}
-            />
-            <div className="mt-[9px] flex flex-wrap items-center gap-[9px]">
-              <Eyebrow size={8.5} tracking="0.14em">
-                Try
-              </Eyebrow>
-              {PROMPT_EXAMPLES[type].map((ex) => (
-                <button
-                  key={ex.short}
-                  type="button"
-                  onClick={() => lib.setDraft("_prompt", ex.full)}
-                  className="rounded-[14px] border border-dashed border-cardbd bg-field px-[11px] py-1 font-body text-[12.5px] text-ink-soft italic hover:border-accent hover:text-accent"
-                >
-                  {ex.short}
-                </button>
-              ))}
-            </div>
-            <div className="mt-5 flex justify-end gap-[10px]">
-              <Button variant="ghost" onClick={lib.closeModal}>
-                Cancel
-              </Button>
-              <Button onClick={lib.generate} disabled={lib.generating}>
-                {lib.generating ? "Drafting…" : "❖ Draft with Velora"}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div>
+        {/* Body — form left, agentic chat right (desktop); one at a time (mobile). */}
+        <div className="md:flex md:items-stretch md:gap-[26px]">
+          {/* By-hand form column */}
+          <div className={cn("md:min-w-0 md:flex-1", agentic && "hidden md:block")}>
             {d._ai ? (
               <div className="mb-4 flex items-center gap-[9px] rounded-[0_3px_3px_0] border-l-[3px] border-l-narrator bg-[rgba(31,111,107,.12)] p-[9px_12px]">
                 <span aria-hidden className="text-[13px] text-narrator">
@@ -171,7 +139,63 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
               </div>
             </div>
           </div>
-        )}
+
+          {/* Agentic chat column — fixed right rail on desktop, tab panel on mobile. */}
+          <aside
+            className={cn(
+              "md:w-[330px] md:shrink-0 md:border-l md:border-hair-strong md:pl-[26px]",
+              !agentic && "hidden md:block",
+            )}
+          >
+            <Eyebrow
+              size={8.5}
+              tracking="0.2em"
+              color="#A8762A"
+              className="mb-[12px] hidden md:block"
+            >
+              ❖ Draft with Velora
+            </Eyebrow>
+            <div className="mb-[11px] flex items-center gap-[9px]">
+              <span aria-hidden className="text-[15px] text-accent">
+                ❖
+              </span>
+              <p className="font-body text-[15px] text-ink">
+                Describe it in a sentence or two —{" "}
+                <span className="text-ink-soft italic">Velora drafts the rest.</span>
+              </p>
+            </div>
+            <TextArea
+              aria-label="Describe what to draft"
+              rows={4}
+              placeholder={PROMPT_PLACEHOLDERS[type]}
+              value={d._prompt || ""}
+              onChange={(e) => lib.setDraft("_prompt", e.target.value)}
+            />
+            <div className="mt-[9px] flex flex-wrap items-center gap-[9px]">
+              <Eyebrow size={8.5} tracking="0.14em">
+                Try
+              </Eyebrow>
+              {PROMPT_EXAMPLES[type].map((ex) => (
+                <button
+                  key={ex.short}
+                  type="button"
+                  onClick={() => lib.setDraft("_prompt", ex.full)}
+                  className="rounded-[14px] border border-dashed border-cardbd bg-field px-[11px] py-1 font-body text-[12.5px] text-ink-soft italic hover:border-accent hover:text-accent"
+                >
+                  {ex.short}
+                </button>
+              ))}
+            </div>
+            <div className="mt-5 flex justify-end gap-[10px]">
+              <Button variant="ghost" onClick={lib.closeModal} className="md:hidden">
+                Cancel
+              </Button>
+              <Button onClick={lib.generate} disabled={lib.generating}>
+                {lib.generating ? "Drafting…" : "❖ Draft with Velora"}
+              </Button>
+            </div>
+          </aside>
+        </div>
       </div>
     </Modal>
   );
