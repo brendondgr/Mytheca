@@ -22,3 +22,15 @@ def test_is_sqlite_predicate():
 
 def test_get_settings_is_cached():
     assert get_settings() is get_settings()
+
+
+def test_cors_origins_adds_localhost_counterpart():
+    s = Settings(frontend_origin="http://localhost:3000")
+    assert "http://localhost:3000" in s.cors_origins
+    assert "http://127.0.0.1:3000" in s.cors_origins
+
+
+def test_cors_origins_accepts_comma_separated():
+    s = Settings(frontend_origin="http://localhost:3000, https://app.example.com")
+    assert "https://app.example.com" in s.cors_origins
+    assert "http://127.0.0.1:3000" in s.cors_origins

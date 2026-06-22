@@ -44,6 +44,23 @@ class Settings(BaseSettings):
         """True when pointed at SQLite (used by tests and the engine factory)."""
         return self.database_url.startswith("sqlite")
 
+    @property
+    def cors_origins(self) -> list[str]:
+        """Allowed CORS origins.
+
+        ``FRONTEND_ORIGIN`` may be a comma-separated list. The localhost/127.0.0.1
+        counterpart of each origin is added automatically, since the dev server is
+        reachable under both hostnames.
+        """
+        raw = [o.strip() for o in self.frontend_origin.split(",") if o.strip()]
+        origins = set(raw)
+        for origin in raw:
+            if "localhost" in origin:
+                origins.add(origin.replace("localhost", "127.0.0.1"))
+            elif "127.0.0.1" in origin:
+                origins.add(origin.replace("127.0.0.1", "localhost"))
+        return sorted(origins)
+
 
 @lru_cache
 def get_settings() -> Settings:
