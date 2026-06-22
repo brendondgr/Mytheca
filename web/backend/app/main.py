@@ -1,25 +1,41 @@
 """FastAPI application factory.
 
-This is an initialization stub: it creates the app and a health check so the
-backend is runnable after ``uv sync``. Routes, agents, services, persistence,
-and the event stream are added in the scaffolding phase (see docs/checklist.md
-and docs/api-contract.md).
+Builds the Velora API: CORS for the frontend origin, the contract error envelope,
+a health check, and the CRUD routers under the ``/api`` prefix. The multi-agent
+brain and event stream are added in later phases (see docs/checklist.md).
 """
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.config import get_settings
+from app.core.errors import register_error_handlers
+from app.routes import characters, scenarios, settings, storylines
 
 
 def create_app() -> FastAPI:
     """Build and return the Velora FastAPI application."""
+    config = get_settings()
     app = FastAPI(title="Velora", version="0.0.0")
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[config.frontend_origin],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    register_error_handlers(app)
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    # TODO(scaffolding): register routers from app.routes (auth, characters,
-    # scenes, play, stream, graph), configure CORS, and wire core services.
+    api = APIRouter(prefix="/api")
+    for module in (storylines, characters, settings, scenarios):
+        api.include_router(module.router)
+    app.include_router(api)
 
     return app

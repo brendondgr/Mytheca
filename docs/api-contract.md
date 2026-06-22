@@ -1,10 +1,12 @@
 # Velora — API & Event Contract
 
-The contract between the Next.js frontend and the FastAPI backend. Request/response schemas are owned by the backend (Pydantic, `web/backend/app/schemas/`); shared types and the event schema live in `web/shared/contracts/`. This document and those files must stay in sync. Endpoints below are **planned** (not yet implemented).
+The contract between the Next.js frontend and the FastAPI backend. Request/response schemas are owned by the backend (Pydantic, `web/backend/app/schemas/`); shared types and the event schema live in `web/shared/contracts/`. This document and those files must stay in sync.
+
+**Status:** the Storyline / Character / Setting / Scenario CRUD groups and the stat endpoints are **implemented** (`web/backend/app/routes/`, served under `/api`). Auth, Play, Stream, and Admin remain **planned**. Wire payloads are camelCase (`castIds`, `settingId`, `displayName`) to match `web/frontend/lib/types.ts`.
 
 ## Conventions
 
-- Base path: `/api` (final prefix TBD during scaffolding).
+- Base path: `/api`.
 - JSON request/response; auth via the backend-owned session/token (mechanism TBD — see `docs/architecture.md`).
 - Standard error shape:
 
