@@ -21,6 +21,31 @@ def test_create_list_get_update_delete(client):
     assert client.get(f"/api/storylines/{sid}").status_code == 404
 
 
+def test_premise_roundtrips_and_defaults_null(client):
+    # Omitted on create -> null in the read model.
+    bare = client.post("/api/storylines", json={"title": "Bare"})
+    assert bare.status_code == 201
+    assert bare.json()["premise"] is None
+
+    # Supplied (multi-paragraph) on create -> echoed back verbatim.
+    premise = "A drowned coast.\n\nThree powers circle the failing port."
+    created = client.post(
+        "/api/storylines", json={"title": "Embergate", "premise": premise}
+    )
+    assert created.status_code == 201
+    sid = created.json()["id"]
+    assert created.json()["premise"] == premise
+    assert client.get(f"/api/storylines/{sid}").json()["premise"] == premise
+
+    # PATCH updates the premise without touching other fields.
+    patched = client.patch(
+        f"/api/storylines/{sid}", json={"premise": "Rewritten world."}
+    )
+    assert patched.status_code == 200
+    assert patched.json()["premise"] == "Rewritten world."
+    assert patched.json()["title"] == "Embergate"
+
+
 def test_missing_returns_error_envelope(client):
     r = client.get("/api/storylines/nope")
     assert r.status_code == 404

@@ -13,6 +13,7 @@ class StorylineBase(CamelModel):
     title: str = "Untitled Storyline"
     genre: str = "Uncharted"
     tagline: str | None = None
+    premise: str | None = None
 
 
 class StorylineCreate(StorylineBase):
@@ -23,6 +24,7 @@ class StorylineUpdate(CamelModel):
     title: str | None = None
     genre: str | None = None
     tagline: str | None = None
+    premise: str | None = None
 
 
 class StorylineRead(CamelModel):
@@ -30,3 +32,4 @@ class StorylineRead(CamelModel):
     title: str
     genre: str
     tagline: str | None = None
+    premise: str | None = None

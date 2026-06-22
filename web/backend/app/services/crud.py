@@ -83,6 +83,7 @@ def create_storyline(db: Session, data: StorylineCreate) -> Storyline:
         title=data.title,
         genre=data.genre,
         tagline=data.tagline,
+        premise=data.premise,
         position=int(db.scalar(select(func.count()).select_from(Storyline)) or 0),
     )
     db.add(sl)
