@@ -52,6 +52,8 @@ A stat definition (on a storyline, optionally overridden by a scenario):
 
 ## NDJSON Event Stream
 
+> **Scaffold status:** the event envelope types (the five types below + `StatPatch`, as a discriminated union) exist in `web/backend/app/events/envelope.py`, and `events` + `play_sessions` tables exist in `web/backend/app/models/`. The streaming transport, turn engine, `seq` monotonicity, and validation/repair loop are **not built yet** — this is the data-structure scaffold only.
+
 The stream emits one JSON object per line. Every event shares a base envelope:
 
 ```json
