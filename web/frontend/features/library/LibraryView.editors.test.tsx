@@ -37,6 +37,15 @@ describe("LibraryView — editors & modals", () => {
     await user.click(screen.getByRole("button", { name: /new storyline/i }));
 
     const dialog = screen.getByRole("dialog");
+    // Future seams are visible but non-functional.
+    expect(within(dialog).getByText(/drag context files here/i)).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: /draft with velora/i }),
+    ).toBeDisabled();
+    expect(
+      within(dialog).getByLabelText(/describe the world to draft/i),
+    ).toBeDisabled();
+
     // Title is required: the create button is disabled until it's filled.
     const createBtn = within(dialog).getByRole("button", { name: /create world/i });
     expect(createBtn).toBeDisabled();
