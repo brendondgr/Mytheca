@@ -1,20 +1,22 @@
 import { Monogram } from "@/components/ui/Monogram";
 import type { ResolvedScenario } from "@/lib/types";
 
-// Fixed "dark cinematic" hero palette (independent of the page theme, matching
-// the reference). Theme-tuned variants are a later polish item.
+// Theme-aware hero palette — all values reference CSS design tokens so the
+// carousel adapts to Parchment / Ember / Slate automatically.
 const HERO = {
-  panel: "linear-gradient(135deg,#2A2016 0%,#3A2C1A 60%,#4A331C 100%)",
-  art: "repeating-linear-gradient(45deg,#33271a,#33271a 8px,#3c2f1f 8px,#3c2f1f 16px)",
-  title: "#F1E2C2",
-  goal: "#D4C3A0",
-  label: "#C8862A",
-  set: "#9C8862",
-  medBg: "#1F1710",
-  artLabel: "#8a724e",
-  artLabelBg: "#2A2016",
-  chev: "rgba(20,14,6,.35)",
-  chevBd: "#6a5436",
+  panel: "linear-gradient(135deg,var(--card-bg) 0%,var(--card-bg2) 60%,var(--card-bd) 100%)",
+  art: "repeating-linear-gradient(45deg,var(--field-bg),var(--field-bg) 8px,var(--card-bg) 8px,var(--card-bg) 16px)",
+  title: "var(--ink)",
+  goal: "var(--ink-soft)",
+  label: "#C8862A",       // gold — theme-agnostic per design-system.md
+  set: "var(--mute)",
+  medBg: "var(--field-bg)",
+  artLabel: "var(--mute2)",
+  artLabelBg: "var(--field-bg)",
+  chev: "var(--field-bg)",
+  chevBd: "var(--card-bd)",
+  toneText: "var(--ink-soft)",
+  border: "var(--hair-strong)",
 };
 
 /** The recent-scenario hero carousel (display + prev/next/dots navigation). */
@@ -37,6 +39,30 @@ export function ScenarioCarousel({
   onBegin?: (id: string) => void;
   onProfile?: (id: string) => void;
 }) {
+  if (slides.length === 0) {
+    return (
+      <section
+        aria-label="Recent scenarios"
+        className="relative mx-[16px] mt-[18px] flex h-[246px] flex-none flex-col items-center justify-center gap-[8px] overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-[28px]"
+        style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
+      >
+        <span
+          className="font-mono text-[9.5px] uppercase tracking-[0.22em]"
+          style={{ color: HERO.label }}
+        >
+          No scenarios yet
+        </span>
+        <p
+          className="max-w-[420px] px-4 text-center font-body text-[15px] italic"
+          style={{ color: HERO.goal }}
+        >
+          This storyline has no scenes. Use{" "}
+          <span style={{ color: HERO.label }}>+ Create</span> to assemble its
+          first scenario.
+        </p>
+      </section>
+    );
+  }
   return (
     <section
       aria-roledescription="carousel"
@@ -53,7 +79,7 @@ export function ScenarioCarousel({
             aria-hidden={i !== index}
             inert={i !== index}
             className="flex h-full flex-[0_0_100%]"
-            style={{ background: HERO.panel, border: "1px solid #1c150c" }}
+            style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
           >
             <div className="min-w-0 flex-1 p-[40px_18px_18px] sm:p-[46px_30px_22px]">
               <h2
@@ -71,7 +97,7 @@ export function ScenarioCarousel({
                 </span>
                 <span
                   className="rounded-[2px] border px-[9px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.1em]"
-                  style={{ color: "#D8C29A", borderColor: HERO.chevBd }}
+                  style={{ color: HERO.toneText, borderColor: HERO.chevBd }}
                 >
                   {s.tone}
                 </span>
@@ -118,7 +144,7 @@ export function ScenarioCarousel({
             </div>
             <div
               className="hidden w-[200px] flex-none items-center justify-center sm:flex"
-              style={{ background: HERO.art, borderLeft: "1px solid #1c150c" }}
+              style={{ background: HERO.art, borderLeft: `1px solid ${HERO.border}` }}
             >
               <span
                 className="rounded-[2px] px-[9px] py-[3px] font-mono text-[9.5px] tracking-[0.1em]"

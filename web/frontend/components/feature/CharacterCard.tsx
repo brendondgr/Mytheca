@@ -1,6 +1,7 @@
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
+import { cn } from "@/lib/cn";
 import type { Character } from "@/lib/types";
 
 function Detail({
@@ -32,15 +33,25 @@ export function CharacterCard({
   expanded,
   onToggle,
   onEdit,
+  highlighted = false,
 }: {
   character: Character;
   expanded: boolean;
   onToggle: () => void;
   onEdit?: () => void;
+  /** Lit up when this character is in the selected scenario's cast. */
+  highlighted?: boolean;
 }) {
   const c = character;
   return (
-    <div className="velora-card relative rounded-[3px] border border-cardbd bg-card hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]">
+    <div
+      className={cn(
+        "velora-card relative rounded-[3px] border hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        highlighted
+          ? "border-accent bg-card2 shadow-[0_4px_14px_rgba(142,43,28,.16)]"
+          : "border-cardbd bg-card",
+      )}
+    >
       {onEdit ? (
         <IconButton
           label={`Edit ${c.name}`}
@@ -65,6 +76,11 @@ export function CharacterCard({
             <Eyebrow size={9} tracking="0.12em" color={c.color} className="mt-1 block">
               {c.role}
             </Eyebrow>
+            {highlighted ? (
+              <span className="mt-[3px] block font-mono text-[8.5px] uppercase tracking-[0.12em] text-accent">
+                ◆ In this scene
+              </span>
+            ) : null}
           </span>
         </span>
         <span className="mt-[11px] block font-body text-[14px] italic leading-[1.35] text-ink-soft">

@@ -1,5 +1,6 @@
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
+import { cn } from "@/lib/cn";
 import type { Setting } from "@/lib/types";
 
 const PLATE_STRIPES =
@@ -9,13 +10,24 @@ const PLATE_STRIPES =
 export function SettingCard({
   setting,
   onEdit,
+  active = false,
 }: {
   setting: Setting;
   onEdit?: () => void;
+  /** Brought forward when this is the selected scenario's setting. */
+  active?: boolean;
 }) {
   const s = setting;
   return (
-    <div className="velora-card relative overflow-hidden rounded-[3px] border border-cardbd bg-card hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]">
+    <div
+      aria-current={active ? "true" : undefined}
+      className={cn(
+        "velora-card relative overflow-hidden rounded-[3px] border hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        active
+          ? "-translate-y-[2px] border-2 border-accent bg-card2 shadow-[0_6px_18px_rgba(142,43,28,.18)]"
+          : "border-cardbd bg-card",
+      )}
+    >
       {onEdit ? (
         <IconButton
           label={`Edit ${s.name}`}
@@ -35,7 +47,16 @@ export function SettingCard({
         </span>
       </div>
       <div className="p-[13px_15px]">
-        <div className="font-display text-[16px] font-semibold text-ink">{s.name}</div>
+        <div className="flex items-baseline justify-between gap-[8px]">
+          <div className="font-display text-[16px] font-semibold text-ink">
+            {s.name}
+          </div>
+          {active ? (
+            <span className="flex-none font-mono text-[8.5px] uppercase tracking-[0.12em] text-accent">
+              ◆ In this scene
+            </span>
+          ) : null}
+        </div>
         <Eyebrow size={9} tracking="0.12em" color="#A8762A" className="mt-1 block">
           {s.type}
         </Eyebrow>

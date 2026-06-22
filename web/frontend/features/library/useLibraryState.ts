@@ -168,12 +168,7 @@ export function useLibraryState() {
   }
   function openCreate(type: EntityType) {
     setDraftState({ ...DEFAULT_DRAFTS[type] });
-    setModal({
-      type,
-      mode: "manual",
-      editId: null,
-      scnId: type === "branch" ? featuredId : undefined,
-    });
+    setModal({ type, mode: "manual", editId: null });
     setMenuOpen(false);
     setGenerating(false);
   }
@@ -195,13 +190,6 @@ export function useLibraryState() {
     if (!s) return;
     setDraftState({ title: s.title, genre: s.genre, tone: s.tone, goal: s.goal, cast: [...s.castIds], settingId: s.settingId, branches: [...s.branches] });
     setModal({ type: "scenario", mode: "manual", editId: id });
-  }
-  function editBranch(scnId: string, index: number) {
-    const s = scenarios.find((x) => x.id === scnId);
-    const b = s?.branches[index];
-    if (!b) return;
-    setDraftState({ label: b.label, check: b.check, outcome: b.outcome, tag: b.tag });
-    setModal({ type: "branch", mode: "manual", editId: String(index), scnId });
   }
   function toggleDraftCast(id: string) {
     setDraftState((prev) => {
@@ -252,7 +240,7 @@ export function useLibraryState() {
   // ---- submit / delete ----
   function submit() {
     if (!modal || modal.type === "begin") return;
-    const { type, editId, scnId } = modal;
+    const { type, editId } = modal;
     const d = draft;
     if (!isDraftValid(type, d)) return;
 
@@ -300,17 +288,6 @@ export function useLibraryState() {
         setTab("scenarios");
         setFeaturedId(id);
       }
-    } else if (type === "branch") {
-      const nb = { label: (d.label ?? "").trim(), check: d.check?.trim() || "—", outcome: d.outcome?.trim() || "—", tag: d.tag ?? ("check_request" as const) };
-      const targetId = scnId ?? featuredId;
-      const idx = editId == null ? null : Number(editId);
-      setScenarios((xs) =>
-        xs.map((sc) =>
-          sc.id !== targetId
-            ? sc
-            : { ...sc, branches: idx == null ? [...sc.branches, nb] : sc.branches.map((b, i) => (i === idx ? nb : b)) },
-        ),
-      );
     }
     closeModal();
   }
@@ -333,13 +310,6 @@ export function useLibraryState() {
     }
     closeModal();
   }
-  function deleteBranch(scnId: string, index: number) {
-    setScenarios((xs) =>
-      xs.map((sc) =>
-        sc.id !== scnId ? sc : { ...sc, branches: sc.branches.filter((_, i) => i !== index) },
-      ),
-    );
-  }
 
   const profileChar = characters.find((c) => c.id === profileId) ?? null;
 
@@ -356,15 +326,14 @@ export function useLibraryState() {
       characters: characters.length,
       settings: settings.length,
       scenarios: scenarios.length,
-      branches: featured?.branches.length ?? 0,
     },
     // editor
     menuOpen, setMenuOpen,
     modal, draft, generating,
     isEditing: Boolean(modal && modal.type !== "begin" && modal.editId != null),
     isValid: modal && modal.type !== "begin" ? isDraftValid(modal.type, draft) : false,
-    openCreate, editCharacter, editSetting, editScenario, editBranch,
-    setDraft, setMode, toggleDraftCast, generate, submit, deleteEntity, deleteBranch, closeModal,
+    openCreate, editCharacter, editSetting, editScenario,
+    setDraft, setMode, toggleDraftCast, generate, submit, deleteEntity, closeModal,
     // profile + begin
     profileId, profileChar, openProfile, closeProfile, openBegin,
   };

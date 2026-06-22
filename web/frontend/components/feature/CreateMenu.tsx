@@ -7,7 +7,6 @@ const ITEMS: { type: EntityType; icon: string; label: string; sub: string }[] = 
   { type: "character", icon: "❖", label: "Forge a Character", sub: "add to the cast" },
   { type: "setting", icon: "◆", label: "Add a Setting", sub: "a place to meet" },
   { type: "scenario", icon: "❖", label: "Assemble a Scenario", sub: "cast + setting + goal" },
-  { type: "branch", icon: "❖", label: "Author a Storyline", sub: "branch off the recent scene" },
 ];
 
 /** The "+ Create" button + popover. Closes on outside-click and Escape. */
