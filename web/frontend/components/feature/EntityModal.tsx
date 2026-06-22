@@ -142,14 +142,21 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
                 settings={lib.settings}
               />
             ) : null}
+            {lib.error ? (
+              <p role="alert" className="mt-4 font-body text-[13px] text-accent">
+                {lib.error}
+              </p>
+            ) : null}
+
             <div className="mt-[22px] flex items-center justify-between gap-[10px]">
               {isEdit ? (
                 <button
                   type="button"
                   onClick={lib.deleteEntity}
-                  className="cursor-pointer p-[6px] font-mono text-[10.5px] tracking-[0.06em] text-accent uppercase hover:underline"
+                  disabled={lib.pending}
+                  className="cursor-pointer p-[6px] font-mono text-[10.5px] tracking-[0.06em] text-accent uppercase hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Delete
+                  {lib.pending ? "Deleting…" : "Delete"}
                 </button>
               ) : (
                 <span />
@@ -158,8 +165,8 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
                 <Button variant="ghost" onClick={lib.closeModal}>
                   Cancel
                 </Button>
-                <Button onClick={lib.submit} disabled={!lib.isValid}>
-                  {isEdit ? meta.save : meta.ok}
+                <Button onClick={lib.submit} disabled={!lib.isValid || lib.pending}>
+                  {lib.pending ? "Saving…" : isEdit ? meta.save : meta.ok}
                 </Button>
               </div>
             </div>

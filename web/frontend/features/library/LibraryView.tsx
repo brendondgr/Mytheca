@@ -42,6 +42,28 @@ export function LibraryView() {
         }
       />
 
+      {lib.error && !lib.modal ? (
+        <div
+          role="alert"
+          className="mx-[18px] mt-[12px] flex items-center justify-between gap-[12px] rounded-[6px] border border-cardbd bg-card px-[14px] py-[10px]"
+        >
+          <span className="font-body text-[14px] text-ink">{lib.error}</span>
+          <button
+            type="button"
+            onClick={lib.retry}
+            className="cursor-pointer font-mono text-[11px] tracking-[0.08em] text-accent uppercase hover:underline"
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
+
+      {lib.loading ? (
+        <p aria-live="polite" className="px-[18px] pt-[12px] font-body text-[14px] text-mute">
+          Loading your library…
+        </p>
+      ) : null}
+
       <ScenarioCarousel
         slides={lib.resolvedScenarios}
         index={lib.featuredIndex}

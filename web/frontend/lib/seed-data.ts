@@ -7,10 +7,11 @@ import type {
   Storyline,
 } from "@/lib/types";
 
-// In-memory seed for the "Embergate" storyline — no database. Mirrors the
-// authoritative reference in docs/CharacterFrontpage/. Used to populate the
-// Library and the Story player; mutations live in component state and reset on
-// reload.
+// The "Embergate" storyline data. The Library now loads from the backend (which
+// is seeded with this same world, see web/backend/app/core/seed.py), so the
+// SEED_* constants here serve two remaining roles: the Story player still reads
+// them, and the Library tests use them as fixtures (via test/api-mock.ts). The
+// AI_* draft pools and resolveScenario() remain in active use by the Library.
 
 /** Fixed parchment background behind every monogram avatar. */
 export const MONOGRAM_BG = "#EDE3CD";

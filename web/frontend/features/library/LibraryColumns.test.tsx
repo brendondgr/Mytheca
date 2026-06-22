@@ -1,13 +1,15 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { LibraryView } from "./LibraryView";
+
+vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
 describe("LibraryView — storyline switcher", () => {
   it("opens the storyline menu with the active storyline and a create action", async () => {
     const user = userEvent.setup();
     render(<LibraryView />);
-    await user.click(screen.getByRole("button", { name: "Embergate" }));
+    await user.click(await screen.findByRole("button", { name: "Embergate" }));
 
     const menu = screen.getByLabelText("Switch storyline");
     expect(within(menu).getByText("Embergate")).toBeInTheDocument();
@@ -19,11 +21,11 @@ describe("LibraryView — storyline switcher", () => {
   it("creates a new storyline and shows empty columns", async () => {
     const user = userEvent.setup();
     render(<LibraryView />);
-    await user.click(screen.getByRole("button", { name: "Embergate" }));
+    await user.click(await screen.findByRole("button", { name: "Embergate" }));
     await user.click(screen.getByRole("button", { name: /new storyline/i }));
 
     // Switcher now reads the new (empty) storyline; columns show empty notes.
-    expect(screen.getByText("No characters yet.")).toBeInTheDocument();
+    expect(await screen.findByText("No characters yet.")).toBeInTheDocument();
     expect(screen.getByText("No settings yet.")).toBeInTheDocument();
     expect(screen.getByText("No scenarios yet.")).toBeInTheDocument();
   });
@@ -35,7 +37,7 @@ describe("LibraryView — cross-column highlight", () => {
     render(<LibraryView />);
 
     // Default feature = The Embergate Conspiracy: 4 cast + 1 setting = 5 cues.
-    expect(screen.getAllByText(/in this scene/i)).toHaveLength(5);
+    expect(await screen.findAllByText(/in this scene/i)).toHaveLength(5);
 
     // Feature a different scenario (Salt & Secrets): 3 cast + 1 setting = 4.
     await user.click(

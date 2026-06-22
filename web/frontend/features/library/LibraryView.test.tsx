@@ -1,18 +1,21 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { LibraryView } from "./LibraryView";
 
+// The Library now loads from the backend; back `@/lib/api` with the seed.
+vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
+
 describe("LibraryView", () => {
-  it("opens on the Scenarios tab with the seeded scenarios", () => {
+  it("opens on the Scenarios tab with the seeded scenarios", async () => {
     render(<LibraryView />);
     expect(screen.getByRole("tab", { name: /scenarios/i })).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    // appears in both the carousel slide and the scenario card
+    // appears in both the carousel slide and the scenario card (loaded async)
     expect(
-      screen.getAllByText("The Embergate Conspiracy").length,
+      (await screen.findAllByText("The Embergate Conspiracy")).length,
     ).toBeGreaterThan(0);
   });
 
@@ -20,7 +23,7 @@ describe("LibraryView", () => {
     const user = userEvent.setup();
     render(<LibraryView />);
     await user.click(screen.getByRole("tab", { name: /characters/i }));
-    expect(screen.getByText("Maerin Voss")).toBeInTheDocument();
+    expect(await screen.findByText("Maerin Voss")).toBeInTheDocument();
     expect(screen.getByText("Captain Doran Hale")).toBeInTheDocument();
   });
 
@@ -32,7 +35,7 @@ describe("LibraryView", () => {
       screen.getByRole("searchbox", { name: /search the library/i }),
       "oracle",
     );
-    expect(screen.getByText("Nyssa, Oracle of Salt")).toBeInTheDocument();
+    expect(await screen.findByText("Nyssa, Oracle of Salt")).toBeInTheDocument();
     expect(screen.queryByText("Maerin Voss")).not.toBeInTheDocument();
   });
 
@@ -40,7 +43,7 @@ describe("LibraryView", () => {
     const user = userEvent.setup();
     render(<LibraryView />);
     await user.click(screen.getByRole("tab", { name: /characters/i }));
-    const summary = screen.getByRole("button", { name: /^maerin voss/i });
+    const summary = await screen.findByRole("button", { name: /^maerin voss/i });
     expect(summary).toHaveAttribute("aria-expanded", "false");
     await user.click(summary);
     expect(summary).toHaveAttribute("aria-expanded", "true");

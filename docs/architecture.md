@@ -92,7 +92,7 @@ Auth/session is **backend-owned** (token/session). The frontend stores credentia
 
 - Frontend owns frontend routing and UX-level validation (Zod); backend owns API + streaming routes and authoritative validation (Pydantic, `app/schemas/`).
 - Shared request/response and event types live in `web/shared/contracts/` and mirror `docs/api-contract.md`.
-- Backend owns errors, retries, caching (Redis), the streaming lifecycle, and stat clamping; the frontend owns optimistic UI and reconnect behavior.
+- Backend owns errors, retries, caching (Redis), the streaming lifecycle, and stat clamping; the frontend owns reconnect behavior. **Library CRUD uses await-then-apply** (await the mutation, splice the returned entity, surface errors) rather than optimistic UI; optimistic UI is reserved for the story-player turn submission. The Library client is a hand-rolled `fetch` in `web/frontend/lib/api.ts`; TanStack Query is the deferred home for caching once the authenticated multi-storyline routes need it.
 
 ## Data Layer
 
@@ -126,4 +126,6 @@ How uncertain outcomes get resolved is the genuinely optional layer. Default (in
 - `uv`-only Python tooling, Python 3.13.
 - Format split: YAML config · Markdown stat guidance · JSON/NDJSON streaming · JSON Schema/Zod validation.
 - Provider-agnostic LLM interface from day one.
+- Persistence: sync SQLAlchemy 2.0 + Postgres (psycopg3); camelCase Pydantic over the wire; string PKs (client-id-or-generated); branches as JSON, stats normalized. Tests run on in-memory SQLite (no Postgres/Docker). `python app.py backend` runs a preflight (compose up + checks + schema + seed) before serving. Alembic deferred (idempotent `create_all` for now).
+- Library wiring: backend-backed CRUD via a hand-rolled fetch client (await-then-apply); TanStack Query deferred.
 - Dice-based resolution and Vector DB semantic memory deferred; design seams only.

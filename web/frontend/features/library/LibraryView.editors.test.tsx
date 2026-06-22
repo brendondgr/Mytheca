@@ -1,12 +1,17 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { LibraryView } from "./LibraryView";
+
+vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
 describe("LibraryView — editors & modals", () => {
   it("creates a character via the Create menu", async () => {
     const user = userEvent.setup();
     render(<LibraryView />);
+    // Wait for the initial load so the active storyline is set before creating.
+    await screen.findAllByText("The Embergate Conspiracy");
+
     await user.click(screen.getByRole("button", { name: /\+ create/i }));
     await user.click(screen.getByRole("button", { name: /forge a character/i }));
 
@@ -18,14 +23,14 @@ describe("LibraryView — editors & modals", () => {
     expect(submitBtn).toBeEnabled();
     await user.click(submitBtn);
 
-    expect(screen.getByText("Test Hero")).toBeInTheDocument();
+    expect(await screen.findByText("Test Hero")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("opens a character profile from a scenario card's cast", async () => {
     const user = userEvent.setup();
     render(<LibraryView />);
-    const viewButtons = screen.getAllByRole("button", {
+    const viewButtons = await screen.findAllByRole("button", {
       name: /view maerin voss/i,
     });
     await user.click(viewButtons[0]);
@@ -42,7 +47,7 @@ describe("LibraryView — editors & modals", () => {
   it("previews the begin-scene with a link into the player", async () => {
     const user = userEvent.setup();
     render(<LibraryView />);
-    await user.click(screen.getByRole("button", { name: /begin scene/i }));
+    await user.click(await screen.findByRole("button", { name: /begin scene/i }));
 
     const dialog = screen.getByRole("dialog", {
       name: /the embergate conspiracy/i,
@@ -56,7 +61,7 @@ describe("LibraryView — editors & modals", () => {
     const user = userEvent.setup();
     render(<LibraryView />);
     await user.click(screen.getByRole("tab", { name: /characters/i }));
-    await user.click(screen.getByRole("button", { name: /edit maerin voss/i }));
+    await user.click(await screen.findByRole("button", { name: /edit maerin voss/i }));
 
     const dialog = screen.getByRole("dialog");
     const nameInput = within(dialog).getByLabelText(/display name/i);
@@ -65,6 +70,6 @@ describe("LibraryView — editors & modals", () => {
     await user.type(nameInput, "Maerin Reborn");
     await user.click(within(dialog).getByRole("button", { name: /save changes/i }));
 
-    expect(screen.getByText("Maerin Reborn")).toBeInTheDocument();
+    expect(await screen.findByText("Maerin Reborn")).toBeInTheDocument();
   });
 });

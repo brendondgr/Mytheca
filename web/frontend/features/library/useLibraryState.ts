@@ -1,15 +1,14 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AI_BRANCHES,
   AI_CHARACTERS,
   AI_SCENARIOS,
   AI_SETTINGS,
   resolveScenario,
-  SEED_STORYLINES,
 } from "@/lib/seed-data";
-import { monoOf } from "@/lib/monogram";
+import * as api from "@/lib/api";
 import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
 import {
   DEFAULT_DRAFTS,
@@ -27,20 +26,28 @@ export type LibraryTabKey =
   | "settings"
   | "storylines";
 
-let idCounter = 0;
-function newId(prefix: string): string {
-  idCounter += 1;
-  return `${prefix}${Date.now()}-${idCounter}`;
+function messageOf(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return "Something went wrong.";
+}
+
+/** Wrap a summary from the API into the nested Storyline shape the UI holds. */
+function emptyStoryline(summary: api.StorylineSummary): Storyline {
+  return { ...summary, characters: [], settings: [], scenarios: [] };
 }
 
 export function useLibraryState() {
   // State is storyline-scoped: we hold every storyline and an "active" id; the
-  // cast/settings/scenarios shown are the active storyline's own. Switching in
-  // the header swaps the entire working set.
-  const [storylines, setStorylines] = useState<Storyline[]>(SEED_STORYLINES);
-  const [activeStorylineId, setActiveStorylineId] = useState<string>(
-    SEED_STORYLINES[0]?.id ?? "",
-  );
+  // cast/settings/scenarios shown are the active storyline's own. Data is loaded
+  // from the backend on mount and each storyline's children are hydrated lazily.
+  const [storylines, setStorylines] = useState<Storyline[]>([]);
+  const [activeStorylineId, setActiveStorylineId] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  // Ids whose children have already been fetched (avoids refetching on switch).
+  const hydrated = useRef<Set<string>>(new Set());
+
   const activeStoryline =
     storylines.find((s) => s.id === activeStorylineId) ?? storylines[0];
   const characters = useMemo(
@@ -71,9 +78,7 @@ export function useLibraryState() {
     updateActive((sl) => ({ ...sl, scenarios: fn(sl.scenarios) }));
 
   const [tab, setTab] = useState<LibraryTabKey>("scenarios");
-  const [featuredId, setFeaturedId] = useState<string>(
-    SEED_STORYLINES[0]?.scenarios[0]?.id ?? "",
-  );
+  const [featuredId, setFeaturedId] = useState<string>("");
   const [query, setQuery] = useState("");
   const [expandedCharId, setExpandedCharId] = useState<string | null>(null);
 
@@ -83,6 +88,74 @@ export function useLibraryState() {
   const [generating, setGenerating] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const generateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ---- data loading ----
+  /** Fetch a storyline's children once and merge them in; returns its scenarios. */
+  async function hydrateStoryline(id: string): Promise<Scenario[]> {
+    if (!id) return [];
+    if (hydrated.current.has(id)) {
+      return storylines.find((s) => s.id === id)?.scenarios ?? [];
+    }
+    const [chars, setts, scens] = await Promise.all([
+      api.listCharacters(id),
+      api.listSettings(id),
+      api.listScenarios(id),
+    ]);
+    hydrated.current.add(id);
+    setStorylines((sls) =>
+      sls.map((sl) =>
+        sl.id === id ? { ...sl, characters: chars, settings: setts, scenarios: scens } : sl,
+      ),
+    );
+    return scens;
+  }
+
+  // No synchronous setState here: `loading` defaults to true for the first load,
+  // and retry() sets it (from an event handler, not the effect).
+  async function loadInitial() {
+    try {
+      const summaries = await api.listStorylines();
+      if (summaries.length === 0) {
+        setStorylines([]);
+        setActiveStorylineId("");
+        return;
+      }
+      const firstId = summaries[0].id;
+      const [chars, setts, scens] = await Promise.all([
+        api.listCharacters(firstId),
+        api.listSettings(firstId),
+        api.listScenarios(firstId),
+      ]);
+      hydrated.current = new Set([firstId]);
+      setStorylines(
+        summaries.map((s) =>
+          s.id === firstId
+            ? { ...emptyStoryline(s), characters: chars, settings: setts, scenarios: scens }
+            : emptyStoryline(s),
+        ),
+      );
+      setActiveStorylineId(firstId);
+      setFeaturedId(scens[0]?.id ?? "");
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function retry() {
+    setLoading(true);
+    setError(null);
+    void loadInitial();
+  }
+
+  useEffect(() => {
+    // Canonical mount data-fetch: loadInitial sets state only after awaiting the
+    // API. The rule targets synchronous setState; a typed fetch layer (e.g.
+    // TanStack Query) is the deferred long-term home for this (docs/architecture.md).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadInitial();
+  }, []);
 
   // ---- derived ----
   const resolvedScenarios = useMemo(
@@ -129,29 +202,39 @@ export function useLibraryState() {
     setTab("scenarios");
     setMenuOpen(false);
   }
-  function switchStoryline(id: string) {
+  async function switchStoryline(id: string) {
     if (id === activeStorylineId) {
       setMenuOpen(false);
       return;
     }
-    const next = storylines.find((s) => s.id === id);
     setActiveStorylineId(id);
-    resetForStoryline(next?.scenarios[0]?.id ?? "");
+    setError(null);
+    try {
+      const scens = await hydrateStoryline(id);
+      resetForStoryline(scens[0]?.id ?? "");
+    } catch (e) {
+      setError(messageOf(e));
+      resetForStoryline("");
+    }
   }
-  function createStoryline() {
-    const id = newId("sl");
-    const story: Storyline = {
-      id,
-      title: "Untitled Storyline",
-      genre: "Uncharted",
-      tagline: "A blank world, waiting for its first scene.",
-      characters: [],
-      settings: [],
-      scenarios: [],
-    };
-    setStorylines((sls) => [...sls, story]);
-    setActiveStorylineId(id);
-    resetForStoryline("");
+  async function createStoryline() {
+    setPending(true);
+    setError(null);
+    try {
+      const created = await api.createStoryline({
+        title: "Untitled Storyline",
+        genre: "Uncharted",
+        tagline: "A blank world, waiting for its first scene.",
+      });
+      hydrated.current.add(created.id); // brand-new: no children to fetch
+      setStorylines((sls) => [...sls, emptyStoryline(created)]);
+      setActiveStorylineId(created.id);
+      resetForStoryline("");
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setPending(false);
+    }
   }
 
   // ---- modal lifecycle ----
@@ -164,10 +247,12 @@ export function useLibraryState() {
   function closeModal() {
     if (generateTimer.current) clearTimeout(generateTimer.current);
     setGenerating(false);
+    setError(null);
     setModal(null);
   }
   function openCreate(type: EntityType) {
     setDraftState({ ...DEFAULT_DRAFTS[type] });
+    setError(null);
     setModal({ type, mode: "manual", editId: null });
     setMenuOpen(false);
     setGenerating(false);
@@ -176,6 +261,7 @@ export function useLibraryState() {
     const c = characters.find((x) => x.id === id);
     if (!c) return;
     setDraftState({ name: c.name, role: c.role, color: c.color, traits: c.traits, speech: c.speech, goal: c.goal, secret: c.secret });
+    setError(null);
     setModal({ type: "character", mode: "manual", editId: id });
     setProfileId(null);
   }
@@ -183,12 +269,14 @@ export function useLibraryState() {
     const s = settings.find((x) => x.id === id);
     if (!s) return;
     setDraftState({ name: s.name, type: s.type, desc: s.desc });
+    setError(null);
     setModal({ type: "setting", mode: "manual", editId: id });
   }
   function editScenario(id: string) {
     const s = scenarios.find((x) => x.id === id);
     if (!s) return;
     setDraftState({ title: s.title, genre: s.genre, tone: s.tone, goal: s.goal, cast: [...s.castIds], settingId: s.settingId, branches: [...s.branches] });
+    setError(null);
     setModal({ type: "scenario", mode: "manual", editId: id });
   }
   function toggleDraftCast(id: string) {
@@ -211,7 +299,7 @@ export function useLibraryState() {
     setMenuOpen(false);
   }
 
-  // ---- agentic fake-draft ----
+  // ---- agentic fake-draft (client-only; no model call) ----
   function generate() {
     if (!modal || modal.type === "begin") return;
     const type = modal.type;
@@ -237,78 +325,104 @@ export function useLibraryState() {
     }, 850);
   }
 
-  // ---- submit / delete ----
-  function submit() {
+  // ---- submit / delete (await the API, then splice the returned entity) ----
+  async function submit() {
     if (!modal || modal.type === "begin") return;
     const { type, editId } = modal;
     const d = draft;
     if (!isDraftValid(type, d)) return;
-
-    if (type === "character") {
-      const base = {
-        name: (d.name ?? "").trim(),
-        role: d.role?.trim() || "Character",
-        color: d.color || "#8E2B1C",
-        mono: monoOf(d.name ?? ""),
-        traits: d.traits?.trim() || "Newly forged · unwritten",
-        speech: d.speech?.trim() || "—",
-        goal: d.goal?.trim() || "—",
-        secret: d.secret?.trim() || "—",
-      };
-      if (editId) {
-        setCharacters((cs) => cs.map((c) => (c.id === editId ? { ...c, ...base } : c)));
-      } else {
-        const id = newId("c");
-        setCharacters((cs) => [...cs, { id, ...base }]);
-        setTab("characters");
-        setExpandedCharId(id);
+    setPending(true);
+    setError(null);
+    try {
+      if (type === "character") {
+        const body = {
+          name: (d.name ?? "").trim(),
+          role: d.role?.trim() || "Character",
+          color: d.color || "#8E2B1C",
+          traits: d.traits?.trim() || "Newly forged · unwritten",
+          speech: d.speech?.trim() || "—",
+          goal: d.goal?.trim() || "—",
+          secret: d.secret?.trim() || "—",
+        };
+        if (editId) {
+          const updated = await api.updateCharacter(editId, body);
+          setCharacters((cs) => cs.map((c) => (c.id === editId ? updated : c)));
+        } else {
+          const created = await api.createCharacter(activeStorylineId, body);
+          setCharacters((cs) => [...cs, created]);
+          setTab("characters");
+          setExpandedCharId(created.id);
+        }
+      } else if (type === "setting") {
+        const body = { name: (d.name ?? "").trim(), type: d.type || "Social Hub", desc: d.desc?.trim() || "A place yet to be described." };
+        if (editId) {
+          const updated = await api.updateSetting(editId, body);
+          setSettings((xs) => xs.map((x) => (x.id === editId ? updated : x)));
+        } else {
+          const created = await api.createSetting(activeStorylineId, body);
+          setSettings((xs) => [...xs, created]);
+          setTab("settings");
+        }
+      } else if (type === "scenario") {
+        const body = {
+          title: (d.title ?? "").trim(),
+          genre: d.genre?.trim() || "Custom",
+          tone: d.tone?.trim() || "Unset",
+          goal: d.goal?.trim() || "Goal to be set.",
+          castIds: [...(d.cast ?? [])],
+          settingId: d.settingId ?? "",
+          branches: [...(d.branches ?? [])],
+        };
+        if (editId) {
+          const updated = await api.updateScenario(editId, body);
+          setScenarios((xs) => xs.map((x) => (x.id === editId ? updated : x)));
+        } else {
+          const created = await api.createScenario(activeStorylineId, {
+            ...body,
+            opening: "A new scene awaits its first line of narration…",
+          });
+          setScenarios((xs) => [...xs, created]);
+          setTab("scenarios");
+          setFeaturedId(created.id);
+        }
       }
-    } else if (type === "setting") {
-      const base = { name: (d.name ?? "").trim(), type: d.type || "Social Hub", desc: d.desc?.trim() || "A place yet to be described." };
-      if (editId) setSettings((xs) => xs.map((x) => (x.id === editId ? { ...x, ...base } : x)));
-      else {
-        setSettings((xs) => [...xs, { id: newId("s"), ...base }]);
-        setTab("settings");
-      }
-    } else if (type === "scenario") {
-      const base = {
-        title: (d.title ?? "").trim(),
-        genre: d.genre?.trim() || "Custom",
-        tone: d.tone?.trim() || "Unset",
-        goal: d.goal?.trim() || "Goal to be set.",
-        castIds: [...(d.cast ?? [])],
-        settingId: d.settingId ?? "",
-        branches: [...(d.branches ?? [])],
-      };
-      if (editId) {
-        setScenarios((xs) => xs.map((x) => (x.id === editId ? { ...x, ...base } : x)));
-      } else {
-        const id = newId("sc");
-        setScenarios((xs) => [...xs, { id, opening: "A new scene awaits its first line of narration…", ...base }]);
-        setTab("scenarios");
-        setFeaturedId(id);
-      }
+      closeModal();
+    } catch (e) {
+      setError(messageOf(e)); // keep the modal open so the user can retry
+    } finally {
+      setPending(false);
     }
-    closeModal();
   }
 
-  function deleteEntity() {
+  async function deleteEntity() {
     if (!modal || modal.type === "begin") return;
     const { type, editId } = modal;
     if (!editId) return;
-    if (type === "character") {
-      setCharacters((cs) => cs.filter((c) => c.id !== editId));
-      setScenarios((xs) => xs.map((sc) => ({ ...sc, castIds: sc.castIds.filter((id) => id !== editId) })));
-    } else if (type === "setting") {
-      setSettings((xs) => xs.filter((x) => x.id !== editId));
-    } else if (type === "scenario") {
-      setScenarios((xs) => {
-        const left = xs.filter((x) => x.id !== editId);
-        if (featuredId === editId) setFeaturedId(left[0]?.id ?? "");
-        return left;
-      });
+    setPending(true);
+    setError(null);
+    try {
+      if (type === "character") {
+        await api.deleteCharacter(editId);
+        setCharacters((cs) => cs.filter((c) => c.id !== editId));
+        // The backend is authoritative and prunes castIds server-side; mirror it
+        // locally so the UI is consistent without a refetch.
+        setScenarios((xs) => xs.map((sc) => ({ ...sc, castIds: sc.castIds.filter((id) => id !== editId) })));
+      } else if (type === "setting") {
+        await api.deleteSetting(editId);
+        setSettings((xs) => xs.filter((x) => x.id !== editId));
+      } else if (type === "scenario") {
+        await api.deleteScenario(editId);
+        setScenarios((xs) => xs.filter((x) => x.id !== editId));
+        if (featuredId === editId) {
+          setFeaturedId(scenarios.find((x) => x.id !== editId)?.id ?? "");
+        }
+      }
+      closeModal();
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setPending(false);
     }
-    closeModal();
   }
 
   const profileChar = characters.find((c) => c.id === profileId) ?? null;
@@ -322,6 +436,8 @@ export function useLibraryState() {
     query, setQuery,
     expandedCharId, toggleExpand,
     cycleFeatured,
+    // data-loading status
+    loading, error, pending, retry,
     counts: {
       characters: characters.length,
       settings: settings.length,

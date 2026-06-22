@@ -2,7 +2,7 @@
 
 How data originates and moves through Velora. The streaming/event path is first-class.
 
-> **Current implementation (frontend-only).** Until the backend exists, the Library and Story player run entirely on in-memory **seed data** (`web/frontend/lib/seed-data.ts`, `web/frontend/features/story-player/scene-data.ts`): create/edit/delete and send/roll/choose mutate React state and reset on reload. The read / write / streaming paths below are the planned design for when `web/backend` is built.
+> **Current implementation.** The **Library** is now backend-backed: it reads from and writes to the FastAPI CRUD API via `web/frontend/lib/api.ts` (hand-rolled fetch, await-then-apply), so storylines/characters/settings/scenarios **persist** in Postgres. The backend is seeded with the Embergate world (`web/backend/app/core/seed.py`) so the app looks the same. The **Story player** still runs on in-memory seed data (`web/frontend/features/story-player/scene-data.ts`) — the streaming path below is the planned design. (TanStack Query is still deferred; the hand-rolled client suffices for this CRUD surface.)
 
 ## Sources
 
