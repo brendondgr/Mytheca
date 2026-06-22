@@ -62,3 +62,20 @@ export interface ResolvedScenario extends Scenario {
   cast: Character[];
   setting: Setting;
 }
+
+/**
+ * The top-level world container (see docs/documentation.md). A storyline owns
+ * its own cast, places, and situations; switching the active storyline in the
+ * header swaps the entire working set.
+ */
+export interface Storyline {
+  id: string;
+  title: string;
+  /** Genre / world flavor, shown in the storyline switcher. */
+  genre: string;
+  /** One-line descriptor for the switcher menu. */
+  tagline?: string;
+  characters: Character[];
+  settings: Setting[];
+  scenarios: Scenario[];
+}

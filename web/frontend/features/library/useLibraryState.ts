@@ -7,12 +7,10 @@ import {
   AI_SCENARIOS,
   AI_SETTINGS,
   resolveScenario,
-  SEED_CHARACTERS,
-  SEED_SCENARIOS,
-  SEED_SETTINGS,
+  SEED_STORYLINES,
 } from "@/lib/seed-data";
 import { monoOf } from "@/lib/monogram";
-import type { Character, Scenario, Setting } from "@/lib/types";
+import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
 import {
   DEFAULT_DRAFTS,
   isDraftValid,
@@ -36,13 +34,45 @@ function newId(prefix: string): string {
 }
 
 export function useLibraryState() {
-  const [characters, setCharacters] = useState<Character[]>(SEED_CHARACTERS);
-  const [settings, setSettings] = useState<Setting[]>(SEED_SETTINGS);
-  const [scenarios, setScenarios] = useState<Scenario[]>(SEED_SCENARIOS);
+  // State is storyline-scoped: we hold every storyline and an "active" id; the
+  // cast/settings/scenarios shown are the active storyline's own. Switching in
+  // the header swaps the entire working set.
+  const [storylines, setStorylines] = useState<Storyline[]>(SEED_STORYLINES);
+  const [activeStorylineId, setActiveStorylineId] = useState<string>(
+    SEED_STORYLINES[0]?.id ?? "",
+  );
+  const activeStoryline =
+    storylines.find((s) => s.id === activeStorylineId) ?? storylines[0];
+  const characters = useMemo(
+    () => activeStoryline?.characters ?? [],
+    [activeStoryline],
+  );
+  const settings = useMemo(
+    () => activeStoryline?.settings ?? [],
+    [activeStoryline],
+  );
+  const scenarios = useMemo(
+    () => activeStoryline?.scenarios ?? [],
+    [activeStoryline],
+  );
+
+  // Mutate the active storyline's collections. The thin setX wrappers below let
+  // every existing `setCharacters((cs) => …)` call-site stay unchanged.
+  function updateActive(updater: (sl: Storyline) => Storyline) {
+    setStorylines((sls) =>
+      sls.map((sl) => (sl.id === activeStorylineId ? updater(sl) : sl)),
+    );
+  }
+  const setCharacters = (fn: (cs: Character[]) => Character[]) =>
+    updateActive((sl) => ({ ...sl, characters: fn(sl.characters) }));
+  const setSettings = (fn: (ss: Setting[]) => Setting[]) =>
+    updateActive((sl) => ({ ...sl, settings: fn(sl.settings) }));
+  const setScenarios = (fn: (xs: Scenario[]) => Scenario[]) =>
+    updateActive((sl) => ({ ...sl, scenarios: fn(sl.scenarios) }));
 
   const [tab, setTab] = useState<LibraryTabKey>("scenarios");
   const [featuredId, setFeaturedId] = useState<string>(
-    SEED_SCENARIOS[0]?.id ?? "",
+    SEED_STORYLINES[0]?.scenarios[0]?.id ?? "",
   );
   const [query, setQuery] = useState("");
   const [expandedCharId, setExpandedCharId] = useState<string | null>(null);
@@ -89,6 +119,39 @@ export function useLibraryState() {
     const next =
       scenarios[(base + direction + scenarios.length) % scenarios.length];
     setFeaturedId(next.id);
+  }
+
+  // ---- storyline switching ----
+  function resetForStoryline(firstScenarioId: string) {
+    setFeaturedId(firstScenarioId);
+    setExpandedCharId(null);
+    setQuery("");
+    setTab("scenarios");
+    setMenuOpen(false);
+  }
+  function switchStoryline(id: string) {
+    if (id === activeStorylineId) {
+      setMenuOpen(false);
+      return;
+    }
+    const next = storylines.find((s) => s.id === id);
+    setActiveStorylineId(id);
+    resetForStoryline(next?.scenarios[0]?.id ?? "");
+  }
+  function createStoryline() {
+    const id = newId("sl");
+    const story: Storyline = {
+      id,
+      title: "Untitled Storyline",
+      genre: "Uncharted",
+      tagline: "A blank world, waiting for its first scene.",
+      characters: [],
+      settings: [],
+      scenarios: [],
+    };
+    setStorylines((sls) => [...sls, story]);
+    setActiveStorylineId(id);
+    resetForStoryline("");
   }
 
   // ---- modal lifecycle ----
@@ -281,6 +344,7 @@ export function useLibraryState() {
   const profileChar = characters.find((c) => c.id === profileId) ?? null;
 
   return {
+    storylines, activeStorylineId, activeStoryline, switchStoryline, createStoryline,
     characters, settings, scenarios, resolvedScenarios,
     filteredCharacters, filteredSettings, filteredScenarios,
     tab, setTab,
