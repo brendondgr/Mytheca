@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { LanguageModelsTab } from "./LanguageModelsTab";
+import * as api from "@/lib/api";
 import type { OptionsState } from "@/features/options/useOptionsSettings";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
@@ -65,5 +66,51 @@ describe("LanguageModelsTab", () => {
     await user.click(screen.getByRole("button", { name: /save/i }));
     const call = (opts.saveLlm as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(call).not.toHaveProperty("apiKey");
+  });
+
+  it("fetches models into a dropdown, then saves the chosen model", async () => {
+    const user = userEvent.setup();
+    const opts = makeOpts();
+    render(<LanguageModelsTab opts={opts} />);
+
+    await user.click(screen.getByRole("button", { name: /fetch models/i }));
+    // The model control becomes a <select> populated from the fetch.
+    expect(await screen.findByRole("option", { name: "llama-3.1-8b" })).toBeInTheDocument();
+    expect(screen.getByText(/2 available/i)).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/^model/i), "qwen2.5");
+    await user.click(screen.getByRole("button", { name: /save/i }));
+    expect(opts.saveLlm).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "qwen2.5" }),
+    );
+  });
+
+  it("runs a connection test and shows the result", async () => {
+    const user = userEvent.setup();
+    const opts = makeOpts({
+      llm: {
+        baseUrl: "http://localhost:7070/v1",
+        model: "llama-3.1-8b",
+        provider: "openai-compatible",
+        params: { temperature: 0.7, maxTokens: 512, topP: 1, frequencyPenalty: 0, presencePenalty: 0 },
+        hasApiKey: false,
+        apiKeyHint: null,
+      },
+    });
+    render(<LanguageModelsTab opts={opts} />);
+    await user.click(screen.getByRole("button", { name: /test connection/i }));
+    expect(await screen.findByText(/OK · 42ms/i)).toBeInTheDocument();
+  });
+
+  it("surfaces a fetch error and leaves the model as a text field", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.fetchLlmModels).mockRejectedValueOnce(new Error("Could not reach the model endpoint."));
+    const opts = makeOpts();
+    render(<LanguageModelsTab opts={opts} />);
+
+    await user.click(screen.getByRole("button", { name: /fetch models/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not reach/i);
+    // No options rendered; the model control stays a plain text input.
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
   });
 });
