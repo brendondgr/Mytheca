@@ -48,6 +48,7 @@ Copy `.env.example` → `.env` (gitignored). Document every new variable here an
 | `APP_ENV` | `development` / `production` |
 | `SECRET_KEY` | Session/token signing |
 | `FRONTEND_ORIGIN` | Allowed CORS origin for the frontend |
+| `NEXT_PUBLIC_API_URL` | Frontend → backend base URL (client-readable; see `web/frontend/.env.local.example`) |
 | `VECTOR_DB_URL` | (later) semantic memory store |
 
 ## Deployment Target

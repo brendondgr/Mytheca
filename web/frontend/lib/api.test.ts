@@ -1,0 +1,39 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ApiError, createCharacter, deleteCharacter, listStorylines } from "@/lib/api";
+
+function mockFetch(impl: (url: string, init?: RequestInit) => Response) {
+  const spy = vi.fn((url: string, init?: RequestInit) => Promise.resolve(impl(url, init)));
+  vi.stubGlobal("fetch", spy);
+  return spy;
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("api client", () => {
+  it("parses a successful JSON response", async () => {
+    mockFetch(() => new Response(JSON.stringify([{ id: "embergate", title: "Embergate" }]), { status: 200 }));
+    const storylines = await listStorylines();
+    expect(storylines[0].id).toBe("embergate");
+  });
+
+  it("sends create payloads as JSON to the scoped endpoint", async () => {
+    const spy = mockFetch(() => new Response(JSON.stringify({ id: "c1", name: "Maerin", mono: "MV" }), { status: 201 }));
+    const created = await createCharacter("embergate", { name: "Maerin", role: "Antagonist", color: "#000", traits: "", speech: "", goal: "", secret: "" });
+    expect(created.id).toBe("c1");
+    const [url, init] = spy.mock.calls[0];
+    expect(url).toContain("/storylines/embergate/characters");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init?.body as string).name).toBe("Maerin");
+  });
+
+  it("maps the error envelope to ApiError", async () => {
+    mockFetch(() => new Response(JSON.stringify({ error: { code: "not_found", message: "nope" } }), { status: 404 }));
+    await expect(listStorylines()).rejects.toMatchObject({ code: "not_found", status: 404 });
+    await expect(listStorylines()).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("returns undefined for 204 responses", async () => {
+    mockFetch(() => new Response(null, { status: 204 }));
+    await expect(deleteCharacter("c1")).resolves.toBeUndefined();
+  });
+});
