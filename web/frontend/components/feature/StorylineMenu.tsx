@@ -50,15 +50,32 @@ export function StorylineMenu({
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls={menuId}
-        className="flex items-center gap-[6px] rounded-[2px] border border-transparent px-[6px] py-[4px] font-mono text-[10px] uppercase tracking-[0.14em] text-mute hover:border-hair-strong hover:text-ink focus-visible:border-accent"
+        title="Switch storyline"
+        className="group flex items-center gap-[9px] rounded-[3px] border border-cardbd bg-card px-[12px] py-[5px] hover:border-accent hover:bg-card2 focus-visible:border-accent"
       >
-        <span aria-hidden className="text-gold">
+        <span aria-hidden className="text-[13px] text-gold">
           ◆
         </span>
-        <span className="text-ink">{active?.title ?? "Storyline"}</span>
-        <span aria-hidden className="text-[8px]">
-          ▾
+        <span className="font-display text-[18px] font-bold uppercase leading-none tracking-[0.12em] text-ink">
+          {active?.title ?? "Storyline"}
         </span>
+        <svg
+          aria-hidden
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={cn(
+            "-mr-[2px] text-mute transition-transform group-hover:text-accent",
+            open && "rotate-180",
+          )}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
       </button>
       {open ? (
         <div

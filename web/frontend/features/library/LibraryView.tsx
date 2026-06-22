@@ -17,7 +17,9 @@ export function LibraryView() {
   const beginScenario = lib.modal?.type === "begin" ? lib.featured : null;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    // h-dvh + overflow-hidden makes the Library self-contained: the page never
+    // scrolls, and the three columns each scroll within the remaining height.
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
       <h1 className="sr-only">Velora — Library</h1>
       <AppHeader
         query={lib.query}

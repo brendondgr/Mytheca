@@ -1,10 +1,15 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import { SettingCard } from "@/components/feature/SettingCard";
 import { ColumnEmpty, ColumnHeader } from "@/components/feature/ColumnChrome";
 import type { Setting } from "@/lib/types";
 
 /**
  * Settings column — one setting per row. The selected scenario's setting is
- * brought forward via the card's `active` state.
+ * brought forward via the card's `active` state, and scrolled into view within
+ * the column whenever the active setting changes (i.e. a new scenario is
+ * selected) so a setting further down the list comes to the user.
  */
 export function SettingColumn({
   settings,
@@ -17,6 +22,17 @@ export function SettingColumn({
   query: string;
   onEdit: (id: string) => void;
 }) {
+  const activeRef = useRef<HTMLDivElement>(null);
+
+  // When a new scenario is selected the active setting changes; reveal it inside
+  // the column (instant, so it's motion-safe and not throttled). scroll-mt on
+  // the active wrapper clears the sticky header.
+  useEffect(() => {
+    const el = activeRef.current;
+    if (!el || !activeId) return;
+    el.scrollIntoView?.({ block: "nearest" });
+  }, [activeId]);
+
   return (
     <div>
       <ColumnHeader title="Settings" count={settings.length} hint="The places of this world." />
@@ -24,14 +40,22 @@ export function SettingColumn({
         <ColumnEmpty query={query} noun="settings" />
       ) : (
         <div className="flex flex-col gap-[14px]">
-          {settings.map((s) => (
-            <SettingCard
-              key={s.id}
-              setting={s}
-              active={s.id === activeId}
-              onEdit={() => onEdit(s.id)}
-            />
-          ))}
+          {settings.map((s) => {
+            const isActive = s.id === activeId;
+            return (
+              <div
+                key={s.id}
+                ref={isActive ? activeRef : undefined}
+                className={isActive ? "scroll-mt-[68px]" : undefined}
+              >
+                <SettingCard
+                  setting={s}
+                  active={isActive}
+                  onEdit={() => onEdit(s.id)}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

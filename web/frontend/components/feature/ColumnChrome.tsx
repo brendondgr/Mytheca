@@ -9,19 +9,24 @@ export function ColumnHeader({
   count: number;
   hint?: string;
 }) {
+  // Sticky so the column's identity stays visible while its content scrolls.
+  // The bg-page wrapper extends below the rule so scrolling cards never peek
+  // through a margin gap.
   return (
-    <div className="mb-[14px] border-b border-hair-strong pb-[8px]">
-      <div className="flex items-baseline gap-[8px]">
-        <h2 className="font-display text-[16px] font-semibold tracking-[0.06em] text-ink uppercase">
-          {title}
-        </h2>
-        <span className="font-mono text-[11px] text-mute">{count}</span>
+    <div className="sticky top-0 z-[1] bg-page pb-[12px]">
+      <div className="border-b border-hair-strong pb-[8px]">
+        <div className="flex items-baseline gap-[8px]">
+          <h2 className="font-display text-[16px] font-semibold tracking-[0.06em] text-ink uppercase">
+            {title}
+          </h2>
+          <span className="font-mono text-[11px] text-mute">{count}</span>
+        </div>
+        {hint ? (
+          <p className="mt-[5px] font-mono text-[9.5px] tracking-[0.05em] text-mute">
+            {hint}
+          </p>
+        ) : null}
       </div>
-      {hint ? (
-        <p className="mt-[5px] font-mono text-[9.5px] tracking-[0.05em] text-mute">
-          {hint}
-        </p>
-      ) : null}
     </div>
   );
 }
