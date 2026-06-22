@@ -5,6 +5,7 @@ import { LibraryColumns } from "@/features/library/LibraryColumns";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { ScenarioCarousel } from "@/components/feature/ScenarioCarousel";
 import { CreateMenu } from "@/components/feature/CreateMenu";
+import { OptionsMenu } from "@/components/feature/OptionsMenu";
 import { StorylineMenu } from "@/components/feature/StorylineMenu";
 import { EntityModal } from "@/components/feature/EntityModal";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
@@ -40,6 +41,7 @@ export function LibraryView() {
             onCreate={lib.openCreate}
           />
         }
+        optionsSlot={<OptionsMenu />}
       />
 
       {lib.error && !lib.modal ? (

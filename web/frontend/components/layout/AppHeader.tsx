@@ -1,5 +1,3 @@
-import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
-
 function SearchIcon() {
   return (
     <svg
@@ -20,19 +18,22 @@ function SearchIcon() {
 }
 
 /**
- * Top app bar: ❖ VELORA wordmark, the storyline switcher slot, the theme
- * switcher, library search, and a slot for the Create control.
+ * Top app bar: ❖ VELORA wordmark, the storyline switcher slot, library search,
+ * and slots for the Create and Options controls. (Theme switching now lives in
+ * the Options dropdown / the Options page Appearance tab.)
  */
 export function AppHeader({
   query,
   onQuery,
   storylineSlot,
   createSlot,
+  optionsSlot,
 }: {
   query: string;
   onQuery: (value: string) => void;
   storylineSlot?: React.ReactNode;
   createSlot?: React.ReactNode;
+  optionsSlot?: React.ReactNode;
 }) {
   return (
     <header className="velora-header flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] sm:px-[26px]">
@@ -54,7 +55,6 @@ export function AppHeader({
         ) : null}
       </div>
       <div className="flex items-center gap-3">
-        <ThemeSwitcher />
         <div className="relative hidden items-center sm:flex">
           <SearchIcon />
           <input
@@ -67,6 +67,7 @@ export function AppHeader({
           />
         </div>
         {createSlot}
+        {optionsSlot}
       </div>
     </header>
   );

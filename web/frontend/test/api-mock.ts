@@ -66,5 +66,52 @@ export function makeApiMock() {
     })),
     updateScenario: vi.fn(async (id: string, body: Partial<Scenario>) => ({ id, ...body })),
     deleteScenario: vi.fn(async () => {}),
+
+    // ---- options / settings ----
+    getSettings: vi.fn(async () => ({
+      llm: {
+        baseUrl: "",
+        model: "",
+        provider: "openai-compatible",
+        params: {
+          temperature: 0.7,
+          maxTokens: 512,
+          topP: 1,
+          frequencyPenalty: 0,
+          presencePenalty: 0,
+        },
+        hasApiKey: false,
+        apiKeyHint: null,
+      },
+      library: { defaultStorylineId: null, openLastStoryline: true },
+    })),
+    updateLlmConfig: vi.fn(async (body: Record<string, unknown>) => ({
+      baseUrl: "",
+      model: "",
+      provider: "openai-compatible",
+      params: {
+        temperature: 0.7,
+        maxTokens: 512,
+        topP: 1,
+        frequencyPenalty: 0,
+        presencePenalty: 0,
+      },
+      hasApiKey: false,
+      apiKeyHint: null,
+      ...body,
+    })),
+    updateLibraryDefaults: vi.fn(async (body: Record<string, unknown>) => ({
+      defaultStorylineId: null,
+      openLastStoryline: true,
+      ...body,
+    })),
+    fetchLlmModels: vi.fn(async () => ({ models: ["llama-3.1-8b", "qwen2.5"] })),
+    testLlmConnection: vi.fn(async (body: { model: string }) => ({
+      ok: true,
+      model: body.model,
+      latencyMs: 42,
+      sample: "ok",
+    })),
+    getHealth: vi.fn(async () => ({ status: "ok" })),
   };
 }

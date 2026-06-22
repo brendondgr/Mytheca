@@ -114,3 +114,83 @@ export const createScenario = (storylineId: string, body: ScenarioInput) =>
 export const updateScenario = (id: string, body: Partial<ScenarioInput>) =>
   patch<Scenario>(`/scenarios/${id}`, body);
 export const deleteScenario = (id: string) => del(`/scenarios/${id}`);
+
+// ---- options / settings ----
+// Mirrors web/backend/app/schemas/settings.py. The LLM API key is write-only:
+// reads expose only `hasApiKey` + a masked `apiKeyHint`.
+
+export interface LlmParams {
+  temperature: number;
+  maxTokens: number;
+  topP: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
+}
+
+export interface LlmConfig {
+  baseUrl: string;
+  model: string;
+  provider: string;
+  params: LlmParams;
+  hasApiKey: boolean;
+  apiKeyHint: string | null;
+}
+
+/** PATCH payload. Omit `apiKey` to keep the stored key; "" clears it. */
+export interface LlmConfigUpdate {
+  baseUrl?: string;
+  model?: string;
+  provider?: string;
+  params?: LlmParams;
+  apiKey?: string;
+}
+
+export interface LibraryDefaults {
+  defaultStorylineId: string | null;
+  openLastStoryline: boolean;
+}
+
+export type LibraryDefaultsUpdate = Partial<LibraryDefaults>;
+
+export interface AppSettings {
+  llm: LlmConfig;
+  library: LibraryDefaults;
+}
+
+export interface LlmModelsResult {
+  models: string[];
+}
+
+export interface LlmTestResult {
+  ok: boolean;
+  model: string;
+  latencyMs: number;
+  sample: string;
+}
+
+export const getSettings = () => request<AppSettings>("/options");
+export const updateLlmConfig = (body: LlmConfigUpdate) =>
+  patch<LlmConfig>("/options/llm", body);
+export const updateLibraryDefaults = (body: LibraryDefaultsUpdate) =>
+  patch<LibraryDefaults>("/options/library", body);
+export const fetchLlmModels = (body: { baseUrl?: string; apiKey?: string }) =>
+  post<LlmModelsResult>("/options/llm/models", body);
+export const testLlmConnection = (body: {
+  baseUrl?: string;
+  apiKey?: string;
+  model: string;
+  params?: LlmParams;
+}) => post<LlmTestResult>("/options/llm/test", body);
+
+/** Backend health check. Lives at `/health`, outside the `/api` prefix. */
+export async function getHealth(): Promise<{ status: string }> {
+  const base = API_BASE.replace(/\/api\/?$/, "");
+  try {
+    const res = await fetch(`${base}/health`, { credentials: "include" });
+    if (!res.ok) throw new ApiError(res.status, "error", res.statusText);
+    return (await res.json()) as { status: string };
+  } catch (cause) {
+    if (cause instanceof ApiError) throw cause;
+    throw new ApiError(0, "network_error", "Could not reach the server.", cause);
+  }
+}

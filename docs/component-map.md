@@ -27,7 +27,7 @@ Defines where frontend components live and who owns them. Ownership rules come f
 | Domain types | lib | `lib/types.ts` — `Character` / `Setting` / `Branch` / `Scenario` / `ResolvedScenario` / `EventTag`. |
 | Seed data | lib | `lib/seed-data.ts` — Embergate cast/settings/scenarios + agentic-draft pools + `resolveScenario`. |
 | Helpers | lib | `lib/monogram.ts` (`monoOf`), `lib/cn.ts` (classnames joiner). |
-| `AppHeader` | layout | `components/layout/AppHeader.tsx` — wordmark, `storylineSlot` (the switcher), search, theme switcher, create slot. |
+| `AppHeader` | layout | `components/layout/AppHeader.tsx` — wordmark, `storylineSlot` (the switcher), search, `createSlot`, `optionsSlot`. Theme switching moved into the Options dropdown / Options page (the standalone `ThemeSwitcher` was removed from the header; it still ships on `SceneHeader`). |
 | `StorylineMenu` | feature | `components/feature/StorylineMenu.tsx` — header dropdown switching the active storyline (✓ active + counts) + "New Storyline"; themed popover (outside-click + Esc, `aria-haspopup`/`expanded`/`current`). |
 | Library cards | feature | `components/feature/` — `CharacterCard` (disclosure, `highlighted` cast state), `SettingCard` (`active` state + `aria-current`), `ScenarioCard` (stretched select button). |
 | Library columns | feature | `components/feature/` — `ScenarioColumn` (1/row), `CharacterColumn` (2/row, lights up cast), `SettingColumn` (1/row, active setting forward), `ColumnChrome` (shared header + empty note). |
@@ -45,6 +45,8 @@ Defines where frontend components live and who owns them. Ownership rules come f
 | `DirectorRail` | feature | `components/feature/DirectorRail.tsx` — goal · `TensionMeter` · `StateChips` · `Relationships`. |
 | `Composer` / `SceneLoader` | feature | `components/feature/{Composer,SceneLoader}.tsx` — roll/input/send; ❖ loader → reveal. |
 | `StoryPlayerView` + `useScenePlay` + `scene-data` | feature module | `features/story-player/` — composes the player; seeds + drives send/roll/choose over local state. Route: `app/play/[scenarioId]/page.tsx`. |
+| `OptionsMenu` | feature | `components/feature/OptionsMenu.tsx` — header "Options ▾" dropdown (outside-click + Esc, `aria-haspopup`/`expanded`/`controls`): a **Settings Menu** link → `/options`, plus a quick **Appearance** theme selector (label-free colored swatches; persisted via `velora-theme`). |
+| `OptionsView` + `useOptionsSettings` + `tabs/*` | feature module | `features/options/` — `OptionsView` is the `/options` surface: a centered 66%-width panel with a **vertical ARIA tablist** (roving tabindex + ↑/↓/Home/End) on the left and the active `tabpanel` on the right. Tabs in `tabs/`: `LanguageModelsTab` (endpoint/model/params + save; **fetch-models dropdown + connection test land in Phase 3**), `AppearanceTab` (label-free theme swatches), `LibraryDefaultsTab` (default storyline + startup), `AboutTab` (read-only diagnostics, no secrets). `useOptionsSettings` loads `GET /options` (loading/error/Retry) and exposes `saveLlm`/`saveLibrary` (await-then-apply). Route: `app/options/page.tsx`. |
 
 ## Key Domain Components (planned)
 
