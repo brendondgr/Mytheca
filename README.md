@@ -37,8 +37,8 @@ utils/            # helpers + utils/tests (pytest + frontend) + utils/scripts
 The frontend (Library + Story player) is built. Run everything from the repo root through `app.py`:
 
 ```bash
-python app.py             # frontend dev server (npm run dev) → http://localhost:3000  [default]
-python app.py backend     # FastAPI API via uvicorn → http://127.0.0.1:8000  (after `uv sync`)
+python app.py             # frontend dev server (npm run dev) → http://localhost:3346  [default]
+python app.py backend     # FastAPI API via uvicorn → http://127.0.0.1:3345  (after `uv sync`)
 ```
 
 `python app.py` installs the frontend deps on first run. Equivalent direct commands:

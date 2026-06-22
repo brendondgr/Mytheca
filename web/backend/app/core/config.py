@@ -28,11 +28,11 @@ class Settings(BaseSettings):
     secret_key: str = "change-me"
 
     # CORS — the frontend dev origin allowed to call the API.
-    frontend_origin: str = "http://localhost:3000"
+    frontend_origin: str = "http://localhost:3346"
 
     # Core data stores.
-    database_url: str = "postgresql+psycopg://velora:velora@localhost:5544/velora"
-    redis_url: str = "redis://localhost:6379/0"
+    database_url: str = "postgresql+psycopg://velora:velora@localhost:3347/velora"
+    redis_url: str = "redis://localhost:3348/0"
 
     # AI provider selection (the provider-agnostic interface lands in a later phase).
     llm_provider: str = "openai"

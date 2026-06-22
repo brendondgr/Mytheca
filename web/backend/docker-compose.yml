@@ -9,10 +9,10 @@ services:
       POSTGRES_USER: velora
       POSTGRES_PASSWORD: velora
       POSTGRES_DB: velora
-    # Published on a dedicated host port (5544) so Velora coexists with any other
+    # Published on a dedicated host port (3347) so Velora coexists with any other
     # Postgres already using 5432 on the machine. Container port stays 5432.
     ports:
-      - "5544:5432"
+      - "3347:5432"
     volumes:
       - velora_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +24,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "3348:6379"
     volumes:
       - velora_redisdata:/data
     healthcheck:

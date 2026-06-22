@@ -9,7 +9,7 @@ import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
 
 /** Backend base URL. Configurable via NEXT_PUBLIC_API_URL (see .env.example). */
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
+  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3345/api";
 
 /** A storyline as returned by the list/CRUD endpoints — summary, no children. */
 export type StorylineSummary = Omit<

@@ -27,7 +27,7 @@ Deployment is not yet configured; this records the intended approach and require
 
 It prints a pass/fail report; a failed **required** check (the database) aborts startup with remediation. Redis is advisory. The schema/seed run here, **not** in the FastAPI lifespan (which only does a connection check), so Uvicorn `--reload` stays fast.
 
-Postgres is published on host port **5544** (a dedicated port so Velora coexists with any Postgres already on 5432); Redis on 6379. Tests run on in-memory SQLite and need neither Docker nor Postgres.
+Postgres is published on host port **3347** (a dedicated port so Velora coexists with any Postgres already on 5432); Redis on **3348**. The frontend dev server runs on **3346** and the backend API on **3345**. Tests run on in-memory SQLite and need neither Docker nor Postgres.
 
 ## Build
 

@@ -40,7 +40,7 @@ def run_frontend() -> int:
         if result.returncode != 0:
             return result.returncode
 
-    print("Starting Velora frontend — npm run dev (http://localhost:3000)\n")
+    print("Starting Velora frontend — npm run dev (http://localhost:3346)\n")
     return subprocess.run([npm, "run", "dev"], cwd=FRONTEND).returncode
 
 
@@ -72,12 +72,12 @@ def run_backend() -> int:
                 print(check.detail, file=sys.stderr)
         return 1
 
-    print("\nStarting Velora backend — uvicorn (http://127.0.0.1:8000)\n")
+    print("\nStarting Velora backend — uvicorn (http://127.0.0.1:3345)\n")
     uvicorn.run(
         "app.main:create_app",
         factory=True,
         host="127.0.0.1",
-        port=8000,
+        port=3345,
         reload=True,
         reload_dirs=[str(BACKEND)],
     )

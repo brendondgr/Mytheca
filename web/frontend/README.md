@@ -7,7 +7,7 @@ Scaffolded with Next.js 16 (App Router, Turbopack), React 19, Tailwind CSS v4 (C
 ```bash
 # from web/frontend/
 npm install        # install dependencies
-npm run dev        # dev server (http://localhost:3000)
+npm run dev        # dev server (http://localhost:3346)
 npm run build      # production build
 npm test           # Vitest (run once)
 npm run lint       # ESLint
