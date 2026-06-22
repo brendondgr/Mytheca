@@ -7,12 +7,10 @@ import {
   AI_SCENARIOS,
   AI_SETTINGS,
   resolveScenario,
-  SEED_CHARACTERS,
-  SEED_SCENARIOS,
-  SEED_SETTINGS,
+  SEED_STORYLINES,
 } from "@/lib/seed-data";
 import { monoOf } from "@/lib/monogram";
-import type { Character, Scenario, Setting } from "@/lib/types";
+import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
 import {
   DEFAULT_DRAFTS,
   isDraftValid,
@@ -36,13 +34,45 @@ function newId(prefix: string): string {
 }
 
 export function useLibraryState() {
-  const [characters, setCharacters] = useState<Character[]>(SEED_CHARACTERS);
-  const [settings, setSettings] = useState<Setting[]>(SEED_SETTINGS);
-  const [scenarios, setScenarios] = useState<Scenario[]>(SEED_SCENARIOS);
+  // State is storyline-scoped: we hold every storyline and an "active" id; the
+  // cast/settings/scenarios shown are the active storyline's own. Switching in
+  // the header swaps the entire working set.
+  const [storylines, setStorylines] = useState<Storyline[]>(SEED_STORYLINES);
+  const [activeStorylineId, setActiveStorylineId] = useState<string>(
+    SEED_STORYLINES[0]?.id ?? "",
+  );
+  const activeStoryline =
+    storylines.find((s) => s.id === activeStorylineId) ?? storylines[0];
+  const characters = useMemo(
+    () => activeStoryline?.characters ?? [],
+    [activeStoryline],
+  );
+  const settings = useMemo(
+    () => activeStoryline?.settings ?? [],
+    [activeStoryline],
+  );
+  const scenarios = useMemo(
+    () => activeStoryline?.scenarios ?? [],
+    [activeStoryline],
+  );
+
+  // Mutate the active storyline's collections. The thin setX wrappers below let
+  // every existing `setCharacters((cs) => …)` call-site stay unchanged.
+  function updateActive(updater: (sl: Storyline) => Storyline) {
+    setStorylines((sls) =>
+      sls.map((sl) => (sl.id === activeStorylineId ? updater(sl) : sl)),
+    );
+  }
+  const setCharacters = (fn: (cs: Character[]) => Character[]) =>
+    updateActive((sl) => ({ ...sl, characters: fn(sl.characters) }));
+  const setSettings = (fn: (ss: Setting[]) => Setting[]) =>
+    updateActive((sl) => ({ ...sl, settings: fn(sl.settings) }));
+  const setScenarios = (fn: (xs: Scenario[]) => Scenario[]) =>
+    updateActive((sl) => ({ ...sl, scenarios: fn(sl.scenarios) }));
 
   const [tab, setTab] = useState<LibraryTabKey>("scenarios");
   const [featuredId, setFeaturedId] = useState<string>(
-    SEED_SCENARIOS[0]?.id ?? "",
+    SEED_STORYLINES[0]?.scenarios[0]?.id ?? "",
   );
   const [query, setQuery] = useState("");
   const [expandedCharId, setExpandedCharId] = useState<string | null>(null);
@@ -91,6 +121,39 @@ export function useLibraryState() {
     setFeaturedId(next.id);
   }
 
+  // ---- storyline switching ----
+  function resetForStoryline(firstScenarioId: string) {
+    setFeaturedId(firstScenarioId);
+    setExpandedCharId(null);
+    setQuery("");
+    setTab("scenarios");
+    setMenuOpen(false);
+  }
+  function switchStoryline(id: string) {
+    if (id === activeStorylineId) {
+      setMenuOpen(false);
+      return;
+    }
+    const next = storylines.find((s) => s.id === id);
+    setActiveStorylineId(id);
+    resetForStoryline(next?.scenarios[0]?.id ?? "");
+  }
+  function createStoryline() {
+    const id = newId("sl");
+    const story: Storyline = {
+      id,
+      title: "Untitled Storyline",
+      genre: "Uncharted",
+      tagline: "A blank world, waiting for its first scene.",
+      characters: [],
+      settings: [],
+      scenarios: [],
+    };
+    setStorylines((sls) => [...sls, story]);
+    setActiveStorylineId(id);
+    resetForStoryline("");
+  }
+
   // ---- modal lifecycle ----
   function setDraft(key: keyof Draft, value: unknown) {
     setDraftState((prev) => ({ ...prev, [key]: value }));
@@ -105,12 +168,7 @@ export function useLibraryState() {
   }
   function openCreate(type: EntityType) {
     setDraftState({ ...DEFAULT_DRAFTS[type] });
-    setModal({
-      type,
-      mode: "manual",
-      editId: null,
-      scnId: type === "branch" ? featuredId : undefined,
-    });
+    setModal({ type, mode: "manual", editId: null });
     setMenuOpen(false);
     setGenerating(false);
   }
@@ -132,13 +190,6 @@ export function useLibraryState() {
     if (!s) return;
     setDraftState({ title: s.title, genre: s.genre, tone: s.tone, goal: s.goal, cast: [...s.castIds], settingId: s.settingId, branches: [...s.branches] });
     setModal({ type: "scenario", mode: "manual", editId: id });
-  }
-  function editBranch(scnId: string, index: number) {
-    const s = scenarios.find((x) => x.id === scnId);
-    const b = s?.branches[index];
-    if (!b) return;
-    setDraftState({ label: b.label, check: b.check, outcome: b.outcome, tag: b.tag });
-    setModal({ type: "branch", mode: "manual", editId: String(index), scnId });
   }
   function toggleDraftCast(id: string) {
     setDraftState((prev) => {
@@ -189,7 +240,7 @@ export function useLibraryState() {
   // ---- submit / delete ----
   function submit() {
     if (!modal || modal.type === "begin") return;
-    const { type, editId, scnId } = modal;
+    const { type, editId } = modal;
     const d = draft;
     if (!isDraftValid(type, d)) return;
 
@@ -237,17 +288,6 @@ export function useLibraryState() {
         setTab("scenarios");
         setFeaturedId(id);
       }
-    } else if (type === "branch") {
-      const nb = { label: (d.label ?? "").trim(), check: d.check?.trim() || "—", outcome: d.outcome?.trim() || "—", tag: d.tag ?? ("check_request" as const) };
-      const targetId = scnId ?? featuredId;
-      const idx = editId == null ? null : Number(editId);
-      setScenarios((xs) =>
-        xs.map((sc) =>
-          sc.id !== targetId
-            ? sc
-            : { ...sc, branches: idx == null ? [...sc.branches, nb] : sc.branches.map((b, i) => (i === idx ? nb : b)) },
-        ),
-      );
     }
     closeModal();
   }
@@ -270,17 +310,11 @@ export function useLibraryState() {
     }
     closeModal();
   }
-  function deleteBranch(scnId: string, index: number) {
-    setScenarios((xs) =>
-      xs.map((sc) =>
-        sc.id !== scnId ? sc : { ...sc, branches: sc.branches.filter((_, i) => i !== index) },
-      ),
-    );
-  }
 
   const profileChar = characters.find((c) => c.id === profileId) ?? null;
 
   return {
+    storylines, activeStorylineId, activeStoryline, switchStoryline, createStoryline,
     characters, settings, scenarios, resolvedScenarios,
     filteredCharacters, filteredSettings, filteredScenarios,
     tab, setTab,
@@ -292,15 +326,14 @@ export function useLibraryState() {
       characters: characters.length,
       settings: settings.length,
       scenarios: scenarios.length,
-      branches: featured?.branches.length ?? 0,
     },
     // editor
     menuOpen, setMenuOpen,
     modal, draft, generating,
     isEditing: Boolean(modal && modal.type !== "begin" && modal.editId != null),
     isValid: modal && modal.type !== "begin" ? isDraftValid(modal.type, draft) : false,
-    openCreate, editCharacter, editSetting, editScenario, editBranch,
-    setDraft, setMode, toggleDraftCast, generate, submit, deleteEntity, deleteBranch, closeModal,
+    openCreate, editCharacter, editSetting, editScenario,
+    setDraft, setMode, toggleDraftCast, generate, submit, deleteEntity, closeModal,
     // profile + begin
     profileId, profileChar, openProfile, closeProfile, openBegin,
   };

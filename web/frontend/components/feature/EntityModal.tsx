@@ -8,7 +8,6 @@ import { TextArea } from "@/components/ui/TextArea";
 import { CharacterForm } from "@/components/feature/CharacterForm";
 import { SettingForm } from "@/components/feature/SettingForm";
 import { ScenarioForm } from "@/components/feature/ScenarioForm";
-import { BranchForm } from "@/components/feature/BranchForm";
 import { cn } from "@/lib/cn";
 import {
   EDITOR_META,
@@ -22,7 +21,6 @@ const WIDTH: Record<EntityType, string> = {
   character: "sm:w-[560px]",
   setting: "sm:w-[520px]",
   scenario: "sm:w-[600px]",
-  branch: "sm:w-[560px]",
 };
 
 const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
@@ -144,12 +142,8 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
                 settings={lib.settings}
               />
             ) : null}
-            {type === "branch" ? (
-              <BranchForm draft={d} setDraft={lib.setDraft} scenarioTitle={lib.featured?.title ?? ""} />
-            ) : null}
-
             <div className="mt-[22px] flex items-center justify-between gap-[10px]">
-              {isEdit && type !== "branch" ? (
+              {isEdit ? (
                 <button
                   type="button"
                   onClick={lib.deleteEntity}

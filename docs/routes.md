@@ -8,7 +8,7 @@ Planned routes for the Next.js frontend. Routes are not yet implemented; this is
 
 | Path | Purpose | Auth | Data dependencies | Primary ownership | Backend endpoints | States to design |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/` | **The Library** (storyline home): recent-scenario carousel + Characters/Settings/Scenarios/Storylines tabs. Implemented with in-memory seed data. (A separate marketing landing is deferred — `/` currently serves the Library.) | Public* | Seed (in-memory; Postgres later) | `app/page.tsx` → `features/library/LibraryView` | — | empty, mobile (auth/loading later) |
+| `/` | **The Library** (storyline home): a header **storyline switcher** (active world + "New Storyline"), recent-scenario carousel, and three **open columns** — Scenarios · Characters · Settings — side-by-side on desktop (collapsing to a 3-tab section switcher on mobile). Selecting a scenario features it, lights up its cast, and brings its setting forward. In-memory seed data. (A separate marketing landing is deferred — `/` currently serves the Library.) | Public* | Seed (in-memory; Postgres later) | `app/page.tsx` → `features/library/LibraryView` → `features/library/LibraryColumns` | — | empty (no-scenario storyline), mobile (auth/loading later) |
 | `/sign-in`, `/sign-up` | Auth | Public | — | `app/(auth)/...` | `POST /auth/*` | loading, error, success |
 | `/library` | The Library: user's storylines (and recent scenarios) | User | Postgres (storylines, scenarios) | `app/(app)/library` | `GET /storylines`, `GET /scenarios` | loading, empty, error, permission, mobile |
 | `/storylines/[id]` | Storyline home — tabs for Characters · Settings · Scenarios · Storyline branches; owns the stat schema | User | Postgres | `features/storylines` | `GET /storylines/{id}` (+ characters/settings/scenarios/stats) | loading, empty, error, partial-data, permission, mobile |
@@ -21,7 +21,7 @@ Planned routes for the Next.js frontend. Routes are not yet implemented; this is
 
 ## Notes
 
-- **Current implementation:** `/` serves the Library directly with in-memory seed data and no auth yet (the reserved marketing landing + auth gating are deferred). The Library tabs mirror the reference design in `docs/CharacterFrontpage/`.
+- **Current implementation:** `/` serves the Library directly with in-memory seed data and no auth yet (the reserved marketing landing + auth gating are deferred). The Storyline is the organizing object: a header dropdown switches the active storyline (each owns its own cast/settings/scenarios), and the body shows three open columns. The old standalone "Storylines"/branch-authoring tab has been removed.
 - The **story player** (`/play/[scenarioId]`) is the core surface: it consumes the NDJSON event stream and renders narrator cards + character bubbles + action cards + side panels (cast / turn order / scenario goal / tone / **stats** / relationships / branch choices). Its streaming and reconnect states are mandatory, not optional.
 - The **storyline home** (`/storylines/[id]`) is the authoring hub — a tabbed "library" (Characters · Settings · Scenarios · Storyline) where the cast and settings compose into playable scenarios, mirroring the reference design in `docs/CharacterFrontpage/`.
 - Protected routes redirect logged-out users to `/sign-in`.

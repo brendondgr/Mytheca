@@ -90,6 +90,34 @@ A three-zone "open book": a **left cast rail** (At the table · turn order), a *
 - **Tension/tone meter:** a thin bar with a gold→ember gradient fill and a mono label ("Rising — the room is taut").
 - **Relationships:** short lines keyed by character color (relationships and mood are just stats with a relational target).
 
+## Library Layout (the front page)
+
+The Library makes the **Storyline** the organizing object. The header wordmark is followed
+by a prominent **storyline switcher** — an outlined button rendering the active storyline in
+large Cinzel small-caps (echoing the `VELORA` wordmark) with a ◆ seal and a rotating chevron,
+so it reads unmistakably as a dropdown. It lists every storyline (✓ active, with per-storyline
+counts) plus "New Storyline"; switching swaps the whole working set. Below the recent-scenario
+hero, the body is **three open columns** — **Scenarios** (one per row) · **Characters** (two
+per row) · **Settings** (one per row) — shown side-by-side on desktop with hairline dividers.
+On `< lg` they collapse to a single column chosen by a 3-tab section switcher (the same ARIA
+tablist, `lg:hidden`); each column is rendered exactly once (CSS-only visibility), never
+duplicated.
+
+The page is **self-contained** (`h-dvh`, no page scroll): on desktop the column row is pinned
+to the viewport and **each column scrolls independently**; on mobile the single active column
+scrolls. Each column header is **sticky** so its identity stays visible while its cards scroll.
+The columns sit on a **solid `--page-bg`** that spans the full container width — the page's
+radial glow (`--page-img`) is never allowed to show through behind the scrolling cards.
+
+Selecting a scenario in the Scenarios column drives the rest: the hero reflects it, its
+**cast lights up** in the Characters column (accent border on `--card-bg2`), and its
+**active setting is brought forward** in the Settings column (2px accent border + raised
+surface) **and scrolled into view** within that column. Per the not-color-alone rule, both
+highlights also carry a mono **"◆ In this scene"** label, and the active setting sets
+`aria-current`. A storyline with no scenarios
+shows empty-state columns and an empty hero ("No scenarios yet"). This is deliberately a
+manuscript "index" surface — not a generic SaaS card grid.
+
 ## Motion (Framer Motion)
 
 Purposeful only, and always with a near-instant `prefers-reduced-motion` fallback.

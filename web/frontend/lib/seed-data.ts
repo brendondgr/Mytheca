@@ -4,6 +4,7 @@ import type {
   ResolvedScenario,
   Scenario,
   Setting,
+  Storyline,
 } from "@/lib/types";
 
 // In-memory seed for the "Embergate" storyline — no database. Mirrors the
@@ -240,6 +241,21 @@ export const SEED_SCENARIOS: Scenario[] = [
         tag: "character_action",
       },
     ],
+  },
+];
+
+// The storyline is the top-level container (docs/documentation.md): it owns its
+// own cast, places, and scenarios. We ship one seeded storyline ("Embergate");
+// the header switcher can create more, and switching swaps the working set.
+export const SEED_STORYLINES: Storyline[] = [
+  {
+    id: "embergate",
+    title: "Embergate",
+    genre: "Maritime Intrigue",
+    tagline: "A rotting harbor town where every secret has a price.",
+    characters: SEED_CHARACTERS,
+    settings: SEED_SETTINGS,
+    scenarios: SEED_SCENARIOS,
   },
 ];
 
