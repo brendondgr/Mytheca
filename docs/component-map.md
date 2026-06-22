@@ -27,13 +27,15 @@ Defines where frontend components live and who owns them. Ownership rules come f
 | Domain types | lib | `lib/types.ts` — `Character` / `Setting` / `Branch` / `Scenario` / `ResolvedScenario` / `EventTag`. |
 | Seed data | lib | `lib/seed-data.ts` — Embergate cast/settings/scenarios + agentic-draft pools + `resolveScenario`. |
 | Helpers | lib | `lib/monogram.ts` (`monoOf`), `lib/cn.ts` (classnames joiner). |
-| `AppHeader` | layout | `components/layout/AppHeader.tsx` — wordmark, storyline affordance, search, theme switcher, create slot. |
-| Library cards | feature | `components/feature/` — `CharacterCard` (disclosure), `SettingCard`, `ScenarioCard` (stretched select button), `BranchRow`. |
-| `LibraryTabs` | feature | `components/feature/LibraryTabs.tsx` — ARIA tablist w/ roving tabindex + arrow keys. |
-| `ScenarioCarousel` | feature | `components/feature/ScenarioCarousel.tsx` — recent-scenario hero w/ slide track, prev/next, dots. |
-| `LibraryView` + `useLibraryState` | feature module | `features/library/` — composes the Library; holds tab/featured/search/expand + editor/modal/draft/profile state over the (now mutable) seed. Route: `app/page.tsx`. |
-| `CreateMenu` | feature | `components/feature/CreateMenu.tsx` — "+ Create" popover (outside-click + Esc). |
-| `EntityModal` + forms | feature | `components/feature/EntityModal.tsx` with `CharacterForm` / `SettingForm` / `ScenarioForm` / `BranchForm`; By-hand / Agentically (faked draft) modes; create/edit/delete. |
+| `AppHeader` | layout | `components/layout/AppHeader.tsx` — wordmark, `storylineSlot` (the switcher), search, theme switcher, create slot. |
+| `StorylineMenu` | feature | `components/feature/StorylineMenu.tsx` — header dropdown switching the active storyline (✓ active + counts) + "New Storyline"; themed popover (outside-click + Esc, `aria-haspopup`/`expanded`/`current`). |
+| Library cards | feature | `components/feature/` — `CharacterCard` (disclosure, `highlighted` cast state), `SettingCard` (`active` state + `aria-current`), `ScenarioCard` (stretched select button). |
+| Library columns | feature | `components/feature/` — `ScenarioColumn` (1/row), `CharacterColumn` (2/row, lights up cast), `SettingColumn` (1/row, active setting forward), `ColumnChrome` (shared header + empty note). |
+| `LibraryTabs` | feature | `components/feature/LibraryTabs.tsx` — ARIA tablist w/ roving tabindex + arrow keys; now the **mobile-only** section switcher (`lg:hidden`). |
+| `ScenarioCarousel` | feature | `components/feature/ScenarioCarousel.tsx` — recent-scenario hero w/ slide track, prev/next, dots; theme-aware tokens + empty-storyline state. |
+| `LibraryView` + `LibraryColumns` + `useLibraryState` | feature module | `features/library/` — `LibraryView` composes header + carousel + columns; `LibraryColumns` is the responsive 3-column container; `useLibraryState` holds storyline-scoped state (active storyline → cast/settings/scenarios) + tab/featured/search/expand + editor/modal/draft/profile. Route: `app/page.tsx`. |
+| `CreateMenu` | feature | `components/feature/CreateMenu.tsx` — "+ Create" popover (outside-click + Esc): Character / Setting / Scenario. |
+| `EntityModal` + forms | feature | `components/feature/EntityModal.tsx` with `CharacterForm` / `SettingForm` / `ScenarioForm`; By-hand / Agentically (faked draft) modes; create/edit/delete. |
 | `CharacterProfileModal` | feature | `components/feature/CharacterProfileModal.tsx` — read-only profile + Edit. |
 | `BeginSceneModal` | feature | `components/feature/BeginSceneModal.tsx` — narrator opening + cast/setting/goal; "Enter Scene" → `/play/[scenarioId]`. |
 | `editor` helpers | feature module | `features/library/editor.ts` — Draft/ModalState types, defaults, validation, prompt copy. |

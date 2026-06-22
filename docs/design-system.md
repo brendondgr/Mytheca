@@ -90,6 +90,25 @@ A three-zone "open book": a **left cast rail** (At the table · turn order), a *
 - **Tension/tone meter:** a thin bar with a gold→ember gradient fill and a mono label ("Rising — the room is taut").
 - **Relationships:** short lines keyed by character color (relationships and mood are just stats with a relational target).
 
+## Library Layout (the front page)
+
+The Library makes the **Storyline** the organizing object. The header wordmark is
+followed by a **storyline switcher** (`◆ {name} ▾`) — a themed dropdown listing every
+storyline (✓ active, with per-storyline counts) plus "New Storyline"; switching swaps the
+whole working set. Below the recent-scenario hero, the body is **three open columns** —
+**Scenarios** (one per row) · **Characters** (two per row) · **Settings** (one per row) —
+shown side-by-side on desktop with hairline dividers. On `< lg` they collapse to a single
+column chosen by a 3-tab section switcher (the same ARIA tablist, `lg:hidden`); each column
+is rendered exactly once (CSS-only visibility), never duplicated.
+
+Selecting a scenario in the Scenarios column drives the rest: the hero reflects it, its
+**cast lights up** in the Characters column (accent border on `--card-bg2`), and its
+**active setting is brought forward** in the Settings column (2px accent border + raised
+surface). Per the not-color-alone rule, both highlights also carry a mono **"◆ In this
+scene"** label, and the active setting sets `aria-current`. A storyline with no scenarios
+shows empty-state columns and an empty hero ("No scenarios yet"). This is deliberately a
+manuscript "index" surface — not a generic SaaS card grid.
+
 ## Motion (Framer Motion)
 
 Purposeful only, and always with a near-instant `prefers-reduced-motion` fallback.
