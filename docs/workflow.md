@@ -4,7 +4,7 @@
 
 - **Python:** 3.13 (`.python-version`). Manager: **`uv` only** (never pip/poetry/conda).
 - **Node:** for `web/frontend/` (Next.js). Package manager: npm (unless changed in `web/frontend/package.json`).
-- **Backend entrypoint:** root `app.py` runs the FastAPI app from `web/backend`.
+- **Root launcher:** `python app.py` starts the frontend dev server (default); `python app.py backend` serves the FastAPI app from `web/backend`.
 - **Secrets:** copy `.env.example` → `.env` (gitignored). Document every new variable in `.env.example` and `docs/deployment.md`.
 
 ## Commands
@@ -17,7 +17,7 @@
 | --- | --- |
 | Install deps | `uv sync` |
 | Add a dependency | `uv add <pkg>` |
-| Run the API (dev) | `uv run uvicorn app:app --reload` (or `uv run python app.py`) |
+| Run the API (dev) | `uv run python app.py backend` |
 | Tests | `uv run pytest` |
 | Lint (recommended) | `uv run ruff check .` |
 | Format (recommended) | `uv run ruff format .` |
@@ -27,7 +27,7 @@
 
 Installed stack: **Next.js 16** (App Router, Turbopack) · React 19 · TypeScript · **Tailwind CSS v4** (CSS-first `@theme`; Velora tokens surfaced as CSS variables) · **Framer Motion** · **Vitest + React Testing Library** (tests co-located beside components, e.g. `app/page.test.tsx`). The three brand fonts (Cinzel / EB Garamond / IBM Plex Mono) load via `next/font` in `app/layout.tsx`.
 
-Run from `web/frontend/`:
+Run from `web/frontend/` (or from the repo root with `python app.py`):
 
 | Action | Command |
 | --- | --- |

@@ -40,7 +40,7 @@ Do not add libraries speculatively. Every dependency must have a defined job and
 
 - **Python:** use `uv` as the only package/environment manager. Python 3.13 (`.python-version`). Install: `uv sync`. Run a script/test: `uv run ...`. Add deps: `uv add ...`. Never use pip/poetry/conda directly.
 - **Node/Frontend:** managed under `web/frontend/` with its own `package.json`. Use the package manager declared there (npm unless changed).
-- **Backend entrypoint:** the root `app.py` imports and runs the FastAPI app from `web/backend`.
+- **Root launcher:** `python app.py` runs the frontend dev server (`npm run dev`, default); `python app.py backend` serves the FastAPI app from `web/backend`.
 - **Secrets:** never commit real secrets. Copy `.env.example` to `.env` (gitignored). Document any new variable in `.env.example` and `docs/deployment.md`.
 
 ## File & Code Guidelines

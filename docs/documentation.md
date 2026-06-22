@@ -18,7 +18,7 @@ The story is driven by a multi-agent backend that emits **small, typed story eve
 | Layer | Choice |
 | --- | --- |
 | Frontend | Next.js (App Router), React, TypeScript, Tailwind CSS, Framer Motion |
-| Backend | FastAPI (Python 3.13, `uv`), launched from root `app.py` |
+| Backend | FastAPI (Python 3.13, `uv`), served via `python app.py backend` |
 | Brain | Orchestrator/Director · Narrator · Character agents · State manager · Validator |
 | Core data | PostgreSQL (storylines, characters, settings, scenarios, events, stat values) |
 | Live/cache | Redis (active scenario state, stream pub/sub, caching) |

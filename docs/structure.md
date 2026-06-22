@@ -4,7 +4,7 @@
 
 ```text
 velora/
-├── app.py                  # Root entrypoint — imports & runs web/backend FastAPI app
+├── app.py                  # Root launcher — `python app.py` → frontend (npm run dev); `python app.py backend` → FastAPI
 ├── pyproject.toml          # uv-managed Python project (backend + tooling)
 ├── .python-version         # 3.13
 ├── .env.example            # Documented environment variables
@@ -61,7 +61,7 @@ velora/
 
 | Path | Why it exists |
 | --- | --- |
-| `app.py` | Single root entrypoint that runs the FastAPI backend (`web/backend`). |
+| `app.py` | Single root launcher: `python app.py` starts the frontend dev server (`npm run dev` in `web/frontend`); `python app.py backend` serves the FastAPI app (`web/backend`) via uvicorn. |
 | `docs/` | All durable documentation and canonical skills — the source of truth. |
 | `web/frontend/` | The Next.js UI: story player, narrator cards, character bubbles, stats/branch side panels. |
 | `web/backend/` | The FastAPI brain: routes, multi-agent logic, the stat system, events, validation, persistence. |

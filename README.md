@@ -24,7 +24,7 @@ Agents must read [docs/skills/global-project-rules/SKILL.md](docs/skills/global-
 ## Layout
 
 ```
-app.py            # root entrypoint → runs the FastAPI backend
+app.py            # root launcher → `python app.py` runs the frontend; `python app.py backend` runs the API
 web/frontend/     # Next.js app
 web/backend/      # FastAPI app (routes, agents, services, content, events, models)
 web/shared/       # shared FE↔BE contracts
@@ -34,21 +34,19 @@ utils/            # helpers + utils/tests (pytest + frontend) + utils/scripts
 
 ## Getting Started
 
-> Application code is scaffolded in the next phase (see [docs/checklist.md](docs/checklist.md)). Intended commands:
-
-Backend (from repo root):
+The frontend (Library + Story player) is built. Run everything from the repo root through `app.py`:
 
 ```bash
-uv sync
-uv run uvicorn app:app --reload
-uv run pytest
+python app.py             # frontend dev server (npm run dev) → http://localhost:3000  [default]
+python app.py backend     # FastAPI API via uvicorn → http://127.0.0.1:8000  (after `uv sync`)
 ```
 
-Frontend (from `web/frontend/`):
+`python app.py` installs the frontend deps on first run. Equivalent direct commands:
 
 ```bash
-npm install
-npm run dev
+cd web/frontend && npm install && npm run dev   # frontend
+uv sync && uv run python app.py backend          # backend
+uv run pytest                                    # backend tests
 ```
 
 Copy `.env.example` to `.env` and fill in values before running.
