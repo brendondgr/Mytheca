@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:3000"
 
     # Core data stores.
-    database_url: str = "postgresql+psycopg://velora:velora@localhost:5432/velora"
+    database_url: str = "postgresql+psycopg://velora:velora@localhost:5544/velora"
     redis_url: str = "redis://localhost:6379/0"
 
     # AI provider selection (the provider-agnostic interface lands in a later phase).

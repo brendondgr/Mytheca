@@ -12,9 +12,22 @@ Deployment is not yet configured; this records the intended approach and require
 
 | Component | Command (run from) |
 | --- | --- |
-| Backend | `uv run uvicorn app:app --reload` (repo root) |
-| Frontend | `npm run dev` (`web/frontend/`) |
-| Postgres + Redis | local install or containers (compose file TBD) |
+| Backend | `python app.py backend` (repo root) — runs preflight, then Uvicorn |
+| Frontend | `python app.py` or `npm run dev` (`web/frontend/`) |
+| Postgres + Redis | `docker compose -f web/backend/docker-compose.yml up -d` (or let preflight start them) |
+
+### Backend startup preflight
+
+`python app.py backend` runs `app/core/bootstrap.run_preflight()` before serving. It:
+
+1. brings up Postgres + Redis via `web/backend/docker-compose.yml` (only if Docker is installed — otherwise it assumes externally managed services),
+2. waits for the database and pings Redis,
+3. ensures the schema (`Base.metadata.create_all`), and
+4. seeds the Embergate world if the database is empty.
+
+It prints a pass/fail report; a failed **required** check (the database) aborts startup with remediation. Redis is advisory. The schema/seed run here, **not** in the FastAPI lifespan (which only does a connection check), so Uvicorn `--reload` stays fast.
+
+Postgres is published on host port **5544** (a dedicated port so Velora coexists with any Postgres already on 5432); Redis on 6379. Tests run on in-memory SQLite and need neither Docker nor Postgres.
 
 ## Build
 

@@ -17,8 +17,9 @@
 | --- | --- |
 | Install deps | `uv sync` |
 | Add a dependency | `uv add <pkg>` |
-| Run the API (dev) | `uv run python app.py backend` |
-| Tests | `uv run pytest` |
+| Start Postgres + Redis | `docker compose -f web/backend/docker-compose.yml up -d` (preflight also auto-starts them) |
+| Run the API (dev) | `uv run python app.py backend` — runs preflight (start/check DB+Redis, create schema, seed), then Uvicorn |
+| Tests | `uv run pytest` (in-memory SQLite — no Postgres/Docker needed) |
 | Lint (recommended) | `uv run ruff check .` |
 | Format (recommended) | `uv run ruff format .` |
 | Type check (recommended) | `uv run mypy web/backend` |

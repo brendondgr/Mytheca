@@ -1,0 +1,38 @@
+# Local data stores for the Velora backend. `python app.py backend` brings these
+# up automatically (if Docker is available) as part of preflight. Credentials
+# match the default DATABASE_URL / REDIS_URL in .env.example.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: velora
+      POSTGRES_PASSWORD: velora
+      POSTGRES_DB: velora
+    # Published on a dedicated host port (5544) so Velora coexists with any other
+    # Postgres already using 5432 on the machine. Container port stays 5432.
+    ports:
+      - "5544:5432"
+    volumes:
+      - velora_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U velora"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - velora_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  velora_pgdata:
+  velora_redisdata:

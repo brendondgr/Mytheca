@@ -7,18 +7,38 @@ brain and event stream are added in later phases (see docs/checklist.md).
 
 from __future__ import annotations
 
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.core.config import get_settings
+from app.core.db import engine
 from app.core.errors import register_error_handlers
 from app.routes import characters, scenarios, settings, stats, storylines
+
+logger = logging.getLogger("velora")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Verify the DB connection on startup (schema/seed happen in preflight)."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("Database connection OK.")
+    except Exception as exc:  # pragma: no cover - exercised by the live app
+        logger.warning("Database connection check failed: %s", exc)
+    yield
 
 
 def create_app() -> FastAPI:
     """Build and return the Velora FastAPI application."""
     config = get_settings()
-    app = FastAPI(title="Velora", version="0.0.0")
+    app = FastAPI(title="Velora", version="0.0.0", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,

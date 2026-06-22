@@ -58,7 +58,21 @@ def run_backend() -> int:
     # web/backend holds the `app` package (app.main:create_app).
     if str(BACKEND) not in sys.path:
         sys.path.insert(0, str(BACKEND))
-    print("Starting Velora backend — uvicorn (http://127.0.0.1:8000)\n")
+
+    # Preflight: bring up Postgres/Redis (via docker compose if available), check
+    # connectivity, ensure the schema, and seed Embergate — before serving.
+    from app.core.bootstrap import format_report, run_preflight
+
+    report = run_preflight()
+    print(format_report(report))
+    if not report.ok:
+        print("\nPreflight failed — backend not started.", file=sys.stderr)
+        for check in report.checks:
+            if not check.ok and check.required:
+                print(check.detail, file=sys.stderr)
+        return 1
+
+    print("\nStarting Velora backend — uvicorn (http://127.0.0.1:8000)\n")
     uvicorn.run(
         "app.main:create_app",
         factory=True,
