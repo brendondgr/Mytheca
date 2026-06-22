@@ -25,12 +25,15 @@ export function makeApiMock() {
     listStorylines: vi.fn(async () =>
       SEED_STORYLINES.map((s) => ({ id: s.id, title: s.title, genre: s.genre, tagline: s.tagline })),
     ),
-    createStoryline: vi.fn(async (body: { title?: string; genre?: string; tagline?: string }) => ({
-      id: nid("sl"),
-      title: body.title ?? "Untitled Storyline",
-      genre: body.genre ?? "Uncharted",
-      tagline: body.tagline,
-    })),
+    createStoryline: vi.fn(
+      async (body: { title?: string; genre?: string; tagline?: string; premise?: string }) => ({
+        id: nid("sl"),
+        title: body.title ?? "Untitled Storyline",
+        genre: body.genre ?? "Uncharted",
+        tagline: body.tagline,
+        premise: body.premise,
+      }),
+    ),
     updateStoryline: vi.fn(async (id: string, body: { title?: string; genre?: string; tagline?: string }) => ({
       id,
       ...body,

@@ -28,7 +28,8 @@ Defines where frontend components live and who owns them. Ownership rules come f
 | Seed data | lib | `lib/seed-data.ts` — Embergate cast/settings/scenarios + agentic-draft pools + `resolveScenario`. |
 | Helpers | lib | `lib/monogram.ts` (`monoOf`), `lib/cn.ts` (classnames joiner). |
 | `AppHeader` | layout | `components/layout/AppHeader.tsx` — wordmark, `storylineSlot` (the switcher), search, theme switcher, create slot. |
-| `StorylineMenu` | feature | `components/feature/StorylineMenu.tsx` — header dropdown switching the active storyline (✓ active + counts) + "New Storyline"; themed popover (outside-click + Esc, `aria-haspopup`/`expanded`/`current`). |
+| `StorylineMenu` | feature | `components/feature/StorylineMenu.tsx` — header dropdown switching the active storyline (✓ active + counts) + "New Storyline" (opens `StorylineModal`); themed popover (outside-click + Esc, `aria-haspopup`/`expanded`/`current`). |
+| `StorylineModal` | feature | `components/feature/StorylineModal.tsx` — write-first storyline creation modal: title / genre / tagline + multi-paragraph **premise**, persisted via `POST /storylines` before the world is added. Drag-and-drop context-files zone + agentic "Draft with Velora" panel are visible non-functional seams (Phase 3). |
 | Library cards | feature | `components/feature/` — `CharacterCard` (disclosure, `highlighted` cast state), `SettingCard` (`active` state + `aria-current`), `ScenarioCard` (stretched select button). |
 | Library columns | feature | `components/feature/` — `ScenarioColumn` (1/row), `CharacterColumn` (2/row, lights up cast), `SettingColumn` (1/row, active setting forward), `ColumnChrome` (shared header + empty note). |
 | `LibraryTabs` | feature | `components/feature/LibraryTabs.tsx` — ARIA tablist w/ roving tabindex + arrow keys; now the **mobile-only** section switcher (`lg:hidden`). |

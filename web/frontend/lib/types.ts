@@ -75,6 +75,8 @@ export interface Storyline {
   genre: string;
   /** One-line descriptor for the switcher menu. */
   tagline?: string;
+  /** Multi-paragraph world description authored in the create modal. */
+  premise?: string;
   characters: Character[];
   settings: Setting[];
   scenarios: Scenario[];

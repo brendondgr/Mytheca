@@ -12,7 +12,9 @@ import * as api from "@/lib/api";
 import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
 import {
   DEFAULT_DRAFTS,
+  STORYLINE_DRAFT,
   isDraftValid,
+  isStorylineDraftValid,
   pickUnused,
   type Draft,
   type EditorMode,
@@ -217,21 +219,34 @@ export function useLibraryState() {
       resetForStoryline("");
     }
   }
-  async function createStoryline() {
+  /** Open the write-first storyline create modal (StorylineModal) on a blank draft. */
+  function openCreateStoryline() {
+    setDraftState({ ...STORYLINE_DRAFT });
+    setError(null);
+    setModal({ type: "storyline", mode: "manual", editId: null });
+    setMenuOpen(false);
+    setGenerating(false);
+  }
+  /** Create the storyline from the modal draft, then activate it. */
+  async function submitStoryline() {
+    if (!modal || modal.type !== "storyline") return;
+    if (!isStorylineDraftValid(draft)) return;
     setPending(true);
     setError(null);
     try {
       const created = await api.createStoryline({
-        title: "Untitled Storyline",
-        genre: "Uncharted",
-        tagline: "A blank world, waiting for its first scene.",
+        title: (draft.title ?? "").trim(),
+        genre: draft.genre?.trim() || "Uncharted",
+        tagline: draft.tagline?.trim() || undefined,
+        premise: draft.premise?.trim() || undefined,
       });
       hydrated.current.add(created.id); // brand-new: no children to fetch
       setStorylines((sls) => [...sls, emptyStoryline(created)]);
       setActiveStorylineId(created.id);
       resetForStoryline("");
+      closeModal();
     } catch (e) {
-      setError(messageOf(e));
+      setError(messageOf(e)); // keep the modal open so the user can retry
     } finally {
       setPending(false);
     }
@@ -301,7 +316,7 @@ export function useLibraryState() {
 
   // ---- agentic fake-draft (client-only; no model call) ----
   function generate() {
-    if (!modal || modal.type === "begin") return;
+    if (!modal || modal.type === "begin" || modal.type === "storyline") return;
     const type = modal.type;
     setGenerating(true);
     if (generateTimer.current) clearTimeout(generateTimer.current);
@@ -327,7 +342,7 @@ export function useLibraryState() {
 
   // ---- submit / delete (await the API, then splice the returned entity) ----
   async function submit() {
-    if (!modal || modal.type === "begin") return;
+    if (!modal || modal.type === "begin" || modal.type === "storyline") return;
     const { type, editId } = modal;
     const d = draft;
     if (!isDraftValid(type, d)) return;
@@ -395,7 +410,7 @@ export function useLibraryState() {
   }
 
   async function deleteEntity() {
-    if (!modal || modal.type === "begin") return;
+    if (!modal || modal.type === "begin" || modal.type === "storyline") return;
     const { type, editId } = modal;
     if (!editId) return;
     setPending(true);
@@ -428,7 +443,8 @@ export function useLibraryState() {
   const profileChar = characters.find((c) => c.id === profileId) ?? null;
 
   return {
-    storylines, activeStorylineId, activeStoryline, switchStoryline, createStoryline,
+    storylines, activeStorylineId, activeStoryline, switchStoryline,
+    openCreateStoryline, submitStoryline,
     characters, settings, scenarios, resolvedScenarios,
     filteredCharacters, filteredSettings, filteredScenarios,
     tab, setTab,
@@ -446,8 +462,15 @@ export function useLibraryState() {
     // editor
     menuOpen, setMenuOpen,
     modal, draft, generating,
-    isEditing: Boolean(modal && modal.type !== "begin" && modal.editId != null),
-    isValid: modal && modal.type !== "begin" ? isDraftValid(modal.type, draft) : false,
+    isEditing: Boolean(
+      modal && modal.type !== "begin" && modal.type !== "storyline" && modal.editId != null,
+    ),
+    isValid:
+      modal && modal.type !== "begin" && modal.type !== "storyline"
+        ? isDraftValid(modal.type, draft)
+        : false,
+    // storyline-specific validity for StorylineModal's submit button
+    isStorylineValid: isStorylineDraftValid(draft),
     openCreate, editCharacter, editSetting, editScenario,
     setDraft, setMode, toggleDraftCast, generate, submit, deleteEntity, closeModal,
     // profile + begin

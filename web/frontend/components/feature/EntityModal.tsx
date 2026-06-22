@@ -35,7 +35,7 @@ const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor
  */
 export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }) {
   const m = lib.modal;
-  if (!m || m.type === "begin") return null;
+  if (!m || m.type === "begin" || m.type === "storyline") return null;
   const type: EntityType = m.type;
   const meta = EDITOR_META[type];
   const isEdit = lib.isEditing;
