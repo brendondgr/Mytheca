@@ -43,7 +43,7 @@ velora/
 │   │       ├── content/    # Authored YAML config + Markdown stat guidance (per-stat files)
 │   │       ├── memory/     # Memory seam (Postgres/Redis now; vector DB later)
 │   │       ├── events/     # Event / NDJSON stream definitions (5 event types)
-│   │       ├── models/     # PostgreSQL models (users, storylines, characters, settings, scenarios, events, stats)
+│   │       ├── models/     # PostgreSQL models (storylines, characters, settings, scenarios, events, stats, app_settings)
 │   │       ├── schemas/    # Pydantic request/response + event schemas (stat clamping)
 │   │       └── core/       # Config, db/redis clients, LLM provider interface, YAML/Markdown loaders
 │   └── shared/

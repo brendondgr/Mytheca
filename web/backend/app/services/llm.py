@@ -1,0 +1,104 @@
+"""LLM proxy — talk to an OpenAI-compatible endpoint on the backend's behalf.
+
+Listing models and the connection test run **server-side** (not in the browser)
+to dodge CORS against local model servers and to keep the API key off the wire to
+the client. Errors are mapped to the contract ``APIError`` envelope.
+
+The HTTP client is built by ``get_http_client`` so tests can inject an
+``httpx.MockTransport``.
+"""
+
+from __future__ import annotations
+
+import time
+
+import httpx
+
+from app.core.errors import APIError
+from app.schemas.settings import LlmModelsResponse, LlmParams, LlmTestResponse
+
+_TIMEOUT = httpx.Timeout(20.0, connect=5.0)
+
+
+def get_http_client() -> httpx.Client:
+    """Return an HTTP client. Patched in tests to use a MockTransport."""
+    return httpx.Client(timeout=_TIMEOUT)
+
+
+def _normalize(base_url: str) -> str:
+    base = (base_url or "").strip().rstrip("/")
+    if not base:
+        raise APIError(400, "bad_request", "A base URL is required (e.g. http://localhost:7070/v1).")
+    return base
+
+
+def _headers(api_key: str) -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return headers
+
+
+def _send(method: str, url: str, *, headers: dict[str, str], json: dict | None = None) -> httpx.Response:
+    client = get_http_client()
+    try:
+        with client:
+            return client.request(method, url, headers=headers, json=json)
+    except httpx.HTTPError as exc:  # network/timeout/DNS — never expose internals
+        raise APIError(
+            502, "bad_gateway", f"Could not reach the model endpoint: {exc.__class__.__name__}."
+        ) from exc
+
+
+def _ensure_ok(res: httpx.Response) -> None:
+    if res.is_success:
+        return
+    detail = res.text[:300]
+    raise APIError(
+        502,
+        "upstream_error",
+        f"The model endpoint returned {res.status_code}.",
+        {"status": res.status_code, "body": detail},
+    )
+
+
+def list_models(base_url: str, api_key: str) -> LlmModelsResponse:
+    url = f"{_normalize(base_url)}/models"
+    res = _send("GET", url, headers=_headers(api_key))
+    _ensure_ok(res)
+    try:
+        payload = res.json()
+    except ValueError as exc:
+        raise APIError(502, "upstream_error", "The model endpoint returned invalid JSON.") from exc
+    data = payload.get("data") if isinstance(payload, dict) else None
+    items = data if isinstance(data, list) else (payload if isinstance(payload, list) else [])
+    models = [
+        str(m.get("id")) if isinstance(m, dict) else str(m)
+        for m in items
+        if (isinstance(m, dict) and m.get("id")) or isinstance(m, str)
+    ]
+    return LlmModelsResponse(models=models)
+
+
+def test_chat(base_url: str, api_key: str, model: str, params: LlmParams | None) -> LlmTestResponse:
+    if not model:
+        raise APIError(400, "bad_request", "A model is required to run a test.")
+    p = params or LlmParams()
+    url = f"{_normalize(base_url)}/chat/completions"
+    body = {
+        "model": model,
+        "messages": [{"role": "user", "content": "Reply with the single word: ok"}],
+        "temperature": p.temperature,
+        "max_tokens": min(p.max_tokens, 16),
+    }
+    started = time.perf_counter()
+    res = _send("POST", url, headers=_headers(api_key), json=body)
+    _ensure_ok(res)
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+    try:
+        payload = res.json()
+        choices = payload.get("choices") or []
+        sample = (choices[0].get("message", {}).get("content") or "").strip() if choices else ""
+    except (ValueError, AttributeError, IndexError):
+        sample = ""
+    return LlmTestResponse(ok=True, model=model, latency_ms=elapsed_ms, sample=sample[:200])

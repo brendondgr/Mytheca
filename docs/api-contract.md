@@ -2,7 +2,7 @@
 
 The contract between the Next.js frontend and the FastAPI backend. Request/response schemas are owned by the backend (Pydantic, `web/backend/app/schemas/`); shared types and the event schema live in `web/shared/contracts/`. This document and those files must stay in sync.
 
-**Status:** the Storyline / Character / Setting / Scenario CRUD groups and the stat endpoints are **implemented** (`web/backend/app/routes/`, served under `/api`). Auth, Play, Stream, and Admin remain **planned**. Wire payloads are camelCase (`castIds`, `settingId`, `displayName`) to match `web/frontend/lib/types.ts`.
+**Status:** the Storyline / Character / Setting / Scenario CRUD groups, the stat endpoints, and the **Options** (global settings + LLM endpoint proxy) group are **implemented** (`web/backend/app/routes/`, served under `/api`). Auth, Play, Stream, and Admin remain **planned**. Wire payloads are camelCase (`castIds`, `settingId`, `displayName`) to match `web/frontend/lib/types.ts`.
 
 ## Conventions
 
@@ -26,6 +26,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. |
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. |
+| Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test` | **Implemented.** Global settings (LLM endpoint + library defaults). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
 | Stream | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | NDJSON event stream (see below). |
 | Admin (future) | `GET /admin/*` | High-permission only. |
@@ -49,6 +50,42 @@ A stat definition (on a storyline, optionally overridden by a scenario):
 ```
 
 `min`/`max`/`default` are **locked at creation**. The validator clamps every stat change to `[min, max]`. `visibility` ∈ `public | private_to_user | private_to_character | hidden`. A character holds values only: `{ "health": 80, "strength": 14 }`.
+
+## Options / Settings Shape
+
+Global settings for the `/options` page. There is no auth yet, so this is a
+single global document (one DB row per namespace in `app_settings`). The LLM API
+key is **write-only**: it is stored server-side and never returned in clear.
+
+`GET /options` →
+
+```json
+{
+  "llm": {
+    "baseUrl": "http://localhost:7070/v1",
+    "model": "llama-3.1-8b",
+    "provider": "openai-compatible",
+    "params": { "temperature": 0.7, "maxTokens": 512, "topP": 1.0, "frequencyPenalty": 0.0, "presencePenalty": 0.0 },
+    "hasApiKey": true,
+    "apiKeyHint": "…AB12"
+  },
+  "library": { "defaultStorylineId": "embergate", "openLastStoryline": true }
+}
+```
+
+- `PATCH /options/llm` — body may include `baseUrl`, `model`, `provider`, `params`,
+  and `apiKey`. **`apiKey` semantics:** omitted = keep the stored key; `""` =
+  clear it; any other value = replace it. The base URL is normalized (trailing
+  slash trimmed). Returns the masked `LlmConfigRead`.
+- `PATCH /options/library` — body may include `defaultStorylineId`,
+  `openLastStoryline`. Returns `LibraryDefaultsRead`.
+- `POST /options/llm/models` — `{ baseUrl?, apiKey? }` (fall back to stored).
+  Proxies `GET {baseUrl}/models` server-side (dodges browser CORS, keeps the key
+  off the client) → `{ "models": ["id", …] }`. Upstream non-2xx →
+  `502 upstream_error`; network/timeout → `502 bad_gateway`; missing URL →
+  `400 bad_request`.
+- `POST /options/llm/test` — `{ baseUrl?, apiKey?, model, params? }`. Proxies a
+  tiny `POST {baseUrl}/chat/completions` → `{ ok, model, latencyMs, sample }`.
 
 ## NDJSON Event Stream
 

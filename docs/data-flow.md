@@ -52,6 +52,22 @@ The change carries a **reason**, giving a free audit trail ("Health −25: struc
 
 The event schema is shared via `web/shared/contracts/` and documented in `docs/api-contract.md`. Keep all three in sync.
 
+## Settings Flow (Options menu)
+
+```
+Options page (/options) → lib/api.ts → GET/PATCH /api/options
+  → settings_store reads/writes the app_settings rows (one per namespace)
+  → LLM tab: POST /api/options/llm/{models,test}
+      → backend httpx proxy → {baseUrl}/models · {baseUrl}/chat/completions
+      → result returned to the UI (CORS-free; API key stays server-side)
+```
+
+The LLM API key is **write-only**: stored in the `app_settings` row, never
+returned to the browser (reads expose `hasApiKey` + a masked hint). Model listing
+and the connection test run on the backend so they work against `localhost:*`
+servers that don't send CORS headers, and so the key never reaches the client.
+When the multi-agent brain lands it reads the same stored config.
+
 ## State Ownership
 
 - Authoritative state: backend (Postgres) — validated server-side, stats clamped.
