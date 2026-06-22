@@ -19,7 +19,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${themeClass(DEFAULT_THEME)} ${cinzel.variable} ${ebGaramond.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full">
+      {/* Browser extensions inject attrs/classes (e.g. `vc-init`) onto <body>
+          before React hydrates; suppress the resulting mismatch warning. */}
+      <body className="min-h-full" suppressHydrationWarning>
         {/* Apply the persisted theme before paint to avoid a flash. */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <AppShell>{children}</AppShell>
