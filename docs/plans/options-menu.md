@@ -1,7 +1,11 @@
 # Plan — Options Menu (`/options`) + Language-Model configuration
 
-**Status:** proposed · **Owner:** Claude Code · **Created:** 2026-06-22
-**Branch:** `feat/options-menu` (off `main`)
+**Status:** Phase 1 complete (backend) · Phases 2–3 pending · **Owner:** Claude Code · **Created:** 2026-06-22
+
+> **Implementation note:** the backend routes ship under the **`/options`** prefix
+> (`web/backend/app/routes/options.py`), *not* `/settings` as drafted below — the
+> Setting entity already owns `/settings`. Read the `/settings` references in
+> Phase 1 as `/options`. The schema module is still `schemas/settings.py`.
 
 ## Goal
 
