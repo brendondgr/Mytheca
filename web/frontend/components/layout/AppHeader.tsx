@@ -20,18 +20,18 @@ function SearchIcon() {
 }
 
 /**
- * Top app bar: ❖ VELORA wordmark, the (static) storyline affordance, the theme
- * switcher, library search, and a slot for the Create control (filled in Phase 5).
+ * Top app bar: ❖ VELORA wordmark, the storyline switcher slot, the theme
+ * switcher, library search, and a slot for the Create control.
  */
 export function AppHeader({
   query,
   onQuery,
-  storylineName = "Embergate",
+  storylineSlot,
   createSlot,
 }: {
   query: string;
   onQuery: (value: string) => void;
-  storylineName?: string;
+  storylineSlot?: React.ReactNode;
   createSlot?: React.ReactNode;
 }) {
   return (
@@ -43,11 +43,15 @@ export function AppHeader({
         <span className="font-display text-[20px] font-bold leading-none tracking-[0.2em] text-ink">
           VELORA
         </span>
-        <span className="hidden h-5 w-px bg-hair-strong md:block" aria-hidden />
-        <span className="hidden items-center gap-[6px] font-mono text-[10px] uppercase tracking-[0.14em] text-mute md:flex">
-          <span className="text-[#A8762A]">◆</span> {storylineName}{" "}
-          <span className="text-[8px]">▾</span>
-        </span>
+        {storylineSlot ? (
+          <>
+            <span
+              className="hidden h-5 w-px bg-hair-strong md:block"
+              aria-hidden
+            />
+            <span className="hidden md:block">{storylineSlot}</span>
+          </>
+        ) : null}
       </div>
       <div className="flex items-center gap-3">
         <ThemeSwitcher />

@@ -12,6 +12,7 @@ import { SettingCard } from "@/components/feature/SettingCard";
 import { ScenarioCard } from "@/components/feature/ScenarioCard";
 import { BranchRow } from "@/components/feature/BranchRow";
 import { CreateMenu } from "@/components/feature/CreateMenu";
+import { StorylineMenu } from "@/components/feature/StorylineMenu";
 import { EntityModal } from "@/components/feature/EntityModal";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { BeginSceneModal } from "@/components/feature/BeginSceneModal";
@@ -64,6 +65,14 @@ export function LibraryView() {
       <AppHeader
         query={lib.query}
         onQuery={lib.setQuery}
+        storylineSlot={
+          <StorylineMenu
+            storylines={lib.storylines}
+            activeId={lib.activeStorylineId}
+            onSwitch={lib.switchStoryline}
+            onCreate={lib.createStoryline}
+          />
+        }
         createSlot={
           <CreateMenu
             open={lib.menuOpen}
