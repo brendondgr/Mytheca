@@ -19,6 +19,8 @@ export interface Draft {
   desc?: string;
   title?: string;
   genre?: string;
+  tagline?: string;
+  premise?: string;
   tone?: string;
   cast?: string[];
   settingId?: string;
@@ -28,9 +30,20 @@ export interface Draft {
 }
 
 export interface ModalState {
-  type: EntityType | "begin";
+  // "storyline" drives the write-first storyline creation modal (StorylineModal);
+  // it is intentionally outside EntityType so the per-entity Records below stay
+  // exhaustive over just character/setting/scenario.
+  type: EntityType | "begin" | "storyline";
   mode: EditorMode;
   editId: string | null;
+}
+
+/** Initial draft for a brand-new storyline (the create modal's blank slate). */
+export const STORYLINE_DRAFT: Draft = { title: "", genre: "", tagline: "", premise: "" };
+
+/** A storyline is creatable once it has a title. */
+export function isStorylineDraftValid(draft: Draft): boolean {
+  return Boolean(draft.title?.trim());
 }
 
 export const DEFAULT_DRAFTS: Record<EntityType, Draft> = {

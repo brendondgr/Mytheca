@@ -11,6 +11,7 @@ def test_seed_populates_embergate(db_session):
 
     storyline = db_session.get(Storyline, SEED_STORYLINE_ID)
     assert storyline.title == "Embergate"
+    assert storyline.premise and "\n\n" in storyline.premise  # multi-paragraph world
     assert db_session.query(Character).count() == 6
     assert db_session.query(Setting).count() == 5
     assert db_session.query(Scenario).count() == 3

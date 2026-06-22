@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String
+from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -29,6 +29,8 @@ class Storyline(Base):
     title: Mapped[str] = mapped_column(String, default="Untitled Storyline")
     genre: Mapped[str] = mapped_column(String, default="Uncharted")
     tagline: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Long-form, multi-paragraph world description authored in the create modal.
+    premise: Mapped[str | None] = mapped_column(Text, nullable=True)
     position: Mapped[int] = mapped_column(default=0)
 
     characters: Mapped[list[Character]] = relationship(

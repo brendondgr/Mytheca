@@ -8,6 +8,7 @@ import { CreateMenu } from "@/components/feature/CreateMenu";
 import { OptionsMenu } from "@/components/feature/OptionsMenu";
 import { StorylineMenu } from "@/components/feature/StorylineMenu";
 import { EntityModal } from "@/components/feature/EntityModal";
+import { StorylineModal } from "@/components/feature/StorylineModal";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { BeginSceneModal } from "@/components/feature/BeginSceneModal";
 
@@ -30,7 +31,7 @@ export function LibraryView() {
             storylines={lib.storylines}
             activeId={lib.activeStorylineId}
             onSwitch={lib.switchStoryline}
-            onCreate={lib.createStoryline}
+            onCreate={lib.openCreateStoryline}
           />
         }
         createSlot={
@@ -82,6 +83,7 @@ export function LibraryView() {
       </div>
 
       <EntityModal lib={lib} />
+      <StorylineModal lib={lib} />
       <CharacterProfileModal
         character={lib.profileChar}
         onClose={lib.closeProfile}

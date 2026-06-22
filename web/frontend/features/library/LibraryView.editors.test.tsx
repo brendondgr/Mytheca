@@ -27,6 +27,42 @@ describe("LibraryView — editors & modals", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("creates a storyline via the switcher's write-first modal", async () => {
+    const user = userEvent.setup();
+    render(<LibraryView />);
+    await screen.findAllByText("The Embergate Conspiracy");
+
+    // Open the storyline switcher, then the create action.
+    await user.click(screen.getByTitle(/switch storyline/i));
+    await user.click(screen.getByRole("button", { name: /new storyline/i }));
+
+    const dialog = screen.getByRole("dialog");
+    // Future seams are visible but non-functional.
+    expect(within(dialog).getByText(/drag context files here/i)).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: /draft with velora/i }),
+    ).toBeDisabled();
+    expect(
+      within(dialog).getByLabelText(/describe the world to draft/i),
+    ).toBeDisabled();
+
+    // Title is required: the create button is disabled until it's filled.
+    const createBtn = within(dialog).getByRole("button", { name: /create world/i });
+    expect(createBtn).toBeDisabled();
+
+    await user.type(within(dialog).getByLabelText(/title/i), "Tidefall");
+    await user.type(
+      within(dialog).getByLabelText(/premise/i),
+      "A sunken archipelago.\n\nThree fleets vie for the last dry harbor.",
+    );
+    expect(createBtn).toBeEnabled();
+    await user.click(createBtn);
+
+    // The new world becomes active (its title shows in the switcher) and the modal closes.
+    expect(await screen.findByText("Tidefall")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("opens a character profile from a scenario card's cast", async () => {
     const user = userEvent.setup();
     render(<LibraryView />);

@@ -100,6 +100,16 @@ def seed_if_empty(session: Session) -> bool:
         title="Embergate",
         genre="Maritime Intrigue",
         tagline="A rotting harbor town where every secret has a price.",
+        premise=(
+            "Embergate clings to a drowned coast where the tide reclaims a little "
+            "more of the lower town every year. Salt has eaten the foundations, the "
+            "lamp oil is rationed, and the harbor guild rules through debt rather "
+            "than law.\n\n"
+            "Three powers circle the failing port: the Drowned Court that runs the "
+            "smuggling lanes, the Tidewatch that polices them, and the chapel whose "
+            "flooded undercroft hides older bargains. Everyone owes someone, and the "
+            "ledger is always coming due."
+        ),
         position=0,
     )
     for i, char in enumerate(_CHARACTERS):
