@@ -13,7 +13,7 @@ export function ColumnHeader({
   // The bg-page wrapper extends below the rule so scrolling cards never peek
   // through a margin gap.
   return (
-    <div className="sticky top-0 z-[1] bg-page pb-[12px]">
+    <div className="sticky top-0 z-[10] bg-page pb-[12px]">
       <div className="border-b border-hair-strong pb-[8px]">
         <div className="flex items-baseline gap-[8px]">
           <h2 className="font-display text-[16px] font-semibold tracking-[0.06em] text-ink uppercase">

@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 import type { Setting } from "@/lib/types";
 
 const PLATE_STRIPES =
-  "repeating-linear-gradient(45deg,#DACBA6,#DACBA6 7px,#D0C09B 7px,#D0C09B 14px)";
+  "repeating-linear-gradient(45deg,var(--hair),var(--hair) 7px,var(--card-bd) 7px,var(--card-bd) 14px)";
 
 /** Setting card: a "setting plate" header over name / type / description. */
 export function SettingCard({
@@ -42,7 +42,7 @@ export function SettingCard({
         style={{ backgroundImage: PLATE_STRIPES }}
         aria-hidden
       >
-        <span className="rounded-[2px] bg-[#F4ECDA] px-[9px] py-[3px] font-mono text-[9.5px] tracking-[0.1em] text-[#7A6A4A]">
+        <span className="rounded-[2px] bg-card px-[9px] py-[3px] font-mono text-[9.5px] tracking-[0.1em] text-mute">
           setting plate
         </span>
       </div>
