@@ -1,4 +1,5 @@
 import type { Branch } from "@/lib/types";
+import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 
 // Editor model shared by the create/edit modal. A single loose Draft covers all
 // three entity types; each form reads/writes the fields it cares about. Keys
@@ -21,6 +22,8 @@ export interface Draft {
   genre?: string;
   tagline?: string;
   premise?: string;
+  symbol?: string;
+  symbolColor?: string;
   tone?: string;
   cast?: string[];
   settingId?: string;
@@ -39,7 +42,14 @@ export interface ModalState {
 }
 
 /** Initial draft for a brand-new storyline (the create modal's blank slate). */
-export const STORYLINE_DRAFT: Draft = { title: "", genre: "", tagline: "", premise: "" };
+export const STORYLINE_DRAFT: Draft = {
+  title: "",
+  genre: "",
+  tagline: "",
+  premise: "",
+  symbol: DEFAULT_SEAL_SYMBOL,
+  symbolColor: DEFAULT_SEAL_COLOR,
+};
 
 /** A storyline is creatable once it has a title. */
 export function isStorylineDraftValid(draft: Draft): boolean {

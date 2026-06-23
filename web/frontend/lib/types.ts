@@ -77,6 +77,10 @@ export interface Storyline {
   tagline?: string;
   /** Multi-paragraph world description authored in the create modal. */
   premise?: string;
+  /** Seal shape glyph shown left of the name (e.g. "◆"). Defaults to ◆. */
+  symbol?: string;
+  /** Seal color (hex) for the shape glyph. Defaults to the gold token. */
+  symbolColor?: string;
   characters: Character[];
   settings: Setting[];
   scenarios: Scenario[];

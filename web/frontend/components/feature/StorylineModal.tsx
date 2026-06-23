@@ -6,7 +6,14 @@ import { CloseButton } from "@/components/ui/CloseButton";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { TextField } from "@/components/ui/TextField";
 import { TextArea } from "@/components/ui/TextArea";
+import { FieldLabel } from "@/components/ui/FieldLabel";
 import { cn } from "@/lib/cn";
+import {
+  DEFAULT_SEAL_COLOR,
+  DEFAULT_SEAL_SYMBOL,
+  SEAL_COLORS,
+  SEAL_SYMBOLS,
+} from "@/lib/seals";
 import type { useLibraryState } from "@/features/library/useLibraryState";
 
 const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
@@ -28,6 +35,8 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
   const d = lib.draft;
   const agentic = m.mode === "agentic";
   const isEdit = m.editId != null;
+  const seal = d.symbol || DEFAULT_SEAL_SYMBOL;
+  const sealColor = d.symbolColor || DEFAULT_SEAL_COLOR;
 
   return (
     <Modal
@@ -75,6 +84,57 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
         <div className="md:flex md:items-stretch md:gap-[26px]">
           {/* By-hand form column */}
           <div className={cn("md:min-w-0 md:flex-1", agentic && "hidden md:block")}>
+            {/* Seal — the shape + color shown left of the storyline's name. */}
+            <FieldLabel>Seal</FieldLabel>
+            <div className="mb-[14px] flex items-start gap-[14px]">
+              <div
+                aria-hidden
+                className="flex h-[46px] w-[46px] flex-none items-center justify-center rounded-[4px] border border-cardbd bg-field text-[24px] leading-none"
+                style={{ color: sealColor }}
+              >
+                {seal}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div role="group" aria-label="Seal symbol" className="flex flex-wrap gap-[6px]">
+                  {SEAL_SYMBOLS.map((sym) => (
+                    <button
+                      key={sym}
+                      type="button"
+                      aria-label={`Symbol ${sym}`}
+                      aria-pressed={seal === sym}
+                      onClick={() => lib.setDraft("symbol", sym)}
+                      className={cn(
+                        "flex h-[28px] w-[28px] items-center justify-center rounded-[4px] border text-[15px] leading-none focus-visible:border-accent",
+                        seal === sym
+                          ? "border-accent bg-card2 text-ink"
+                          : "border-cardbd bg-field text-ink-soft hover:border-accent",
+                      )}
+                    >
+                      {sym}
+                    </button>
+                  ))}
+                </div>
+                <div role="group" aria-label="Seal color" className="mt-[8px] flex flex-wrap gap-[7px]">
+                  {SEAL_COLORS.map((col) => (
+                    <button
+                      key={col}
+                      type="button"
+                      aria-label={`Color ${col}`}
+                      aria-pressed={sealColor === col}
+                      onClick={() => lib.setDraft("symbolColor", col)}
+                      className="h-[22px] w-[22px] rounded-full focus-visible:outline-none"
+                      style={{
+                        background: col,
+                        boxShadow:
+                          sealColor === col
+                            ? `0 0 0 2px var(--modal-bg), 0 0 0 4px ${col}`
+                            : "0 0 0 1px rgba(0,0,0,.15)",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
             <TextField
               label="Title"
               placeholder="e.g. Embergate"

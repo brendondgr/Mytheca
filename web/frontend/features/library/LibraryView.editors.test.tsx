@@ -56,8 +56,18 @@ describe("LibraryView — editors & modals", () => {
       within(dialog).getByLabelText(/premise/i),
       "A sunken archipelago.\n\nThree fleets vie for the last dry harbor.",
     );
+
+    // Pick a custom seal: a star symbol and the teal color.
+    await user.click(within(dialog).getByRole("button", { name: "Symbol ★" }));
+    await user.click(within(dialog).getByRole("button", { name: "Color #2F7D6B" }));
+
     expect(createBtn).toBeEnabled();
     await user.click(createBtn);
+
+    // The chosen seal is sent to the backend on create.
+    expect(vi.mocked(api.createStoryline)).toHaveBeenCalledWith(
+      expect.objectContaining({ symbol: "★", symbolColor: "#2F7D6B" }),
+    );
 
     // The new world becomes active (its title shows in the switcher) and the modal closes.
     expect(await screen.findByText("Tidefall")).toBeInTheDocument();

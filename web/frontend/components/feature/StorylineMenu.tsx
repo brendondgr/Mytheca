@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 import type { Storyline } from "@/lib/types";
 
 function PencilIcon() {
@@ -97,8 +98,12 @@ export function StorylineMenu({
         title="Switch storyline"
         className="group flex items-center gap-[9px] rounded-[3px] border border-cardbd bg-card px-[12px] py-[5px] hover:border-accent hover:bg-card2 focus-visible:border-accent"
       >
-        <span aria-hidden className="text-[13px] text-gold">
-          ◆
+        <span
+          aria-hidden
+          className="text-[13px] leading-none"
+          style={{ color: active?.symbolColor || DEFAULT_SEAL_COLOR }}
+        >
+          {active?.symbol || DEFAULT_SEAL_SYMBOL}
         </span>
         <span className="font-display text-[18px] font-bold uppercase leading-none tracking-[0.12em] text-ink">
           {active?.title ?? "Storyline"}
@@ -157,6 +162,13 @@ export function StorylineMenu({
                     )}
                   >
                     ✓
+                  </span>
+                  <span
+                    aria-hidden
+                    className="mt-[1px] w-3 flex-none text-center text-[12px] leading-none"
+                    style={{ color: s.symbolColor || DEFAULT_SEAL_COLOR }}
+                  >
+                    {s.symbol || DEFAULT_SEAL_SYMBOL}
                   </span>
                   <span className="flex min-w-0 flex-col gap-[2px]">
                     <span className="font-display text-[14px] font-semibold text-ink">
