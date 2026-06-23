@@ -14,6 +14,9 @@ class StorylineBase(CamelModel):
     genre: str = "Uncharted"
     tagline: str | None = None
     premise: str | None = None
+    # Customizable seal (shape glyph + hex color) shown left of the name.
+    symbol: str = "◆"
+    symbol_color: str = "#C8862A"
 
 
 class StorylineCreate(StorylineBase):
@@ -25,6 +28,8 @@ class StorylineUpdate(CamelModel):
     genre: str | None = None
     tagline: str | None = None
     premise: str | None = None
+    symbol: str | None = None
+    symbol_color: str | None = None
 
 
 class StorylineRead(CamelModel):
@@ -33,3 +38,5 @@ class StorylineRead(CamelModel):
     genre: str
     tagline: str | None = None
     premise: str | None = None
+    symbol: str = "◆"
+    symbol_color: str = "#C8862A"

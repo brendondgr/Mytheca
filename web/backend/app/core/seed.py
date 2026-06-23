@@ -110,6 +110,8 @@ def seed_if_empty(session: Session) -> bool:
             "flooded undercroft hides older bargains. Everyone owes someone, and the "
             "ledger is always coming due."
         ),
+        symbol="◆",
+        symbol_color="#C8862A",
         position=0,
     )
     for i, char in enumerate(_CHARACTERS):
