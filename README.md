@@ -24,7 +24,7 @@ Agents must read [docs/skills/global-project-rules/SKILL.md](docs/skills/global-
 ## Layout
 
 ```
-app.py            # root launcher → `python app.py` runs the frontend; `python app.py backend` runs the API
+app.py            # root launcher → `python app.py` runs backend + frontend together; `python app.py frontend|backend` runs one side
 web/frontend/     # Next.js app
 web/backend/      # FastAPI app (routes, agents, services, content, events, models)
 web/shared/       # shared FE↔BE contracts
@@ -37,11 +37,12 @@ utils/            # helpers + utils/tests (pytest + frontend) + utils/scripts
 The frontend (Library + Story player) is built. Run everything from the repo root through `app.py`:
 
 ```bash
-python app.py             # frontend dev server (npm run dev) → http://localhost:3346  [default]
-python app.py backend     # FastAPI API via uvicorn → http://127.0.0.1:3345  (after `uv sync`)
+python app.py             # [default] backend + frontend together → http://localhost:3346 (UI), http://127.0.0.1:3345 (API)
+python app.py frontend    # frontend dev server only (npm run dev) → http://localhost:3346
+python app.py backend     # FastAPI API only via uvicorn → http://127.0.0.1:3345  (after `uv sync`)
 ```
 
-`python app.py` installs the frontend deps on first run. Equivalent direct commands:
+The default runs both: it starts the backend (preflight: Postgres/Redis + schema + seed), waits for it to report healthy, then launches the frontend; Ctrl+C stops both. Use `uv run python app.py` so the backend's Python deps are available. `app.py` installs the frontend deps on first run. Equivalent direct commands:
 
 ```bash
 cd web/frontend && npm install && npm run dev   # frontend

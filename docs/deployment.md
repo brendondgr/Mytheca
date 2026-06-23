@@ -12,8 +12,9 @@ Deployment is not yet configured; this records the intended approach and require
 
 | Component | Command (run from) |
 | --- | --- |
-| Backend | `python app.py backend` (repo root) — runs preflight, then Uvicorn |
-| Frontend | `python app.py` or `npm run dev` (`web/frontend/`) |
+| Everything (dev) | `python app.py` (repo root) — backend (preflight + Uvicorn) **and** frontend together; waits for backend health, Ctrl+C stops both |
+| Backend only | `python app.py backend` (repo root) — runs preflight, then Uvicorn |
+| Frontend only | `python app.py frontend` (repo root) or `npm run dev` (`web/frontend/`) |
 | Postgres + Redis | `docker compose -f web/backend/docker-compose.yml up -d` (or let preflight start them) |
 
 ### Backend startup preflight

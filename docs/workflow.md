@@ -4,7 +4,7 @@
 
 - **Python:** 3.13 (`.python-version`). Manager: **`uv` only** (never pip/poetry/conda).
 - **Node:** for `web/frontend/` (Next.js). Package manager: npm (unless changed in `web/frontend/package.json`).
-- **Root launcher:** `python app.py` starts the frontend dev server (default); `python app.py backend` serves the FastAPI app from `web/backend`.
+- **Root launcher:** `python app.py` starts **both** the backend (preflight + uvicorn on 3345) and the frontend dev server (3346) together — it waits for the backend to report healthy before launching the frontend, and Ctrl+C stops both. `python app.py frontend` and `python app.py backend` run just one side.
 - **Secrets:** copy `.env.example` → `.env` (gitignored). Document every new variable in `.env.example` and `docs/deployment.md`.
 
 ## Commands
@@ -28,7 +28,7 @@
 
 Installed stack: **Next.js 16** (App Router, Turbopack) · React 19 · TypeScript · **Tailwind CSS v4** (CSS-first `@theme`; Velora tokens surfaced as CSS variables) · **Framer Motion** · **Vitest + React Testing Library** (tests co-located beside components, e.g. `app/page.test.tsx`). The three brand fonts (Cinzel / EB Garamond / IBM Plex Mono) load via `next/font` in `app/layout.tsx`.
 
-Run from `web/frontend/` (or from the repo root with `python app.py`):
+Run from `web/frontend/` (or from the repo root with `python app.py frontend`):
 
 | Action | Command |
 | --- | --- |
