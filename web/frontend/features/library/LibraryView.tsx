@@ -9,6 +9,7 @@ import { OptionsMenu } from "@/components/feature/OptionsMenu";
 import { StorylineMenu } from "@/components/feature/StorylineMenu";
 import { EntityModal } from "@/components/feature/EntityModal";
 import { StorylineModal } from "@/components/feature/StorylineModal";
+import { StorylineDeleteModal } from "@/components/feature/StorylineDeleteModal";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { BeginSceneModal } from "@/components/feature/BeginSceneModal";
 
@@ -32,6 +33,8 @@ export function LibraryView() {
             activeId={lib.activeStorylineId}
             onSwitch={lib.switchStoryline}
             onCreate={lib.openCreateStoryline}
+            onEdit={lib.editStoryline}
+            onDelete={lib.requestDeleteStoryline}
           />
         }
         createSlot={
@@ -45,7 +48,7 @@ export function LibraryView() {
         optionsSlot={<OptionsMenu />}
       />
 
-      {lib.error && !lib.modal ? (
+      {lib.error && !lib.modal && !lib.storylineToDelete ? (
         <div
           role="alert"
           className="mx-[18px] mt-[12px] flex items-center justify-between gap-[12px] rounded-[6px] border border-cardbd bg-card px-[14px] py-[10px]"
@@ -84,6 +87,13 @@ export function LibraryView() {
 
       <EntityModal lib={lib} />
       <StorylineModal lib={lib} />
+      <StorylineDeleteModal
+        storyline={lib.storylineToDelete}
+        pending={lib.pending}
+        error={lib.error}
+        onConfirm={lib.confirmDeleteStoryline}
+        onCancel={lib.cancelDeleteStoryline}
+      />
       <CharacterProfileModal
         character={lib.profileChar}
         onClose={lib.closeProfile}

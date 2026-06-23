@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { LibraryView } from "./LibraryView";
+import * as api from "@/lib/api";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
@@ -60,6 +61,43 @@ describe("LibraryView — editors & modals", () => {
 
     // The new world becomes active (its title shows in the switcher) and the modal closes.
     expect(await screen.findByText("Tidefall")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("edits a storyline via the switcher", async () => {
+    const user = userEvent.setup();
+    render(<LibraryView />);
+    await screen.findAllByText("The Embergate Conspiracy");
+
+    await user.click(screen.getByTitle(/switch storyline/i));
+    await user.click(screen.getByRole("button", { name: /^edit embergate$/i }));
+
+    const dialog = screen.getByRole("dialog");
+    const titleInput = within(dialog).getByLabelText(/title/i);
+    expect(titleInput).toHaveValue("Embergate"); // prefilled from the storyline
+    await user.clear(titleInput);
+    await user.type(titleInput, "Embergate Reborn");
+    await user.click(within(dialog).getByRole("button", { name: /save changes/i }));
+
+    // The switcher reflects the new name and the modal closes.
+    expect(await screen.findByText("Embergate Reborn")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("deletes a storyline after a confirmation step", async () => {
+    const user = userEvent.setup();
+    render(<LibraryView />);
+    await screen.findAllByText("The Embergate Conspiracy");
+
+    await user.click(screen.getByTitle(/switch storyline/i));
+    await user.click(screen.getByRole("button", { name: /^delete embergate$/i }));
+
+    // A confirmation modal appears before anything is deleted.
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/can.t be undone/i)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: /delete world/i }));
+
+    expect(vi.mocked(api.deleteStoryline)).toHaveBeenCalledWith("embergate");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 

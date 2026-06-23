@@ -27,6 +27,7 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
   if (!m || m.type !== "storyline") return null;
   const d = lib.draft;
   const agentic = m.mode === "agentic";
+  const isEdit = m.editId != null;
 
   return (
     <Modal
@@ -39,13 +40,13 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
         <div className="flex items-start justify-between gap-[14px]">
           <div>
             <Eyebrow size={8.5} tracking="0.2em" color="#A8762A">
-              New Storyline
+              {isEdit ? "Edit Storyline" : "New Storyline"}
             </Eyebrow>
             <div
               id="storyline-modal-title"
               className="mt-1 font-display text-[22px] font-bold text-ink"
             >
-              Forge a New World
+              {isEdit ? "Edit this World" : "Forge a New World"}
             </div>
           </div>
           <CloseButton onClose={lib.closeModal} />
@@ -117,7 +118,13 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 onClick={lib.submitStoryline}
                 disabled={!lib.isStorylineValid || lib.pending}
               >
-                {lib.pending ? "Creating…" : "Create World"}
+                {lib.pending
+                  ? isEdit
+                    ? "Saving…"
+                    : "Creating…"
+                  : isEdit
+                    ? "Save Changes"
+                    : "Create World"}
               </Button>
             </div>
           </div>

@@ -227,26 +227,102 @@ export function useLibraryState() {
     setMenuOpen(false);
     setGenerating(false);
   }
-  /** Create the storyline from the modal draft, then activate it. */
+  /** Open the storyline modal in edit mode, prefilled from an existing storyline. */
+  function editStoryline(id: string) {
+    const sl = storylines.find((s) => s.id === id);
+    if (!sl) return;
+    setDraftState({
+      title: sl.title,
+      genre: sl.genre,
+      tagline: sl.tagline ?? "",
+      premise: sl.premise ?? "",
+    });
+    setError(null);
+    setModal({ type: "storyline", mode: "manual", editId: id });
+    setMenuOpen(false);
+    setGenerating(false);
+  }
+  /** Create (or, when editing, update) the storyline from the modal draft. */
   async function submitStoryline() {
     if (!modal || modal.type !== "storyline") return;
     if (!isStorylineDraftValid(draft)) return;
+    const editId = modal.editId;
     setPending(true);
     setError(null);
+    const title = (draft.title ?? "").trim();
+    const genre = draft.genre?.trim() || "Uncharted";
     try {
-      const created = await api.createStoryline({
-        title: (draft.title ?? "").trim(),
-        genre: draft.genre?.trim() || "Uncharted",
-        tagline: draft.tagline?.trim() || undefined,
-        premise: draft.premise?.trim() || undefined,
-      });
-      hydrated.current.add(created.id); // brand-new: no children to fetch
-      setStorylines((sls) => [...sls, emptyStoryline(created)]);
-      setActiveStorylineId(created.id);
-      resetForStoryline("");
+      if (editId) {
+        // Edit: empty tagline/premise are sent as "" so the author can clear them.
+        const updated = await api.updateStoryline(editId, {
+          title,
+          genre,
+          tagline: draft.tagline?.trim() ?? "",
+          premise: draft.premise?.trim() ?? "",
+        });
+        // Spread over the existing storyline so its hydrated children survive.
+        setStorylines((sls) =>
+          sls.map((sl) => (sl.id === editId ? { ...sl, ...updated } : sl)),
+        );
+      } else {
+        const created = await api.createStoryline({
+          title,
+          genre,
+          tagline: draft.tagline?.trim() || undefined,
+          premise: draft.premise?.trim() || undefined,
+        });
+        hydrated.current.add(created.id); // brand-new: no children to fetch
+        setStorylines((sls) => [...sls, emptyStoryline(created)]);
+        setActiveStorylineId(created.id);
+        resetForStoryline("");
+      }
       closeModal();
     } catch (e) {
       setError(messageOf(e)); // keep the modal open so the user can retry
+    } finally {
+      setPending(false);
+    }
+  }
+
+  // ---- storyline delete (confirm → delete → reselect if it was active) ----
+  const [deleteStorylineId, setDeleteStorylineId] = useState<string | null>(null);
+  const storylineToDelete =
+    storylines.find((s) => s.id === deleteStorylineId) ?? null;
+
+  function requestDeleteStoryline(id: string) {
+    setDeleteStorylineId(id);
+    setError(null);
+    setMenuOpen(false);
+  }
+  function cancelDeleteStoryline() {
+    if (pending) return;
+    setError(null);
+    setDeleteStorylineId(null);
+  }
+  async function confirmDeleteStoryline() {
+    const id = deleteStorylineId;
+    if (!id) return;
+    setPending(true);
+    setError(null);
+    try {
+      await api.deleteStoryline(id);
+      hydrated.current.delete(id);
+      const remaining = storylines.filter((s) => s.id !== id);
+      setStorylines(remaining);
+      setDeleteStorylineId(null);
+      // If the active world was deleted, fall back to the first remaining one.
+      if (id === activeStorylineId) {
+        const next = remaining[0];
+        setActiveStorylineId(next?.id ?? "");
+        if (next) {
+          const scens = await hydrateStoryline(next.id);
+          resetForStoryline(scens[0]?.id ?? "");
+        } else {
+          resetForStoryline("");
+        }
+      }
+    } catch (e) {
+      setError(messageOf(e)); // keep the confirm open so the user can retry
     } finally {
       setPending(false);
     }
@@ -444,7 +520,9 @@ export function useLibraryState() {
 
   return {
     storylines, activeStorylineId, activeStoryline, switchStoryline,
-    openCreateStoryline, submitStoryline,
+    openCreateStoryline, editStoryline, submitStoryline,
+    requestDeleteStoryline, confirmDeleteStoryline, cancelDeleteStoryline,
+    storylineToDelete,
     characters, settings, scenarios, resolvedScenarios,
     filteredCharacters, filteredSettings, filteredScenarios,
     tab, setTab,

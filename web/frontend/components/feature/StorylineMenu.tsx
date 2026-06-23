@@ -4,21 +4,65 @@ import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import type { Storyline } from "@/lib/types";
 
+function PencilIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    </svg>
+  );
+}
+
 /**
  * The header storyline switcher: the active storyline's name is a dropdown that
- * lists every storyline (each owns its own cast/settings/scenarios) and offers
- * "+ New Storyline". Closes on outside-click and Escape (mirrors CreateMenu).
+ * lists every storyline (each owns its own cast/settings/scenarios), with
+ * per-row Edit / Delete actions, and offers "+ New Storyline". Closes on
+ * outside-click and Escape (mirrors CreateMenu).
  */
 export function StorylineMenu({
   storylines,
   activeId,
   onSwitch,
   onCreate,
+  onEdit,
+  onDelete,
 }: {
   storylines: Storyline[];
   activeId: string;
   onSwitch: (id: string) => void;
   onCreate: () => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -89,40 +133,70 @@ export function StorylineMenu({
           {storylines.map((s) => {
             const isActive = s.id === activeId;
             return (
-              <button
+              <div
                 key={s.id}
-                type="button"
-                onClick={() => {
-                  onSwitch(s.id);
-                  setOpen(false);
-                }}
-                aria-current={isActive ? "true" : undefined}
                 className={cn(
-                  "flex w-full items-start gap-[10px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-card2",
+                  "flex items-stretch rounded-[3px] hover:bg-card2",
                   isActive && "bg-card2",
                 )}
               >
-                <span
-                  aria-hidden
-                  className={cn(
-                    "mt-[2px] w-3 flex-none text-center text-[11px]",
-                    isActive ? "text-accent" : "text-transparent",
-                  )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSwitch(s.id);
+                    setOpen(false);
+                  }}
+                  aria-current={isActive ? "true" : undefined}
+                  className="flex min-w-0 flex-1 items-start gap-[10px] rounded-[3px] px-[11px] py-[9px] text-left"
                 >
-                  ✓
-                </span>
-                <span className="flex min-w-0 flex-col gap-[2px]">
-                  <span className="font-display text-[14px] font-semibold text-ink">
-                    {s.title}
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "mt-[2px] w-3 flex-none text-center text-[11px]",
+                      isActive ? "text-accent" : "text-transparent",
+                    )}
+                  >
+                    ✓
                   </span>
-                  <span className="font-mono text-[8.5px] tracking-[0.04em] text-mute">
-                    {s.scenarios.length} scenario
-                    {s.scenarios.length === 1 ? "" : "s"} · {s.characters.length}{" "}
-                    cast · {s.settings.length} setting
-                    {s.settings.length === 1 ? "" : "s"}
+                  <span className="flex min-w-0 flex-col gap-[2px]">
+                    <span className="font-display text-[14px] font-semibold text-ink">
+                      {s.title}
+                    </span>
+                    <span className="font-mono text-[8.5px] tracking-[0.04em] text-mute">
+                      {s.scenarios.length} scenario
+                      {s.scenarios.length === 1 ? "" : "s"} · {s.characters.length}{" "}
+                      cast · {s.settings.length} setting
+                      {s.settings.length === 1 ? "" : "s"}
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
+                <div className="flex flex-none items-center gap-[1px] pr-[5px]">
+                  <button
+                    type="button"
+                    aria-label={`Edit ${s.title}`}
+                    title="Edit storyline"
+                    onClick={() => {
+                      onEdit(s.id);
+                      setOpen(false);
+                    }}
+                    className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-accent focus-visible:text-accent"
+                  >
+                    <PencilIcon />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${s.title}`}
+                    title="Delete storyline"
+                    onClick={() => {
+                      onDelete(s.id);
+                      setOpen(false);
+                    }}
+                    className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-danger focus-visible:text-danger"
+                  >
+                    <TrashIcon />
+                  </button>
+                </div>
+              </div>
             );
           })}
           <div className="my-[6px] border-t border-hair" />
