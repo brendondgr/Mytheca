@@ -9,6 +9,7 @@ import {
   resolveScenario,
 } from "@/lib/seed-data";
 import * as api from "@/lib/api";
+import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
 import {
   DEFAULT_DRAFTS,
@@ -236,6 +237,8 @@ export function useLibraryState() {
       genre: sl.genre,
       tagline: sl.tagline ?? "",
       premise: sl.premise ?? "",
+      symbol: sl.symbol ?? DEFAULT_SEAL_SYMBOL,
+      symbolColor: sl.symbolColor ?? DEFAULT_SEAL_COLOR,
     });
     setError(null);
     setModal({ type: "storyline", mode: "manual", editId: id });
@@ -251,6 +254,8 @@ export function useLibraryState() {
     setError(null);
     const title = (draft.title ?? "").trim();
     const genre = draft.genre?.trim() || "Uncharted";
+    const symbol = draft.symbol || DEFAULT_SEAL_SYMBOL;
+    const symbolColor = draft.symbolColor || DEFAULT_SEAL_COLOR;
     try {
       if (editId) {
         // Edit: empty tagline/premise are sent as "" so the author can clear them.
@@ -259,6 +264,8 @@ export function useLibraryState() {
           genre,
           tagline: draft.tagline?.trim() ?? "",
           premise: draft.premise?.trim() ?? "",
+          symbol,
+          symbolColor,
         });
         // Spread over the existing storyline so its hydrated children survive.
         setStorylines((sls) =>
@@ -270,6 +277,8 @@ export function useLibraryState() {
           genre,
           tagline: draft.tagline?.trim() || undefined,
           premise: draft.premise?.trim() || undefined,
+          symbol,
+          symbolColor,
         });
         hydrated.current.add(created.id); // brand-new: no children to fetch
         setStorylines((sls) => [...sls, emptyStoryline(created)]);

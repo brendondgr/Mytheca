@@ -31,6 +31,10 @@ class Storyline(Base):
     tagline: Mapped[str | None] = mapped_column(String, nullable=True)
     # Long-form, multi-paragraph world description authored in the create modal.
     premise: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Customizable seal shown left of the storyline's name: a simple shape glyph
+    # plus a hex color. Defaults to the historical gold diamond.
+    symbol: Mapped[str] = mapped_column(String, default="◆")
+    symbol_color: Mapped[str] = mapped_column(String, default="#C8862A")
     position: Mapped[int] = mapped_column(default=0)
 
     characters: Mapped[list[Character]] = relationship(

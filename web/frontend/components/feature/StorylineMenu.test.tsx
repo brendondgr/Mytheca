@@ -5,7 +5,7 @@ import { StorylineMenu } from "./StorylineMenu";
 import type { Storyline } from "@/lib/types";
 
 const STORYLINES: Storyline[] = [
-  { id: "embergate", title: "Embergate", genre: "Maritime", tagline: "x", characters: [], settings: [], scenarios: [] },
+  { id: "embergate", title: "Embergate", genre: "Maritime", tagline: "x", symbol: "★", symbolColor: "#2F7D6B", characters: [], settings: [], scenarios: [] },
   { id: "tidefall", title: "Tidefall", genre: "Naval", characters: [], settings: [], scenarios: [] },
 ];
 
@@ -32,6 +32,21 @@ describe("StorylineMenu", () => {
     await user.click(screen.getByTitle(/switch storyline/i)); // reopen (closed on action)
     await user.click(screen.getByRole("button", { name: /delete embergate/i }));
     expect(onDelete).toHaveBeenCalledWith("embergate");
+  });
+
+  it("renders the active storyline's custom seal (symbol + color)", () => {
+    setup();
+    const seal = screen.getByText("★");
+    expect(seal).toBeInTheDocument();
+    expect(seal).toHaveStyle({ color: "#2F7D6B" });
+  });
+
+  it("falls back to the default diamond seal when none is set", async () => {
+    const user = userEvent.setup();
+    setup();
+    // Tidefall has no symbol → the default ◆ shows on its dropdown row.
+    await user.click(screen.getByTitle(/switch storyline/i));
+    expect(screen.getAllByText("◆").length).toBeGreaterThan(0);
   });
 
   it("still switches storylines and creates a new one", async () => {

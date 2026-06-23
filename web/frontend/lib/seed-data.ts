@@ -254,6 +254,8 @@ export const SEED_STORYLINES: Storyline[] = [
     title: "Embergate",
     genre: "Maritime Intrigue",
     tagline: "A rotting harbor town where every secret has a price.",
+    symbol: "◆",
+    symbolColor: "#C8862A",
     characters: SEED_CHARACTERS,
     settings: SEED_SETTINGS,
     scenarios: SEED_SCENARIOS,

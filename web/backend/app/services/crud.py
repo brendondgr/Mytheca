@@ -84,6 +84,8 @@ def create_storyline(db: Session, data: StorylineCreate) -> Storyline:
         genre=data.genre,
         tagline=data.tagline,
         premise=data.premise,
+        symbol=data.symbol,
+        symbol_color=data.symbol_color,
         position=int(db.scalar(select(func.count()).select_from(Storyline)) or 0),
     )
     db.add(sl)

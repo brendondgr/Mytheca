@@ -23,21 +23,45 @@ export function makeApiMock() {
     ApiError: class ApiError extends Error {},
 
     listStorylines: vi.fn(async () =>
-      SEED_STORYLINES.map((s) => ({ id: s.id, title: s.title, genre: s.genre, tagline: s.tagline })),
+      SEED_STORYLINES.map((s) => ({
+        id: s.id,
+        title: s.title,
+        genre: s.genre,
+        tagline: s.tagline,
+        symbol: s.symbol,
+        symbolColor: s.symbolColor,
+      })),
     ),
     createStoryline: vi.fn(
-      async (body: { title?: string; genre?: string; tagline?: string; premise?: string }) => ({
+      async (body: {
+        title?: string;
+        genre?: string;
+        tagline?: string;
+        premise?: string;
+        symbol?: string;
+        symbolColor?: string;
+      }) => ({
         id: nid("sl"),
         title: body.title ?? "Untitled Storyline",
         genre: body.genre ?? "Uncharted",
         tagline: body.tagline,
         premise: body.premise,
+        symbol: body.symbol,
+        symbolColor: body.symbolColor,
       }),
     ),
-    updateStoryline: vi.fn(async (id: string, body: { title?: string; genre?: string; tagline?: string }) => ({
-      id,
-      ...body,
-    })),
+    updateStoryline: vi.fn(
+      async (
+        id: string,
+        body: {
+          title?: string;
+          genre?: string;
+          tagline?: string;
+          symbol?: string;
+          symbolColor?: string;
+        },
+      ) => ({ id, ...body }),
+    ),
     deleteStoryline: vi.fn(async () => {}),
 
     listCharacters: vi.fn(async () => SEED_CHARACTERS),
