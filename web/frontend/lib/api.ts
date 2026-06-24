@@ -86,6 +86,31 @@ export const updateStoryline = (id: string, body: StorylineInput) =>
   patch<StorylineSummary>(`/storylines/${id}`, body);
 export const deleteStoryline = (id: string) => del(`/storylines/${id}`);
 
+// ---- storyline authoring (the creation-time agent process) ----
+// `docsOverview` is inline text read from dropped reference files in the browser,
+// used to ground a single generation only — never uploaded/persisted (no RAG).
+
+/** Metadata drafted from a one-sentence seed (fills the create form). */
+export interface StorylineDraftResult {
+  title: string;
+  genre: string;
+  tagline: string;
+  premise: string;
+}
+
+export interface WorldPrimerResult {
+  worldPrimer: string;
+}
+
+export const draftStoryline = (seed: string, docsOverview?: string) =>
+  post<StorylineDraftResult>("/storylines/draft", { seed, docsOverview });
+
+export const generateWorldPrimer = (body: {
+  premise?: string;
+  seed?: string;
+  docsOverview?: string;
+}) => post<WorldPrimerResult>("/storylines/primer", body);
+
 // ---- per-storyline children ----
 export const listCharacters = (storylineId: string) =>
   request<Character[]>(`/storylines/${storylineId}/characters`);

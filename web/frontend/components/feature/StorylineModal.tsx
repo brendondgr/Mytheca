@@ -37,6 +37,11 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
   const isEdit = m.editId != null;
   const seal = d.symbol || DEFAULT_SEAL_SYMBOL;
   const sealColor = d.symbolColor || DEFAULT_SEAL_COLOR;
+  // Agentic authoring: a seed drafts the metadata; seed-or-premise feeds the primer.
+  const seedText = (d._prompt ?? "").trim();
+  const premiseText = (d.premise ?? "").trim();
+  const canDraft = Boolean(seedText);
+  const canGeneratePrimer = Boolean(seedText || premiseText);
 
   return (
     <Modal
@@ -164,6 +169,32 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
               onChange={(e) => lib.setDraft("premise", e.target.value)}
             />
 
+            {/* World Primer — agent-facing runtime context (generated, editable). */}
+            <div className="mt-[14px]">
+              <div className="flex items-end justify-between gap-[10px]">
+                <FieldLabel>World Primer</FieldLabel>
+                <button
+                  type="button"
+                  onClick={lib.generatePrimer}
+                  disabled={!canGeneratePrimer || lib.generatingPrimer}
+                  className="mb-[6px] cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40"
+                >
+                  {lib.generatingPrimer ? "Generating…" : "❖ Generate primer"}
+                </button>
+              </div>
+              <p className="mb-[8px] font-body text-[12.5px] text-ink-soft">
+                Agent-facing context injected into every scene — what the model
+                needs to play this world without looking things up.
+              </p>
+              <TextArea
+                aria-label="World Primer"
+                rows={5}
+                placeholder="Generate from the seed and premise — or write it yourself. Front-load the always-true facts: tone, the constant proper nouns, the load-bearing rules."
+                value={d.worldPrimer || ""}
+                onChange={(e) => lib.setDraft("worldPrimer", e.target.value)}
+              />
+            </div>
+
             {lib.error ? (
               <p role="alert" className="mt-4 font-body text-[13px] text-accent">
                 {lib.error}
@@ -224,24 +255,28 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
               <span className="text-ink-soft italic">Velora drafts the rest.</span>
             </p>
             <TextArea
-              aria-label="Describe the world to draft (coming soon)"
+              aria-label="Describe the world to draft"
               rows={3}
               placeholder="e.g. A rotting harbor town where every secret has a price…"
-              value=""
-              disabled
-              readOnly
+              value={d._prompt || ""}
+              onChange={(e) => lib.setDraft("_prompt", e.target.value)}
             />
-            <div className="mt-[12px] flex items-center justify-between gap-[10px]">
-              <span className="font-mono text-[9px] tracking-[0.14em] text-mute2 uppercase">
-                Coming soon
-              </span>
-              <div className="flex gap-[10px]">
-                <Button variant="ghost" onClick={lib.closeModal} className="md:hidden">
-                  Cancel
-                </Button>
-                <Button disabled>❖ Draft with Velora</Button>
-              </div>
+            <div className="mt-[12px] flex items-center justify-end gap-[10px]">
+              <Button variant="ghost" onClick={lib.closeModal} className="md:hidden">
+                Cancel
+              </Button>
+              <Button onClick={lib.draftStoryline} disabled={!canDraft || lib.generating}>
+                {lib.generating ? "Drafting…" : "❖ Draft with Velora"}
+              </Button>
             </div>
+
+            {/* Mobile-only error echo: the form column (with its own alert) is
+                hidden while the agentic tab is open on small screens. */}
+            {lib.error ? (
+              <p role="alert" className="mt-4 font-body text-[13px] text-accent md:hidden">
+                {lib.error}
+              </p>
+            ) : null}
           </aside>
         </div>
       </div>

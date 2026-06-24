@@ -22,6 +22,7 @@ export interface Draft {
   genre?: string;
   tagline?: string;
   premise?: string;
+  worldPrimer?: string;
   symbol?: string;
   symbolColor?: string;
   tone?: string;
@@ -29,6 +30,9 @@ export interface Draft {
   settingId?: string;
   branches?: Branch[];
   _prompt?: string;
+  // Inline text from dropped reference files, used to ground a single generation
+  // only (never persisted/indexed — RAG is a later plan). Wired in the modal.
+  _docs?: string;
   _ai?: boolean;
 }
 
@@ -47,6 +51,7 @@ export const STORYLINE_DRAFT: Draft = {
   genre: "",
   tagline: "",
   premise: "",
+  worldPrimer: "",
   symbol: DEFAULT_SEAL_SYMBOL,
   symbolColor: DEFAULT_SEAL_COLOR,
 };

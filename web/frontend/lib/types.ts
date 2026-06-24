@@ -75,8 +75,13 @@ export interface Storyline {
   genre: string;
   /** One-line descriptor for the switcher menu. */
   tagline?: string;
-  /** Multi-paragraph world description authored in the create modal. */
+  /** Multi-paragraph human-facing world description authored in the create modal. */
   premise?: string;
+  /**
+   * Agent-facing runtime context generated at creation (seed + premise + an
+   * optional overview of dropped docs), then editable. Distinct from `premise`.
+   */
+  worldPrimer?: string;
   /** Seal shape glyph shown left of the name (e.g. "◆"). Defaults to ◆. */
   symbol?: string;
   /** Seal color (hex) for the shape glyph. Defaults to the gold token. */

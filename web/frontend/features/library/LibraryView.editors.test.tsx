@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { LibraryView } from "./LibraryView";
@@ -38,13 +38,11 @@ describe("LibraryView — editors & modals", () => {
     await user.click(screen.getByRole("button", { name: /new storyline/i }));
 
     const dialog = screen.getByRole("dialog");
-    // Future seams are visible but non-functional.
-    expect(within(dialog).getByText(/drag context files here/i)).toBeInTheDocument();
+    // The seed box is live; "Draft with Velora" stays disabled until a seed is typed.
+    const seedBox = within(dialog).getByLabelText(/describe the world to draft/i);
+    expect(seedBox).toBeEnabled();
     expect(
       within(dialog).getByRole("button", { name: /draft with velora/i }),
-    ).toBeDisabled();
-    expect(
-      within(dialog).getByLabelText(/describe the world to draft/i),
     ).toBeDisabled();
 
     // Title is required: the create button is disabled until it's filled.
@@ -72,6 +70,55 @@ describe("LibraryView — editors & modals", () => {
     // The new world becomes active (its title shows in the switcher) and the modal closes.
     expect(await screen.findByText("Tidefall")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("drafts metadata from a seed and persists a generated World Primer", async () => {
+    const user = userEvent.setup();
+    render(<LibraryView />);
+    await screen.findAllByText("The Embergate Conspiracy");
+
+    await user.click(screen.getByTitle(/switch storyline/i));
+    await user.click(screen.getByRole("button", { name: /new storyline/i }));
+    const dialog = screen.getByRole("dialog");
+
+    // Seed → "Draft with Velora" fills the metadata fields from the agent.
+    await user.type(
+      within(dialog).getByLabelText(/describe the world to draft/i),
+      "A drowned harbor town.",
+    );
+    const draftBtn = within(dialog).getByRole("button", { name: /draft with velora/i });
+    expect(draftBtn).toBeEnabled();
+    await user.click(draftBtn);
+
+    expect(vi.mocked(api.draftStoryline)).toHaveBeenCalledWith(
+      "A drowned harbor town.",
+      undefined,
+    );
+    const titleInput = within(dialog).getByLabelText(/title/i);
+    await waitFor(() => expect(titleInput).toHaveValue("Drafted World"));
+    expect(within(dialog).getByLabelText(/^premise$/i)).toHaveValue(
+      "Drafted premise paragraph one.\n\nDrafted premise paragraph two.",
+    );
+
+    // Generate the World Primer from the seed + premise; it lands in the field.
+    await user.click(within(dialog).getByRole("button", { name: /generate primer/i }));
+    expect(vi.mocked(api.generateWorldPrimer)).toHaveBeenCalled();
+    const primerBox = within(dialog).getByLabelText(/^world primer$/i);
+    await waitFor(() =>
+      expect(primerBox).toHaveValue(
+        "A generated, agent-facing primer.\n\nThree powers govern the world.",
+      ),
+    );
+
+    // Create — the generated primer is persisted alongside the metadata.
+    await user.click(within(dialog).getByRole("button", { name: /create world/i }));
+    expect(vi.mocked(api.createStoryline)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Drafted World",
+        worldPrimer:
+          "A generated, agent-facing primer.\n\nThree powers govern the world.",
+      }),
+    );
   });
 
   it("edits a storyline via the switcher", async () => {
