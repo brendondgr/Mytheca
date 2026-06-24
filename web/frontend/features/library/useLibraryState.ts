@@ -9,6 +9,7 @@ import {
   resolveScenario,
 } from "@/lib/seed-data";
 import * as api from "@/lib/api";
+import { concatDocs } from "@/lib/readDocs";
 import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
 import {
@@ -258,10 +259,11 @@ export function useLibraryState() {
     if (!modal || modal.type !== "storyline") return;
     const seed = (draft._prompt ?? "").trim();
     if (!seed) return;
+    const docsOverview = draft._docFiles?.length ? concatDocs(draft._docFiles) : undefined;
     setGenerating(true);
     setError(null);
     try {
-      const drafted = await api.draftStoryline(seed, draft._docs || undefined);
+      const drafted = await api.draftStoryline(seed, docsOverview);
       setDraftState((prev) => ({
         ...prev,
         title: drafted.title || prev.title,
@@ -284,13 +286,14 @@ export function useLibraryState() {
     const premise = (draft.premise ?? "").trim();
     const seed = (draft._prompt ?? "").trim();
     if (!premise && !seed) return;
+    const docsOverview = draft._docFiles?.length ? concatDocs(draft._docFiles) : undefined;
     setGeneratingPrimer(true);
     setError(null);
     try {
       const { worldPrimer } = await api.generateWorldPrimer({
         premise: premise || undefined,
         seed: seed || undefined,
-        docsOverview: draft._docs || undefined,
+        docsOverview,
       });
       setDraftState((prev) => ({ ...prev, worldPrimer }));
     } catch (e) {

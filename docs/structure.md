@@ -39,7 +39,7 @@ velora/
 │   │   └── app/
 │   │       ├── routes/     # API + SSE/WebSocket endpoints
 │   │       ├── services/   # Orchestrator/Director, event engine, state manager, validator
-│   │       ├── agents/     # Narrator + Character agents
+│   │       ├── agents/     # LLM agents — storyline_agent (creation-time draft + World Primer); Narrator + Character agents later
 │   │       ├── content/    # Authored YAML config + Markdown stat guidance (per-stat files)
 │   │       ├── memory/     # Memory seam (Postgres/Redis now; vector DB later)
 │   │       ├── events/     # Event / NDJSON stream definitions (5 event types)

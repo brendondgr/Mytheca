@@ -121,6 +121,42 @@ describe("LibraryView — editors & modals", () => {
     );
   });
 
+  it("grounds primer generation with a dropped reference file's text", async () => {
+    const user = userEvent.setup();
+    render(<LibraryView />);
+    await screen.findAllByText("The Embergate Conspiracy");
+
+    await user.click(screen.getByTitle(/switch storyline/i));
+    await user.click(screen.getByRole("button", { name: /new storyline/i }));
+    const dialog = screen.getByRole("dialog");
+
+    // Upload a reference file; a removable chip confirms it was read in.
+    const file = new File(["The Grull hunts by vibration. GRULL_MARKER"], "bestiary.md", {
+      type: "text/markdown",
+    });
+    await user.upload(within(dialog).getByLabelText(/browse files/i), file);
+    expect(
+      await within(dialog).findByRole("button", { name: /remove bestiary\.md/i }),
+    ).toBeInTheDocument();
+
+    // The dropped file's text is passed to ground the generation (no upload/persist).
+    await user.type(within(dialog).getByLabelText(/^premise$/i), "A world of predators.");
+    await user.click(within(dialog).getByRole("button", { name: /generate primer/i }));
+    await waitFor(() =>
+      expect(vi.mocked(api.generateWorldPrimer)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          docsOverview: expect.stringContaining("GRULL_MARKER"),
+        }),
+      ),
+    );
+
+    // Removing the file clears the chip.
+    await user.click(within(dialog).getByRole("button", { name: /remove bestiary\.md/i }));
+    expect(
+      within(dialog).queryByRole("button", { name: /remove bestiary\.md/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("edits a storyline via the switcher", async () => {
     const user = userEvent.setup();
     render(<LibraryView />);

@@ -14,6 +14,7 @@ import {
   SEAL_COLORS,
   SEAL_SYMBOLS,
 } from "@/lib/seals";
+import { readDocFiles } from "@/lib/readDocs";
 import type { useLibraryState } from "@/features/library/useLibraryState";
 
 const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
@@ -42,6 +43,24 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
   const premiseText = (d.premise ?? "").trim();
   const canDraft = Boolean(seedText);
   const canGeneratePrimer = Boolean(seedText || premiseText);
+  const docFiles = d._docFiles ?? [];
+
+  // Read dropped/selected reference files into memory and merge them by name.
+  // They ground a single generation only — never uploaded or persisted (no RAG).
+  async function addFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const read = await readDocFiles(Array.from(files));
+    if (read.length === 0) return;
+    const byName = new Map((d._docFiles ?? []).map((doc) => [doc.name, doc]));
+    for (const doc of read) byName.set(doc.name, doc);
+    lib.setDraft("_docFiles", Array.from(byName.values()));
+  }
+  function removeFile(name: string) {
+    lib.setDraft(
+      "_docFiles",
+      (d._docFiles ?? []).filter((doc) => doc.name !== name),
+    );
+  }
 
   return (
     <Modal
@@ -227,24 +246,65 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
               !agentic && "hidden md:block",
             )}
           >
-            {/* Context files drop zone — visible, non-functional seam. */}
+            {/* Context files — read in the browser to ground generation only. */}
             <Eyebrow size={8.5} tracking="0.2em" color="#A8762A" className="mb-[10px]">
               ⎙ Context files
             </Eyebrow>
             <div
-              aria-disabled="true"
-              className="flex flex-col items-center gap-[6px] rounded-[4px] border border-dashed border-cardbd bg-field/50 px-[14px] py-[20px] text-center opacity-70"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                void addFiles(e.dataTransfer.files);
+              }}
+              className="flex flex-col items-center gap-[6px] rounded-[4px] border border-dashed border-cardbd bg-field/50 px-[14px] py-[18px] text-center"
             >
               <span aria-hidden className="text-[18px] text-mute">
                 ⤓
               </span>
               <p className="font-body text-[13.5px] text-ink-soft">
-                Drag context files here to ground the world.
+                Drag <code className="font-mono text-[12px]">.txt</code> or{" "}
+                <code className="font-mono text-[12px]">.md</code> files here to ground the draft.
               </p>
+              <input
+                id="storyline-docs-input"
+                type="file"
+                multiple
+                accept=".txt,.md,.markdown,text/plain,text/markdown"
+                className="sr-only"
+                onChange={(e) => {
+                  void addFiles(e.currentTarget.files);
+                  e.currentTarget.value = ""; // allow re-selecting the same file
+                }}
+              />
+              <label
+                htmlFor="storyline-docs-input"
+                className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:underline"
+              >
+                Browse files
+              </label>
               <span className="font-mono text-[9px] tracking-[0.14em] text-mute2 uppercase">
-                Coming soon
+                Grounds this generation only — not stored yet
               </span>
             </div>
+            {docFiles.length > 0 ? (
+              <ul className="mt-[10px] flex flex-wrap gap-[6px]">
+                {docFiles.map((doc) => (
+                  <li key={doc.name}>
+                    <span className="inline-flex items-center gap-[6px] rounded-full border border-cardbd bg-field px-[9px] py-[3px] font-mono text-[10.5px] text-ink-soft">
+                      ⎙ {doc.name}
+                      <button
+                        type="button"
+                        aria-label={`Remove ${doc.name}`}
+                        onClick={() => removeFile(doc.name)}
+                        className="cursor-pointer text-mute hover:text-accent"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
             {/* Agentic draft panel — visible, non-functional seam. */}
             <Eyebrow size={8.5} tracking="0.2em" color="#A8762A" className="mt-[20px] mb-[10px]">

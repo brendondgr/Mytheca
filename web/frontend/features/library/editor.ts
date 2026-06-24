@@ -1,4 +1,5 @@
 import type { Branch } from "@/lib/types";
+import type { ReadDoc } from "@/lib/readDocs";
 import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 
 // Editor model shared by the create/edit modal. A single loose Draft covers all
@@ -30,9 +31,9 @@ export interface Draft {
   settingId?: string;
   branches?: Branch[];
   _prompt?: string;
-  // Inline text from dropped reference files, used to ground a single generation
-  // only (never persisted/indexed — RAG is a later plan). Wired in the modal.
-  _docs?: string;
+  // Reference files dropped in the create modal, read into memory to ground a
+  // single generation only (never persisted/indexed — RAG is a later plan).
+  _docFiles?: ReadDoc[];
   _ai?: boolean;
 }
 
