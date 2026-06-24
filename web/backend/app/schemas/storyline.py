@@ -44,3 +44,33 @@ class StorylineRead(CamelModel):
     world_primer: str | None = None
     symbol: str = "◆"
     symbol_color: str = "#C8862A"
+
+
+# ---- Authoring (the agent process of building a storyline) ------------------
+# ``docsOverview`` is optional inline text read from dropped reference files in
+# the browser and passed for *this generation only* — it is never persisted or
+# indexed (retrieval/RAG is a later plan).
+
+
+class StorylineDraftRequest(CamelModel):
+    seed: str
+    docs_overview: str | None = None
+
+
+class StorylineDraftResponse(CamelModel):
+    """Metadata drafted from a one-sentence seed (fills the create form)."""
+
+    title: str = ""
+    genre: str = ""
+    tagline: str = ""
+    premise: str = ""
+
+
+class WorldPrimerRequest(CamelModel):
+    premise: str | None = None
+    seed: str | None = None
+    docs_overview: str | None = None
+
+
+class WorldPrimerResponse(CamelModel):
+    world_primer: str
