@@ -30,7 +30,14 @@ class Storyline(Base):
     genre: Mapped[str] = mapped_column(String, default="Uncharted")
     tagline: Mapped[str | None] = mapped_column(String, nullable=True)
     # Long-form, multi-paragraph world description authored in the create modal.
+    # ``premise`` is human-facing Library copy; ``world_primer`` (below) is the
+    # agent-facing runtime context injected into conversations — same world, a
+    # different audience.
     premise: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Agent-facing world context generated at creation (seed + premise + an
+    # optional overview of dropped docs), then editable. Injected verbatim into
+    # every conversation so the model can open cold without day-one retrieval.
+    world_primer: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Customizable seal shown left of the storyline's name: a simple shape glyph
     # plus a hex color. Defaults to the historical gold diamond.
     symbol: Mapped[str] = mapped_column(String, default="◆")
