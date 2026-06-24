@@ -9,6 +9,7 @@ import {
   resolveScenario,
 } from "@/lib/seed-data";
 import * as api from "@/lib/api";
+import { concatDocs } from "@/lib/readDocs";
 import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
 import {
@@ -89,6 +90,9 @@ export function useLibraryState() {
   const [modal, setModal] = useState<ModalState | null>(null);
   const [draft, setDraftState] = useState<Draft>({});
   const [generating, setGenerating] = useState(false);
+  // Separate flag so the World Primer "Generate" button spins independently of
+  // the "Draft with Velora" metadata draft.
+  const [generatingPrimer, setGeneratingPrimer] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const generateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -227,6 +231,7 @@ export function useLibraryState() {
     setModal({ type: "storyline", mode: "manual", editId: null });
     setMenuOpen(false);
     setGenerating(false);
+    setGeneratingPrimer(false);
   }
   /** Open the storyline modal in edit mode, prefilled from an existing storyline. */
   function editStoryline(id: string) {
@@ -237,6 +242,7 @@ export function useLibraryState() {
       genre: sl.genre,
       tagline: sl.tagline ?? "",
       premise: sl.premise ?? "",
+      worldPrimer: sl.worldPrimer ?? "",
       symbol: sl.symbol ?? DEFAULT_SEAL_SYMBOL,
       symbolColor: sl.symbolColor ?? DEFAULT_SEAL_COLOR,
     });
@@ -244,6 +250,57 @@ export function useLibraryState() {
     setModal({ type: "storyline", mode: "manual", editId: id });
     setMenuOpen(false);
     setGenerating(false);
+    setGeneratingPrimer(false);
+  }
+
+  // ---- storyline agentic authoring (real model calls via the backend) ----
+  /** Draft title/genre/tagline/premise from the one-sentence seed (draft._prompt). */
+  async function draftStoryline() {
+    if (!modal || modal.type !== "storyline") return;
+    const seed = (draft._prompt ?? "").trim();
+    if (!seed) return;
+    const docsOverview = draft._docFiles?.length ? concatDocs(draft._docFiles) : undefined;
+    setGenerating(true);
+    setError(null);
+    try {
+      const drafted = await api.draftStoryline(seed, docsOverview);
+      setDraftState((prev) => ({
+        ...prev,
+        title: drafted.title || prev.title,
+        genre: drafted.genre || prev.genre,
+        tagline: drafted.tagline || prev.tagline,
+        premise: drafted.premise || prev.premise,
+        _ai: true,
+      }));
+      // On mobile the seam is its own tab — drop back to the form to reveal fields.
+      setModal((prev) => (prev ? { ...prev, mode: "manual" } : prev));
+    } catch (e) {
+      setError(messageOf(e)); // keep the modal open so the author can retry
+    } finally {
+      setGenerating(false);
+    }
+  }
+  /** Generate the agent-facing World Primer from the current seed + premise. */
+  async function generatePrimer() {
+    if (!modal || modal.type !== "storyline") return;
+    const premise = (draft.premise ?? "").trim();
+    const seed = (draft._prompt ?? "").trim();
+    if (!premise && !seed) return;
+    const docsOverview = draft._docFiles?.length ? concatDocs(draft._docFiles) : undefined;
+    setGeneratingPrimer(true);
+    setError(null);
+    try {
+      const { worldPrimer } = await api.generateWorldPrimer({
+        premise: premise || undefined,
+        seed: seed || undefined,
+        docsOverview,
+      });
+      setDraftState((prev) => ({ ...prev, worldPrimer }));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGeneratingPrimer(false);
+    }
   }
   /** Create (or, when editing, update) the storyline from the modal draft. */
   async function submitStoryline() {
@@ -258,12 +315,13 @@ export function useLibraryState() {
     const symbolColor = draft.symbolColor || DEFAULT_SEAL_COLOR;
     try {
       if (editId) {
-        // Edit: empty tagline/premise are sent as "" so the author can clear them.
+        // Edit: empty tagline/premise/primer are sent as "" so they can be cleared.
         const updated = await api.updateStoryline(editId, {
           title,
           genre,
           tagline: draft.tagline?.trim() ?? "",
           premise: draft.premise?.trim() ?? "",
+          worldPrimer: draft.worldPrimer?.trim() ?? "",
           symbol,
           symbolColor,
         });
@@ -277,6 +335,7 @@ export function useLibraryState() {
           genre,
           tagline: draft.tagline?.trim() || undefined,
           premise: draft.premise?.trim() || undefined,
+          worldPrimer: draft.worldPrimer?.trim() || undefined,
           symbol,
           symbolColor,
         });
@@ -347,6 +406,7 @@ export function useLibraryState() {
   function closeModal() {
     if (generateTimer.current) clearTimeout(generateTimer.current);
     setGenerating(false);
+    setGeneratingPrimer(false);
     setError(null);
     setModal(null);
   }
@@ -530,6 +590,7 @@ export function useLibraryState() {
   return {
     storylines, activeStorylineId, activeStoryline, switchStoryline,
     openCreateStoryline, editStoryline, submitStoryline,
+    draftStoryline, generatePrimer, generatingPrimer,
     requestDeleteStoryline, confirmDeleteStoryline, cancelDeleteStoryline,
     storylineToDelete,
     characters, settings, scenarios, resolvedScenarios,

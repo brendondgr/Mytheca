@@ -62,6 +62,47 @@ def _ensure_ok(res: httpx.Response) -> None:
     )
 
 
+def chat_complete(
+    base_url: str,
+    api_key: str,
+    model: str,
+    messages: list[dict[str, str]],
+    params: LlmParams | None = None,
+) -> str:
+    """Run one chat completion and return the assistant's text.
+
+    The general-purpose generation primitive (the authoring agent builds on it).
+    Errors map to the contract envelope; an empty/malformed completion is an
+    ``upstream_error`` rather than a silent blank.
+    """
+    if not model:
+        raise APIError(400, "bad_request", "A model is required to generate.")
+    p = params or LlmParams()
+    url = f"{_normalize(base_url)}/chat/completions"
+    body = {
+        "model": model,
+        "messages": messages,
+        "temperature": p.temperature,
+        "max_tokens": p.max_tokens,
+        "top_p": p.top_p,
+        "frequency_penalty": p.frequency_penalty,
+        "presence_penalty": p.presence_penalty,
+    }
+    res = _send("POST", url, headers=_headers(api_key), json=body)
+    _ensure_ok(res)
+    try:
+        payload = res.json()
+        choices = payload.get("choices") or []
+        content = (choices[0].get("message", {}).get("content") or "").strip() if choices else ""
+    except (ValueError, AttributeError, IndexError, TypeError) as exc:
+        raise APIError(
+            502, "upstream_error", "The model endpoint returned an unexpected response."
+        ) from exc
+    if not content:
+        raise APIError(502, "upstream_error", "The model returned an empty response.")
+    return content
+
+
 def list_models(base_url: str, api_key: str) -> LlmModelsResponse:
     url = f"{_normalize(base_url)}/models"
     res = _send("GET", url, headers=_headers(api_key))

@@ -14,6 +14,7 @@ import {
   SEAL_COLORS,
   SEAL_SYMBOLS,
 } from "@/lib/seals";
+import { readDocFiles } from "@/lib/readDocs";
 import type { useLibraryState } from "@/features/library/useLibraryState";
 
 const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
@@ -37,6 +38,29 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
   const isEdit = m.editId != null;
   const seal = d.symbol || DEFAULT_SEAL_SYMBOL;
   const sealColor = d.symbolColor || DEFAULT_SEAL_COLOR;
+  // Agentic authoring: a seed drafts the metadata; seed-or-premise feeds the primer.
+  const seedText = (d._prompt ?? "").trim();
+  const premiseText = (d.premise ?? "").trim();
+  const canDraft = Boolean(seedText);
+  const canGeneratePrimer = Boolean(seedText || premiseText);
+  const docFiles = d._docFiles ?? [];
+
+  // Read dropped/selected reference files into memory and merge them by name.
+  // They ground a single generation only — never uploaded or persisted (no RAG).
+  async function addFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const read = await readDocFiles(Array.from(files));
+    if (read.length === 0) return;
+    const byName = new Map((d._docFiles ?? []).map((doc) => [doc.name, doc]));
+    for (const doc of read) byName.set(doc.name, doc);
+    lib.setDraft("_docFiles", Array.from(byName.values()));
+  }
+  function removeFile(name: string) {
+    lib.setDraft(
+      "_docFiles",
+      (d._docFiles ?? []).filter((doc) => doc.name !== name),
+    );
+  }
 
   return (
     <Modal
@@ -164,6 +188,32 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
               onChange={(e) => lib.setDraft("premise", e.target.value)}
             />
 
+            {/* World Primer — agent-facing runtime context (generated, editable). */}
+            <div className="mt-[14px]">
+              <div className="flex items-end justify-between gap-[10px]">
+                <FieldLabel>World Primer</FieldLabel>
+                <button
+                  type="button"
+                  onClick={lib.generatePrimer}
+                  disabled={!canGeneratePrimer || lib.generatingPrimer}
+                  className="mb-[6px] cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40"
+                >
+                  {lib.generatingPrimer ? "Generating…" : "❖ Generate primer"}
+                </button>
+              </div>
+              <p className="mb-[8px] font-body text-[12.5px] text-ink-soft">
+                Agent-facing context injected into every scene — what the model
+                needs to play this world without looking things up.
+              </p>
+              <TextArea
+                aria-label="World Primer"
+                rows={5}
+                placeholder="Generate from the seed and premise — or write it yourself. Front-load the always-true facts: tone, the constant proper nouns, the load-bearing rules."
+                value={d.worldPrimer || ""}
+                onChange={(e) => lib.setDraft("worldPrimer", e.target.value)}
+              />
+            </div>
+
             {lib.error ? (
               <p role="alert" className="mt-4 font-body text-[13px] text-accent">
                 {lib.error}
@@ -196,24 +246,65 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
               !agentic && "hidden md:block",
             )}
           >
-            {/* Context files drop zone — visible, non-functional seam. */}
+            {/* Context files — read in the browser to ground generation only. */}
             <Eyebrow size={8.5} tracking="0.2em" color="#A8762A" className="mb-[10px]">
               ⎙ Context files
             </Eyebrow>
             <div
-              aria-disabled="true"
-              className="flex flex-col items-center gap-[6px] rounded-[4px] border border-dashed border-cardbd bg-field/50 px-[14px] py-[20px] text-center opacity-70"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                void addFiles(e.dataTransfer.files);
+              }}
+              className="flex flex-col items-center gap-[6px] rounded-[4px] border border-dashed border-cardbd bg-field/50 px-[14px] py-[18px] text-center"
             >
               <span aria-hidden className="text-[18px] text-mute">
                 ⤓
               </span>
               <p className="font-body text-[13.5px] text-ink-soft">
-                Drag context files here to ground the world.
+                Drag <code className="font-mono text-[12px]">.txt</code> or{" "}
+                <code className="font-mono text-[12px]">.md</code> files here to ground the draft.
               </p>
+              <input
+                id="storyline-docs-input"
+                type="file"
+                multiple
+                accept=".txt,.md,.markdown,text/plain,text/markdown"
+                className="sr-only"
+                onChange={(e) => {
+                  void addFiles(e.currentTarget.files);
+                  e.currentTarget.value = ""; // allow re-selecting the same file
+                }}
+              />
+              <label
+                htmlFor="storyline-docs-input"
+                className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:underline"
+              >
+                Browse files
+              </label>
               <span className="font-mono text-[9px] tracking-[0.14em] text-mute2 uppercase">
-                Coming soon
+                Grounds this generation only — not stored yet
               </span>
             </div>
+            {docFiles.length > 0 ? (
+              <ul className="mt-[10px] flex flex-wrap gap-[6px]">
+                {docFiles.map((doc) => (
+                  <li key={doc.name}>
+                    <span className="inline-flex items-center gap-[6px] rounded-full border border-cardbd bg-field px-[9px] py-[3px] font-mono text-[10.5px] text-ink-soft">
+                      ⎙ {doc.name}
+                      <button
+                        type="button"
+                        aria-label={`Remove ${doc.name}`}
+                        onClick={() => removeFile(doc.name)}
+                        className="cursor-pointer text-mute hover:text-accent"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
             {/* Agentic draft panel — visible, non-functional seam. */}
             <Eyebrow size={8.5} tracking="0.2em" color="#A8762A" className="mt-[20px] mb-[10px]">
@@ -224,24 +315,28 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
               <span className="text-ink-soft italic">Velora drafts the rest.</span>
             </p>
             <TextArea
-              aria-label="Describe the world to draft (coming soon)"
+              aria-label="Describe the world to draft"
               rows={3}
               placeholder="e.g. A rotting harbor town where every secret has a price…"
-              value=""
-              disabled
-              readOnly
+              value={d._prompt || ""}
+              onChange={(e) => lib.setDraft("_prompt", e.target.value)}
             />
-            <div className="mt-[12px] flex items-center justify-between gap-[10px]">
-              <span className="font-mono text-[9px] tracking-[0.14em] text-mute2 uppercase">
-                Coming soon
-              </span>
-              <div className="flex gap-[10px]">
-                <Button variant="ghost" onClick={lib.closeModal} className="md:hidden">
-                  Cancel
-                </Button>
-                <Button disabled>❖ Draft with Velora</Button>
-              </div>
+            <div className="mt-[12px] flex items-center justify-end gap-[10px]">
+              <Button variant="ghost" onClick={lib.closeModal} className="md:hidden">
+                Cancel
+              </Button>
+              <Button onClick={lib.draftStoryline} disabled={!canDraft || lib.generating}>
+                {lib.generating ? "Drafting…" : "❖ Draft with Velora"}
+              </Button>
             </div>
+
+            {/* Mobile-only error echo: the form column (with its own alert) is
+                hidden while the agentic tab is open on small screens. */}
+            {lib.error ? (
+              <p role="alert" className="mt-4 font-body text-[13px] text-accent md:hidden">
+                {lib.error}
+              </p>
+            ) : null}
           </aside>
         </div>
       </div>

@@ -68,6 +68,25 @@ and the connection test run on the backend so they work against `localhost:*`
 servers that don't send CORS headers, and so the key never reaches the client.
 When the multi-agent brain lands it reads the same stored config.
 
+## Storyline Authoring Flow (creation-time agent)
+
+```
+Create modal (StorylineModal) → lib/api.ts
+  → POST /api/storylines/draft   {seed, docsOverview?}  → {title, genre, tagline, premise}
+  → POST /api/storylines/primer  {premise, seed?, docsOverview?} → {worldPrimer}
+      → routes/storylines → agents/storyline_agent
+          → settings_store resolves the configured endpoint/model/key
+          → services/llm.chat_complete → {baseUrl}/chat/completions
+  → drafted fields + primer fill the form; author edits, then the normal
+    POST/PATCH /api/storylines persists premise + worldPrimer
+```
+
+This is a **one-time, creation-time** generation, not a per-turn cost. There is
+**no retrieval / RAG**: `docsOverview`, when present, is text read from dropped
+reference files *in the browser* and passed inline for that one call only — the
+files are never uploaded, persisted, or indexed (the corpus/RAG layer is a later
+plan). The agent reuses the same stored LLM config as the Options menu.
+
 ## State Ownership
 
 - Authoritative state: backend (Postgres) — validated server-side, stats clamped.

@@ -21,11 +21,12 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Group | Endpoints | Notes |
 | --- | --- | --- |
 | Auth | `POST /auth/sign-up`, `POST /auth/sign-in`, `POST /auth/sign-out`, `GET /me`, `PATCH /me` | Backend owns session/token. |
-| Storylines | `GET /storylines`, `POST /storylines`, `GET /storylines/{id}`, `PATCH /storylines/{id}`, `DELETE /storylines/{id}` | The world container; owns the baseline stat schema. Read/write shape: `id`, `title`, `genre`, `tagline` (one-line switcher descriptor), `premise` (nullable multi-paragraph world description), `symbol` (seal shape glyph shown left of the name, default `◆`), `symbolColor` (seal hex color, default `#C8862A`). |
+| Storylines | `GET /storylines`, `POST /storylines`, `GET /storylines/{id}`, `PATCH /storylines/{id}`, `DELETE /storylines/{id}` | The world container; owns the baseline stat schema. Read/write shape: `id`, `title`, `genre`, `tagline` (one-line switcher descriptor), `premise` (nullable multi-paragraph human-facing world description), `worldPrimer` (nullable agent-facing runtime context — generated at creation, editable; see Authoring below), `symbol` (seal shape glyph shown left of the name, default `◆`), `symbolColor` (seal hex color, default `#C8862A`). |
 | Stat definitions | `GET /storylines/{id}/stats`, `POST /storylines/{id}/stats`, `PATCH /storylines/{id}/stats/{key}` | Baseline stat schema (range locked at creation). |
 | Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. |
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. |
+| Authoring | `POST /storylines/draft`, `POST /storylines/primer` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, and generate the agent-facing World Primer (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test` | **Implemented.** Global settings (LLM endpoint + library defaults). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
 | Stream | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | NDJSON event stream (see below). |
@@ -86,6 +87,25 @@ key is **write-only**: it is stored server-side and never returned in clear.
   `400 bad_request`.
 - `POST /options/llm/test` — `{ baseUrl?, apiKey?, model, params? }`. Proxies a
   tiny `POST {baseUrl}/chat/completions` → `{ ok, model, latencyMs, sample }`.
+
+## Authoring Shapes (storyline creation agent)
+
+The agent process that builds a storyline at creation time, run over the
+configured LLM (the `/options` endpoint above). **No retrieval / RAG:** when
+present, `docsOverview` is inline text read from dropped reference files in the
+browser and used for that single generation only — it is never persisted or
+indexed.
+
+- `POST /storylines/draft` — `{ seed, docsOverview? }`. Drafts metadata from a
+  one-sentence seed → `{ "title", "genre", "tagline", "premise" }` (the create
+  form prefill). Empty `seed` → `400 bad_request`; unconfigured LLM →
+  `400 bad_request` ("Configure a model in Options first."); a reply that is not
+  valid storyline JSON → `502 upstream_error`.
+- `POST /storylines/primer` — `{ premise?, seed?, docsOverview? }` (at least one
+  of `premise`/`seed` required). Generates the agent-facing **World Primer** →
+  `{ "worldPrimer": "…prose…" }`. The result is stored on the storyline via the
+  normal `worldPrimer` field on create/PATCH. Same unconfigured-LLM /
+  empty-completion error mapping as above.
 
 ## NDJSON Event Stream
 

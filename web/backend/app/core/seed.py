@@ -110,6 +110,22 @@ def seed_if_empty(session: Session) -> bool:
             "flooded undercroft hides older bargains. Everyone owes someone, and the "
             "ledger is always coming due."
         ),
+        world_primer=(
+            "Embergate is a drowned, salt-rotted harbor town in an age of guttering "
+            "lamplight and rising tides; play it grim, intimate, and transactional — "
+            "every favor has a price and the sea is always taking back ground.\n\n"
+            "Three powers govern almost every scene. The Drowned Court runs the "
+            "smuggling lanes from the flooded Drowned Market; the Tidewatch polices "
+            "the harbor from Tidewatch Keep under Captain Doran Hale; and the chapel "
+            "hides older bargains in its flooded undercroft. Maerin Voss fronts the "
+            "Court's salt trade, Nyssa the Oracle of Salt reads the tides, and most "
+            "folk are in debt to one of the three.\n\n"
+            "Load-bearing rules: there is no open magic, only salt-omens and old "
+            "bargains; law is debt, not justice; and the tide floods the lower town "
+            "on a schedule everyone plans around. If a specific creature, minor "
+            "faction, or distant history comes up that this primer does not cover, "
+            "treat it as world detail to be looked up rather than invented."
+        ),
         symbol="◆",
         symbol_color="#C8862A",
         position=0,

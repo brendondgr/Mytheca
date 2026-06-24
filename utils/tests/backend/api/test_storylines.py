@@ -46,6 +46,31 @@ def test_premise_roundtrips_and_defaults_null(client):
     assert patched.json()["title"] == "Embergate"
 
 
+def test_world_primer_roundtrips_and_defaults_null(client):
+    # Omitted on create -> null (camelCase wire field is worldPrimer).
+    bare = client.post("/api/storylines", json={"title": "Bare"})
+    assert bare.status_code == 201
+    assert bare.json()["worldPrimer"] is None
+
+    # Supplied (multi-paragraph) on create -> echoed back verbatim and re-read.
+    primer = "Play it grim and transactional.\n\nThree powers govern every scene."
+    created = client.post(
+        "/api/storylines", json={"title": "Embergate", "worldPrimer": primer}
+    )
+    assert created.status_code == 201
+    sid = created.json()["id"]
+    assert created.json()["worldPrimer"] == primer
+    assert client.get(f"/api/storylines/{sid}").json()["worldPrimer"] == primer
+
+    # PATCH updates the primer without touching other fields.
+    patched = client.patch(
+        f"/api/storylines/{sid}", json={"worldPrimer": "Rewritten primer."}
+    )
+    assert patched.status_code == 200
+    assert patched.json()["worldPrimer"] == "Rewritten primer."
+    assert patched.json()["title"] == "Embergate"
+
+
 def test_symbol_and_color_default_roundtrip_and_patch(client):
     # Omitted on create -> the gold-diamond defaults come back (camelCase wire).
     bare = client.post("/api/storylines", json={"title": "Bare"})

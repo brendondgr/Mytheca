@@ -38,6 +38,7 @@ export function makeApiMock() {
         genre?: string;
         tagline?: string;
         premise?: string;
+        worldPrimer?: string;
         symbol?: string;
         symbolColor?: string;
       }) => ({
@@ -46,6 +47,7 @@ export function makeApiMock() {
         genre: body.genre ?? "Uncharted",
         tagline: body.tagline,
         premise: body.premise,
+        worldPrimer: body.worldPrimer,
         symbol: body.symbol,
         symbolColor: body.symbolColor,
       }),
@@ -57,12 +59,25 @@ export function makeApiMock() {
           title?: string;
           genre?: string;
           tagline?: string;
+          premise?: string;
+          worldPrimer?: string;
           symbol?: string;
           symbolColor?: string;
         },
       ) => ({ id, ...body }),
     ),
     deleteStoryline: vi.fn(async () => {}),
+
+    // ---- storyline authoring (the creation-time agent) ----
+    draftStoryline: vi.fn(async (seed: string) => ({
+      title: "Drafted World",
+      genre: "Drafted Genre",
+      tagline: `Tagline for: ${seed}`,
+      premise: "Drafted premise paragraph one.\n\nDrafted premise paragraph two.",
+    })),
+    generateWorldPrimer: vi.fn(async () => ({
+      worldPrimer: "A generated, agent-facing primer.\n\nThree powers govern the world.",
+    })),
 
     listCharacters: vi.fn(async () => SEED_CHARACTERS),
     listSettings: vi.fn(async () => SEED_SETTINGS),
