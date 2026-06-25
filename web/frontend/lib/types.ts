@@ -26,6 +26,16 @@ export interface Character {
   speech: string;
   goal: string;
   secret: string;
+  // Base-identity prose authored once (filled by the agentic Character Creator).
+  // Nullable: the backend returns null until set.
+  /** Physical appearance (species/race, age, build, features, dress). */
+  appearance?: string | null;
+  /** Backstory / background information. */
+  background?: string | null;
+  /** Fuller personality sheet (temperament, values, fears, mannerisms). */
+  personality?: string | null;
+  /** Relative `/media/...` URL of the generated WebP portrait; monogram fallback. */
+  portrait?: string | null;
 }
 
 export interface Setting {

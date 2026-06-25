@@ -76,7 +76,17 @@ const post = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "POST", body: JSON.stringify(body) });
 const patch = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
+const put = <T>(path: string, body: unknown) =>
+  request<T>(path, { method: "PUT", body: JSON.stringify(body) });
 const del = (path: string) => request<void>(path, { method: "DELETE" });
+
+/** Resolve a relative `/media/...` URL (portraits) against the API origin. */
+export function mediaUrl(path: string): string {
+  if (!path) return path;
+  if (/^https?:\/\//.test(path)) return path;
+  const origin = API_BASE.replace(/\/api\/?$/, "");
+  return `${origin}${path.startsWith("/") ? "" : "/"}${path}`;
+}
 
 // ---- storylines ----
 export const listStorylines = () => request<StorylineSummary[]>("/storylines");
@@ -125,6 +135,84 @@ export const createCharacter = (storylineId: string, body: CharacterInput) =>
 export const updateCharacter = (id: string, body: Partial<CharacterInput>) =>
   patch<Character>(`/characters/${id}`, body);
 export const deleteCharacter = (id: string) => del(`/characters/${id}`);
+
+/** Replace a character's stat values (clamped server-side). Map of {key: value}. */
+export const setCharacterStats = (id: string, values: Record<string, number>) =>
+  put<Record<string, number>>(`/characters/${id}/stats`, values);
+
+// ---- character authoring (the agentic Character Creator) ----
+// Produces a character's base identity only (§1 node properties) — no graph.
+// `docsOverview` is inline dropped-file text used to ground one generation (no RAG).
+
+/** A character drafted from a seed (fills the create form). */
+export interface CharacterDraftResult {
+  name: string;
+  role: string;
+  traits: string;
+  speech: string;
+  goal: string;
+  secret: string;
+  appearance: string;
+  background: string;
+  personality: string;
+  color: string;
+}
+
+export interface PortraitPromptResult {
+  positive: string;
+  negative: string;
+}
+
+export interface PortraitResult {
+  /** Relative `/media/...` URL of the saved WebP portrait. */
+  portrait: string;
+}
+
+export interface StartingStatProposal {
+  key: string;
+  displayName: string;
+  value: number;
+  min: number;
+  max: number;
+  rationale: string;
+}
+
+export interface StartingStatsResult {
+  proposals: StartingStatProposal[];
+}
+
+export const draftCharacter = (seed: string, docsOverview?: string, storylineId?: string) =>
+  post<CharacterDraftResult>("/characters/draft", { seed, docsOverview, storylineId });
+
+export const generatePortraitPrompts = (body: {
+  name?: string;
+  role?: string | null;
+  appearance?: string | null;
+  traits?: string | null;
+  personality?: string | null;
+  species?: string | null;
+  notes?: string | null;
+}) => post<PortraitPromptResult>("/characters/portrait-prompts", body);
+
+export const generatePortrait = (body: {
+  positive: string;
+  negative?: string;
+  baseUrl?: string;
+  workflow?: string;
+  width?: number;
+  height?: number;
+  steps?: number;
+  cfg?: number;
+}) => post<PortraitResult>("/characters/portrait", body);
+
+export const proposeStartingStats = (body: {
+  storylineId: string;
+  name?: string;
+  role?: string | null;
+  traits?: string | null;
+  personality?: string | null;
+  background?: string | null;
+}) => post<StartingStatsResult>("/characters/starting-stats", body);
 
 // ---- settings ----
 export const createSetting = (storylineId: string, body: SettingInput) =>

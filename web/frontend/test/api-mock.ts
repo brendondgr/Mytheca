@@ -94,6 +94,33 @@ export function makeApiMock() {
       ...body,
     })),
     deleteCharacter: vi.fn(async () => {}),
+    setCharacterStats: vi.fn(async (_id: string, values: Record<string, number>) => values),
+
+    // ---- character authoring (the agentic Character Creator) ----
+    draftCharacter: vi.fn(async (seed: string) => ({
+      name: "Drafted Hero",
+      role: "Drafted Role",
+      traits: "Bold · Wry · Loyal",
+      speech: `Speaks of: ${seed}`,
+      goal: "A drafted goal.",
+      secret: "A drafted secret.",
+      appearance: "A drafted appearance.",
+      background: "A drafted background.",
+      personality: "A drafted personality.",
+      color: "#2F7D6B",
+    })),
+    generatePortraitPrompts: vi.fn(async () => ({
+      positive: "young human hero, watercolor portrait, soft washes",
+      negative: "blurry, text, watermark",
+    })),
+    generatePortrait: vi.fn(async () => ({ portrait: "/media/portraits/test.webp" })),
+    proposeStartingStats: vi.fn(async () => ({
+      proposals: [
+        { key: "health", displayName: "Health", value: 90, min: 0, max: 100, rationale: "hardy" },
+        { key: "trust", displayName: "Trust", value: 1, min: -5, max: 5, rationale: "guarded" },
+      ],
+    })),
+    mediaUrl: (path: string) => (path ? `http://test${path}` : path),
 
     createSetting: vi.fn(async (storylineId: string, body: Omit<Setting, "id">) => ({
       id: nid("s"),
