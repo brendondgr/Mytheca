@@ -31,7 +31,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Context documents | `GET /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs/bulk`, `PATCH /context-docs/{docId}`, `DELETE /context-docs/{docId}` | **Implemented.** The persisted **triaged RAG corpus** for a world (written by the New Storyline page's Triage → commit). Each doc carries a `category` (`character`/`setting`/`other`) and inclusion tiers `includeDraft` / `includeRag`. Persistence only — retrieval (chunking/embeddings/hybrid search) is still deferred; nothing reads `content` at runtime yet. See Context Document Shape below. |
 | Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
 | Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
-| Authoring | `POST /storylines/draft`, `POST /storylines/primer`, `POST /storylines/triage` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, generate the agent-facing World Primer, and **triage** dropped reference docs into Characters / Settings / Other with Draft/RAG inclusion (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
+| Authoring | `POST /storylines/draft`, `POST /storylines/primer`, `POST /storylines/triage`, `POST /storylines/build` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, generate the agent-facing World Primer, **triage** dropped reference docs into Characters / Settings / Other with Draft/RAG inclusion, and **build** an entire reviewable world (metadata + primer + stat schema + cast + settings) in one orchestrated call (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
 | Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
 | Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
@@ -210,6 +210,27 @@ indexed.
   retrieval corpus. Empty `docs` → `{ "items": [] }` (no LLM call); a doc the model omits
   falls back to `other`/RAG-on; unconfigured LLM → `400`; non-JSON reply → `502`. The
   classified docs are persisted on commit via the **Context documents** bulk endpoint.
+- `POST /storylines/build` — `{ seed?, docsOverview?, storylineId?, maxCharacters?, maxSettings? }`
+  (at least one of `seed`/`docsOverview` required — build from a sentence, from dropped
+  files, or both). Orchestrates several LLM calls (storyline draft → World Primer →
+  one **blueprint** call for the stat schema + cast/setting concepts → one draft per
+  character → one draft per setting) and returns a reviewable `ProposedWorld`:
+
+  ```json
+  {
+    "storyline": { "title": "…", "genre": "…", "tagline": "…", "premise": "…", "worldPrimer": "…" },
+    "stats": [ { "key": "health", "displayName": "Health", "min": 0, "max": 100, "default": 100, "bands": […] } ],
+    "characters": [ { "name": "…", "role": "…", "traits": "…", "appearance": "…", …, "startingStats": [ { "key": "health", "value": 100 } ] } ],
+    "settings": [ { "name": "…", "type": "…", "desc": "…", "atmosphere": "…", "features": "…", "currentState": "…" } ]
+  }
+  ```
+
+  Nothing is persisted by this call — the page reviews the proposal and commits it via
+  the normal CRUD endpoints (rendering portraits/scene-art then, only if ComfyUI is
+  configured). Counts are bounded (≤6 characters, ≤5 settings, ≤8 stats); proposed stats
+  are sanitized to valid ranges so they persist straight through `POST /storylines/{id}/stats`;
+  starting stats default to the schema defaults. Empty seed **and** docs → `400`;
+  unconfigured LLM → `400`; a non-JSON sub-reply → `502`.
 
 ## Character Authoring Shapes (agentic Character Creator)
 

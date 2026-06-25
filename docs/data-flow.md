@@ -138,6 +138,31 @@ play-accrued **event timeline** (ships empty, written async once play exists) an
 never graph edges. Scene art is an explicit, opt-in step (it spends GPU time on
 the local ComfyUI server).
 
+## Build Everything Flow (the New Storyline world build)
+
+```
+New Storyline page → "Build the whole world" → POST /storylines/build {seed?, docsOverview?}
+  → build_agent orchestrates (configured LLM, one call per entity):
+      draft_storyline → metadata
+      generate_world_primer → World Primer
+      blueprint → universal stat schema + character/setting concepts
+      draft_character × N (grounded in the just-drafted world brief)
+      draft_setting   × M
+  → ProposedWorld returned for REVIEW (nothing persisted yet)
+  → author edits/prunes → "Create world" commits via normal CRUD:
+      POST /storylines → POST …/stats × → POST …/characters × (+ portrait if ComfyUI)
+        + PUT …/stats → POST …/settings × (+ scene-art if ComfyUI)
+        + POST …/context-docs/bulk (the triaged corpus)
+  → navigate to /{newStorylineId}
+```
+
+The build is a **one-time, creation-time** orchestration (not a per-turn cost) and
+**persists nothing** — it returns a proposal so the author reviews before a dozen
+AI-drafted rows are written. Images are **opt-in** and rendered at commit only when
+ComfyUI is configured (best-effort per entity; a failed render never aborts the build).
+Same **no-retrieval** rule as the other authoring agents: `docsOverview` is inline
+dropped-file text, bounded and used for the build only.
+
 ## Context Document Flow (the triaged RAG corpus)
 
 ```
