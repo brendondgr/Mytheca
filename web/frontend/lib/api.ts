@@ -5,7 +5,13 @@
 // should re-export from there. Errors surface as `ApiError` carrying the backend
 // envelope `{ error: { code, message, details } }`.
 
-import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
+import type {
+  Character,
+  Scenario,
+  Setting,
+  StatDefinition,
+  Storyline,
+} from "@/lib/types";
 
 /** Backend base URL. Configurable via NEXT_PUBLIC_API_URL (see .env.example). */
 export const API_BASE =
@@ -139,6 +145,32 @@ export const deleteCharacter = (id: string) => del(`/characters/${id}`);
 /** Replace a character's stat values (clamped server-side). Map of {key: value}. */
 export const setCharacterStats = (id: string, values: Record<string, number>) =>
   put<Record<string, number>>(`/characters/${id}/stats`, values);
+
+// ---- stat definitions (universal stats on a storyline) ----
+// Each definition is shared by every character; bands ("tickers") describe what
+// value ranges mean. The range/bands are freely editable; delete prunes values.
+
+/** Create payload — sensible server defaults fill visibility/appliesTo/guidance. */
+export type StatDefinitionInput = Pick<
+  StatDefinition,
+  "key" | "displayName" | "min" | "max" | "default"
+> &
+  Partial<Pick<StatDefinition, "description" | "bands" | "visibility" | "appliesTo" | "guidance">>;
+
+/** PATCH payload — key is immutable; everything else (incl. range/bands) editable. */
+export type StatDefinitionUpdate = Partial<Omit<StatDefinition, "key">>;
+
+export const listStatDefinitions = (storylineId: string) =>
+  request<StatDefinition[]>(`/storylines/${storylineId}/stats`);
+export const createStatDefinition = (storylineId: string, body: StatDefinitionInput) =>
+  post<StatDefinition>(`/storylines/${storylineId}/stats`, body);
+export const updateStatDefinition = (
+  storylineId: string,
+  key: string,
+  body: StatDefinitionUpdate,
+) => patch<StatDefinition>(`/storylines/${storylineId}/stats/${key}`, body);
+export const deleteStatDefinition = (storylineId: string, key: string) =>
+  del(`/storylines/${storylineId}/stats/${key}`);
 
 // ---- character authoring (the agentic Character Creator) ----
 // Produces a character's base identity only (§1 node properties) — no graph.

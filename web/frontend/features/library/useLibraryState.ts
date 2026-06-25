@@ -232,7 +232,7 @@ export function useLibraryState() {
   }
   /** Open the write-first storyline create modal (StorylineModal) on a blank draft. */
   function openCreateStoryline() {
-    setDraftState({ ...STORYLINE_DRAFT });
+    setDraftState({ ...STORYLINE_DRAFT, _stats: [], _statsOriginal: [] });
     setError(null);
     setModal({ type: "storyline", mode: "manual", editId: null });
     setMenuOpen(false);
@@ -251,12 +251,22 @@ export function useLibraryState() {
       worldPrimer: sl.worldPrimer ?? "",
       symbol: sl.symbol ?? DEFAULT_SEAL_SYMBOL,
       symbolColor: sl.symbolColor ?? DEFAULT_SEAL_COLOR,
+      _stats: [],
+      _statsOriginal: [],
     });
     setError(null);
     setModal({ type: "storyline", mode: "manual", editId: id });
     setMenuOpen(false);
     setGenerating(false);
     setGeneratingPrimer(false);
+    // Load the world's universal stats; keep an original snapshot so submit can
+    // diff into create/update/delete calls. Best-effort — failure just shows none.
+    void api
+      .listStatDefinitions(id)
+      .then((defs) =>
+        setDraftState((prev) => ({ ...prev, _stats: defs, _statsOriginal: defs })),
+      )
+      .catch(() => {});
   }
 
   // ---- storyline agentic authoring (real model calls via the backend) ----
@@ -312,6 +322,39 @@ export function useLibraryState() {
       setGeneratingPrimer(false);
     }
   }
+  /** Persist the universal-stat edits: diff `_stats` vs the loaded snapshot. */
+  async function persistStats(storylineId: string) {
+    const current = (draft._stats ?? []).filter(
+      (s) => s.key.trim() && s.displayName.trim(),
+    );
+    const original = draft._statsOriginal ?? [];
+    const currentKeys = new Set(current.map((s) => s.key));
+    const originalByKey = new Map(original.map((s) => [s.key, s]));
+    // Deletes first (a loaded stat dropped from the list), then creates/updates.
+    for (const o of original) {
+      if (!currentKeys.has(o.key)) await api.deleteStatDefinition(storylineId, o.key);
+    }
+    for (const s of current) {
+      const prev = originalByKey.get(s.key);
+      const fields = {
+        displayName: s.displayName,
+        description: s.description,
+        min: s.min,
+        max: s.max,
+        default: s.default,
+        bands: s.bands,
+        visibility: s.visibility,
+        appliesTo: s.appliesTo,
+        guidance: s.guidance,
+      };
+      if (!prev) {
+        await api.createStatDefinition(storylineId, { key: s.key, ...fields });
+      } else if (JSON.stringify(prev) !== JSON.stringify(s)) {
+        await api.updateStatDefinition(storylineId, s.key, fields);
+      }
+    }
+  }
+
   /** Create (or, when editing, update) the storyline from the modal draft. */
   async function submitStoryline() {
     if (!modal || modal.type !== "storyline") return;
@@ -339,6 +382,7 @@ export function useLibraryState() {
         setStorylines((sls) =>
           sls.map((sl) => (sl.id === editId ? { ...sl, ...updated } : sl)),
         );
+        await persistStats(editId);
       } else {
         const created = await api.createStoryline({
           title,
@@ -350,6 +394,7 @@ export function useLibraryState() {
           symbolColor,
         });
         hydrated.current.add(created.id); // brand-new: no children to fetch
+        await persistStats(created.id);
         setStorylines((sls) => [...sls, emptyStoryline(created)]);
         setActiveStorylineId(created.id);
         resetForStoryline("");

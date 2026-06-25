@@ -96,6 +96,21 @@ export function makeApiMock() {
     deleteCharacter: vi.fn(async () => {}),
     setCharacterStats: vi.fn(async (_id: string, values: Record<string, number>) => values),
 
+    // ---- stat definitions (universal storyline stats) ----
+    listStatDefinitions: vi.fn(async () => [] as unknown[]),
+    createStatDefinition: vi.fn(async (_storylineId: string, body: Record<string, unknown>) => ({
+      description: "",
+      visibility: "public",
+      guidance: null,
+      appliesTo: ["character"],
+      bands: [],
+      ...body,
+    })),
+    updateStatDefinition: vi.fn(
+      async (_storylineId: string, key: string, body: Record<string, unknown>) => ({ key, ...body }),
+    ),
+    deleteStatDefinition: vi.fn(async () => {}),
+
     // ---- character authoring (the agentic Character Creator) ----
     draftCharacter: vi.fn(async (seed: string) => ({
       name: "Drafted Hero",
