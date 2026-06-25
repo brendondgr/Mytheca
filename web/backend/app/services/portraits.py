@@ -8,12 +8,19 @@ served media directory. Returns the relative ``/media/...`` URL the character
 stores in its ``portrait`` column.
 
 The ComfyUI client and the bundled workflow stay untouched — conversion happens
-at the edge here. Portrait orientation defaults to a tall frame (better for a
-face) but the caller may override the size.
+at the edge here. Portraits render as a square **1024×1024** frame by default but
+the caller may override the size.
+
+Every render uses a **fresh random seed** so re-rendering a character produces a
+genuinely new image. It also avoids a ComfyUI stall: with a fixed seed an
+identical prompt is served from cache (no GPU execution), and because the
+completion WebSocket only connects *after* the prompt is queued, that near-instant
+cached signal is missed and the wait loop blocks until its deadline.
 """
 
 from __future__ import annotations
 
+import random
 import uuid
 from io import BytesIO
 from pathlib import Path
@@ -25,10 +32,13 @@ from app.core.config import get_settings
 from app.core.errors import APIError
 from app.services import comfyui, settings_store
 
-# Default portrait frame (divisible by 8 for the latent grid); overridable.
-_PORTRAIT_W = 768
+# Default portrait frame — square 1024×1024 (divisible by 8 for the latent grid);
+# overridable by the caller.
+_PORTRAIT_W = 1024
 _PORTRAIT_H = 1024
 _WEBP_QUALITY = 90
+# ComfyUI seed bound — kept within unsigned 32-bit for broad node compatibility.
+_SEED_MAX = 2**32 - 1
 
 
 def _portraits_dir() -> Path:
@@ -61,8 +71,13 @@ def generate_portrait(
     height: int | None = None,
     steps: int | None = None,
     cfg: float | None = None,
+    seed: int | None = None,
 ) -> dict[str, str]:
-    """Render a watercolor portrait and persist it as WebP. Returns ``{"portrait": url}``."""
+    """Render a watercolor portrait and persist it as WebP. Returns ``{"portrait": url}``.
+
+    ``seed`` defaults to a fresh random value each call so re-rendering yields a
+    new image (and the render actually executes rather than serving a cached one).
+    """
     positive = (positive or "").strip()
     if not positive:
         raise APIError(400, "bad_request", "A positive prompt is required to generate a portrait.")
@@ -82,6 +97,7 @@ def generate_portrait(
         cfg=cfg if cfg is not None else params.cfg,
         width=width or _PORTRAIT_W,
         height=height or _PORTRAIT_H,
+        seed=seed if seed is not None else random.randint(0, _SEED_MAX),
         batch_size=1,
     )
 
