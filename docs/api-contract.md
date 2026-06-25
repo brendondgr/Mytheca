@@ -22,7 +22,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | --- | --- | --- |
 | Auth | `POST /auth/sign-up`, `POST /auth/sign-in`, `POST /auth/sign-out`, `GET /me`, `PATCH /me` | Backend owns session/token. |
 | Storylines | `GET /storylines`, `POST /storylines`, `GET /storylines/{id}`, `PATCH /storylines/{id}`, `DELETE /storylines/{id}` | The world container; owns the baseline stat schema. Read/write shape: `id`, `title`, `genre`, `tagline` (one-line switcher descriptor), `premise` (nullable multi-paragraph human-facing world description), `worldPrimer` (nullable agent-facing runtime context — generated at creation, editable; see Authoring below), `symbol` (seal shape glyph shown left of the name, default `◆`), `symbolColor` (seal hex color, default `#C8862A`). |
-| Stat definitions | `GET /storylines/{id}/stats`, `POST /storylines/{id}/stats`, `PATCH /storylines/{id}/stats/{key}` | Baseline stat schema (range locked at creation). |
+| Stat definitions | `GET /storylines/{id}/stats`, `POST /storylines/{id}/stats`, `PATCH /storylines/{id}/stats/{key}`, `DELETE /storylines/{id}/stats/{key}` | The world's universal stat schema, shared by every character. Freely add/edit/remove: `PATCH` edits name/description/range/bands (range narrowing re-clamps character values); `DELETE` prunes the stat's values from every character. Each definition carries labeled `bands` ("tickers"). |
 | Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. Read/write shape: `id`, `name`, `role`, `color`, `mono` (derived), `traits`, `speech`, `goal`, `secret`, plus base-identity prose `appearance`, `background`, `personality` (all nullable), and `portrait` (nullable relative `/media/...` URL of the generated WebP avatar). |
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. |
@@ -48,11 +48,15 @@ A stat definition (on a storyline, optionally overridden by a scenario):
   "default": 100,
   "guidance": "stats/health.md",
   "visibility": "public",
-  "appliesTo": ["character"]
+  "appliesTo": ["character"],
+  "bands": [
+    { "min": 0, "max": 20, "label": "Nearly dead" },
+    { "min": 81, "max": 100, "label": "Very healthy" }
+  ]
 }
 ```
 
-`min`/`max`/`default` are **locked at creation**. The validator clamps every stat change to `[min, max]`. `visibility` ∈ `public | private_to_user | private_to_character | hidden`. A character holds values only: `{ "health": 80, "strength": 14 }`.
+Stats are **freely editable** — name, description, range (`min`/`max`/`default`), and bands all change via `PATCH` (only `key` is immutable). When a range narrows, the service **re-clamps** every character's value for that stat in the same transaction so no stored value sits out of bounds. `DELETE /storylines/{id}/stats/{key}` removes the definition **and prunes that stat's values from every character** (the value link is by key, not a FK). The validator clamps every stat change to `[min, max]`. `bands` ("tickers") are an ordered list of `{ min, max, label }` describing what value ranges *mean* (for future state-extraction); they need not tile the range or be contiguous, but each requires `min ≤ max` and a non-empty label. `visibility` ∈ `public | private_to_user | private_to_character | hidden`. A character holds values only: `{ "health": 80, "strength": 14 }`.
 
 ## Options / Settings Shape
 
@@ -160,10 +164,11 @@ rule: `docsOverview` is inline dropped-file text used for one generation only.
 - `POST /characters/starting-stats` — `{ storylineId, name?, role?, traits?,
   personality?, background? }`. Proposes starting values for the storyline's stat
   definitions → `{ proposals: [{ key, displayName, value, min, max, rationale }] }`.
-  Values are clamped to each definition's range, unknown keys dropped, and any
-  skipped stat filled with its default. Returns `{ proposals: [] }` (no LLM call)
-  when the world defines no stats. **Proposal only** — the caller applies them via
-  `PUT /characters/{id}/stats`.
+  Each definition's **bands** are folded into the prompt so the model picks a value
+  whose band matches the character's intended starting condition. Values are clamped
+  to each definition's range, unknown keys dropped, and any skipped stat filled with
+  its default. Returns `{ proposals: [] }` (no LLM call) when the world defines no
+  stats. **Proposal only** — the caller applies them via `PUT /characters/{id}/stats`.
 
 ## NDJSON Event Stream
 

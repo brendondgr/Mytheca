@@ -6,7 +6,7 @@ This is the design gate that must be satisfied before broad UI implementation. I
 
 Velora is a **multi-character roleplay chat engine** styled as **a living manuscript — an illuminated codex / tome**. The reading surface is warm parchment; the chrome reads like the cover and rails of an old book; streamed story beats appear like a play script or annotated transcript. Narrator beats are set apart as marginalia/quotes, character lines as bubbles with wax-seal monogram avatars, the player's voice as an inked reply. Avoid sci-fi "AI" clichés entirely.
 
-The recurring identity marks are the **❖ glyph** (`&#10070;`, the "Velora seal") and the **◆ diamond** (`&#9670;`) used as the bullet for branches, settings, and choices. Each **storyline** also carries a **customizable seal** — a simple shape glyph + hex color chosen in the create/edit modal — rendered left of its name in the switcher; the shape set and color palette live in `web/frontend/lib/seals.ts` (default: gold `◆`).
+The recurring identity marks are the **❖ glyph** (`&#10070;`, the "Velora seal") and the **◆ diamond** (`&#9670;`) used as the bullet for branches, settings, and choices. Each **storyline** also carries a **customizable seal** — a simple shape glyph + hex color chosen in a dedicated **seal pop-up** (`SealModal`, opened from a compact Seal row in `StorylineModal`) — rendered left of its name in the switcher. The pop-up offers ~24 shapes, a curated color palette, and a native **color wheel** for any custom hex; the shape/color sets live in `web/frontend/lib/seals.ts` (default: gold `◆`).
 
 ## Domain Vocabulary (use in copy)
 
@@ -53,7 +53,7 @@ Three themes ship from day one, switched by a `ThemeSwitcher` and persisted (`lo
 - **Narrator teal** `#1F8A82` — the narrator card's left border + label; tint `rgba(31,138,130,.12)` for its background.
 - **Success / "now" green** `#1F8A5B`.
 - **Failure / danger** `#9A3520` (and the accent for "secret"/warning labels).
-- **Character colors** — each character carries its own accent (e.g. `#8E2B1C`, `#A8762A`, `#2F7D6B`, `#3A5A78`, `#6B4A8A`, `#5A534A`) used for its monogram ring, name, and role tag.
+- **Character colors** — each character carries its own accent (chosen from a **12-color palette** in `web/frontend/lib/seed-data.ts` `PALETTE`: `#8E2B1C`, `#A8762A`, `#2F7D6B`, `#3A5A78`, `#6B4A8A`, `#5A534A`, `#1F8A5B`, `#B0506A`, `#C56A1F`, `#7E8A2B`, `#2C8E8E`, `#8E3B7A`) used for its monogram ring, name, and role tag.
 
 All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every theme** — verify Parchment, Ember, and Slate. Status and stat changes are never conveyed by color alone (pair with a label, sign, or icon).
 
