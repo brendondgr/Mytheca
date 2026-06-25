@@ -24,12 +24,15 @@ _CHARACTERS: list[dict] = [
     {"id": "grimm", "name": "Grimm", "role": "Threat", "color": "#5A534A", "mono": "G", "traits": "Brutal · Brief · Bought", "speech": "Few words, and most of them threats.", "goal": "Get paid and get gone.", "secret": "He is terrified of deep water."},
 ]
 
+# Settings carry §4.1 node metadata: a short base description (``desc``), the
+# sensory ``atmosphere``, notable ``features``, and the initial ``current_state``.
+# The event timeline is play-accrued and ships empty (the model default).
 _SETTINGS: list[dict] = [
-    {"id": "saltworn", "name": "The Saltworn Tavern", "type": "Social Hub", "desc": "Lamplit and low-beamed — every secret here has a price."},
-    {"id": "harbor", "name": "Embergate Harbor", "type": "Exploration", "desc": "Fog, brine, and the groan of a hundred moored hulls."},
-    {"id": "keep", "name": "Tidewatch Keep", "type": "Fortress", "desc": "The guard's stone fist clenched over the bay."},
-    {"id": "market", "name": "The Drowned Market", "type": "Black Market", "desc": "Below the tideline, where nothing is illegal."},
-    {"id": "sanctum", "name": "The Oracle's Sanctum", "type": "Sacred", "desc": "Salt-circles and the hush before a truth."},
+    {"id": "saltworn", "name": "The Saltworn Tavern", "type": "Social Hub", "desc": "Lamplit and low-beamed — every secret here has a price.", "atmosphere": "Smoke-dark and low-beamed; salt-warped floorboards underfoot, the reek of tallow and spilled ale, and the constant murmur of bargains struck just below hearing.", "features": "A long scarred bar, a guttering hearth, curtained snugs along the back wall where the quiet deals are made, and a warped side door onto the quay.", "current_state": "Past midnight; lamplight gutters in the draught, the common room half-full, the door unbarred but watched."},
+    {"id": "harbor", "name": "Embergate Harbor", "type": "Exploration", "desc": "Fog, brine, and the groan of a hundred moored hulls.", "atmosphere": "Cold fog off the water, the bite of brine, rope and wet timber creaking; gulls unseen overhead and the slow groan of hulls against the pilings.", "features": "Rotting jetties, a tide-eaten sea wall, the customs house at the head of the quay, and the drowned lower wharves only reachable at low tide.", "current_state": "Pre-dawn slack tide; thick fog, few lanterns lit, the night watch thin and cold."},
+    {"id": "keep", "name": "Tidewatch Keep", "type": "Fortress", "desc": "The guard's stone fist clenched over the bay.", "atmosphere": "Cold stone and iron, echoing halls, the smell of oil and old smoke; every footfall carries and every door is heavy.", "features": "A barred gatehouse, the muster yard, the records vault, and the bell tower that signals the turning of the tide.", "current_state": "Shift change at the watch; gates barred, braziers lit in the yard, the duty captain on the wall."},
+    {"id": "market", "name": "The Drowned Market", "type": "Black Market", "desc": "Below the tideline, where nothing is illegal.", "atmosphere": "Brine and tallow and rot; dripping vaulted stone, lantern-light on standing water, voices kept low and faces kept hooded.", "features": "Submerged vault rows, plank walkways above the waterline, the ledger-keeper's cage, and tide-warden posts at every arch.", "current_state": "Tide rising; the bells beginning to count it down, walkways crowded, the lowest stalls already ankle-deep."},
+    {"id": "sanctum", "name": "The Oracle's Sanctum", "type": "Sacred", "desc": "Salt-circles and the hush before a truth.", "atmosphere": "Still and cold, salt crusting the floor in pale rings; the hush before a truth, broken only by slow breathing and the far drip of water.", "features": "Concentric salt-circles, a tide-reading basin, guttered candles, and a curtained recess where the Oracle sits.", "current_state": "Deep night; candles low, the circles freshly drawn, the Oracle waiting and unhurried."},
 ]
 
 _SCENARIOS: list[dict] = [

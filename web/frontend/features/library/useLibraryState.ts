@@ -523,6 +523,82 @@ export function useLibraryState() {
     }
   }
 
+  // ---- setting agentic authoring (real model + ComfyUI calls via backend) ----
+  /** Draft a full setting (fields + §4.1 node metadata) from the seed. */
+  async function draftSetting() {
+    if (!modal || modal.type !== "setting") return;
+    const seed = (draft._prompt ?? "").trim();
+    if (!seed) return;
+    const docsOverview = draft._docFiles?.length
+      ? concatDocs(docsForDraft(draft._docFiles))
+      : undefined;
+    setGenerating(true);
+    setError(null);
+    try {
+      const s = await api.draftSetting(seed, docsOverview, activeStorylineId || undefined);
+      setDraftState((prev) => ({
+        ...prev,
+        name: s.name || prev.name,
+        type: s.type || prev.type,
+        desc: s.desc || prev.desc,
+        atmosphere: s.atmosphere || prev.atmosphere,
+        features: s.features || prev.features,
+        currentState: s.currentState || prev.currentState,
+        _ai: true,
+      }));
+      // On mobile the seam is its own tab — drop back to the form to reveal fields.
+      setModal((prev) => (prev ? { ...prev, mode: "manual" } : prev));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGenerating(false);
+    }
+  }
+  /** Write the watercolor positive/negative scene-art prompts (editable after). */
+  async function generateSceneArtPrompts() {
+    if (!modal || modal.type !== "setting") return;
+    setGeneratingPrompts(true);
+    setError(null);
+    try {
+      const r = await api.generateSceneArtPrompts({
+        name: draft.name,
+        type: draft.type,
+        desc: draft.desc,
+        atmosphere: draft.atmosphere,
+        features: draft.features,
+        currentState: draft.currentState,
+      });
+      setDraftState((prev) => ({
+        ...prev,
+        _sceneArtPositive: r.positive,
+        _sceneArtNegative: r.negative,
+      }));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGeneratingPrompts(false);
+    }
+  }
+  /** Render the establishing image via ComfyUI from the current prompts → draft.image. */
+  async function generateSceneArt() {
+    if (!modal || modal.type !== "setting") return;
+    const positive = (draft._sceneArtPositive ?? "").trim();
+    if (!positive) return;
+    setGeneratingPortrait(true);
+    setError(null);
+    try {
+      const { image } = await api.generateSceneArt({
+        positive,
+        negative: draft._sceneArtNegative?.trim() || undefined,
+      });
+      setDraftState((prev) => ({ ...prev, image }));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGeneratingPortrait(false);
+    }
+  }
+
   // ---- storyline delete (confirm → delete → reselect if it was active) ----
   const [deleteStorylineId, setDeleteStorylineId] = useState<string | null>(null);
   const storylineToDelete =
@@ -608,7 +684,12 @@ export function useLibraryState() {
   function editSetting(id: string) {
     const s = settings.find((x) => x.id === id);
     if (!s) return;
-    setDraftState({ name: s.name, type: s.type, desc: s.desc });
+    setDraftState({
+      name: s.name, type: s.type, desc: s.desc,
+      atmosphere: s.atmosphere ?? "", features: s.features ?? "",
+      currentState: s.currentState ?? "", image: s.image ?? null,
+      timeline: s.timeline ?? [],
+    });
     setError(null);
     setModal({ type: "setting", mode: "manual", editId: id });
   }
@@ -706,7 +787,16 @@ export function useLibraryState() {
           setExpandedCharId(created.id);
         }
       } else if (type === "setting") {
-        const body = { name: (d.name ?? "").trim(), type: d.type || "Social Hub", desc: d.desc?.trim() || "A place yet to be described." };
+        const body = {
+          name: (d.name ?? "").trim(),
+          type: d.type || "Social Hub",
+          desc: d.desc?.trim() || "A place yet to be described.",
+          // §4.1 node metadata: empty → null (clears on edit, unset on create).
+          atmosphere: d.atmosphere?.trim() || null,
+          features: d.features?.trim() || null,
+          currentState: d.currentState?.trim() || null,
+          image: d.image || null,
+        };
         if (editId) {
           const updated = await api.updateSetting(editId, body);
           setSettings((xs) => xs.map((x) => (x.id === editId ? updated : x)));
@@ -787,6 +877,8 @@ export function useLibraryState() {
     draftCharacter, generatePortraitPrompts, generatePortrait,
     proposeStartingStats, applyStartingStats,
     generatingPrompts, generatingPortrait, generatingStats, applyingStats,
+    // setting agentic authoring
+    draftSetting, generateSceneArtPrompts, generateSceneArt,
     requestDeleteStoryline, confirmDeleteStoryline, cancelDeleteStoryline,
     storylineToDelete,
     characters, settings, scenarios, resolvedScenarios,

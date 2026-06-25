@@ -1,5 +1,5 @@
 import type { StartingStatProposal } from "@/lib/api";
-import type { Branch, StatDefinition } from "@/lib/types";
+import type { Branch, SettingTimelineEntry, StatDefinition } from "@/lib/types";
 import type { ReadDoc } from "@/lib/readDocs";
 import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 
@@ -26,6 +26,14 @@ export interface Draft {
   portrait?: string | null;
   type?: string;
   desc?: string;
+  // Setting node metadata + generated establishing image (agentic Setting Creator).
+  // Nullable to mirror the Setting wire shape (the form binds with `?? ""`).
+  atmosphere?: string | null;
+  features?: string | null;
+  currentState?: string | null;
+  image?: string | null;
+  // Read-only on the editor: the play-accrued event timeline (shown as the §4.1 seam).
+  timeline?: SettingTimelineEntry[];
   title?: string;
   genre?: string;
   tagline?: string;
@@ -51,6 +59,10 @@ export interface Draft {
   _portraitPositive?: string;
   _portraitNegative?: string;
   _startingStats?: StartingStatProposal[];
+  // Editor-internal scene-art prompts for the Setting Creator (editable before
+  // rendering the establishing image).
+  _sceneArtPositive?: string;
+  _sceneArtNegative?: string;
 }
 
 export interface ModalState {
@@ -105,7 +117,7 @@ export function blankStat(): StatDefinition {
 
 export const DEFAULT_DRAFTS: Record<EntityType, Draft> = {
   character: { name: "", role: "", color: "#8E2B1C", traits: "", speech: "", goal: "", secret: "", appearance: "", background: "", personality: "" },
-  setting: { name: "", type: "Social Hub", desc: "" },
+  setting: { name: "", type: "Social Hub", desc: "", atmosphere: "", features: "", currentState: "" },
   scenario: { title: "", genre: "Intrigue", tone: "Tension · rising", goal: "", cast: [], settingId: "", branches: [] },
 };
 

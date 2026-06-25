@@ -21,43 +21,30 @@ cached signal is missed and the wait loop blocks until its deadline.
 from __future__ import annotations
 
 import random
-import uuid
-from io import BytesIO
 from pathlib import Path
 
-from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import APIError
 from app.services import comfyui, settings_store
+from app.services.media import save_webp, to_webp
 
 # Default portrait frame — square 1024×1024 (divisible by 8 for the latent grid);
 # overridable by the caller.
 _PORTRAIT_W = 1024
 _PORTRAIT_H = 1024
-_WEBP_QUALITY = 90
 # ComfyUI seed bound — kept within unsigned 32-bit for broad node compatibility.
 _SEED_MAX = 2**32 - 1
+
+# WebP conversion is shared with the scene-art pipeline; kept aliased here so the
+# portrait-service tests (and any callers) keep their familiar reference.
+_to_webp = to_webp
 
 
 def _portraits_dir() -> Path:
     """Directory portraits are written to (patched in tests)."""
     return get_settings().portraits_dir
-
-
-def _to_webp(image_bytes: bytes) -> bytes:
-    """Convert raw image bytes (PNG from ComfyUI) to WebP."""
-    try:
-        with Image.open(BytesIO(image_bytes)) as im:
-            rgb = im.convert("RGB")
-            out = BytesIO()
-            rgb.save(out, format="WEBP", quality=_WEBP_QUALITY, method=6)
-            return out.getvalue()
-    except (OSError, ValueError) as exc:
-        raise APIError(
-            502, "upstream_error", "The generated image could not be converted to WebP."
-        ) from exc
 
 
 def generate_portrait(
@@ -101,9 +88,5 @@ def generate_portrait(
         batch_size=1,
     )
 
-    webp = _to_webp(image_bytes)
-    directory = _portraits_dir()
-    directory.mkdir(parents=True, exist_ok=True)
-    filename = f"{uuid.uuid4().hex}.webp"
-    (directory / filename).write_bytes(webp)
+    filename = save_webp(_portraits_dir(), image_bytes)
     return {"portrait": f"/media/portraits/{filename}"}

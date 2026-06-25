@@ -139,10 +139,26 @@ export function makeApiMock() {
 
     createSetting: vi.fn(async (storylineId: string, body: Omit<Setting, "id">) => ({
       id: nid("s"),
+      timeline: [],
       ...body,
     })),
     updateSetting: vi.fn(async (id: string, body: Partial<Setting>) => ({ id, ...body })),
     deleteSetting: vi.fn(async () => {}),
+
+    // ---- setting authoring (the agentic Setting Creator) ----
+    draftSetting: vi.fn(async (seed: string) => ({
+      name: "Drafted Place",
+      type: "Black Market",
+      desc: `A place of: ${seed}`,
+      atmosphere: "A drafted atmosphere.",
+      features: "Drafted features.",
+      currentState: "A drafted current state.",
+    })),
+    generateSceneArtPrompts: vi.fn(async () => ({
+      positive: "fog-bound harbor at dawn, watercolor, establishing shot, no people",
+      negative: "people, text, watermark",
+    })),
+    generateSceneArt: vi.fn(async () => ({ image: "/media/scenes/test.webp" })),
 
     createScenario: vi.fn(async (storylineId: string, body: Omit<Scenario, "id">) => ({
       id: nid("sc"),
