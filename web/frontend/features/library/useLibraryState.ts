@@ -9,7 +9,7 @@ import {
   resolveScenario,
 } from "@/lib/seed-data";
 import * as api from "@/lib/api";
-import { concatDocs } from "@/lib/readDocs";
+import { concatDocs, docsForDraft } from "@/lib/readDocs";
 import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
 import {
@@ -259,7 +259,9 @@ export function useLibraryState() {
     if (!modal || modal.type !== "storyline") return;
     const seed = (draft._prompt ?? "").trim();
     if (!seed) return;
-    const docsOverview = draft._docFiles?.length ? concatDocs(draft._docFiles) : undefined;
+    const docsOverview = draft._docFiles?.length
+      ? concatDocs(docsForDraft(draft._docFiles))
+      : undefined;
     setGenerating(true);
     setError(null);
     try {
@@ -286,7 +288,9 @@ export function useLibraryState() {
     const premise = (draft.premise ?? "").trim();
     const seed = (draft._prompt ?? "").trim();
     if (!premise && !seed) return;
-    const docsOverview = draft._docFiles?.length ? concatDocs(draft._docFiles) : undefined;
+    const docsOverview = draft._docFiles?.length
+      ? concatDocs(docsForDraft(draft._docFiles))
+      : undefined;
     setGeneratingPrimer(true);
     setError(null);
     try {
