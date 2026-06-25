@@ -157,6 +157,37 @@ describe("LibraryView — editors & modals", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("drops a context from grounding when its Draft toggle is turned off", async () => {
+    const user = userEvent.setup();
+    render(<LibraryView />);
+    await screen.findAllByText("The Embergate Conspiracy");
+
+    await user.click(screen.getByTitle(/switch storyline/i));
+    await user.click(screen.getByRole("button", { name: /new storyline/i }));
+    const dialog = screen.getByRole("dialog");
+
+    const file = new File(["The Grull hunts by vibration. GRULL_MARKER"], "bestiary.md", {
+      type: "text/markdown",
+    });
+    await user.upload(within(dialog).getByLabelText(/browse files/i), file);
+
+    // The dropped file is showcased with per-use toggles; it starts Draft-enabled.
+    const draftToggle = await within(dialog).findByRole("button", {
+      name: /draft for bestiary\.md/i,
+    });
+    expect(draftToggle).toHaveAttribute("aria-pressed", "true");
+    await user.click(draftToggle); // opt this context out of grounding
+    expect(draftToggle).toHaveAttribute("aria-pressed", "false");
+
+    await user.type(within(dialog).getByLabelText(/^premise$/i), "A world of predators.");
+    await user.click(within(dialog).getByRole("button", { name: /generate primer/i }));
+    await waitFor(() => expect(vi.mocked(api.generateWorldPrimer)).toHaveBeenCalled());
+
+    // With Draft off (and no other enabled file), no grounding text is sent.
+    const lastCall = vi.mocked(api.generateWorldPrimer).mock.calls.at(-1)?.[0];
+    expect(lastCall?.docsOverview).toBeUndefined();
+  });
+
   it("edits a storyline via the switcher", async () => {
     const user = userEvent.setup();
     render(<LibraryView />);
