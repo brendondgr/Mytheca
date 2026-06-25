@@ -52,16 +52,11 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
     >
       <div className="p-[22px_26px_24px]">
         <div className="flex items-start justify-between gap-[14px]">
-          <div>
-            <Eyebrow size={8.5} tracking="0.2em" color="#A8762A">
-              {(isEdit ? "Edit " : "New ") + meta.kicker}
-            </Eyebrow>
-            <div
-              id="entity-modal-title"
-              className="mt-1 font-display text-[22px] font-bold text-ink"
-            >
-              {isEdit ? meta.edit : meta.create}
-            </div>
+          <div
+            id="entity-modal-title"
+            className="font-display text-[22px] font-bold text-ink"
+          >
+            {(isEdit ? "Edit " : "New ") + meta.kicker}
           </div>
           <CloseButton onClose={lib.closeModal} />
         </div>
