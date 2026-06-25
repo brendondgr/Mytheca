@@ -7,7 +7,9 @@
 
 import type {
   Character,
+  GraphTypeDefinition,
   Scenario,
+  ScenarioGraph,
   Setting,
   StatDefinition,
   Storyline,
@@ -412,6 +414,29 @@ export const fetchComfyWorkflows = () =>
   request<ComfyWorkflowsResult>("/options/comfy/workflows");
 export const checkComfyStatus = (body: { baseUrl?: string }) =>
   post<ComfyStatusResult>("/options/comfy/status", body);
+
+// ---- Story Graph (Neo4j substrate) ----
+// The scenario subgraph read live on load, plus the Type Registry (§1.4). These
+// degrade gracefully: `getScenarioGraph` returns `{ available: false, … }` when
+// the graph is off. Built-in registry types are immutable (the backend 409s).
+
+/** Input for registering a user-defined graph type (edges require a valence). */
+export type GraphTypeInput = Pick<
+  GraphTypeDefinition,
+  "kind" | "typeName" | "fieldSchema" | "description" | "valence" | "decay"
+>;
+
+export const getScenarioGraph = (scenarioId: string) =>
+  request<ScenarioGraph>(`/scenarios/${scenarioId}/graph`);
+export const listGraphTypes = (storylineId: string) =>
+  request<GraphTypeDefinition[]>(`/storylines/${storylineId}/graph/types`);
+export const createGraphType = (storylineId: string, body: GraphTypeInput) =>
+  post<GraphTypeDefinition>(`/storylines/${storylineId}/graph/types`, body);
+export const updateGraphType = (
+  typeId: string,
+  body: Partial<GraphTypeInput> & { status?: GraphTypeDefinition["status"] },
+) => patch<GraphTypeDefinition>(`/graph/types/${typeId}`, body);
+export const deleteGraphType = (typeId: string) => del(`/graph/types/${typeId}`);
 
 /** Backend health check. Lives at `/health`, outside the `/api` prefix. */
 export async function getHealth(): Promise<{ status: string }> {

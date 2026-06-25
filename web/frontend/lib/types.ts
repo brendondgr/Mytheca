@@ -161,3 +161,72 @@ export interface StatDefinition {
   appliesTo: string[];
   bands: StatBand[];
 }
+
+// ---- The Story Graph (Neo4j substrate) --------------------------------------
+// One knowledge graph over the storyline's entities. Characters/Settings are
+// node types; their connections are edges. The graph is read live on scenario
+// load (GET /scenarios/{id}/graph) and written best-effort on Character/Setting
+// authoring. Mirrors the backend shapes in docs/api-contract.md.
+
+/** A node in the Story Graph (a Character, Setting, …). */
+export interface GraphNode {
+  id: string;
+  /** The node's type, realized as a Neo4j label (e.g. "Character", "Setting"). */
+  type: string | null;
+  /** Human-readable name ("Mei", "Blackwood Tavern"). */
+  label: string | null;
+  storyline: string | null;
+  /** Type-specific descriptive fields (the node's metadata bag). */
+  metadata: Record<string, unknown>;
+}
+
+/** A directed connection between two nodes (e.g. "loves", "present_at"). */
+export interface GraphEdge {
+  source: string;
+  target: string;
+  type: string;
+  metadata: Record<string, unknown>;
+}
+
+/** The subgraph for one scenario: its cast + setting and the edges among them. */
+export interface ScenarioGraph {
+  /** False (with empty lists) when the graph is disabled or unreachable. */
+  available: boolean;
+  scenarioId: string;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export type GraphTypeKind = "node" | "edge";
+export type GraphValence = "positive" | "negative" | "neutral";
+export type GraphTypeStatus = "built_in" | "experimental" | "trusted";
+
+/** One metadata field declared on a graph type. */
+export interface GraphFieldSpec {
+  name: string;
+  kind: "numeric" | "enum" | "prose" | "reference" | "scalar";
+  required?: boolean;
+  default?: unknown;
+  min?: number | null;
+  max?: number | null;
+  options?: string[] | null;
+  edgeType?: string | null;
+  description?: string;
+}
+
+/**
+ * A Type Registry entry (§1.4) — the semantic definition of a node/edge type.
+ * Built-in types are global + immutable; users add per-storyline types
+ * (`experimental` until promoted to `trusted`). Mirrors `GraphTypeRead`.
+ */
+export interface GraphTypeDefinition {
+  id: string;
+  storylineId: string | null;
+  kind: GraphTypeKind;
+  typeName: string;
+  fieldSchema: GraphFieldSpec[];
+  description: string;
+  valence: GraphValence | null;
+  decay: Record<string, unknown> | null;
+  status: GraphTypeStatus;
+}

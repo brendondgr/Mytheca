@@ -6,7 +6,7 @@ Deployment is not yet configured; this records the intended approach and require
 
 - **Backend:** FastAPI (ASGI) served by Uvicorn, started from root `app.py`.
 - **Frontend:** Next.js app in `web/frontend/`.
-- **Data:** PostgreSQL + Redis. A Vector DB (semantic memory) may be added in a later phase.
+- **Data:** PostgreSQL + Redis + **Neo4j** (the Story Graph substrate — a custom `neo4j:5.26-community` image with APOC, `web/backend/docker/neo4j/Dockerfile`). A Vector DB (semantic memory) may be added in a later phase.
 
 ## Local Development
 
@@ -15,15 +15,15 @@ Deployment is not yet configured; this records the intended approach and require
 | Everything (dev) | `python app.py` (repo root) — backend (preflight + Uvicorn) **and** frontend together; waits for backend health, Ctrl+C stops both |
 | Backend only | `python app.py backend` (repo root) — runs preflight, then Uvicorn |
 | Frontend only | `python app.py frontend` (repo root) or `npm run dev` (`web/frontend/`) |
-| Postgres + Redis | Automatic — `app.py` checks Docker, pulls the images, and starts them. Manual fallback: `docker compose -f web/backend/docker-compose.yml up -d` |
+| Postgres + Redis + Neo4j | Automatic — `app.py` checks Docker, pulls/builds the images, and starts them. Manual fallback: `docker compose -f web/backend/docker-compose.yml up -d --build` |
 
 ### Docker bring-up (owned by `app.py`)
 
 Container handling lives in **one place**: `app.py`'s `ensure_docker_services()`, which runs before the backend on both `python app.py` and `python app.py backend`. It:
 
 1. verifies Docker is installed (CLI on PATH) **and** the daemon is responding (`docker info`),
-2. downloads the Postgres + Redis images **only when missing** (`docker compose pull`, with visible first-run progress; image refs come from the compose file via `compose config --images`, so the tags aren't duplicated), and
-3. starts the containers and blocks on their healthchecks (`docker compose up -d --wait`).
+2. downloads the Postgres + Redis images **only when missing** (`docker compose pull --ignore-buildable`, with visible first-run progress; `--ignore-buildable` skips the custom Neo4j service, which is built rather than pulled; image refs come from the compose file via `compose config --images`, so the tags aren't duplicated), and
+3. **builds** the custom Neo4j image and starts the containers, blocking on their healthchecks (`docker compose up -d --build --wait`).
 
 A pull/up failure aborts startup. Missing Docker or a stopped daemon prints actionable guidance and continues (the preflight DB check is the real gate, so external/embedded DBs still work). On `python app.py` the bring-up runs in the **parent** process — visible first-run download, and the spawned backend (passed `VELORA_SKIP_DOCKER=1`) doesn't repeat it or race the health-wait. Skip containers with a `sqlite://` `DATABASE_URL` or `VELORA_SKIP_DOCKER=1`.
 
@@ -38,7 +38,7 @@ After the containers are up, `python app.py backend` runs `app/core/bootstrap.ru
 
 It prints a pass/fail report; a failed **required** check (the database) aborts startup with remediation. Redis and the migrate reconciliation are advisory. The schema/seed run here, **not** in the FastAPI lifespan (which only does a connection check), so Uvicorn `--reload` stays fast.
 
-Postgres is published on host port **3347** (a dedicated port so Velora coexists with any Postgres already on 5432); Redis on **3348**. The frontend dev server runs on **3346** and the backend API on **3345**. Tests run on in-memory SQLite and need neither Docker nor Postgres.
+Postgres is published on host port **3347** (a dedicated port so Velora coexists with any Postgres already on 5432); Redis on **3348**; Neo4j Bolt on **3349** and the Neo4j Browser on **3350** (coexisting with any Neo4j on 7687/7474). The frontend dev server runs on **3346** and the backend API on **3345**. Tests run on in-memory SQLite and need neither Docker nor Postgres nor Neo4j (the Story Graph is disabled in the suite).
 
 ## Build
 
@@ -53,6 +53,9 @@ Copy `.env.example` → `.env` (gitignored). Document every new variable here an
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `REDIS_URL` | Redis connection string |
+| `NEO4J_URI` | Story Graph (Neo4j) Bolt URL (default `bolt://localhost:3349`); **blank to disable the graph** (CRUD + tests run with no Neo4j) |
+| `NEO4J_USER` | Neo4j username (default `neo4j`) |
+| `NEO4J_PASSWORD` | Neo4j password (default `velora-graph`; matches `docker-compose` `NEO4J_AUTH`) |
 | `LLM_PROVIDER` | `openai` or `local` |
 | `OPENAI_API_KEY` | OpenAI key (if provider = openai) |
 | `LOCAL_LLM_BASE_URL` | Base URL for a local model server (if provider = local) |

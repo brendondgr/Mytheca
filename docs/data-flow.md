@@ -10,6 +10,7 @@ How data originates and moves through Velora. The streaming/event path is first-
 | --- | --- | --- |
 | PostgreSQL (core state) | users, storylines, characters, settings, scenarios, events, stat definitions, stat values | `web/backend/app/models/` |
 | Redis (live/cache) | active scenario state, stream pub/sub, cached reads | `web/backend/app/core/` (client), used by `services/` |
+| Neo4j (Story Graph) | character/setting nodes + their edges (the one knowledge graph); instances only — the type system lives in Postgres | `app/core/neo4j.py` (client), `app/services/graph_{writer,reader}.py` |
 | YAML config | hand-authored storylines, characters, settings, stat definitions | loaded by `app/core/` → `services/` (State manager) |
 | Markdown guidance | one file per stat (what raises/lowers it, bands, behavior) | `app/core/` loader → injected into agent context |
 | LLM providers | model completions for agents | `web/backend/app/core/` (provider interface) → `app/agents/` |
@@ -136,6 +137,32 @@ base description + current state** (§4.1 Setting-node properties) — never the
 play-accrued **event timeline** (ships empty, written async once play exists) and
 never graph edges. Scene art is an explicit, opt-in step (it spends GPU time on
 the local ComfyUI server).
+
+## Story Graph Flow (Neo4j substrate)
+
+```
+Write (authoring) — on Character/Setting create/edit/delete:
+  routes → services/crud (commit to Postgres)
+    → graph_writer.sync_character / sync_setting / remove_node  (best-effort, after commit)
+        → validate the instance against the Type Registry (§6.5)
+        → neo4j.write_session → MERGE (:Node {id}) SET dynamic label + metadata (§6.2)
+  (graph down/disabled → logged + skipped; CRUD still succeeds)
+
+Read (scenario load) — GET /api/scenarios/{id}/graph:
+  routes/scenarios → graph_reader.scenario_graph
+    → ensure_scenario_materialized: upsert the cast + setting (+ present_at edges)
+      from Postgres into Neo4j (idempotent; so the seeded world appears on first load)
+    → neo4j.read_session (READ access mode, §7.4) → parameterized Cypher templates (§7.2)
+    → { available, scenarioId, nodes[], edges[] }   (available:false when off/unreachable)
+```
+
+The **Type Registry** (`graph_type_definitions` in Postgres) is the semantic
+source of truth — what node/edge types exist, their field schema, and edge valence
+(§1.4); Neo4j holds the instances. Built-in types (§5) are global + immutable; users
+add per-storyline types via `POST /storylines/{id}/graph/types`. **Deferred seams:**
+the async turn-writer (§8 cold path), the vector entry-point (§7.1), and
+Text2Cypher (§7.3) — their prerequisites (a turn loop, an embedding stack) don't
+exist yet. See `docs/story-graph-neo4j.md`.
 
 ## State Ownership
 
