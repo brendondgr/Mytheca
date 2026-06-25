@@ -14,7 +14,7 @@ from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base, JSONColumn
-from app.core.ids import new_id
+from app.core.ids import new_hex_id
 
 if TYPE_CHECKING:
     from app.models.storyline import Storyline
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 class Scenario(Base):
     __tablename__ = "scenarios"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("sc"))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_hex_id(4))
     storyline_id: Mapped[str] = mapped_column(
         ForeignKey("storylines.id", ondelete="CASCADE"), index=True
     )
