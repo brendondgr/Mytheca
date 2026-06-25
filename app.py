@@ -15,11 +15,12 @@ stops both. The frontend-only target needs just Node/npm (no Python deps); the
 backend target needs the uv environment (`uv sync`).
 
 Docker is handled here, in one place: every backend launch first verifies Docker
-is installed and its daemon is running, downloads the Postgres + Redis images
-(only when missing — visible progress on first run), and starts the containers
-defined in ``web/backend/docker-compose.yml``. You never run ``docker compose``
-yourself. Set ``DATABASE_URL`` to a SQLite URL (or export ``VELORA_SKIP_DOCKER=1``)
-to skip the containers and use an external/embedded database instead.
+is installed and its daemon is running, downloads the Postgres + Redis images and
+builds the custom Neo4j image (only when missing — visible progress on first run),
+and starts the containers defined in ``web/backend/docker-compose.yml``. You never
+run ``docker compose`` yourself. Set ``DATABASE_URL`` to a SQLite URL (or export
+``VELORA_SKIP_DOCKER=1``) to skip the containers and use an external/embedded
+database instead.
 """
 
 from __future__ import annotations
@@ -144,10 +145,12 @@ def ensure_docker_services() -> bool:
     compose = [docker, "compose", "-f", str(COMPOSE_FILE)]
     if not _images_present(docker, compose):
         print(
-            "Docker ✓  Downloading the Postgres + Redis images (first run — this can\n"
-            "take a few minutes)…"
+            "Docker ✓  Downloading the Postgres + Redis + Neo4j images (first run —\n"
+            "this can take a few minutes)…"
         )
-        if subprocess.run(compose + ["pull"]).returncode != 0:
+        # `--ignore-buildable` skips the custom Neo4j service (built below from
+        # docker/neo4j/Dockerfile); only the image-only services are pulled.
+        if subprocess.run(compose + ["pull", "--ignore-buildable"]).returncode != 0:
             print(
                 "Failed to download the container images. Check your network/Docker "
                 "and retry.",
@@ -157,8 +160,10 @@ def ensure_docker_services() -> bool:
     else:
         print("Docker ✓  Container images already present.")
 
-    print("Starting Velora data containers (Postgres + Redis)…")
-    if subprocess.run(compose + ["up", "-d", "--wait"]).returncode != 0:
+    print("Starting Velora data containers (Postgres + Redis + Neo4j)…")
+    # `--build` builds the custom Neo4j image (cached/near-instant when unchanged)
+    # before bringing everything up; `--wait` blocks on each service's healthcheck.
+    if subprocess.run(compose + ["up", "-d", "--build", "--wait"]).returncode != 0:
         print(
             "Docker could not start the containers — see the output above.",
             file=sys.stderr,

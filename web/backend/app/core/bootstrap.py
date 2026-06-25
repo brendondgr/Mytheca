@@ -27,6 +27,8 @@ from sqlalchemy.orm import Session
 import app.models  # noqa: F401 — registers all tables on Base.metadata
 from app.core.config import Settings, get_settings
 from app.core.db import Base, make_engine
+from app.core.neo4j import is_enabled as neo4j_enabled
+from app.core.neo4j import ping as neo4j_ping
 from app.core.redis import ping as redis_ping
 from app.core.seed import seed_if_empty
 
@@ -138,6 +140,13 @@ def run_preflight(*, seed: bool = True) -> PreflightReport:
     report.add("database", True, _db_label(settings))
 
     report.add("redis", redis_ping(), settings.redis_url, required=False)
+
+    # The Story Graph substrate is advisory: graph sync is best-effort and CRUD
+    # never blocks on it (see app/core/neo4j.py). Report it, never gate on it.
+    if neo4j_enabled():
+        report.add("neo4j", neo4j_ping(), settings.neo4j_uri, required=False)
+    else:
+        report.add("neo4j", True, "disabled (NEO4J_URI unset)", required=False)
 
     Base.metadata.create_all(engine)
     _reconcile_additive_columns(engine, report)

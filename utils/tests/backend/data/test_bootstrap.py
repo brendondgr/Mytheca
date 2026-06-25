@@ -54,15 +54,33 @@ def test_reconcile_flags_nonnullable_column_for_manual_migration():
 
 def test_preflight_on_sqlite_seeds_and_passes(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'velora.db'}")
+    monkeypatch.setenv("NEO4J_URI", "")  # graph disabled — no network in this unit test
     config.get_settings.cache_clear()
     try:
         report = bootstrap.run_preflight()
         assert report.ok
         names = {c.name for c in report.checks}
-        assert {"database", "schema", "seed"} <= names
+        assert {"database", "schema", "seed", "neo4j"} <= names
 
         # Second run is idempotent — schema + seed already present.
         assert bootstrap.run_preflight().ok
+    finally:
+        config.get_settings.cache_clear()
+
+
+def test_preflight_neo4j_is_optional_and_does_not_gate(monkeypatch, tmp_path):
+    # Graph configured but unreachable: the check is reported, optional, and never
+    # blocks startup (best-effort posture).
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'velora.db'}")
+    monkeypatch.setenv("NEO4J_URI", "bolt://localhost:3349")
+    config.get_settings.cache_clear()
+    monkeypatch.setattr(bootstrap, "neo4j_ping", lambda: False)  # no real connection
+    try:
+        report = bootstrap.run_preflight()
+        assert report.ok  # still passes — Neo4j is advisory
+        neo4j_check = next(c for c in report.checks if c.name == "neo4j")
+        assert neo4j_check.required is False
+        assert neo4j_check.ok is False
     finally:
         config.get_settings.cache_clear()
 
