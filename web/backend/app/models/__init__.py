@@ -6,6 +6,7 @@ from app.core.db import Base
 from app.models.app_setting import AppSetting
 from app.models.character import Character
 from app.models.event import Event
+from app.models.graph_type import GraphTypeDefinition
 from app.models.scenario import Scenario
 from app.models.session import PlaySession
 from app.models.setting import Setting
@@ -23,4 +24,5 @@ __all__ = [
     "CharacterStat",
     "PlaySession",
     "Event",
+    "GraphTypeDefinition",
 ]

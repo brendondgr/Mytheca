@@ -19,7 +19,7 @@ from sqlalchemy import text
 from app.core.config import get_settings
 from app.core.db import engine
 from app.core.errors import register_error_handlers
-from app.routes import characters, options, scenarios, settings, stats, storylines
+from app.routes import characters, graph, options, scenarios, settings, stats, storylines
 
 logger = logging.getLogger("velora")
 
@@ -55,7 +55,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     api = APIRouter(prefix="/api")
-    for module in (storylines, characters, settings, scenarios, stats, options):
+    for module in (storylines, characters, settings, scenarios, stats, options, graph):
         api.include_router(module.router)
     app.include_router(api)
 

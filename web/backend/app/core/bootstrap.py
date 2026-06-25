@@ -31,6 +31,7 @@ from app.core.neo4j import is_enabled as neo4j_enabled
 from app.core.neo4j import ping as neo4j_ping
 from app.core.redis import ping as redis_ping
 from app.core.seed import seed_if_empty
+from app.services.type_registry import seed_builtin_types
 
 
 @dataclass
@@ -151,6 +152,17 @@ def run_preflight(*, seed: bool = True) -> PreflightReport:
     Base.metadata.create_all(engine)
     _reconcile_additive_columns(engine, report)
     report.add("schema", True, "tables ensured")
+
+    # The built-in Story-Graph type catalogue (§5) must exist on every DB — it is
+    # the seed Type Registry, independent of whether the Embergate world is seeded.
+    with Session(engine) as session:
+        added_types = seed_builtin_types(session)
+    report.add(
+        "graph types",
+        True,
+        f"seeded {added_types} built-in types" if added_types else "already present",
+        required=False,
+    )
 
     if seed:
         with Session(engine) as session:
