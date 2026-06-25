@@ -2,7 +2,6 @@
 
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { CloseButton } from "@/components/ui/CloseButton";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { TextField } from "@/components/ui/TextField";
 import { TextArea } from "@/components/ui/TextArea";
@@ -90,6 +89,14 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
       ),
     );
   }
+  // Bulk select/deselect every context for one category at once — essential when
+  // hundreds of files are dropped in.
+  function setAllDocUse(key: DocUse, value: boolean) {
+    lib.setDraft(
+      "_docFiles",
+      (d._docFiles ?? []).map((doc) => ({ ...doc, [key]: value })),
+    );
+  }
 
   return (
     <Modal
@@ -97,18 +104,16 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
       onClose={lib.closeModal}
       labelledBy="storyline-modal-title"
       className="sm:w-[560px] md:w-[860px] lg:w-[1120px]"
+      externalClose
     >
       {/* Root: main column + detached full-height context column (lg). */}
       <div className="lg:flex lg:items-stretch">
         {/* ── Main column ─────────────────────────────────────────────── */}
         <div className="min-w-0 p-[22px_26px_24px] lg:flex-1">
           {/* Header — title left; seal picker right-justified (preview left of
-              the symbol/color grids); the × pinned to the corner. */}
+              the symbol/color grids). The × close hovers outside the panel. */}
           <div className="relative">
-            <div className="absolute top-0 right-0">
-              <CloseButton onClose={lib.closeModal} />
-            </div>
-            <div className="flex flex-wrap items-end justify-between gap-x-[24px] gap-y-[14px] pr-[28px]">
+            <div className="flex flex-wrap items-end justify-between gap-x-[24px] gap-y-[14px]">
               <div className="min-w-0">
                 <Eyebrow size={8.5} tracking="0.2em" color="#A8762A">
                   {isEdit ? "Edit Storyline" : "New Storyline"}
@@ -349,9 +354,16 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
             agentic ? "flex md:flex" : "hidden md:flex",
           )}
         >
-          <Eyebrow size={8.5} tracking="0.2em" color="#A8762A" className="mb-[10px] block">
-            ⎙ Context files
-          </Eyebrow>
+          <div className="mb-[10px] flex items-center justify-between gap-[8px]">
+            <Eyebrow size={8.5} tracking="0.2em" color="#A8762A">
+              ⎙ Context files
+            </Eyebrow>
+            {docFiles.length > 0 ? (
+              <span className="font-mono text-[10px] tracking-[0.08em] text-mute2 uppercase">
+                {docFiles.length} {docFiles.length === 1 ? "file" : "files"}
+              </span>
+            ) : null}
+          </div>
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
@@ -386,9 +398,57 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
             </label>
           </div>
 
-          {/* Showcased contexts — pick which feed Draft / RAG / KG. Fills the
-              remaining column height and scrolls on its own when long (lg). */}
-          <div className="mt-[12px] flex-1 lg:overflow-auto">
+          {/* Bulk select/deselect per category — for hundreds of dropped files. */}
+          {docFiles.length > 0 ? (
+            <div className="mt-[12px] rounded-[4px] border border-cardbd bg-field px-[10px] py-[8px]">
+              <Eyebrow size={8.5} tracking="0.14em" color="#A8762A">
+                Select all
+              </Eyebrow>
+              <div className="mt-[6px] flex flex-col gap-[5px]">
+                {DOC_USES.map(({ key, label, title }) => {
+                  const onCount = docFiles.filter((doc) => doc[key] ?? true).length;
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between gap-[8px]"
+                    >
+                      <span
+                        title={title}
+                        className="font-mono text-[10.5px] tracking-[0.06em] text-ink-soft uppercase"
+                      >
+                        {label}{" "}
+                        <span className="text-mute2 normal-case">
+                          ({onCount}/{docFiles.length})
+                        </span>
+                      </span>
+                      <div className="flex gap-[6px]">
+                        <button
+                          type="button"
+                          aria-label={`Select all for ${label}`}
+                          onClick={() => setAllDocUse(key, true)}
+                          className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-[9.5px] tracking-[0.08em] text-ink-soft uppercase hover:border-accent"
+                        >
+                          All
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Deselect all for ${label}`}
+                          onClick={() => setAllDocUse(key, false)}
+                          className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-[9.5px] tracking-[0.08em] text-mute uppercase hover:border-accent"
+                        >
+                          None
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Showcased contexts — pick which feed Draft / RAG / KG. The whole
+              modal scrolls (no nested scroll) so long lists stay usable. */}
+          <div className="mt-[12px]">
             {docFiles.length > 0 ? (
               <ul className="flex flex-col gap-[8px]">
                 {docFiles.map((doc) => (

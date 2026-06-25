@@ -17,6 +17,13 @@ interface ModalProps {
   labelledBy?: string;
   /** Overlay z-index — raise for stacked modals (e.g. a profile over an editor). */
   z?: number;
+  /**
+   * Render a reddish × close button *outside* the panel (hovering at its
+   * top-right corner) instead of relying on the caller to place one inside.
+   * The panel clips its own content (`overflow-auto`), so an external affordance
+   * has to live beside it. The button stays inside the focus trap.
+   */
+  externalClose?: boolean;
 }
 
 /**
@@ -34,6 +41,7 @@ export function Modal({
   ariaLabel,
   labelledBy,
   z = 60,
+  externalClose = false,
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -88,6 +96,30 @@ export function Modal({
 
   if (typeof document === "undefined" || !open) return null;
 
+  const dialog = (
+    <div
+      // When an external close is shown, the focus trap lives on the wrapper
+      // (so the outside button is reachable); otherwise it lives on the panel.
+      ref={externalClose ? undefined : panelRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={ariaLabel}
+      aria-labelledby={labelledBy}
+      tabIndex={-1}
+      onClick={(event) => event.stopPropagation()}
+      className={cn(
+        "max-h-[90vh] w-full max-w-[92vw] overflow-auto rounded-[5px] bg-modal outline-none animate-[embPop_.2s_ease] motion-reduce:animate-none",
+        !externalClose && className,
+      )}
+      style={{
+        border: "1px solid var(--field-bd)",
+        boxShadow: "0 24px 60px rgba(14,9,4,.55)",
+      }}
+    >
+      {children}
+    </div>
+  );
+
   return createPortal(
     <div
       data-testid="modal-overlay"
@@ -95,25 +127,26 @@ export function Modal({
       style={{ background: "rgba(14,9,4,.6)", zIndex: z }}
       onClick={onClose}
     >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={ariaLabel}
-        aria-labelledby={labelledBy}
-        tabIndex={-1}
-        onClick={(event) => event.stopPropagation()}
-        className={cn(
-          "max-h-[90vh] w-full max-w-[92vw] overflow-auto rounded-[5px] bg-modal outline-none animate-[embPop_.2s_ease] motion-reduce:animate-none",
-          className,
-        )}
-        style={{
-          border: "1px solid var(--field-bd)",
-          boxShadow: "0 24px 60px rgba(14,9,4,.55)",
-        }}
-      >
-        {children}
-      </div>
+      {externalClose ? (
+        <div
+          ref={panelRef}
+          onClick={(event) => event.stopPropagation()}
+          className={cn("relative max-w-[92vw]", className)}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute -top-[13px] -right-[13px] z-10 flex h-[33px] w-[33px] items-center justify-center rounded-full text-[19px] leading-none text-[#F8E9DC] shadow-[0_4px_14px_rgba(14,9,4,.5)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C24A33] focus-visible:ring-offset-2"
+            style={{ background: "#A8321F", border: "1px solid #C24A33" }}
+          >
+            ×
+          </button>
+          {dialog}
+        </div>
+      ) : (
+        dialog
+      )}
     </div>,
     document.body,
   );

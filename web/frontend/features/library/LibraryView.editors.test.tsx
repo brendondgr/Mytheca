@@ -188,6 +188,45 @@ describe("LibraryView — editors & modals", () => {
     expect(lastCall?.docsOverview).toBeUndefined();
   });
 
+  it("bulk-selects and deselects a context category for every dropped file", async () => {
+    const user = userEvent.setup();
+    render(<LibraryView />);
+    await screen.findAllByText("The Embergate Conspiracy");
+
+    await user.click(screen.getByTitle(/switch storyline/i));
+    await user.click(screen.getByRole("button", { name: /new storyline/i }));
+    const dialog = screen.getByRole("dialog");
+
+    const f1 = new File(["ALPHA_MARKER"], "a.md", { type: "text/markdown" });
+    const f2 = new File(["BETA_MARKER"], "b.md", { type: "text/markdown" });
+    await user.upload(within(dialog).getByLabelText(/browse files/i), [f1, f2]);
+
+    // Both files show; the count reflects two; each starts Draft-enabled.
+    expect(await within(dialog).findByText(/2 files/i)).toBeInTheDocument();
+    const draftA = within(dialog).getByRole("button", { name: /draft for a\.md/i });
+    const draftB = within(dialog).getByRole("button", { name: /draft for b\.md/i });
+    expect(draftA).toHaveAttribute("aria-pressed", "true");
+    expect(draftB).toHaveAttribute("aria-pressed", "true");
+
+    // "None" for Draft turns every file's Draft off at once.
+    await user.click(within(dialog).getByRole("button", { name: /^deselect all for draft$/i }));
+    expect(draftA).toHaveAttribute("aria-pressed", "false");
+    expect(draftB).toHaveAttribute("aria-pressed", "false");
+
+    // With Draft off for all, generation grounds with nothing.
+    await user.type(within(dialog).getByLabelText(/^premise$/i), "A world.");
+    await user.click(within(dialog).getByRole("button", { name: /generate primer/i }));
+    await waitFor(() => expect(vi.mocked(api.generateWorldPrimer)).toHaveBeenCalled());
+    expect(
+      vi.mocked(api.generateWorldPrimer).mock.calls.at(-1)?.[0]?.docsOverview,
+    ).toBeUndefined();
+
+    // "All" restores them.
+    await user.click(within(dialog).getByRole("button", { name: /^select all for draft$/i }));
+    expect(draftA).toHaveAttribute("aria-pressed", "true");
+    expect(draftB).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("edits a storyline via the switcher", async () => {
     const user = userEvent.setup();
     render(<LibraryView />);
