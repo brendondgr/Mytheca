@@ -209,6 +209,12 @@ def create_setting(db: Session, storyline_id: str, data: SettingCreate) -> Setti
         name=data.name,
         type=data.type,
         desc=data.desc,
+        atmosphere=data.atmosphere,
+        features=data.features,
+        current_state=data.current_state,
+        image=data.image,
+        # Timeline is play-accrued (§4.1) — store an empty log at authoring, never None.
+        timeline=[e.model_dump() for e in (data.timeline or [])],
         position=_next_position(db, Setting, storyline_id),
     )
     db.add(setting)
