@@ -40,7 +40,18 @@ function emptyStoryline(summary: api.StorylineSummary): Storyline {
   return { ...summary, characters: [], settings: [], scenarios: [] };
 }
 
-export function useLibraryState() {
+/**
+ * Cosmetically reflect the active storyline in the URL as `/{id}` without a Next
+ * navigation (no remount, no extra fetch) — deep links still resolve via
+ * `initialStorylineId` on a fresh load. SSR-guarded.
+ */
+function syncStorylineUrl(id: string) {
+  if (typeof window !== "undefined" && id) {
+    window.history.replaceState(window.history.state, "", `/${id}`);
+  }
+}
+
+export function useLibraryState(initialStorylineId?: string) {
   // State is storyline-scoped: we hold every storyline and an "active" id; the
   // cast/settings/scenarios shown are the active storyline's own. Data is loaded
   // from the backend on mount and each storyline's children are hydrated lazily.
@@ -133,22 +144,27 @@ export function useLibraryState() {
         setActiveStorylineId("");
         return;
       }
-      const firstId = summaries[0].id;
+      // Deep-link target wins when it names a real storyline; else the first.
+      const target =
+        initialStorylineId && summaries.some((s) => s.id === initialStorylineId)
+          ? initialStorylineId
+          : summaries[0].id;
       const [chars, setts, scens] = await Promise.all([
-        api.listCharacters(firstId),
-        api.listSettings(firstId),
-        api.listScenarios(firstId),
+        api.listCharacters(target),
+        api.listSettings(target),
+        api.listScenarios(target),
       ]);
-      hydrated.current = new Set([firstId]);
+      hydrated.current = new Set([target]);
       setStorylines(
         summaries.map((s) =>
-          s.id === firstId
+          s.id === target
             ? { ...emptyStoryline(s), characters: chars, settings: setts, scenarios: scens }
             : emptyStoryline(s),
         ),
       );
-      setActiveStorylineId(firstId);
+      setActiveStorylineId(target);
       setFeaturedId(scens[0]?.id ?? "");
+      syncStorylineUrl(target);
     } catch (e) {
       setError(messageOf(e));
     } finally {
@@ -221,6 +237,7 @@ export function useLibraryState() {
       return;
     }
     setActiveStorylineId(id);
+    syncStorylineUrl(id);
     setError(null);
     try {
       const scens = await hydrateStoryline(id);
