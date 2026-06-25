@@ -67,10 +67,11 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
       labelledBy="character-modal-title"
       className="sm:w-[560px] md:w-[920px] lg:w-[1120px]"
       externalClose
+      splitScroll
     >
-      <div className="lg:flex lg:items-stretch">
-        {/* ── Main column ─────────────────────────────────────────────── */}
-        <div className="min-w-0 p-[22px_26px_24px] lg:flex-1">
+      <div className="lg:flex lg:min-h-0 lg:flex-1 lg:items-stretch">
+        {/* ── Main column (own scroll on lg+) ─────────────────────────── */}
+        <div className="min-w-0 p-[22px_26px_24px] lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
           {/* Header — title left; avatar preview + accent picker right. */}
           <div className="flex flex-wrap items-end justify-between gap-x-[24px] gap-y-[14px]">
             <div className="min-w-0">
@@ -175,26 +176,33 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 onChange={(e) => lib.setDraft("traits", e.target.value)}
                 className="mt-[14px]"
               />
-              <TextField
-                label="Voice / speech style"
-                placeholder="Formal and terse, by the book."
-                value={d.speech || ""}
-                onChange={(e) => lib.setDraft("speech", e.target.value)}
-                className="mt-[14px]"
-              />
-              <div className="mt-[14px] grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+              {/* Voice — speech style + a (non-functional) voice-sample upload that
+                  will feed text-to-speech later. */}
+              <div className="mt-[14px] flex flex-col gap-[12px] sm:flex-row sm:items-end">
                 <TextField
-                  label="Goal"
-                  placeholder="What do they want?"
-                  value={d.goal || ""}
-                  onChange={(e) => lib.setDraft("goal", e.target.value)}
+                  label="Voice / speech style"
+                  placeholder="Formal and terse, by the book."
+                  value={d.speech || ""}
+                  onChange={(e) => lib.setDraft("speech", e.target.value)}
+                  className="sm:flex-1"
                 />
-                <TextField
-                  label="Secret"
-                  placeholder="What do they hide?"
-                  value={d.secret || ""}
-                  onChange={(e) => lib.setDraft("secret", e.target.value)}
-                />
+                <div className="sm:w-[160px] sm:flex-none">
+                  <FieldLabel>Voice sample</FieldLabel>
+                  <button
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    title="Coming soon — voice samples will drive text-to-speech."
+                    className="flex w-full cursor-not-allowed flex-col items-center gap-[3px] rounded-[3px] border border-dashed border-cardbd bg-field/40 px-[10px] py-[9px] text-center opacity-70"
+                  >
+                    <span aria-hidden className="text-[15px] text-mute">
+                      ⤓
+                    </span>
+                    <span className="font-mono text-[9px] tracking-[0.08em] text-mute uppercase">
+                      Upload · soon
+                    </span>
+                  </button>
+                </div>
               </div>
               <TextArea
                 label="Appearance"
@@ -454,6 +462,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
           setDocFiles={(docs) => lib.setDraft("_docFiles", docs)}
           inputId="character-docs-input"
           show={agentic}
+          scroll
         />
       </div>
     </Modal>
