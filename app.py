@@ -13,6 +13,13 @@ seed) and the Next.js dev server at once, waiting for the backend to report
 healthy before starting the frontend so the first API calls don't fail. Ctrl+C
 stops both. The frontend-only target needs just Node/npm (no Python deps); the
 backend target needs the uv environment (`uv sync`).
+
+Docker is handled here, in one place: every backend launch first verifies Docker
+is installed and its daemon is running, downloads the Postgres + Redis images
+(only when missing — visible progress on first run), and starts the containers
+defined in ``web/backend/docker-compose.yml``. You never run ``docker compose``
+yourself. Set ``DATABASE_URL`` to a SQLite URL (or export ``VELORA_SKIP_DOCKER=1``)
+to skip the containers and use an external/embedded database instead.
 """
 
 from __future__ import annotations
@@ -29,11 +36,136 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 FRONTEND = ROOT / "web" / "frontend"
 BACKEND = ROOT / "web" / "backend"
+COMPOSE_FILE = BACKEND / "docker-compose.yml"
 
 BACKEND_HOST = "127.0.0.1"
 BACKEND_PORT = 3345
 FRONTEND_PORT = 3346
 HEALTH_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}/health"
+
+# When run_all has already brought the containers up in the parent process, the
+# spawned `app.py backend` skips re-doing it (idempotent, but avoids the noise).
+SKIP_DOCKER_ENV = "VELORA_SKIP_DOCKER"
+
+
+def _load_dotenv() -> None:
+    """Best-effort load of the repo-root ``.env`` into ``os.environ``.
+
+    ``app.py`` reads a couple of vars directly (``DATABASE_URL`` for the
+    SQLite/Docker decision, ``VELORA_SKIP_DOCKER``), so it must honor ``.env`` the
+    same way the backend's pydantic ``Settings`` does. Real environment variables
+    win (``setdefault``); pydantic still reads ``.env`` itself, so values stay
+    consistent. Deliberately tiny + dependency-free (the frontend path has no deps).
+    """
+    env_file = ROOT / ".env"
+    if not env_file.exists():
+        return
+    for raw in env_file.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+def _daemon_running(docker: str) -> bool:
+    """True when the Docker daemon answers (CLI present but daemon down is common)."""
+    try:
+        return subprocess.run(
+            [docker, "info"], capture_output=True, timeout=20
+        ).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _images_present(docker: str, compose: list[str]) -> bool:
+    """True when every image the compose file references is already pulled.
+
+    Lets us show an explicit download step only on first run, instead of hitting
+    the registry on every launch. Image refs come from the compose file itself
+    (``compose config --images``) so there's no second copy of the tags here.
+    """
+    res = subprocess.run(compose + ["config", "--images"], capture_output=True, text=True)
+    if res.returncode != 0:
+        return False  # older compose / parse issue → fall back to pulling
+    images = [line.strip() for line in res.stdout.splitlines() if line.strip()]
+    if not images:
+        return False
+    return all(
+        subprocess.run([docker, "image", "inspect", img], capture_output=True).returncode == 0
+        for img in images
+    )
+
+
+def ensure_docker_services() -> bool:
+    """Verify Docker, download the images, and start Postgres + Redis.
+
+    The single home for Velora's container handling. Returns ``False`` only on a
+    hard failure (Docker is present and usable but the pull/up command failed) so
+    the caller can abort. Missing Docker / a stopped daemon prints loud, actionable
+    guidance and returns ``True`` — the backend preflight's DB-connectivity check
+    is the real gate, so external/embedded databases still work.
+    """
+    if os.environ.get(SKIP_DOCKER_ENV) == "1":
+        return True  # parent process already handled it
+    if os.environ.get("DATABASE_URL", "").startswith("sqlite"):
+        print("DATABASE_URL is SQLite — skipping Docker (no containers needed).")
+        return True
+    if not COMPOSE_FILE.exists():
+        print(f"No compose file at {COMPOSE_FILE} — skipping Docker.", file=sys.stderr)
+        return True
+
+    docker = shutil.which("docker")
+    if docker is None:
+        print(
+            "\n⚠  Docker is not installed (no `docker` on PATH).\n"
+            "   Velora's Postgres + Redis run as Docker containers. Install Docker:\n"
+            "       https://docs.docker.com/get-docker/\n"
+            "   …then re-launch. (Or point DATABASE_URL/REDIS_URL at services you\n"
+            "   already run, or use a sqlite:// DATABASE_URL, to skip Docker.)\n",
+            file=sys.stderr,
+        )
+        return True  # let the DB check decide; don't block external-DB setups
+    if not _daemon_running(docker):
+        start_cmd = (
+            "open Docker Desktop"
+            if sys.platform == "darwin"
+            else "start Docker Desktop"
+            if os.name == "nt"
+            else "run `sudo systemctl start docker`"
+        )
+        print(
+            "\n⚠  Docker is installed but its daemon isn't responding.\n"
+            f"   Please {start_cmd}, then re-launch.\n",
+            file=sys.stderr,
+        )
+        return True
+
+    compose = [docker, "compose", "-f", str(COMPOSE_FILE)]
+    if not _images_present(docker, compose):
+        print(
+            "Docker ✓  Downloading the Postgres + Redis images (first run — this can\n"
+            "take a few minutes)…"
+        )
+        if subprocess.run(compose + ["pull"]).returncode != 0:
+            print(
+                "Failed to download the container images. Check your network/Docker "
+                "and retry.",
+                file=sys.stderr,
+            )
+            return False
+    else:
+        print("Docker ✓  Container images already present.")
+
+    print("Starting Velora data containers (Postgres + Redis)…")
+    if subprocess.run(compose + ["up", "-d", "--wait"]).returncode != 0:
+        print(
+            "Docker could not start the containers — see the output above.",
+            file=sys.stderr,
+        )
+        return False
+    print("Data containers healthy ✓\n")
+    return True
 
 
 def _ensure_frontend_deps(npm: str) -> bool:
@@ -71,12 +203,17 @@ def run_backend() -> int:
         )
         return 1
 
+    # Make sure the data containers exist and are running before anything tries
+    # to connect. Docker is owned entirely here (see ensure_docker_services).
+    if not ensure_docker_services():
+        return 1
+
     # web/backend holds the `app` package (app.main:create_app).
     if str(BACKEND) not in sys.path:
         sys.path.insert(0, str(BACKEND))
 
-    # Preflight: bring up Postgres/Redis (via docker compose if available), check
-    # connectivity, ensure the schema, and seed Embergate — before serving.
+    # Preflight: check DB/Redis connectivity, ensure the schema, and seed
+    # Embergate — the containers are already up from ensure_docker_services.
     from app.core.bootstrap import format_report, run_preflight
 
     report = run_preflight()
@@ -151,6 +288,12 @@ def run_all() -> int:
     if not _ensure_frontend_deps(npm):
         return 1
 
+    # Bring Docker up here in the foreground (visible first-run download) so the
+    # backend subprocess starts against ready containers — and isn't racing the
+    # health-wait below while a multi-minute image pull is in flight.
+    if not ensure_docker_services():
+        return 1
+
     new_session = os.name == "posix"
     backend: subprocess.Popen | None = None
     frontend: subprocess.Popen | None = None
@@ -159,6 +302,7 @@ def run_all() -> int:
         backend = subprocess.Popen(
             [sys.executable, str(ROOT / "app.py"), "backend"],
             start_new_session=new_session,
+            env={**os.environ, SKIP_DOCKER_ENV: "1"},  # parent already did Docker
         )
         if not _wait_for_health(backend):
             print(
@@ -196,6 +340,7 @@ def run_all() -> int:
 
 
 def main(argv: list[str]) -> int:
+    _load_dotenv()  # so DATABASE_URL / VELORA_SKIP_DOCKER from .env are honored here
     target = (argv[1] if len(argv) > 1 else "all").lower()
     if target in {"all", "both", ""}:
         return run_all()

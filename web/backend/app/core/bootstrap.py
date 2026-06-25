@@ -2,11 +2,13 @@
 
 ``run_preflight()`` is what ``python app.py backend`` runs before serving. It:
 
-1. optionally brings up Postgres + Redis via the local ``docker-compose.yml``
-   (only if Docker is present — non-fatal otherwise),
-2. waits for the database and pings Redis,
-3. ensures the schema (``create_all``), and
-4. seeds the Embergate world if empty.
+1. waits for the database and pings Redis,
+2. ensures the schema (``create_all``), and
+3. seeds the Embergate world if empty.
+
+Bringing the Postgres + Redis **containers** up is *not* done here — that is
+owned entirely by ``app.py`` (``ensure_docker_services``), which runs before this
+so the stores are already listening. This keeps Docker handling in one place.
 
 It returns a structured ``PreflightReport`` (required checks gate startup; Redis
 is advisory). Pure Python so it can be unit-tested against SQLite + a fake Redis.
@@ -14,11 +16,8 @@ is advisory). Pure Python so it can be unit-tested against SQLite + a fake Redis
 
 from __future__ import annotations
 
-import shutil
-import subprocess
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -29,8 +28,6 @@ from app.core.config import Settings, get_settings
 from app.core.db import Base, make_engine
 from app.core.redis import ping as redis_ping
 from app.core.seed import seed_if_empty
-
-COMPOSE_FILE = Path(__file__).resolve().parents[2] / "docker-compose.yml"
 
 
 @dataclass
@@ -71,32 +68,6 @@ def _db_remediation(settings: Settings) -> str:
     )
 
 
-def _maybe_start_services(report: PreflightReport) -> None:
-    docker = shutil.which("docker")
-    if docker is None or not COMPOSE_FILE.exists():
-        report.add(
-            "docker",
-            True,
-            "skipped (docker or compose file not found) — using external services",
-            required=False,
-        )
-        return
-    try:
-        # --wait blocks until the healthchecks pass, so the DB is ready by the
-        # time we probe it. Generous timeout for a first-run image pull.
-        result = subprocess.run(
-            [docker, "compose", "-f", str(COMPOSE_FILE), "up", "-d", "--wait"],
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        ok = result.returncode == 0
-        detail = "compose up -d --wait" if ok else (result.stderr.strip()[:200] or "compose failed")
-        report.add("docker", ok, detail, required=False)
-    except Exception as exc:  # pragma: no cover - environment dependent
-        report.add("docker", False, f"compose error: {exc}", required=False)
-
-
 def _wait_for_db(engine: Engine, attempts: int = 30, delay: float = 1.0) -> bool:
     for _ in range(attempts):
         try:
@@ -108,13 +79,13 @@ def _wait_for_db(engine: Engine, attempts: int = 30, delay: float = 1.0) -> bool
     return False
 
 
-def run_preflight(*, start_services: bool = True, seed: bool = True) -> PreflightReport:
-    """Bring up + check the data stores, ensure schema, and seed. Idempotent."""
+def run_preflight(*, seed: bool = True) -> PreflightReport:
+    """Check the data stores, ensure the schema, and seed. Idempotent.
+
+    Assumes the containers are already running (``app.py`` brings them up first).
+    """
     settings = get_settings()
     report = PreflightReport()
-
-    if start_services and not settings.is_sqlite:
-        _maybe_start_services(report)
 
     engine = make_engine(settings)
     # SQLite (tests) connects instantly; give Postgres a moment to come up.

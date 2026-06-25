@@ -5,6 +5,7 @@
 - **Python:** 3.13 (`.python-version`). Manager: **`uv` only** (never pip/poetry/conda).
 - **Node:** for `web/frontend/` (Next.js). Package manager: npm (unless changed in `web/frontend/package.json`).
 - **Root launcher:** `python app.py` starts **both** the backend (preflight + uvicorn on 3345) and the frontend dev server (3346) together — it waits for the backend to report healthy before launching the frontend, and Ctrl+C stops both. `python app.py frontend` and `python app.py backend` run just one side.
+- **Docker is handled by `app.py`** (one place — you never run `docker compose` yourself). Every backend launch first verifies Docker is installed + its daemon is running, downloads the Postgres + Redis images (only when missing — visible progress on first run), and starts the containers in `web/backend/docker-compose.yml`. Missing Docker / a stopped daemon prints actionable guidance; a `sqlite://` `DATABASE_URL` or `VELORA_SKIP_DOCKER=1` skips containers entirely (external/embedded DB).
 - **Secrets:** copy `.env.example` → `.env` (gitignored). Document every new variable in `.env.example` and `docs/deployment.md`.
 
 ## Commands
@@ -17,8 +18,8 @@
 | --- | --- |
 | Install deps | `uv sync` |
 | Add a dependency | `uv add <pkg>` |
-| Start Postgres + Redis | `docker compose -f web/backend/docker-compose.yml up -d` (preflight also auto-starts them) |
-| Run the API (dev) | `uv run python app.py backend` — runs preflight (start/check DB+Redis, create schema, seed), then Uvicorn |
+| Start Postgres + Redis | Automatic — `python app.py` (or `… backend`) checks Docker, pulls the images, and starts them. Manual fallback: `docker compose -f web/backend/docker-compose.yml up -d` |
+| Run the API (dev) | `uv run python app.py backend` — ensures Docker + containers, runs preflight (check DB+Redis, create schema, seed), then Uvicorn |
 | Tests | `uv run pytest` (in-memory SQLite — no Postgres/Docker needed) |
 | Lint (recommended) | `uv run ruff check .` |
 | Format (recommended) | `uv run ruff format .` |
