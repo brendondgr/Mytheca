@@ -25,12 +25,14 @@ export function SettingColumn({
   const activeRef = useRef<HTMLDivElement>(null);
 
   // When a new scenario is selected the active setting changes; reveal it inside
-  // the column (instant, so it's motion-safe and not throttled). scroll-mt on
-  // the active wrapper clears the sticky header.
+  // the column with a smooth scroll so it glides to the user rather than jumping.
+  // Honors prefers-reduced-motion (falls back to instant). scroll-mt on the
+  // active wrapper clears the sticky header.
   useEffect(() => {
     const el = activeRef.current;
     if (!el || !activeId) return;
-    el.scrollIntoView?.({ block: "nearest" });
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView?.({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
   }, [activeId]);
 
   return (
