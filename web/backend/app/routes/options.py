@@ -13,6 +13,11 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.schemas.settings import (
+    ComfyConfigRead,
+    ComfyConfigUpdate,
+    ComfyStatusRequest,
+    ComfyStatusResponse,
+    ComfyWorkflowsResponse,
     LibraryDefaultsRead,
     LibraryDefaultsUpdate,
     LlmConfigRead,
@@ -23,14 +28,18 @@ from app.schemas.settings import (
     LlmTestResponse,
     SettingsRead,
 )
-from app.services import llm, settings_store
+from app.services import comfyui, llm, settings_store
 
 router = APIRouter(prefix="/options", tags=["options"])
 
 
 @router.get("", response_model=SettingsRead)
 def get_options(db: Session = Depends(get_db)):
-    return SettingsRead(llm=settings_store.get_llm(db), library=settings_store.get_library(db))
+    return SettingsRead(
+        llm=settings_store.get_llm(db),
+        library=settings_store.get_library(db),
+        comfy=settings_store.get_comfy(db),
+    )
 
 
 @router.patch("/llm", response_model=LlmConfigRead)
@@ -53,3 +62,34 @@ def list_llm_models(data: LlmModelsRequest, db: Session = Depends(get_db)):
 def test_llm(data: LlmTestRequest, db: Session = Depends(get_db)):
     base_url, api_key = settings_store.resolve_llm_credentials(db, data.base_url, data.api_key)
     return llm.test_chat(base_url, api_key, data.model, data.params)
+
+
+# ---- ComfyUI image generation ----------------------------------------------
+
+
+@router.patch("/comfy", response_model=ComfyConfigRead)
+def update_comfy(data: ComfyConfigUpdate, db: Session = Depends(get_db)):
+    return settings_store.update_comfy(db, data)
+
+
+@router.get("/comfy/workflows", response_model=ComfyWorkflowsResponse)
+def list_comfy_workflows():
+    return ComfyWorkflowsResponse(workflows=comfyui.list_workflows())
+
+
+@router.post("/comfy/status", response_model=ComfyStatusResponse)
+def comfy_status(data: ComfyStatusRequest, db: Session = Depends(get_db)):
+    base_url = settings_store.resolve_comfy_base_url(db, data.base_url)
+    stats = comfyui.check_connection(base_url)
+    system = stats.get("system") if isinstance(stats, dict) else {}
+    system = system if isinstance(system, dict) else {}
+    devices = stats.get("devices") if isinstance(stats, dict) else None
+    device = ""
+    if isinstance(devices, list) and devices and isinstance(devices[0], dict):
+        device = str(devices[0].get("name", ""))
+    return ComfyStatusResponse(
+        ok=True,
+        comfyui_version=str(system.get("comfyui_version", "")),
+        device=device,
+        python_version=str(system.get("python_version", "")),
+    )

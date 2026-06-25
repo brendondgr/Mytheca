@@ -49,9 +49,52 @@ class LibraryDefaultsUpdate(CamelModel):
     open_last_storyline: bool | None = None
 
 
+# ---- ComfyUI image generation ---------------------------------------------
+
+
+class ComfyParams(CamelModel):
+    """Default generation parameters patched into the chosen workflow."""
+
+    steps: int = 4
+    cfg: float = 1.0
+    width: int = 1024
+    height: int = 1024
+    batch_size: int = 1
+    negative_prompt: str = ""
+
+
+class ComfyConfigRead(CamelModel):
+    base_url: str = ""
+    workflow: str = "ZiT-Workflow.json"
+    params: ComfyParams = ComfyParams()
+
+
+class ComfyConfigUpdate(CamelModel):
+    base_url: str | None = None
+    workflow: str | None = None
+    params: ComfyParams | None = None
+
+
+class ComfyStatusRequest(CamelModel):
+    # When omitted, the stored config's base URL is used.
+    base_url: str | None = None
+
+
+class ComfyStatusResponse(CamelModel):
+    ok: bool
+    comfyui_version: str = ""
+    device: str = ""
+    python_version: str = ""
+
+
+class ComfyWorkflowsResponse(CamelModel):
+    workflows: list[str]
+
+
 class SettingsRead(CamelModel):
     llm: LlmConfigRead
     library: LibraryDefaultsRead
+    comfy: ComfyConfigRead
 
 
 class LlmModelsRequest(CamelModel):

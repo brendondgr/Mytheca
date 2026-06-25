@@ -27,7 +27,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. |
 | Authoring | `POST /storylines/draft`, `POST /storylines/primer` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, and generate the agent-facing World Primer (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
-| Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test` | **Implemented.** Global settings (LLM endpoint + library defaults). Prefix is `/options` (the Setting entity owns `/settings`). |
+| Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
 | Stream | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | NDJSON event stream (see below). |
 | Admin (future) | `GET /admin/*` | High-permission only. |
@@ -70,7 +70,12 @@ key is **write-only**: it is stored server-side and never returned in clear.
     "hasApiKey": true,
     "apiKeyHint": "…AB12"
   },
-  "library": { "defaultStorylineId": "embergate", "openLastStoryline": true }
+  "library": { "defaultStorylineId": "embergate", "openLastStoryline": true },
+  "comfy": {
+    "baseUrl": "http://localhost:8199",
+    "workflow": "ZiT-Workflow.json",
+    "params": { "steps": 4, "cfg": 1.0, "width": 1024, "height": 1024, "batchSize": 1, "negativePrompt": "" }
+  }
 }
 ```
 
@@ -87,6 +92,23 @@ key is **write-only**: it is stored server-side and never returned in clear.
   `400 bad_request`.
 - `POST /options/llm/test` — `{ baseUrl?, apiKey?, model, params? }`. Proxies a
   tiny `POST {baseUrl}/chat/completions` → `{ ok, model, latencyMs, sample }`.
+
+**ComfyUI image generation** (the local Comfy server — its own HTTP + WebSocket
+protocol, not OpenAI-compatible):
+
+- `PATCH /options/comfy` — body may include `baseUrl`, `workflow`, `params`
+  (`steps`, `cfg`, `width`, `height`, `batchSize`, `negativePrompt`). Base URL is
+  normalized. Returns `ComfyConfigRead`.
+- `GET /options/comfy/workflows` — `{ "workflows": ["ZiT-Workflow.json", …] }`,
+  the `*.json` files saved in `utils/workflows/`.
+- `POST /options/comfy/status` — `{ baseUrl? }` (fall back to stored). Server-side
+  `GET {baseUrl}/system_stats` → `{ ok, comfyuiVersion, device, pythonVersion }`.
+  Network/timeout → `502 bad_gateway`; missing URL → `400 bad_request`.
+
+The full generation pipeline (load workflow → patch prompt → `POST /prompt` →
+WebSocket wait → `GET /history` → `GET /view`) lives in
+`web/backend/app/services/comfyui.py` (`generate(...)`), used by the story engine;
+the Options tab exposes config + the status check only.
 
 ## Authoring Shapes (storyline creation agent)
 

@@ -69,6 +69,7 @@ velora/
 | `utils/` | Small standalone Python helpers; also holds `utils/tests/` and `utils/scripts/`. |
 | `utils/tests/` | pytest + frontend tests, grouped by area. |
 | `utils/scripts/` | Dev/build/ops scripts. |
+| `utils/workflows/` | Saved ComfyUI workflow JSON (e.g. `ZiT-Workflow.json`) loaded by `services/comfyui.py` for image generation. |
 | `libs/` | Internal shared packages that grow beyond a single helper. |
 
 Agent-tool pointer folders (`.claude/`, `.agents/`, `.cursor/`) contain only pointers to `docs/skills/` and are intentionally not the source of truth.

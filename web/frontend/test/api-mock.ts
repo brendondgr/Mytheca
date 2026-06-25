@@ -126,6 +126,11 @@ export function makeApiMock() {
         apiKeyHint: null,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
+      comfy: {
+        baseUrl: "http://localhost:8199",
+        workflow: "ZiT-Workflow.json",
+        params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
+      },
     })),
     updateLlmConfig: vi.fn(async (body: Record<string, unknown>) => ({
       baseUrl: "",
@@ -154,6 +159,22 @@ export function makeApiMock() {
       latencyMs: 42,
       sample: "ok",
     })),
+
+    // ---- ComfyUI image generation ----
+    updateComfyConfig: vi.fn(async (body: Record<string, unknown>) => ({
+      baseUrl: "http://localhost:8199",
+      workflow: "ZiT-Workflow.json",
+      params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
+      ...body,
+    })),
+    fetchComfyWorkflows: vi.fn(async () => ({ workflows: ["ZiT-Workflow.json", "Other.json"] })),
+    checkComfyStatus: vi.fn(async () => ({
+      ok: true,
+      comfyuiVersion: "0.25.0",
+      device: "AMD Radeon",
+      pythonVersion: "3.13.11",
+    })),
+
     getHealth: vi.fn(async () => ({ status: "ok" })),
   };
 }

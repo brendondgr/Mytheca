@@ -19,6 +19,11 @@ function makeOpts(overrides: Partial<OptionsState["settings"]> = {}): OptionsSta
         apiKeyHint: null,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
+      comfy: {
+        baseUrl: "http://localhost:8199",
+        workflow: "ZiT-Workflow.json",
+        params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
+      },
       ...overrides,
     },
     loading: false,
@@ -26,6 +31,7 @@ function makeOpts(overrides: Partial<OptionsState["settings"]> = {}): OptionsSta
     retry: vi.fn(),
     saveLlm: vi.fn(async () => {}),
     saveLibrary: vi.fn(async () => {}),
+    saveComfy: vi.fn(async () => {}),
   };
 }
 

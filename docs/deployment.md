@@ -56,6 +56,7 @@ Copy `.env.example` → `.env` (gitignored). Document every new variable here an
 | `LLM_PROVIDER` | `openai` or `local` |
 | `OPENAI_API_KEY` | OpenAI key (if provider = openai) |
 | `LOCAL_LLM_BASE_URL` | Base URL for a local model server (if provider = local) |
+| `COMFYUI_BASE_URL` | Base URL of the local ComfyUI server for image generation (default `http://localhost:8199`); workflows live in `utils/workflows/` |
 | `APP_ENV` | `development` / `production` |
 | `SECRET_KEY` | Session/token signing |
 | `FRONTEND_ORIGIN` | Allowed CORS origin for the frontend |
