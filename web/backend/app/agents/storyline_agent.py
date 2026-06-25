@@ -30,6 +30,21 @@ from app.services import llm, settings_store
 # frontend also caps). Keeps the prompt bounded without any storage.
 _DOCS_CAP = 8000
 
+# Authoring produces multi-paragraph output, and reasoning models spend a large
+# share of the budget on hidden reasoning tokens before the visible reply (a 26B
+# reasoning model was observed burning ~1.6k tokens thinking before the JSON). The
+# Options default (512, tuned for the connection test) starves them; too tight a
+# floor truncates the reply mid-JSON. Floor generously per-call (>= 8k) without
+# touching the operator's saved setting.
+_GEN_MIN_TOKENS = 8192
+
+
+def _gen_params(params: LlmParams) -> LlmParams:
+    """Return params with ``max_tokens`` floored for authoring generations."""
+    if params.max_tokens >= _GEN_MIN_TOKENS:
+        return params
+    return params.model_copy(update={"max_tokens": _GEN_MIN_TOKENS})
+
 _DRAFT_SYSTEM = (
     "You are Velora's worldbuilding assistant. Given a one-sentence seed for an "
     "interactive-fiction world, draft its library metadata. Respond with ONLY a "
@@ -113,7 +128,7 @@ def draft_storyline(
         {"role": "system", "content": _DRAFT_SYSTEM},
         {"role": "user", "content": f"World seed: {seed}{_docs_block(docs_overview)}"},
     ]
-    data = _extract_json(llm.chat_complete(base_url, api_key, model, messages, params))
+    data = _extract_json(llm.chat_complete(base_url, api_key, model, messages, _gen_params(params)))
     return StorylineDraftResponse(
         title=str(data.get("title") or "").strip(),
         genre=str(data.get("genre") or "").strip(),
@@ -146,4 +161,4 @@ def generate_world_primer(
         {"role": "system", "content": _PRIMER_SYSTEM},
         {"role": "user", "content": user},
     ]
-    return llm.chat_complete(base_url, api_key, model, messages, params)
+    return llm.chat_complete(base_url, api_key, model, messages, _gen_params(params))

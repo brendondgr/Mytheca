@@ -103,6 +103,39 @@ def test_empty_completion_maps_to_upstream_error(client, monkeypatch):
     assert res.json()["error"]["code"] == "upstream_error"
 
 
+def test_authoring_floors_max_tokens_for_reasoning_headroom(client, monkeypatch):
+    # Operator's saved budget is the low connection-test default; authoring must
+    # raise it per-call so reasoning models reach their visible reply.
+    _configure_llm(client)
+    client.patch("/api/options/llm", json={"params": {"maxTokens": 512}})
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json as _json
+
+        seen["max_tokens"] = _json.loads(request.content)["max_tokens"]
+        return _completion("A terse primer.")
+
+    _patch_upstream(monkeypatch, handler)
+    res = client.post("/api/storylines/primer", json={"seed": "A world."})
+    assert res.status_code == 200
+    assert seen["max_tokens"] >= 2048
+
+
+def test_token_limit_truncation_maps_to_actionable_error(client, monkeypatch):
+    # A reasoning model that exhausts the budget returns empty content with
+    # finish_reason "length" — surface an actionable message, not a bare blank.
+    _configure_llm(client)
+    truncated = httpx.Response(
+        200, json={"choices": [{"message": {"content": ""}, "finish_reason": "length"}]}
+    )
+    _patch_upstream(monkeypatch, lambda req: truncated)
+    res = client.post("/api/storylines/primer", json={"premise": "A world."})
+    assert res.status_code == 502
+    assert res.json()["error"]["code"] == "upstream_error"
+    assert "Max tokens" in res.json()["error"]["message"]
+
+
 def test_draft_without_llm_configured_is_bad_request(client):
     # Clear any seeded default endpoint → unconfigured (no network involved).
     client.patch("/api/options/llm", json={"baseUrl": "", "model": ""})

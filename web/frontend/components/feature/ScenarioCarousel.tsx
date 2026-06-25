@@ -143,7 +143,7 @@ export function ScenarioCarousel({
               </div>
             </div>
             <div
-              className="hidden w-[200px] flex-none items-center justify-center sm:flex"
+              className="hidden aspect-[16/9] h-full w-auto flex-none items-center justify-center lg:flex"
               style={{ background: HERO.art, borderLeft: `1px solid ${HERO.border}` }}
             >
               <span
@@ -158,7 +158,7 @@ export function ScenarioCarousel({
       </div>
 
       {/* overlay: label + chevrons + counter */}
-      <div className="pointer-events-none absolute top-[16px] right-[16px] left-[16px] flex items-center gap-3 sm:right-[212px] sm:left-[30px]">
+      <div className="pointer-events-none absolute top-[16px] right-[16px] left-[16px] flex items-center gap-3 sm:left-[30px] lg:right-[449px]">
         <span
           className="font-mono text-[9.5px] uppercase tracking-[0.22em]"
           style={{ color: HERO.label }}
@@ -191,7 +191,7 @@ export function ScenarioCarousel({
       </div>
 
       {/* overlay: dots */}
-      <div className="absolute right-[16px] bottom-[16px] flex gap-[7px] sm:right-[212px]">
+      <div className="absolute right-[16px] bottom-[16px] flex gap-[7px] lg:right-[449px]">
         {slides.map((s, i) => {
           const on = i === index;
           return (

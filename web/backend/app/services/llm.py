@@ -17,7 +17,11 @@ import httpx
 from app.core.errors import APIError
 from app.schemas.settings import LlmModelsResponse, LlmParams, LlmTestResponse
 
+# Listing models / the connection test are quick; generation (especially slow
+# local or reasoning models that think for many tokens) needs a far longer read
+# window before we declare the endpoint unreachable.
 _TIMEOUT = httpx.Timeout(20.0, connect=5.0)
+_GEN_TIMEOUT = httpx.Timeout(300.0, connect=5.0)
 
 
 def get_http_client() -> httpx.Client:
@@ -39,11 +43,21 @@ def _headers(api_key: str) -> dict[str, str]:
     return headers
 
 
-def _send(method: str, url: str, *, headers: dict[str, str], json: dict | None = None) -> httpx.Response:
+def _send(
+    method: str,
+    url: str,
+    *,
+    headers: dict[str, str],
+    json: dict | None = None,
+    timeout: httpx.Timeout | None = None,
+) -> httpx.Response:
     client = get_http_client()
     try:
         with client:
-            return client.request(method, url, headers=headers, json=json)
+            kwargs: dict = {"headers": headers, "json": json}
+            if timeout is not None:
+                kwargs["timeout"] = timeout
+            return client.request(method, url, **kwargs)
     except httpx.HTTPError as exc:  # network/timeout/DNS — never expose internals
         raise APIError(
             502, "bad_gateway", f"Could not reach the model endpoint: {exc.__class__.__name__}."
@@ -88,17 +102,29 @@ def chat_complete(
         "frequency_penalty": p.frequency_penalty,
         "presence_penalty": p.presence_penalty,
     }
-    res = _send("POST", url, headers=_headers(api_key), json=body)
+    res = _send("POST", url, headers=_headers(api_key), json=body, timeout=_GEN_TIMEOUT)
     _ensure_ok(res)
     try:
         payload = res.json()
         choices = payload.get("choices") or []
-        content = (choices[0].get("message", {}).get("content") or "").strip() if choices else ""
+        choice = choices[0] if choices else {}
+        content = (choice.get("message", {}).get("content") or "").strip()
+        finish_reason = choice.get("finish_reason")
     except (ValueError, AttributeError, IndexError, TypeError) as exc:
         raise APIError(
             502, "upstream_error", "The model endpoint returned an unexpected response."
         ) from exc
     if not content:
+        # Reasoning models spend the budget on hidden reasoning tokens and can hit
+        # the cap before emitting any visible reply (finish_reason == "length").
+        # Surface that as something the operator can act on rather than a bare blank.
+        if finish_reason == "length":
+            raise APIError(
+                502,
+                "upstream_error",
+                "The model hit its token limit before replying. Raise Max tokens in "
+                "Options — reasoning models need extra headroom.",
+            )
         raise APIError(502, "upstream_error", "The model returned an empty response.")
     return content
 
