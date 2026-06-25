@@ -86,17 +86,15 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
             </div>
 
             <div className="flex items-center gap-[12px]">
-              {portraitUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- generated avatar from our media mount
-                <img
-                  src={portraitUrl}
-                  alt={`Portrait of ${d.name || "the character"}`}
-                  className="h-[48px] w-[48px] flex-none rounded-full object-cover"
-                  style={{ border: `3px solid ${color}` }}
-                />
-              ) : (
-                <Monogram mono={mono} color={color} size={48} ring={3} fontSize={18} />
-              )}
+              <Monogram
+                mono={mono}
+                color={color}
+                size={48}
+                ring={3}
+                fontSize={18}
+                src={portraitUrl ?? undefined}
+                alt={portraitUrl ? `Portrait of ${d.name || "the character"}` : undefined}
+              />
               <div
                 role="group"
                 aria-label="Accent color"

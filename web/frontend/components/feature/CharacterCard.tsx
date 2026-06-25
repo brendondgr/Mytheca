@@ -1,6 +1,7 @@
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
+import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type { Character } from "@/lib/types";
 
@@ -68,7 +69,12 @@ export function CharacterCard({
         className="block w-full cursor-pointer p-[15px] text-left"
       >
         <span className="flex items-center gap-3">
-          <Monogram mono={c.mono} color={c.color} size={46} />
+          <Monogram
+            mono={c.mono}
+            color={c.color}
+            size={46}
+            src={c.portrait ? mediaUrl(c.portrait) : undefined}
+          />
           <span className="min-w-0 pr-[18px]">
             <span className="block font-display text-[16px] font-semibold leading-[1.1] text-ink">
               {c.name}
