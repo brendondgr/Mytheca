@@ -59,13 +59,30 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
       <div className="lg:flex lg:min-h-0 lg:flex-1 lg:items-stretch">
         {/* ── Main column (own scroll on lg+) ─────────────────────────── */}
         <div className="min-w-0 p-[22px_26px_24px] lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-          {/* Header — single promoted title. The seal picker now lives above
-              Draft with Velora; the × close hovers outside the panel. */}
-          <div
-            id="storyline-modal-title"
-            className="font-display text-[22px] font-bold text-ink"
-          >
-            {isEdit ? "Edit Storyline" : "New Storyline"}
+          {/* Header — promoted title with the seal right-justified on the same
+              row (preview glyph + Edit → the full SealModal pop-up). */}
+          <div className="flex flex-wrap items-center justify-between gap-x-[16px] gap-y-[10px]">
+            <div
+              id="storyline-modal-title"
+              className="font-display text-[22px] font-bold text-ink"
+            >
+              {isEdit ? "Edit Storyline" : "New Storyline"}
+            </div>
+            <div className="flex items-center gap-[10px]">
+              <span className="font-mono text-[9.5px] tracking-[0.1em] text-mute2 uppercase">
+                Seal
+              </span>
+              <div
+                aria-hidden
+                className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[5px] border border-cardbd bg-field text-[19px] leading-none"
+                style={{ color: sealColor }}
+              >
+                {seal}
+              </div>
+              <Button variant="secondary" onClick={() => setSealOpen(true)}>
+                ✎ Edit
+              </Button>
+            </div>
           </div>
 
           {/* Mode toggle — mobile/tablet only. On md+ every panel shows at once. */}
@@ -86,33 +103,6 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
             </button>
           </div>
           <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
-
-          {/* Seal — a simple row; the full editor (shapes/colors/wheel) is a pop-up. */}
-          <div
-            className={cn(
-              "mb-[18px] flex items-center justify-between gap-[12px] rounded-[5px] border border-cardbd bg-field px-[14px] py-[10px]",
-              agentic && "hidden md:flex",
-            )}
-          >
-            <div className="flex items-center gap-[12px]">
-              <div
-                aria-hidden
-                className="flex h-[40px] w-[40px] flex-none items-center justify-center rounded-[5px] border border-cardbd bg-card text-[21px] leading-none"
-                style={{ color: sealColor }}
-              >
-                {seal}
-              </div>
-              <div className="min-w-0">
-                <FieldLabel>Seal</FieldLabel>
-                <p className="font-body text-[12.5px] text-ink-soft">
-                  The mark beside this world&apos;s name.
-                </p>
-              </div>
-            </div>
-            <Button variant="secondary" onClick={() => setSealOpen(true)}>
-              ✎ Edit
-            </Button>
-          </div>
 
           {/* Authoring form (left) + agentic Draft with Velora (right). */}
           <div className="md:flex md:items-stretch">
@@ -241,14 +231,21 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
             />
           </div>
 
-          {/* Footer — main error + actions (full width, right-justified). */}
-          <div className={cn(agentic && "hidden md:block")}>
+          {/* Footer — sticky action bar pinned to the column's bottom so Cancel +
+              Save Changes stay visible while the form/stats scroll. Negative
+              margins span the column padding; bg-modal hides content beneath. */}
+          <div
+            className={cn(
+              "sticky bottom-0 z-[1] -mx-[26px] -mb-[24px] mt-[20px] border-t border-hair-strong bg-modal px-[26px] pt-[14px] pb-[16px]",
+              agentic && "hidden md:block",
+            )}
+          >
             {lib.error ? (
-              <p role="alert" className="mt-4 font-body text-[13px] text-accent">
+              <p role="alert" className="mb-3 font-body text-[13px] text-accent">
                 {lib.error}
               </p>
             ) : null}
-            <div className="mt-[20px] flex items-center justify-end gap-[10px]">
+            <div className="flex items-center justify-end gap-[10px]">
               <Button variant="ghost" onClick={lib.closeModal}>
                 Cancel
               </Button>
