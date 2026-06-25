@@ -40,23 +40,27 @@ describe("CharacterModal — agentic creator", () => {
     const user = userEvent.setup();
     const dialog = await openCharacterCreator(user);
 
-    // A description enables "Generate prompts".
+    // A description enables "Generate prompts". The portrait flow lives in a
+    // pop-up reached from the compact preview's "Edit image" button.
     await user.type(within(dialog).getByLabelText(/^appearance$/i), "A young orc warrior.");
-    await user.click(within(dialog).getByRole("button", { name: /generate prompts/i }));
+    await user.click(within(dialog).getByRole("button", { name: /edit image/i }));
+    const portrait = screen.getByRole("dialog", { name: /^portrait$/i });
+
+    await user.click(within(portrait).getByRole("button", { name: /generate prompts/i }));
     await waitFor(() => {
-      const positive = within(dialog).getByLabelText(
+      const positive = within(portrait).getByLabelText(
         /portrait positive prompt/i,
       ) as HTMLTextAreaElement;
       expect(positive.value).toContain("watercolor portrait");
     });
 
     // Rendering the portrait calls ComfyUI and shows the WebP preview.
-    await user.click(within(dialog).getByRole("button", { name: /generate portrait/i }));
+    await user.click(within(portrait).getByRole("button", { name: /generate portrait/i }));
     expect(vi.mocked(api.generatePortrait)).toHaveBeenCalledWith(
       expect.objectContaining({ positive: expect.stringContaining("watercolor portrait") }),
     );
     await waitFor(() =>
-      expect(within(dialog).getAllByAltText(/portrait of/i).length).toBeGreaterThan(0),
+      expect(screen.getAllByAltText(/portrait of/i).length).toBeGreaterThan(0),
     );
   });
 

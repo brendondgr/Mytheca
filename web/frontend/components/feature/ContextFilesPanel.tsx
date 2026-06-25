@@ -28,6 +28,7 @@ export function ContextFilesPanel({
   setDocFiles,
   inputId,
   show,
+  scroll = false,
 }: {
   docFiles: ReadDoc[];
   setDocFiles: (docs: ReadDoc[]) => void;
@@ -35,6 +36,11 @@ export function ContextFilesPanel({
   inputId: string;
   /** Visible on small screens only when the agentic tab is open; always on md+. */
   show: boolean;
+  /**
+   * Own an independent vertical scroll at `lg+` (paired with the host Modal's
+   * `splitScroll`), so this column scrolls separately from the edit column.
+   */
+  scroll?: boolean;
 }) {
   // Read dropped/selected files into memory and merge them by name. New files
   // default to all three uses ON; re-dropping a name keeps the prior choice.
@@ -75,6 +81,7 @@ export function ContextFilesPanel({
       className={cn(
         "flex-col bg-card p-[20px_22px_22px] lg:w-[330px] lg:shrink-0",
         "border-t border-hair-strong lg:border-t-0 lg:border-l",
+        scroll && "lg:min-h-0 lg:overflow-y-auto",
         show ? "flex md:flex" : "hidden md:flex",
       )}
     >

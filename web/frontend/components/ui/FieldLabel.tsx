@@ -10,8 +10,8 @@ export function FieldLabel({
   className?: string;
 }) {
   return (
-    <span className={cn("mb-[5px] block", className)}>
-      <Eyebrow size={9} tracking="0.14em" color="#A8762A">
+    <span className={cn("mb-[6px] block", className)}>
+      <Eyebrow size={11} tracking="0.12em" color="#A8762A" className="font-bold">
         {children}
       </Eyebrow>
     </span>

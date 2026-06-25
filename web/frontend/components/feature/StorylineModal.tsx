@@ -52,86 +52,19 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
       labelledBy="storyline-modal-title"
       className="sm:w-[560px] md:w-[860px] lg:w-[1120px]"
       externalClose
+      splitScroll
     >
       {/* Root: main column + detached full-height context column (lg). */}
-      <div className="lg:flex lg:items-stretch">
-        {/* ── Main column ─────────────────────────────────────────────── */}
-        <div className="min-w-0 p-[22px_26px_24px] lg:flex-1">
-          {/* Header — title left; seal picker right-justified (preview left of
-              the symbol/color grids). The × close hovers outside the panel. */}
-          <div className="relative">
-            <div className="flex flex-wrap items-end justify-between gap-x-[24px] gap-y-[14px]">
-              <div className="min-w-0">
-                <Eyebrow size={8.5} tracking="0.2em" color="#A8762A">
-                  {isEdit ? "Edit Storyline" : "New Storyline"}
-                </Eyebrow>
-                <div
-                  id="storyline-modal-title"
-                  className="mt-1 font-display text-[22px] font-bold text-ink"
-                >
-                  {isEdit ? "Edit this World" : "Forge a New World"}
-                </div>
-              </div>
-
-              {/* Seal — preview to the left of the symbol + color grids. */}
-              <div className="flex items-center gap-[12px]">
-                <div
-                  aria-hidden
-                  className="flex h-[44px] w-[44px] flex-none items-center justify-center rounded-[4px] border border-cardbd bg-field text-[23px] leading-none"
-                  style={{ color: sealColor }}
-                >
-                  {seal}
-                </div>
-                <div className="flex flex-col gap-[8px]">
-                  <div
-                    role="group"
-                    aria-label="Seal symbol"
-                    className="flex max-w-[280px] flex-wrap gap-[6px]"
-                  >
-                    {SEAL_SYMBOLS.map((sym) => (
-                      <button
-                        key={sym}
-                        type="button"
-                        aria-label={`Symbol ${sym}`}
-                        aria-pressed={seal === sym}
-                        onClick={() => lib.setDraft("symbol", sym)}
-                        className={cn(
-                          "flex h-[26px] w-[26px] items-center justify-center rounded-[4px] border text-[14px] leading-none focus-visible:border-accent",
-                          seal === sym
-                            ? "border-accent bg-card2 text-ink"
-                            : "border-cardbd bg-field text-ink-soft hover:border-accent",
-                        )}
-                      >
-                        {sym}
-                      </button>
-                    ))}
-                  </div>
-                  <div
-                    role="group"
-                    aria-label="Seal color"
-                    className="flex max-w-[280px] flex-wrap gap-[7px]"
-                  >
-                    {SEAL_COLORS.map((col) => (
-                      <button
-                        key={col}
-                        type="button"
-                        aria-label={`Color ${col}`}
-                        aria-pressed={sealColor === col}
-                        onClick={() => lib.setDraft("symbolColor", col)}
-                        className="h-[20px] w-[20px] rounded-full focus-visible:outline-none"
-                        style={{
-                          background: col,
-                          boxShadow:
-                            sealColor === col
-                              ? `0 0 0 2px var(--modal-bg), 0 0 0 4px ${col}`
-                              : "0 0 0 1px rgba(0,0,0,.15)",
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+      <div className="lg:flex lg:min-h-0 lg:flex-1 lg:items-stretch">
+        {/* ── Main column (own scroll on lg+) ─────────────────────────── */}
+        <div className="min-w-0 p-[22px_26px_24px] lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+          {/* Header — single promoted title. The seal picker now lives above
+              Draft with Velora; the × close hovers outside the panel. */}
+          <div
+            id="storyline-modal-title"
+            className="font-display text-[22px] font-bold text-ink"
+          >
+            {isEdit ? "Edit Storyline" : "New Storyline"}
           </div>
 
           {/* Mode toggle — mobile/tablet only. On md+ every panel shows at once. */}
@@ -195,6 +128,68 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 !agentic && "hidden md:block",
               )}
             >
+              {/* Seal — preview + symbol/color grids, above Draft with Velora. */}
+              <div className="mb-[18px] border-b border-hair-strong pb-[16px]">
+                <FieldLabel>Seal</FieldLabel>
+                <div className="flex items-center gap-[12px]">
+                  <div
+                    aria-hidden
+                    className="flex h-[44px] w-[44px] flex-none items-center justify-center rounded-[4px] border border-cardbd bg-field text-[23px] leading-none"
+                    style={{ color: sealColor }}
+                  >
+                    {seal}
+                  </div>
+                  <div className="flex flex-col gap-[8px]">
+                    <div
+                      role="group"
+                      aria-label="Seal symbol"
+                      className="flex flex-wrap gap-[6px]"
+                    >
+                      {SEAL_SYMBOLS.map((sym) => (
+                        <button
+                          key={sym}
+                          type="button"
+                          aria-label={`Symbol ${sym}`}
+                          aria-pressed={seal === sym}
+                          onClick={() => lib.setDraft("symbol", sym)}
+                          className={cn(
+                            "flex h-[26px] w-[26px] items-center justify-center rounded-[4px] border text-[14px] leading-none focus-visible:border-accent",
+                            seal === sym
+                              ? "border-accent bg-card2 text-ink"
+                              : "border-cardbd bg-field text-ink-soft hover:border-accent",
+                          )}
+                        >
+                          {sym}
+                        </button>
+                      ))}
+                    </div>
+                    <div
+                      role="group"
+                      aria-label="Seal color"
+                      className="flex flex-wrap gap-[7px]"
+                    >
+                      {SEAL_COLORS.map((col) => (
+                        <button
+                          key={col}
+                          type="button"
+                          aria-label={`Color ${col}`}
+                          aria-pressed={sealColor === col}
+                          onClick={() => lib.setDraft("symbolColor", col)}
+                          className="h-[20px] w-[20px] rounded-full focus-visible:outline-none"
+                          style={{
+                            background: col,
+                            boxShadow:
+                              sealColor === col
+                                ? `0 0 0 2px var(--modal-bg), 0 0 0 4px ${col}`
+                                : "0 0 0 1px rgba(0,0,0,.15)",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <Eyebrow size={8.5} tracking="0.2em" color="#A8762A" className="mb-[10px] block">
                 ❖ Draft with Velora
               </Eyebrow>
@@ -299,6 +294,7 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
           setDocFiles={(docs) => lib.setDraft("_docFiles", docs)}
           inputId="storyline-docs-input"
           show={agentic}
+          scroll
         />
       </div>
     </Modal>

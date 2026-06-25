@@ -24,6 +24,14 @@ interface ModalProps {
    * has to live beside it. The button stays inside the focus trap.
    */
   externalClose?: boolean;
+  /**
+   * Opt-in: let the panel's columns own their own vertical scroll instead of the
+   * whole dialog scrolling. The dialog becomes a non-scrolling `lg:flex` box
+   * (capped at `90vh`) so children marked `lg:overflow-y-auto lg:min-h-0` scroll
+   * independently; below `lg` it falls back to whole-dialog `overflow-auto`
+   * (stacked columns, no nested scroll on phones). Default false → unchanged.
+   */
+  splitScroll?: boolean;
 }
 
 /**
@@ -42,6 +50,7 @@ export function Modal({
   labelledBy,
   z = 60,
   externalClose = false,
+  splitScroll = false,
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -108,7 +117,10 @@ export function Modal({
       tabIndex={-1}
       onClick={(event) => event.stopPropagation()}
       className={cn(
-        "max-h-[90vh] w-full max-w-[92vw] overflow-auto rounded-[5px] bg-modal outline-none animate-[embPop_.2s_ease] motion-reduce:animate-none",
+        "max-h-[90vh] w-full max-w-[92vw] rounded-[5px] bg-modal outline-none animate-[embPop_.2s_ease] motion-reduce:animate-none",
+        splitScroll
+          ? "overflow-auto lg:flex lg:overflow-hidden"
+          : "overflow-auto",
         !externalClose && className,
       )}
       style={{

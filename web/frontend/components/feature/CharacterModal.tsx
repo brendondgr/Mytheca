@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Eyebrow } from "@/components/ui/Eyebrow";
@@ -8,6 +9,7 @@ import { TextArea } from "@/components/ui/TextArea";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { Monogram } from "@/components/ui/Monogram";
 import { ContextFilesPanel } from "@/components/feature/ContextFilesPanel";
+import { PortraitModal } from "@/components/feature/PortraitModal";
 import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { monoOf } from "@/lib/monogram";
@@ -32,6 +34,9 @@ const LINK =
  * properties) — no graph structure is built here.
  */
 export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState> }) {
+  // Portrait editor pop-up open state — declared before any early return so the
+  // hook order stays stable (rules-of-hooks).
+  const [portraitOpen, setPortraitOpen] = useState(false);
   const m = lib.modal;
   if (!m || m.type !== "character") return null;
   const d = lib.draft;
@@ -67,22 +72,18 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
       labelledBy="character-modal-title"
       className="sm:w-[560px] md:w-[920px] lg:w-[1120px]"
       externalClose
+      splitScroll
     >
-      <div className="lg:flex lg:items-stretch">
-        {/* ── Main column ─────────────────────────────────────────────── */}
-        <div className="min-w-0 p-[22px_26px_24px] lg:flex-1">
+      <div className="lg:flex lg:min-h-0 lg:flex-1 lg:items-stretch">
+        {/* ── Main column (own scroll on lg+) ─────────────────────────── */}
+        <div className="min-w-0 p-[22px_26px_24px] lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
           {/* Header — title left; avatar preview + accent picker right. */}
           <div className="flex flex-wrap items-end justify-between gap-x-[24px] gap-y-[14px]">
-            <div className="min-w-0">
-              <Eyebrow size={8.5} tracking="0.2em" color="#A8762A">
-                {isEdit ? "Edit Character" : "New Character"}
-              </Eyebrow>
-              <div
-                id="character-modal-title"
-                className="mt-1 font-display text-[22px] font-bold text-ink"
-              >
-                {isEdit ? "Edit this Character" : "Forge a Character"}
-              </div>
+            <div
+              id="character-modal-title"
+              className="min-w-0 font-display text-[22px] font-bold text-ink"
+            >
+              {isEdit ? "Edit Character" : "New Character"}
             </div>
 
             <div className="flex items-center gap-[12px]">
@@ -175,26 +176,33 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 onChange={(e) => lib.setDraft("traits", e.target.value)}
                 className="mt-[14px]"
               />
-              <TextField
-                label="Voice / speech style"
-                placeholder="Formal and terse, by the book."
-                value={d.speech || ""}
-                onChange={(e) => lib.setDraft("speech", e.target.value)}
-                className="mt-[14px]"
-              />
-              <div className="mt-[14px] grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+              {/* Voice — speech style + a (non-functional) voice-sample upload that
+                  will feed text-to-speech later. */}
+              <div className="mt-[14px] flex flex-col gap-[12px] sm:flex-row sm:items-end">
                 <TextField
-                  label="Goal"
-                  placeholder="What do they want?"
-                  value={d.goal || ""}
-                  onChange={(e) => lib.setDraft("goal", e.target.value)}
+                  label="Voice / speech style"
+                  placeholder="Formal and terse, by the book."
+                  value={d.speech || ""}
+                  onChange={(e) => lib.setDraft("speech", e.target.value)}
+                  className="sm:flex-1"
                 />
-                <TextField
-                  label="Secret"
-                  placeholder="What do they hide?"
-                  value={d.secret || ""}
-                  onChange={(e) => lib.setDraft("secret", e.target.value)}
-                />
+                <div className="sm:w-[160px] sm:flex-none">
+                  <FieldLabel>Voice sample</FieldLabel>
+                  <button
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    title="Coming soon — voice samples will drive text-to-speech."
+                    className="flex w-full cursor-not-allowed flex-col items-center gap-[3px] rounded-[3px] border border-dashed border-cardbd bg-field/40 px-[10px] py-[9px] text-center opacity-70"
+                  >
+                    <span aria-hidden className="text-[15px] text-mute">
+                      ⤓
+                    </span>
+                    <span className="font-mono text-[9px] tracking-[0.08em] text-mute uppercase">
+                      Upload · soon
+                    </span>
+                  </button>
+                </div>
               </div>
               <TextArea
                 label="Appearance"
@@ -229,6 +237,39 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 !agentic && "hidden md:block",
               )}
             >
+              {/* Portrait — compact preview + Edit-image trigger (the editor is a
+                  pop-up). Sits above Draft with Velora in this column. */}
+              <div className="mb-[18px] border-b border-hair-strong pb-[16px]">
+                <FieldLabel>Portrait</FieldLabel>
+                <div
+                  className="overflow-hidden rounded-[6px] border border-cardbd bg-field"
+                  style={{ borderColor: color }}
+                >
+                  {portraitUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
+                    <img
+                      src={portraitUrl}
+                      alt={`Portrait of ${d.name || "the character"}`}
+                      className="aspect-square w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex aspect-square w-full flex-col items-center justify-center gap-[8px] px-[10px] text-center">
+                      <Monogram mono={mono} color={color} size={56} ring={3} fontSize={22} />
+                      <span className="font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
+                        No portrait yet
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={() => setPortraitOpen(true)}
+                  className="mt-[10px] w-full"
+                >
+                  ✎ Edit image
+                </Button>
+              </div>
+
               <Eyebrow size={8.5} tracking="0.2em" color="#A8762A" className="mb-[10px] block">
                 ❖ Draft with Velora
               </Eyebrow>
@@ -263,81 +304,6 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 </p>
               ) : null}
             </aside>
-          </div>
-
-          {/* Portrait — full-width row: prompts → render → preview. */}
-          <div
-            className={cn(
-              "mt-[20px] border-t border-hair-strong pt-[18px]",
-              agentic && "hidden md:block",
-            )}
-          >
-            <div className="flex items-end justify-between gap-[10px]">
-              <FieldLabel>Portrait</FieldLabel>
-              <button
-                type="button"
-                onClick={lib.generatePortraitPrompts}
-                disabled={!hasDescription || lib.generatingPrompts}
-                className={cn(LINK, "mb-[6px]")}
-              >
-                {lib.generatingPrompts ? "Writing…" : "❖ Generate prompts"}
-              </button>
-            </div>
-            <p className="mb-[10px] font-body text-[12.5px] text-ink-soft">
-              A watercolor portrait via ComfyUI — accurate to their species/race,
-              look, and personality. Generate the prompts, tweak, then render.
-            </p>
-            <div className="md:flex md:gap-[18px]">
-              <div className="md:min-w-0 md:flex-1">
-                <TextArea
-                  label="Positive prompt"
-                  aria-label="Portrait positive prompt"
-                  rows={3}
-                  placeholder="Short comma-separated phrases — subject & species first, then features, attire, expression, then watercolor style."
-                  value={d._portraitPositive || ""}
-                  onChange={(e) => lib.setDraft("_portraitPositive", e.target.value)}
-                />
-                <TextArea
-                  label="Negative prompt"
-                  aria-label="Portrait negative prompt"
-                  rows={2}
-                  placeholder="What to avoid — e.g. blurry, extra limbs, text, watermark."
-                  value={d._portraitNegative || ""}
-                  onChange={(e) => lib.setDraft("_portraitNegative", e.target.value)}
-                  className="mt-[12px]"
-                />
-                <Button
-                  onClick={lib.generatePortrait}
-                  disabled={!canRenderPortrait || lib.generatingPortrait}
-                  className="mt-[12px]"
-                >
-                  {lib.generatingPortrait ? "Rendering… (this can take a moment)" : "❖ Generate portrait"}
-                </Button>
-              </div>
-              {/* Portrait preview — the rendered WebP, or a monogram placeholder. */}
-              <div className="mt-[14px] flex flex-none justify-center md:mt-0">
-                <div
-                  className="flex h-[180px] w-[135px] items-center justify-center overflow-hidden rounded-[6px] border border-cardbd bg-field"
-                  style={{ borderColor: color }}
-                >
-                  {portraitUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
-                    <img
-                      src={portraitUrl}
-                      alt={`Portrait of ${d.name || "the character"}`}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center gap-[8px] px-[10px] text-center">
-                      <Monogram mono={mono} color={color} size={56} ring={3} fontSize={22} />
-                      <span className="font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
-                        No portrait yet
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Starting stats — full-width row: propose → review → save with character. */}
@@ -454,8 +420,30 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
           setDocFiles={(docs) => lib.setDraft("_docFiles", docs)}
           inputId="character-docs-input"
           show={agentic}
+          scroll
         />
       </div>
+
+      {/* Portrait editor pop-up — prompts, generate, and the rendered preview. */}
+      <PortraitModal
+        open={portraitOpen}
+        onClose={() => setPortraitOpen(false)}
+        name={d.name || ""}
+        mono={mono}
+        color={color}
+        portraitUrl={portraitUrl}
+        positive={d._portraitPositive || ""}
+        negative={d._portraitNegative || ""}
+        onPositiveChange={(v) => lib.setDraft("_portraitPositive", v)}
+        onNegativeChange={(v) => lib.setDraft("_portraitNegative", v)}
+        hasDescription={hasDescription}
+        generatingPrompts={lib.generatingPrompts}
+        onGeneratePrompts={lib.generatePortraitPrompts}
+        canRenderPortrait={canRenderPortrait}
+        generatingPortrait={lib.generatingPortrait}
+        onGeneratePortrait={lib.generatePortrait}
+        error={lib.error}
+      />
     </Modal>
   );
 }
