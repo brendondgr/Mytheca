@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { mediaUrl } from "@/lib/api";
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
@@ -77,10 +78,10 @@ export function ScenarioCard({
                   title={c.name}
                   className="pointer-events-auto relative z-[2] rounded-full transition-transform hover:scale-110"
                 >
-                  <Monogram mono={c.mono} color={c.color} size={27} />
+                  <Monogram mono={c.mono} color={c.color} size={27} src={c.portrait ? mediaUrl(c.portrait) : undefined} />
                 </button>
               ) : (
-                <Monogram key={c.id} mono={c.mono} color={c.color} size={27} />
+                <Monogram key={c.id} mono={c.mono} color={c.color} size={27} src={c.portrait ? mediaUrl(c.portrait) : undefined} />
               ),
             )}
           </div>

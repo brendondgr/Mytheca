@@ -1,3 +1,4 @@
+import { mediaUrl } from "@/lib/api";
 import { Monogram } from "@/components/ui/Monogram";
 import type { ResolvedScenario } from "@/lib/types";
 
@@ -120,10 +121,10 @@ export function ScenarioCarousel({
                         title={c.name}
                         className="rounded-full transition-transform hover:scale-110"
                       >
-                        <Monogram mono={c.mono} color={c.color} size={34} ring={1.5} bg={HERO.medBg} />
+                        <Monogram mono={c.mono} color={c.color} size={34} ring={1.5} bg={HERO.medBg} src={c.portrait ? mediaUrl(c.portrait) : undefined} />
                       </button>
                     ) : (
-                      <Monogram key={c.id} mono={c.mono} color={c.color} size={34} ring={1.5} bg={HERO.medBg} />
+                      <Monogram key={c.id} mono={c.mono} color={c.color} size={34} ring={1.5} bg={HERO.medBg} src={c.portrait ? mediaUrl(c.portrait) : undefined} />
                     ),
                   )}
                   <span className="ml-[8px] font-mono text-[10.5px]" style={{ color: HERO.set }}>
