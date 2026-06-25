@@ -114,6 +114,29 @@ is built here. Portrait generation is an explicit, opt-in step (it spends GPU
 time on the local ComfyUI server); starting stats are **proposal-only** until the
 author saves them.
 
+## Setting Authoring Flow (creation-time agent + scene art)
+
+```
+Setting modal (SettingModal) → lib/api.ts
+  → POST /api/settings/draft               {seed, docsOverview?, storylineId?}
+        → {name, type, desc, atmosphere, features, currentState}
+  → POST /api/settings/scene-art-prompts   {name, atmosphere, features, ...} → {positive, negative}
+  → POST /api/settings/scene-art           {positive, negative}  → {image: "/media/scenes/<id>.webp"}
+        → routes/settings → agents/setting_agent (draft/scene-art prompts; same
+          settings_store + services/llm.chat_complete as the storyline agent)
+        → routes/settings → services/scene_art → services/comfyui.generate
+          (watercolor pipeline) → PNG → services/media (Pillow → WebP) saved under
+          MEDIA_DIR/scenes, served at /media
+  → drafted fields + image fill the form; author edits, then the normal
+    POST/PATCH /api/storylines/{id}/settings persists the fields + image URL
+```
+
+Same **creation-time, no-RAG** rules. Everything produced is a setting's **own
+base description + current state** (§4.1 Setting-node properties) — never the
+play-accrued **event timeline** (ships empty, written async once play exists) and
+never graph edges. Scene art is an explicit, opt-in step (it spends GPU time on
+the local ComfyUI server).
+
 ## State Ownership
 
 - Authoritative state: backend (Postgres) — validated server-side, stats clamped.

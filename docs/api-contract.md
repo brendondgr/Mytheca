@@ -24,11 +24,12 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Storylines | `GET /storylines`, `POST /storylines`, `GET /storylines/{id}`, `PATCH /storylines/{id}`, `DELETE /storylines/{id}` | The world container; owns the baseline stat schema. Read/write shape: `id`, `title`, `genre`, `tagline` (one-line switcher descriptor), `premise` (nullable multi-paragraph human-facing world description), `worldPrimer` (nullable agent-facing runtime context — generated at creation, editable; see Authoring below), `symbol` (seal shape glyph shown left of the name, default `◆`), `symbolColor` (seal hex color, default `#C8862A`). |
 | Stat definitions | `GET /storylines/{id}/stats`, `POST /storylines/{id}/stats`, `PATCH /storylines/{id}/stats/{key}`, `DELETE /storylines/{id}/stats/{key}` | The world's universal stat schema, shared by every character. Freely add/edit/remove: `PATCH` edits name/description/range/bands (range narrowing re-clamps character values); `DELETE` prunes the stat's values from every character. Each definition carries labeled `bands` ("tickers"). |
 | Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. Read/write shape: `id`, `name`, `role`, `color`, `mono` (derived), `traits`, `speech`, `goal`, `secret`, plus base-identity prose `appearance`, `background`, `personality` (all nullable), and `portrait` (nullable relative `/media/...` URL of the generated WebP avatar). |
-| Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. |
+| Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. Read/write shape: `id`, `name`, `type`, `desc` (short base description), plus §4.1 Setting-node metadata `atmosphere` (sensory character), `features` (notable fixtures/points of interest), `currentState` (initial here-and-now), and `image` (nullable relative `/media/scenes/...` URL of the generated WebP establishing shot) — all nullable; and `timeline` (append-only event log, **empty at authoring**, play-accrued; defaults `[]`). |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. |
 | Authoring | `POST /storylines/draft`, `POST /storylines/primer` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, and generate the agent-facing World Primer (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
 | Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
-| Media | `GET /media/portraits/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits from `MEDIA_DIR`. |
+| Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
+| Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
 | Stream | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | NDJSON event stream (see below). |
@@ -169,6 +170,33 @@ rule: `docsOverview` is inline dropped-file text used for one generation only.
   to each definition's range, unknown keys dropped, and any skipped stat filled with
   its default. Returns `{ proposals: [] }` (no LLM call) when the world defines no
   stats. **Proposal only** — the caller applies them via `PUT /characters/{id}/stats`.
+
+## Setting Authoring Shapes (agentic Setting Creator)
+
+The agent process that fleshes out a **setting's base description + current
+state** at creation time (§4.1 Setting-node properties of
+`Documents/Plans/4.story-graph-structure-prep.md` — never the play-accrued event
+timeline, never graph edges). Run over the configured LLM. Same **no retrieval**
+rule: `docsOverview` is inline dropped-file text used for one generation only.
+
+- `POST /settings/draft` — `{ seed, docsOverview?, storylineId? }`. Drafts a full
+  setting → `{ name, type, desc, atmosphere, features, currentState }`. `type` is
+  chosen from the canonical setting-type list. When `storylineId` is given, the
+  draft is grounded in that world's primer/genre (best-effort). Empty `seed` →
+  `400 bad_request`; unconfigured LLM → `400 bad_request`; a reply that is not
+  valid JSON → `502 upstream_error`.
+- `POST /settings/scene-art-prompts` — `{ name?, type?, desc?, atmosphere?,
+  features?, currentState?, notes? }` (at least one descriptive field required).
+  Writes the watercolor ComfyUI prompts → `{ positive, negative }`: an atmospheric
+  establishing shot of the location itself, no people.
+- `POST /settings/scene-art` — `{ positive, negative?, baseUrl?, workflow?, width?,
+  height?, steps?, cfg? }`. Renders the establishing image through the configured
+  ComfyUI watercolor pipeline (landscape 16:9 default), converts to **WebP**, saves
+  it under `MEDIA_DIR/scenes`, and returns `{ image: "/media/scenes/<uuid>.webp" }`.
+  The URL is carried into the normal setting create/PATCH `image` field (id-agnostic,
+  so it works during creation before a row exists). Empty `positive` / unconfigured
+  ComfyUI URL → `400 bad_request`; a Comfy failure → `502`. **Opt-in — it spends GPU
+  time on the local Comfy server.**
 
 ## NDJSON Event Stream
 

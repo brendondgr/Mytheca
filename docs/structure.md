@@ -39,7 +39,7 @@ velora/
 │   │   └── app/
 │   │       ├── routes/     # API + SSE/WebSocket endpoints
 │   │       ├── services/   # Orchestrator/Director, event engine, state manager, validator
-│   │       ├── agents/     # LLM agents — storyline_agent (creation-time draft + World Primer); Narrator + Character agents later
+│   │       ├── agents/     # LLM agents — storyline_agent (draft + World Primer), character_agent (draft + portrait prompts + stats), setting_agent (draft + scene-art prompts), shared _common; Narrator agents later
 │   │       ├── content/    # Authored YAML config + Markdown stat guidance (per-stat files)
 │   │       ├── memory/     # Memory seam (Postgres/Redis now; vector DB later)
 │   │       ├── events/     # Event / NDJSON stream definitions (5 event types)
@@ -70,7 +70,7 @@ velora/
 | `utils/tests/` | pytest + frontend tests, grouped by area. |
 | `utils/scripts/` | Dev/build/ops scripts. |
 | `utils/workflows/` | Saved ComfyUI workflow JSON (e.g. `ZiT-Workflow.json`) loaded by `services/comfyui.py` for image generation. |
-| `media/` | Generated media (character portraits as WebP), written by `services/portraits.py` and served read-only at `/media`. Path is `MEDIA_DIR` (default `<repo>/media`); gitignored. |
+| `media/` | Generated media (character portraits under `portraits/`, setting scene art under `scenes/`, all WebP), written by `services/portraits.py` / `services/scene_art.py` (shared WebP helpers in `services/media.py`) and served read-only at `/media`. Path is `MEDIA_DIR` (default `<repo>/media`); gitignored. |
 | `libs/` | Internal shared packages that grow beyond a single helper. |
 
 Agent-tool pointer folders (`.claude/`, `.agents/`, `.cursor/`) contain only pointers to `docs/skills/` and are intentionally not the source of truth.
