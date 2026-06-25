@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Eyebrow } from "@/components/ui/Eyebrow";
@@ -8,13 +9,9 @@ import { TextArea } from "@/components/ui/TextArea";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { ContextFilesPanel } from "@/components/feature/ContextFilesPanel";
 import { StatsEditor } from "@/components/feature/StatsEditor";
+import { SealModal } from "@/components/feature/SealModal";
 import { cn } from "@/lib/cn";
-import {
-  DEFAULT_SEAL_COLOR,
-  DEFAULT_SEAL_SYMBOL,
-  SEAL_COLORS,
-  SEAL_SYMBOLS,
-} from "@/lib/seals";
+import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 import type { useLibraryState } from "@/features/library/useLibraryState";
 
 const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
@@ -33,6 +30,9 @@ const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor
  * By-hand / Agentically toggle swaps the form for the draft + context panels.
  */
 export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState> }) {
+  // Seal editor pop-up open state — declared before the early return so the hook
+  // order stays stable (rules-of-hooks).
+  const [sealOpen, setSealOpen] = useState(false);
   const m = lib.modal;
   if (!m || m.type !== "storyline") return null;
   const d = lib.draft;
@@ -87,6 +87,33 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
           </div>
           <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
+          {/* Seal — a simple row; the full editor (shapes/colors/wheel) is a pop-up. */}
+          <div
+            className={cn(
+              "mb-[18px] flex items-center justify-between gap-[12px] rounded-[5px] border border-cardbd bg-field px-[14px] py-[10px]",
+              agentic && "hidden md:flex",
+            )}
+          >
+            <div className="flex items-center gap-[12px]">
+              <div
+                aria-hidden
+                className="flex h-[40px] w-[40px] flex-none items-center justify-center rounded-[5px] border border-cardbd bg-card text-[21px] leading-none"
+                style={{ color: sealColor }}
+              >
+                {seal}
+              </div>
+              <div className="min-w-0">
+                <FieldLabel>Seal</FieldLabel>
+                <p className="font-body text-[12.5px] text-ink-soft">
+                  The mark beside this world&apos;s name.
+                </p>
+              </div>
+            </div>
+            <Button variant="secondary" onClick={() => setSealOpen(true)}>
+              ✎ Edit
+            </Button>
+          </div>
+
           {/* Authoring form (left) + agentic Draft with Velora (right). */}
           <div className="md:flex md:items-stretch">
             <div className={cn("md:min-w-0 md:flex-1 md:pr-[26px]", agentic && "hidden md:block")}>
@@ -129,68 +156,6 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 !agentic && "hidden md:block",
               )}
             >
-              {/* Seal — preview + symbol/color grids, above Draft with Velora. */}
-              <div className="mb-[18px] border-b border-hair-strong pb-[16px]">
-                <FieldLabel>Seal</FieldLabel>
-                <div className="flex items-center gap-[12px]">
-                  <div
-                    aria-hidden
-                    className="flex h-[44px] w-[44px] flex-none items-center justify-center rounded-[4px] border border-cardbd bg-field text-[23px] leading-none"
-                    style={{ color: sealColor }}
-                  >
-                    {seal}
-                  </div>
-                  <div className="flex flex-col gap-[8px]">
-                    <div
-                      role="group"
-                      aria-label="Seal symbol"
-                      className="flex flex-wrap gap-[6px]"
-                    >
-                      {SEAL_SYMBOLS.map((sym) => (
-                        <button
-                          key={sym}
-                          type="button"
-                          aria-label={`Symbol ${sym}`}
-                          aria-pressed={seal === sym}
-                          onClick={() => lib.setDraft("symbol", sym)}
-                          className={cn(
-                            "flex h-[26px] w-[26px] items-center justify-center rounded-[4px] border text-[14px] leading-none focus-visible:border-accent",
-                            seal === sym
-                              ? "border-accent bg-card2 text-ink"
-                              : "border-cardbd bg-field text-ink-soft hover:border-accent",
-                          )}
-                        >
-                          {sym}
-                        </button>
-                      ))}
-                    </div>
-                    <div
-                      role="group"
-                      aria-label="Seal color"
-                      className="flex flex-wrap gap-[7px]"
-                    >
-                      {SEAL_COLORS.map((col) => (
-                        <button
-                          key={col}
-                          type="button"
-                          aria-label={`Color ${col}`}
-                          aria-pressed={sealColor === col}
-                          onClick={() => lib.setDraft("symbolColor", col)}
-                          className="h-[20px] w-[20px] rounded-full focus-visible:outline-none"
-                          style={{
-                            background: col,
-                            boxShadow:
-                              sealColor === col
-                                ? `0 0 0 2px var(--modal-bg), 0 0 0 4px ${col}`
-                                : "0 0 0 1px rgba(0,0,0,.15)",
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <Eyebrow size={8.5} tracking="0.2em" color="#A8762A" className="mb-[10px] block">
                 ❖ Draft with Velora
               </Eyebrow>
@@ -312,6 +277,16 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
           scroll
         />
       </div>
+
+      {/* Seal editor pop-up — expanded shapes, colors, and a custom color wheel. */}
+      <SealModal
+        open={sealOpen}
+        onClose={() => setSealOpen(false)}
+        symbol={seal}
+        color={sealColor}
+        onSymbolChange={(sym) => lib.setDraft("symbol", sym)}
+        onColorChange={(col) => lib.setDraft("symbolColor", col)}
+      />
     </Modal>
   );
 }

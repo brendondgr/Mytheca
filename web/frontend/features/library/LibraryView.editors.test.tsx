@@ -55,9 +55,12 @@ describe("LibraryView — editors & modals", () => {
       "A sunken archipelago.\n\nThree fleets vie for the last dry harbor.",
     );
 
-    // Pick a custom seal: a star symbol and the teal color.
-    await user.click(within(dialog).getByRole("button", { name: "Symbol ★" }));
-    await user.click(within(dialog).getByRole("button", { name: "Color #2F7D6B" }));
+    // Open the seal pop-up and pick a custom seal: a star symbol and teal color.
+    await user.click(within(dialog).getByRole("button", { name: /edit/i }));
+    const sealDialog = screen.getByRole("dialog", { name: /seal/i });
+    await user.click(within(sealDialog).getByRole("button", { name: "Symbol ★" }));
+    await user.click(within(sealDialog).getByRole("button", { name: "Color #2F7D6B" }));
+    await user.click(within(sealDialog).getByRole("button", { name: /done/i }));
 
     expect(createBtn).toBeEnabled();
     await user.click(createBtn);
