@@ -2,7 +2,7 @@
 
 The contract between the Next.js frontend and the FastAPI backend. Request/response schemas are owned by the backend (Pydantic, `web/backend/app/schemas/`); shared types and the event schema live in `web/shared/contracts/`. This document and those files must stay in sync.
 
-**Status:** the Storyline / Character / Setting / Scenario CRUD groups, the stat endpoints, and the **Options** (global settings + LLM endpoint proxy) group are **implemented** (`web/backend/app/routes/`, served under `/api`). Auth, Play, Stream, and Admin remain **planned**. Wire payloads are camelCase (`castIds`, `settingId`, `displayName`) to match `web/frontend/lib/types.ts`.
+**Status:** the Storyline / Character / Setting / Scenario CRUD groups, the stat endpoints, the **Options** (global settings + LLM endpoint proxy) group, and the **Story Graph** (Type Registry + scenario subgraph read) are **implemented** (`web/backend/app/routes/`, served under `/api`). Auth, Play, Stream, and Admin remain **planned**. Wire payloads are camelCase (`castIds`, `settingId`, `displayName`) to match `web/frontend/lib/types.ts`.
 
 ## Conventions
 
@@ -26,6 +26,8 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. Read/write shape: `id`, `name`, `role`, `color`, `mono` (derived), `traits`, `speech`, `goal`, `secret`, plus base-identity prose `appearance`, `background`, `personality` (all nullable), and `portrait` (nullable relative `/media/...` URL of the generated WebP avatar). |
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. Read/write shape: `id`, `name`, `type`, `desc` (short base description), plus §4.1 Setting-node metadata `atmosphere` (sensory character), `features` (notable fixtures/points of interest), `currentState` (initial here-and-now), and `image` (nullable relative `/media/scenes/...` URL of the generated WebP establishing shot) — all nullable; and `timeline` (append-only event log, **empty at authoring**, play-accrued; defaults `[]`). |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. |
+| Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
+| Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
 | Authoring | `POST /storylines/draft`, `POST /storylines/primer` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, and generate the agent-facing World Primer (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
 | Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
 | Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
@@ -58,6 +60,42 @@ A stat definition (on a storyline, optionally overridden by a scenario):
 ```
 
 Stats are **freely editable** — name, description, range (`min`/`max`/`default`), and bands all change via `PATCH` (only `key` is immutable). When a range narrows, the service **re-clamps** every character's value for that stat in the same transaction so no stored value sits out of bounds. `DELETE /storylines/{id}/stats/{key}` removes the definition **and prunes that stat's values from every character** (the value link is by key, not a FK). The validator clamps every stat change to `[min, max]`. `bands` ("tickers") are an ordered list of `{ min, max, label }` describing what value ranges *mean* (for future state-extraction); they need not tile the range or be contiguous, but each requires `min ≤ max` and a non-empty label. `visibility` ∈ `public | private_to_user | private_to_character | hidden`. A character holds values only: `{ "health": 80, "strength": 14 }`.
+
+## Story Graph Shapes
+
+The scenario subgraph (`GET /scenarios/{id}/graph`) — cast + setting and the edges among them, read live from Neo4j:
+
+```json
+{
+  "available": true,
+  "scenarioId": "sc_…",
+  "nodes": [
+    { "id": "maerin", "type": "Character", "label": "Maerin Voss", "storyline": "embergate", "metadata": { "appearance": "…" } },
+    { "id": "saltworn", "type": "Setting", "label": "The Saltworn Tavern", "storyline": "embergate", "metadata": { "atmosphere": "…", "kind": "Social Hub" } }
+  ],
+  "edges": [
+    { "source": "maerin", "target": "saltworn", "type": "present_at", "metadata": { "weight": 1.0, "visibility": "public", "status": "active" } }
+  ]
+}
+```
+
+A Type Registry entry (`GET/POST /storylines/{id}/graph/types`):
+
+```json
+{
+  "id": "gt_…",
+  "storylineId": null,
+  "kind": "edge",
+  "typeName": "loves",
+  "fieldSchema": [{ "name": "potency", "kind": "numeric", "min": 0, "max": 1 }],
+  "description": "A character's love toward another.",
+  "valence": "positive",
+  "decay": { "half_life_turns": 40, "floor": 0.05 },
+  "status": "built_in"
+}
+```
+
+`kind` ∈ `node | edge`; `valence` ∈ `positive | negative | neutral` (edges only; required on create); `status` ∈ `built_in | experimental | trusted`. Built-in types have `storylineId: null` and are immutable; user types are storyline-scoped and start `experimental` (only `built_in`/`trusted` reach the hot path — §10). See `docs/story-graph-neo4j.md`.
 
 ## Options / Settings Shape
 

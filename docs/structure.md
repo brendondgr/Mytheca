@@ -36,16 +36,18 @@ velora/
 │   │   ├── test/           # Vitest setup (jsdom, jest-dom)
 │   │   └── *config*        # package.json, next.config.ts, tsconfig.json, vitest.config.ts, eslint/postcss configs
 │   ├── backend/            # FastAPI "brain"
+│   │   ├── docker/neo4j/   # Custom Neo4j 5.26 image (APOC) — the Story Graph substrate, built by app.py
+│   │   ├── docker-compose.yml  # Postgres + Redis + Neo4j containers (started by app.py)
 │   │   └── app/
-│   │       ├── routes/     # API + SSE/WebSocket endpoints
-│   │       ├── services/   # Orchestrator/Director, event engine, state manager, validator
+│   │       ├── routes/     # API + SSE/WebSocket endpoints (+ graph: Story-Graph Type Registry + scenario subgraph)
+│   │       ├── services/   # Orchestrator/Director, event engine, validator; Story Graph: type_registry, graph_writer, graph_reader
 │   │       ├── agents/     # LLM agents — storyline_agent (draft + World Primer), character_agent (draft + portrait prompts + stats), setting_agent (draft + scene-art prompts), shared _common; Narrator agents later
-│   │       ├── content/    # Authored YAML config + Markdown stat guidance (per-stat files)
+│   │       ├── content/    # Authored content — the built-in Story-Graph type catalogue (graph_registry.py); YAML config + Markdown stat guidance later
 │   │       ├── memory/     # Memory seam (Postgres/Redis now; vector DB later)
 │   │       ├── events/     # Event / NDJSON stream definitions (5 event types)
-│   │       ├── models/     # PostgreSQL models (storylines, characters, settings, scenarios, events, stats, app_settings)
+│   │       ├── models/     # PostgreSQL models (storylines, characters, settings, scenarios, events, stats, app_settings, graph_type_definitions)
 │   │       ├── schemas/    # Pydantic request/response + event schemas (stat clamping)
-│   │       └── core/       # Config, db/redis clients, LLM provider interface, YAML/Markdown loaders
+│   │       └── core/       # Config, db/redis/neo4j clients, LLM provider interface, YAML/Markdown loaders
 │   └── shared/
 │       └── contracts/      # Shared FE↔BE types / OpenAPI / event schemas
 ├── utils/                  # Small standalone helpers
@@ -61,7 +63,7 @@ velora/
 
 | Path | Why it exists |
 | --- | --- |
-| `app.py` | Single root launcher: `python app.py` starts **both** the backend (preflight + uvicorn, `web/backend`) and the frontend dev server (`npm run dev` in `web/frontend`), waiting for backend health before the frontend and stopping both on Ctrl+C; `python app.py frontend` / `python app.py backend` run a single side. **Owns Docker** — `ensure_docker_services()` verifies Docker + daemon, pulls the Postgres/Redis images when missing, and starts the containers before the backend (you never run `docker compose` yourself). |
+| `app.py` | Single root launcher: `python app.py` starts **both** the backend (preflight + uvicorn, `web/backend`) and the frontend dev server (`npm run dev` in `web/frontend`), waiting for backend health before the frontend and stopping both on Ctrl+C; `python app.py frontend` / `python app.py backend` run a single side. **Owns Docker** — `ensure_docker_services()` verifies Docker + daemon, pulls the Postgres/Redis images when missing, **builds the custom Neo4j image** (`docker/neo4j/Dockerfile`), and starts all three containers before the backend (`up -d --build --wait`; you never run `docker compose` yourself). |
 | `docs/` | All durable documentation and canonical skills — the source of truth. |
 | `web/frontend/` | The Next.js UI: story player, narrator cards, character bubbles, stats/branch side panels. |
 | `web/backend/` | The FastAPI brain: routes, multi-agent logic, the stat system, events, validation, persistence. |

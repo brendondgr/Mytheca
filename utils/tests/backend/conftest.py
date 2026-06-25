@@ -17,8 +17,25 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401 — registers all tables on Base.metadata
+from app.core import config
 from app.core.db import Base, get_db
 from app.main import create_app
+
+
+@pytest.fixture(autouse=True)
+def _graph_disabled_by_default(monkeypatch) -> Iterator[None]:
+    """Run the suite with the Story Graph disabled (no real Neo4j).
+
+    The default ``NEO4J_URI`` points at the local container, so without this the
+    best-effort graph sync in CRUD would attempt a real connection during tests.
+    Blanking it makes ``neo4j.is_enabled()`` false everywhere — graph writes/reads
+    no-op (the graceful posture). Tests that exercise the graph enable it
+    explicitly with an injected fake driver/session.
+    """
+    monkeypatch.setenv("NEO4J_URI", "")
+    config.get_settings.cache_clear()
+    yield
+    config.get_settings.cache_clear()
 
 
 @pytest.fixture

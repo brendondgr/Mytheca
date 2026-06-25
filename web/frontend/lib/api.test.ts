@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, createCharacter, deleteCharacter, listStorylines } from "@/lib/api";
+import {
+  ApiError,
+  createCharacter,
+  createGraphType,
+  deleteCharacter,
+  getScenarioGraph,
+  listStorylines,
+} from "@/lib/api";
 
 function mockFetch(impl: (url: string, init?: RequestInit) => Response) {
   const spy = vi.fn((url: string, init?: RequestInit) => Promise.resolve(impl(url, init)));
@@ -35,5 +42,33 @@ describe("api client", () => {
   it("returns undefined for 204 responses", async () => {
     mockFetch(() => new Response(null, { status: 204 }));
     await expect(deleteCharacter("c1")).resolves.toBeUndefined();
+  });
+
+  it("reads a scenario's Story-Graph subgraph", async () => {
+    const spy = mockFetch(
+      () => new Response(JSON.stringify({ available: true, scenarioId: "sc1", nodes: [], edges: [] }), { status: 200 }),
+    );
+    const graph = await getScenarioGraph("sc1");
+    expect(graph.available).toBe(true);
+    expect(spy.mock.calls[0][0]).toContain("/scenarios/sc1/graph");
+  });
+
+  it("registers a user-defined graph type at the storyline-scoped endpoint", async () => {
+    const spy = mockFetch(
+      () => new Response(JSON.stringify({ id: "gt1", typeName: "sworn_to", status: "experimental" }), { status: 201 }),
+    );
+    const created = await createGraphType("embergate", {
+      kind: "edge",
+      typeName: "sworn_to",
+      fieldSchema: [],
+      description: "",
+      valence: "positive",
+      decay: null,
+    });
+    expect(created.id).toBe("gt1");
+    const [url, init] = spy.mock.calls[0];
+    expect(url).toContain("/storylines/embergate/graph/types");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init?.body as string).valence).toBe("positive");
   });
 });

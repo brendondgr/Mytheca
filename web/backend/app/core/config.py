@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://velora:velora@localhost:3347/velora"
     redis_url: str = "redis://localhost:3348/0"
 
+    # The Story Graph substrate (Neo4j). The container is owned by ``app.py`` like
+    # Postgres/Redis; the driver connects lazily (on scenario load / character &
+    # setting writes) and degrades gracefully when unset/unreachable. Bolt is
+    # published on host port 3349 (HTTP browser on 3350) so Velora coexists with
+    # any Neo4j already on 7687/7474. See ``app/core/neo4j.py``.
+    neo4j_uri: str = "bolt://localhost:3349"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = "velora-graph"
+
     # AI provider selection (the provider-agnostic interface lands in a later phase).
     llm_provider: str = "openai"
     openai_api_key: str = ""
@@ -68,6 +77,15 @@ class Settings(BaseSettings):
     def is_sqlite(self) -> bool:
         """True when pointed at SQLite (used by tests and the engine factory)."""
         return self.database_url.startswith("sqlite")
+
+    @property
+    def neo4j_configured(self) -> bool:
+        """True when a Neo4j URI is set (the Story Graph substrate is in play).
+
+        Graph sync is best-effort: when this is false the writer/reader no-op so
+        CRUD and the test suite run with no Neo4j (see ``app/core/neo4j.py``).
+        """
+        return bool(self.neo4j_uri.strip())
 
     @property
     def cors_origins(self) -> list[str]:

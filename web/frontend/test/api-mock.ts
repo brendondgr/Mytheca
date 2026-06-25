@@ -234,5 +234,49 @@ export function makeApiMock() {
     })),
 
     getHealth: vi.fn(async () => ({ status: "ok" })),
+
+    // ---- Story Graph (Neo4j substrate) ----
+    getScenarioGraph: vi.fn(async (scenarioId: string) => ({
+      available: false,
+      scenarioId,
+      nodes: [],
+      edges: [],
+    })),
+    listGraphTypes: vi.fn(async () => [
+      {
+        id: "gt-character",
+        storylineId: null,
+        kind: "node",
+        typeName: "Character",
+        fieldSchema: [],
+        description: "The anchor node.",
+        valence: null,
+        decay: null,
+        status: "built_in",
+      },
+    ]),
+    createGraphType: vi.fn(async (storylineId: string, body: Record<string, unknown>) => ({
+      id: nid("gt"),
+      storylineId,
+      fieldSchema: [],
+      description: "",
+      valence: null,
+      decay: null,
+      status: "experimental",
+      ...body,
+    })),
+    updateGraphType: vi.fn(async (typeId: string, body: Record<string, unknown>) => ({
+      id: typeId,
+      storylineId: "embergate",
+      kind: "node",
+      typeName: "Ritual",
+      fieldSchema: [],
+      description: "",
+      valence: null,
+      decay: null,
+      status: "experimental",
+      ...body,
+    })),
+    deleteGraphType: vi.fn(async () => {}),
   };
 }

@@ -27,8 +27,11 @@ from sqlalchemy.orm import Session
 import app.models  # noqa: F401 — registers all tables on Base.metadata
 from app.core.config import Settings, get_settings
 from app.core.db import Base, make_engine
+from app.core.neo4j import is_enabled as neo4j_enabled
+from app.core.neo4j import ping as neo4j_ping
 from app.core.redis import ping as redis_ping
 from app.core.seed import seed_if_empty
+from app.services.type_registry import seed_builtin_types
 
 
 @dataclass
@@ -139,9 +142,33 @@ def run_preflight(*, seed: bool = True) -> PreflightReport:
 
     report.add("redis", redis_ping(), settings.redis_url, required=False)
 
+    # The Story Graph substrate is advisory: graph sync is best-effort and CRUD
+    # never blocks on it (see app/core/neo4j.py). Report it, never gate on it.
+    if neo4j_enabled():
+        up = neo4j_ping()
+        report.add("neo4j", up, settings.neo4j_uri, required=False)
+        if up:
+            # Create the graph's uniqueness/index scaffolding once at startup (§6.6).
+            from app.services.graph_writer import ensure_constraints_safe
+
+            ensure_constraints_safe()
+    else:
+        report.add("neo4j", True, "disabled (NEO4J_URI unset)", required=False)
+
     Base.metadata.create_all(engine)
     _reconcile_additive_columns(engine, report)
     report.add("schema", True, "tables ensured")
+
+    # The built-in Story-Graph type catalogue (§5) must exist on every DB — it is
+    # the seed Type Registry, independent of whether the Embergate world is seeded.
+    with Session(engine) as session:
+        added_types = seed_builtin_types(session)
+    report.add(
+        "graph types",
+        True,
+        f"seeded {added_types} built-in types" if added_types else "already present",
+        required=False,
+    )
 
     if seed:
         with Session(engine) as session:

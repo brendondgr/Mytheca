@@ -33,6 +33,32 @@ services:
       timeout: 3s
       retries: 10
 
+  # The Story Graph substrate — a custom Neo4j 5.26 image (APOC + dynamic labels;
+  # see docker/neo4j/Dockerfile). Bolt is published on host port 3349 and the
+  # browser/HTTP on 3350 (dedicated ports so Velora coexists with any Neo4j
+  # already on 7687/7474). `python app.py` builds this image and starts it; the
+  # backend connects lazily and degrades gracefully when it's down.
+  neo4j:
+    build:
+      context: ./docker/neo4j
+    image: velora-neo4j:local
+    environment:
+      # user/password — match NEO4J_USER / NEO4J_PASSWORD in .env.example.
+      NEO4J_AUTH: neo4j/velora-graph
+    ports:
+      - "3349:7687"  # bolt (driver)
+      - "3350:7474"  # http (Neo4j Browser)
+    volumes:
+      - velora_neo4jdata:/data
+    healthcheck:
+      # Dependency-free readiness gate: succeeds once the bolt port accepts TCP.
+      # The backend's verify_connectivity / preflight ping is the query-level gate.
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/7687'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 volumes:
   velora_pgdata:
   velora_redisdata:
+  velora_neo4jdata:

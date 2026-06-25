@@ -34,3 +34,9 @@ def test_cors_origins_accepts_comma_separated():
     s = Settings(frontend_origin="http://localhost:3000, https://app.example.com")
     assert "https://app.example.com" in s.cors_origins
     assert "http://127.0.0.1:3000" in s.cors_origins
+
+
+def test_neo4j_configured_predicate():
+    assert Settings(neo4j_uri="bolt://localhost:3349").neo4j_configured is True
+    assert Settings(neo4j_uri="").neo4j_configured is False
+    assert Settings(neo4j_uri="   ").neo4j_configured is False

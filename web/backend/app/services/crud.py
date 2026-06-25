@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import APIError
 from app.core.ids import new_id
 from app.models import Character, Scenario, Setting, Storyline
+from app.services import graph_writer
 from app.schemas.character import CharacterCreate, CharacterUpdate
 from app.schemas.scenario import ScenarioCreate, ScenarioUpdate
 from app.schemas.setting import SettingCreate, SettingUpdate
@@ -153,6 +154,7 @@ def create_character(db: Session, storyline_id: str, data: CharacterCreate) -> C
     db.add(char)
     db.commit()
     db.refresh(char)
+    graph_writer.sync_character(db, char)  # best-effort mirror into the Story Graph
     return char
 
 
@@ -165,6 +167,7 @@ def update_character(db: Session, character_id: str, data: CharacterUpdate) -> C
         char.mono = _mono_of(char.name)
     db.commit()
     db.refresh(char)
+    graph_writer.sync_character(db, char)  # best-effort mirror into the Story Graph
     return char
 
 
@@ -177,6 +180,7 @@ def delete_character(db: Session, character_id: str) -> None:
         if character_id in (scenario.cast_ids or []):
             scenario.cast_ids = [cid for cid in scenario.cast_ids if cid != character_id]
     db.commit()
+    graph_writer.remove_node(character_id)  # best-effort removal from the Story Graph
 
 
 # ---- settings --------------------------------------------------------------
@@ -220,6 +224,7 @@ def create_setting(db: Session, storyline_id: str, data: SettingCreate) -> Setti
     db.add(setting)
     db.commit()
     db.refresh(setting)
+    graph_writer.sync_setting(db, setting)  # best-effort mirror into the Story Graph
     return setting
 
 
@@ -229,6 +234,7 @@ def update_setting(db: Session, setting_id: str, data: SettingUpdate) -> Setting
         setattr(setting, key, value)
     db.commit()
     db.refresh(setting)
+    graph_writer.sync_setting(db, setting)  # best-effort mirror into the Story Graph
     return setting
 
 
@@ -236,6 +242,7 @@ def delete_setting(db: Session, setting_id: str) -> None:
     # Scenarios keep their (now dangling) setting_id — the frontend falls back.
     db.delete(get_setting(db, setting_id))
     db.commit()
+    graph_writer.remove_node(setting_id)  # best-effort removal from the Story Graph
 
 
 # ---- scenarios -------------------------------------------------------------
