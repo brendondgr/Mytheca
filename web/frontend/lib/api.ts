@@ -253,6 +253,55 @@ export const updateSetting = (id: string, body: Partial<SettingInput>) =>
   patch<Setting>(`/settings/${id}`, body);
 export const deleteSetting = (id: string) => del(`/settings/${id}`);
 
+// ---- setting authoring (the agentic Setting Creator) ----
+// Produces a setting's base description + current state only (§4.1 node
+// properties) — never the event timeline (play-accrued) or graph edges.
+// `docsOverview` is inline dropped-file text used to ground one generation (no RAG).
+
+/** A setting drafted from a seed (fills the create form). */
+export interface SettingDraftResult {
+  name: string;
+  type: string;
+  desc: string;
+  atmosphere: string;
+  features: string;
+  currentState: string;
+}
+
+export interface SceneArtPromptResult {
+  positive: string;
+  negative: string;
+}
+
+export interface SceneArtResult {
+  /** Relative `/media/scenes/...` URL of the saved WebP establishing image. */
+  image: string;
+}
+
+export const draftSetting = (seed: string, docsOverview?: string, storylineId?: string) =>
+  post<SettingDraftResult>("/settings/draft", { seed, docsOverview, storylineId });
+
+export const generateSceneArtPrompts = (body: {
+  name?: string;
+  type?: string | null;
+  desc?: string | null;
+  atmosphere?: string | null;
+  features?: string | null;
+  currentState?: string | null;
+  notes?: string | null;
+}) => post<SceneArtPromptResult>("/settings/scene-art-prompts", body);
+
+export const generateSceneArt = (body: {
+  positive: string;
+  negative?: string;
+  baseUrl?: string;
+  workflow?: string;
+  width?: number;
+  height?: number;
+  steps?: number;
+  cfg?: number;
+}) => post<SceneArtResult>("/settings/scene-art", body);
+
 // ---- scenarios ----
 export const createScenario = (storylineId: string, body: ScenarioInput) =>
   post<Scenario>(`/storylines/${storylineId}/scenarios`, body);
