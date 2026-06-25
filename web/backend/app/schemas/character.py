@@ -108,6 +108,28 @@ class PortraitPromptResponse(CamelModel):
     negative: str = ""
 
 
+class PortraitGenerateRequest(CamelModel):
+    """Render a watercolor portrait via ComfyUI from the given prompts.
+
+    Id-agnostic: the resulting ``/media/...`` URL is carried into the normal
+    character create/update payload (works during creation, before a row exists).
+    Optional overrides fall back to the configured ComfyUI workflow/params.
+    """
+
+    positive: str
+    negative: str | None = None
+    base_url: str | None = None
+    workflow: str | None = None
+    width: int | None = None
+    height: int | None = None
+    steps: int | None = None
+    cfg: float | None = None
+
+
+class PortraitGenerateResponse(CamelModel):
+    portrait: str  # relative /media/... URL of the saved WebP
+
+
 class StartingStatProposal(CamelModel):
     key: str
     display_name: str

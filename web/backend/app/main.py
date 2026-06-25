@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.core.config import get_settings
@@ -57,5 +58,10 @@ def create_app() -> FastAPI:
     for module in (storylines, characters, settings, scenarios, stats, options):
         api.include_router(module.router)
     app.include_router(api)
+
+    # Generated media (character portraits) served read-only. ``check_dir=False``
+    # so the app boots before the directory is first written; it is created lazily
+    # by the portrait service on the first generation.
+    app.mount("/media", StaticFiles(directory=str(config.media_dir), check_dir=False), name="media")
 
     return app

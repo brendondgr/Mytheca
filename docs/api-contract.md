@@ -27,7 +27,8 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. |
 | Authoring | `POST /storylines/draft`, `POST /storylines/primer` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, and generate the agent-facing World Primer (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
-| Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
+| Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
+| Media | `GET /media/portraits/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits from `MEDIA_DIR`. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
 | Stream | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | NDJSON event stream (see below). |
@@ -148,6 +149,14 @@ rule: `docsOverview` is inline dropped-file text used for one generation only.
   Writes the watercolor ComfyUI prompts → `{ positive, negative }`: short
   comma-separated phrases leading with the subject's species/race so the image
   depicts that being.
+- `POST /characters/portrait` — `{ positive, negative?, baseUrl?, workflow?,
+  width?, height?, steps?, cfg? }`. Renders the portrait through the configured
+  ComfyUI watercolor pipeline, converts the result to **WebP**, saves it under
+  `MEDIA_DIR`, and returns `{ portrait: "/media/portraits/<uuid>.webp" }`. The URL
+  is carried into the normal character create/PATCH `portrait` field (id-agnostic,
+  so it works during creation before a row exists). Empty `positive` /
+  unconfigured ComfyUI URL → `400 bad_request`; a Comfy failure → `502`. **Opt-in
+  — it spends GPU time on the local Comfy server.**
 - `POST /characters/starting-stats` — `{ storylineId, name?, role?, traits?,
   personality?, background? }`. Proposes starting values for the storyline's stat
   definitions → `{ proposals: [{ key, displayName, value, min, max, rationale }] }`.

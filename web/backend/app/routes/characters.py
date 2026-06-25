@@ -15,12 +15,14 @@ from app.schemas.character import (
     CharacterDraftResponse,
     CharacterRead,
     CharacterUpdate,
+    PortraitGenerateRequest,
+    PortraitGenerateResponse,
     PortraitPromptRequest,
     PortraitPromptResponse,
     StartingStatsRequest,
     StartingStatsResponse,
 )
-from app.services import crud
+from app.services import crud, portraits
 
 router = APIRouter(tags=["characters"])
 
@@ -75,6 +77,23 @@ def character_starting_stats(data: StartingStatsRequest, db: Session = Depends(g
         personality=data.personality,
         background=data.background,
     )
+
+
+@router.post("/characters/portrait", response_model=PortraitGenerateResponse)
+def character_portrait(data: PortraitGenerateRequest, db: Session = Depends(get_db)):
+    """Render a watercolor portrait via ComfyUI, save it as WebP, return its URL."""
+    result = portraits.generate_portrait(
+        db,
+        data.positive,
+        data.negative,
+        base_url=data.base_url,
+        workflow=data.workflow,
+        width=data.width,
+        height=data.height,
+        steps=data.steps,
+        cfg=data.cfg,
+    )
+    return PortraitGenerateResponse(portrait=result["portrait"])
 
 
 @router.get("/characters/{character_id}", response_model=CharacterRead)

@@ -46,10 +46,18 @@ class Settings(BaseSettings):
     # ComfyUI image generation — a local Comfy server (HTTP + WebSocket protocol).
     comfyui_base_url: str = "http://localhost:8199"
 
+    # Generated media (character portraits, etc.), served read-only at ``/media``.
+    media_dir: Path = REPO_ROOT / "media"
+
     @property
     def comfyui_workflows_dir(self) -> Path:
         """Directory holding saved ComfyUI workflow JSON (e.g. ZiT-Workflow.json)."""
         return REPO_ROOT / "utils" / "workflows"
+
+    @property
+    def portraits_dir(self) -> Path:
+        """Directory holding generated character portraits (WebP)."""
+        return self.media_dir / "portraits"
 
     @property
     def is_sqlite(self) -> bool:

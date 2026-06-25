@@ -15,8 +15,22 @@ and the configuration UI is the **Image Generation** tab of the Options menu
    JSON is the node-graph dict the `/prompt` endpoint expects.
 3. Set `COMFYUI_BASE_URL` in `.env` if your server isn't on `localhost:8199`.
 
-The Python dependency is `websocket-client` (already in `pyproject.toml`); HTTP
+The Python dependencies are `websocket-client` (the WebSocket progress stream)
+and `pillow` (PNG→WebP conversion for portraits) — both in `pyproject.toml`; HTTP
 uses the existing `httpx`.
+
+## Character portraits (WebP)
+
+The agentic Character Creator renders character avatars through this same
+pipeline. [`web/backend/app/services/portraits.py`](../web/backend/app/services/portraits.py)
+resolves the configured Comfy server + workflow + default params, calls
+`comfyui.generate(...)` with the agent-written positive/negative prompts at a
+portrait-orientation frame, converts the PNG result to **WebP** with Pillow, and
+writes it under `MEDIA_DIR` (default `<repo>/media/portraits/`, gitignored). The
+file is served read-only at `/media/portraits/<uuid>.webp` (a `StaticFiles` mount
+on the app root, *not* under `/api`), and that relative URL is stored on the
+character's `portrait` column. The ComfyUI client and bundled workflow are left
+untouched — conversion happens at the edge. Endpoint: `POST /api/characters/portrait`.
 
 ## The pipeline (7 steps)
 
