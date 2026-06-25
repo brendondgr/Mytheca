@@ -32,10 +32,11 @@ A pull/up failure aborts startup. Missing Docker or a stopped daemon prints acti
 After the containers are up, `python app.py backend` runs `app/core/bootstrap.run_preflight()` before serving. It:
 
 1. waits for the database and pings Redis,
-2. ensures the schema (`Base.metadata.create_all`), and
-3. seeds the Embergate world if the database is empty.
+2. ensures the schema (`Base.metadata.create_all`),
+3. **reconciles additive columns** — `create_all` makes missing *tables* but never ALTERs existing ones, so a persistent dev DB drifts behind the models on every new column. The preflight self-heals the safe case (new **nullable** columns) with an idempotent `ADD COLUMN`; non-nullable additions on a populated table are *reported* for a real migration, not attempted (full migrations via Alembic remain the standing follow-up), and
+4. seeds the Embergate world if the database is empty.
 
-It prints a pass/fail report; a failed **required** check (the database) aborts startup with remediation. Redis is advisory. The schema/seed run here, **not** in the FastAPI lifespan (which only does a connection check), so Uvicorn `--reload` stays fast.
+It prints a pass/fail report; a failed **required** check (the database) aborts startup with remediation. Redis and the migrate reconciliation are advisory. The schema/seed run here, **not** in the FastAPI lifespan (which only does a connection check), so Uvicorn `--reload` stays fast.
 
 Postgres is published on host port **3347** (a dedicated port so Velora coexists with any Postgres already on 5432); Redis on **3348**. The frontend dev server runs on **3346** and the backend API on **3345**. Tests run on in-memory SQLite and need neither Docker nor Postgres.
 

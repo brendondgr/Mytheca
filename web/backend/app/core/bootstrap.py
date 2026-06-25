@@ -19,6 +19,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
@@ -68,6 +69,46 @@ def _db_remediation(settings: Settings) -> str:
     )
 
 
+def _reconcile_additive_columns(engine: Engine, report: PreflightReport) -> None:
+    """Add model columns that the existing tables are missing (additive only).
+
+    ``create_all`` creates missing *tables* but never ALTERs existing ones, so a
+    persistent dev DB drifts behind the models on every new column. This self-heals
+    the safe case — **nullable** columns — with a plain ``ADD COLUMN`` (each guarded
+    by an inspector check, so it's idempotent). Non-nullable additions on a
+    populated table can't be done safely without a default/backfill, so those are
+    *reported* for a real migration rather than attempted. Full migrations (Alembic)
+    remain the standing follow-up; this just keeps day-to-day dev from breaking.
+    """
+    inspector = sa_inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    added: list[str] = []
+    manual: list[str] = []
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue  # create_all just made it — fully in sync
+        db_columns = {col["name"] for col in inspector.get_columns(table.name)}
+        for column in table.columns:
+            if column.name in db_columns:
+                continue
+            if not column.nullable:
+                manual.append(f"{table.name}.{column.name}")
+                continue
+            col_type = column.type.compile(engine.dialect)
+            with engine.begin() as conn:
+                conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {col_type}'))
+            added.append(f"{table.name}.{column.name}")
+    if added:
+        report.add("migrate", True, "added columns: " + ", ".join(added), required=False)
+    if manual:
+        report.add(
+            "migrate",
+            False,
+            "non-nullable columns need a manual migration: " + ", ".join(manual),
+            required=False,
+        )
+
+
 def _wait_for_db(engine: Engine, attempts: int = 30, delay: float = 1.0) -> bool:
     for _ in range(attempts):
         try:
@@ -99,6 +140,7 @@ def run_preflight(*, seed: bool = True) -> PreflightReport:
     report.add("redis", redis_ping(), settings.redis_url, required=False)
 
     Base.metadata.create_all(engine)
+    _reconcile_additive_columns(engine, report)
     report.add("schema", True, "tables ensured")
 
     if seed:
