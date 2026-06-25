@@ -60,6 +60,11 @@ class Settings(BaseSettings):
         return self.media_dir / "portraits"
 
     @property
+    def scenes_dir(self) -> Path:
+        """Directory holding generated setting/scene establishing images (WebP)."""
+        return self.media_dir / "scenes"
+
+    @property
     def is_sqlite(self) -> bool:
         """True when pointed at SQLite (used by tests and the engine factory)."""
         return self.database_url.startswith("sqlite")

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
 from app.schemas.settings import LlmParams
-from app.services import settings_store
+from app.services import crud, settings_store
 
 # Cap on inline reference text passed to a single generation (the frontend also
 # caps); keeps the prompt bounded without any storage.
@@ -51,6 +51,27 @@ def resolve_llm(db: Session) -> tuple[str, str, str, LlmParams]:
     if not cfg.model:
         raise APIError(400, "bad_request", "Choose a model in Options first.")
     return base_url, api_key, cfg.model, cfg.params
+
+
+def world_context(db: Session, storyline_id: str | None) -> str:
+    """Best-effort grounding: fold the target world's primer/genre into the prompt.
+
+    Best-effort because drafting should not hard-fail if the world cannot be
+    loaded; a missing/unsaved storyline simply means an ungrounded draft. Shared by
+    the character and setting authoring agents so they ground identically.
+    """
+    if not storyline_id:
+        return ""
+    try:
+        sl = crud.get_storyline(db, storyline_id)
+    except APIError:
+        return ""
+    parts = [f"World: {sl.title} ({sl.genre})."]
+    if sl.world_primer:
+        parts.append(f"World primer:\n{sl.world_primer}")
+    elif sl.premise:
+        parts.append(f"World premise:\n{sl.premise}")
+    return "\n\n" + "\n\n".join(parts)
 
 
 def docs_block(docs_overview: str | None) -> str:
