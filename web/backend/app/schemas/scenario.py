@@ -50,3 +50,30 @@ class ScenarioRead(CamelModel):
     setting_id: str
     opening: str
     branches: list[Branch]
+
+
+# ---- the Story-Graph read on scenario load (§7.2) ---------------------------
+# Returned by GET /scenarios/{id}/graph: the cast + setting subgraph read live
+# from Neo4j. ``available`` is False (empty lists) when the graph is off/unreachable.
+
+
+class GraphNodeRead(CamelModel):
+    id: str
+    type: str | None = None
+    label: str | None = None
+    storyline: str | None = None
+    metadata: dict = Field(default_factory=dict)
+
+
+class GraphEdgeRead(CamelModel):
+    source: str
+    target: str
+    type: str
+    metadata: dict = Field(default_factory=dict)
+
+
+class ScenarioGraphRead(CamelModel):
+    available: bool
+    scenario_id: str
+    nodes: list[GraphNodeRead] = Field(default_factory=list)
+    edges: list[GraphEdgeRead] = Field(default_factory=list)
