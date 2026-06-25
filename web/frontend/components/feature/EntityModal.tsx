@@ -5,39 +5,33 @@ import { Button } from "@/components/ui/Button";
 import { CloseButton } from "@/components/ui/CloseButton";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { TextArea } from "@/components/ui/TextArea";
-import { SettingForm } from "@/components/feature/SettingForm";
 import { ScenarioForm } from "@/components/feature/ScenarioForm";
 import { cn } from "@/lib/cn";
 import {
   EDITOR_META,
   PROMPT_EXAMPLES,
   PROMPT_PLACEHOLDERS,
-  type EntityType,
 } from "@/features/library/editor";
 import type { useLibraryState } from "@/features/library/useLibraryState";
 
-// Single-column widths (mobile / tablet, tab-switched) grow into a wide
-// two-column layout on desktop, where the agentic chat sits beside the form.
-const WIDTH: Record<EntityType, string> = {
-  character: "sm:w-[560px] md:w-[920px]",
-  setting: "sm:w-[520px] md:w-[880px]",
-  scenario: "sm:w-[600px] md:w-[960px]",
-};
+const WIDTH = "sm:w-[600px] md:w-[960px]";
 
 const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
 
 /**
- * Create/edit modal. On mobile a By-hand / Agentically toggle swaps between the
- * per-type form and the agentic draft panel. On desktop both show at once — the
- * form fills the left, the agentic chat panel sits in a fixed right column so you
- * can prompt Velora and watch it build live into the form fields.
+ * Create/edit modal — now **scenario-only**. Characters and settings each have
+ * their own richer agentic modal (CharacterModal / SettingModal); storyline +
+ * begin are handled elsewhere. On mobile a By-hand / Agentically toggle swaps
+ * between the form and the agentic draft panel; on desktop both show at once —
+ * the form fills the left, the agentic chat panel sits in a fixed right column.
+ *
+ * The scenario agentic draft is still the client-only stub (`lib.generate`) — only
+ * the storyline, character, and setting creators are wired to real model calls.
  */
 export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }) {
   const m = lib.modal;
-  // Characters get their own richer agentic modal (CharacterModal); storyline +
-  // begin are handled elsewhere. EntityModal now owns only setting + scenario.
-  if (!m || m.type === "begin" || m.type === "storyline" || m.type === "character") return null;
-  const type: EntityType = m.type;
+  if (!m || m.type !== "scenario") return null;
+  const type = m.type;
   const meta = EDITOR_META[type];
   const isEdit = lib.isEditing;
   const agentic = m.mode === "agentic";
@@ -48,7 +42,7 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
       open
       onClose={lib.closeModal}
       labelledBy="entity-modal-title"
-      className={WIDTH[type]}
+      className={WIDTH}
     >
       <div className="p-[22px_26px_24px]">
         <div className="flex items-start justify-between gap-[14px]">
@@ -95,16 +89,13 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
               </div>
             ) : null}
 
-            {type === "setting" ? <SettingForm draft={d} setDraft={lib.setDraft} /> : null}
-            {type === "scenario" ? (
-              <ScenarioForm
-                draft={d}
-                setDraft={lib.setDraft}
-                toggleCast={lib.toggleDraftCast}
-                characters={lib.characters}
-                settings={lib.settings}
-              />
-            ) : null}
+            <ScenarioForm
+              draft={d}
+              setDraft={lib.setDraft}
+              toggleCast={lib.toggleDraftCast}
+              characters={lib.characters}
+              settings={lib.settings}
+            />
             {lib.error ? (
               <p role="alert" className="mt-4 font-body text-[13px] text-accent">
                 {lib.error}

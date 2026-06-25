@@ -1,5 +1,6 @@
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
+import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type { Setting } from "@/lib/types";
 
@@ -37,15 +38,24 @@ export function SettingCard({
           ✎
         </IconButton>
       ) : null}
-      <div
-        className="flex h-[72px] items-center justify-center"
-        style={{ backgroundImage: PLATE_STRIPES }}
-        aria-hidden
-      >
-        <span className="rounded-[2px] bg-card px-[9px] py-[3px] font-mono text-[9.5px] tracking-[0.1em] text-mute">
-          setting plate
-        </span>
-      </div>
+      {s.image ? (
+        // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
+        <img
+          src={mediaUrl(s.image)}
+          alt={`Establishing image of ${s.name}`}
+          className="h-[96px] w-full object-cover"
+        />
+      ) : (
+        <div
+          className="flex h-[72px] items-center justify-center"
+          style={{ backgroundImage: PLATE_STRIPES }}
+          aria-hidden
+        >
+          <span className="rounded-[2px] bg-card px-[9px] py-[3px] font-mono text-[9.5px] tracking-[0.1em] text-mute">
+            setting plate
+          </span>
+        </div>
+      )}
       <div className="p-[13px_15px]">
         <div className="flex items-baseline justify-between gap-[8px]">
           <div className="font-display text-[16px] font-semibold text-ink">

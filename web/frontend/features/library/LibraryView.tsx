@@ -9,6 +9,7 @@ import { OptionsMenu } from "@/components/feature/OptionsMenu";
 import { StorylineMenu } from "@/components/feature/StorylineMenu";
 import { EntityModal } from "@/components/feature/EntityModal";
 import { CharacterModal } from "@/components/feature/CharacterModal";
+import { SettingModal } from "@/components/feature/SettingModal";
 import { StorylineModal } from "@/components/feature/StorylineModal";
 import { StorylineDeleteModal } from "@/components/feature/StorylineDeleteModal";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
@@ -88,6 +89,7 @@ export function LibraryView() {
 
       <EntityModal lib={lib} />
       <CharacterModal lib={lib} />
+      <SettingModal lib={lib} />
       <StorylineModal lib={lib} />
       <StorylineDeleteModal
         storyline={lib.storylineToDelete}
