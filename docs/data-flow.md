@@ -90,6 +90,30 @@ reference files *in the browser* and passed inline for that one call only — th
 files are never uploaded, persisted, or indexed (the corpus/RAG layer is a later
 plan). The agent reuses the same stored LLM config as the Options menu.
 
+## Character Authoring Flow (creation-time agent + portrait)
+
+```
+Character modal (CharacterModal) → lib/api.ts
+  → POST /api/characters/draft            {seed, docsOverview?, storylineId?}
+        → {name, role, traits, speech, goal, secret, appearance, background, personality, color}
+  → POST /api/characters/portrait-prompts {name, appearance, traits, species?, ...} → {positive, negative}
+  → POST /api/characters/portrait         {positive, negative}  → {portrait: "/media/portraits/<id>.webp"}
+        → routes/characters → agents/character_agent (draft/prompts/stats; same
+          settings_store + services/llm.chat_complete as the storyline agent)
+        → routes/characters → services/portraits → services/comfyui.generate
+          (watercolor pipeline) → PNG → Pillow → WebP saved under MEDIA_DIR, served at /media
+  → POST /api/characters/starting-stats   {storylineId, ...} → {proposals:[…]}  (proposal only)
+  → drafted fields + portrait fill the form; author edits, then the normal
+    POST/PATCH /api/storylines/{id}/characters persists the fields + portrait URL;
+    accepted starting stats are applied via PUT /api/characters/{id}/stats
+```
+
+Same **creation-time, no-RAG** rules as storyline authoring. Everything produced
+is a character's **own base identity** (§1 node properties) — no graph structure
+is built here. Portrait generation is an explicit, opt-in step (it spends GPU
+time on the local ComfyUI server); starting stats are **proposal-only** until the
+author saves them.
+
 ## State Ownership
 
 - Authoritative state: backend (Postgres) — validated server-side, stats clamped.

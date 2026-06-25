@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -30,6 +30,15 @@ class Character(Base):
     speech: Mapped[str] = mapped_column(String, default="")
     goal: Mapped[str] = mapped_column(String, default="")
     secret: Mapped[str] = mapped_column(String, default="")
+    # Base-identity prose authored once (agentic Character Creator fills these).
+    # Nullable so they self-heal on the persistent dev DB (see bootstrap reconcile);
+    # these are §1 *node properties*, never graph structure.
+    appearance: Mapped[str | None] = mapped_column(Text, nullable=True)
+    background: Mapped[str | None] = mapped_column(Text, nullable=True)
+    personality: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Relative URL of the generated WebP portrait (served under /media); monogram
+    # is the fallback when unset.
+    portrait: Mapped[str | None] = mapped_column(String, nullable=True)
     position: Mapped[int] = mapped_column(default=0)
 
     storyline: Mapped[Storyline] = relationship(back_populates="characters")

@@ -5,6 +5,7 @@ import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Button } from "@/components/ui/Button";
 import { CloseButton } from "@/components/ui/CloseButton";
+import { mediaUrl } from "@/lib/api";
 import type { Character } from "@/lib/types";
 
 function ProfileLine({
@@ -42,7 +43,15 @@ export function CharacterProfileModal({
   return (
     <Modal open onClose={onClose} labelledBy="profile-name" className="sm:w-[440px]" z={70}>
       <div className="flex items-center gap-4 border-b border-hair p-[22px_24px]">
-        <Monogram mono={c.mono} color={c.color} size={64} ring={3} fontSize={24} />
+        <Monogram
+          mono={c.mono}
+          color={c.color}
+          size={64}
+          ring={3}
+          fontSize={24}
+          src={c.portrait ? mediaUrl(c.portrait) : undefined}
+          alt={c.portrait ? `Portrait of ${c.name}` : undefined}
+        />
         <div className="min-w-0 flex-1">
           <div
             id="profile-name"
@@ -60,6 +69,21 @@ export function CharacterProfileModal({
         <p className="font-body text-[14.5px] leading-[1.4] text-ink-soft italic">
           {c.traits}
         </p>
+        {c.appearance ? (
+          <ProfileLine label="Appearance" color="#A8762A">
+            {c.appearance}
+          </ProfileLine>
+        ) : null}
+        {c.background ? (
+          <ProfileLine label="Background" color="#A8762A">
+            {c.background}
+          </ProfileLine>
+        ) : null}
+        {c.personality ? (
+          <ProfileLine label="Personality" color="#A8762A">
+            {c.personality}
+          </ProfileLine>
+        ) : null}
         <ProfileLine label="Voice" color="#A8762A">
           {c.speech}
         </ProfileLine>

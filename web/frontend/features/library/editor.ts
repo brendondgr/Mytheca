@@ -1,3 +1,4 @@
+import type { StartingStatProposal } from "@/lib/api";
 import type { Branch } from "@/lib/types";
 import type { ReadDoc } from "@/lib/readDocs";
 import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
@@ -17,6 +18,12 @@ export interface Draft {
   speech?: string;
   goal?: string;
   secret?: string;
+  // Character base-identity prose + generated portrait (agentic Character Creator).
+  // Nullable to mirror the Character wire shape (the form binds with `?? ""`).
+  appearance?: string | null;
+  background?: string | null;
+  personality?: string | null;
+  portrait?: string | null;
   type?: string;
   desc?: string;
   title?: string;
@@ -35,6 +42,11 @@ export interface Draft {
   // single generation only (never persisted/indexed — RAG is a later plan).
   _docFiles?: ReadDoc[];
   _ai?: boolean;
+  // Editor-internal portrait prompts (editable before rendering the image) and
+  // the proposed starting stats (review → applied when the character is saved).
+  _portraitPositive?: string;
+  _portraitNegative?: string;
+  _startingStats?: StartingStatProposal[];
 }
 
 export interface ModalState {
@@ -63,7 +75,7 @@ export function isStorylineDraftValid(draft: Draft): boolean {
 }
 
 export const DEFAULT_DRAFTS: Record<EntityType, Draft> = {
-  character: { name: "", role: "", color: "#8E2B1C", traits: "", speech: "", goal: "", secret: "" },
+  character: { name: "", role: "", color: "#8E2B1C", traits: "", speech: "", goal: "", secret: "", appearance: "", background: "", personality: "" },
   setting: { name: "", type: "Social Hub", desc: "" },
   scenario: { title: "", genre: "Intrigue", tone: "Tension · rising", goal: "", cast: [], settingId: "", branches: [] },
 };

@@ -25,6 +25,45 @@ def test_character_crud_and_mono(client, storyline_id):
     assert client.get(f"/api/characters/{cid}").status_code == 404
 
 
+def test_character_base_identity_fields_roundtrip(client, storyline_id):
+    created = client.post(
+        f"/api/storylines/{storyline_id}/characters",
+        json={
+            "name": "Nyssa",
+            "appearance": "Veiled in salt-grey linen, eyes like still water.",
+            "background": "Born to the oracle line; raised on the tideline.",
+            "personality": "Serene, cryptic, certain of what others cannot see.",
+        },
+    )
+    assert created.status_code == 201
+    body = created.json()
+    assert body["appearance"].startswith("Veiled in salt-grey")
+    assert body["background"].startswith("Born to the oracle")
+    assert body["personality"].startswith("Serene, cryptic")
+    # Unset prose / portrait default to null, not "".
+    assert body["portrait"] is None
+    cid = body["id"]
+
+    patched = client.patch(
+        f"/api/characters/{cid}",
+        json={"appearance": "Now stooped, her veil frayed at the hem."},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["appearance"].startswith("Now stooped")
+    # Untouched fields are preserved by the partial update.
+    assert patched.json()["personality"].startswith("Serene, cryptic")
+
+
+def test_character_defaults_have_null_base_identity(client, storyline_id):
+    body = client.post(
+        f"/api/storylines/{storyline_id}/characters", json={"name": "Grimm"}
+    ).json()
+    assert body["appearance"] is None
+    assert body["background"] is None
+    assert body["personality"] is None
+    assert body["portrait"] is None
+
+
 def test_list_for_unknown_storyline_is_404(client):
     assert client.get("/api/storylines/ghost/characters").status_code == 404
 

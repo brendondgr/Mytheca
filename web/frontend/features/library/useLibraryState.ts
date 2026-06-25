@@ -93,6 +93,12 @@ export function useLibraryState() {
   // Separate flag so the World Primer "Generate" button spins independently of
   // the "Draft with Velora" metadata draft.
   const [generatingPrimer, setGeneratingPrimer] = useState(false);
+  // Character Creator: independent spinners for portrait prompts, portrait render,
+  // stat proposal, and stat-apply, so each button spins on its own.
+  const [generatingPrompts, setGeneratingPrompts] = useState(false);
+  const [generatingPortrait, setGeneratingPortrait] = useState(false);
+  const [generatingStats, setGeneratingStats] = useState(false);
+  const [applyingStats, setApplyingStats] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const generateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -356,6 +362,122 @@ export function useLibraryState() {
     }
   }
 
+  // ---- character agentic authoring (real model + ComfyUI calls via backend) ----
+  /** Draft a full character (fields + base-identity prose) from the seed. */
+  async function draftCharacter() {
+    if (!modal || modal.type !== "character") return;
+    const seed = (draft._prompt ?? "").trim();
+    if (!seed) return;
+    const docsOverview = draft._docFiles?.length
+      ? concatDocs(docsForDraft(draft._docFiles))
+      : undefined;
+    setGenerating(true);
+    setError(null);
+    try {
+      const d = await api.draftCharacter(seed, docsOverview, activeStorylineId || undefined);
+      setDraftState((prev) => ({
+        ...prev,
+        name: d.name || prev.name,
+        role: d.role || prev.role,
+        traits: d.traits || prev.traits,
+        speech: d.speech || prev.speech,
+        goal: d.goal || prev.goal,
+        secret: d.secret || prev.secret,
+        appearance: d.appearance || prev.appearance,
+        background: d.background || prev.background,
+        personality: d.personality || prev.personality,
+        color: d.color || prev.color,
+        _ai: true,
+      }));
+      // On mobile the seam is its own tab — drop back to the form to reveal fields.
+      setModal((prev) => (prev ? { ...prev, mode: "manual" } : prev));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGenerating(false);
+    }
+  }
+  /** Write the watercolor positive/negative portrait prompts (editable after). */
+  async function generatePortraitPrompts() {
+    if (!modal || modal.type !== "character") return;
+    setGeneratingPrompts(true);
+    setError(null);
+    try {
+      const r = await api.generatePortraitPrompts({
+        name: draft.name,
+        role: draft.role,
+        appearance: draft.appearance,
+        traits: draft.traits,
+        personality: draft.personality,
+      });
+      setDraftState((prev) => ({
+        ...prev,
+        _portraitPositive: r.positive,
+        _portraitNegative: r.negative,
+      }));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGeneratingPrompts(false);
+    }
+  }
+  /** Render the portrait via ComfyUI from the current prompts → draft.portrait. */
+  async function generatePortrait() {
+    if (!modal || modal.type !== "character") return;
+    const positive = (draft._portraitPositive ?? "").trim();
+    if (!positive) return;
+    setGeneratingPortrait(true);
+    setError(null);
+    try {
+      const { portrait } = await api.generatePortrait({
+        positive,
+        negative: draft._portraitNegative?.trim() || undefined,
+      });
+      setDraftState((prev) => ({ ...prev, portrait }));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGeneratingPortrait(false);
+    }
+  }
+  /** Propose starting stats keyed to the active world's stat schema (review only). */
+  async function proposeStartingStats() {
+    if (!modal || modal.type !== "character" || !activeStorylineId) return;
+    setGeneratingStats(true);
+    setError(null);
+    try {
+      const { proposals } = await api.proposeStartingStats({
+        storylineId: activeStorylineId,
+        name: draft.name,
+        role: draft.role,
+        traits: draft.traits,
+        personality: draft.personality,
+        background: draft.background,
+      });
+      setDraftState((prev) => ({ ...prev, _startingStats: proposals }));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGeneratingStats(false);
+    }
+  }
+  /** Apply the proposed starting stats to an existing character (the "Save" action). */
+  async function applyStartingStats(characterId: string) {
+    const proposals = draft._startingStats ?? [];
+    if (!characterId || proposals.length === 0) return;
+    const values: Record<string, number> = {};
+    for (const p of proposals) values[p.key] = p.value;
+    setApplyingStats(true);
+    setError(null);
+    try {
+      await api.setCharacterStats(characterId, values);
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setApplyingStats(false);
+    }
+  }
+
   // ---- storyline delete (confirm → delete → reselect if it was active) ----
   const [deleteStorylineId, setDeleteStorylineId] = useState<string | null>(null);
   const storylineToDelete =
@@ -411,6 +533,10 @@ export function useLibraryState() {
     if (generateTimer.current) clearTimeout(generateTimer.current);
     setGenerating(false);
     setGeneratingPrimer(false);
+    setGeneratingPrompts(false);
+    setGeneratingPortrait(false);
+    setGeneratingStats(false);
+    setApplyingStats(false);
     setError(null);
     setModal(null);
   }
@@ -424,7 +550,12 @@ export function useLibraryState() {
   function editCharacter(id: string) {
     const c = characters.find((x) => x.id === id);
     if (!c) return;
-    setDraftState({ name: c.name, role: c.role, color: c.color, traits: c.traits, speech: c.speech, goal: c.goal, secret: c.secret });
+    setDraftState({
+      name: c.name, role: c.role, color: c.color, traits: c.traits,
+      speech: c.speech, goal: c.goal, secret: c.secret,
+      appearance: c.appearance ?? "", background: c.background ?? "",
+      personality: c.personality ?? "", portrait: c.portrait ?? null,
+    });
     setError(null);
     setModal({ type: "character", mode: "manual", editId: id });
     setProfileId(null);
@@ -507,12 +638,24 @@ export function useLibraryState() {
           speech: d.speech?.trim() || "—",
           goal: d.goal?.trim() || "—",
           secret: d.secret?.trim() || "—",
+          // Base-identity prose + portrait: empty → null (clears on edit, unset on create).
+          appearance: d.appearance?.trim() || null,
+          background: d.background?.trim() || null,
+          personality: d.personality?.trim() || null,
+          portrait: d.portrait || null,
         };
+        // Proposed starting stats are applied with the save (the "save" the user
+        // opted into); keyed/clamped server-side, skipped when there are none.
+        const statValues = Object.fromEntries(
+          (d._startingStats ?? []).map((p) => [p.key, p.value]),
+        );
         if (editId) {
           const updated = await api.updateCharacter(editId, body);
+          if (Object.keys(statValues).length) await api.setCharacterStats(editId, statValues);
           setCharacters((cs) => cs.map((c) => (c.id === editId ? updated : c)));
         } else {
           const created = await api.createCharacter(activeStorylineId, body);
+          if (Object.keys(statValues).length) await api.setCharacterStats(created.id, statValues);
           setCharacters((cs) => [...cs, created]);
           setTab("characters");
           setExpandedCharId(created.id);
@@ -595,6 +738,10 @@ export function useLibraryState() {
     storylines, activeStorylineId, activeStoryline, switchStoryline,
     openCreateStoryline, editStoryline, submitStoryline,
     draftStoryline, generatePrimer, generatingPrimer,
+    // character agentic authoring
+    draftCharacter, generatePortraitPrompts, generatePortrait,
+    proposeStartingStats, applyStartingStats,
+    generatingPrompts, generatingPortrait, generatingStats, applyingStats,
     requestDeleteStoryline, confirmDeleteStoryline, cancelDeleteStoryline,
     storylineToDelete,
     characters, settings, scenarios, resolvedScenarios,

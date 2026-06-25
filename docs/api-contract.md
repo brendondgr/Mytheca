@@ -23,10 +23,12 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Auth | `POST /auth/sign-up`, `POST /auth/sign-in`, `POST /auth/sign-out`, `GET /me`, `PATCH /me` | Backend owns session/token. |
 | Storylines | `GET /storylines`, `POST /storylines`, `GET /storylines/{id}`, `PATCH /storylines/{id}`, `DELETE /storylines/{id}` | The world container; owns the baseline stat schema. Read/write shape: `id`, `title`, `genre`, `tagline` (one-line switcher descriptor), `premise` (nullable multi-paragraph human-facing world description), `worldPrimer` (nullable agent-facing runtime context — generated at creation, editable; see Authoring below), `symbol` (seal shape glyph shown left of the name, default `◆`), `symbolColor` (seal hex color, default `#C8862A`). |
 | Stat definitions | `GET /storylines/{id}/stats`, `POST /storylines/{id}/stats`, `PATCH /storylines/{id}/stats/{key}` | Baseline stat schema (range locked at creation). |
-| Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. |
+| Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. Read/write shape: `id`, `name`, `role`, `color`, `mono` (derived), `traits`, `speech`, `goal`, `secret`, plus base-identity prose `appearance`, `background`, `personality` (all nullable), and `portrait` (nullable relative `/media/...` URL of the generated WebP avatar). |
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. |
 | Authoring | `POST /storylines/draft`, `POST /storylines/primer` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, and generate the agent-facing World Primer (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
+| Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
+| Media | `GET /media/portraits/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits from `MEDIA_DIR`. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
 | Stream | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | NDJSON event stream (see below). |
@@ -128,6 +130,40 @@ indexed.
   `{ "worldPrimer": "…prose…" }`. The result is stored on the storyline via the
   normal `worldPrimer` field on create/PATCH. Same unconfigured-LLM /
   empty-completion error mapping as above.
+
+## Character Authoring Shapes (agentic Character Creator)
+
+The agent process that fleshes out a **character's base identity** at creation
+time (§1 node properties of `Documents/Plans/3.character-graph-structure-prep.md`
+— never graph structure). Run over the configured LLM. Same **no retrieval**
+rule: `docsOverview` is inline dropped-file text used for one generation only.
+
+- `POST /characters/draft` — `{ seed, docsOverview?, storylineId? }`. Drafts a
+  full character → `{ name, role, traits, speech, goal, secret, appearance,
+  background, personality, color }`. When `storylineId` is given, the draft is
+  grounded in that world's primer/genre (best-effort). Empty `seed` →
+  `400 bad_request`; unconfigured LLM → `400 bad_request`; a reply that is not
+  valid JSON → `502 upstream_error`.
+- `POST /characters/portrait-prompts` — `{ name?, role?, appearance?, traits?,
+  personality?, species?, notes? }` (at least one descriptive field required).
+  Writes the watercolor ComfyUI prompts → `{ positive, negative }`: short
+  comma-separated phrases leading with the subject's species/race so the image
+  depicts that being.
+- `POST /characters/portrait` — `{ positive, negative?, baseUrl?, workflow?,
+  width?, height?, steps?, cfg? }`. Renders the portrait through the configured
+  ComfyUI watercolor pipeline, converts the result to **WebP**, saves it under
+  `MEDIA_DIR`, and returns `{ portrait: "/media/portraits/<uuid>.webp" }`. The URL
+  is carried into the normal character create/PATCH `portrait` field (id-agnostic,
+  so it works during creation before a row exists). Empty `positive` /
+  unconfigured ComfyUI URL → `400 bad_request`; a Comfy failure → `502`. **Opt-in
+  — it spends GPU time on the local Comfy server.**
+- `POST /characters/starting-stats` — `{ storylineId, name?, role?, traits?,
+  personality?, background? }`. Proposes starting values for the storyline's stat
+  definitions → `{ proposals: [{ key, displayName, value, min, max, rationale }] }`.
+  Values are clamped to each definition's range, unknown keys dropped, and any
+  skipped stat filled with its default. Returns `{ proposals: [] }` (no LLM call)
+  when the world defines no stats. **Proposal only** — the caller applies them via
+  `PUT /characters/{id}/stats`.
 
 ## NDJSON Event Stream
 

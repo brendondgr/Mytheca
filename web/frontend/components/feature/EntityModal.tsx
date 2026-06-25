@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/Button";
 import { CloseButton } from "@/components/ui/CloseButton";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { TextArea } from "@/components/ui/TextArea";
-import { CharacterForm } from "@/components/feature/CharacterForm";
 import { SettingForm } from "@/components/feature/SettingForm";
 import { ScenarioForm } from "@/components/feature/ScenarioForm";
 import { cn } from "@/lib/cn";
@@ -35,7 +34,9 @@ const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor
  */
 export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }) {
   const m = lib.modal;
-  if (!m || m.type === "begin" || m.type === "storyline") return null;
+  // Characters get their own richer agentic modal (CharacterModal); storyline +
+  // begin are handled elsewhere. EntityModal now owns only setting + scenario.
+  if (!m || m.type === "begin" || m.type === "storyline" || m.type === "character") return null;
   const type: EntityType = m.type;
   const meta = EDITOR_META[type];
   const isEdit = lib.isEditing;
@@ -99,7 +100,6 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
               </div>
             ) : null}
 
-            {type === "character" ? <CharacterForm draft={d} setDraft={lib.setDraft} /> : null}
             {type === "setting" ? <SettingForm draft={d} setDraft={lib.setDraft} /> : null}
             {type === "scenario" ? (
               <ScenarioForm
