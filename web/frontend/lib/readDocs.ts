@@ -10,7 +10,18 @@ export const DOCS_CHAR_CAP = 8000;
 export interface ReadDoc {
   name: string;
   text: string;
+  // Per-context usage selection (set when a file enters the create modal's draft).
+  // `useDraft` grounds Velora's drafting/primer generation and is wired today.
+  // `useRag` (retrieval corpus) and `useKg` (knowledge-graph source document) are
+  // forward-looking seams — the RAG/KG systems are a later plan, so these flags are
+  // not yet persisted or sent anywhere. Undefined is treated as ON for back-compat.
+  useDraft?: boolean;
+  useRag?: boolean;
+  useKg?: boolean;
 }
+
+/** The three downstream uses an author can toggle per context file. */
+export type DocUse = "useDraft" | "useRag" | "useKg";
 
 /** True for the plain-text formats we can read in the browser today. */
 export function isAcceptedDoc(name: string): boolean {
@@ -25,6 +36,15 @@ export async function readDocFiles(files: File[]): Promise<ReadDoc[]> {
     accepted.map(async (f) => ({ name: f.name, text: (await f.text()).trim() })),
   );
   return read.filter((d) => d.text.length > 0);
+}
+
+/**
+ * Files the author has kept enabled for grounding Velora's drafting/primer
+ * generation. `useDraft` undefined counts as ON, so files added before usage
+ * flags existed (and any not-yet-flagged file) still ground generation.
+ */
+export function docsForDraft(docs: ReadDoc[]): ReadDoc[] {
+  return docs.filter((d) => d.useDraft !== false);
 }
 
 /**
