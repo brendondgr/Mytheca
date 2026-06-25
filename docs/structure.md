@@ -61,7 +61,7 @@ velora/
 
 | Path | Why it exists |
 | --- | --- |
-| `app.py` | Single root launcher: `python app.py` starts **both** the backend (preflight + uvicorn, `web/backend`) and the frontend dev server (`npm run dev` in `web/frontend`), waiting for backend health before the frontend and stopping both on Ctrl+C; `python app.py frontend` / `python app.py backend` run a single side. |
+| `app.py` | Single root launcher: `python app.py` starts **both** the backend (preflight + uvicorn, `web/backend`) and the frontend dev server (`npm run dev` in `web/frontend`), waiting for backend health before the frontend and stopping both on Ctrl+C; `python app.py frontend` / `python app.py backend` run a single side. **Owns Docker** — `ensure_docker_services()` verifies Docker + daemon, pulls the Postgres/Redis images when missing, and starts the containers before the backend (you never run `docker compose` yourself). |
 | `docs/` | All durable documentation and canonical skills — the source of truth. |
 | `web/frontend/` | The Next.js UI: story player, narrator cards, character bubbles, stats/branch side panels. |
 | `web/backend/` | The FastAPI brain: routes, multi-agent logic, the stat system, events, validation, persistence. |

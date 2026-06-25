@@ -15,16 +15,25 @@ Deployment is not yet configured; this records the intended approach and require
 | Everything (dev) | `python app.py` (repo root) — backend (preflight + Uvicorn) **and** frontend together; waits for backend health, Ctrl+C stops both |
 | Backend only | `python app.py backend` (repo root) — runs preflight, then Uvicorn |
 | Frontend only | `python app.py frontend` (repo root) or `npm run dev` (`web/frontend/`) |
-| Postgres + Redis | `docker compose -f web/backend/docker-compose.yml up -d` (or let preflight start them) |
+| Postgres + Redis | Automatic — `app.py` checks Docker, pulls the images, and starts them. Manual fallback: `docker compose -f web/backend/docker-compose.yml up -d` |
+
+### Docker bring-up (owned by `app.py`)
+
+Container handling lives in **one place**: `app.py`'s `ensure_docker_services()`, which runs before the backend on both `python app.py` and `python app.py backend`. It:
+
+1. verifies Docker is installed (CLI on PATH) **and** the daemon is responding (`docker info`),
+2. downloads the Postgres + Redis images **only when missing** (`docker compose pull`, with visible first-run progress; image refs come from the compose file via `compose config --images`, so the tags aren't duplicated), and
+3. starts the containers and blocks on their healthchecks (`docker compose up -d --wait`).
+
+A pull/up failure aborts startup. Missing Docker or a stopped daemon prints actionable guidance and continues (the preflight DB check is the real gate, so external/embedded DBs still work). On `python app.py` the bring-up runs in the **parent** process — visible first-run download, and the spawned backend (passed `VELORA_SKIP_DOCKER=1`) doesn't repeat it or race the health-wait. Skip containers with a `sqlite://` `DATABASE_URL` or `VELORA_SKIP_DOCKER=1`.
 
 ### Backend startup preflight
 
-`python app.py backend` runs `app/core/bootstrap.run_preflight()` before serving. It:
+After the containers are up, `python app.py backend` runs `app/core/bootstrap.run_preflight()` before serving. It:
 
-1. brings up Postgres + Redis via `web/backend/docker-compose.yml` (only if Docker is installed — otherwise it assumes externally managed services),
-2. waits for the database and pings Redis,
-3. ensures the schema (`Base.metadata.create_all`), and
-4. seeds the Embergate world if the database is empty.
+1. waits for the database and pings Redis,
+2. ensures the schema (`Base.metadata.create_all`), and
+3. seeds the Embergate world if the database is empty.
 
 It prints a pass/fail report; a failed **required** check (the database) aborts startup with remediation. Redis is advisory. The schema/seed run here, **not** in the FastAPI lifespan (which only does a connection check), so Uvicorn `--reload` stays fast.
 

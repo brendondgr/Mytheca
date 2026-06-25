@@ -126,6 +126,6 @@ How uncertain outcomes get resolved is the genuinely optional layer. Default (in
 - `uv`-only Python tooling, Python 3.13.
 - Format split: YAML config · Markdown stat guidance · JSON/NDJSON streaming · JSON Schema/Zod validation.
 - Provider-agnostic LLM interface from day one.
-- Persistence: sync SQLAlchemy 2.0 + Postgres (psycopg3); camelCase Pydantic over the wire; string PKs (client-id-or-generated); branches as JSON, stats normalized. Tests run on in-memory SQLite (no Postgres/Docker). `python app.py backend` runs a preflight (compose up + checks + schema + seed) before serving. Alembic deferred (idempotent `create_all` for now).
+- Persistence: sync SQLAlchemy 2.0 + Postgres (psycopg3); camelCase Pydantic over the wire; string PKs (client-id-or-generated); branches as JSON, stats normalized. Tests run on in-memory SQLite (no Postgres/Docker). `python app.py` owns Docker (`ensure_docker_services`: verify daemon → pull images when missing → `compose up -d --wait`), then the backend preflight runs DB/Redis checks + schema + seed before serving. Alembic deferred (idempotent `create_all` for now).
 - Library wiring: backend-backed CRUD via a hand-rolled fetch client (await-then-apply); TanStack Query deferred.
 - Dice-based resolution and Vector DB semantic memory deferred; design seams only.
