@@ -33,6 +33,11 @@ def update_stat(
     return stat_service.update_stat_definition(db, storyline_id, key, data)
 
 
+@router.delete("/storylines/{storyline_id}/stats/{key}", status_code=204)
+def delete_stat(storyline_id: str, key: str, db: Session = Depends(get_db)):
+    stat_service.delete_stat_definition(db, storyline_id, key)
+
+
 @router.get("/characters/{character_id}/stats", response_model=dict[str, int])
 def get_character_stats(character_id: str, db: Session = Depends(get_db)):
     return stat_service.get_character_stats(db, character_id)

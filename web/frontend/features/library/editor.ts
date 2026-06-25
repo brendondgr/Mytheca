@@ -1,5 +1,5 @@
 import type { StartingStatProposal } from "@/lib/api";
-import type { Branch } from "@/lib/types";
+import type { Branch, StatDefinition } from "@/lib/types";
 import type { ReadDoc } from "@/lib/readDocs";
 import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 
@@ -33,6 +33,10 @@ export interface Draft {
   worldPrimer?: string;
   symbol?: string;
   symbolColor?: string;
+  // Universal storyline stats being edited, plus a snapshot of what was loaded so
+  // submit can diff into create/update/delete calls. Only on the storyline modal.
+  _stats?: StatDefinition[];
+  _statsOriginal?: StatDefinition[];
   tone?: string;
   cast?: string[];
   settingId?: string;
@@ -72,6 +76,31 @@ export const STORYLINE_DRAFT: Draft = {
 /** A storyline is creatable once it has a title. */
 export function isStorylineDraftValid(draft: Draft): boolean {
   return Boolean(draft.title?.trim());
+}
+
+/** Slugify a stat display name into a stable lowercase key (e.g. "Hit Points" → "hit_points"). */
+export function statKeyOf(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+/** A blank universal stat for the Statistics editor (sensible 0–100 default). */
+export function blankStat(): StatDefinition {
+  return {
+    key: "",
+    displayName: "",
+    description: "",
+    min: 0,
+    max: 100,
+    default: 50,
+    visibility: "public",
+    guidance: null,
+    appliesTo: ["character"],
+    bands: [],
+  };
 }
 
 export const DEFAULT_DRAFTS: Record<EntityType, Draft> = {

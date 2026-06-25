@@ -100,3 +100,37 @@ export interface Storyline {
   settings: Setting[];
   scenarios: Scenario[];
 }
+
+/** A labeled value band ("ticker") — what a sub-range of a stat *means*. */
+export interface StatBand {
+  min: number;
+  max: number;
+  /** e.g. "Nearly dead", "Very healthy". */
+  label: string;
+}
+
+/** Visibility — public to the player, or hidden/agent-only (mirrors the backend). */
+export type StatVisibility =
+  | "public"
+  | "private_to_user"
+  | "private_to_character"
+  | "hidden";
+
+/**
+ * A universal stat defined on the storyline and shared by every character —
+ * a bounded numeric value with labeled bands describing what its ranges mean.
+ * Mirrors the backend `StatDefinitionRead` (docs/api-contract.md).
+ */
+export interface StatDefinition {
+  /** Stable identifier across characters (slug); immutable after creation. */
+  key: string;
+  displayName: string;
+  description: string;
+  min: number;
+  max: number;
+  default: number;
+  visibility: StatVisibility;
+  guidance: string | null;
+  appliesTo: string[];
+  bands: StatBand[];
+}

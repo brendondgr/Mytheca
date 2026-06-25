@@ -83,8 +83,17 @@ _SCENARIOS: list[dict] = [
 # Baseline stat schema for the world. These exercise the stat seam; the guidance
 # files they reference are authored in a later phase.
 _STATS: list[dict] = [
-    {"key": "health", "display_name": "Health", "description": "Physical condition and vitality.", "min": 0, "max": 100, "default": 100, "visibility": "public", "guidance": "stats/health.md"},
-    {"key": "suspicion", "display_name": "Suspicion", "description": "How wary others are of you.", "min": 0, "max": 10, "default": 0, "visibility": "public", "guidance": "stats/suspicion.md"},
+    {"key": "health", "display_name": "Health", "description": "Physical condition and vitality.", "min": 0, "max": 100, "default": 100, "visibility": "public", "guidance": "stats/health.md", "bands": [
+        {"min": 0, "max": 20, "label": "Nearly dead"},
+        {"min": 21, "max": 40, "label": "Badly hurt — needs to heal"},
+        {"min": 41, "max": 80, "label": "Wounded but holding"},
+        {"min": 81, "max": 100, "label": "Very healthy"},
+    ]},
+    {"key": "suspicion", "display_name": "Suspicion", "description": "How wary others are of you.", "min": 0, "max": 10, "default": 0, "visibility": "public", "guidance": "stats/suspicion.md", "bands": [
+        {"min": 0, "max": 3, "label": "Unnoticed"},
+        {"min": 4, "max": 7, "label": "Watched"},
+        {"min": 8, "max": 10, "label": "Hunted"},
+    ]},
     {"key": "trust", "display_name": "Trust", "description": "Standing with allies.", "min": -5, "max": 5, "default": 0, "visibility": "public", "guidance": "stats/trust.md"},
     {"key": "patience", "display_name": "Patience", "description": "How much forbearance a character has left.", "min": 0, "max": 10, "default": 5, "visibility": "public", "guidance": "stats/patience.md"},
 ]
