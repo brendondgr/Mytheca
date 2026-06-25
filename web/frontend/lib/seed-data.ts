@@ -16,7 +16,7 @@ import type {
 /** Fixed parchment background behind every monogram avatar. */
 export const MONOGRAM_BG = "#EDE3CD";
 
-/** Accent palette offered when forging a character. */
+/** Accent palette offered when forging a character (12 — the per-character cap). */
 export const PALETTE = [
   "#8E2B1C",
   "#A8762A",
@@ -26,6 +26,10 @@ export const PALETTE = [
   "#5A534A",
   "#1F8A5B",
   "#B0506A",
+  "#C56A1F",
+  "#7E8A2B",
+  "#2C8E8E",
+  "#8E3B7A",
 ];
 
 /** Setting type chips. */

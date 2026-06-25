@@ -7,6 +7,7 @@ import { TextField } from "@/components/ui/TextField";
 import { TextArea } from "@/components/ui/TextArea";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { ContextFilesPanel } from "@/components/feature/ContextFilesPanel";
+import { StatsEditor } from "@/components/feature/StatsEditor";
 import { cn } from "@/lib/cn";
 import {
   DEFAULT_SEAL_COLOR,
@@ -258,6 +259,20 @@ export function StorylineModal({ lib }: { lib: ReturnType<typeof useLibraryState
               placeholder="Generate from the seed and premise — or write it yourself. Front-load the always-true facts: tone, the constant proper nouns, the load-bearing rules."
               value={d.worldPrimer || ""}
               onChange={(e) => lib.setDraft("worldPrimer", e.target.value)}
+            />
+          </div>
+
+          {/* Statistics — universal stats + labeled bands, beneath the primer. */}
+          <div
+            className={cn(
+              "mt-[20px] border-t border-hair-strong pt-[18px]",
+              agentic && "hidden md:block",
+            )}
+          >
+            <StatsEditor
+              stats={d._stats ?? []}
+              originalKeys={new Set((d._statsOriginal ?? []).map((s) => s.key))}
+              onChange={(next) => lib.setDraft("_stats", next)}
             />
           </div>
 
