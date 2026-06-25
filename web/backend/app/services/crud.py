@@ -144,6 +144,10 @@ def create_character(db: Session, storyline_id: str, data: CharacterCreate) -> C
         speech=data.speech,
         goal=data.goal,
         secret=data.secret,
+        appearance=data.appearance,
+        background=data.background,
+        personality=data.personality,
+        portrait=data.portrait,
         position=_next_position(db, Character, storyline_id),
     )
     db.add(char)
