@@ -3,6 +3,26 @@
 from __future__ import annotations
 
 
+def test_character_create_survives_graph_down(client, db_session, storyline_id, monkeypatch):
+    """CRUD must not break when the Story Graph is enabled but unreachable (§ best-effort)."""
+    from app.services import graph_writer, type_registry
+
+    type_registry.seed_builtin_types(db_session)  # so validation passes; the write then fails
+    monkeypatch.setattr(graph_writer.neo4j, "is_enabled", lambda: True)
+
+    def _boom(**kwargs):
+        raise RuntimeError("graph down")
+
+    monkeypatch.setattr(graph_writer.neo4j, "write_session", _boom)
+
+    created = client.post(
+        f"/api/storylines/{storyline_id}/characters", json={"name": "Maerin Voss"}
+    )
+    assert created.status_code == 201  # the graph hiccup was swallowed; CRUD succeeded
+    cid = created.json()["id"]
+    assert client.delete(f"/api/characters/{cid}").status_code == 204  # delete too
+
+
 def test_character_crud_and_mono(client, storyline_id):
     created = client.post(
         f"/api/storylines/{storyline_id}/characters",

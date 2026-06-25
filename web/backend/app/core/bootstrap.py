@@ -145,7 +145,13 @@ def run_preflight(*, seed: bool = True) -> PreflightReport:
     # The Story Graph substrate is advisory: graph sync is best-effort and CRUD
     # never blocks on it (see app/core/neo4j.py). Report it, never gate on it.
     if neo4j_enabled():
-        report.add("neo4j", neo4j_ping(), settings.neo4j_uri, required=False)
+        up = neo4j_ping()
+        report.add("neo4j", up, settings.neo4j_uri, required=False)
+        if up:
+            # Create the graph's uniqueness/index scaffolding once at startup (§6.6).
+            from app.services.graph_writer import ensure_constraints_safe
+
+            ensure_constraints_safe()
     else:
         report.add("neo4j", True, "disabled (NEO4J_URI unset)", required=False)
 
