@@ -9,8 +9,12 @@ layer and ``docs/workflow.md`` for the environment rules.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Repo root = three parents up from this file (web/backend/app/core/config.py).
+REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 class Settings(BaseSettings):
@@ -38,6 +42,14 @@ class Settings(BaseSettings):
     llm_provider: str = "openai"
     openai_api_key: str = ""
     local_llm_base_url: str = "http://localhost:11434"
+
+    # ComfyUI image generation — a local Comfy server (HTTP + WebSocket protocol).
+    comfyui_base_url: str = "http://localhost:8199"
+
+    @property
+    def comfyui_workflows_dir(self) -> Path:
+        """Directory holding saved ComfyUI workflow JSON (e.g. ZiT-Workflow.json)."""
+        return REPO_ROOT / "utils" / "workflows"
 
     @property
     def is_sqlite(self) -> bool:
