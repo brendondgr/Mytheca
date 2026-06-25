@@ -27,6 +27,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. |
 | Authoring | `POST /storylines/draft`, `POST /storylines/primer` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, and generate the agent-facing World Primer (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
+| Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
 | Stream | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | NDJSON event stream (see below). |
@@ -128,6 +129,32 @@ indexed.
   `{ "worldPrimer": "…prose…" }`. The result is stored on the storyline via the
   normal `worldPrimer` field on create/PATCH. Same unconfigured-LLM /
   empty-completion error mapping as above.
+
+## Character Authoring Shapes (agentic Character Creator)
+
+The agent process that fleshes out a **character's base identity** at creation
+time (§1 node properties of `Documents/Plans/3.character-graph-structure-prep.md`
+— never graph structure). Run over the configured LLM. Same **no retrieval**
+rule: `docsOverview` is inline dropped-file text used for one generation only.
+
+- `POST /characters/draft` — `{ seed, docsOverview?, storylineId? }`. Drafts a
+  full character → `{ name, role, traits, speech, goal, secret, appearance,
+  background, personality, color }`. When `storylineId` is given, the draft is
+  grounded in that world's primer/genre (best-effort). Empty `seed` →
+  `400 bad_request`; unconfigured LLM → `400 bad_request`; a reply that is not
+  valid JSON → `502 upstream_error`.
+- `POST /characters/portrait-prompts` — `{ name?, role?, appearance?, traits?,
+  personality?, species?, notes? }` (at least one descriptive field required).
+  Writes the watercolor ComfyUI prompts → `{ positive, negative }`: short
+  comma-separated phrases leading with the subject's species/race so the image
+  depicts that being.
+- `POST /characters/starting-stats` — `{ storylineId, name?, role?, traits?,
+  personality?, background? }`. Proposes starting values for the storyline's stat
+  definitions → `{ proposals: [{ key, displayName, value, min, max, rationale }] }`.
+  Values are clamped to each definition's range, unknown keys dropped, and any
+  skipped stat filled with its default. Returns `{ proposals: [] }` (no LLM call)
+  when the world defines no stats. **Proposal only** — the caller applies them via
+  `PUT /characters/{id}/stats`.
 
 ## NDJSON Event Stream
 

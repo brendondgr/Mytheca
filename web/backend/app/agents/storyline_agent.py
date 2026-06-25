@@ -16,34 +16,12 @@ and never persisted or indexed — the corpus/RAG layer is a later plan.
 
 from __future__ import annotations
 
-import json
-import re
-
 from sqlalchemy.orm import Session
 
+from app.agents._common import docs_block, extract_json, gen_params, resolve_llm
 from app.core.errors import APIError
-from app.schemas.settings import LlmParams
 from app.schemas.storyline import StorylineDraftResponse
-from app.services import llm, settings_store
-
-# Cap on inline reference text passed to a single generation (defensive; the
-# frontend also caps). Keeps the prompt bounded without any storage.
-_DOCS_CAP = 8000
-
-# Authoring produces multi-paragraph output, and reasoning models spend a large
-# share of the budget on hidden reasoning tokens before the visible reply (a 26B
-# reasoning model was observed burning ~1.6k tokens thinking before the JSON). The
-# Options default (512, tuned for the connection test) starves them; too tight a
-# floor truncates the reply mid-JSON. Floor generously per-call (>= 8k) without
-# touching the operator's saved setting.
-_GEN_MIN_TOKENS = 8192
-
-
-def _gen_params(params: LlmParams) -> LlmParams:
-    """Return params with ``max_tokens`` floored for authoring generations."""
-    if params.max_tokens >= _GEN_MIN_TOKENS:
-        return params
-    return params.model_copy(update={"max_tokens": _GEN_MIN_TOKENS})
+from app.services import llm
 
 _DRAFT_SYSTEM = (
     "You are Velora's worldbuilding assistant. Given a one-sentence seed for an "
@@ -71,51 +49,6 @@ _PRIMER_SYSTEM = (
 )
 
 
-def _resolve(db: Session) -> tuple[str, str, str, LlmParams]:
-    """Pull the configured endpoint, raw key, model, and params from settings.
-
-    Raises a clear 400 when the operator has not yet configured a model so the UI
-    can point the user at Options instead of surfacing a raw upstream failure.
-    """
-    cfg = settings_store.get_llm(db)  # model + params in clear (key is masked here)
-    base_url, api_key = settings_store.resolve_llm_credentials(db, None, None)
-    if not base_url:
-        raise APIError(400, "bad_request", "Configure a model endpoint in Options first.")
-    if not cfg.model:
-        raise APIError(400, "bad_request", "Choose a model in Options first.")
-    return base_url, api_key, cfg.model, cfg.params
-
-
-def _docs_block(docs_overview: str | None) -> str:
-    text = (docs_overview or "").strip()
-    if not text:
-        return ""
-    return (
-        "\n\nReference notes from dropped files (for grounding only — do not quote "
-        f"verbatim):\n{text[:_DOCS_CAP]}"
-    )
-
-
-def _extract_json(raw: str) -> dict:
-    """Best-effort parse of a model's JSON reply (tolerant of fences/surrounds)."""
-    text = raw.strip()
-    fence = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
-    if fence:
-        text = fence.group(1).strip()
-    start, end = text.find("{"), text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        text = text[start : end + 1]
-    try:
-        data = json.loads(text)
-    except (ValueError, TypeError) as exc:
-        raise APIError(
-            502, "upstream_error", "The model did not return valid storyline JSON."
-        ) from exc
-    if not isinstance(data, dict):
-        raise APIError(502, "upstream_error", "The model did not return a storyline object.")
-    return data
-
-
 def draft_storyline(
     db: Session, seed: str, docs_overview: str | None = None
 ) -> StorylineDraftResponse:
@@ -123,12 +56,12 @@ def draft_storyline(
     seed = (seed or "").strip()
     if not seed:
         raise APIError(400, "bad_request", "Describe the world in a sentence to draft it.")
-    base_url, api_key, model, params = _resolve(db)
+    base_url, api_key, model, params = resolve_llm(db)
     messages = [
         {"role": "system", "content": _DRAFT_SYSTEM},
-        {"role": "user", "content": f"World seed: {seed}{_docs_block(docs_overview)}"},
+        {"role": "user", "content": f"World seed: {seed}{docs_block(docs_overview)}"},
     ]
-    data = _extract_json(llm.chat_complete(base_url, api_key, model, messages, _gen_params(params)))
+    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
     return StorylineDraftResponse(
         title=str(data.get("title") or "").strip(),
         genre=str(data.get("genre") or "").strip(),
@@ -150,15 +83,15 @@ def generate_world_primer(
         raise APIError(
             400, "bad_request", "Write a premise (or a one-sentence seed) before generating a primer."
         )
-    base_url, api_key, model, params = _resolve(db)
+    base_url, api_key, model, params = resolve_llm(db)
     parts: list[str] = []
     if seed:
         parts.append(f"One-sentence seed: {seed}")
     if premise:
         parts.append(f"Premise:\n{premise}")
-    user = "\n\n".join(parts) + _docs_block(docs_overview)
+    user = "\n\n".join(parts) + docs_block(docs_overview)
     messages = [
         {"role": "system", "content": _PRIMER_SYSTEM},
         {"role": "user", "content": user},
     ]
-    return llm.chat_complete(base_url, api_key, model, messages, _gen_params(params))
+    return llm.chat_complete(base_url, api_key, model, messages, gen_params(params))

@@ -1,0 +1,260 @@
+"""Character authoring agent — the agentic Character Creator (prep phase).
+
+Three creation-time operations run over the configured LLM (same proxy +
+settings-store resolution as ``storyline_agent``, via ``agents._common``):
+
+* ``draft_character`` — turn a one-sentence seed (optionally grounded in dropped
+  reference docs and the active world) into a full character draft: the by-hand
+  fields plus the base-identity prose (appearance / background / personality).
+* ``generate_portrait_prompts`` — turn a character description into the
+  positive/negative prompts for the watercolor ComfyUI portrait pipeline.
+* ``propose_starting_stats`` — propose starting values for the storyline's stat
+  definitions (proposal only; the caller decides whether to apply them).
+
+Everything produced here is a character's *own* base identity (§1 node
+properties of ``Documents/Plans/3.character-graph-structure-prep.md``) — never
+graph structure. No edges, no secret nodes, no relationships, no Neo4j.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy.orm import Session
+
+from app.agents._common import docs_block, extract_json, gen_params, resolve_llm
+from app.core.errors import APIError
+from app.schemas.character import (
+    CharacterDraftResponse,
+    PortraitPromptResponse,
+    StartingStatProposal,
+    StartingStatsResponse,
+)
+from app.services import crud, llm
+from app.services import stats as stat_service
+
+_DRAFT_SYSTEM = (
+    "You are Velora's character-creation assistant. Given a short description of a "
+    "character for an interactive-fiction world, flesh them out. Respond with ONLY "
+    "a JSON object — no prose, no markdown, no code fences — with exactly these "
+    'string keys: "name" (a fitting proper name), "role" (a short archetype label, '
+    "e.g. 'Reluctant Ally'), \"traits\" (3-4 personality adjectives joined with "
+    "' · '), \"speech\" (one line on their voice/speech style), \"goal\" (what they "
+    'want, one sentence), "secret" (what they hide, one sentence), "appearance" '
+    "(2-3 sentences of physical description — species/race if not human, age, "
+    'build, features, dress), "background" (2-3 sentences of backstory), '
+    '"personality" (2-3 sentences on temperament, values, fears, mannerisms), and '
+    '"color" (a single accent hex color that suits them, e.g. "#3A5A78"). Keep the '
+    "character consistent with any world context provided. Include no other keys."
+)
+
+_PORTRAIT_SYSTEM = (
+    "You are Velora's portrait-prompt writer for a watercolor image model "
+    "(Z-Image-Turbo via ComfyUI). The model responds best to SHORT phrases "
+    "separated by commas — not sentences. Given a character description, write the "
+    "prompts for a flattering character portrait. Respond with ONLY a JSON object "
+    '— no prose, no fences — with exactly two string keys: "positive" and '
+    '"negative".\n'
+    "positive: 10-16 short comma-separated phrases. Lead with the SUBJECT and "
+    "their species/race (e.g. 'elderly human woman', 'young orc warrior', "
+    "'anthropomorphic red fox', 'elven scholar') — if the character is a specific "
+    "race, species, animal, or creature, name it so the image depicts THAT being. "
+    "Then their salient features (age, build, hair, eyes, distinctive marks), then "
+    "attire, then expression/mood. End with style tags: 'watercolor portrait, soft "
+    "washes, painterly, delicate linework, warm lighting, head and shoulders, "
+    "detailed face'. Make it read like the person so we know who they are.\n"
+    "negative: a comma-separated list of what to avoid, e.g. 'photorealistic, 3d "
+    "render, extra limbs, deformed hands, extra fingers, blurry, lowres, text, "
+    "watermark, signature, multiple people, cropped face'. Tailor it lightly to the "
+    "subject. Keep both prompts concise."
+)
+
+_STATS_SYSTEM = (
+    "You are Velora's character-creation assistant proposing a character's STARTING "
+    "statistics for a world. You are given the world's stat definitions (key, name, "
+    "range, default) and a character description. For each stat, propose a starting "
+    "integer value within its [min, max] range that fits the character, with a "
+    "brief rationale. Respond with ONLY a JSON object — no prose, no fences — of the "
+    'form {"proposals": [{"key": "<stat key>", "value": <int>, "rationale": "<one '
+    'short line>"}]}. Only use the provided stat keys. Include every stat.'
+)
+
+
+def _world_context(db: Session, storyline_id: str | None) -> str:
+    """Best-effort grounding: fold the target world's primer/genre into the prompt.
+
+    Best-effort because drafting should not hard-fail if the world cannot be
+    loaded; a missing/unsaved storyline simply means an ungrounded draft.
+    """
+    if not storyline_id:
+        return ""
+    try:
+        sl = crud.get_storyline(db, storyline_id)
+    except APIError:
+        return ""
+    parts = [f"World: {sl.title} ({sl.genre})."]
+    if sl.world_primer:
+        parts.append(f"World primer:\n{sl.world_primer}")
+    elif sl.premise:
+        parts.append(f"World premise:\n{sl.premise}")
+    return "\n\n" + "\n\n".join(parts)
+
+
+def draft_character(
+    db: Session,
+    seed: str,
+    docs_overview: str | None = None,
+    storyline_id: str | None = None,
+) -> CharacterDraftResponse:
+    """Draft a full character (by-hand fields + base-identity prose) from a seed."""
+    seed = (seed or "").strip()
+    if not seed:
+        raise APIError(400, "bad_request", "Describe the character in a sentence to draft them.")
+    base_url, api_key, model, params = resolve_llm(db)
+    user = f"Character seed: {seed}{_world_context(db, storyline_id)}{docs_block(docs_overview)}"
+    messages = [
+        {"role": "system", "content": _DRAFT_SYSTEM},
+        {"role": "user", "content": user},
+    ]
+    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+
+    def _s(key: str) -> str:
+        return str(data.get(key) or "").strip()
+
+    return CharacterDraftResponse(
+        name=_s("name"),
+        role=_s("role"),
+        traits=_s("traits"),
+        speech=_s("speech"),
+        goal=_s("goal"),
+        secret=_s("secret"),
+        appearance=_s("appearance"),
+        background=_s("background"),
+        personality=_s("personality"),
+        color=_s("color"),
+    )
+
+
+def generate_portrait_prompts(
+    db: Session,
+    *,
+    name: str = "",
+    role: str | None = None,
+    appearance: str | None = None,
+    traits: str | None = None,
+    personality: str | None = None,
+    species: str | None = None,
+    notes: str | None = None,
+) -> PortraitPromptResponse:
+    """Write the watercolor positive/negative ComfyUI prompts for a character."""
+    fields = {
+        "Name": name,
+        "Role": role,
+        "Species/Race": species,
+        "Appearance": appearance,
+        "Traits": traits,
+        "Personality": personality,
+        "Notes": notes,
+    }
+    described = "\n".join(f"{k}: {v}".strip() for k, v in fields.items() if (v or "").strip())
+    if not described:
+        raise APIError(
+            400, "bad_request", "Describe the character (at least a name or appearance) first."
+        )
+    base_url, api_key, model, params = resolve_llm(db)
+    messages = [
+        {"role": "system", "content": _PORTRAIT_SYSTEM},
+        {"role": "user", "content": f"Character:\n{described}"},
+    ]
+    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+    return PortraitPromptResponse(
+        positive=str(data.get("positive") or "").strip(),
+        negative=str(data.get("negative") or "").strip(),
+    )
+
+
+def propose_starting_stats(
+    db: Session,
+    storyline_id: str,
+    *,
+    name: str = "",
+    role: str | None = None,
+    traits: str | None = None,
+    personality: str | None = None,
+    background: str | None = None,
+) -> StartingStatsResponse:
+    """Propose starting values for the storyline's stat definitions (proposal only).
+
+    Returns an empty list (no LLM call) when the world defines no stats. Proposed
+    values are clamped to each definition's range and unknown keys are ignored, so
+    the caller can apply them straight through the clamped stat endpoint.
+    """
+    definitions = stat_service.list_stat_definitions(db, storyline_id)
+    if not definitions:
+        return StartingStatsResponse(proposals=[])
+    by_key = {d.key: d for d in definitions}
+
+    base_url, api_key, model, params = resolve_llm(db)
+    schema_lines = "\n".join(
+        f"- {d.key} ({d.display_name}): range [{d.min}, {d.max}], default {d.default}."
+        f" {d.description}".rstrip()
+        for d in definitions
+    )
+    char_fields = {
+        "Name": name,
+        "Role": role,
+        "Traits": traits,
+        "Personality": personality,
+        "Background": background,
+    }
+    described = "\n".join(f"{k}: {v}" for k, v in char_fields.items() if (v or "").strip())
+    user = f"Stat definitions:\n{schema_lines}\n\nCharacter:\n{described or name or 'Unnamed'}"
+    messages = [
+        {"role": "system", "content": _STATS_SYSTEM},
+        {"role": "user", "content": user},
+    ]
+    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+
+    raw = data.get("proposals")
+    rows = raw if isinstance(raw, list) else []
+    proposals: list[StartingStatProposal] = []
+    seen: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        key = str(row.get("key") or "").strip()
+        definition = by_key.get(key)
+        if definition is None or key in seen:
+            continue
+        raw_value = row.get("value")
+        try:
+            if isinstance(raw_value, (int, float)) and not isinstance(raw_value, bool):
+                value = int(raw_value)
+            else:
+                value = int(str(raw_value).strip())
+        except (TypeError, ValueError):
+            value = definition.default
+        value = max(definition.min, min(definition.max, value))
+        seen.add(key)
+        proposals.append(
+            StartingStatProposal(
+                key=key,
+                display_name=definition.display_name,
+                value=value,
+                min=definition.min,
+                max=definition.max,
+                rationale=str(row.get("rationale") or "").strip(),
+            )
+        )
+    # Fill any stat the model skipped with its default, so the proposal is complete.
+    for d in definitions:
+        if d.key not in seen:
+            proposals.append(
+                StartingStatProposal(
+                    key=d.key,
+                    display_name=d.display_name,
+                    value=d.default,
+                    min=d.min,
+                    max=d.max,
+                    rationale="",
+                )
+            )
+    return StartingStatsResponse(proposals=proposals)
