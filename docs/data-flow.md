@@ -138,6 +138,22 @@ play-accrued **event timeline** (ships empty, written async once play exists) an
 never graph edges. Scene art is an explicit, opt-in step (it spends GPU time on
 the local ComfyUI server).
 
+## Context Document Flow (the triaged RAG corpus)
+
+```
+New Storyline page → drop .txt/.md (read in-browser) → POST /storylines/triage
+  → triage_agent classifies each doc → { category, includeDraft, includeRag }
+  → author reviews the buckets (Characters / Settings / Other) + Draft/RAG flags
+  → on commit: POST /storylines/{id}/context-docs/bulk persists the corpus
+      → ContextDocument rows (content stored verbatim, char_count cached)
+```
+
+This is the **persistence seam** for retrieval: the documents are durably stored
+per storyline and survive reload. **Nothing reads `content` at runtime yet** —
+chunking, embeddings, hybrid search, and runtime retrieval remain a later plan.
+`includeDraft` docs additionally ground the creation-time generation (inline, not
+retrieved); `includeRag` simply marks corpus membership for the future retriever.
+
 ## Story Graph Flow (Neo4j substrate)
 
 ```
