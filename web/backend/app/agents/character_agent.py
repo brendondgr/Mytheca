@@ -70,12 +70,25 @@ _PORTRAIT_SYSTEM = (
 _STATS_SYSTEM = (
     "You are Velora's character-creation assistant proposing a character's STARTING "
     "statistics for a world. You are given the world's stat definitions (key, name, "
-    "range, default) and a character description. For each stat, propose a starting "
+    "range, default, and any labeled value bands) and a character description. Each "
+    "band names what a sub-range MEANS (e.g. health 0-20 = 'nearly dead', 81-100 = "
+    "'very healthy') — use those meanings to pick a value whose band matches the "
+    "character's intended starting condition. For each stat, propose a starting "
     "integer value within its [min, max] range that fits the character, with a "
-    "brief rationale. Respond with ONLY a JSON object — no prose, no fences — of the "
-    'form {"proposals": [{"key": "<stat key>", "value": <int>, "rationale": "<one '
-    'short line>"}]}. Only use the provided stat keys. Include every stat.'
+    "brief rationale (cite the band meaning when relevant). Respond with ONLY a JSON "
+    'object — no prose, no fences — of the form {"proposals": [{"key": "<stat key>", '
+    '"value": <int>, "rationale": "<one short line>"}]}. Only use the provided stat '
+    "keys. Include every stat."
 )
+
+
+def _bands_text(definition) -> str:
+    """Render a definition's bands as an inline ' Bands: a (lo-hi); …' suffix."""
+    bands = definition.bands or []
+    if not bands:
+        return ""
+    parts = [f"{b.get('label', '')} ({b.get('min')}-{b.get('max')})" for b in bands]
+    return " Bands: " + "; ".join(parts) + "."
 
 
 def _world_context(db: Session, storyline_id: str | None) -> str:
@@ -195,7 +208,7 @@ def propose_starting_stats(
     base_url, api_key, model, params = resolve_llm(db)
     schema_lines = "\n".join(
         f"- {d.key} ({d.display_name}): range [{d.min}, {d.max}], default {d.default}."
-        f" {d.description}".rstrip()
+        f" {d.description}{_bands_text(d)}".rstrip()
         for d in definitions
     )
     char_fields = {

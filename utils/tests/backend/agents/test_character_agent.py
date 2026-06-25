@@ -180,3 +180,32 @@ def test_starting_stats_keyed_clamped_and_completed(client, monkeypatch, storyli
     assert by_key["health"]["displayName"] == "Health"
     assert by_key["trust"]["value"] == -3
     assert by_key["patience"]["value"] == 5  # default fill for the skipped stat
+
+
+def test_starting_stats_prompt_includes_band_meanings(client, monkeypatch, storyline_id):
+    _configure_llm(client)
+    client.post(
+        f"/api/storylines/{storyline_id}/stats",
+        json={
+            "key": "health",
+            "displayName": "Health",
+            "min": 0,
+            "max": 100,
+            "default": 100,
+            "bands": [{"min": 0, "max": 20, "label": "NEARLY_DEAD_MARKER"}],
+        },
+    )
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = request.content.decode()
+        return _completion(json.dumps({"proposals": [{"key": "health", "value": 10}]}))
+
+    _patch_upstream(monkeypatch, handler)
+    res = client.post(
+        "/api/characters/starting-stats",
+        json={"storylineId": storyline_id, "name": "Wretch"},
+    )
+    assert res.status_code == 200
+    # The band's meaning is in the prompt so the model can choose a coherent value.
+    assert "NEARLY_DEAD_MARKER" in seen["body"]
