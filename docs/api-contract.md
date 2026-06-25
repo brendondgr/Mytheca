@@ -31,7 +31,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Context documents | `GET /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs/bulk`, `PATCH /context-docs/{docId}`, `DELETE /context-docs/{docId}` | **Implemented.** The persisted **triaged RAG corpus** for a world (written by the New Storyline page's Triage → commit). Each doc carries a `category` (`character`/`setting`/`other`) and inclusion tiers `includeDraft` / `includeRag`. Persistence only — retrieval (chunking/embeddings/hybrid search) is still deferred; nothing reads `content` at runtime yet. See Context Document Shape below. |
 | Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
 | Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
-| Authoring | `POST /storylines/draft`, `POST /storylines/primer` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, and generate the agent-facing World Primer (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
+| Authoring | `POST /storylines/draft`, `POST /storylines/primer`, `POST /storylines/triage` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, generate the agent-facing World Primer, and **triage** dropped reference docs into Characters / Settings / Other with Draft/RAG inclusion (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
 | Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
 | Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
@@ -202,6 +202,14 @@ indexed.
   `{ "worldPrimer": "…prose…" }`. The result is stored on the storyline via the
   normal `worldPrimer` field on create/PATCH. Same unconfigured-LLM /
   empty-completion error mapping as above.
+- `POST /storylines/triage` — `{ docs: [{ name, text }], storylineId? }`. Classifies
+  each dropped reference document in one call → `{ "items": [{ name, category, includeDraft,
+  includeRag, rationale }] }`. `category` ∈ `character | setting | other` (a doc about
+  ONE character/setting → that bucket; multiple/mixed/general → `other`); `includeDraft`
+  marks world-setting docs that ground drafting, `includeRag` (default on) marks the
+  retrieval corpus. Empty `docs` → `{ "items": [] }` (no LLM call); a doc the model omits
+  falls back to `other`/RAG-on; unconfigured LLM → `400`; non-JSON reply → `502`. The
+  classified docs are persisted on commit via the **Context documents** bulk endpoint.
 
 ## Character Authoring Shapes (agentic Character Creator)
 
