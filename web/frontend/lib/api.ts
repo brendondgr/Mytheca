@@ -7,12 +7,16 @@
 
 import type {
   Character,
+  ContextDocument,
+  DocCategory,
   GraphTypeDefinition,
+  ProposedWorld,
   Scenario,
   ScenarioGraph,
   Setting,
   StatDefinition,
   Storyline,
+  TriageItem,
 } from "@/lib/types";
 
 /** Backend base URL. Configurable via NEXT_PUBLIC_API_URL (see .env.example). */
@@ -98,6 +102,7 @@ export function mediaUrl(path: string): string {
 
 // ---- storylines ----
 export const listStorylines = () => request<StorylineSummary[]>("/storylines");
+export const getStoryline = (id: string) => request<StorylineSummary>(`/storylines/${id}`);
 export const createStoryline = (body: StorylineInput) =>
   post<StorylineSummary>("/storylines", body);
 export const updateStoryline = (id: string, body: StorylineInput) =>
@@ -128,6 +133,49 @@ export const generateWorldPrimer = (body: {
   seed?: string;
   docsOverview?: string;
 }) => post<WorldPrimerResult>("/storylines/primer", body);
+
+// ---- triage + world build (the New Storyline page) ----
+// Triage classifies dropped docs into Characters/Settings/Other + Draft/RAG; build
+// drafts a whole reviewable world. Neither persists — the page commits via CRUD.
+
+export interface TriageResult {
+  items: TriageItem[];
+}
+
+export const triageDocuments = (
+  docs: { name: string; text: string }[],
+  storylineId?: string,
+) => post<TriageResult>("/storylines/triage", { docs, storylineId });
+
+export const buildWorld = (body: {
+  seed?: string;
+  docsOverview?: string;
+  storylineId?: string;
+  maxCharacters?: number;
+  maxSettings?: number;
+}) => post<ProposedWorld>("/storylines/build", body);
+
+// ---- context documents (the persisted triaged RAG corpus) ----
+export type ContextDocumentInput = {
+  name: string;
+  content?: string;
+  category?: DocCategory;
+  includeDraft?: boolean;
+  includeRag?: boolean;
+  source?: string;
+};
+
+export const listContextDocuments = (storylineId: string) =>
+  request<ContextDocument[]>(`/storylines/${storylineId}/context-docs`);
+export const bulkCreateContextDocuments = (
+  storylineId: string,
+  docs: ContextDocumentInput[],
+) => post<ContextDocument[]>(`/storylines/${storylineId}/context-docs/bulk`, { docs });
+export const updateContextDocument = (
+  docId: string,
+  body: Partial<ContextDocumentInput>,
+) => patch<ContextDocument>(`/context-docs/${docId}`, body);
+export const deleteContextDocument = (docId: string) => del(`/context-docs/${docId}`);
 
 // ---- per-storyline children ----
 export const listCharacters = (storylineId: string) =>

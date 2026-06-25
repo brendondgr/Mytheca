@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiError,
+  buildWorld,
+  bulkCreateContextDocuments,
   createCharacter,
   createGraphType,
   deleteCharacter,
   getScenarioGraph,
   listStorylines,
+  triageDocuments,
 } from "@/lib/api";
 
 function mockFetch(impl: (url: string, init?: RequestInit) => Response) {
@@ -51,6 +54,41 @@ describe("api client", () => {
     const graph = await getScenarioGraph("sc1");
     expect(graph.available).toBe(true);
     expect(spy.mock.calls[0][0]).toContain("/scenarios/sc1/graph");
+  });
+
+  it("posts dropped docs to the triage endpoint", async () => {
+    const spy = mockFetch(
+      () => new Response(JSON.stringify({ items: [{ name: "a.md", category: "character" }] }), { status: 200 }),
+    );
+    const res = await triageDocuments([{ name: "a.md", text: "A person." }]);
+    expect(res.items[0].category).toBe("character");
+    const [url, init] = spy.mock.calls[0];
+    expect(url).toContain("/storylines/triage");
+    expect(JSON.parse(init?.body as string).docs[0].name).toBe("a.md");
+  });
+
+  it("requests a world build", async () => {
+    const spy = mockFetch(
+      () =>
+        new Response(
+          JSON.stringify({ storyline: { title: "Built" }, stats: [], characters: [], settings: [] }),
+          { status: 200 },
+        ),
+    );
+    const world = await buildWorld({ seed: "A world." });
+    expect(world.storyline.title).toBe("Built");
+    expect(spy.mock.calls[0][0]).toContain("/storylines/build");
+  });
+
+  it("bulk-creates the triaged context corpus", async () => {
+    const spy = mockFetch(() => new Response(JSON.stringify([{ id: "cd1", name: "a.md" }]), { status: 201 }));
+    const docs = await bulkCreateContextDocuments("embergate", [
+      { name: "a.md", content: "x", category: "other", includeRag: true },
+    ]);
+    expect(docs[0].id).toBe("cd1");
+    const [url, init] = spy.mock.calls[0];
+    expect(url).toContain("/storylines/embergate/context-docs/bulk");
+    expect(JSON.parse(init?.body as string).docs[0].name).toBe("a.md");
   });
 
   it("registers a user-defined graph type at the storyline-scoped endpoint", async () => {
