@@ -218,3 +218,59 @@ def test_generate_runs_the_full_pipeline(monkeypatch):
     image, info = comfyui.generate("http://localhost:8199", "ZiT-Workflow.json", positive="a cat")
     assert image == png
     assert info["filename"] == "out.png"
+
+
+# ---- routes (Options surface) ----------------------------------------------
+
+
+def test_route_list_workflows(client):
+    res = client.get("/api/options/comfy/workflows")
+    assert res.status_code == 200
+    assert "ZiT-Workflow.json" in res.json()["workflows"]
+
+
+def test_route_patch_comfy_persists(client):
+    res = client.patch(
+        "/api/options/comfy",
+        json={
+            "baseUrl": "http://localhost:8199/",
+            "workflow": "ZiT-Workflow.json",
+            "params": {"steps": 6, "width": 768, "negativePrompt": "blurry"},
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["baseUrl"] == "http://localhost:8199"  # trailing slash trimmed
+    assert data["params"]["steps"] == 6
+    # Persists across a fresh GET on the aggregate document.
+    assert client.get("/api/options").json()["comfy"]["params"]["width"] == 768
+
+
+def test_route_status_ok(client, monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/system_stats"
+        return httpx.Response(
+            200,
+            json={
+                "system": {"comfyui_version": "0.25.0", "python_version": "3.13.11"},
+                "devices": [{"name": "AMD Radeon"}],
+            },
+        )
+
+    _patch_http(monkeypatch, handler)
+    res = client.post("/api/options/comfy/status", json={"baseUrl": "http://localhost:8199"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["ok"] is True
+    assert data["comfyuiVersion"] == "0.25.0"
+    assert data["device"] == "AMD Radeon"
+
+
+def test_route_status_unreachable_maps_to_envelope(client, monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused")
+
+    _patch_http(monkeypatch, handler)
+    res = client.post("/api/options/comfy/status", json={"baseUrl": "http://localhost:8199"})
+    assert res.status_code == 502
+    assert res.json()["error"]["code"] == "bad_gateway"

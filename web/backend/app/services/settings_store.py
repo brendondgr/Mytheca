@@ -13,6 +13,9 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.models.app_setting import AppSetting
 from app.schemas.settings import (
+    ComfyConfigRead,
+    ComfyConfigUpdate,
+    ComfyParams,
     LibraryDefaultsRead,
     LibraryDefaultsUpdate,
     LlmConfigRead,
@@ -22,6 +25,7 @@ from app.schemas.settings import (
 
 LLM_KEY = "llm"
 LIBRARY_KEY = "library"
+COMFY_KEY = "comfy"
 
 
 def _get_row(db: Session, key: str) -> dict:
@@ -104,6 +108,48 @@ def resolve_llm_credentials(
     resolved_url = (base_url or doc.get("baseUrl") or "").strip()
     resolved_key = api_key if api_key is not None else (doc.get("_apiKey") or "")
     return resolved_url, resolved_key
+
+
+# ---- ComfyUI config --------------------------------------------------------
+
+
+def _comfy_defaults() -> dict:
+    s = get_settings()
+    return {
+        "baseUrl": s.comfyui_base_url,
+        "workflow": "ZiT-Workflow.json",
+        "params": ComfyParams().model_dump(by_alias=True),
+    }
+
+
+def _comfy_doc(db: Session) -> dict:
+    return {**_comfy_defaults(), **_get_row(db, COMFY_KEY)}
+
+
+def get_comfy(db: Session) -> ComfyConfigRead:
+    doc = _comfy_doc(db)
+    return ComfyConfigRead(
+        base_url=doc.get("baseUrl", ""),
+        workflow=doc.get("workflow", "ZiT-Workflow.json"),
+        params=ComfyParams.model_validate(doc.get("params") or {}),
+    )
+
+
+def update_comfy(db: Session, data: ComfyConfigUpdate) -> ComfyConfigRead:
+    doc = _comfy_doc(db)
+    if data.base_url is not None:
+        doc["baseUrl"] = data.base_url.strip().rstrip("/")
+    if data.workflow is not None:
+        doc["workflow"] = data.workflow
+    if data.params is not None:
+        doc["params"] = data.params.model_dump(by_alias=True)
+    _set_row(db, COMFY_KEY, doc)
+    return get_comfy(db)
+
+
+def resolve_comfy_base_url(db: Session, base_url: str | None) -> str:
+    """Fall back to the stored base URL when a request omits one."""
+    return (base_url or _comfy_doc(db).get("baseUrl") or "").strip()
 
 
 # ---- Library defaults ------------------------------------------------------

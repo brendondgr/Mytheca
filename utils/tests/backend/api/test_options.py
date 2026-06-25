@@ -11,6 +11,9 @@ def test_get_returns_defaults(client):
     # Params carry sensible defaults in camelCase.
     assert body["llm"]["params"]["maxTokens"] == 512
     assert body["library"]["openLastStoryline"] is True
+    # ComfyUI config ships with the bundled workflow + default params.
+    assert body["comfy"]["workflow"] == "ZiT-Workflow.json"
+    assert body["comfy"]["params"]["width"] == 1024
 
 
 def test_patch_llm_persists_and_masks_key(client):

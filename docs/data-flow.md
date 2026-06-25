@@ -60,6 +60,9 @@ Options page (/options) → lib/api.ts → GET/PATCH /api/options
   → LLM tab: POST /api/options/llm/{models,test}
       → backend httpx proxy → {baseUrl}/models · {baseUrl}/chat/completions
       → result returned to the UI (CORS-free; API key stays server-side)
+  → Image Generation tab: GET /api/options/comfy/workflows · POST /api/options/comfy/status
+      → comfyui client → {baseUrl}/system_stats (status); the full generate
+        pipeline (POST /prompt → WebSocket wait → /history → /view) is server-side
 ```
 
 The LLM API key is **write-only**: stored in the `app_settings` row, never
