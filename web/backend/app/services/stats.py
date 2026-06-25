@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
 from app.core.ids import new_id
-from app.models import CharacterStat, StatDefinition
+from app.models import Character, CharacterStat, StatDefinition
 from app.schemas.stat import StatDefinitionCreate, StatDefinitionUpdate
 from app.services.crud import get_character, get_storyline
 
@@ -64,6 +64,7 @@ def create_stat_definition(
         visibility=data.visibility,
         guidance=data.guidance,
         applies_to=list(data.applies_to),
+        bands=[b.model_dump() for b in data.bands],
     )
     db.add(sd)
     db.commit()
@@ -71,16 +72,58 @@ def create_stat_definition(
     return sd
 
 
+def _reclamp_character_values(db: Session, storyline_id: str, sd: StatDefinition) -> None:
+    """Pull every character value for ``sd.key`` back inside the (new) range.
+
+    Called after a range edit so no stored value sits out of bounds. Scoped to
+    the storyline's own characters via the character→storyline join.
+    """
+    rows = db.scalars(
+        select(CharacterStat)
+        .join(Character, Character.id == CharacterStat.character_id)
+        .where(Character.storyline_id == storyline_id, CharacterStat.key == sd.key)
+    )
+    for row in rows:
+        row.value = max(sd.min, min(sd.max, row.value))
+
+
 def update_stat_definition(
     db: Session, storyline_id: str, key: str, data: StatDefinitionUpdate
 ) -> StatDefinition:
     sd = _get_definition(db, storyline_id, key)
-    # StatDefinitionUpdate only carries descriptive fields — the range is locked.
-    for field, value in data.model_dump(exclude_unset=True).items():
+    fields = data.model_dump(exclude_unset=True)
+    # Bands serialize to plain dicts for the JSON column.
+    if data.bands is not None:
+        fields["bands"] = [b.model_dump() for b in data.bands]
+    range_touched = any(f in fields for f in ("min", "max", "default"))
+    for field, value in fields.items():
         setattr(sd, field, value)
+    # Stats are freely editable now; keep the range coherent and re-clamp values.
+    if range_touched:
+        if sd.min >= sd.max:
+            raise APIError(422, "invalid_range", "Stat min must be less than max.")
+        sd.default = max(sd.min, min(sd.max, sd.default))
+        _reclamp_character_values(db, storyline_id, sd)
     db.commit()
     db.refresh(sd)
     return sd
+
+
+def delete_stat_definition(db: Session, storyline_id: str, key: str) -> None:
+    """Remove a stat definition and prune its values from every character.
+
+    The definition→value link is by ``key`` (not a FK), so the values are pruned
+    explicitly here rather than by cascade.
+    """
+    sd = _get_definition(db, storyline_id, key)
+    for row in db.scalars(
+        select(CharacterStat)
+        .join(Character, Character.id == CharacterStat.character_id)
+        .where(Character.storyline_id == storyline_id, CharacterStat.key == key)
+    ):
+        db.delete(row)
+    db.delete(sd)
+    db.commit()
 
 
 # ---- character stat values (clamped) ---------------------------------------
