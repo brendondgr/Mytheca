@@ -13,7 +13,7 @@ from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
-from app.core.ids import new_id
+from app.core.ids import new_hex_id
 
 if TYPE_CHECKING:
     from app.models.character import Character
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 class Storyline(Base):
     __tablename__ = "storylines"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("sl"))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_hex_id(8))
     title: Mapped[str] = mapped_column(String, default="Untitled Storyline")
     genre: Mapped[str] = mapped_column(String, default="Uncharted")
     tagline: Mapped[str | None] = mapped_column(String, nullable=True)

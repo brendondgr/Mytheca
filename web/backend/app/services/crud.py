@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
-from app.core.ids import new_id
+from app.core.ids import new_hex_id, new_id
 from app.models import Character, Scenario, Setting, Storyline
 from app.services import graph_writer
 from app.schemas.character import CharacterCreate, CharacterUpdate
@@ -45,6 +45,21 @@ def _next_position(db: Session, model: Any, storyline_id: str) -> int:
 def _require_unique_id(db: Session, model: Any, given: str | None) -> None:
     if given and db.get(model, given) is not None:
         raise APIError(409, "conflict", f"{model.__name__} id '{given}' already exists.")
+
+
+def _gen_hex_id(db: Session, model: Any, length: int) -> str:
+    """Generate a bare hex id of ``length`` chars unused as ``model``'s PK.
+
+    The 8-hex storyline space is huge, but the 4-hex scenario space is small
+    enough (65 536) that a real collision is plausible once a world has many
+    scenarios — so generation retries until the id is free, then widens by a
+    char as a safety valve if the space is genuinely saturated.
+    """
+    for attempt in range(20):
+        candidate = new_hex_id(length + attempt // 8)
+        if db.get(model, candidate) is None:
+            return candidate
+    raise APIError(500, "id_exhausted", f"Could not allocate a free {model.__name__} id.")
 
 
 def _validate_refs(
@@ -80,7 +95,7 @@ def get_storyline(db: Session, storyline_id: str) -> Storyline:
 def create_storyline(db: Session, data: StorylineCreate) -> Storyline:
     _require_unique_id(db, Storyline, data.id)
     sl = Storyline(
-        id=data.id or new_id("sl"),
+        id=data.id or _gen_hex_id(db, Storyline, 8),
         title=data.title,
         genre=data.genre,
         tagline=data.tagline,
@@ -271,7 +286,7 @@ def create_scenario(db: Session, storyline_id: str, data: ScenarioCreate) -> Sce
     _require_unique_id(db, Scenario, data.id)
     _validate_refs(db, storyline_id, data.cast_ids, data.setting_id)
     scenario = Scenario(
-        id=data.id or new_id("sc"),
+        id=data.id or _gen_hex_id(db, Scenario, 4),
         storyline_id=storyline_id,
         title=data.title,
         genre=data.genre,

@@ -14,7 +14,13 @@ import { TranscriptBeat } from "@/components/feature/TranscriptBeat";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 
 /** The signature surface: a three-zone "open book" live scene. */
-export function StoryPlayerView({ scenario }: { scenario: ResolvedScenario }) {
+export function StoryPlayerView({
+  scenario,
+  backHref = "/",
+}: {
+  scenario: ResolvedScenario;
+  backHref?: string;
+}) {
   const scene = useScenePlay(scenario);
   const scrollRef = useRef<HTMLDivElement>(null);
   const byId = (id: string): Character | undefined =>
@@ -31,7 +37,11 @@ export function StoryPlayerView({ scenario }: { scenario: ResolvedScenario }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <h1 className="sr-only">{scenario.title} — live scene</h1>
-      <SceneHeader title={scenario.title} settingName={scenario.setting.name} />
+      <SceneHeader
+        title={scenario.title}
+        settingName={scenario.setting.name}
+        backHref={backHref}
+      />
 
       <div className="flex min-h-0 flex-1">
         <CastRail

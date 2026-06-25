@@ -16,8 +16,8 @@ import { CharacterProfileModal } from "@/components/feature/CharacterProfileModa
 import { BeginSceneModal } from "@/components/feature/BeginSceneModal";
 
 /** The Library surface: header → recent-scenario carousel → open columns + editors. */
-export function LibraryView() {
-  const lib = useLibraryState();
+export function LibraryView({ initialStorylineId }: { initialStorylineId?: string } = {}) {
+  const lib = useLibraryState(initialStorylineId);
 
   const beginScenario = lib.modal?.type === "begin" ? lib.featured : null;
 
@@ -103,7 +103,11 @@ export function LibraryView() {
         onClose={lib.closeProfile}
         onEdit={lib.editCharacter}
       />
-      <BeginSceneModal scenario={beginScenario} onClose={lib.closeModal} />
+      <BeginSceneModal
+        scenario={beginScenario}
+        storylineId={lib.activeStorylineId}
+        onClose={lib.closeModal}
+      />
     </div>
   );
 }
