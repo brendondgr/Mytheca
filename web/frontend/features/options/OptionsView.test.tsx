@@ -34,7 +34,7 @@ describe("OptionsView", () => {
     const first = screen.getByRole("tab", { name: /language models/i });
     first.focus();
     await user.keyboard("{ArrowDown}");
-    expect(screen.getByRole("tab", { name: /appearance/i })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: /image generation/i })).toHaveAttribute(
       "aria-selected",
       "true",
     );

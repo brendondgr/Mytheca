@@ -177,9 +177,38 @@ export interface LibraryDefaults {
 
 export type LibraryDefaultsUpdate = Partial<LibraryDefaults>;
 
+export interface ComfyParams {
+  steps: number;
+  cfg: number;
+  width: number;
+  height: number;
+  batchSize: number;
+  negativePrompt: string;
+}
+
+export interface ComfyConfig {
+  baseUrl: string;
+  workflow: string;
+  params: ComfyParams;
+}
+
+export type ComfyConfigUpdate = Partial<ComfyConfig>;
+
+export interface ComfyStatusResult {
+  ok: boolean;
+  comfyuiVersion: string;
+  device: string;
+  pythonVersion: string;
+}
+
+export interface ComfyWorkflowsResult {
+  workflows: string[];
+}
+
 export interface AppSettings {
   llm: LlmConfig;
   library: LibraryDefaults;
+  comfy: ComfyConfig;
 }
 
 export interface LlmModelsResult {
@@ -206,6 +235,14 @@ export const testLlmConnection = (body: {
   model: string;
   params?: LlmParams;
 }) => post<LlmTestResult>("/options/llm/test", body);
+
+// ---- ComfyUI image generation ----
+export const updateComfyConfig = (body: ComfyConfigUpdate) =>
+  patch<ComfyConfig>("/options/comfy", body);
+export const fetchComfyWorkflows = () =>
+  request<ComfyWorkflowsResult>("/options/comfy/workflows");
+export const checkComfyStatus = (body: { baseUrl?: string }) =>
+  post<ComfyStatusResult>("/options/comfy/status", body);
 
 /** Backend health check. Lives at `/health`, outside the `/api` prefix. */
 export async function getHealth(): Promise<{ status: string }> {

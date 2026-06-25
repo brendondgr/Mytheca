@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   getSettings,
+  updateComfyConfig,
   updateLibraryDefaults,
   updateLlmConfig,
   type AppSettings,
+  type ComfyConfigUpdate,
   type LibraryDefaultsUpdate,
   type LlmConfigUpdate,
 } from "@/lib/api";
@@ -17,6 +19,7 @@ export interface OptionsState {
   retry: () => void;
   saveLlm: (body: LlmConfigUpdate) => Promise<void>;
   saveLibrary: (body: LibraryDefaultsUpdate) => Promise<void>;
+  saveComfy: (body: ComfyConfigUpdate) => Promise<void>;
 }
 
 /**
@@ -65,5 +68,10 @@ export function useOptionsSettings(): OptionsState {
     setSettings((prev) => (prev ? { ...prev, library } : prev));
   }, []);
 
-  return { settings, loading, error, retry, saveLlm, saveLibrary };
+  const saveComfy = useCallback(async (body: ComfyConfigUpdate) => {
+    const comfy = await updateComfyConfig(body);
+    setSettings((prev) => (prev ? { ...prev, comfy } : prev));
+  }, []);
+
+  return { settings, loading, error, retry, saveLlm, saveLibrary, saveComfy };
 }
