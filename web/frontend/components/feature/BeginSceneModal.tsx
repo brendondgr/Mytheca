@@ -12,9 +12,11 @@ import type { ResolvedScenario } from "@/lib/types";
 /** The "enter the scene" preview: narrator opening, cast, setting, goal. */
 export function BeginSceneModal({
   scenario,
+  storylineId,
   onClose,
 }: {
   scenario: ResolvedScenario | null;
+  storylineId: string;
   onClose: () => void;
 }) {
   if (!scenario) return null;
@@ -77,7 +79,7 @@ export function BeginSceneModal({
             Not yet
           </Button>
           <Link
-            href={`/play/${s.id}`}
+            href={`/${storylineId}/${s.id}`}
             className="inline-flex items-center rounded-[2px] bg-accent px-[22px] py-[11px] font-mono text-[11px] uppercase tracking-[0.1em] text-[#F6ECDA] hover:brightness-110"
           >
             Enter Scene ▸

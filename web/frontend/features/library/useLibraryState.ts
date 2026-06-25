@@ -414,6 +414,7 @@ export function useLibraryState(initialStorylineId?: string) {
         await persistStats(created.id);
         setStorylines((sls) => [...sls, emptyStoryline(created)]);
         setActiveStorylineId(created.id);
+        syncStorylineUrl(created.id);
         resetForStoryline("");
       }
       closeModal();
@@ -646,6 +647,7 @@ export function useLibraryState(initialStorylineId?: string) {
       if (id === activeStorylineId) {
         const next = remaining[0];
         setActiveStorylineId(next?.id ?? "");
+        syncStorylineUrl(next?.id ?? "");
         if (next) {
           const scens = await hydrateStoryline(next.id);
           resetForStoryline(scens[0]?.id ?? "");

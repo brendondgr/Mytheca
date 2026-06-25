@@ -294,7 +294,7 @@ describe("LibraryView — editors & modals", () => {
     });
     expect(
       within(dialog).getByRole("link", { name: /enter scene/i }),
-    ).toHaveAttribute("href", "/play/embergate");
+    ).toHaveAttribute("href", "/embergate/embergate");
   });
 
   it("edits a character via the card pencil", async () => {
