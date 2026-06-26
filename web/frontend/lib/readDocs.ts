@@ -4,8 +4,9 @@
 
 export const ACCEPTED_DOC_EXTENSIONS = [".txt", ".md", ".markdown"] as const;
 
-/** Upper bound on the grounding text sent for a single generation. */
-export const DOCS_CHAR_CAP = 8000;
+/** Upper bound on the grounding text sent for a single generation (mirrors the
+ *  backend `_common.DOCS_CAP`). */
+export const DOCS_CHAR_CAP = 32000;
 
 export interface ReadDoc {
   name: string;
