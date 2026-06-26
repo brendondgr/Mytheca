@@ -12,7 +12,7 @@ from app.agents import build_agent, storyline_agent, triage_agent
 from app.core.db import get_db
 from app.core.errors import APIError
 from app.schemas.build import BuildErrorEvent, BuildWorldRequest, ProposedWorld
-from app.schemas.context_document import TriageRequest, TriageResponse
+from app.schemas.context_document import TriageErrorEvent, TriageRequest, TriageResponse
 from app.schemas.storyline import (
     StorylineCreate,
     StorylineDraftRequest,
@@ -57,6 +57,32 @@ def generate_world_primer(data: WorldPrimerRequest, db: Session = Depends(get_db
 def triage_documents(data: TriageRequest, db: Session = Depends(get_db)):
     """Classify dropped reference docs → Characters / Settings / Other · Draft/RAG."""
     return triage_agent.triage_documents(db, data.docs, data.storyline_id)
+
+
+@router.post("/triage/stream")
+def triage_documents_stream(data: TriageRequest, db: Session = Depends(get_db)):
+    """Stream triage live (NDJSON): one ``status`` + ``item`` per file, then ``done``.
+
+    One LLM call per document so each row is classified in front of the author. An
+    unconfigured LLM (with documents to classify) returns a normal ``400`` before
+    the stream opens.
+    """
+    triage_agent.validate_triage_inputs(db, data.docs)
+
+    def _lines() -> Iterator[str]:
+        try:
+            for event in triage_agent.iter_triage_documents(db, data.docs, data.storyline_id):
+                yield event.model_dump_json(by_alias=True) + "\n"
+        except APIError as exc:
+            yield TriageErrorEvent(message=exc.message).model_dump_json(by_alias=True) + "\n"
+        except Exception:  # never leak a stack trace into the stream
+            yield TriageErrorEvent(
+                message="Triage failed unexpectedly."
+            ).model_dump_json(by_alias=True) + "\n"
+
+    return StreamingResponse(
+        _lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS
+    )
 
 
 @router.post("/build", response_model=ProposedWorld)

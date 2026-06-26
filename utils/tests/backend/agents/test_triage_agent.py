@@ -135,3 +135,91 @@ def test_triage_requires_llm_configured(client):
     )
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "bad_request"
+
+
+# ---- streaming (per-file) triage -------------------------------------------
+
+
+def _stream_events(res) -> list[dict]:
+    return [json.loads(line) for line in res.text.splitlines() if line.strip()]
+
+
+def _per_doc_router(request: httpx.Request) -> httpx.Response:
+    """Classify one doc per call, by the name embedded in the user message."""
+    body = request.content.decode()
+    if "maerin.md" in body:
+        return _completion(json.dumps({"category": "character", "includeRag": True}))
+    if "tavern.md" in body:
+        return _completion(json.dumps({"category": "setting", "includeRag": True}))
+    return _completion(json.dumps({"category": "other", "includeDraft": True, "includeRag": True}))
+
+
+def test_triage_stream_emits_per_file_events(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch, _per_doc_router)
+    res = client.post(
+        "/api/storylines/triage/stream",
+        json={
+            "docs": [
+                {"name": "maerin.md", "text": "Maerin Voss, a harbor smuggler."},
+                {"name": "tavern.md", "text": "The Saltworn Tavern, lamplit and low."},
+                {"name": "history.md", "text": "Three powers rose from the drowned coast."},
+            ]
+        },
+    )
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("application/x-ndjson")
+    events = _stream_events(res)
+    # One status + one item per file, terminal done; statuses carry index/total.
+    assert [e["type"] for e in events] == [
+        "status", "item", "status", "item", "status", "item", "done",
+    ]
+    statuses = [e for e in events if e["type"] == "status"]
+    assert statuses[0] == {"type": "status", "name": "maerin.md", "index": 0, "total": 3}
+    items = {e["item"]["name"]: e["item"] for e in events if e["type"] == "item"}
+    assert items["maerin.md"]["category"] == "character"
+    assert items["tavern.md"]["category"] == "setting"
+    assert items["history.md"]["category"] == "other"
+    assert items["history.md"]["includeDraft"] is True
+
+
+def test_triage_stream_falls_back_per_doc_on_bad_json(client, monkeypatch):
+    _configure_llm(client)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = request.content.decode()
+        if "good.md" in body:
+            return _completion(json.dumps({"category": "setting"}))
+        return _completion("not json")  # bad.md → per-doc fallback, not an abort
+
+    _patch_upstream(monkeypatch, handler)
+    res = client.post(
+        "/api/storylines/triage/stream",
+        json={"docs": [{"name": "good.md", "text": "A place."}, {"name": "bad.md", "text": "x"}]},
+    )
+    events = _stream_events(res)
+    items = {e["item"]["name"]: e["item"] for e in events if e["type"] == "item"}
+    assert items["good.md"]["category"] == "setting"
+    assert items["bad.md"]["category"] == "other"  # fallback
+    assert items["bad.md"]["includeRag"] is True
+    assert events[-1]["type"] == "done"
+
+
+def test_triage_stream_empty_docs_skips_llm(client):
+    # No configured LLM and no real docs → straight to `done`, no upstream call.
+    client.patch("/api/options/llm", json={"baseUrl": "", "model": ""})
+    res = client.post(
+        "/api/storylines/triage/stream",
+        json={"docs": [{"name": "blank.md", "text": "   "}]},
+    )
+    assert res.status_code == 200
+    assert _stream_events(res) == [{"type": "done"}]
+
+
+def test_triage_stream_requires_llm_configured(client):
+    client.patch("/api/options/llm", json={"baseUrl": "", "model": ""})
+    res = client.post(
+        "/api/storylines/triage/stream", json={"docs": [{"name": "a.md", "text": "x"}]}
+    )
+    assert res.status_code == 400  # validated before the stream opens
+    assert res.json()["error"]["code"] == "bad_request"
