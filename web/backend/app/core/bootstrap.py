@@ -16,8 +16,10 @@ is advisory). Pure Python so it can be unit-tested against SQLite + a fake Redis
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import text
@@ -32,6 +34,11 @@ from app.core.neo4j import ping as neo4j_ping
 from app.core.redis import ping as redis_ping
 from app.core.seed import seed_if_empty
 from app.services.type_registry import seed_builtin_types
+
+log = logging.getLogger(__name__)
+
+# Absolute path to the alembic.ini that ships alongside the backend package.
+_ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
 
 
 @dataclass
@@ -112,6 +119,48 @@ def _reconcile_additive_columns(engine: Engine, report: PreflightReport) -> None
         )
 
 
+def _run_migrations(engine: Engine, report: PreflightReport) -> None:
+    """Apply pending Alembic migrations (best-effort, Postgres-only).
+
+    The posture mirrors the project's Neo4j approach: failures are logged and
+    recorded in the report but never raise or block startup.
+
+    On SQLite (tests / local dev without Postgres) we skip migrations entirely
+    — ``create_all`` + the additive reconciler are sufficient there.
+
+    On Postgres we distinguish two cases:
+    - ``alembic_version`` absent → the DB was built by ``create_all``; we stamp
+      it at ``head`` so Alembic starts tracking without re-running the baseline.
+    - ``alembic_version`` present → Alembic is already tracking; run any pending
+      upgrades.
+    """
+    settings = get_settings()
+    if settings.is_sqlite:
+        report.add("migrations", True, "skipped (sqlite)", required=False)
+        return
+
+    try:
+        from alembic import command as alembic_command
+        from alembic.config import Config as AlembicConfig
+
+        cfg = AlembicConfig(str(_ALEMBIC_INI))
+        # Always supply the live URL so env.py's fallback is never needed here.
+        cfg.set_main_option("sqlalchemy.url", settings.database_url)
+        cfg.set_main_option("script_location", str(_ALEMBIC_INI.parent / "alembic"))
+
+        inspector = sa_inspect(engine)
+        if inspector.has_table("alembic_version"):
+            alembic_command.upgrade(cfg, "head")
+            report.add("migrations", True, "upgraded to head", required=False)
+        else:
+            alembic_command.stamp(cfg, "head")
+            report.add("migrations", True, "stamped head (adopted create_all schema)", required=False)
+    except Exception as exc:
+        msg = str(exc).splitlines()[0]  # keep the report line short
+        log.warning("Alembic migration step failed (non-fatal): %s", exc)
+        report.add("migrations", False, f"error ({msg})", required=False)
+
+
 def _wait_for_db(engine: Engine, attempts: int = 30, delay: float = 1.0) -> bool:
     for _ in range(attempts):
         try:
@@ -158,6 +207,8 @@ def run_preflight(*, seed: bool = True) -> PreflightReport:
     Base.metadata.create_all(engine)
     _reconcile_additive_columns(engine, report)
     report.add("schema", True, "tables ensured")
+
+    _run_migrations(engine, report)
 
     # The built-in Story-Graph type catalogue (§5) must exist on every DB — it is
     # the seed Type Registry, independent of whether the Embergate world is seeded.
