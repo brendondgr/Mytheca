@@ -32,6 +32,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
 | Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
 | Authoring | `POST /storylines/draft`, `POST /storylines/primer`, `POST /storylines/triage`, `POST /storylines/build` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, generate the agent-facing World Primer, **triage** dropped reference docs into Characters / Settings / Other with Draft/RAG inclusion, and **build** an entire reviewable world (metadata + primer + stat schema + cast + settings) in one orchestrated call (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
+| Authoring (live) | `POST /storylines/build/stream`, `POST /storylines/triage/stream` | **Implemented.** NDJSON (`application/x-ndjson`) streaming variants of build + triage so the New Storyline page renders the world / triage **as they are built** — the build emits `meta`/`primer`/`plan`/`character`/`setting`/`done`; triage classifies **per file**, emitting `status`+`item` per doc then `done`. Pre-flight failures (no context / unconfigured LLM) return a normal `400` before the stream opens; mid-stream failures arrive as a terminal `error` event. See Live Authoring Stream below. |
 | Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
 | Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
@@ -231,6 +232,32 @@ indexed.
   are sanitized to valid ranges so they persist straight through `POST /storylines/{id}/stats`;
   starting stats default to the schema defaults. Empty seed **and** docs → `400`;
   unconfigured LLM → `400`; a non-JSON sub-reply → `502`.
+
+### Live Authoring Stream (NDJSON)
+
+Streaming variants of build + triage. The response is `application/x-ndjson` — **one
+JSON object per line** — so the New Storyline page renders the world / triage *as they
+are built*. **Pre-flight** errors (no context, unconfigured LLM) are validated before
+the `200` stream opens and returned as the usual error envelope; once the stream is open
+the status can't change, so a mid-run failure is emitted as a terminal `error` event.
+The non-streaming `/build` + `/triage` routes above are unchanged (collectors over the
+same generators).
+
+- `POST /storylines/build/stream` — same body as `/build`. Emits, in order:
+  - `{ "type": "status", "stage": "metadata|primer|blueprint|characters|settings", "message": "…" }` — progress markers.
+  - `{ "type": "meta", "title", "genre", "tagline", "premise" }` — storyline metadata drafted.
+  - `{ "type": "primer", "worldPrimer": "…" }` — the World Primer.
+  - `{ "type": "plan", "stats": […], "characters": ["concept", …], "settings": ["concept", …] }` — the blueprint: the stat schema + one-sentence cast/setting **concepts** (skeleton cards).
+  - `{ "type": "character", "index", "total", "character": { … } }` — one full character per concept (fills its skeleton).
+  - `{ "type": "setting", "index", "total", "setting": { … } }` — one full setting per concept.
+  - `{ "type": "done", "world": ProposedWorld }` — terminal success (the assembled proposal).
+  - `{ "type": "error", "message": "…" }` — terminal in-band failure.
+- `POST /storylines/triage/stream` — same body as `/triage`, but classifies **one
+  document per LLM call** (genuinely live). Emits, per file:
+  `{ "type": "status", "name", "index", "total" }` then `{ "type": "item", "item": TriageItem }`,
+  and a terminal `{ "type": "done" }`. A per-doc failure falls back to `other`/RAG-on
+  (it does not abort the run). Empty/blank docs stream straight to `done` with no LLM call
+  (and need no configured LLM).
 
 ## Character Authoring Shapes (agentic Character Creator)
 

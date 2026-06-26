@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "@/lib/api";
 import { budgetFor } from "@/lib/contextBudget";
 import { concatDocs, readDocFiles } from "@/lib/readDocs";
@@ -21,7 +21,10 @@ import {
   draftDocTexts,
   fieldsFromStoryline,
   isCreatorValid,
+  type PlanConcepts,
   toCreatorDoc,
+  type TriageActive,
+  upsertAt,
 } from "@/features/library/storylineCreator";
 
 function messageOf(e: unknown): string {
@@ -55,10 +58,24 @@ export function useStorylineCreator(editId?: string) {
   const [drafting, setDrafting] = useState(false);
   const [generatingPrimer, setGeneratingPrimer] = useState(false);
   const [triaging, setTriaging] = useState(false);
+  const [triageActive, setTriageActive] = useState<TriageActive | null>(null);
   const [building, setBuilding] = useState(false);
+  const [buildStage, setBuildStage] = useState<string | null>(null);
+  const [planConcepts, setPlanConcepts] = useState<PlanConcepts | null>(null);
   const [committing, setCommitting] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Abort in-flight streams when the component unmounts (or a new run starts).
+  const buildAbort = useRef<AbortController | null>(null);
+  const triageAbort = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      buildAbort.current?.abort();
+      triageAbort.current?.abort();
+    },
+    [],
+  );
 
   // ---- edit-mode load ----
   useEffect(() => {
@@ -144,21 +161,37 @@ export function useStorylineCreator(editId?: string) {
   );
 
   // ---- agentic actions ----
+  // Triage streams per file: each `item` event fills one row as it's classified,
+  // so the panel sorts documents in front of the author instead of all at once.
   const triage = useCallback(async () => {
     const withText = docs.filter((d) => d.text);
     if (withText.length === 0) return;
+    triageAbort.current?.abort();
+    const ac = new AbortController();
+    triageAbort.current = ac;
     setTriaging(true);
     setError(null);
+    setTriageActive(null);
     try {
-      const { items } = await api.triageDocuments(
+      for await (const ev of api.triageDocumentsStream(
         withText.map((d) => ({ name: d.name, text: d.text })),
         editId,
-      );
-      setDocs((prev) => applyTriage(prev, items));
+        ac.signal,
+      )) {
+        if (ev.type === "status") {
+          setTriageActive({ name: ev.name, index: ev.index, total: ev.total });
+        } else if (ev.type === "item") {
+          setDocs((prev) => applyTriage(prev, [ev.item]));
+        } else if (ev.type === "error") {
+          setError(ev.message);
+        }
+      }
     } catch (e) {
-      setError(messageOf(e));
+      if (!ac.signal.aborted) setError(messageOf(e));
     } finally {
+      if (triageAbort.current === ac) triageAbort.current = null;
       setTriaging(false);
+      setTriageActive(null);
     }
   }, [docs, editId]);
 
@@ -203,6 +236,9 @@ export function useStorylineCreator(editId?: string) {
     }
   }, [fields.premise, seed, docs]);
 
+  // The world build streams: metadata fills the left fields, the blueprint seeds
+  // skeleton cards (planConcepts), and each character/setting event appends to the
+  // proposal so the right column fills in live. `done` swaps in the canonical world.
   const build = useCallback(async () => {
     const s = seed.trim();
     const docsOverview = draftGrounding(docs);
@@ -210,29 +246,80 @@ export function useStorylineCreator(editId?: string) {
       setError("Add a one-sentence seed or drop context files to build from.");
       return;
     }
+    buildAbort.current?.abort();
+    const ac = new AbortController();
+    buildAbort.current = ac;
     setBuilding(true);
     setError(null);
+    setBuildStage(null);
+    setProposed(null);
+    setPlanConcepts(null);
+    // Accumulate the storyline core across events so `plan` can seed the proposal.
+    const meta = { title: "", genre: "", tagline: "", premise: "", worldPrimer: "" };
     try {
-      const world = await api.buildWorld({
-        seed: s || undefined,
-        docsOverview,
-        storylineId: editId,
-      });
-      setProposed(world);
-      // Reflect the build into the editable left column; the proposal drives the cast.
-      setFields((prev) => ({
-        ...prev,
-        title: world.storyline.title || prev.title,
-        genre: world.storyline.genre || prev.genre,
-        tagline: world.storyline.tagline || prev.tagline,
-        premise: world.storyline.premise || prev.premise,
-        worldPrimer: world.storyline.worldPrimer || prev.worldPrimer,
-      }));
-      if (world.stats.length) setStats(world.stats);
+      for await (const ev of api.buildWorldStream(
+        { seed: s || undefined, docsOverview, storylineId: editId },
+        ac.signal,
+      )) {
+        switch (ev.type) {
+          case "status":
+            setBuildStage(ev.message);
+            break;
+          case "meta":
+            meta.title = ev.title;
+            meta.genre = ev.genre;
+            meta.tagline = ev.tagline;
+            meta.premise = ev.premise;
+            setFields((prev) => ({
+              ...prev,
+              title: ev.title || prev.title,
+              genre: ev.genre || prev.genre,
+              tagline: ev.tagline || prev.tagline,
+              premise: ev.premise || prev.premise,
+            }));
+            break;
+          case "primer":
+            meta.worldPrimer = ev.worldPrimer;
+            setFields((prev) => ({ ...prev, worldPrimer: ev.worldPrimer || prev.worldPrimer }));
+            break;
+          case "plan":
+            if (ev.stats.length) setStats(ev.stats);
+            setPlanConcepts({ characters: ev.characters, settings: ev.settings });
+            setProposed({ storyline: { ...meta }, stats: ev.stats, characters: [], settings: [] });
+            break;
+          case "character":
+            setProposed((p) =>
+              p ? { ...p, characters: upsertAt(p.characters, ev.index, ev.character) } : p,
+            );
+            break;
+          case "setting":
+            setProposed((p) =>
+              p ? { ...p, settings: upsertAt(p.settings, ev.index, ev.setting) } : p,
+            );
+            break;
+          case "done":
+            setProposed(ev.world);
+            if (ev.world.stats.length) setStats(ev.world.stats);
+            setFields((prev) => ({
+              ...prev,
+              title: ev.world.storyline.title || prev.title,
+              genre: ev.world.storyline.genre || prev.genre,
+              tagline: ev.world.storyline.tagline || prev.tagline,
+              premise: ev.world.storyline.premise || prev.premise,
+              worldPrimer: ev.world.storyline.worldPrimer || prev.worldPrimer,
+            }));
+            break;
+          case "error":
+            setError(ev.message);
+            break;
+        }
+      }
     } catch (e) {
-      setError(messageOf(e));
+      if (!ac.signal.aborted) setError(messageOf(e));
     } finally {
+      if (buildAbort.current === ac) buildAbort.current = null;
       setBuilding(false);
+      setBuildStage(null);
     }
   }, [seed, docs, editId]);
 
@@ -261,7 +348,10 @@ export function useStorylineCreator(editId?: string) {
       setProposed((p) => (p ? { ...p, settings: p.settings.filter((_, i) => i !== index) } : p)),
     [],
   );
-  const discardProposal = useCallback(() => setProposed(null), []);
+  const discardProposal = useCallback(() => {
+    setProposed(null);
+    setPlanConcepts(null);
+  }, []);
 
   // ---- commit ----
   const commit = useCallback(async (): Promise<string | null> => {
@@ -285,6 +375,22 @@ export function useStorylineCreator(editId?: string) {
           generateImages: imagesAvailable && generateImages,
         },
         setProgress,
+        // Patch the displayed cast/settings as each image renders, so previews
+        // pop into the right column live during "Create World".
+        (e) =>
+          setProposed((p) => {
+            if (!p) return p;
+            if (e.type === "character") {
+              return {
+                ...p,
+                characters: p.characters.map((c, i) => (i === e.index ? { ...c, ...e.patch } : c)),
+              };
+            }
+            return {
+              ...p,
+              settings: p.settings.map((s, i) => (i === e.index ? { ...s, ...e.patch } : s)),
+            };
+          }),
       );
       return id;
     } catch (e) {
@@ -332,6 +438,7 @@ export function useStorylineCreator(editId?: string) {
     seed,
     setSeed,
     proposed,
+    planConcepts,
     updateProposedCharacter,
     removeProposedCharacter,
     updateProposedSetting,
@@ -346,7 +453,9 @@ export function useStorylineCreator(editId?: string) {
     drafting,
     generatingPrimer,
     triaging,
+    triageActive,
     building,
+    buildStage,
     committing,
     progress,
     error,

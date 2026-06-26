@@ -18,6 +18,7 @@ commit step reuses the existing per-entity prompt/render endpoints.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 
@@ -28,6 +29,14 @@ from app.schemas.build import (
     MAX_CHARACTERS,
     MAX_SETTINGS,
     MAX_STATS,
+    BuildCharacterEvent,
+    BuildDoneEvent,
+    BuildEvent,
+    BuildMetaEvent,
+    BuildPlanEvent,
+    BuildPrimerEvent,
+    BuildSettingEvent,
+    BuildStatusEvent,
     ProposedCharacter,
     ProposedSetting,
     ProposedStartingStat,
@@ -186,19 +195,18 @@ def _propose_blueprint(
     return stats, characters, settings
 
 
-def build_world(
-    db: Session,
-    seed: str | None,
-    docs_overview: str | None = None,
-    storyline_id: str | None = None,
-    *,
-    max_characters: int | None = None,
-    max_settings: int | None = None,
-) -> ProposedWorld:
-    """Draft an entire world (metadata, primer, stats, cast, settings) for review."""
+def validate_build_inputs(
+    db: Session, seed: str | None, docs_overview: str | None
+) -> tuple[str, str | None]:
+    """Pre-flight: require context + a configured LLM; return (seed, docs).
+
+    Called before the stream opens (so missing-context / unconfigured-LLM return a
+    normal ``400`` rather than an in-band error event), and again at the top of
+    ``iter_build_world`` (idempotent — both are cheap settings reads).
+    """
     seed = (seed or "").strip()
-    docs_overview = (docs_overview or "").strip()[:DOCS_CAP] or None
-    if not seed and not docs_overview:
+    docs = (docs_overview or "").strip()[:DOCS_CAP] or None
+    if not seed and not docs:
         raise APIError(
             400,
             "bad_request",
@@ -206,11 +214,40 @@ def build_world(
         )
     # Resolve the LLM up front so an unconfigured model fails fast (before drafting).
     resolve_llm(db)
+    return seed, docs
+
+
+def iter_build_world(
+    db: Session,
+    seed: str | None,
+    docs_overview: str | None = None,
+    storyline_id: str | None = None,
+    *,
+    max_characters: int | None = None,
+    max_settings: int | None = None,
+) -> Iterator[BuildEvent]:
+    """Draft a whole world, yielding a progress event at each stage.
+
+    The live backbone for the New Storyline page: storyline metadata → World Primer
+    → blueprint (stat schema + cast/setting concepts) → one full character per
+    concept → one full setting per concept → a terminal ``done`` carrying the
+    assembled ``ProposedWorld``. Errors propagate (the route wraps them into an
+    in-band ``error`` event once the stream is open).
+    """
+    seed, docs_overview = validate_build_inputs(db, seed, docs_overview)
     effective_seed = seed or _DOCS_ONLY_SEED
 
-    # 1) Storyline metadata + 2) World Primer.
+    # 1) Storyline metadata.
+    yield BuildStatusEvent(stage="metadata", message="Drafting the title, genre, and premise…")
     meta = storyline_agent.draft_storyline(db, effective_seed, docs_overview)
+    yield BuildMetaEvent(
+        title=meta.title, genre=meta.genre, tagline=meta.tagline, premise=meta.premise
+    )
+
+    # 2) World Primer.
+    yield BuildStatusEvent(stage="primer", message="Writing the World Primer…")
     primer = storyline_agent.generate_world_primer(db, meta.premise, effective_seed, docs_overview)
+    yield BuildPrimerEvent(world_primer=primer)
     storyline = ProposedStoryline(
         title=meta.title,
         genre=meta.genre,
@@ -223,10 +260,12 @@ def build_world(
     n_settings = _clamp_count(max_settings, _DEFAULT_SETTINGS, MAX_SETTINGS)
 
     # 3) Blueprint: the stat schema + character/setting concepts.
+    yield BuildStatusEvent(stage="blueprint", message="Designing the stat schema and the cast…")
     brief = _world_brief(storyline)
     stats, char_concepts, setting_concepts = _propose_blueprint(
         db, brief, docs_overview, n_chars=n_chars, n_settings=n_settings
     )
+    yield BuildPlanEvent(stats=stats, characters=char_concepts, settings=setting_concepts)
 
     # Ground each entity draft in the just-drafted world (it has no DB row yet, so the
     # brief travels inline as reference text alongside any author-provided docs).
@@ -236,18 +275,60 @@ def build_world(
 
     # 4) One full character per concept (+ schema-default starting stats).
     characters: list[ProposedCharacter] = []
-    for concept in char_concepts:
-        draft = character_agent.draft_character(db, concept, grounding, None)
-        characters.append(
-            ProposedCharacter(**draft.model_dump(), starting_stats=list(default_stats))
+    for i, concept in enumerate(char_concepts):
+        yield BuildStatusEvent(
+            stage="characters",
+            message=f"Drafting character {i + 1} of {len(char_concepts)}…",
         )
+        draft = character_agent.draft_character(db, concept, grounding, None)
+        character = ProposedCharacter(**draft.model_dump(), starting_stats=list(default_stats))
+        characters.append(character)
+        yield BuildCharacterEvent(index=i, total=len(char_concepts), character=character)
 
     # 5) One full setting per concept.
     settings: list[ProposedSetting] = []
-    for concept in setting_concepts:
+    for i, concept in enumerate(setting_concepts):
+        yield BuildStatusEvent(
+            stage="settings",
+            message=f"Drafting setting {i + 1} of {len(setting_concepts)}…",
+        )
         setting_draft = setting_agent.draft_setting(db, concept, grounding, None)
-        settings.append(ProposedSetting(**setting_draft.model_dump()))
+        setting = ProposedSetting(**setting_draft.model_dump())
+        settings.append(setting)
+        yield BuildSettingEvent(index=i, total=len(setting_concepts), setting=setting)
 
-    return ProposedWorld(
-        storyline=storyline, stats=stats, characters=characters, settings=settings
+    yield BuildDoneEvent(
+        world=ProposedWorld(
+            storyline=storyline, stats=stats, characters=characters, settings=settings
+        )
     )
+
+
+def build_world(
+    db: Session,
+    seed: str | None,
+    docs_overview: str | None = None,
+    storyline_id: str | None = None,
+    *,
+    max_characters: int | None = None,
+    max_settings: int | None = None,
+) -> ProposedWorld:
+    """Draft an entire world for review — the non-streaming collector.
+
+    Drains ``iter_build_world`` and returns the assembled ``ProposedWorld`` from its
+    terminal ``done`` event. Errors propagate unchanged (the generator does not
+    swallow them), so the ``/build`` route keeps its existing 4xx/5xx behaviour.
+    """
+    world: ProposedWorld | None = None
+    for event in iter_build_world(
+        db,
+        seed,
+        docs_overview,
+        storyline_id,
+        max_characters=max_characters,
+        max_settings=max_settings,
+    ):
+        if isinstance(event, BuildDoneEvent):
+            world = event.world
+    assert world is not None  # iter_build_world always emits `done` on success
+    return world

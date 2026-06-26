@@ -30,13 +30,27 @@ describe("StorylineCreatorView", () => {
     expect(buildBtn).toBeEnabled();
     await user.click(buildBtn);
 
-    expect(vi.mocked(api.buildWorld)).toHaveBeenCalled();
+    expect(vi.mocked(api.buildWorldStream)).toHaveBeenCalled();
     // The proposal reflects the storyline core into the Title field…
     await waitFor(() => expect(screen.getByLabelText(/^title$/i)).toHaveValue("Built World"));
-    // …and lists the proposed cast for review.
-    const review = screen.getByRole("region", { name: /proposed world/i });
+    // …and the right-column world panel lists the built cast/settings for review.
+    const review = await screen.findByRole("region", { name: /proposed world/i });
     expect(within(review).getByDisplayValue("Built Hero")).toBeInTheDocument();
     expect(within(review).getByDisplayValue("Built Place")).toBeInTheDocument();
+  });
+
+  it("swaps the right column from Context files to the live world build", async () => {
+    const user = userEvent.setup();
+    render(<StorylineCreatorView />);
+    // Before any build: the Context files column is shown.
+    expect(screen.getByRole("complementary", { name: /context files/i })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/describe the world/i), "A drowned harbor town.");
+    await user.click(screen.getByRole("button", { name: /build the whole world/i }));
+
+    // After building: the world panel replaces the Context files column.
+    expect(await screen.findByRole("region", { name: /proposed world/i })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: /context files/i })).not.toBeInTheDocument();
   });
 
   it("triages dropped files into grouped buckets", async () => {

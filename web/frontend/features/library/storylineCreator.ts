@@ -26,6 +26,34 @@ export interface CreatorDoc extends ReadDoc {
   triaged: boolean;
 }
 
+/**
+ * The blueprint concepts (one vivid sentence each) the build emits before drafting
+ * the full entities — they drive the "drafting…" skeleton cards in the right column
+ * until each `character`/`setting` event fills its slot.
+ */
+export interface PlanConcepts {
+  characters: string[];
+  settings: string[];
+}
+
+/** The document currently being classified during a live (per-file) triage. */
+export interface TriageActive {
+  name: string;
+  index: number;
+  total: number;
+}
+
+/**
+ * Set `arr[index] = value` immutably. The build streams characters/settings in
+ * order (index === current length), so this is effectively an append; written
+ * generically so an out-of-order event still lands in the right slot.
+ */
+export function upsertAt<T>(arr: T[], index: number, value: T): T[] {
+  const out = arr.slice();
+  out[index] = value;
+  return out;
+}
+
 /** The creator's by-hand fields (mirror the storyline wire shape). */
 export interface CreatorFields {
   title: string;
@@ -210,11 +238,22 @@ export interface CommitArgs {
   generateImages?: boolean;
 }
 
+/**
+ * A live entity update emitted during the commit — lets the page patch the
+ * displayed cast/settings as each portrait / scene-art finishes rendering, so the
+ * previews pop into the right column in front of the author.
+ */
+export type CommitEntityPatch =
+  | { type: "character"; index: number; patch: Partial<ProposedCharacter> }
+  | { type: "setting"; index: number; patch: Partial<ProposedSetting> };
+
 /** Best-effort portrait render for a just-created character (never throws). */
 async function renderPortrait(
   characterId: string,
   c: ProposedCharacter,
+  index: number,
   onProgress?: (msg: string) => void,
+  onEntity?: (e: CommitEntityPatch) => void,
 ): Promise<void> {
   try {
     onProgress?.(`Rendering portrait for ${c.name || "a character"}…`);
@@ -230,6 +269,7 @@ async function renderPortrait(
       negative: prompts.negative,
     });
     await api.updateCharacter(characterId, { portrait });
+    onEntity?.({ type: "character", index, patch: { portrait } });
   } catch {
     onProgress?.(`Skipped ${c.name || "a character"}'s portrait (render failed).`);
   }
@@ -239,7 +279,9 @@ async function renderPortrait(
 async function renderSceneArt(
   settingId: string,
   s: ProposedSetting,
+  index: number,
   onProgress?: (msg: string) => void,
+  onEntity?: (e: CommitEntityPatch) => void,
 ): Promise<void> {
   try {
     onProgress?.(`Rendering scene art for ${s.name || "a setting"}…`);
@@ -256,6 +298,7 @@ async function renderSceneArt(
       negative: prompts.negative,
     });
     await api.updateSetting(settingId, { image });
+    onEntity?.({ type: "setting", index, patch: { image } });
   } catch {
     onProgress?.(`Skipped ${s.name || "a setting"}'s scene art (render failed).`);
   }
@@ -284,6 +327,7 @@ function coreInput(f: CreatorFields, clearable: boolean): api.StorylineInput {
 export async function commitWorld(
   args: CommitArgs,
   onProgress?: (msg: string) => void,
+  onEntity?: (e: CommitEntityPatch) => void,
 ): Promise<string> {
   const { editId, fields, stats, statsOriginal, proposed, docs } = args;
 
@@ -306,18 +350,22 @@ export async function commitWorld(
     await persistStatsDiff(id, stats, []);
   }
 
-  for (const c of proposed?.characters ?? []) {
+  const characters = proposed?.characters ?? [];
+  for (let i = 0; i < characters.length; i++) {
+    const c = characters[i];
     onProgress?.(`Adding ${c.name || "a character"}…`);
     const ch = await api.createCharacter(id, proposedToCharacterInput(c));
     const values = startingStatsMap(c.startingStats, stats);
     if (Object.keys(values).length) await api.setCharacterStats(ch.id, values);
-    if (args.generateImages) await renderPortrait(ch.id, c, onProgress);
+    if (args.generateImages) await renderPortrait(ch.id, c, i, onProgress, onEntity);
   }
 
-  for (const s of proposed?.settings ?? []) {
+  const settings = proposed?.settings ?? [];
+  for (let i = 0; i < settings.length; i++) {
+    const s = settings[i];
     onProgress?.(`Adding ${s.name || "a setting"}…`);
     const st = await api.createSetting(id, proposedToSettingInput(s));
-    if (args.generateImages) await renderSceneArt(st.id, s, onProgress);
+    if (args.generateImages) await renderSceneArt(st.id, s, i, onProgress, onEntity);
   }
 
   const corpus = docs.filter((d) => d.text);

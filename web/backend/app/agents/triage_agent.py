@@ -19,10 +19,22 @@ the page (``ContextDocument`` bulk create). No retrieval happens here.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 from sqlalchemy.orm import Session
 
 from app.agents._common import extract_json, gen_params, resolve_llm, world_context
-from app.schemas.context_document import TriageDoc, TriageItem, TriageResponse
+from app.core.errors import APIError
+from app.schemas.context_document import (
+    TriageDoc,
+    TriageDoneEvent,
+    TriageEvent,
+    TriageItem,
+    TriageItemEvent,
+    TriageResponse,
+    TriageStatusEvent,
+)
+from app.schemas.settings import LlmParams
 from app.services import llm
 
 # Per-document snippet cap: classification needs the gist, not the whole file.
@@ -54,6 +66,30 @@ _TRIAGE_SYSTEM = (
     "- includeRag: true for essentially every real document (it is the retrieval "
     "corpus); set false only for empty or clearly irrelevant content.\n"
     "Return exactly one item per input document, using the document's name verbatim."
+)
+
+# Single-document variant for the live (per-file) triage stream — one LLM call
+# per file so each row can be classified in front of the author.
+_TRIAGE_ONE_SYSTEM = (
+    "You are Velora's worldbuilding triage assistant. Classify the SINGLE "
+    "reference document below for an interactive-fiction world and recommend how "
+    "it should be used. Respond with ONLY a JSON object — no prose, no markdown, "
+    "no code fences — of the form "
+    '{"category": "character"|"setting"|"other", "includeDraft": true|false, '
+    '"includeRag": true|false, "rationale": "<one short line>"}.\n'
+    "Rules for category:\n"
+    "- 'character' — the document is primarily about ONE character (a single "
+    "person, being, or creature).\n"
+    "- 'setting' — the document is primarily about ONE place or location.\n"
+    "- 'other' — it describes MULTIPLE characters or MULTIPLE settings, mixes "
+    "characters and places, or is general world material (history, lore, rules, "
+    "factions, timelines, glossaries).\n"
+    "Rules for inclusion:\n"
+    "- includeDraft: true ONLY when the document describes the world's setting, "
+    "tone, lore, or rules and should ground how the world is drafted; otherwise "
+    "false.\n"
+    "- includeRag: true for essentially every real document; false only for empty "
+    "or clearly irrelevant content."
 )
 
 
@@ -123,3 +159,72 @@ def triage_documents(
         for d in docs
     ]
     return TriageResponse(items=items)
+
+
+# ---- live (per-file) triage stream -----------------------------------------
+
+
+def classify_document(
+    doc: TriageDoc,
+    *,
+    base_url: str,
+    api_key: str,
+    model: str,
+    params: LlmParams,
+    world_ctx: str = "",
+) -> TriageItem:
+    """Classify ONE document with a single LLM call (the live-stream primitive)."""
+    snippet = (doc.text or "").strip()[:_DOC_SNIPPET]
+    user = f"Document name: {doc.name}\n\nContent:\n{snippet}{world_ctx}"
+    messages = [
+        {"role": "system", "content": _TRIAGE_ONE_SYSTEM},
+        {"role": "user", "content": user},
+    ]
+    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+    return _coerce_item(doc.name, data)
+
+
+def validate_triage_inputs(db: Session, docs: list[TriageDoc]) -> None:
+    """Pre-flight for the stream: require a configured LLM only when there is work.
+
+    Empty/blank doc sets need no model (they stream straight to ``done``), so an
+    unconfigured LLM is fine then; otherwise this raises a normal ``400`` before the
+    200 stream opens (status can't change once it has).
+    """
+    if any((d.text or "").strip() for d in docs):
+        resolve_llm(db)
+
+
+def iter_triage_documents(
+    db: Session, docs: list[TriageDoc], storyline_id: str | None = None
+) -> Iterator[TriageEvent]:
+    """Classify each document one at a time, yielding a progress event per file.
+
+    Genuinely live (one LLM call per doc). A per-doc failure falls back to
+    Other/RAG-on rather than aborting the whole run — so one bad file never sinks
+    the rest of the triage. Errors that escape (e.g. an unconfigured LLM surfacing
+    only here) propagate; the route wraps them into a terminal ``error`` event.
+    """
+    docs = [d for d in docs if (d.text or "").strip()]
+    if not docs:
+        yield TriageDoneEvent()
+        return
+
+    base_url, api_key, model, params = resolve_llm(db)
+    world_ctx = world_context(db, storyline_id)
+    total = len(docs)
+    for i, doc in enumerate(docs):
+        yield TriageStatusEvent(name=doc.name, index=i, total=total)
+        try:
+            item = classify_document(
+                doc,
+                base_url=base_url,
+                api_key=api_key,
+                model=model,
+                params=params,
+                world_ctx=world_ctx,
+            )
+        except APIError:
+            item = _fallback(doc.name)
+        yield TriageItemEvent(item=item)
+    yield TriageDoneEvent()

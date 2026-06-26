@@ -5,7 +5,7 @@ import { Eyebrow } from "@/components/ui/Eyebrow";
 import { cn } from "@/lib/cn";
 import type { ContextBudget } from "@/lib/contextBudget";
 import type { DocCategory } from "@/lib/types";
-import type { CreatorDoc } from "@/features/library/storylineCreator";
+import type { CreatorDoc, TriageActive } from "@/features/library/storylineCreator";
 import { ContextBudgetMeter } from "@/components/feature/ContextBudgetMeter";
 
 const GROUPS: { key: DocCategory; label: string; hint: string }[] = [
@@ -33,6 +33,7 @@ export function TriagePanel({
   onSetCategory,
   onTriage,
   triaging,
+  triageActive = null,
   budget,
   inputId = "creator-docs-input",
 }: {
@@ -43,16 +44,31 @@ export function TriagePanel({
   onSetCategory: (name: string, category: DocCategory) => void;
   onTriage: () => void;
   triaging: boolean;
+  /** The file currently being classified during a live (per-file) triage. */
+  triageActive?: TriageActive | null;
   budget: ContextBudget;
   inputId?: string;
 }) {
   const anyTriaged = docs.some((d) => d.triaged);
 
   function DocRow({ doc }: { doc: CreatorDoc }) {
+    const classifying = triaging && triageActive?.name === doc.name;
     return (
-      <li className="rounded-[4px] border border-cardbd bg-field px-[10px] py-[8px]">
+      <li
+        className={cn(
+          "rounded-[4px] border bg-field px-[10px] py-[8px]",
+          classifying ? "border-accent" : "border-cardbd",
+        )}
+      >
         <div className="flex items-center justify-between gap-[8px]">
-          <span className="truncate font-mono text-[11px] text-ink-soft">⎙ {doc.name}</span>
+          <span className="flex min-w-0 items-center gap-[8px]">
+            <span className="truncate font-mono text-[11px] text-ink-soft">⎙ {doc.name}</span>
+            {classifying ? (
+              <span className="flex-none animate-pulse font-mono text-[9px] tracking-[0.08em] text-accent uppercase motion-reduce:animate-none">
+                classifying…
+              </span>
+            ) : null}
+          </span>
           <button
             type="button"
             aria-label={`Remove ${doc.name}`}
@@ -106,7 +122,10 @@ export function TriagePanel({
   return (
     // Full-height right pane on lg+. The aside itself does NOT scroll — the sticky
     // top (upload + triage) stays pinned, and the inner body scrolls independently.
-    <aside className="flex flex-col border-t border-hair-strong bg-card lg:w-[360px] lg:shrink-0 lg:border-t-0 lg:border-l lg:min-h-0 lg:self-stretch">
+    <aside
+      aria-label="Context files"
+      className="flex flex-col border-t border-hair-strong bg-card lg:w-[360px] lg:shrink-0 lg:border-t-0 lg:border-l lg:min-h-0 lg:self-stretch"
+    >
       {/* ── Sticky top: upload zone + triage button ─────────────────────── */}
       <div className="sticky top-0 z-10 flex flex-col gap-[12px] border-b border-hair-strong bg-card p-[18px_20px]">
         <div className="flex items-center justify-between gap-[8px]">
@@ -160,8 +179,20 @@ export function TriagePanel({
           disabled={docs.length === 0 || triaging}
           className="w-full"
         >
-          {triaging ? "Triaging…" : "⚖ Triage context"}
+          {triaging
+            ? triageActive
+              ? `Triaging ${triageActive.index + 1}/${triageActive.total}…`
+              : "Triaging…"
+            : "⚖ Triage context"}
         </Button>
+        {triaging && triageActive ? (
+          <p
+            aria-live="polite"
+            className="font-mono text-[10px] tracking-[0.06em] text-mute"
+          >
+            Classifying {triageActive.name}…
+          </p>
+        ) : null}
       </div>
 
       {/* ── Scrollable body: doc list + budget meter ─────────────────────── */}

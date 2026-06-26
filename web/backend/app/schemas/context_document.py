@@ -83,3 +83,43 @@ class TriageItem(CamelModel):
 
 class TriageResponse(CamelModel):
     items: list[TriageItem] = []
+
+
+# ---- Live triage stream (NDJSON) -------------------------------------------
+#
+# ``POST /storylines/triage/stream`` classifies one document per LLM call and
+# emits these events (one JSON object per line) so the Triage panel can show each
+# file being sorted live. The non-streaming ``/triage`` route still returns a
+# single ``TriageResponse`` (one batched LLM call).
+
+
+class TriageStatusEvent(CamelModel):
+    """A document is being classified (drive the per-file working indicator)."""
+
+    type: Literal["status"] = "status"
+    name: str
+    index: int
+    total: int
+
+
+class TriageItemEvent(CamelModel):
+    """One document is classified — slot the result into its row."""
+
+    type: Literal["item"] = "item"
+    item: TriageItem
+
+
+class TriageDoneEvent(CamelModel):
+    """Terminal success event (every document has been classified)."""
+
+    type: Literal["done"] = "done"
+
+
+class TriageErrorEvent(CamelModel):
+    """Terminal error event — emitted in-band once the 200 stream has opened."""
+
+    type: Literal["error"] = "error"
+    message: str
+
+
+TriageEvent = TriageStatusEvent | TriageItemEvent | TriageDoneEvent | TriageErrorEvent

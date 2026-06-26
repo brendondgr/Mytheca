@@ -6,6 +6,7 @@
 // envelope `{ error: { code, message, details } }`.
 
 import type {
+  BuildEvent,
   Character,
   ContextDocument,
   DocCategory,
@@ -16,6 +17,7 @@ import type {
   Setting,
   StatDefinition,
   Storyline,
+  TriageEvent,
   TriageItem,
 } from "@/lib/types";
 
@@ -86,6 +88,70 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 const post = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "POST", body: JSON.stringify(body) });
+
+/**
+ * POST `body` and yield each NDJSON line of the streamed response as a parsed
+ * object. The backend streaming endpoints (`/storylines/build/stream`,
+ * `/triage/stream`) send `application/x-ndjson` — one JSON event per line — so the
+ * UI can render progress live. A non-2xx (pre-stream) response is decoded as the
+ * usual error envelope and thrown as `ApiError`; pass an `AbortSignal` to cancel.
+ */
+export async function* postNdjson<T>(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): AsyncGenerator<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (cause) {
+    throw new ApiError(0, "network_error", "Could not reach the server.", cause);
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    let err: ApiErrorBody["error"];
+    try {
+      err = (JSON.parse(text) as ApiErrorBody | undefined)?.error;
+    } catch {
+      err = undefined;
+    }
+    throw new ApiError(
+      res.status,
+      err?.code ?? "error",
+      err?.message ?? res.statusText,
+      err?.details,
+    );
+  }
+
+  if (!res.body) return;
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (line) yield JSON.parse(line) as T;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const tail = buf.trim();
+  if (tail) yield JSON.parse(tail) as T;
+}
 const patch = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
 const put = <T>(path: string, body: unknown) =>
@@ -147,13 +213,27 @@ export const triageDocuments = (
   storylineId?: string,
 ) => post<TriageResult>("/storylines/triage", { docs, storylineId });
 
-export const buildWorld = (body: {
+/** Live (per-file) triage — yields a `status` + `item` per doc, then `done`. */
+export const triageDocumentsStream = (
+  docs: { name: string; text: string }[],
+  storylineId?: string,
+  signal?: AbortSignal,
+) => postNdjson<TriageEvent>("/storylines/triage/stream", { docs, storylineId }, signal);
+
+export interface BuildWorldBody {
   seed?: string;
   docsOverview?: string;
   storylineId?: string;
   maxCharacters?: number;
   maxSettings?: number;
-}) => post<ProposedWorld>("/storylines/build", body);
+}
+
+export const buildWorld = (body: BuildWorldBody) =>
+  post<ProposedWorld>("/storylines/build", body);
+
+/** Live world build — yields meta/primer/plan/character/setting events, then `done`. */
+export const buildWorldStream = (body: BuildWorldBody, signal?: AbortSignal) =>
+  postNdjson<BuildEvent>("/storylines/build/stream", body, signal);
 
 // ---- context documents (the persisted triaged RAG corpus) ----
 export type ContextDocumentInput = {
