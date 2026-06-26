@@ -163,15 +163,42 @@ ComfyUI is configured (best-effort per entity; a failed render never aborts the 
 Same **no-retrieval** rule as the other authoring agents: `docsOverview` is inline
 dropped-file text, bounded and used for the build only.
 
+### Live build (streaming) — the default UI path
+
+```
+New Storyline page → "Build the whole world" → POST /storylines/build/stream  (NDJSON)
+  → for-await over the response body (lib/api.postNdjson):
+      status → meta  → left fields fill (Title/Genre/Tagline/Premise)
+      status → primer→ World Primer fills
+      status → plan  → stat schema + concepts → right column shows SKELETON cards
+      character × N  → each fills its skeleton card in the right column
+      setting   × M  → each fills its skeleton card
+      done           → canonical ProposedWorld swapped in (review mode)
+  → "Create World" commit → as each portrait/scene-art renders, commitWorld's
+      onEntity callback patches the displayed entity → the IMAGE preview pops in live
+  → navigate to /{newStorylineId}
+```
+
+The page consumes the stream in `useStorylineCreator.build()`, accumulating into
+`proposed` + `planConcepts`; the right pane (`WorldBuildPanel`) renders the cast/settings
+as they arrive (a "drafting…" skeleton per not-yet-drafted concept), then becomes the
+editable review. Image previews appear during the commit (per the user's choice — only
+kept entities are rendered). The non-streaming `/build` collector remains for back-compat.
+
 ## Context Document Flow (the triaged RAG corpus)
 
 ```
-New Storyline page → drop .txt/.md (read in-browser) → POST /storylines/triage
-  → triage_agent classifies each doc → { category, includeDraft, includeRag }
-  → author reviews the buckets (Characters / Settings / Other) + Draft/RAG flags
+New Storyline page → drop .txt/.md (read in-browser) → POST /storylines/triage/stream
+  → per file: status {name,index,total} → item {category, includeDraft, includeRag}
+      → each row fills in LIVE (the active file shows a "classifying…" badge)
+  → done → author reviews the buckets (Characters / Settings / Other) + Draft/RAG flags
   → on commit: POST /storylines/{id}/context-docs/bulk persists the corpus
       → ContextDocument rows (content stored verbatim, char_count cached)
 ```
+
+Triage runs **per file** (one LLM call each) so the panel sorts documents in front of
+the author; the batched `POST /storylines/triage` remains for back-compat. A per-doc
+failure falls back to `other`/RAG-on without aborting the run.
 
 This is the **persistence seam** for retrieval: the documents are durably stored
 per storyline and survive reload. **Nothing reads `content` at runtime yet** —
