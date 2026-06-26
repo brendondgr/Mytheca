@@ -15,6 +15,7 @@ import time
 import httpx
 
 from app.core.errors import APIError
+from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmModelsResponse, LlmParams, LlmTestResponse
 
 # Listing models / the connection test are quick; generation (especially slow
@@ -82,12 +83,20 @@ def chat_complete(
     model: str,
     messages: list[dict[str, str]],
     params: LlmParams | None = None,
+    *,
+    reasoning: ReasoningEffort | None = None,
 ) -> str:
     """Run one chat completion and return the assistant's text.
 
     The general-purpose generation primitive (the authoring agent builds on it).
     Errors map to the contract envelope; an empty/malformed completion is an
     ``upstream_error`` rather than a silent blank.
+
+    When ``reasoning`` is given, the configured inference engine is detected (cached)
+    and the matching thinking-token-budget key is added to the request, so reasoning
+    models stop thinking once the budget is spent. This is **backend-controlled** —
+    callers (the authoring agents) set the effort per operation; it is never exposed
+    to the user. On an OpenAI / unknown endpoint the budget is silently omitted.
     """
     if not model:
         raise APIError(400, "bad_request", "A model is required to generate.")
@@ -102,6 +111,12 @@ def chat_complete(
         "frequency_penalty": p.frequency_penalty,
         "presence_penalty": p.presence_penalty,
     }
+    if reasoning is not None:
+        # Local import avoids a circular import (llm_backend imports this module).
+        from app.services import llm_backend
+
+        backend = llm_backend.get_backend(base_url, api_key)
+        llm_backend.apply_reasoning(body, backend, reasoning)
     res = _send("POST", url, headers=_headers(api_key), json=body, timeout=_GEN_TIMEOUT)
     _ensure_ok(res)
     try:
