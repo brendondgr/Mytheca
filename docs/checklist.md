@@ -215,7 +215,7 @@ Replaces the one-shot "Untitled Storyline" create with a write-first modal (done
 
 ### Storyline data layer — Postgres persistence + Library wiring (done; `feat/storyline-data-layer`)
 Backend stood up end-to-end (plan: `docs/plans/storyline-data-layer.md`): core config/db/redis clients; SQLAlchemy models + camelCase Pydantic schemas for Storyline/Character/Setting/Scenario + the stat seam; CRUD routes under `/api` with the error envelope; per-storyline stat definitions + clamped character stat values; Embergate seed; `python app.py backend` preflight (docker compose up + checks + schema + seed) with `web/backend/docker-compose.yml` (Postgres on host **5544**); chat-scaffold `events`/`play_sessions` tables + NDJSON envelope types (no streaming). Frontend `lib/api.ts` client + `NEXT_PUBLIC_API_URL`; the **Library now reads/writes the backend** (await-then-apply, loading/error/Retry) and **persists** (verified end-to-end via preview: create → reload → survives; delete → gone). 38 backend tests + 33 frontend tests green.
-- **Remaining:** populate `web/shared/contracts/` (currently the FE reuses `lib/types.ts` and BE owns Pydantic); wire the **Story player** to the backend; surface stats on the **scene pages**; introduce **Alembic** before the first non-additive schema change; add a `users`/auth owner column.
+- **Remaining:** populate `web/shared/contracts/` (currently the FE reuses `lib/types.ts` and BE owns Pydantic); wire the **Story player** to the backend; surface stats on the **scene pages**; add a `users`/auth owner column. (**Alembic** migrations landed — see Scaffolding below.)
 
 ### Frontend — Embergate UI (built from `docs/CharacterFrontpage/`)
 - [x] Library at `/` — header (wordmark/storyline/search/theme/create), recent-scenario carousel, ARIA tabs, character/setting/scenario/branch cards, create/edit/delete editors (By-hand + faked Agentic), character profile, begin-scene → `/play/[id]`.
@@ -234,7 +234,8 @@ Backend stood up end-to-end (plan: `docs/plans/storyline-data-layer.md`): core c
 - [x] Scaffold the FastAPI app in `web/backend/app/` and wire root `app.py` to it (factory + routers + CORS + error envelope + preflight).
 - [x] Add backend deps (declared in `pyproject.toml`; `uv sync`). No new deps were needed for the data layer.
 - [x] Set up PostgreSQL + Redis connections in `app/core/` (`config.py`, `db.py`, `redis.py`).
-- [x] Create initial DB models (storylines, characters, settings, scenarios, events/play_sessions, stat definitions, stat values). **Deferred:** a `users` table (no auth yet) and **migrations** (Alembic — using idempotent `create_all` for now).
+- [x] Create initial DB models (storylines, characters, settings, scenarios, events/play_sessions, stat definitions, stat values). **Deferred:** a `users` table (no auth yet).
+- [x] **Migrations (Alembic)** — `web/backend/alembic/` (env.py wired to `Base.metadata` + `app.core.config` URL; `render_as_batch` for SQLite) + a drift-verified `baseline` migration capturing the full current schema. **Coexists** with `create_all` + the additive reconciler: preflight stamps an existing schema to `head` (or upgrades) on Postgres and skips SQLite (the test path). Best-effort (logged + in the preflight report, never blocks startup). Tests: `test_alembic.py` (upgrade builds the exact table set; baseline columns match `create_all`) + `test_bootstrap.py` (SQLite skip). Commands in `docs/workflow.md`.
 - [~] Markdown **stat-guidance loader** done (`services/stat_guidance.py` + `app/content/stats/*.md`, injected into `character_agent`). **Remaining:** YAML config loaders in `app/content/`.
 
 ### Core domain & event system (next after scaffolding)

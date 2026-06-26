@@ -33,10 +33,11 @@ After the containers are up, `python app.py backend` runs `app/core/bootstrap.ru
 
 1. waits for the database and pings Redis,
 2. ensures the schema (`Base.metadata.create_all`),
-3. **reconciles additive columns** — `create_all` makes missing *tables* but never ALTERs existing ones, so a persistent dev DB drifts behind the models on every new column. The preflight self-heals the safe case (new **nullable** columns) with an idempotent `ADD COLUMN`; non-nullable additions on a populated table are *reported* for a real migration, not attempted (full migrations via Alembic remain the standing follow-up), and
-4. seeds the Embergate world if the database is empty.
+3. **reconciles additive columns** — `create_all` makes missing *tables* but never ALTERs existing ones, so a persistent dev DB drifts behind the models on every new column. The preflight self-heals the safe case (new **nullable** columns) with an idempotent `ADD COLUMN`; non-nullable additions on a populated table are *reported*, not attempted,
+4. **applies Alembic migrations** (non-SQLite only) — the versioned path for non-additive schema changes. On a DB with no `alembic_version` table it **stamps** `head` (adopts the existing `create_all` schema without re-running the baseline); otherwise it **upgrades to head**. Best-effort: failures are logged + reported but never block startup. Skipped entirely under SQLite (the test/embedded path). See `docs/workflow.md` (Migrations) for the author-side commands, and
+5. seeds the Embergate world if the database is empty.
 
-It prints a pass/fail report; a failed **required** check (the database) aborts startup with remediation. Redis and the migrate reconciliation are advisory. The schema/seed run here, **not** in the FastAPI lifespan (which only does a connection check), so Uvicorn `--reload` stays fast.
+It prints a pass/fail report; a failed **required** check (the database) aborts startup with remediation. Redis, the additive reconciliation, and the Alembic step are advisory. The schema/seed run here, **not** in the FastAPI lifespan (which only does a connection check), so Uvicorn `--reload` stays fast.
 
 Postgres is published on host port **3347** (a dedicated port so Velora coexists with any Postgres already on 5432); Redis on **3348**; Neo4j Bolt on **3349** and the Neo4j Browser on **3350** (coexisting with any Neo4j on 7687/7474). The frontend dev server runs on **3346** and the backend API on **3345**. Tests run on in-memory SQLite and need neither Docker nor Postgres nor Neo4j (the Story Graph is disabled in the suite).
 

@@ -38,6 +38,8 @@ velora/
 │   ├── backend/            # FastAPI "brain"
 │   │   ├── docker/neo4j/   # Custom Neo4j 5.26 image (APOC) — the Story Graph substrate, built by app.py
 │   │   ├── docker-compose.yml  # Postgres + Redis + Neo4j containers (started by app.py)
+│   │   ├── alembic.ini     # Alembic config (no secret — DB URL injected at runtime from app.core.config)
+│   │   ├── alembic/        # Migrations: env.py (→ Base.metadata + settings) + versions/ (baseline = current schema). Non-additive migration path; coexists with create_all/reconciler (preflight stamps/upgrades on Postgres, skips SQLite)
 │   │   └── app/
 │   │       ├── routes/     # API + SSE/WebSocket endpoints (+ graph: Story-Graph Type Registry + scenario subgraph)
 │   │       ├── services/   # Orchestrator/Director, event engine, validator; stat_guidance (per-stat Markdown loader); Story Graph: type_registry, graph_writer, graph_reader
