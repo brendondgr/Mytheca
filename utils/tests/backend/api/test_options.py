@@ -65,3 +65,91 @@ def test_patch_library_persists(client):
     assert data["defaultStorylineId"] == "embergate"
     assert data["openLastStoryline"] is False
     assert client.get("/api/options").json()["library"]["defaultStorylineId"] == "embergate"
+
+
+# ---- inference-engine detection diagnostics --------------------------------
+
+
+def _patch_upstream(monkeypatch, handler):
+    import httpx
+
+    from app.services import llm
+
+    def factory() -> httpx.Client:
+        return httpx.Client(transport=httpx.MockTransport(handler))
+
+    monkeypatch.setattr(llm, "get_http_client", factory)
+
+
+def test_llm_backend_endpoint_reports_detected_engine(client, monkeypatch):
+    import httpx
+
+    from app.services import llm_backend
+
+    llm_backend.clear_cache()
+    client.patch("/api/options/llm", json={"baseUrl": "http://localhost:8000/v1"})
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/version":
+            return httpx.Response(200, json={"version": "0.21.0"})
+        return httpx.Response(404)
+
+    _patch_upstream(monkeypatch, handler)
+    body = client.get("/api/options/llm/backend").json()
+    assert body["backend"] == "vllm"
+    # The budget map is exposed for visibility.
+    assert body["budgets"] == {
+        "low": 256, "medium": 512, "high": 1024, "very_high": 2048, "max": 4096,
+    }
+    llm_backend.clear_cache()
+
+
+def test_llm_backend_endpoint_unknown_when_unconfigured(client):
+    from app.services import llm_backend
+
+    llm_backend.clear_cache()
+    client.patch("/api/options/llm", json={"baseUrl": ""})
+    body = client.get("/api/options/llm/backend").json()
+    assert body["backend"] == "unknown"
+
+
+def test_refresh_for_config_probes_stored_endpoint(client, db_session, monkeypatch):
+    """The poller's refresh re-detects the configured engine (single iteration)."""
+    import httpx
+
+    from app.services import llm_backend
+    from app.services.llm_backend import InferenceBackend
+
+    llm_backend.clear_cache()
+    client.patch("/api/options/llm", json={"baseUrl": "http://localhost:8080/v1"})
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/props":
+            return httpx.Response(200, json={"total_slots": 4})
+        return httpx.Response(404)
+
+    _patch_upstream(monkeypatch, handler)
+    assert llm_backend.refresh_for_config(db_session) == InferenceBackend.LLAMACPP
+    llm_backend.clear_cache()
+
+
+def test_poll_backend_runs_one_iteration_and_stops():
+    """The lifespan poller calls the refresh and exits cleanly once stopped."""
+    import asyncio
+
+    from app import main
+
+    stop = asyncio.Event()
+    calls = {"n": 0}
+
+    def fake_refresh() -> None:
+        calls["n"] += 1
+        stop.set()  # ask the loop to exit after this iteration
+
+    original = main._refresh_backend_once
+    main._refresh_backend_once = fake_refresh
+    try:
+        asyncio.run(main._poll_backend(stop))
+    finally:
+        main._refresh_backend_once = original
+    assert calls["n"] == 1

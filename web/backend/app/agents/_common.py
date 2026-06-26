@@ -16,12 +16,19 @@ import re
 from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
+from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmParams
 from app.services import crud, settings_store
 
 # Cap on inline reference text passed to a single generation (the frontend also
 # caps); keeps the prompt bounded without any storage.
 DOCS_CAP = 8000
+
+# Backend-set thinking budget for the authoring generations (storyline / character /
+# setting drafts + the world build). The user has no UI lever for this — it is fixed
+# here so reasoning models don't over-think interactive authoring. Triage overrides
+# this to LOW for its quick classifications. (See app/schemas/reasoning.py.)
+DEFAULT_AUTHORING_EFFORT = ReasoningEffort.MEDIUM
 
 # Authoring produces multi-paragraph / structured output, and reasoning models
 # spend a large share of the budget on hidden reasoning tokens before the visible

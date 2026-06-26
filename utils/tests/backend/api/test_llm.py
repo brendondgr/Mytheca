@@ -7,9 +7,13 @@ and returns a canned OpenAI-compatible payload.
 
 from __future__ import annotations
 
-import httpx
+import json
 
-from app.services import llm
+import httpx
+import pytest
+
+from app.schemas.reasoning import ReasoningEffort
+from app.services import llm, llm_backend
 
 
 def _patch_upstream(monkeypatch, handler):
@@ -85,3 +89,79 @@ def test_missing_base_url_is_bad_request(client, monkeypatch):
     res = client.post("/api/options/llm/models", json={})
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "bad_request"
+
+
+# ---- reasoning-budget injection in chat_complete ---------------------------
+
+
+@pytest.fixture(autouse=True)
+def _clear_detection_cache():
+    llm_backend.clear_cache()
+    yield
+    llm_backend.clear_cache()
+
+
+def _chat_body(captured: dict, engine: str):
+    """A handler that answers the engine probe and captures the /chat body."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/version":
+            return (
+                httpx.Response(200, json={"version": "0.21.0"})
+                if engine == "vllm"
+                else httpx.Response(404)
+            )
+        if path == "/props":
+            return (
+                httpx.Response(200, json={"total_slots": 2})
+                if engine == "llamacpp"
+                else httpx.Response(404)
+            )
+        if path.endswith("/chat/completions"):
+            captured.update(json.loads(request.content.decode()))
+            return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+        return httpx.Response(404)
+
+    return handler
+
+
+def test_chat_complete_injects_vllm_budget(monkeypatch):
+    captured: dict = {}
+    _patch_upstream(monkeypatch, _chat_body(captured, "vllm"))
+    llm.chat_complete(
+        "http://localhost:8000/v1", "", "m", [{"role": "user", "content": "hi"}],
+        reasoning=ReasoningEffort.LOW,
+    )
+    assert captured["thinking_token_budget"] == 256
+    assert "thinking_budget_tokens" not in captured
+
+
+def test_chat_complete_injects_llamacpp_budget(monkeypatch):
+    captured: dict = {}
+    _patch_upstream(monkeypatch, _chat_body(captured, "llamacpp"))
+    llm.chat_complete(
+        "http://localhost:8080/v1", "", "m", [{"role": "user", "content": "hi"}],
+        reasoning=ReasoningEffort.MEDIUM,
+    )
+    assert captured["thinking_budget_tokens"] == 512
+    assert "thinking_token_budget" not in captured
+
+
+def test_chat_complete_no_reasoning_injects_nothing(monkeypatch):
+    captured: dict = {}
+    _patch_upstream(monkeypatch, _chat_body(captured, "vllm"))
+    llm.chat_complete("http://localhost:8000/v1", "", "m", [{"role": "user", "content": "hi"}])
+    assert "thinking_token_budget" not in captured
+    assert "thinking_budget_tokens" not in captured
+
+
+def test_chat_complete_unknown_engine_injects_nothing(monkeypatch):
+    captured: dict = {}
+    _patch_upstream(monkeypatch, _chat_body(captured, "openai"))  # neither probe matches
+    llm.chat_complete(
+        "http://localhost:9000/v1", "", "m", [{"role": "user", "content": "hi"}],
+        reasoning=ReasoningEffort.HIGH,
+    )
+    assert "thinking_token_budget" not in captured
+    assert "thinking_budget_tokens" not in captured

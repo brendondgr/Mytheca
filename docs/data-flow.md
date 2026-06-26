@@ -72,6 +72,26 @@ and the connection test run on the backend so they work against `localhost:*`
 servers that don't send CORS headers, and so the key never reaches the client.
 When the multi-agent brain lands it reads the same stored config.
 
+## Reasoning-Budget Flow (engine detection + thinking cap)
+
+```
+App startup (lifespan) → background poller every LLM_BACKEND_POLL_SECONDS
+  → llm_backend.refresh_for_config → probe configured endpoint
+      GET {root}/version → vLLM · GET {root}/props → llama.cpp · else unknown
+  → cached per base URL (LLM_BACKEND_CACHE_TTL_SECONDS)
+
+Authoring call → agent passes a backend-set reasoning effort
+  → llm.chat_complete(reasoning=) → llm_backend.get_backend (cached)
+      → apply_reasoning: vLLM thinking_token_budget / llama.cpp thinking_budget_tokens
+      → unknown: no key added (unchanged behaviour)
+GET /api/options/llm/backend → read-only view of the detected engine + budgets
+```
+
+The effort is **never user-controllable** for Storyline/Character/Setting creation —
+it is fixed at each call-site (**Triage = Low**, build + standalone drafts =
+**Medium**). The poller lets the server adapt when the operator swaps engines without
+a restart; it is skipped under SQLite (the test/offline profile).
+
 ## Storyline Authoring Flow (creation-time agent)
 
 ```

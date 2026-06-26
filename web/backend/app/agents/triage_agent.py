@@ -34,6 +34,7 @@ from app.schemas.context_document import (
     TriageResponse,
     TriageStatusEvent,
 )
+from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmParams
 from app.services import llm
 
@@ -142,7 +143,12 @@ def triage_documents(
         {"role": "system", "content": _TRIAGE_SYSTEM},
         {"role": "user", "content": user},
     ]
-    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+    data = extract_json(
+        llm.chat_complete(
+            base_url, api_key, model, messages, gen_params(params),
+            reasoning=ReasoningEffort.LOW,
+        )
+    )
 
     raw = data.get("items")
     rows = raw if isinstance(raw, list) else []
@@ -180,7 +186,12 @@ def classify_document(
         {"role": "system", "content": _TRIAGE_ONE_SYSTEM},
         {"role": "user", "content": user},
     ]
-    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+    data = extract_json(
+        llm.chat_complete(
+            base_url, api_key, model, messages, gen_params(params),
+            reasoning=ReasoningEffort.LOW,
+        )
+    )
     return _coerce_item(doc.name, data)
 
 

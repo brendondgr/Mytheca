@@ -119,3 +119,16 @@ class LlmTestResponse(CamelModel):
     model: str
     latency_ms: int
     sample: str
+
+
+class LlmBackendResponse(CamelModel):
+    """Read-only diagnostics for the detected inference engine + budget map.
+
+    ``backend`` is ``vllm`` / ``llamacpp`` / ``unknown`` (the last when the endpoint
+    is OpenAI or unreachable — no reasoning budget is sent then). ``budgets`` maps
+    each reasoning effort to its thinking-token budget. Backend-controlled: the
+    effort itself is fixed per operation and not user-editable.
+    """
+
+    backend: str
+    budgets: dict[str, int]

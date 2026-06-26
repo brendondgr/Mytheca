@@ -10,8 +10,16 @@ from __future__ import annotations
 import json
 
 import httpx
+import pytest
 
-from app.services import llm
+from app.services import llm, llm_backend
+
+
+@pytest.fixture(autouse=True)
+def _clear_detection_cache():
+    llm_backend.clear_cache()
+    yield
+    llm_backend.clear_cache()
 
 _STORYLINE = json.dumps(
     {
@@ -83,6 +91,10 @@ def _completion(content: str) -> httpx.Response:
 
 
 def _route(request: httpx.Request) -> httpx.Response:
+    # Engine-detection probes (GET /version, /props) — 404 so detection yields
+    # UNKNOWN and no reasoning budget is injected (unchanged build behaviour).
+    if request.url.path in ("/version", "/props"):
+        return httpx.Response(404)
     body = request.content.decode()
     if "draft its library metadata" in body:
         return _completion(_STORYLINE)
@@ -109,6 +121,32 @@ def _configure_llm(client):
         "/api/options/llm",
         json={"baseUrl": "http://localhost:7070/v1", "model": "test-model", "apiKey": "sk-test"},
     )
+
+
+def test_build_injects_medium_thinking_budget(client, monkeypatch):
+    """The world build runs at MEDIUM effort (512 thinking tokens) on a detected engine."""
+    _configure_llm(client)
+    bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/version":
+            return httpx.Response(404)
+        if request.url.path == "/props":  # detected as llama.cpp
+            return httpx.Response(200, json={"total_slots": 2})
+        bodies.append(json.loads(request.content.decode()))
+        return _route(request)
+
+    _patch_upstream(monkeypatch, handler)
+    res = client.post(
+        "/api/storylines/build",
+        json={"seed": "A drowned harbor town.", "characterDocs": _CHAR_DOCS},
+    )
+    assert res.status_code == 200
+    # Every authoring call (draft, primer, blueprint, per-character) carries the
+    # llama.cpp budget key at MEDIUM = 512; none carries the vLLM key.
+    assert bodies, "no chat completions captured"
+    assert all(b.get("thinking_budget_tokens") == 512 for b in bodies)
+    assert all("thinking_token_budget" not in b for b in bodies)
 
 
 def test_build_world_assembles_full_proposal(client, monkeypatch):

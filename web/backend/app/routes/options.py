@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.schemas.reasoning import THINKING_BUDGET
 from app.schemas.settings import (
     ComfyConfigRead,
     ComfyConfigUpdate,
@@ -20,6 +21,7 @@ from app.schemas.settings import (
     ComfyWorkflowsResponse,
     LibraryDefaultsRead,
     LibraryDefaultsUpdate,
+    LlmBackendResponse,
     LlmConfigRead,
     LlmConfigUpdate,
     LlmModelsRequest,
@@ -28,7 +30,8 @@ from app.schemas.settings import (
     LlmTestResponse,
     SettingsRead,
 )
-from app.services import comfyui, llm, settings_store
+from app.services import comfyui, llm, llm_backend, settings_store
+from app.services.llm_backend import InferenceBackend
 
 router = APIRouter(prefix="/options", tags=["options"])
 
@@ -62,6 +65,26 @@ def list_llm_models(data: LlmModelsRequest, db: Session = Depends(get_db)):
 def test_llm(data: LlmTestRequest, db: Session = Depends(get_db)):
     base_url, api_key = settings_store.resolve_llm_credentials(db, data.base_url, data.api_key)
     return llm.test_chat(base_url, api_key, data.model, data.params)
+
+
+@router.get("/llm/backend", response_model=LlmBackendResponse)
+def llm_backend_info(db: Session = Depends(get_db)):
+    """Report the auto-detected inference engine + the reasoning-budget map.
+
+    Read-only diagnostics: confirms whether Velora sees vLLM / llama.cpp (and is
+    therefore sending the thinking budget) for the configured endpoint. Uses the
+    cached detection (the background poller keeps it warm).
+    """
+    base_url, api_key = settings_store.resolve_llm_credentials(db, None, None)
+    backend = (
+        llm_backend.get_backend(base_url, api_key)
+        if base_url.strip()
+        else InferenceBackend.UNKNOWN
+    )
+    return LlmBackendResponse(
+        backend=backend.value,
+        budgets={effort.value: budget for effort, budget in THINKING_BUDGET.items()},
+    )
 
 
 # ---- ComfyUI image generation ----------------------------------------------

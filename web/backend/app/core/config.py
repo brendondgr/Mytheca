@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     local_llm_base_url: str = "http://localhost:11434"
 
+    # Inference-engine auto-detection (vLLM vs. llama.cpp), used to carry the
+    # backend-controlled reasoning/thinking budget under the engine's request key.
+    # The detection is cached for ``cache_ttl`` seconds and a background poller
+    # re-probes the configured endpoint every ``poll`` seconds so the server adapts
+    # when the operator swaps engines. See ``app/services/llm_backend.py``.
+    llm_backend_poll_seconds: int = 30
+    llm_backend_cache_ttl_seconds: int = 60
+
     # ComfyUI image generation — a local Comfy server (HTTP + WebSocket protocol).
     comfyui_base_url: str = "http://localhost:8199"
 
