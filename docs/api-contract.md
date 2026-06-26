@@ -36,7 +36,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
 | Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
-| Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation). Prefix is `/options` (the Setting entity owns `/settings`). |
+| Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation) plus read-only inference-engine detection (`/llm/backend`). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
 | Stream | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | NDJSON event stream (see below). |
 | Admin (future) | `GET /admin/*` | High-permission only. |
@@ -167,6 +167,13 @@ key is **write-only**: it is stored server-side and never returned in clear.
   `400 bad_request`.
 - `POST /options/llm/test` — `{ baseUrl?, apiKey?, model, params? }`. Proxies a
   tiny `POST {baseUrl}/chat/completions` → `{ ok, model, latencyMs, sample }`.
+- `GET /options/llm/backend` — read-only diagnostics for the auto-detected local
+  inference engine of the configured endpoint → `{ "backend": "vllm" | "llamacpp" |
+  "unknown", "budgets": { "low": 256, "medium": 512, "high": 1024, "very_high": 2048,
+  "max": 4096 } }` (budget keys are the effort enum values, not camelized). The
+  engine is probed (`GET /version` → vLLM, `GET /props` →
+  llama.cpp), cached, and refreshed by a background poller. `unknown` (OpenAI /
+  unreachable) means no thinking budget is sent. See **Reasoning budget** below.
 
 **ComfyUI image generation** (the local Comfy server — its own HTTP + WebSocket
 protocol, not OpenAI-compatible):
@@ -184,6 +191,24 @@ The full generation pipeline (load workflow → patch prompt → `POST /prompt` 
 WebSocket wait → `GET /history` → `GET /view`) lives in
 `web/backend/app/services/comfyui.py` (`generate(...)`), used by the story engine;
 the Options tab exposes config + the status check only.
+
+## Reasoning budget (backend-controlled thinking cap)
+
+Local reasoning models spend most of their wall-clock on hidden *thinking* tokens.
+Velora caps that **per authoring operation** so quick work finishes fast. The effort
+is set on the **backend** at each call-site and is **never exposed to the user** for
+Storyline / Character / Setting creation — there is no request field or settings
+toggle for it.
+
+- **Efforts → thinking-token budget:** `low` 256 · `medium` 512 · `high` 1024 ·
+  `very_high` 2048 · `max` 4096 (`web/backend/app/schemas/reasoning.py`).
+- **Per call-site:** **Triage = Low**; **Build the whole world** + the standalone
+  storyline/character/setting drafts = **Medium** (`DEFAULT_AUTHORING_EFFORT`).
+- **Transport:** `services/llm.chat_complete(..., reasoning=)` detects the engine and
+  adds the matching key — **vLLM** `thinking_token_budget`, **llama.cpp**
+  `thinking_budget_tokens`. An OpenAI / unknown endpoint gets no key (unchanged
+  behaviour). Requires reasoning enabled server-side (vLLM `--reasoning-parser`;
+  llama.cpp `--jinja --reasoning on` with no CLI `--reasoning-budget`).
 
 ## Authoring Shapes (storyline creation agent)
 

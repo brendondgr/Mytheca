@@ -59,6 +59,8 @@ Copy `.env.example` → `.env` (gitignored). Document every new variable here an
 | `LLM_PROVIDER` | `openai` or `local` |
 | `OPENAI_API_KEY` | OpenAI key (if provider = openai) |
 | `LOCAL_LLM_BASE_URL` | Base URL for a local model server (if provider = local) |
+| `LLM_BACKEND_POLL_SECONDS` | How often the backend re-probes the LLM endpoint to detect the inference engine (vLLM / llama.cpp) for the reasoning budget (default `30`) |
+| `LLM_BACKEND_CACHE_TTL_SECONDS` | How long an engine detection is cached before a re-probe (default `60`) |
 | `COMFYUI_BASE_URL` | Base URL of the local ComfyUI server for image generation (default `http://localhost:8199`); workflows live in `utils/workflows/` |
 | `APP_ENV` | `development` / `production` |
 | `SECRET_KEY` | Session/token signing |
