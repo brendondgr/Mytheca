@@ -1,7 +1,6 @@
 import type { StartingStatProposal } from "@/lib/api";
 import type { Branch, SettingTimelineEntry, StatDefinition } from "@/lib/types";
 import type { ReadDoc } from "@/lib/readDocs";
-import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 
 // Editor model shared by the create/edit modal. A single loose Draft covers all
 // three entity types; each form reads/writes the fields it cares about. Keys
@@ -72,22 +71,6 @@ export interface ModalState {
   type: EntityType | "begin" | "storyline";
   mode: EditorMode;
   editId: string | null;
-}
-
-/** Initial draft for a brand-new storyline (the create modal's blank slate). */
-export const STORYLINE_DRAFT: Draft = {
-  title: "",
-  genre: "",
-  tagline: "",
-  premise: "",
-  worldPrimer: "",
-  symbol: DEFAULT_SEAL_SYMBOL,
-  symbolColor: DEFAULT_SEAL_COLOR,
-};
-
-/** A storyline is creatable once it has a title. */
-export function isStorylineDraftValid(draft: Draft): boolean {
-  return Boolean(draft.title?.trim());
 }
 
 /** Slugify a stat display name into a stable lowercase key (e.g. "Hit Points" → "hit_points"). */

@@ -10,13 +10,10 @@ import {
 } from "@/lib/seed-data";
 import * as api from "@/lib/api";
 import { concatDocs, docsForDraft } from "@/lib/readDocs";
-import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
 import {
   DEFAULT_DRAFTS,
-  STORYLINE_DRAFT,
   isDraftValid,
-  isStorylineDraftValid,
   pickUnused,
   type Draft,
   type EditorMode,
@@ -101,9 +98,6 @@ export function useLibraryState(initialStorylineId?: string) {
   const [modal, setModal] = useState<ModalState | null>(null);
   const [draft, setDraftState] = useState<Draft>({});
   const [generating, setGenerating] = useState(false);
-  // Separate flag so the World Primer "Generate" button spins independently of
-  // the "Draft with Velora" metadata draft.
-  const [generatingPrimer, setGeneratingPrimer] = useState(false);
   // Character Creator: independent spinners for portrait prompts, portrait render,
   // stat proposal, and stat-apply, so each button spins on its own.
   const [generatingPrompts, setGeneratingPrompts] = useState(false);
@@ -245,183 +239,6 @@ export function useLibraryState(initialStorylineId?: string) {
     } catch (e) {
       setError(messageOf(e));
       resetForStoryline("");
-    }
-  }
-  /** Open the write-first storyline create modal (StorylineModal) on a blank draft. */
-  function openCreateStoryline() {
-    setDraftState({ ...STORYLINE_DRAFT, _stats: [], _statsOriginal: [] });
-    setError(null);
-    setModal({ type: "storyline", mode: "manual", editId: null });
-    setMenuOpen(false);
-    setGenerating(false);
-    setGeneratingPrimer(false);
-  }
-  /** Open the storyline modal in edit mode, prefilled from an existing storyline. */
-  function editStoryline(id: string) {
-    const sl = storylines.find((s) => s.id === id);
-    if (!sl) return;
-    setDraftState({
-      title: sl.title,
-      genre: sl.genre,
-      tagline: sl.tagline ?? "",
-      premise: sl.premise ?? "",
-      worldPrimer: sl.worldPrimer ?? "",
-      symbol: sl.symbol ?? DEFAULT_SEAL_SYMBOL,
-      symbolColor: sl.symbolColor ?? DEFAULT_SEAL_COLOR,
-      _stats: [],
-      _statsOriginal: [],
-    });
-    setError(null);
-    setModal({ type: "storyline", mode: "manual", editId: id });
-    setMenuOpen(false);
-    setGenerating(false);
-    setGeneratingPrimer(false);
-    // Load the world's universal stats; keep an original snapshot so submit can
-    // diff into create/update/delete calls. Best-effort — failure just shows none.
-    void api
-      .listStatDefinitions(id)
-      .then((defs) =>
-        setDraftState((prev) => ({ ...prev, _stats: defs, _statsOriginal: defs })),
-      )
-      .catch(() => {});
-  }
-
-  // ---- storyline agentic authoring (real model calls via the backend) ----
-  /** Draft title/genre/tagline/premise from the one-sentence seed (draft._prompt). */
-  async function draftStoryline() {
-    if (!modal || modal.type !== "storyline") return;
-    const seed = (draft._prompt ?? "").trim();
-    if (!seed) return;
-    const docsOverview = draft._docFiles?.length
-      ? concatDocs(docsForDraft(draft._docFiles))
-      : undefined;
-    setGenerating(true);
-    setError(null);
-    try {
-      const drafted = await api.draftStoryline(seed, docsOverview);
-      setDraftState((prev) => ({
-        ...prev,
-        title: drafted.title || prev.title,
-        genre: drafted.genre || prev.genre,
-        tagline: drafted.tagline || prev.tagline,
-        premise: drafted.premise || prev.premise,
-        _ai: true,
-      }));
-      // On mobile the seam is its own tab — drop back to the form to reveal fields.
-      setModal((prev) => (prev ? { ...prev, mode: "manual" } : prev));
-    } catch (e) {
-      setError(messageOf(e)); // keep the modal open so the author can retry
-    } finally {
-      setGenerating(false);
-    }
-  }
-  /** Generate the agent-facing World Primer from the current seed + premise. */
-  async function generatePrimer() {
-    if (!modal || modal.type !== "storyline") return;
-    const premise = (draft.premise ?? "").trim();
-    const seed = (draft._prompt ?? "").trim();
-    if (!premise && !seed) return;
-    const docsOverview = draft._docFiles?.length
-      ? concatDocs(docsForDraft(draft._docFiles))
-      : undefined;
-    setGeneratingPrimer(true);
-    setError(null);
-    try {
-      const { worldPrimer } = await api.generateWorldPrimer({
-        premise: premise || undefined,
-        seed: seed || undefined,
-        docsOverview,
-      });
-      setDraftState((prev) => ({ ...prev, worldPrimer }));
-    } catch (e) {
-      setError(messageOf(e));
-    } finally {
-      setGeneratingPrimer(false);
-    }
-  }
-  /** Persist the universal-stat edits: diff `_stats` vs the loaded snapshot. */
-  async function persistStats(storylineId: string) {
-    const current = (draft._stats ?? []).filter(
-      (s) => s.key.trim() && s.displayName.trim(),
-    );
-    const original = draft._statsOriginal ?? [];
-    const currentKeys = new Set(current.map((s) => s.key));
-    const originalByKey = new Map(original.map((s) => [s.key, s]));
-    // Deletes first (a loaded stat dropped from the list), then creates/updates.
-    for (const o of original) {
-      if (!currentKeys.has(o.key)) await api.deleteStatDefinition(storylineId, o.key);
-    }
-    for (const s of current) {
-      const prev = originalByKey.get(s.key);
-      const fields = {
-        displayName: s.displayName,
-        description: s.description,
-        min: s.min,
-        max: s.max,
-        default: s.default,
-        bands: s.bands,
-        visibility: s.visibility,
-        appliesTo: s.appliesTo,
-        guidance: s.guidance,
-      };
-      if (!prev) {
-        await api.createStatDefinition(storylineId, { key: s.key, ...fields });
-      } else if (JSON.stringify(prev) !== JSON.stringify(s)) {
-        await api.updateStatDefinition(storylineId, s.key, fields);
-      }
-    }
-  }
-
-  /** Create (or, when editing, update) the storyline from the modal draft. */
-  async function submitStoryline() {
-    if (!modal || modal.type !== "storyline") return;
-    if (!isStorylineDraftValid(draft)) return;
-    const editId = modal.editId;
-    setPending(true);
-    setError(null);
-    const title = (draft.title ?? "").trim();
-    const genre = draft.genre?.trim() || "Uncharted";
-    const symbol = draft.symbol || DEFAULT_SEAL_SYMBOL;
-    const symbolColor = draft.symbolColor || DEFAULT_SEAL_COLOR;
-    try {
-      if (editId) {
-        // Edit: empty tagline/premise/primer are sent as "" so they can be cleared.
-        const updated = await api.updateStoryline(editId, {
-          title,
-          genre,
-          tagline: draft.tagline?.trim() ?? "",
-          premise: draft.premise?.trim() ?? "",
-          worldPrimer: draft.worldPrimer?.trim() ?? "",
-          symbol,
-          symbolColor,
-        });
-        // Spread over the existing storyline so its hydrated children survive.
-        setStorylines((sls) =>
-          sls.map((sl) => (sl.id === editId ? { ...sl, ...updated } : sl)),
-        );
-        await persistStats(editId);
-      } else {
-        const created = await api.createStoryline({
-          title,
-          genre,
-          tagline: draft.tagline?.trim() || undefined,
-          premise: draft.premise?.trim() || undefined,
-          worldPrimer: draft.worldPrimer?.trim() || undefined,
-          symbol,
-          symbolColor,
-        });
-        hydrated.current.add(created.id); // brand-new: no children to fetch
-        await persistStats(created.id);
-        setStorylines((sls) => [...sls, emptyStoryline(created)]);
-        setActiveStorylineId(created.id);
-        syncStorylineUrl(created.id);
-        resetForStoryline("");
-      }
-      closeModal();
-    } catch (e) {
-      setError(messageOf(e)); // keep the modal open so the user can retry
-    } finally {
-      setPending(false);
     }
   }
 
@@ -672,7 +489,6 @@ export function useLibraryState(initialStorylineId?: string) {
   function closeModal() {
     if (generateTimer.current) clearTimeout(generateTimer.current);
     setGenerating(false);
-    setGeneratingPrimer(false);
     setGeneratingPrompts(false);
     setGeneratingPortrait(false);
     setGeneratingStats(false);
@@ -890,8 +706,6 @@ export function useLibraryState(initialStorylineId?: string) {
 
   return {
     storylines, activeStorylineId, activeStoryline, switchStoryline,
-    openCreateStoryline, editStoryline, submitStoryline,
-    draftStoryline, generatePrimer, generatingPrimer,
     // character agentic authoring
     draftCharacter, generatePortraitPrompts, generatePortrait,
     proposeStartingStats, applyStartingStats,
@@ -924,8 +738,6 @@ export function useLibraryState(initialStorylineId?: string) {
       modal && modal.type !== "begin" && modal.type !== "storyline"
         ? isDraftValid(modal.type, draft)
         : false,
-    // storyline-specific validity for StorylineModal's submit button
-    isStorylineValid: isStorylineDraftValid(draft),
     openCreate, editCharacter, editSetting, editScenario,
     setDraft, setMode, toggleDraftCast, generate, submit, deleteEntity, closeModal,
     // profile + begin

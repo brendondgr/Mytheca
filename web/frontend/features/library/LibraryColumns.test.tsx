@@ -18,21 +18,16 @@ describe("LibraryView — storyline switcher", () => {
     ).toBeInTheDocument();
   });
 
-  it("creates a new storyline via the modal and shows empty columns", async () => {
+  it("navigates to the dedicated New Storyline page from the switcher", async () => {
+    const { useRouter } = await import("next/navigation");
+    const push = vi.mocked(useRouter().push);
+    push.mockClear();
     const user = userEvent.setup();
     render(<LibraryView />);
     await user.click(await screen.findByRole("button", { name: "Embergate" }));
     await user.click(screen.getByRole("button", { name: /new storyline/i }));
 
-    // The write-first modal opens; name and create the world.
-    const dialog = screen.getByRole("dialog");
-    await user.type(within(dialog).getByLabelText(/title/i), "Tidefall");
-    await user.click(within(dialog).getByRole("button", { name: /create world/i }));
-
-    // Switcher now reads the new (empty) storyline; columns show empty notes.
-    expect(await screen.findByText("No characters yet.")).toBeInTheDocument();
-    expect(screen.getByText("No settings yet.")).toBeInTheDocument();
-    expect(screen.getByText("No scenarios yet.")).toBeInTheDocument();
+    expect(push).toHaveBeenCalledWith("/storylines/new");
   });
 });
 

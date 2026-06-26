@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useLibraryState } from "@/features/library/useLibraryState";
 import { LibraryColumns } from "@/features/library/LibraryColumns";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -10,7 +12,6 @@ import { StorylineMenu } from "@/components/feature/StorylineMenu";
 import { EntityModal } from "@/components/feature/EntityModal";
 import { CharacterModal } from "@/components/feature/CharacterModal";
 import { SettingModal } from "@/components/feature/SettingModal";
-import { StorylineModal } from "@/components/feature/StorylineModal";
 import { StorylineDeleteModal } from "@/components/feature/StorylineDeleteModal";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { BeginSceneModal } from "@/components/feature/BeginSceneModal";
@@ -18,6 +19,16 @@ import { BeginSceneModal } from "@/components/feature/BeginSceneModal";
 /** The Library surface: header → recent-scenario carousel → open columns + editors. */
 export function LibraryView({ initialStorylineId }: { initialStorylineId?: string } = {}) {
   const lib = useLibraryState(initialStorylineId);
+  const router = useRouter();
+
+  // Storyline create/edit now live on a dedicated page (not a modal).
+  const goCreateStoryline = () => router.push("/storylines/new");
+  const goEditStoryline = (id: string) => router.push(`/storylines/${id}/edit`);
+
+  // Empty-state default: with no storylines, the New Storyline page IS the home.
+  useEffect(() => {
+    if (!lib.loading && lib.storylines.length === 0) router.replace("/storylines/new");
+  }, [lib.loading, lib.storylines.length, router]);
 
   const beginScenario = lib.modal?.type === "begin" ? lib.featured : null;
 
@@ -34,8 +45,8 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
             storylines={lib.storylines}
             activeId={lib.activeStorylineId}
             onSwitch={lib.switchStoryline}
-            onCreate={lib.openCreateStoryline}
-            onEdit={lib.editStoryline}
+            onCreate={goCreateStoryline}
+            onEdit={goEditStoryline}
             onDelete={lib.requestDeleteStoryline}
           />
         }
@@ -90,7 +101,6 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
       <EntityModal lib={lib} />
       <CharacterModal lib={lib} />
       <SettingModal lib={lib} />
-      <StorylineModal lib={lib} />
       <StorylineDeleteModal
         storyline={lib.storylineToDelete}
         pending={lib.pending}
