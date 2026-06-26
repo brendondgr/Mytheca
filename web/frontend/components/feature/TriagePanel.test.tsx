@@ -35,10 +35,22 @@ describe("TriagePanel live triage", () => {
     expect(screen.getByText(/^classifying…$/i)).toBeInTheDocument();
   });
 
-  it("shows the idle Triage action when not triaging", () => {
+  it("shows the idle Triage action (scoped to Uncategorized) when not triaging", () => {
     render(<TriagePanel {...baseProps} docs={docs} triaging={false} />);
-    expect(screen.getByRole("button", { name: /triage context/i })).toBeInTheDocument();
+    // Both docs are Uncategorized → the button offers to triage just those.
+    expect(
+      screen.getByRole("button", { name: /triage uncategorized \(2\)/i }),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/classifying/i)).not.toBeInTheDocument();
+  });
+
+  it("disables Triage when every doc is already categorized", () => {
+    const categorized = [
+      { ...toCreatorDoc({ name: "a.md", text: "x" }, { category: "character" }) },
+      { ...toCreatorDoc({ name: "b.md", text: "y" }, { category: "setting" }) },
+    ];
+    render(<TriagePanel {...baseProps} docs={categorized} triaging={false} />);
+    expect(screen.getByRole("button", { name: /triage context/i })).toBeDisabled();
   });
 });
 
@@ -65,6 +77,21 @@ describe("TriagePanel self-triage", () => {
       "character",
     );
     expect(onSetCategory).toHaveBeenCalledWith("hero.md", "character");
+  });
+
+  it("passes the chosen upload target (category + Draft/RAG) to onAddFiles via Browse", async () => {
+    const user = userEvent.setup();
+    const onAddFiles = vi.fn();
+    render(<TriagePanel {...baseProps} docs={[]} triaging={false} onAddFiles={onAddFiles} />);
+    // Pick "Character" as the upload target and flip the Draft default on.
+    await user.selectOptions(screen.getByRole("combobox", { name: /add as/i }), "character");
+    await user.click(screen.getByRole("button", { name: /default draft for uploads/i }));
+    // Browse a file → it carries the chosen target.
+    const input = document.getElementById("creator-docs-input") as HTMLInputElement;
+    await user.upload(input, new File(["A hero."], "hero.md", { type: "text/plain" }));
+    expect(onAddFiles).toHaveBeenCalledTimes(1);
+    const opts = onAddFiles.mock.calls[0][1];
+    expect(opts).toEqual({ category: "character", useDraft: true, useRag: true });
   });
 
   it("switches to grouped view once a doc is manually categorized", () => {

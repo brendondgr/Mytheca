@@ -59,7 +59,8 @@ describe("StorylineCreatorView", () => {
     await user.upload(screen.getByLabelText(/browse files/i), md("hero.md", "A person."));
     expect(await screen.findByRole("button", { name: /remove hero\.md/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /triage context/i }));
+    // One Uncategorized doc → the Triage action is scoped to it.
+    await user.click(screen.getByRole("button", { name: /triage uncategorized \(1\)/i }));
     // The mock classifies the first doc as a character → the grouped "Character details".
     expect(await screen.findByText(/character details/i)).toBeInTheDocument();
   });

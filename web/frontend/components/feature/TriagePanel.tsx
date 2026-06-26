@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { cn } from "@/lib/cn";
 import type { ContextBudget } from "@/lib/contextBudget";
 import type { DocCategory } from "@/lib/types";
+import type { UploadDefaults } from "@/features/library/storylineCreator";
 import type { CreatorDoc, TriageActive } from "@/features/library/storylineCreator";
 import { ContextBudgetMeter } from "@/components/feature/ContextBudgetMeter";
 
@@ -17,6 +19,15 @@ const GROUPS: { key: DocCategory; label: string; hint: string }[] = [
 const USES: { key: "useDraft" | "useRag"; label: string; title: string }[] = [
   { key: "useDraft", label: "Draft", title: "World-setting doc — grounds the drafting" },
   { key: "useRag", label: "RAG", title: "Member of the retrieval corpus" },
+];
+
+/** Category options shown in both the upload-target picker and the per-row select.
+ *  Order matches the grouped view (Character / Other / Setting), Uncategorized first. */
+const CATEGORY_OPTIONS: { value: DocCategory; label: string }[] = [
+  { value: "select", label: "Uncategorized" },
+  { value: "character", label: "Character" },
+  { value: "other", label: "Other" },
+  { value: "setting", label: "Setting" },
 ];
 
 /**
@@ -38,7 +49,7 @@ export function TriagePanel({
   inputId = "creator-docs-input",
 }: {
   docs: CreatorDoc[];
-  onAddFiles: (files: FileList | File[] | null) => void;
+  onAddFiles: (files: FileList | File[] | null, opts?: UploadDefaults) => void;
   onRemove: (name: string) => void;
   onToggleUse: (name: string, key: "useDraft" | "useRag") => void;
   onSetCategory: (name: string, category: DocCategory) => void;
@@ -52,6 +63,20 @@ export function TriagePanel({
   // Show grouped view as soon as any doc has been categorized — either manually by
   // the author (self-triage) or automatically by the AI Triage button.
   const anyGrouped = docs.some((d) => d.triaged || d.category !== "select");
+
+  // The author's chosen upload target: a whole batch dropped now gets this category +
+  // Draft/RAG, so e.g. a folder of character sheets lands as Characters with no triage.
+  const [uploadCategory, setUploadCategory] = useState<DocCategory>("select");
+  const [uploadDraft, setUploadDraft] = useState(false);
+  const [uploadRag, setUploadRag] = useState(true);
+  const uploadOpts: UploadDefaults = {
+    category: uploadCategory,
+    useDraft: uploadDraft,
+    useRag: uploadRag,
+  };
+
+  // Triage now sweeps only what's still Uncategorized; pre-bucketed docs are left alone.
+  const uncategorizedCount = docs.filter((d) => d.category === "select").length;
 
   function DocRow({ doc }: { doc: CreatorDoc }) {
     const classifying = triaging && triageActive?.name === doc.name;
@@ -90,10 +115,11 @@ export function TriagePanel({
             onChange={(e) => onSetCategory(doc.name, e.target.value as DocCategory)}
             className="rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.06em] text-ink-soft"
           >
-            <option value="select">Select</option>
-            <option value="character">Character</option>
-            <option value="other">Other</option>
-            <option value="setting">Setting</option>
+            {CATEGORY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value === "select" ? "Select" : o.label}
+              </option>
+            ))}
           </select>
           {USES.map(({ key, label, title }) => {
             const on = Boolean(doc[key]);
@@ -142,11 +168,56 @@ export function TriagePanel({
           ) : null}
         </div>
 
+        {/* Upload target: pick a bucket + Draft/RAG once, then drop a whole batch. */}
+        <div className="flex flex-wrap items-center gap-[6px]">
+          <span
+            id="upload-as-label"
+            className="font-mono text-[9.5px] tracking-[0.1em] text-mute2 uppercase"
+          >
+            Add as
+          </span>
+          <select
+            aria-labelledby="upload-as-label"
+            value={uploadCategory}
+            onChange={(e) => setUploadCategory(e.target.value as DocCategory)}
+            className="rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.06em] text-ink-soft"
+          >
+            {CATEGORY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          {USES.map(({ key, label, title }) => {
+            const on = key === "useDraft" ? uploadDraft : uploadRag;
+            const toggle = key === "useDraft" ? setUploadDraft : setUploadRag;
+            return (
+              <button
+                key={key}
+                type="button"
+                title={title}
+                aria-pressed={on}
+                aria-label={`Default ${label} for uploads`}
+                onClick={() => toggle((v) => !v)}
+                className={cn(
+                  "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-[9.5px] tracking-[0.08em] uppercase focus-visible:border-accent",
+                  on
+                    ? "border-accent bg-card2 text-ink"
+                    : "border-cardbd bg-transparent text-mute hover:border-accent",
+                )}
+              >
+                {on ? "✓ " : ""}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
-            onAddFiles(e.dataTransfer.files);
+            onAddFiles(e.dataTransfer.files, uploadOpts);
           }}
           className="flex flex-col items-center gap-[6px] rounded-[4px] border border-dashed border-cardbd bg-field/50 px-[14px] py-[16px] text-center"
         >
@@ -155,7 +226,17 @@ export function TriagePanel({
           </span>
           <p className="font-body text-[13px] text-ink-soft">
             Drag <code className="font-mono text-[12px]">.txt</code> or{" "}
-            <code className="font-mono text-[12px]">.md</code> files here.
+            <code className="font-mono text-[12px]">.md</code> files here
+            {uploadCategory !== "select" ? (
+              <>
+                {" "}
+                as{" "}
+                <span className="text-ink-soft">
+                  {CATEGORY_OPTIONS.find((o) => o.value === uploadCategory)?.label}
+                </span>
+              </>
+            ) : null}
+            .
           </p>
           <input
             id={inputId}
@@ -164,7 +245,7 @@ export function TriagePanel({
             accept=".txt,.md,.markdown,text/plain,text/markdown"
             className="sr-only"
             onChange={(e) => {
-              onAddFiles(e.currentTarget.files);
+              onAddFiles(e.currentTarget.files, uploadOpts);
               e.currentTarget.value = "";
             }}
           />
@@ -179,14 +260,16 @@ export function TriagePanel({
         <Button
           variant="secondary"
           onClick={onTriage}
-          disabled={docs.length === 0 || triaging}
+          disabled={uncategorizedCount === 0 || triaging}
           className="w-full"
         >
           {triaging
             ? triageActive
               ? `Triaging ${triageActive.index + 1}/${triageActive.total}…`
               : "Triaging…"
-            : "⚖ Triage context"}
+            : uncategorizedCount > 0
+              ? `⚖ Triage Uncategorized (${uncategorizedCount})`
+              : "⚖ Triage context"}
         </Button>
         {triaging && triageActive ? (
           <p
