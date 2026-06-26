@@ -222,7 +222,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
             >
               Cancel
             </Link>
-            <Button onClick={onCommit} disabled={!c.isValid || c.committing}>
+            <Button onClick={onCommit} disabled={!c.isValid || c.committing || c.building}>
               {c.committing
                 ? c.isEdit
                   ? "Saving…"
@@ -242,7 +242,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
           planConcepts={c.planConcepts}
           building={c.building}
           buildStage={c.buildStage}
-          committing={c.committing}
+          renderingImages={c.committing || c.buildingImages}
           onUpdateCharacter={c.updateProposedCharacter}
           onRemoveCharacter={c.removeProposedCharacter}
           onUpdateSetting={c.updateProposedSetting}

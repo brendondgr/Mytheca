@@ -174,16 +174,21 @@ New Storyline page → "Build the whole world" → POST /storylines/build/stream
       character × N  → each fills its skeleton card in the right column
       setting   × M  → each fills its skeleton card
       done           → canonical ProposedWorld swapped in (review mode)
-  → "Create World" commit → as each portrait/scene-art renders, commitWorld's
-      onEntity callback patches the displayed entity → the IMAGE preview pops in live
-  → navigate to /{newStorylineId}
+  → if ComfyUI available: renderProposalImages renders each portrait/scene-art and
+      patches the displayed entity → IMAGE previews pop in live, still in the build
+  → "Create World" commit → persists everything; attaches already-rendered images and
+      renders any still missing (renderPortrait/renderSceneArt) → navigate to /{id}
 ```
 
 The page consumes the stream in `useStorylineCreator.build()`, accumulating into
 `proposed` + `planConcepts`; the right pane (`WorldBuildPanel`) renders the cast/settings
 as they arrive (a "drafting…" skeleton per not-yet-drafted concept), then becomes the
-editable review. Image previews appear during the commit (per the user's choice — only
-kept entities are rendered). The non-streaming `/build` collector remains for back-compat.
+editable review. **Images render as part of the build** (`renderProposalImages`, best-effort,
+skipping entities that already have one) whenever ComfyUI is configured — the image-gen
+endpoints are id-agnostic so no persistence is needed yet; the **commit** then attaches
+those URLs (and renders any still missing). Hitting *Create World* mid-render aborts the
+build's image loop (no double-render, no race). The non-streaming `/build` collector
+remains for back-compat.
 
 ## Context Document Flow (the triaged RAG corpus)
 

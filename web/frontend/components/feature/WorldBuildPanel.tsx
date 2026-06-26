@@ -162,7 +162,7 @@ export function WorldBuildPanel({
   planConcepts,
   building,
   buildStage,
-  committing = false,
+  renderingImages = false,
   onUpdateCharacter,
   onRemoveCharacter,
   onUpdateSetting,
@@ -176,7 +176,8 @@ export function WorldBuildPanel({
   planConcepts: PlanConcepts | null;
   building: boolean;
   buildStage: string | null;
-  committing?: boolean;
+  /** Portraits / scene art are rendering (during the build or the commit). */
+  renderingImages?: boolean;
   onUpdateCharacter: (index: number, patch: Partial<ProposedCharacter>) => void;
   onRemoveCharacter: (index: number) => void;
   onUpdateSetting: (index: number, patch: Partial<ProposedSetting>) => void;
@@ -238,7 +239,7 @@ export function WorldBuildPanel({
                 />
                 <span className="font-body text-[12.5px] text-ink">
                   Generate portraits &amp; scene art{" "}
-                  <span className="text-mute2">(rendered on create)</span>
+                  <span className="text-mute2">(ComfyUI · rendered during the build)</span>
                 </span>
               </label>
             ) : (
@@ -270,7 +271,7 @@ export function WorldBuildPanel({
                   c={c}
                   index={i}
                   building={building}
-                  committing={committing}
+                  committing={renderingImages}
                   onUpdate={onUpdateCharacter}
                   onRemove={onRemoveCharacter}
                 />
@@ -294,7 +295,7 @@ export function WorldBuildPanel({
                   s={s}
                   index={i}
                   building={building}
-                  committing={committing}
+                  committing={renderingImages}
                   onUpdate={onUpdateSetting}
                   onRemove={onRemoveSetting}
                 />

@@ -6,6 +6,7 @@ import {
   type CommitEntityPatch,
   draftDocTexts,
   persistStatsDiff,
+  renderProposalImages,
   toCreatorDoc,
 } from "./storylineCreator";
 import { blankStat } from "./editor";
@@ -150,5 +151,36 @@ describe("storylineCreator.commitWorld image previews", () => {
     );
     expect(events).toHaveLength(0);
     expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
+  });
+
+  it("renderProposalImages renders an image per entity (build-time, no persist)", async () => {
+    const events: CommitEntityPatch[] = [];
+    await renderProposalImages(PROPOSED, (e) => events.push(e));
+    expect(events).toContainEqual({
+      type: "character",
+      index: 0,
+      patch: { portrait: "/media/portraits/test.webp" },
+    });
+    expect(events).toContainEqual({
+      type: "setting",
+      index: 0,
+      patch: { image: "/media/scenes/test.webp" },
+    });
+    // It only generates — nothing is persisted during the build (entities have no id).
+    expect(vi.mocked(api.updateCharacter)).not.toHaveBeenCalled();
+    expect(vi.mocked(api.updateSetting)).not.toHaveBeenCalled();
+  });
+
+  it("renderProposalImages skips entities that already have an image", async () => {
+    const withImages = {
+      ...PROPOSED,
+      characters: [{ ...PROPOSED.characters[0], portrait: "/already.webp" }],
+      settings: [{ ...PROPOSED.settings[0], image: "/already.webp" }],
+    };
+    const events: CommitEntityPatch[] = [];
+    await renderProposalImages(withImages, (e) => events.push(e));
+    expect(events).toHaveLength(0);
+    expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
+    expect(vi.mocked(api.generateSceneArt)).not.toHaveBeenCalled();
   });
 });
