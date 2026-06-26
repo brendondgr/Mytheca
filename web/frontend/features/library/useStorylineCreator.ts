@@ -48,6 +48,9 @@ export function useStorylineCreator(editId?: string) {
   const [seed, setSeed] = useState("");
   const [proposed, setProposed] = useState<ProposedWorld | null>(null);
 
+  const [imagesAvailable, setImagesAvailable] = useState(false);
+  const [generateImages, setGenerateImages] = useState(false);
+
   const [loading, setLoading] = useState(Boolean(editId));
   const [drafting, setDrafting] = useState(false);
   const [generatingPrimer, setGeneratingPrimer] = useState(false);
@@ -83,6 +86,23 @@ export function useStorylineCreator(editId?: string) {
       cancelled = true;
     };
   }, [editId]);
+
+  // Detect whether ComfyUI is configured so image generation can be offered.
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .getSettings()
+      .then((s) => {
+        if (cancelled) return;
+        const ok = Boolean(s.comfy?.baseUrl?.trim());
+        setImagesAvailable(ok);
+        setGenerateImages(ok); // default on when available
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const setField = useCallback(
     <K extends keyof CreatorFields>(key: K, value: CreatorFields[K]) =>
@@ -254,7 +274,16 @@ export function useStorylineCreator(editId?: string) {
     setProgress(null);
     try {
       const id = await commitWorld(
-        { editId, fields, stats, statsOriginal, proposed, docs, existingDocs },
+        {
+          editId,
+          fields,
+          stats,
+          statsOriginal,
+          proposed,
+          docs,
+          existingDocs,
+          generateImages: imagesAvailable && generateImages,
+        },
         setProgress,
       );
       return id;
@@ -265,7 +294,17 @@ export function useStorylineCreator(editId?: string) {
       setCommitting(false);
       setProgress(null);
     }
-  }, [editId, fields, stats, statsOriginal, proposed, docs, existingDocs]);
+  }, [
+    editId,
+    fields,
+    stats,
+    statsOriginal,
+    proposed,
+    docs,
+    existingDocs,
+    imagesAvailable,
+    generateImages,
+  ]);
 
   const budget = useMemo(
     () => budgetFor({ worldPrimer: fields.worldPrimer, draftDocs: draftDocTexts(docs) }),
@@ -298,6 +337,9 @@ export function useStorylineCreator(editId?: string) {
     updateProposedSetting,
     removeProposedSetting,
     discardProposal,
+    imagesAvailable,
+    generateImages,
+    setGenerateImages,
     budget,
     isValid: isCreatorValid(fields),
     loading,

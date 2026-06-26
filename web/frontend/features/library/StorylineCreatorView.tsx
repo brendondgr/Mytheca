@@ -123,6 +123,9 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
             onUpdateSetting={c.updateProposedSetting}
             onRemoveSetting={c.removeProposedSetting}
             onDiscard={c.discardProposal}
+            imagesAvailable={c.imagesAvailable}
+            generateImages={c.generateImages}
+            onToggleImages={c.setGenerateImages}
           />
         </div>
       ) : null}

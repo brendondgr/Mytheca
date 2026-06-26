@@ -84,6 +84,72 @@ describe("useStorylineCreator", () => {
     expect(vi.mocked(api.bulkCreateContextDocuments)).toHaveBeenCalled();
   });
 
+  it("renders portraits + scene art on commit when ComfyUI is configured", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    await waitFor(() => expect(result.current.imagesAvailable).toBe(true));
+    act(() => result.current.setSeed("A world."));
+    await act(async () => {
+      await result.current.build();
+    });
+    await act(async () => {
+      await result.current.commit();
+    });
+    expect(vi.mocked(api.generatePortraitPrompts)).toHaveBeenCalled();
+    expect(vi.mocked(api.generatePortrait)).toHaveBeenCalled();
+    expect(vi.mocked(api.generateSceneArtPrompts)).toHaveBeenCalled();
+    expect(vi.mocked(api.generateSceneArt)).toHaveBeenCalled();
+    expect(vi.mocked(api.updateCharacter)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ portrait: expect.any(String) }),
+    );
+  });
+
+  it("skips images when ComfyUI is not configured", async () => {
+    vi.mocked(api.getSettings).mockResolvedValueOnce({
+      llm: {
+        baseUrl: "",
+        model: "",
+        provider: "openai-compatible",
+        params: { temperature: 0.7, maxTokens: 512, topP: 1, frequencyPenalty: 0, presencePenalty: 0 },
+        hasApiKey: false,
+        apiKeyHint: null,
+      },
+      library: { defaultStorylineId: null, openLastStoryline: true },
+      comfy: {
+        baseUrl: "",
+        workflow: "",
+        params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
+      },
+    });
+    const { result } = renderHook(() => useStorylineCreator());
+    await waitFor(() => expect(result.current.imagesAvailable).toBe(false));
+    act(() => result.current.setSeed("A world."));
+    await act(async () => {
+      await result.current.build();
+    });
+    await act(async () => {
+      await result.current.commit();
+    });
+    expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
+    expect(vi.mocked(api.generateSceneArt)).not.toHaveBeenCalled();
+  });
+
+  it("a failed image render does not abort the commit", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    await waitFor(() => expect(result.current.imagesAvailable).toBe(true));
+    vi.mocked(api.generatePortrait).mockRejectedValueOnce(new Error("comfy down"));
+    act(() => result.current.setSeed("A world."));
+    await act(async () => {
+      await result.current.build();
+    });
+    let id: string | null = null;
+    await act(async () => {
+      id = await result.current.commit();
+    });
+    expect(id).toBeTruthy(); // commit still succeeds…
+    expect(vi.mocked(api.createSetting)).toHaveBeenCalled(); // …and continues past the failure
+  });
+
   it("loads an existing storyline + stats + corpus in edit mode", async () => {
     vi.mocked(api.getStoryline).mockResolvedValueOnce({
       id: "embergate",

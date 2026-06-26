@@ -206,6 +206,59 @@ export interface CommitArgs {
   docs: CreatorDoc[];
   /** Already-persisted docs (edit mode) — skipped so we don't duplicate them. */
   existingDocs?: ContextDocument[];
+  /** Opt-in: render portraits / scene-art via ComfyUI (best-effort per entity). */
+  generateImages?: boolean;
+}
+
+/** Best-effort portrait render for a just-created character (never throws). */
+async function renderPortrait(
+  characterId: string,
+  c: ProposedCharacter,
+  onProgress?: (msg: string) => void,
+): Promise<void> {
+  try {
+    onProgress?.(`Rendering portrait for ${c.name || "a character"}…`);
+    const prompts = await api.generatePortraitPrompts({
+      name: c.name,
+      role: c.role,
+      appearance: c.appearance,
+      traits: c.traits,
+      personality: c.personality,
+    });
+    const { portrait } = await api.generatePortrait({
+      positive: prompts.positive,
+      negative: prompts.negative,
+    });
+    await api.updateCharacter(characterId, { portrait });
+  } catch {
+    onProgress?.(`Skipped ${c.name || "a character"}'s portrait (render failed).`);
+  }
+}
+
+/** Best-effort scene-art render for a just-created setting (never throws). */
+async function renderSceneArt(
+  settingId: string,
+  s: ProposedSetting,
+  onProgress?: (msg: string) => void,
+): Promise<void> {
+  try {
+    onProgress?.(`Rendering scene art for ${s.name || "a setting"}…`);
+    const prompts = await api.generateSceneArtPrompts({
+      name: s.name,
+      type: s.type,
+      desc: s.desc,
+      atmosphere: s.atmosphere,
+      features: s.features,
+      currentState: s.currentState,
+    });
+    const { image } = await api.generateSceneArt({
+      positive: prompts.positive,
+      negative: prompts.negative,
+    });
+    await api.updateSetting(settingId, { image });
+  } catch {
+    onProgress?.(`Skipped ${s.name || "a setting"}'s scene art (render failed).`);
+  }
 }
 
 function coreInput(f: CreatorFields, clearable: boolean): api.StorylineInput {
@@ -258,11 +311,13 @@ export async function commitWorld(
     const ch = await api.createCharacter(id, proposedToCharacterInput(c));
     const values = startingStatsMap(c.startingStats, stats);
     if (Object.keys(values).length) await api.setCharacterStats(ch.id, values);
+    if (args.generateImages) await renderPortrait(ch.id, c, onProgress);
   }
 
   for (const s of proposed?.settings ?? []) {
     onProgress?.(`Adding ${s.name || "a setting"}…`);
-    await api.createSetting(id, proposedToSettingInput(s));
+    const st = await api.createSetting(id, proposedToSettingInput(s));
+    if (args.generateImages) await renderSceneArt(st.id, s, onProgress);
   }
 
   const corpus = docs.filter((d) => d.text);

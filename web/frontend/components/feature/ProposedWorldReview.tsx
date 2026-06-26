@@ -29,6 +29,9 @@ export function ProposedWorldReview({
   onUpdateSetting,
   onRemoveSetting,
   onDiscard,
+  imagesAvailable,
+  generateImages,
+  onToggleImages,
 }: {
   proposed: ProposedWorld;
   onUpdateCharacter: (index: number, patch: Partial<ProposedCharacter>) => void;
@@ -36,6 +39,10 @@ export function ProposedWorldReview({
   onUpdateSetting: (index: number, patch: Partial<ProposedSetting>) => void;
   onRemoveSetting: (index: number) => void;
   onDiscard: () => void;
+  /** Whether ComfyUI is configured (the image toggle only shows when true). */
+  imagesAvailable: boolean;
+  generateImages: boolean;
+  onToggleImages: (value: boolean) => void;
 }) {
   const { stats, characters, settings } = proposed;
   return (
@@ -72,6 +79,28 @@ export function ProposedWorldReview({
           {stats.map((s) => s.displayName).join(" · ")}
         </p>
       ) : null}
+
+      {/* Opt-in image generation (only when ComfyUI is configured). */}
+      <div className="mt-[12px]">
+        {imagesAvailable ? (
+          <label className="inline-flex cursor-pointer items-center gap-[8px]">
+            <input
+              type="checkbox"
+              checked={generateImages}
+              onChange={(e) => onToggleImages(e.target.checked)}
+              className="h-[15px] w-[15px] accent-[var(--accent)]"
+            />
+            <span className="font-body text-[13px] text-ink">
+              Generate portraits &amp; scene art{" "}
+              <span className="text-mute2">(ComfyUI · rendered on create)</span>
+            </span>
+          </label>
+        ) : (
+          <p className="font-body text-[12px] text-mute">
+            Configure ComfyUI in Options to render portraits &amp; scene art on create.
+          </p>
+        )}
+      </div>
 
       <div className="mt-[14px] grid grid-cols-1 gap-[16px] lg:grid-cols-2">
         <div>
