@@ -222,6 +222,8 @@ export interface ProposedCharacter {
   personality: string;
   color: string;
   startingStats: ProposedStartingStat[];
+  /** Client-side only: the portrait URL once it renders during commit (live preview). */
+  portrait?: string | null;
 }
 
 /** A setting drafted by the world build. */
@@ -232,6 +234,8 @@ export interface ProposedSetting {
   atmosphere: string;
   features: string;
   currentState: string;
+  /** Client-side only: the scene-art URL once it renders during commit (live preview). */
+  image?: string | null;
 }
 
 /**

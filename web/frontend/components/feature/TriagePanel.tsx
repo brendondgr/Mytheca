@@ -106,7 +106,10 @@ export function TriagePanel({
   return (
     // Full-height right pane on lg+. The aside itself does NOT scroll — the sticky
     // top (upload + triage) stays pinned, and the inner body scrolls independently.
-    <aside className="flex flex-col border-t border-hair-strong bg-card lg:w-[360px] lg:shrink-0 lg:border-t-0 lg:border-l lg:min-h-0 lg:self-stretch">
+    <aside
+      aria-label="Context files"
+      className="flex flex-col border-t border-hair-strong bg-card lg:w-[360px] lg:shrink-0 lg:border-t-0 lg:border-l lg:min-h-0 lg:self-stretch"
+    >
       {/* ── Sticky top: upload zone + triage button ─────────────────────── */}
       <div className="sticky top-0 z-10 flex flex-col gap-[12px] border-b border-hair-strong bg-card p-[18px_20px]">
         <div className="flex items-center justify-between gap-[8px]">

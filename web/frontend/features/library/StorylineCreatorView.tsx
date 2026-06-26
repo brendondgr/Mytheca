@@ -11,7 +11,7 @@ import { FieldLabel } from "@/components/ui/FieldLabel";
 import { StatsEditor } from "@/components/feature/StatsEditor";
 import { SealModal } from "@/components/feature/SealModal";
 import { TriagePanel } from "@/components/feature/TriagePanel";
-import { ProposedWorldReview } from "@/components/feature/ProposedWorldReview";
+import { WorldBuildPanel } from "@/components/feature/WorldBuildPanel";
 import { useStorylineCreator } from "@/features/library/useStorylineCreator";
 
 /**
@@ -34,6 +34,9 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
   const hasDraftDocs = c.docs.some((d) => d.useDraft && d.text);
   const canBuild = Boolean(seedText || hasDraftDocs);
   const canGeneratePrimer = Boolean(seedText || c.fields.premise.trim());
+  // While building (or once a proposal exists) the right column shows the live
+  // world being built; otherwise it's the Triage / Context-files column.
+  const showWorldPanel = c.building || Boolean(c.proposed);
 
   async function onCommit() {
     const id = await c.commit();
@@ -117,22 +120,8 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
             </section>
           ) : null}
 
-          {/* Proposed-world review (after a build). */}
-          {c.proposed ? (
-            <div className="mt-[16px]">
-              <ProposedWorldReview
-                proposed={c.proposed}
-                onUpdateCharacter={c.updateProposedCharacter}
-                onRemoveCharacter={c.removeProposedCharacter}
-                onUpdateSetting={c.updateProposedSetting}
-                onRemoveSetting={c.removeProposedSetting}
-                onDiscard={c.discardProposal}
-                imagesAvailable={c.imagesAvailable}
-                generateImages={c.generateImages}
-                onToggleImages={c.setGenerateImages}
-              />
-            </div>
-          ) : null}
+          {/* The reviewable proposal lives in the right column (WorldBuildPanel),
+              building live as Velora drafts it. */}
 
           {/* Fields */}
           <div className="mt-[16px] min-w-0">
@@ -246,17 +235,35 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
         </div>
       </div>
 
-      {/* ── Right pane — Context files: full height, own scroll (lg+) ────── */}
-      <TriagePanel
-        docs={c.docs}
-        onAddFiles={(files) => void c.addFiles(files)}
-        onRemove={c.removeDoc}
-        onToggleUse={c.toggleDocUse}
-        onSetCategory={c.setDocCategory}
-        onTriage={c.triage}
-        triaging={c.triaging}
-        budget={c.budget}
-      />
+      {/* ── Right pane — live world build, or the Context files column ───── */}
+      {showWorldPanel ? (
+        <WorldBuildPanel
+          proposed={c.proposed}
+          planConcepts={c.planConcepts}
+          building={c.building}
+          buildStage={c.buildStage}
+          committing={c.committing}
+          onUpdateCharacter={c.updateProposedCharacter}
+          onRemoveCharacter={c.removeProposedCharacter}
+          onUpdateSetting={c.updateProposedSetting}
+          onRemoveSetting={c.removeProposedSetting}
+          onDiscard={c.discardProposal}
+          imagesAvailable={c.imagesAvailable}
+          generateImages={c.generateImages}
+          onToggleImages={c.setGenerateImages}
+        />
+      ) : (
+        <TriagePanel
+          docs={c.docs}
+          onAddFiles={(files) => void c.addFiles(files)}
+          onRemove={c.removeDoc}
+          onToggleUse={c.toggleDocUse}
+          onSetCategory={c.setDocCategory}
+          onTriage={c.triage}
+          triaging={c.triaging}
+          budget={c.budget}
+        />
+      )}
 
       <SealModal
         open={sealOpen}
