@@ -20,8 +20,8 @@ describe("useStorylineCreator", () => {
       await result.current.addFiles([file("a.md", "A person."), file("b.md", "A place.")]);
     });
     expect(result.current.docs).toHaveLength(2);
-    // Untriaged default: Draft off, RAG on, "other".
-    expect(result.current.docs[0].category).toBe("other");
+    // Untriaged default: Draft off, RAG on, "select" (uncategorized).
+    expect(result.current.docs[0].category).toBe("select");
     expect(result.current.docs[0].triaged).toBe(false);
 
     await act(async () => {

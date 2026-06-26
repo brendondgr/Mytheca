@@ -167,8 +167,11 @@ export interface StatDefinition {
 // (on commit) persists them as the storyline's reference corpus. Mirrors the backend
 // shapes in docs/api-contract.md.
 
-/** Triage bucket — one character, one setting, or general/multi ("other"). */
-export type DocCategory = "character" | "setting" | "other";
+/**
+ * Triage bucket. `"select"` is a UI-only placeholder meaning "not yet categorized";
+ * it is mapped to `"other"` at the API boundary and never sent to the backend.
+ */
+export type DocCategory = "character" | "setting" | "other" | "select";
 
 /** A persisted, triaged reference document (the RAG-corpus seam). */
 export interface ContextDocument {

@@ -57,9 +57,9 @@ describe("storylineCreator.persistStatsDiff", () => {
 });
 
 describe("storylineCreator helpers", () => {
-  it("a fresh doc starts untriaged: Other, RAG on, Draft off", () => {
+  it("a fresh doc starts untriaged: Select (uncategorized), RAG on, Draft off", () => {
     const d = toCreatorDoc({ name: "a.md", text: "x" });
-    expect(d.category).toBe("other");
+    expect(d.category).toBe("select");
     expect(d.triaged).toBe(false);
     expect(d.useDraft).toBe(false);
     expect(d.useRag).toBe(true);

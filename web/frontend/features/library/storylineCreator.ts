@@ -97,13 +97,13 @@ export function isCreatorValid(f: CreatorFields): boolean {
   return Boolean(f.title.trim());
 }
 
-/** A freshly-dropped doc: not yet triaged → "other", RAG on, Draft off. */
+/** A freshly-dropped doc: not yet triaged → "select" (uncategorized), RAG on, Draft off. */
 export function toCreatorDoc(doc: ReadDoc): CreatorDoc {
   return {
     ...doc,
     useDraft: doc.useDraft ?? false,
     useRag: doc.useRag ?? true,
-    category: "other",
+    category: "select",
     triaged: false,
   };
 }
@@ -172,7 +172,8 @@ export function docToContextInput(d: CreatorDoc): ContextDocumentInput {
   return {
     name: d.name,
     content: d.text,
-    category: d.category,
+    // "select" is a UI-only placeholder; fall back to "other" at the API boundary.
+    category: d.category === "select" ? "other" : d.category,
     includeDraft: Boolean(d.useDraft),
     includeRag: d.useRag ?? true,
     source: "upload",
