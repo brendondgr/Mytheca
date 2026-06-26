@@ -17,6 +17,7 @@ from app.core.ids import new_hex_id
 
 if TYPE_CHECKING:
     from app.models.character import Character
+    from app.models.context_document import ContextDocument
     from app.models.scenario import Scenario
     from app.models.setting import Setting
     from app.models.stat import StatDefinition
@@ -62,4 +63,11 @@ class Storyline(Base):
     stat_definitions: Mapped[list[StatDefinition]] = relationship(
         back_populates="storyline",
         cascade="all, delete-orphan",
+    )
+    # Triaged reference documents (the persisted RAG corpus seam). Cascade-deleted
+    # with the world like every other owned collection.
+    context_documents: Mapped[list[ContextDocument]] = relationship(
+        back_populates="storyline",
+        cascade="all, delete-orphan",
+        order_by="ContextDocument.position",
     )

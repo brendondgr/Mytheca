@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { LibraryView } from "./LibraryView";
@@ -28,209 +28,24 @@ describe("LibraryView — editors & modals", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("creates a storyline via the switcher's write-first modal", async () => {
-    const user = userEvent.setup();
-    render(<LibraryView />);
-    await screen.findAllByText("The Embergate Conspiracy");
-
-    // Open the storyline switcher, then the create action.
-    await user.click(screen.getByTitle(/switch storyline/i));
-    await user.click(screen.getByRole("button", { name: /new storyline/i }));
-
-    const dialog = screen.getByRole("dialog");
-    // The seed box is live; "Draft with Velora" stays disabled until a seed is typed.
-    const seedBox = within(dialog).getByLabelText(/describe the world to draft/i);
-    expect(seedBox).toBeEnabled();
-    expect(
-      within(dialog).getByRole("button", { name: /draft with velora/i }),
-    ).toBeDisabled();
-
-    // Title is required: the create button is disabled until it's filled.
-    const createBtn = within(dialog).getByRole("button", { name: /create world/i });
-    expect(createBtn).toBeDisabled();
-
-    await user.type(within(dialog).getByLabelText(/title/i), "Tidefall");
-    await user.type(
-      within(dialog).getByLabelText(/premise/i),
-      "A sunken archipelago.\n\nThree fleets vie for the last dry harbor.",
-    );
-
-    // Open the seal pop-up and pick a custom seal: a star symbol and teal color.
-    await user.click(within(dialog).getByRole("button", { name: /edit/i }));
-    const sealDialog = screen.getByRole("dialog", { name: /seal/i });
-    await user.click(within(sealDialog).getByRole("button", { name: "Symbol ★" }));
-    await user.click(within(sealDialog).getByRole("button", { name: "Color #2F7D6B" }));
-    await user.click(within(sealDialog).getByRole("button", { name: /done/i }));
-
-    expect(createBtn).toBeEnabled();
-    await user.click(createBtn);
-
-    // The chosen seal is sent to the backend on create.
-    expect(vi.mocked(api.createStoryline)).toHaveBeenCalledWith(
-      expect.objectContaining({ symbol: "★", symbolColor: "#2F7D6B" }),
-    );
-
-    // The new world becomes active (its title shows in the switcher) and the modal closes.
-    expect(await screen.findByText("Tidefall")).toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("drafts metadata from a seed and persists a generated World Primer", async () => {
+  it("navigates to the New Storyline page from the switcher", async () => {
+    const { useRouter } = await import("next/navigation");
+    const push = vi.mocked(useRouter().push);
+    push.mockClear();
     const user = userEvent.setup();
     render(<LibraryView />);
     await screen.findAllByText("The Embergate Conspiracy");
 
     await user.click(screen.getByTitle(/switch storyline/i));
     await user.click(screen.getByRole("button", { name: /new storyline/i }));
-    const dialog = screen.getByRole("dialog");
 
-    // Seed → "Draft with Velora" fills the metadata fields from the agent.
-    await user.type(
-      within(dialog).getByLabelText(/describe the world to draft/i),
-      "A drowned harbor town.",
-    );
-    const draftBtn = within(dialog).getByRole("button", { name: /draft with velora/i });
-    expect(draftBtn).toBeEnabled();
-    await user.click(draftBtn);
-
-    expect(vi.mocked(api.draftStoryline)).toHaveBeenCalledWith(
-      "A drowned harbor town.",
-      undefined,
-    );
-    const titleInput = within(dialog).getByLabelText(/title/i);
-    await waitFor(() => expect(titleInput).toHaveValue("Drafted World"));
-    expect(within(dialog).getByLabelText(/^premise$/i)).toHaveValue(
-      "Drafted premise paragraph one.\n\nDrafted premise paragraph two.",
-    );
-
-    // Generate the World Primer from the seed + premise; it lands in the field.
-    await user.click(within(dialog).getByRole("button", { name: /generate primer/i }));
-    expect(vi.mocked(api.generateWorldPrimer)).toHaveBeenCalled();
-    const primerBox = within(dialog).getByLabelText(/^world primer$/i);
-    await waitFor(() =>
-      expect(primerBox).toHaveValue(
-        "A generated, agent-facing primer.\n\nThree powers govern the world.",
-      ),
-    );
-
-    // Create — the generated primer is persisted alongside the metadata.
-    await user.click(within(dialog).getByRole("button", { name: /create world/i }));
-    expect(vi.mocked(api.createStoryline)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "Drafted World",
-        worldPrimer:
-          "A generated, agent-facing primer.\n\nThree powers govern the world.",
-      }),
-    );
+    expect(push).toHaveBeenCalledWith("/storylines/new");
   });
 
-  it("grounds primer generation with a dropped reference file's text", async () => {
-    const user = userEvent.setup();
-    render(<LibraryView />);
-    await screen.findAllByText("The Embergate Conspiracy");
-
-    await user.click(screen.getByTitle(/switch storyline/i));
-    await user.click(screen.getByRole("button", { name: /new storyline/i }));
-    const dialog = screen.getByRole("dialog");
-
-    // Upload a reference file; a removable chip confirms it was read in.
-    const file = new File(["The Grull hunts by vibration. GRULL_MARKER"], "bestiary.md", {
-      type: "text/markdown",
-    });
-    await user.upload(within(dialog).getByLabelText(/browse files/i), file);
-    expect(
-      await within(dialog).findByRole("button", { name: /remove bestiary\.md/i }),
-    ).toBeInTheDocument();
-
-    // The dropped file's text is passed to ground the generation (no upload/persist).
-    await user.type(within(dialog).getByLabelText(/^premise$/i), "A world of predators.");
-    await user.click(within(dialog).getByRole("button", { name: /generate primer/i }));
-    await waitFor(() =>
-      expect(vi.mocked(api.generateWorldPrimer)).toHaveBeenCalledWith(
-        expect.objectContaining({
-          docsOverview: expect.stringContaining("GRULL_MARKER"),
-        }),
-      ),
-    );
-
-    // Removing the file clears the chip.
-    await user.click(within(dialog).getByRole("button", { name: /remove bestiary\.md/i }));
-    expect(
-      within(dialog).queryByRole("button", { name: /remove bestiary\.md/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("drops a context from grounding when its Draft toggle is turned off", async () => {
-    const user = userEvent.setup();
-    render(<LibraryView />);
-    await screen.findAllByText("The Embergate Conspiracy");
-
-    await user.click(screen.getByTitle(/switch storyline/i));
-    await user.click(screen.getByRole("button", { name: /new storyline/i }));
-    const dialog = screen.getByRole("dialog");
-
-    const file = new File(["The Grull hunts by vibration. GRULL_MARKER"], "bestiary.md", {
-      type: "text/markdown",
-    });
-    await user.upload(within(dialog).getByLabelText(/browse files/i), file);
-
-    // The dropped file is showcased with per-use toggles; it starts Draft-enabled.
-    const draftToggle = await within(dialog).findByRole("button", {
-      name: /draft for bestiary\.md/i,
-    });
-    expect(draftToggle).toHaveAttribute("aria-pressed", "true");
-    await user.click(draftToggle); // opt this context out of grounding
-    expect(draftToggle).toHaveAttribute("aria-pressed", "false");
-
-    await user.type(within(dialog).getByLabelText(/^premise$/i), "A world of predators.");
-    await user.click(within(dialog).getByRole("button", { name: /generate primer/i }));
-    await waitFor(() => expect(vi.mocked(api.generateWorldPrimer)).toHaveBeenCalled());
-
-    // With Draft off (and no other enabled file), no grounding text is sent.
-    const lastCall = vi.mocked(api.generateWorldPrimer).mock.calls.at(-1)?.[0];
-    expect(lastCall?.docsOverview).toBeUndefined();
-  });
-
-  it("bulk-selects and deselects a context category for every dropped file", async () => {
-    const user = userEvent.setup();
-    render(<LibraryView />);
-    await screen.findAllByText("The Embergate Conspiracy");
-
-    await user.click(screen.getByTitle(/switch storyline/i));
-    await user.click(screen.getByRole("button", { name: /new storyline/i }));
-    const dialog = screen.getByRole("dialog");
-
-    const f1 = new File(["ALPHA_MARKER"], "a.md", { type: "text/markdown" });
-    const f2 = new File(["BETA_MARKER"], "b.md", { type: "text/markdown" });
-    await user.upload(within(dialog).getByLabelText(/browse files/i), [f1, f2]);
-
-    // Both files show; the count reflects two; each starts Draft-enabled.
-    expect(await within(dialog).findByText(/2 files/i)).toBeInTheDocument();
-    const draftA = within(dialog).getByRole("button", { name: /draft for a\.md/i });
-    const draftB = within(dialog).getByRole("button", { name: /draft for b\.md/i });
-    expect(draftA).toHaveAttribute("aria-pressed", "true");
-    expect(draftB).toHaveAttribute("aria-pressed", "true");
-
-    // "None" for Draft turns every file's Draft off at once.
-    await user.click(within(dialog).getByRole("button", { name: /^deselect all for draft$/i }));
-    expect(draftA).toHaveAttribute("aria-pressed", "false");
-    expect(draftB).toHaveAttribute("aria-pressed", "false");
-
-    // With Draft off for all, generation grounds with nothing.
-    await user.type(within(dialog).getByLabelText(/^premise$/i), "A world.");
-    await user.click(within(dialog).getByRole("button", { name: /generate primer/i }));
-    await waitFor(() => expect(vi.mocked(api.generateWorldPrimer)).toHaveBeenCalled());
-    expect(
-      vi.mocked(api.generateWorldPrimer).mock.calls.at(-1)?.[0]?.docsOverview,
-    ).toBeUndefined();
-
-    // "All" restores them.
-    await user.click(within(dialog).getByRole("button", { name: /^select all for draft$/i }));
-    expect(draftA).toHaveAttribute("aria-pressed", "true");
-    expect(draftB).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("edits a storyline via the switcher", async () => {
+  it("navigates to the storyline edit page from the switcher pencil", async () => {
+    const { useRouter } = await import("next/navigation");
+    const push = vi.mocked(useRouter().push);
+    push.mockClear();
     const user = userEvent.setup();
     render(<LibraryView />);
     await screen.findAllByText("The Embergate Conspiracy");
@@ -238,16 +53,7 @@ describe("LibraryView — editors & modals", () => {
     await user.click(screen.getByTitle(/switch storyline/i));
     await user.click(screen.getByRole("button", { name: /^edit embergate$/i }));
 
-    const dialog = screen.getByRole("dialog");
-    const titleInput = within(dialog).getByLabelText(/title/i);
-    expect(titleInput).toHaveValue("Embergate"); // prefilled from the storyline
-    await user.clear(titleInput);
-    await user.type(titleInput, "Embergate Reborn");
-    await user.click(within(dialog).getByRole("button", { name: /save changes/i }));
-
-    // The switcher reflects the new name and the modal closes.
-    expect(await screen.findByText("Embergate Reborn")).toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(push).toHaveBeenCalledWith("/storylines/embergate/edit");
   });
 
   it("deletes a storyline after a confirmation step", async () => {

@@ -10,18 +10,19 @@ export const DOCS_CHAR_CAP = 8000;
 export interface ReadDoc {
   name: string;
   text: string;
-  // Per-context usage selection (set when a file enters the create modal's draft).
+  // Per-context usage selection (set when a file enters a create modal's draft).
   // `useDraft` grounds Velora's drafting/primer generation and is wired today.
-  // `useRag` (retrieval corpus) and `useKg` (knowledge-graph source document) are
-  // forward-looking seams — the RAG/KG systems are a later plan, so these flags are
-  // not yet persisted or sent anywhere. Undefined is treated as ON for back-compat.
+  // `useRag` marks the retrieval corpus; on the New Storyline page it is persisted
+  // (as `ContextDocument.includeRag`), though retrieval itself is still a later plan.
+  // (The former `useKg` knowledge-graph toggle was removed — documents triaged into
+  // Characters/Settings already feed the graph via their entities.)
+  // Undefined is treated as ON for back-compat.
   useDraft?: boolean;
   useRag?: boolean;
-  useKg?: boolean;
 }
 
-/** The three downstream uses an author can toggle per context file. */
-export type DocUse = "useDraft" | "useRag" | "useKg";
+/** The downstream uses an author can toggle per context file. */
+export type DocUse = "useDraft" | "useRag";
 
 /** True for the plain-text formats we can read in the browser today. */
 export function isAcceptedDoc(name: string): boolean {

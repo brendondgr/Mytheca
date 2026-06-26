@@ -4,14 +4,12 @@ import { Eyebrow } from "@/components/ui/Eyebrow";
 import { cn } from "@/lib/cn";
 import { readDocFiles, type DocUse, type ReadDoc } from "@/lib/readDocs";
 
-// Per-context usage toggles shown on each dropped reference file. Only "Draft"
-// is wired today (it grounds Velora's drafting + generation); "RAG" and "KG" are
-// forward-looking seams for the deferred retrieval / knowledge-graph systems —
-// selected here but not yet persisted or sent anywhere.
+// Per-context usage toggles shown on each dropped reference file. "Draft" grounds
+// Velora's drafting + generation (wired); "RAG" marks the retrieval corpus (the New
+// Storyline page persists it; retrieval itself is a later plan).
 const DOC_USES: { key: DocUse; label: string; title: string }[] = [
   { key: "useDraft", label: "Draft", title: "Ground Velora's drafting" },
-  { key: "useRag", label: "RAG", title: "Include in the retrieval corpus (coming soon)" },
-  { key: "useKg", label: "KG", title: "Source for the knowledge graph (coming soon)" },
+  { key: "useRag", label: "RAG", title: "Include in the retrieval corpus" },
 ];
 
 /**
@@ -55,7 +53,6 @@ export function ContextFilesPanel({
         ...doc,
         useDraft: prev?.useDraft ?? true,
         useRag: prev?.useRag ?? true,
-        useKg: prev?.useKg ?? true,
       });
     }
     setDocFiles(Array.from(byName.values()));

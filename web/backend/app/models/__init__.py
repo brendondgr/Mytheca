@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.core.db import Base
 from app.models.app_setting import AppSetting
 from app.models.character import Character
+from app.models.context_document import ContextDocument
 from app.models.event import Event
 from app.models.graph_type import GraphTypeDefinition
 from app.models.scenario import Scenario
@@ -18,6 +19,7 @@ __all__ = [
     "AppSetting",
     "Storyline",
     "Character",
+    "ContextDocument",
     "Setting",
     "Scenario",
     "StatDefinition",

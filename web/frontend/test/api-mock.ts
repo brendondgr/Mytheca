@@ -32,6 +32,19 @@ export function makeApiMock() {
         symbolColor: s.symbolColor,
       })),
     ),
+    getStoryline: vi.fn(async (id: string) => {
+      const s = SEED_STORYLINES.find((x) => x.id === id) ?? SEED_STORYLINES[0];
+      return {
+        id,
+        title: s.title,
+        genre: s.genre,
+        tagline: s.tagline,
+        premise: s.premise,
+        worldPrimer: s.worldPrimer,
+        symbol: s.symbol,
+        symbolColor: s.symbolColor,
+      };
+    }),
     createStoryline: vi.fn(
       async (body: {
         title?: string;
@@ -78,6 +91,89 @@ export function makeApiMock() {
     generateWorldPrimer: vi.fn(async () => ({
       worldPrimer: "A generated, agent-facing primer.\n\nThree powers govern the world.",
     })),
+
+    // ---- triage + world build (the New Storyline page) ----
+    triageDocuments: vi.fn(async (docs: { name: string; text: string }[]) => ({
+      items: docs.map((d, i) => ({
+        name: d.name,
+        category: (["character", "setting", "other"] as const)[i % 3],
+        includeDraft: i % 3 === 2,
+        includeRag: true,
+        rationale: "mocked",
+      })),
+    })),
+    buildWorld: vi.fn(async () => ({
+      storyline: {
+        title: "Built World",
+        genre: "Built Genre",
+        tagline: "A built tagline.",
+        premise: "Built premise.",
+        worldPrimer: "Built primer.",
+      },
+      stats: [
+        {
+          key: "health",
+          displayName: "Health",
+          description: "Body.",
+          min: 0,
+          max: 100,
+          default: 100,
+          visibility: "public",
+          guidance: null,
+          appliesTo: ["character"],
+          bands: [],
+        },
+      ],
+      characters: [
+        {
+          name: "Built Hero",
+          role: "Lead",
+          traits: "Bold",
+          speech: "Terse.",
+          goal: "Win.",
+          secret: "Hidden.",
+          appearance: "Tall.",
+          background: "Born here.",
+          personality: "Driven.",
+          color: "#3A5A78",
+          startingStats: [{ key: "health", value: 100 }],
+        },
+      ],
+      settings: [
+        {
+          name: "Built Place",
+          type: "Social Hub",
+          desc: "Lamplit.",
+          atmosphere: "Warm.",
+          features: "A bar.",
+          currentState: "Open.",
+        },
+      ],
+    })),
+
+    // ---- context documents (the persisted triaged RAG corpus) ----
+    listContextDocuments: vi.fn(async () => [] as unknown[]),
+    bulkCreateContextDocuments: vi.fn(
+      async (storylineId: string, docs: Record<string, unknown>[]) =>
+        docs.map((body, i) => ({
+          id: nid("cd"),
+          storylineId,
+          name: "doc.md",
+          content: "",
+          category: "other",
+          includeDraft: false,
+          includeRag: true,
+          source: "upload",
+          charCount: 0,
+          ...body,
+          position: i,
+        })),
+    ),
+    updateContextDocument: vi.fn(async (docId: string, body: Record<string, unknown>) => ({
+      id: docId,
+      ...body,
+    })),
+    deleteContextDocument: vi.fn(async () => {}),
 
     listCharacters: vi.fn(async () => SEED_CHARACTERS),
     listSettings: vi.fn(async () => SEED_SETTINGS),

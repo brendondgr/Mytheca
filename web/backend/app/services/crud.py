@@ -15,9 +15,13 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
 from app.core.ids import new_hex_id, new_id
-from app.models import Character, Scenario, Setting, Storyline
+from app.models import Character, ContextDocument, Scenario, Setting, Storyline
 from app.services import graph_writer
 from app.schemas.character import CharacterCreate, CharacterUpdate
+from app.schemas.context_document import (
+    ContextDocumentCreate,
+    ContextDocumentUpdate,
+)
 from app.schemas.scenario import ScenarioCreate, ScenarioUpdate
 from app.schemas.setting import SettingCreate, SettingUpdate
 from app.schemas.storyline import StorylineCreate, StorylineUpdate
@@ -122,6 +126,95 @@ def update_storyline(db: Session, storyline_id: str, data: StorylineUpdate) -> S
 
 def delete_storyline(db: Session, storyline_id: str) -> None:
     db.delete(get_storyline(db, storyline_id))  # ORM cascade removes children
+    db.commit()
+
+
+# ---- context documents (the persisted triaged RAG corpus) ------------------
+
+
+def list_context_documents(db: Session, storyline_id: str) -> list[ContextDocument]:
+    get_storyline(db, storyline_id)
+    return list(
+        db.scalars(
+            select(ContextDocument)
+            .where(ContextDocument.storyline_id == storyline_id)
+            .order_by(ContextDocument.position, ContextDocument.name)
+        )
+    )
+
+
+def get_context_document(db: Session, doc_id: str) -> ContextDocument:
+    doc = db.get(ContextDocument, doc_id)
+    if doc is None:
+        raise APIError(404, "not_found", f"Context document '{doc_id}' not found.")
+    return doc
+
+
+def _new_context_document(
+    db: Session, storyline_id: str, data: ContextDocumentCreate, position: int
+) -> ContextDocument:
+    _require_unique_id(db, ContextDocument, data.id)
+    content = data.content or ""
+    return ContextDocument(
+        id=data.id or new_id("cd"),
+        storyline_id=storyline_id,
+        name=data.name,
+        content=content,
+        category=data.category,
+        include_draft=data.include_draft,
+        include_rag=data.include_rag,
+        source=data.source,
+        char_count=len(content),
+        position=position,
+    )
+
+
+def create_context_document(
+    db: Session, storyline_id: str, data: ContextDocumentCreate
+) -> ContextDocument:
+    get_storyline(db, storyline_id)
+    doc = _new_context_document(
+        db, storyline_id, data, _next_position(db, ContextDocument, storyline_id)
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
+def bulk_create_context_documents(
+    db: Session, storyline_id: str, docs: list[ContextDocumentCreate]
+) -> list[ContextDocument]:
+    """Persist a whole triaged corpus in one transaction (the page commit)."""
+    get_storyline(db, storyline_id)
+    start = _next_position(db, ContextDocument, storyline_id)
+    created = [
+        _new_context_document(db, storyline_id, data, start + i)
+        for i, data in enumerate(docs)
+    ]
+    db.add_all(created)
+    db.commit()
+    for doc in created:
+        db.refresh(doc)
+    return created
+
+
+def update_context_document(
+    db: Session, doc_id: str, data: ContextDocumentUpdate
+) -> ContextDocument:
+    doc = get_context_document(db, doc_id)
+    patch = data.model_dump(exclude_unset=True)
+    for key, value in patch.items():
+        setattr(doc, key, value)
+    if "content" in patch:
+        doc.char_count = len(doc.content or "")
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
+def delete_context_document(db: Session, doc_id: str) -> None:
+    db.delete(get_context_document(db, doc_id))
     db.commit()
 
 

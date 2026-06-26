@@ -45,7 +45,7 @@ velora/
 │   │       ├── content/    # Authored content — the built-in Story-Graph type catalogue (graph_registry.py); YAML config + Markdown stat guidance later
 │   │       ├── memory/     # Memory seam (Postgres/Redis now; vector DB later)
 │   │       ├── events/     # Event / NDJSON stream definitions (5 event types)
-│   │       ├── models/     # PostgreSQL models (storylines, characters, settings, scenarios, events, stats, app_settings, graph_type_definitions)
+│   │       ├── models/     # PostgreSQL models (storylines, characters, settings, scenarios, events, stats, app_settings, graph_type_definitions, context_documents)
 │   │       ├── schemas/    # Pydantic request/response + event schemas (stat clamping)
 │   │       └── core/       # Config, db/redis/neo4j clients, LLM provider interface, YAML/Markdown loaders
 │   └── shared/

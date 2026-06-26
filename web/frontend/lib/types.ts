@@ -162,6 +162,89 @@ export interface StatDefinition {
   bands: StatBand[];
 }
 
+// ---- Context documents + the triaged world build ---------------------------
+// The New Storyline page drops `.txt`/`.md` files, triages them into buckets, and
+// (on commit) persists them as the storyline's reference corpus. Mirrors the backend
+// shapes in docs/api-contract.md.
+
+/** Triage bucket — one character, one setting, or general/multi ("other"). */
+export type DocCategory = "character" | "setting" | "other";
+
+/** A persisted, triaged reference document (the RAG-corpus seam). */
+export interface ContextDocument {
+  id: string;
+  storylineId: string;
+  name: string;
+  content: string;
+  category: DocCategory;
+  /** Grounds Velora's drafting (world-setting docs). */
+  includeDraft: boolean;
+  /** Member of the retrieval corpus (retrieval itself is deferred). */
+  includeRag: boolean;
+  source: string;
+  charCount: number;
+}
+
+/** One Triage classification for a dropped doc (before persistence). */
+export interface TriageItem {
+  name: string;
+  category: DocCategory;
+  includeDraft: boolean;
+  includeRag: boolean;
+  rationale: string;
+}
+
+/** The storyline core of a build proposal. */
+export interface ProposedStoryline {
+  title: string;
+  genre: string;
+  tagline: string;
+  premise: string;
+  worldPrimer: string;
+}
+
+/** A proposed starting value for one universal stat (defaults to the schema). */
+export interface ProposedStartingStat {
+  key: string;
+  value: number;
+}
+
+/** A character drafted by the world build, plus its starting stats. */
+export interface ProposedCharacter {
+  name: string;
+  role: string;
+  traits: string;
+  speech: string;
+  goal: string;
+  secret: string;
+  appearance: string;
+  background: string;
+  personality: string;
+  color: string;
+  startingStats: ProposedStartingStat[];
+}
+
+/** A setting drafted by the world build. */
+export interface ProposedSetting {
+  name: string;
+  type: string;
+  desc: string;
+  atmosphere: string;
+  features: string;
+  currentState: string;
+}
+
+/**
+ * The reviewable world proposal returned by `POST /storylines/build` — drafted but
+ * not persisted; the page reviews then commits it via the normal CRUD endpoints.
+ */
+export interface ProposedWorld {
+  storyline: ProposedStoryline;
+  stats: StatDefinition[];
+  characters: ProposedCharacter[];
+  settings: ProposedSetting[];
+}
+
 // ---- The Story Graph (Neo4j substrate) --------------------------------------
 // One knowledge graph over the storyline's entities. Characters/Settings are
 // node types; their connections are edges. The graph is read live on scenario

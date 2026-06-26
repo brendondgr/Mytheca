@@ -5,8 +5,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.agents import storyline_agent
+from app.agents import build_agent, storyline_agent, triage_agent
 from app.core.db import get_db
+from app.schemas.build import BuildWorldRequest, ProposedWorld
+from app.schemas.context_document import TriageRequest, TriageResponse
 from app.schemas.storyline import (
     StorylineCreate,
     StorylineDraftRequest,
@@ -45,6 +47,25 @@ def generate_world_primer(data: WorldPrimerRequest, db: Session = Depends(get_db
     """Generate the agent-facing World Primer from the seed + premise."""
     primer = storyline_agent.generate_world_primer(db, data.premise, data.seed, data.docs_overview)
     return WorldPrimerResponse(world_primer=primer)
+
+
+@router.post("/triage", response_model=TriageResponse)
+def triage_documents(data: TriageRequest, db: Session = Depends(get_db)):
+    """Classify dropped reference docs → Characters / Settings / Other · Draft/RAG."""
+    return triage_agent.triage_documents(db, data.docs, data.storyline_id)
+
+
+@router.post("/build", response_model=ProposedWorld)
+def build_world(data: BuildWorldRequest, db: Session = Depends(get_db)):
+    """Draft an entire world (metadata, primer, stats, cast, settings) for review."""
+    return build_agent.build_world(
+        db,
+        data.seed,
+        data.docs_overview,
+        data.storyline_id,
+        max_characters=data.max_characters,
+        max_settings=data.max_settings,
+    )
 
 
 @router.get("/{storyline_id}", response_model=StorylineRead)
