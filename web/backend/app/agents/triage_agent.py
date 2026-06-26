@@ -41,7 +41,7 @@ from app.services import llm
 # Per-document snippet cap: classification needs the gist, not the whole file.
 _DOC_SNIPPET = 1500
 # Total cap on the assembled triage prompt (mirrors _common.DOCS_CAP).
-_TOTAL_CAP = 8000
+_TOTAL_CAP = 32000
 
 _VALID_CATEGORIES = {"character", "setting", "other"}
 

@@ -196,10 +196,11 @@ export function WorldBuildPanel({
   const empty = chars.length + settings.length + pendingChars.length + pendingSettings.length === 0;
 
   return (
-    // Full-height right pane on lg+ (mirrors TriagePanel): sticky header + scroll body.
+    // Contained right pane (mirrors TriagePanel): fixed-width column at md+, bounded
+    // strip below md; sticky header + independently scrolling body.
     <section
       aria-label={building ? "World being built" : "Proposed world"}
-      className="flex flex-col border-t border-hair-strong bg-card lg:w-[360px] lg:shrink-0 lg:border-t-0 lg:border-l lg:min-h-0 lg:self-stretch"
+      className="flex min-h-0 max-h-[42dvh] shrink-0 flex-col border-t border-hair-strong bg-card md:max-h-none md:w-[360px] md:border-t-0 md:border-l md:self-stretch"
     >
       {/* ── Sticky top: stage / summary + controls ──────────────────────── */}
       <div className="sticky top-0 z-10 flex flex-col gap-[10px] border-b border-hair-strong bg-card p-[18px_20px]">
@@ -252,7 +253,7 @@ export function WorldBuildPanel({
       </div>
 
       {/* ── Scrollable body: cast + settings ─────────────────────────────── */}
-      <div className="flex flex-1 flex-col gap-[16px] overflow-y-auto p-[18px_20px] pt-[16px]">
+      <div className="flex min-h-0 flex-1 flex-col gap-[16px] overflow-y-auto p-[18px_20px] pt-[16px]">
         {empty ? (
           <p className="font-body text-[13px] text-ink-soft">
             The cast and settings will appear here as Velora drafts them.

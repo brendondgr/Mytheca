@@ -12,8 +12,8 @@ export const CHARS_PER_TOKEN = 4;
 /** Soft cap (tokens) on the World Primer — it rides along in every scene. */
 export const PRIMER_SOFT_CAP_TOKENS = 1500;
 
-/** Grounding cap (tokens) — draft docs are truncated to ~8000 chars server-side. */
-export const DRAFT_DOCS_CAP_TOKENS = 2000;
+/** Grounding cap (tokens) — draft docs are truncated to ~32000 chars server-side. */
+export const DRAFT_DOCS_CAP_TOKENS = 8000;
 
 export type BudgetLevel = "ok" | "warn" | "over";
 

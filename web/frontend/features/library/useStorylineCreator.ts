@@ -26,6 +26,7 @@ import {
   renderProposalImages,
   toCreatorDoc,
   type TriageActive,
+  type UploadDefaults,
   upsertAt,
 } from "@/features/library/storylineCreator";
 
@@ -131,20 +132,39 @@ export function useStorylineCreator(editId?: string) {
   );
 
   // ---- context-file management ----
-  const addFiles = useCallback(async (files: FileList | File[] | null) => {
-    if (!files) return;
-    const read = await readDocFiles(Array.from(files));
-    if (read.length === 0) return;
-    setDocs((prev) => {
-      const byName = new Map(prev.map((d) => [d.name, d]));
-      for (const doc of read) {
-        const existing = byName.get(doc.name);
-        // Re-dropping a name keeps its triage choices; a new file starts untriaged.
-        byName.set(doc.name, existing ? { ...existing, text: doc.text } : toCreatorDoc(doc));
-      }
-      return Array.from(byName.values());
-    });
-  }, []);
+  // `opts` carries the author's chosen upload target (category + Draft/RAG), so a
+  // whole batch can be dropped pre-categorized (e.g. "Characters") with no triage. When
+  // omitted, files land Uncategorized with the default Draft/RAG.
+  const addFiles = useCallback(
+    async (files: FileList | File[] | null, opts: UploadDefaults = {}) => {
+      if (!files) return;
+      const read = await readDocFiles(Array.from(files));
+      if (read.length === 0) return;
+      setDocs((prev) => {
+        const byName = new Map(prev.map((d) => [d.name, d]));
+        for (const doc of read) {
+          const existing = byName.get(doc.name);
+          if (existing) {
+            // Re-dropping a name refreshes its text; if the author picked a target for
+            // this batch, apply it (they're explicitly re-bucketing) — else keep choices.
+            const category = opts.category ?? existing.category;
+            byName.set(doc.name, {
+              ...existing,
+              text: doc.text,
+              category,
+              triaged: category !== "select" ? true : existing.triaged,
+              useDraft: opts.useDraft ?? existing.useDraft,
+              useRag: opts.useRag ?? existing.useRag,
+            });
+          } else {
+            byName.set(doc.name, toCreatorDoc(doc, opts));
+          }
+        }
+        return Array.from(byName.values());
+      });
+    },
+    [],
+  );
 
   const removeDoc = useCallback(
     (name: string) => setDocs((prev) => prev.filter((d) => d.name !== name)),
@@ -167,7 +187,9 @@ export function useStorylineCreator(editId?: string) {
   // Triage streams per file: each `item` event fills one row as it's classified,
   // so the panel sorts documents in front of the author instead of all at once.
   const triage = useCallback(async () => {
-    const withText = docs.filter((d) => d.text);
+    // Only sweep the Uncategorized leftovers — files the author (or a prior triage)
+    // already bucketed keep their category.
+    const withText = docs.filter((d) => d.text && d.category === "select");
     if (withText.length === 0) return;
     triageAbort.current?.abort();
     const ac = new AbortController();

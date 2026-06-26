@@ -21,8 +21,8 @@ from app.schemas.settings import LlmParams
 from app.services import crud, settings_store
 
 # Cap on inline reference text passed to a single generation (the frontend also
-# caps); keeps the prompt bounded without any storage.
-DOCS_CAP = 8000
+# caps via DOCS_CHAR_CAP); keeps the prompt bounded without any storage.
+DOCS_CAP = 32000
 
 # Backend-set thinking budget for the authoring generations (storyline / character /
 # setting drafts + the world build). The user has no UI lever for this — it is fixed

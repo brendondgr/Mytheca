@@ -97,14 +97,27 @@ export function isCreatorValid(f: CreatorFields): boolean {
   return Boolean(f.title.trim());
 }
 
-/** A freshly-dropped doc: not yet triaged → "select" (uncategorized), RAG on, Draft off. */
-export function toCreatorDoc(doc: ReadDoc): CreatorDoc {
+/** Defaults the author can pre-apply to a batch of uploads. */
+export interface UploadDefaults {
+  category?: DocCategory;
+  useDraft?: boolean;
+  useRag?: boolean;
+}
+
+/**
+ * A freshly-dropped doc. By default it is Uncategorized ("select"), RAG on, Draft off.
+ * When the author picked an upload target (category / Draft / RAG), those are applied
+ * so a whole batch lands pre-categorized — no Triage needed for it. A doc dropped into
+ * a real category counts as already triaged (Triage then only sweeps the leftovers).
+ */
+export function toCreatorDoc(doc: ReadDoc, opts: UploadDefaults = {}): CreatorDoc {
+  const category = opts.category ?? "select";
   return {
     ...doc,
-    useDraft: doc.useDraft ?? false,
-    useRag: doc.useRag ?? true,
-    category: "select",
-    triaged: false,
+    useDraft: opts.useDraft ?? doc.useDraft ?? false,
+    useRag: opts.useRag ?? doc.useRag ?? true,
+    category,
+    triaged: category !== "select",
   };
 }
 
