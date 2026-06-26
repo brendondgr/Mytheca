@@ -28,9 +28,12 @@ from app.schemas.settings import (
     LlmModelsResponse,
     LlmTestRequest,
     LlmTestResponse,
+    MediaCleanupResponse,
+    MediaDirOrphans,
+    MediaOrphansResponse,
     SettingsRead,
 )
-from app.services import comfyui, llm, llm_backend, settings_store
+from app.services import comfyui, llm, llm_backend, media_cleanup, settings_store
 from app.services.llm_backend import InferenceBackend
 
 router = APIRouter(prefix="/options", tags=["options"])
@@ -115,4 +118,60 @@ def comfy_status(data: ComfyStatusRequest, db: Session = Depends(get_db)):
         comfyui_version=str(system.get("comfyui_version", "")),
         device=device,
         python_version=str(system.get("python_version", "")),
+    )
+
+
+# ---- Orphaned-media cleanup ------------------------------------------------
+
+
+@router.get("/media/orphans", response_model=MediaOrphansResponse)
+def scan_media_orphans(
+    min_age_hours: float = 24.0,
+    db: Session = Depends(get_db),
+):
+    """Dry-run scan: report orphaned WebP files without deleting anything.
+
+    A file is an orphan when its basename is not referenced by any
+    ``Character.portrait`` or ``Setting.image`` DB column.  Only files older
+    than ``min_age_hours`` are counted as *eligible* for deletion (the rest are
+    within the in-flight-draft grace period).
+    """
+    report = media_cleanup.scan_orphans(db, min_age_hours=min_age_hours)
+    return MediaOrphansResponse(
+        portraits=MediaDirOrphans(
+            orphan_count=report.portraits.orphan_count,
+            eligible_count=report.portraits.eligible_count,
+            total_bytes=report.portraits.total_bytes,
+            eligible_bytes=report.portraits.eligible_bytes,
+        ),
+        scenes=MediaDirOrphans(
+            orphan_count=report.scenes.orphan_count,
+            eligible_count=report.scenes.eligible_count,
+            total_bytes=report.scenes.total_bytes,
+            eligible_bytes=report.scenes.eligible_bytes,
+        ),
+        orphan_count=report.orphan_count,
+        eligible_count=report.eligible_count,
+        total_bytes=report.total_bytes,
+        eligible_bytes=report.eligible_bytes,
+        min_age_hours=report.min_age_hours,
+    )
+
+
+@router.post("/media/cleanup", response_model=MediaCleanupResponse)
+def cleanup_media_orphans(
+    min_age_hours: float = 24.0,
+    db: Session = Depends(get_db),
+):
+    """Delete eligible orphaned WebP files.
+
+    Only files that are both unreferenced in the DB *and* older than
+    ``min_age_hours`` are deleted.  Files within the grace period are
+    skipped and counted in ``skippedRecentCount``.
+    """
+    result = media_cleanup.delete_orphans(db, min_age_hours=min_age_hours)
+    return MediaCleanupResponse(
+        deleted_count=result.deleted_count,
+        freed_bytes=result.freed_bytes,
+        skipped_recent_count=result.skipped_recent_count,
     )
