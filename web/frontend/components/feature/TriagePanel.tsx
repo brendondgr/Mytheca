@@ -10,8 +10,8 @@ import { ContextBudgetMeter } from "@/components/feature/ContextBudgetMeter";
 
 const GROUPS: { key: DocCategory; label: string; hint: string }[] = [
   { key: "character", label: "Characters", hint: "Character details" },
-  { key: "setting", label: "Settings", hint: "Setting details" },
   { key: "other", label: "Other", hint: "Full / multi-subject documents" },
+  { key: "setting", label: "Settings", hint: "Setting details" },
 ];
 
 const USES: { key: "useDraft" | "useRag"; label: string; title: string }[] = [
@@ -49,7 +49,9 @@ export function TriagePanel({
   budget: ContextBudget;
   inputId?: string;
 }) {
-  const anyTriaged = docs.some((d) => d.triaged);
+  // Show grouped view as soon as any doc has been categorized — either manually by
+  // the author (self-triage) or automatically by the AI Triage button.
+  const anyGrouped = docs.some((d) => d.triaged || d.category !== "select");
 
   function DocRow({ doc }: { doc: CreatorDoc }) {
     const classifying = triaging && triageActive?.name === doc.name;
@@ -88,9 +90,10 @@ export function TriagePanel({
             onChange={(e) => onSetCategory(doc.name, e.target.value as DocCategory)}
             className="rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.06em] text-ink-soft"
           >
+            <option value="select">Select</option>
             <option value="character">Character</option>
-            <option value="setting">Setting</option>
             <option value="other">Other</option>
+            <option value="setting">Setting</option>
           </select>
           {USES.map(({ key, label, title }) => {
             const on = Boolean(doc[key]);
@@ -199,32 +202,54 @@ export function TriagePanel({
       <div className="flex flex-1 flex-col gap-[14px] overflow-y-auto p-[18px_20px] pt-[16px]">
         {docs.length === 0 ? (
           <p className="font-body text-[13px] text-ink-soft">
-            Drop reference files, then Triage sorts each into Characters, Settings, or
-            Other and tags it for Draft / RAG. They persist as this world&apos;s corpus.
+            Drop reference files, then use Self-Triage to categorize each one manually —
+            or let Triage sort them into Characters, Settings, or Other automatically.
+            They persist as this world&apos;s corpus.
           </p>
-        ) : anyTriaged ? (
-          // After triage: grouped by bucket.
-          GROUPS.map(({ key, label, hint }) => {
-            const inGroup = docs.filter((d) => d.category === key);
-            if (inGroup.length === 0) return null;
-            return (
-              <div key={key}>
-                <div className="mb-[8px] flex items-baseline gap-[8px]">
-                  <span className="font-mono text-[11.5px] font-semibold tracking-[0.12em] text-ink uppercase">
-                    {label}
-                  </span>
-                  <span className="font-mono text-[10.5px] text-mute">· {hint}</span>
+        ) : anyGrouped ? (
+          // Grouped view: one bucket per category, with Uncategorized at the top.
+          <>
+            {(() => {
+              const uncategorized = docs.filter((d) => d.category === "select");
+              if (uncategorized.length === 0) return null;
+              return (
+                <div key="select">
+                  <div className="mb-[8px] flex items-baseline gap-[8px]">
+                    <span className="font-mono text-[11.5px] font-semibold tracking-[0.12em] text-ink uppercase">
+                      Uncategorized
+                    </span>
+                    <span className="font-mono text-[10.5px] text-mute">· Not yet categorized</span>
+                  </div>
+                  <ul className="flex flex-col gap-[8px]">
+                    {uncategorized.map((doc) => (
+                      <DocRow key={doc.name} doc={doc} />
+                    ))}
+                  </ul>
                 </div>
-                <ul className="flex flex-col gap-[8px]">
-                  {inGroup.map((doc) => (
-                    <DocRow key={doc.name} doc={doc} />
-                  ))}
-                </ul>
-              </div>
-            );
-          })
+              );
+            })()}
+            {GROUPS.map(({ key, label, hint }) => {
+              const inGroup = docs.filter((d) => d.category === key);
+              if (inGroup.length === 0) return null;
+              return (
+                <div key={key}>
+                  <div className="mb-[8px] flex items-baseline gap-[8px]">
+                    <span className="font-mono text-[11.5px] font-semibold tracking-[0.12em] text-ink uppercase">
+                      {label}
+                    </span>
+                    <span className="font-mono text-[10.5px] text-mute">· {hint}</span>
+                  </div>
+                  <ul className="flex flex-col gap-[8px]">
+                    {inGroup.map((doc) => (
+                      <DocRow key={doc.name} doc={doc} />
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </>
         ) : (
-          // Before triage: a flat list.
+          // Flat list — no doc has been categorized yet.
           <ul className="flex flex-col gap-[8px]">
             {docs.map((doc) => (
               <DocRow key={doc.name} doc={doc} />

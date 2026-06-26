@@ -40,6 +40,15 @@
 
 ## Follow-up Work (next steps)
 
+### Self-Triage — default "Select" category for dropped context docs (done; `main`; plan: `docs/plans/self-triage-category-select.md`)
+Frontend-only. Two phases, commit-per-phase, merged directly to `main`.
+- Adds `"select"` to the frontend `DocCategory` union as a UI-only placeholder for uncategorized docs (`lib/types.ts`).
+- `toCreatorDoc` now defaults new docs to `category: "select"` instead of `"other"`; `docToContextInput` maps `"select"` → `"other"` at the API boundary so the backend never sees the new value.
+- `TriagePanel` dropdown now starts with "Select" and offers Character / Other / Setting in that order (per user spec).
+- Grouping trigger changed from `anyTriaged` → `anyGrouped` (fires on any manual *or* AI categorization); an **"Uncategorized"** bucket at the top of the grouped view holds docs still at `"select"`. GROUPS reordered: Character / Other / Setting.
+- 3 new frontend tests (139 total); typecheck + lint + build clean.
+- **Deferred — live in-browser a11y/responsive pass (320/375/768/1024):** same standing constraint (shared working dir, `preview_start` can't reuse the external dev server on 3346). Verified structurally: `<select>` is a native focusable with an associated `<label>`; the "Uncategorized" bucket uses the same heading/list markup as the other groups; the panel layout is unchanged. Run the in-browser pass once the dir is free.
+
 ### Live Agentic Streaming — watch worlds build in real time (done; `feat/live-agentic-streaming`; plan: `docs/plans/live-agentic-streaming.md`)
 Turned the New Storyline page's blocking build + triage into **live, progressively-rendered** experiences over **NDJSON streaming POSTs**. Seven phases, commit-per-phase, merged to `main`.
 - **Phase 1 — streaming build:** `BuildEvent` discriminated union (`status`/`meta`/`primer`/`plan`/`character`/`setting`/`done`/`error`) in `schemas/build.py`; `build_agent.iter_build_world` generator + `validate_build_inputs` pre-flight; `build_world` rewritten as a thin collector (existing behaviour/tests unchanged); `POST /storylines/build/stream` (`StreamingResponse`, `application/x-ndjson`, `Cache-Control: no-cache` + `X-Accel-Buffering: no`) with up-front `400`/`502` validation and an in-band terminal `error` event for mid-stream failures.
