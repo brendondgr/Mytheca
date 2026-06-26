@@ -10,8 +10,16 @@ from __future__ import annotations
 import json
 
 import httpx
+import pytest
 
-from app.services import llm
+from app.services import llm, llm_backend
+
+
+@pytest.fixture(autouse=True)
+def _clear_detection_cache():
+    llm_backend.clear_cache()
+    yield
+    llm_backend.clear_cache()
 
 
 def _patch_upstream(monkeypatch, handler):
@@ -135,6 +143,25 @@ def test_triage_requires_llm_configured(client):
     )
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "bad_request"
+
+
+def test_triage_injects_low_thinking_budget(client, monkeypatch):
+    """Triage runs at LOW effort (256 thinking tokens) on a detected engine."""
+    _configure_llm(client)
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/version":  # detected as vLLM
+            return httpx.Response(200, json={"version": "0.21.0"})
+        if request.url.path == "/props":
+            return httpx.Response(404)
+        captured.update(json.loads(request.content.decode()))
+        return _completion(json.dumps({"items": [{"name": "a.md", "category": "other"}]}))
+
+    _patch_upstream(monkeypatch, handler)
+    res = client.post("/api/storylines/triage", json={"docs": [{"name": "a.md", "text": "Lore."}]})
+    assert res.status_code == 200
+    assert captured["thinking_token_budget"] == 256  # LOW
 
 
 # ---- streaming (per-file) triage -------------------------------------------

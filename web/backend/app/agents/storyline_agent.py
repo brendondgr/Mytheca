@@ -18,8 +18,15 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.agents._common import docs_block, extract_json, gen_params, resolve_llm
+from app.agents._common import (
+    DEFAULT_AUTHORING_EFFORT,
+    docs_block,
+    extract_json,
+    gen_params,
+    resolve_llm,
+)
 from app.core.errors import APIError
+from app.schemas.reasoning import ReasoningEffort
 from app.schemas.storyline import StorylineDraftResponse
 from app.services import llm
 
@@ -50,7 +57,11 @@ _PRIMER_SYSTEM = (
 
 
 def draft_storyline(
-    db: Session, seed: str, docs_overview: str | None = None
+    db: Session,
+    seed: str,
+    docs_overview: str | None = None,
+    *,
+    reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> StorylineDraftResponse:
     """Draft title / genre / tagline / premise from a one-sentence seed."""
     seed = (seed or "").strip()
@@ -61,7 +72,11 @@ def draft_storyline(
         {"role": "system", "content": _DRAFT_SYSTEM},
         {"role": "user", "content": f"World seed: {seed}{docs_block(docs_overview)}"},
     ]
-    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+    data = extract_json(
+        llm.chat_complete(
+            base_url, api_key, model, messages, gen_params(params), reasoning=reasoning
+        )
+    )
     return StorylineDraftResponse(
         title=str(data.get("title") or "").strip(),
         genre=str(data.get("genre") or "").strip(),
@@ -75,6 +90,8 @@ def generate_world_primer(
     premise: str | None,
     seed: str | None = None,
     docs_overview: str | None = None,
+    *,
+    reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> str:
     """Generate the agent-facing World Primer from the seed + premise."""
     premise = (premise or "").strip()
@@ -94,4 +111,6 @@ def generate_world_primer(
         {"role": "system", "content": _PRIMER_SYSTEM},
         {"role": "user", "content": user},
     ]
-    return llm.chat_complete(base_url, api_key, model, messages, gen_params(params))
+    return llm.chat_complete(
+        base_url, api_key, model, messages, gen_params(params), reasoning=reasoning
+    )

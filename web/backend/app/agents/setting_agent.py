@@ -21,6 +21,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.agents._common import (
+    DEFAULT_AUTHORING_EFFORT,
     docs_block,
     extract_json,
     gen_params,
@@ -28,6 +29,7 @@ from app.agents._common import (
     world_context,
 )
 from app.core.errors import APIError
+from app.schemas.reasoning import ReasoningEffort
 from app.schemas.setting import SceneArtPromptResponse, SettingDraftResponse
 from app.services import llm
 
@@ -74,6 +76,8 @@ def draft_setting(
     seed: str,
     docs_overview: str | None = None,
     storyline_id: str | None = None,
+    *,
+    reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> SettingDraftResponse:
     """Draft a full setting (by-hand fields + §4.1 node metadata) from a seed."""
     seed = (seed or "").strip()
@@ -85,7 +89,11 @@ def draft_setting(
         {"role": "system", "content": _DRAFT_SYSTEM},
         {"role": "user", "content": user},
     ]
-    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+    data = extract_json(
+        llm.chat_complete(
+            base_url, api_key, model, messages, gen_params(params), reasoning=reasoning
+        )
+    )
 
     def _s(key: str) -> str:
         return str(data.get(key) or "").strip()
@@ -110,6 +118,7 @@ def generate_scene_art_prompts(
     features: str | None = None,
     current_state: str | None = None,
     notes: str | None = None,
+    reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> SceneArtPromptResponse:
     """Write the watercolor positive/negative ComfyUI prompts for a place."""
     fields = {
@@ -131,7 +140,11 @@ def generate_scene_art_prompts(
         {"role": "system", "content": _SCENE_ART_SYSTEM},
         {"role": "user", "content": f"Place:\n{described}"},
     ]
-    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+    data = extract_json(
+        llm.chat_complete(
+            base_url, api_key, model, messages, gen_params(params), reasoning=reasoning
+        )
+    )
     return SceneArtPromptResponse(
         positive=str(data.get("positive") or "").strip(),
         negative=str(data.get("negative") or "").strip(),

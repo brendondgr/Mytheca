@@ -21,6 +21,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.agents._common import (
+    DEFAULT_AUTHORING_EFFORT,
     docs_block,
     extract_json,
     gen_params,
@@ -34,6 +35,7 @@ from app.schemas.character import (
     StartingStatProposal,
     StartingStatsResponse,
 )
+from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
 from app.services import stats as stat_service
 
@@ -102,6 +104,8 @@ def draft_character(
     seed: str,
     docs_overview: str | None = None,
     storyline_id: str | None = None,
+    *,
+    reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> CharacterDraftResponse:
     """Draft a full character (by-hand fields + base-identity prose) from a seed."""
     seed = (seed or "").strip()
@@ -113,7 +117,11 @@ def draft_character(
         {"role": "system", "content": _DRAFT_SYSTEM},
         {"role": "user", "content": user},
     ]
-    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+    data = extract_json(
+        llm.chat_complete(
+            base_url, api_key, model, messages, gen_params(params), reasoning=reasoning
+        )
+    )
 
     def _s(key: str) -> str:
         return str(data.get(key) or "").strip()
@@ -142,6 +150,7 @@ def generate_portrait_prompts(
     personality: str | None = None,
     species: str | None = None,
     notes: str | None = None,
+    reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> PortraitPromptResponse:
     """Write the watercolor positive/negative ComfyUI prompts for a character."""
     fields = {
@@ -163,7 +172,11 @@ def generate_portrait_prompts(
         {"role": "system", "content": _PORTRAIT_SYSTEM},
         {"role": "user", "content": f"Character:\n{described}"},
     ]
-    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+    data = extract_json(
+        llm.chat_complete(
+            base_url, api_key, model, messages, gen_params(params), reasoning=reasoning
+        )
+    )
     return PortraitPromptResponse(
         positive=str(data.get("positive") or "").strip(),
         negative=str(data.get("negative") or "").strip(),
@@ -179,6 +192,7 @@ def propose_starting_stats(
     traits: str | None = None,
     personality: str | None = None,
     background: str | None = None,
+    reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> StartingStatsResponse:
     """Propose starting values for the storyline's stat definitions (proposal only).
 
@@ -210,7 +224,11 @@ def propose_starting_stats(
         {"role": "system", "content": _STATS_SYSTEM},
         {"role": "user", "content": user},
     ]
-    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+    data = extract_json(
+        llm.chat_complete(
+            base_url, api_key, model, messages, gen_params(params), reasoning=reasoning
+        )
+    )
 
     raw = data.get("proposals")
     rows = raw if isinstance(raw, list) else []

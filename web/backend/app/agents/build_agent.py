@@ -23,7 +23,14 @@ from collections.abc import Iterator
 from sqlalchemy.orm import Session
 
 from app.agents import character_agent, setting_agent, storyline_agent
-from app.agents._common import DOCS_CAP, docs_block, extract_json, gen_params, resolve_llm
+from app.agents._common import (
+    DEFAULT_AUTHORING_EFFORT,
+    DOCS_CAP,
+    docs_block,
+    extract_json,
+    gen_params,
+    resolve_llm,
+)
 from app.core.errors import APIError
 from app.schemas.build import (
     MAX_CHARACTERS,
@@ -174,7 +181,15 @@ def _propose_blueprint(
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
-    data = extract_json(llm.chat_complete(base_url, api_key, model, messages, gen_params(params)))
+    # Backend-set thinking budget for the build. The per-entity character/setting/
+    # storyline drafts below inherit the same DEFAULT_AUTHORING_EFFORT from their
+    # standalone agents — none of it is user-controllable.
+    data = extract_json(
+        llm.chat_complete(
+            base_url, api_key, model, messages, gen_params(params),
+            reasoning=DEFAULT_AUTHORING_EFFORT,
+        )
+    )
 
     taken: set[str] = set()
     stats: list[ProposedStat] = []
