@@ -36,6 +36,40 @@ describe("useStorylineCreator", () => {
     expect(result.current.triageActive).toBeNull();
   });
 
+  it("adds a whole batch pre-categorized when an upload target is chosen", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    await act(async () => {
+      await result.current.addFiles(
+        [file("a.md", "One hero."), file("b.md", "Another hero.")],
+        { category: "character", useDraft: true, useRag: false },
+      );
+    });
+    expect(result.current.docs).toHaveLength(2);
+    expect(result.current.docs.every((d) => d.category === "character")).toBe(true);
+    expect(result.current.docs.every((d) => d.triaged)).toBe(true);
+    expect(result.current.docs[0].useDraft).toBe(true);
+    expect(result.current.docs[0].useRag).toBe(false);
+  });
+
+  it("Triage only sweeps the Uncategorized docs, leaving pre-categorized ones alone", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    // One pre-categorized as a setting, one left Uncategorized.
+    await act(async () => {
+      await result.current.addFiles([file("place.md", "A place.")], { category: "setting" });
+      await result.current.addFiles([file("mystery.md", "Unknown.")]);
+    });
+    await act(async () => {
+      await result.current.triage();
+    });
+    // Only the Uncategorized doc was sent to the stream.
+    const sent = vi.mocked(api.triageDocumentsStream).mock.calls[0][0];
+    expect(sent).toEqual([{ name: "mystery.md", text: "Unknown." }]);
+    // The pre-categorized setting keeps its category; the leftover got classified.
+    const byName = Object.fromEntries(result.current.docs.map((d) => [d.name, d]));
+    expect(byName["place.md"].category).toBe("setting");
+    expect(byName["mystery.md"].category).not.toBe("select");
+  });
+
   it("builds a proposed world and reflects it into the editable fields", async () => {
     const { result } = renderHook(() => useStorylineCreator());
     act(() => result.current.setSeed("A drowned harbor town."));

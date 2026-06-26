@@ -65,6 +65,23 @@ describe("storylineCreator helpers", () => {
     expect(d.useRag).toBe(true);
   });
 
+  it("toCreatorDoc applies an upload target (category + Draft/RAG) and marks it triaged", () => {
+    const d = toCreatorDoc(
+      { name: "hero.md", text: "x" },
+      { category: "character", useDraft: true, useRag: false },
+    );
+    expect(d.category).toBe("character");
+    expect(d.triaged).toBe(true); // a real category counts as already sorted
+    expect(d.useDraft).toBe(true);
+    expect(d.useRag).toBe(false);
+  });
+
+  it("toCreatorDoc with an explicit 'select' target stays Uncategorized + untriaged", () => {
+    const d = toCreatorDoc({ name: "a.md", text: "x" }, { category: "select" });
+    expect(d.category).toBe("select");
+    expect(d.triaged).toBe(false);
+  });
+
   it("applyTriage merges classifications by name", () => {
     const docs = [toCreatorDoc({ name: "a.md", text: "x" }), toCreatorDoc({ name: "b.md", text: "y" })];
     const merged = applyTriage(docs, [
