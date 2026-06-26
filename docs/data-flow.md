@@ -222,17 +222,28 @@ mid-render aborts the build's image loop (no double-render, no race). The non-st
 ## Context Document Flow (the triaged RAG corpus)
 
 ```
-New Storyline page → drop .txt/.md (read in-browser) → POST /storylines/triage/stream
-  → per file: status {name,index,total} → item {category, includeDraft, includeRag}
+New Storyline page → pick an upload target (Uncategorized / Character / Setting /
+  Other + Draft/RAG defaults) → drop .txt/.md (read in-browser)
+  → files land pre-categorized into that bucket (a whole batch at once, no triage)
+  → leftovers left Uncategorized → POST /storylines/triage/stream (Uncategorized only)
+      → per file: status {name,index,total} → item {category, includeDraft, includeRag}
       → each row fills in LIVE (the active file shows a "classifying…" badge)
-  → done → author reviews the buckets (Characters / Settings / Other) + Draft/RAG flags
+  → author reviews the buckets (Characters / Settings / Other) + Draft/RAG flags
   → on commit: POST /storylines/{id}/context-docs/bulk persists the corpus
       → ContextDocument rows (content stored verbatim, char_count cached)
 ```
 
-Triage runs **per file** (one LLM call each) so the panel sorts documents in front of
-the author; the batched `POST /storylines/triage` remains for back-compat. A per-doc
-failure falls back to `other`/RAG-on without aborting the run.
+The author can **bulk-categorize on upload** — choose a bucket (and the Draft / RAG
+defaults) once, then drop a folder of e.g. character sheets and they all land as
+Characters with no triage. **Triage** then sweeps only what's still **Uncategorized**,
+leaving the manual buckets alone. Triage runs **per file** (one LLM call each) so the
+panel sorts documents in front of the author; the batched `POST /storylines/triage`
+remains for back-compat. A per-doc failure falls back to `other`/RAG-on without
+aborting the run.
+
+The **context budget** (the inline grounding cap + the meter on the page) is **32000
+characters** (`_common.DOCS_CAP` / `readDocs.DOCS_CHAR_CAP`; ~8000 tokens), raised from
+the original 8K so larger lore/corpus batches can ground generation.
 
 This is the **persistence seam** for retrieval: the documents are durably stored
 per storyline and survive reload. **Nothing reads `content` at runtime yet** —

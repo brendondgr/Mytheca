@@ -216,7 +216,9 @@ The agent process that builds a storyline at creation time, run over the
 configured LLM (the `/options` endpoint above). **No retrieval / RAG:** when
 present, `docsOverview` is inline text read from dropped reference files in the
 browser and used for that single generation only — it is never persisted or
-indexed.
+indexed. Inline grounding is capped at **32000 characters** server-side
+(`_common.DOCS_CAP`; the frontend mirrors it via `readDocs.DOCS_CHAR_CAP` and the
+on-page context-budget meter).
 
 - `POST /storylines/draft` — `{ seed, docsOverview? }`. Drafts metadata from a
   one-sentence seed → `{ "title", "genre", "tagline", "premise" }` (the create
