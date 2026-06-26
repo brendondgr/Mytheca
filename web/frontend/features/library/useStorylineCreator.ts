@@ -263,8 +263,18 @@ export function useStorylineCreator(editId?: string) {
   const build = useCallback(async () => {
     const s = seed.trim();
     const docsOverview = draftGrounding(docs);
-    if (!s && !docsOverview) {
-      setError("Add a one-sentence seed or drop context files to build from.");
+    // The cast/settings are built ONLY from the docs categorized as such — one
+    // entity per doc, nothing invented.
+    const characterDocs = docs
+      .filter((d) => d.category === "character" && d.text)
+      .map((d) => ({ name: d.name, text: d.text }));
+    const settingDocs = docs
+      .filter((d) => d.category === "setting" && d.text)
+      .map((d) => ({ name: d.name, text: d.text }));
+    if (!s && !docsOverview && characterDocs.length === 0 && settingDocs.length === 0) {
+      setError(
+        "Add a one-sentence seed, drop context files, or attach characters/settings to build from.",
+      );
       return;
     }
     buildAbort.current?.abort();
@@ -281,7 +291,7 @@ export function useStorylineCreator(editId?: string) {
     let finalWorld: ProposedWorld | null = null;
     try {
       for await (const ev of api.buildWorldStream(
-        { seed: s || undefined, docsOverview, storylineId: editId },
+        { seed: s || undefined, docsOverview, storylineId: editId, characterDocs, settingDocs },
         ac.signal,
       )) {
         switch (ev.type) {
@@ -340,11 +350,22 @@ export function useStorylineCreator(editId?: string) {
       }
 
       // Text build done → render portraits + scene art live whenever ComfyUI is
-      // available (the build now produces images too, not just the commit).
-      if (finalWorld && imagesAvailable && generateImages && !ac.signal.aborted) {
-        setBuilding(false); // switch the panel to review mode while images render in
-        setBuildingImages(true);
-        await renderProposalImages(finalWorld, applyEntityPatch, setBuildStage, ac.signal);
+      // available (the build now produces images too, not just the commit). Verify
+      // the server is actually *reachable* first — `imagesAvailable` only means a URL
+      // is configured, so without this a stopped ComfyUI would 502 on every entity.
+      const hasImageWork =
+        Boolean(finalWorld) &&
+        ((finalWorld?.characters.length ?? 0) > 0 || (finalWorld?.settings.length ?? 0) > 0);
+      if (finalWorld && hasImageWork && imagesAvailable && generateImages && !ac.signal.aborted) {
+        const reachable = await api
+          .checkComfyStatus({})
+          .then((st) => Boolean(st?.ok))
+          .catch(() => false);
+        if (reachable && !ac.signal.aborted) {
+          setBuilding(false); // switch the panel to review mode while images render in
+          setBuildingImages(true);
+          await renderProposalImages(finalWorld, applyEntityPatch, setBuildStage, ac.signal);
+        }
       }
     } catch (e) {
       if (!ac.signal.aborted) setError(messageOf(e));

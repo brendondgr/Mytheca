@@ -67,6 +67,17 @@ _SETTING = json.dumps(
 )
 
 
+# Attached character/setting docs — the build creates exactly one entity per doc.
+_CHAR_DOCS = [
+    {"name": "maerin.md", "text": "Maerin Voss, a wary harbor smuggler."},
+    {"name": "kestrel.md", "text": "A cold inquisitor who hunts heretics."},
+]
+_SETTING_DOCS = [
+    {"name": "chapel.md", "text": "A drowned chapel beneath the tide."},
+    {"name": "quay.md", "text": "A lantern-lit quay at the harbor's edge."},
+]
+
+
 def _completion(content: str) -> httpx.Response:
     return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
 
@@ -103,7 +114,14 @@ def _configure_llm(client):
 def test_build_world_assembles_full_proposal(client, monkeypatch):
     _configure_llm(client)
     _patch_upstream(monkeypatch)
-    res = client.post("/api/storylines/build", json={"seed": "A drowned harbor town."})
+    res = client.post(
+        "/api/storylines/build",
+        json={
+            "seed": "A drowned harbor town.",
+            "characterDocs": _CHAR_DOCS,
+            "settingDocs": _SETTING_DOCS,
+        },
+    )
     assert res.status_code == 200
     world = res.json()
 
@@ -116,7 +134,7 @@ def test_build_world_assembles_full_proposal(client, monkeypatch):
     assert keys == ["health", "suspicion"]
     assert world["stats"][0]["bands"][0]["label"] == "Nearly dead"
 
-    # Cast + settings drafted from the blueprint concepts (2 each here).
+    # Exactly one character per character-doc, one setting per setting-doc (2 each).
     assert [c["name"] for c in world["characters"]] == ["Maerin Voss", "Maerin Voss"]
     assert len(world["settings"]) == 2
     assert world["settings"][0]["name"] == "The Drowned Chapel"
@@ -126,29 +144,60 @@ def test_build_world_assembles_full_proposal(client, monkeypatch):
     assert starting == {"health": 100, "suspicion": 0}
 
 
-def test_build_caps_counts(client, monkeypatch):
+def test_build_no_entity_docs_creates_no_cast(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    # A seed but no attached character/setting docs → storyline + stats only; the
+    # build does NOT invent a cast or settings.
+    res = client.post("/api/storylines/build", json={"seed": "A drowned harbor town."})
+    assert res.status_code == 200
+    world = res.json()
+    assert world["storyline"]["title"] == "Embergate"
+    assert [s["key"] for s in world["stats"]] == ["health", "suspicion"]
+    assert world["characters"] == []
+    assert world["settings"] == []
+
+
+def test_build_characters_only_when_only_character_docs(client, monkeypatch):
     _configure_llm(client)
     _patch_upstream(monkeypatch)
     res = client.post(
         "/api/storylines/build",
-        json={"seed": "A world.", "maxCharacters": 1, "maxSettings": 1},
+        json={"seed": "A world.", "characterDocs": _CHAR_DOCS},
     )
     assert res.status_code == 200
     world = res.json()
-    assert len(world["characters"]) == 1
-    assert len(world["settings"]) == 1
+    assert len(world["characters"]) == 2
+    assert world["settings"] == []  # no setting docs → no settings
 
 
 def test_build_from_docs_only(client, monkeypatch):
     _configure_llm(client)
     _patch_upstream(monkeypatch)
-    # No seed — the dropped-doc text carries the substance.
+    # Lore-only grounding (no entity docs) → storyline drafts, but no cast/settings.
     res = client.post(
         "/api/storylines/build",
         json={"docsOverview": "A bestiary of salt-wraiths and a map of the drowned coast."},
     )
     assert res.status_code == 200
-    assert res.json()["storyline"]["title"] == "Embergate"
+    world = res.json()
+    assert world["storyline"]["title"] == "Embergate"
+    assert world["characters"] == []
+    assert world["settings"] == []
+
+
+def test_build_from_attached_docs_only_no_seed(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    # Attached docs alone are enough context (no seed, no lore) — and drive the cast.
+    res = client.post(
+        "/api/storylines/build",
+        json={"characterDocs": _CHAR_DOCS, "settingDocs": _SETTING_DOCS},
+    )
+    assert res.status_code == 200
+    world = res.json()
+    assert len(world["characters"]) == 2
+    assert len(world["settings"]) == 2
 
 
 def test_build_requires_seed_or_docs(client, monkeypatch):
@@ -177,38 +226,60 @@ def _stream_events(res) -> list[dict]:
 def test_build_stream_emits_event_sequence(client, monkeypatch):
     _configure_llm(client)
     _patch_upstream(monkeypatch)
-    res = client.post("/api/storylines/build/stream", json={"seed": "A drowned harbor town."})
+    res = client.post(
+        "/api/storylines/build/stream",
+        json={
+            "seed": "A drowned harbor town.",
+            "characterDocs": _CHAR_DOCS,
+            "settingDocs": _SETTING_DOCS,
+        },
+    )
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("application/x-ndjson")
     events = _stream_events(res)
     types = [e["type"] for e in events]
 
-    # Ordered stages, the per-entity events, and a terminal `done`.
+    # Ordered stages, one per-entity event per attached doc, and a terminal `done`.
     assert types[0] == "status"
     assert "meta" in types and "primer" in types and "plan" in types
-    assert types.count("character") == 2  # two cast concepts in the blueprint
-    assert types.count("setting") == 2
+    assert types.count("character") == 2  # one per character doc
+    assert types.count("setting") == 2  # one per setting doc
     assert types[-1] == "done"
 
     meta = next(e for e in events if e["type"] == "meta")
     assert meta["title"] == "Embergate"
     plan = next(e for e in events if e["type"] == "plan")
     assert [s["key"] for s in plan["stats"]] == ["health", "suspicion"]
-    assert len(plan["characters"]) == 2  # concept sentences
+    # The plan's skeleton labels are the attached doc names.
+    assert plan["characters"] == ["maerin.md", "kestrel.md"]
 
     first_char = next(e for e in events if e["type"] == "character")
     assert first_char["index"] == 0
     assert first_char["character"]["name"] == "Maerin Voss"
 
 
+def test_build_stream_no_entity_docs_no_cast(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    events = _stream_events(
+        client.post("/api/storylines/build/stream", json={"seed": "A world."})
+    )
+    types = [e["type"] for e in events]
+    assert "meta" in types and "plan" in types  # storyline + stats still produced
+    assert types.count("character") == 0  # nothing invented
+    assert types.count("setting") == 0
+    done = next(e for e in events if e["type"] == "done")
+    assert done["world"]["characters"] == []
+    assert done["world"]["settings"] == []
+
+
 def test_build_stream_done_matches_collector(client, monkeypatch):
     _configure_llm(client)
     _patch_upstream(monkeypatch)
-    streamed = _stream_events(
-        client.post("/api/storylines/build/stream", json={"seed": "A harbor."})
-    )
+    body = {"seed": "A harbor.", "characterDocs": _CHAR_DOCS, "settingDocs": _SETTING_DOCS}
+    streamed = _stream_events(client.post("/api/storylines/build/stream", json=body))
     done = next(e for e in streamed if e["type"] == "done")
-    collected = client.post("/api/storylines/build", json={"seed": "A harbor."}).json()
+    collected = client.post("/api/storylines/build", json=body).json()
     assert done["world"] == collected
 
 

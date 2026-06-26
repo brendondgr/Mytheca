@@ -170,25 +170,34 @@ New Storyline page → "Build the whole world" → POST /storylines/build/stream
   → for-await over the response body (lib/api.postNdjson):
       status → meta  → left fields fill (Title/Genre/Tagline/Premise)
       status → primer→ World Primer fills
-      status → plan  → stat schema + concepts → right column shows SKELETON cards
-      character × N  → each fills its skeleton card in the right column
-      setting   × M  → each fills its skeleton card
+      status → plan  → stat schema + skeleton labels (the attached doc names)
+      character × N  → one per ATTACHED character-doc, fills its skeleton card
+      setting   × M  → one per ATTACHED setting-doc, fills its skeleton card
       done           → canonical ProposedWorld swapped in (review mode)
-  → if ComfyUI available: renderProposalImages renders each portrait/scene-art and
-      patches the displayed entity → IMAGE previews pop in live, still in the build
+  → if ComfyUI REACHABLE (status preflight): renderProposalImages renders each
+      portrait/scene-art and patches the displayed entity → IMAGE previews pop in live
   → "Create World" commit → persists everything; attaches already-rendered images and
       renders any still missing (renderPortrait/renderSceneArt) → navigate to /{id}
 ```
+
+The build creates the storyline, the stat schema, and **only the characters/settings
+attached as context docs** — one entity per doc, drafted from it. It never invents a
+cast: no character docs → no characters created (likewise settings). `useStorylineCreator.build()`
+sends `characterDocs`/`settingDocs` (docs categorized as such); the backend builds one
+entity per doc.
 
 The page consumes the stream in `useStorylineCreator.build()`, accumulating into
 `proposed` + `planConcepts`; the right pane (`WorldBuildPanel`) renders the cast/settings
 as they arrive (a "drafting…" skeleton per not-yet-drafted concept), then becomes the
 editable review. **Images render as part of the build** (`renderProposalImages`, best-effort,
-skipping entities that already have one) whenever ComfyUI is configured — the image-gen
-endpoints are id-agnostic so no persistence is needed yet; the **commit** then attaches
-those URLs (and renders any still missing). Hitting *Create World* mid-render aborts the
-build's image loop (no double-render, no race). The non-streaming `/build` collector
-remains for back-compat.
+skipping entities that already have one) — but only after a ComfyUI **status preflight**
+confirms the server is actually reachable (`imagesAvailable` just means a URL is
+configured), and a **circuit breaker** stops on the first failed render so a stopped
+ComfyUI never produces a 502-per-entity storm. The image-gen endpoints are id-agnostic
+so no persistence is needed yet; the **commit** then attaches those URLs (and renders any
+still missing, with the same one-failure-then-stop guard). Hitting *Create World*
+mid-render aborts the build's image loop (no double-render, no race). The non-streaming
+`/build` collector remains for back-compat.
 
 ## Context Document Flow (the triaged RAG corpus)
 

@@ -30,6 +30,7 @@ from app.schemas.build import (
     MAX_SETTINGS,
     MAX_STATS,
     BuildCharacterEvent,
+    BuildDoc,
     BuildDoneEvent,
     BuildEvent,
     BuildMetaEvent,
@@ -195,18 +196,46 @@ def _propose_blueprint(
     return stats, characters, settings
 
 
+def _doc_sources(docs: list[BuildDoc] | None, cap: int) -> list[tuple[str, str]]:
+    """Turn attached character/setting docs into ``(label, source-text)`` pairs.
+
+    ``label`` is the doc name (shown on the skeleton card); ``source-text`` is the
+    doc body fed to the draft agent as the entity's source. Blank docs are skipped.
+    """
+    out: list[tuple[str, str]] = []
+    for d in docs or []:
+        text = (d.text or "").strip()
+        if not text:
+            continue
+        label = (d.name or "").strip() or text[:60]
+        out.append((label, text[:DOCS_CAP]))
+        if len(out) >= cap:
+            break
+    return out
+
+
+def has_buildable_docs(*lists: list[BuildDoc] | None) -> bool:
+    """True if any attached character/setting doc carries text to build from."""
+    return any((d.text or "").strip() for docs in lists for d in (docs or []))
+
+
 def validate_build_inputs(
-    db: Session, seed: str | None, docs_overview: str | None
+    db: Session,
+    seed: str | None,
+    docs_overview: str | None,
+    *,
+    has_entity_docs: bool = False,
 ) -> tuple[str, str | None]:
     """Pre-flight: require context + a configured LLM; return (seed, docs).
 
     Called before the stream opens (so missing-context / unconfigured-LLM return a
     normal ``400`` rather than an in-band error event), and again at the top of
-    ``iter_build_world`` (idempotent — both are cheap settings reads).
+    ``iter_build_world`` (idempotent — both are cheap settings reads). Attached
+    character/setting docs count as context too (you can build from them alone).
     """
     seed = (seed or "").strip()
     docs = (docs_overview or "").strip()[:DOCS_CAP] or None
-    if not seed and not docs:
+    if not seed and not docs and not has_entity_docs:
         raise APIError(
             400,
             "bad_request",
@@ -225,16 +254,26 @@ def iter_build_world(
     *,
     max_characters: int | None = None,
     max_settings: int | None = None,
+    character_docs: list[BuildDoc] | None = None,
+    setting_docs: list[BuildDoc] | None = None,
 ) -> Iterator[BuildEvent]:
     """Draft a whole world, yielding a progress event at each stage.
 
     The live backbone for the New Storyline page: storyline metadata → World Primer
-    → blueprint (stat schema + cast/setting concepts) → one full character per
-    concept → one full setting per concept → a terminal ``done`` carrying the
-    assembled ``ProposedWorld``. Errors propagate (the route wraps them into an
-    in-band ``error`` event once the stream is open).
+    → blueprint (stat schema) → one full character per source → one full setting per
+    source → a terminal ``done`` carrying the assembled ``ProposedWorld``.
+
+    **Cast/settings come ONLY from the attached, triaged docs** (``character_docs`` /
+    ``setting_docs``) — exactly one entity per doc, drafted from that doc. The build
+    never invents a character or setting the author didn't attach: if no character
+    docs are attached, no characters are created; likewise settings. (The storyline
+    metadata, World Primer, and the universal stat schema are always produced.)
+    Errors propagate (the route wraps them into an in-band ``error`` event once the
+    stream is open).
     """
-    seed, docs_overview = validate_build_inputs(db, seed, docs_overview)
+    seed, docs_overview = validate_build_inputs(
+        db, seed, docs_overview, has_entity_docs=has_buildable_docs(character_docs, setting_docs)
+    )
     effective_seed = seed or _DOCS_ONLY_SEED
 
     # 1) Storyline metadata.
@@ -259,13 +298,24 @@ def iter_build_world(
     n_chars = _clamp_count(max_characters, _DEFAULT_CHARACTERS, MAX_CHARACTERS)
     n_settings = _clamp_count(max_settings, _DEFAULT_SETTINGS, MAX_SETTINGS)
 
-    # 3) Blueprint: the stat schema + character/setting concepts.
-    yield BuildStatusEvent(stage="blueprint", message="Designing the stat schema and the cast…")
+    # 3) Blueprint: the universal stat schema. (It also returns invented cast/setting
+    #    concepts, which we deliberately ignore — the cast/settings come only from the
+    #    attached docs below.)
+    yield BuildStatusEvent(stage="blueprint", message="Designing the stat schema…")
     brief = _world_brief(storyline)
-    stats, char_concepts, setting_concepts = _propose_blueprint(
+    stats, _, _ = _propose_blueprint(
         db, brief, docs_overview, n_chars=n_chars, n_settings=n_settings
     )
-    yield BuildPlanEvent(stats=stats, characters=char_concepts, settings=setting_concepts)
+
+    # Cast/settings come ONLY from the attached docs (one per doc). No docs of a kind
+    # → none of that kind is created.
+    char_sources = _doc_sources(character_docs, MAX_CHARACTERS)
+    setting_sources = _doc_sources(setting_docs, MAX_SETTINGS)
+    yield BuildPlanEvent(
+        stats=stats,
+        characters=[label for label, _ in char_sources],
+        settings=[label for label, _ in setting_sources],
+    )
 
     # Ground each entity draft in the just-drafted world (it has no DB row yet, so the
     # brief travels inline as reference text alongside any author-provided docs).
@@ -273,29 +323,29 @@ def iter_build_world(
     grounding = grounding[:DOCS_CAP]
     default_stats = [ProposedStartingStat(key=s.key, value=s.default) for s in stats]
 
-    # 4) One full character per concept (+ schema-default starting stats).
+    # 4) One full character per source (+ schema-default starting stats).
     characters: list[ProposedCharacter] = []
-    for i, concept in enumerate(char_concepts):
+    for i, (_label, source) in enumerate(char_sources):
         yield BuildStatusEvent(
             stage="characters",
-            message=f"Drafting character {i + 1} of {len(char_concepts)}…",
+            message=f"Drafting character {i + 1} of {len(char_sources)}…",
         )
-        draft = character_agent.draft_character(db, concept, grounding, None)
+        draft = character_agent.draft_character(db, source, grounding, None)
         character = ProposedCharacter(**draft.model_dump(), starting_stats=list(default_stats))
         characters.append(character)
-        yield BuildCharacterEvent(index=i, total=len(char_concepts), character=character)
+        yield BuildCharacterEvent(index=i, total=len(char_sources), character=character)
 
-    # 5) One full setting per concept.
+    # 5) One full setting per source.
     settings: list[ProposedSetting] = []
-    for i, concept in enumerate(setting_concepts):
+    for i, (_label, source) in enumerate(setting_sources):
         yield BuildStatusEvent(
             stage="settings",
-            message=f"Drafting setting {i + 1} of {len(setting_concepts)}…",
+            message=f"Drafting setting {i + 1} of {len(setting_sources)}…",
         )
-        setting_draft = setting_agent.draft_setting(db, concept, grounding, None)
+        setting_draft = setting_agent.draft_setting(db, source, grounding, None)
         setting = ProposedSetting(**setting_draft.model_dump())
         settings.append(setting)
-        yield BuildSettingEvent(index=i, total=len(setting_concepts), setting=setting)
+        yield BuildSettingEvent(index=i, total=len(setting_sources), setting=setting)
 
     yield BuildDoneEvent(
         world=ProposedWorld(
@@ -312,6 +362,8 @@ def build_world(
     *,
     max_characters: int | None = None,
     max_settings: int | None = None,
+    character_docs: list[BuildDoc] | None = None,
+    setting_docs: list[BuildDoc] | None = None,
 ) -> ProposedWorld:
     """Draft an entire world for review — the non-streaming collector.
 
@@ -327,6 +379,8 @@ def build_world(
         storyline_id,
         max_characters=max_characters,
         max_settings=max_settings,
+        character_docs=character_docs,
+        setting_docs=setting_docs,
     ):
         if isinstance(event, BuildDoneEvent):
             world = event.world

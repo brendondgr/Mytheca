@@ -95,6 +95,8 @@ def build_world(data: BuildWorldRequest, db: Session = Depends(get_db)):
         data.storyline_id,
         max_characters=data.max_characters,
         max_settings=data.max_settings,
+        character_docs=data.character_docs,
+        setting_docs=data.setting_docs,
     )
 
 
@@ -112,7 +114,12 @@ def build_world_stream(data: BuildWorldRequest, db: Session = Depends(get_db)):
     still return a normal ``400`` envelope.
     """
     # Pre-flight (status can't change once the 200 stream has opened).
-    build_agent.validate_build_inputs(db, data.seed, data.docs_overview)
+    build_agent.validate_build_inputs(
+        db,
+        data.seed,
+        data.docs_overview,
+        has_entity_docs=build_agent.has_buildable_docs(data.character_docs, data.setting_docs),
+    )
 
     def _lines() -> Iterator[str]:
         try:
@@ -123,6 +130,8 @@ def build_world_stream(data: BuildWorldRequest, db: Session = Depends(get_db)):
                 data.storyline_id,
                 max_characters=data.max_characters,
                 max_settings=data.max_settings,
+                character_docs=data.character_docs,
+                setting_docs=data.setting_docs,
             ):
                 yield event.model_dump_json(by_alias=True) + "\n"
         except APIError as exc:
