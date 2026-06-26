@@ -174,6 +174,8 @@ key is **write-only**: it is stored server-side and never returned in clear.
   engine is probed (`GET /version` → vLLM, `GET /props` →
   llama.cpp), cached, and refreshed by a background poller. `unknown` (OpenAI /
   unreachable) means no thinking budget is sent. See **Reasoning budget** below.
+  Surfaced read-only in the Options **About** tab (`getLlmBackend` in `lib/api.ts`):
+  the detected engine plus the budget ladder, degrading to "unavailable" on error.
 
 **ComfyUI image generation** (the local Comfy server — its own HTTP + WebSocket
 protocol, not OpenAI-compatible):
