@@ -88,27 +88,35 @@ describe("useStorylineCreator", () => {
     expect(vi.mocked(api.bulkCreateContextDocuments)).toHaveBeenCalled();
   });
 
-  it("renders portraits + scene art on commit when ComfyUI is configured", async () => {
+  it("renders portraits + scene art during the build when ComfyUI is configured", async () => {
     const { result } = renderHook(() => useStorylineCreator());
     await waitFor(() => expect(result.current.imagesAvailable).toBe(true));
     act(() => result.current.setSeed("A world."));
     await act(async () => {
       await result.current.build();
     });
+    // Images are rendered as part of the build — the proposal already carries them.
+    expect(vi.mocked(api.generatePortrait)).toHaveBeenCalled();
+    expect(vi.mocked(api.generateSceneArt)).toHaveBeenCalled();
+    expect(result.current.proposed?.characters[0].portrait).toBe("/media/portraits/test.webp");
+    expect(result.current.proposed?.settings[0].image).toBe("/media/scenes/test.webp");
+
+    // Commit then persists the already-rendered images (attaches; never re-renders).
+    vi.mocked(api.generatePortrait).mockClear();
+    vi.mocked(api.generateSceneArt).mockClear();
     await act(async () => {
       await result.current.commit();
     });
-    expect(vi.mocked(api.generatePortraitPrompts)).toHaveBeenCalled();
-    expect(vi.mocked(api.generatePortrait)).toHaveBeenCalled();
-    expect(vi.mocked(api.generateSceneArtPrompts)).toHaveBeenCalled();
-    expect(vi.mocked(api.generateSceneArt)).toHaveBeenCalled();
+    expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
+    expect(vi.mocked(api.generateSceneArt)).not.toHaveBeenCalled();
     expect(vi.mocked(api.updateCharacter)).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ portrait: expect.any(String) }),
+      expect.objectContaining({ portrait: "/media/portraits/test.webp" }),
     );
-    // The rendered images are patched back onto the displayed proposal (live preview).
-    expect(result.current.proposed?.characters[0].portrait).toBe("/media/portraits/test.webp");
-    expect(result.current.proposed?.settings[0].image).toBe("/media/scenes/test.webp");
+    expect(vi.mocked(api.updateSetting)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ image: "/media/scenes/test.webp" }),
+    );
   });
 
   it("skips images when ComfyUI is not configured", async () => {

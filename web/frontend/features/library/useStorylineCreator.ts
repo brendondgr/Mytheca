@@ -16,12 +16,14 @@ import {
   applyTriage,
   BLANK_FIELDS,
   commitWorld,
+  type CommitEntityPatch,
   type CreatorDoc,
   type CreatorFields,
   draftDocTexts,
   fieldsFromStoryline,
   isCreatorValid,
   type PlanConcepts,
+  renderProposalImages,
   toCreatorDoc,
   type TriageActive,
   upsertAt,
@@ -60,6 +62,7 @@ export function useStorylineCreator(editId?: string) {
   const [triaging, setTriaging] = useState(false);
   const [triageActive, setTriageActive] = useState<TriageActive | null>(null);
   const [building, setBuilding] = useState(false);
+  const [buildingImages, setBuildingImages] = useState(false);
   const [buildStage, setBuildStage] = useState<string | null>(null);
   const [planConcepts, setPlanConcepts] = useState<PlanConcepts | null>(null);
   const [committing, setCommitting] = useState(false);
@@ -236,9 +239,27 @@ export function useStorylineCreator(editId?: string) {
     }
   }, [fields.premise, seed, docs]);
 
+  // Patch the displayed cast/settings in place (used by both the live image render
+  // during build and the commit) — e.g. once a portrait / scene-art URL lands.
+  const applyEntityPatch = useCallback(
+    (e: CommitEntityPatch) =>
+      setProposed((p) => {
+        if (!p) return p;
+        if (e.type === "character") {
+          return {
+            ...p,
+            characters: p.characters.map((c, i) => (i === e.index ? { ...c, ...e.patch } : c)),
+          };
+        }
+        return { ...p, settings: p.settings.map((s, i) => (i === e.index ? { ...s, ...e.patch } : s)) };
+      }),
+    [],
+  );
+
   // The world build streams: metadata fills the left fields, the blueprint seeds
   // skeleton cards (planConcepts), and each character/setting event appends to the
   // proposal so the right column fills in live. `done` swaps in the canonical world.
+  // Then, when ComfyUI is available, portraits + scene art render live into the cards.
   const build = useCallback(async () => {
     const s = seed.trim();
     const docsOverview = draftGrounding(docs);
@@ -250,12 +271,14 @@ export function useStorylineCreator(editId?: string) {
     const ac = new AbortController();
     buildAbort.current = ac;
     setBuilding(true);
+    setBuildingImages(false);
     setError(null);
     setBuildStage(null);
     setProposed(null);
     setPlanConcepts(null);
     // Accumulate the storyline core across events so `plan` can seed the proposal.
     const meta = { title: "", genre: "", tagline: "", premise: "", worldPrimer: "" };
+    let finalWorld: ProposedWorld | null = null;
     try {
       for await (const ev of api.buildWorldStream(
         { seed: s || undefined, docsOverview, storylineId: editId },
@@ -298,6 +321,7 @@ export function useStorylineCreator(editId?: string) {
             );
             break;
           case "done":
+            finalWorld = ev.world;
             setProposed(ev.world);
             if (ev.world.stats.length) setStats(ev.world.stats);
             setFields((prev) => ({
@@ -314,14 +338,23 @@ export function useStorylineCreator(editId?: string) {
             break;
         }
       }
+
+      // Text build done → render portraits + scene art live whenever ComfyUI is
+      // available (the build now produces images too, not just the commit).
+      if (finalWorld && imagesAvailable && generateImages && !ac.signal.aborted) {
+        setBuilding(false); // switch the panel to review mode while images render in
+        setBuildingImages(true);
+        await renderProposalImages(finalWorld, applyEntityPatch, setBuildStage, ac.signal);
+      }
     } catch (e) {
       if (!ac.signal.aborted) setError(messageOf(e));
     } finally {
       if (buildAbort.current === ac) buildAbort.current = null;
       setBuilding(false);
+      setBuildingImages(false);
       setBuildStage(null);
     }
-  }, [seed, docs, editId]);
+  }, [seed, docs, editId, imagesAvailable, generateImages, applyEntityPatch]);
 
   // ---- proposed-world review edits ----
   const updateProposedCharacter = useCallback(
@@ -359,6 +392,10 @@ export function useStorylineCreator(editId?: string) {
       setError("Give the world a title first.");
       return null;
     }
+    // Stop any still-running build-time image render; commit persists what's there
+    // and renders any that are still missing (no double-render, no race).
+    buildAbort.current?.abort();
+    setBuildingImages(false);
     setCommitting(true);
     setError(null);
     setProgress(null);
@@ -377,20 +414,7 @@ export function useStorylineCreator(editId?: string) {
         setProgress,
         // Patch the displayed cast/settings as each image renders, so previews
         // pop into the right column live during "Create World".
-        (e) =>
-          setProposed((p) => {
-            if (!p) return p;
-            if (e.type === "character") {
-              return {
-                ...p,
-                characters: p.characters.map((c, i) => (i === e.index ? { ...c, ...e.patch } : c)),
-              };
-            }
-            return {
-              ...p,
-              settings: p.settings.map((s, i) => (i === e.index ? { ...s, ...e.patch } : s)),
-            };
-          }),
+        applyEntityPatch,
       );
       return id;
     } catch (e) {
@@ -410,6 +434,7 @@ export function useStorylineCreator(editId?: string) {
     existingDocs,
     imagesAvailable,
     generateImages,
+    applyEntityPatch,
   ]);
 
   const budget = useMemo(
@@ -455,6 +480,7 @@ export function useStorylineCreator(editId?: string) {
     triaging,
     triageActive,
     building,
+    buildingImages,
     buildStage,
     committing,
     progress,

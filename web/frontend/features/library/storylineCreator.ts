@@ -247,6 +247,86 @@ export type CommitEntityPatch =
   | { type: "character"; index: number; patch: Partial<ProposedCharacter> }
   | { type: "setting"; index: number; patch: Partial<ProposedSetting> };
 
+/** Generate a portrait image URL for a (possibly unsaved) character — no persist. */
+async function proposePortraitUrl(
+  c: ProposedCharacter,
+  onProgress?: (msg: string) => void,
+): Promise<string | null> {
+  onProgress?.(`Rendering portrait for ${c.name || "a character"}…`);
+  const prompts = await api.generatePortraitPrompts({
+    name: c.name,
+    role: c.role,
+    appearance: c.appearance,
+    traits: c.traits,
+    personality: c.personality,
+  });
+  const { portrait } = await api.generatePortrait({
+    positive: prompts.positive,
+    negative: prompts.negative,
+  });
+  return portrait || null;
+}
+
+/** Generate a scene-art image URL for a (possibly unsaved) setting — no persist. */
+async function proposeSceneArtUrl(
+  s: ProposedSetting,
+  onProgress?: (msg: string) => void,
+): Promise<string | null> {
+  onProgress?.(`Rendering scene art for ${s.name || "a setting"}…`);
+  const prompts = await api.generateSceneArtPrompts({
+    name: s.name,
+    type: s.type,
+    desc: s.desc,
+    atmosphere: s.atmosphere,
+    features: s.features,
+    currentState: s.currentState,
+  });
+  const { image } = await api.generateSceneArt({
+    positive: prompts.positive,
+    negative: prompts.negative,
+  });
+  return image || null;
+}
+
+/**
+ * Render portraits + scene art for a proposed (un-persisted) world, patching each
+ * into the proposal as it lands — so **Build the whole world** shows images appear
+ * live whenever ComfyUI is available. Best-effort per entity (a failed render is
+ * skipped, never thrown), skips entities that already have an image, and bails
+ * promptly when `signal` aborts (e.g. the author hits Create World, or navigates).
+ */
+export async function renderProposalImages(
+  proposed: ProposedWorld,
+  onEntity: (e: CommitEntityPatch) => void,
+  onProgress?: (msg: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  for (let i = 0; i < proposed.characters.length; i++) {
+    if (signal?.aborted) return;
+    const c = proposed.characters[i];
+    if (c.portrait) continue;
+    try {
+      const portrait = await proposePortraitUrl(c, onProgress);
+      if (signal?.aborted) return;
+      if (portrait) onEntity({ type: "character", index: i, patch: { portrait } });
+    } catch {
+      onProgress?.(`Skipped ${c.name || "a character"}'s portrait (render failed).`);
+    }
+  }
+  for (let i = 0; i < proposed.settings.length; i++) {
+    if (signal?.aborted) return;
+    const s = proposed.settings[i];
+    if (s.image) continue;
+    try {
+      const image = await proposeSceneArtUrl(s, onProgress);
+      if (signal?.aborted) return;
+      if (image) onEntity({ type: "setting", index: i, patch: { image } });
+    } catch {
+      onProgress?.(`Skipped ${s.name || "a setting"}'s scene art (render failed).`);
+    }
+  }
+}
+
 /** Best-effort portrait render for a just-created character (never throws). */
 async function renderPortrait(
   characterId: string,
@@ -256,18 +336,8 @@ async function renderPortrait(
   onEntity?: (e: CommitEntityPatch) => void,
 ): Promise<void> {
   try {
-    onProgress?.(`Rendering portrait for ${c.name || "a character"}…`);
-    const prompts = await api.generatePortraitPrompts({
-      name: c.name,
-      role: c.role,
-      appearance: c.appearance,
-      traits: c.traits,
-      personality: c.personality,
-    });
-    const { portrait } = await api.generatePortrait({
-      positive: prompts.positive,
-      negative: prompts.negative,
-    });
+    const portrait = await proposePortraitUrl(c, onProgress);
+    if (!portrait) return;
     await api.updateCharacter(characterId, { portrait });
     onEntity?.({ type: "character", index, patch: { portrait } });
   } catch {
@@ -284,19 +354,8 @@ async function renderSceneArt(
   onEntity?: (e: CommitEntityPatch) => void,
 ): Promise<void> {
   try {
-    onProgress?.(`Rendering scene art for ${s.name || "a setting"}…`);
-    const prompts = await api.generateSceneArtPrompts({
-      name: s.name,
-      type: s.type,
-      desc: s.desc,
-      atmosphere: s.atmosphere,
-      features: s.features,
-      currentState: s.currentState,
-    });
-    const { image } = await api.generateSceneArt({
-      positive: prompts.positive,
-      negative: prompts.negative,
-    });
+    const image = await proposeSceneArtUrl(s, onProgress);
+    if (!image) return;
     await api.updateSetting(settingId, { image });
     onEntity?.({ type: "setting", index, patch: { image } });
   } catch {
@@ -357,7 +416,10 @@ export async function commitWorld(
     const ch = await api.createCharacter(id, proposedToCharacterInput(c));
     const values = startingStatsMap(c.startingStats, stats);
     if (Object.keys(values).length) await api.setCharacterStats(ch.id, values);
-    if (args.generateImages) await renderPortrait(ch.id, c, i, onProgress, onEntity);
+    // Images are rendered during the build; persist what's there, and render fresh
+    // only if one is still missing (and the author left image generation on).
+    if (c.portrait) await api.updateCharacter(ch.id, { portrait: c.portrait });
+    else if (args.generateImages) await renderPortrait(ch.id, c, i, onProgress, onEntity);
   }
 
   const settings = proposed?.settings ?? [];
@@ -365,7 +427,8 @@ export async function commitWorld(
     const s = settings[i];
     onProgress?.(`Adding ${s.name || "a setting"}…`);
     const st = await api.createSetting(id, proposedToSettingInput(s));
-    if (args.generateImages) await renderSceneArt(st.id, s, i, onProgress, onEntity);
+    if (s.image) await api.updateSetting(st.id, { image: s.image });
+    else if (args.generateImages) await renderSceneArt(st.id, s, i, onProgress, onEntity);
   }
 
   const corpus = docs.filter((d) => d.text);
