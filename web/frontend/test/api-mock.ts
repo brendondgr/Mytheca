@@ -369,6 +369,10 @@ export function makeApiMock() {
     })),
 
     getHealth: vi.fn(async () => ({ status: "ok" })),
+    getLlmBackend: vi.fn(async () => ({
+      backend: "vllm",
+      budgets: { low: 256, medium: 512, high: 1024, very_high: 2048, max: 4096 },
+    })),
 
     // ---- Story Graph (Neo4j substrate) ----
     getScenarioGraph: vi.fn(async (scenarioId: string) => ({

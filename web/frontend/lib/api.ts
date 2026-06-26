@@ -525,6 +525,14 @@ export interface LlmTestResult {
   sample: string;
 }
 
+/** Auto-detected local inference backend info returned by `GET /api/options/llm/backend`. */
+export interface LlmBackendInfo {
+  /** Detected engine: "vllm" | "llamacpp" | "unknown". "unknown" when OpenAI/unreachable. */
+  backend: string;
+  /** Reasoning effort → thinking-token budget ladder. */
+  budgets: Record<string, number>;
+}
+
 export const getSettings = () => request<AppSettings>("/options");
 export const updateLlmConfig = (body: LlmConfigUpdate) =>
   patch<LlmConfig>("/options/llm", body);
@@ -538,6 +546,7 @@ export const testLlmConnection = (body: {
   model: string;
   params?: LlmParams;
 }) => post<LlmTestResult>("/options/llm/test", body);
+export const getLlmBackend = () => request<LlmBackendInfo>("/options/llm/backend");
 
 // ---- ComfyUI image generation ----
 export const updateComfyConfig = (body: ComfyConfigUpdate) =>
