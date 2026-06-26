@@ -302,6 +302,8 @@ export async function renderProposalImages(
   onProgress?: (msg: string) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  // Circuit breaker: if a render call fails (e.g. ComfyUI stopped mid-build), bail
+  // immediately rather than hammering a down server with one 502 per entity.
   for (let i = 0; i < proposed.characters.length; i++) {
     if (signal?.aborted) return;
     const c = proposed.characters[i];
@@ -311,7 +313,8 @@ export async function renderProposalImages(
       if (signal?.aborted) return;
       if (portrait) onEntity({ type: "character", index: i, patch: { portrait } });
     } catch {
-      onProgress?.(`Skipped ${c.name || "a character"}'s portrait (render failed).`);
+      onProgress?.("Image generation stopped — is ComfyUI running? (check Options).");
+      return;
     }
   }
   for (let i = 0; i < proposed.settings.length; i++) {
@@ -323,44 +326,50 @@ export async function renderProposalImages(
       if (signal?.aborted) return;
       if (image) onEntity({ type: "setting", index: i, patch: { image } });
     } catch {
-      onProgress?.(`Skipped ${s.name || "a setting"}'s scene art (render failed).`);
+      onProgress?.("Image generation stopped — is ComfyUI running? (check Options).");
+      return;
     }
   }
 }
 
-/** Best-effort portrait render for a just-created character (never throws). */
+/** Render + persist a portrait (never throws). Returns false if the render failed
+ *  (the caller stops rendering further images — likely ComfyUI is down). */
 async function renderPortrait(
   characterId: string,
   c: ProposedCharacter,
   index: number,
   onProgress?: (msg: string) => void,
   onEntity?: (e: CommitEntityPatch) => void,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const portrait = await proposePortraitUrl(c, onProgress);
-    if (!portrait) return;
+    if (!portrait) return true;
     await api.updateCharacter(characterId, { portrait });
     onEntity?.({ type: "character", index, patch: { portrait } });
+    return true;
   } catch {
-    onProgress?.(`Skipped ${c.name || "a character"}'s portrait (render failed).`);
+    onProgress?.("Image generation stopped — is ComfyUI running? (check Options).");
+    return false;
   }
 }
 
-/** Best-effort scene-art render for a just-created setting (never throws). */
+/** Render + persist scene art (never throws). Returns false on a failed render. */
 async function renderSceneArt(
   settingId: string,
   s: ProposedSetting,
   index: number,
   onProgress?: (msg: string) => void,
   onEntity?: (e: CommitEntityPatch) => void,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const image = await proposeSceneArtUrl(s, onProgress);
-    if (!image) return;
+    if (!image) return true;
     await api.updateSetting(settingId, { image });
     onEntity?.({ type: "setting", index, patch: { image } });
+    return true;
   } catch {
-    onProgress?.(`Skipped ${s.name || "a setting"}'s scene art (render failed).`);
+    onProgress?.("Image generation stopped — is ComfyUI running? (check Options).");
+    return false;
   }
 }
 
@@ -410,6 +419,10 @@ export async function commitWorld(
     await persistStatsDiff(id, stats, []);
   }
 
+  // Once a fresh render fails we stop attempting more (ComfyUI is likely down) —
+  // entities are still created, just without an image.
+  let imagesOk = true;
+
   const characters = proposed?.characters ?? [];
   for (let i = 0; i < characters.length; i++) {
     const c = characters[i];
@@ -420,7 +433,9 @@ export async function commitWorld(
     // Images are rendered during the build; persist what's there, and render fresh
     // only if one is still missing (and the author left image generation on).
     if (c.portrait) await api.updateCharacter(ch.id, { portrait: c.portrait });
-    else if (args.generateImages) await renderPortrait(ch.id, c, i, onProgress, onEntity);
+    else if (args.generateImages && imagesOk) {
+      imagesOk = await renderPortrait(ch.id, c, i, onProgress, onEntity);
+    }
   }
 
   const settings = proposed?.settings ?? [];
@@ -429,7 +444,9 @@ export async function commitWorld(
     onProgress?.(`Adding ${s.name || "a setting"}…`);
     const st = await api.createSetting(id, proposedToSettingInput(s));
     if (s.image) await api.updateSetting(st.id, { image: s.image });
-    else if (args.generateImages) await renderSceneArt(st.id, s, i, onProgress, onEntity);
+    else if (args.generateImages && imagesOk) {
+      imagesOk = await renderSceneArt(st.id, s, i, onProgress, onEntity);
+    }
   }
 
   const corpus = docs.filter((d) => d.text);

@@ -183,4 +183,44 @@ describe("storylineCreator.commitWorld image previews", () => {
     expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
     expect(vi.mocked(api.generateSceneArt)).not.toHaveBeenCalled();
   });
+
+  it("renderProposalImages circuit-breaks on the first failed render (ComfyUI down)", async () => {
+    vi.mocked(api.generatePortrait).mockRejectedValue(new Error("502"));
+    const twoChars = {
+      ...PROPOSED,
+      characters: [
+        { ...PROPOSED.characters[0], name: "A" },
+        { ...PROPOSED.characters[0], name: "B" },
+      ],
+    };
+    const events: CommitEntityPatch[] = [];
+    await renderProposalImages(twoChars, (e) => events.push(e));
+    // First portrait fails → stop; the 2nd character and all settings are skipped.
+    expect(events).toHaveLength(0);
+    expect(vi.mocked(api.generatePortrait)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(api.generateSceneArt)).not.toHaveBeenCalled();
+  });
+
+  it("commitWorld stops rendering after the first failure but still creates entities", async () => {
+    vi.mocked(api.generatePortrait).mockRejectedValue(new Error("502"));
+    const twoChars = {
+      ...PROPOSED,
+      characters: [
+        { ...PROPOSED.characters[0], name: "A" },
+        { ...PROPOSED.characters[0], name: "B" },
+      ],
+    };
+    const id = await commitWorld({
+      fields: { ...BLANK_FIELDS, title: "World" },
+      stats: [],
+      statsOriginal: [],
+      proposed: twoChars,
+      docs: [],
+      generateImages: true,
+    });
+    expect(id).toBeTruthy();
+    // Both characters created; only ONE portrait render attempted (then circuit-broke).
+    expect(vi.mocked(api.createCharacter)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(api.generatePortrait)).toHaveBeenCalledTimes(1);
+  });
 });

@@ -52,13 +52,46 @@ describe("useStorylineCreator", () => {
     expect(result.current.planConcepts?.characters).toHaveLength(1);
   });
 
+  it("sends the categorized character/setting docs as the cast source", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    await act(async () => {
+      await result.current.addFiles([file("hero.md", "A hero."), file("keep.md", "A place.")]);
+    });
+    act(() => result.current.setDocCategory("hero.md", "character"));
+    act(() => result.current.setDocCategory("keep.md", "setting"));
+    await act(async () => {
+      await result.current.build();
+    });
+    const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
+    expect(body.characterDocs).toEqual([{ name: "hero.md", text: "A hero." }]);
+    expect(body.settingDocs).toEqual([{ name: "keep.md", text: "A place." }]);
+  });
+
+  it("skips image rendering when ComfyUI is configured but unreachable", async () => {
+    vi.mocked(api.checkComfyStatus).mockResolvedValueOnce({
+      ok: false,
+      comfyuiVersion: "",
+      device: "",
+      pythonVersion: "",
+    });
+    const { result } = renderHook(() => useStorylineCreator());
+    await waitFor(() => expect(result.current.imagesAvailable).toBe(true));
+    act(() => result.current.setSeed("A world."));
+    await act(async () => {
+      await result.current.build();
+    });
+    // Reachability preflight failed → no portrait/scene-art calls (no 502 storm).
+    expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
+    expect(vi.mocked(api.generateSceneArt)).not.toHaveBeenCalled();
+  });
+
   it("refuses to build with neither a seed nor draft docs", async () => {
     const { result } = renderHook(() => useStorylineCreator());
     await act(async () => {
       await result.current.build();
     });
     expect(vi.mocked(api.buildWorldStream)).not.toHaveBeenCalled();
-    expect(result.current.error).toMatch(/seed or drop context/i);
+    expect(result.current.error).toMatch(/seed, drop context files, or attach/i);
   });
 
   it("commits the built world: storyline → stats → cast → settings → corpus", async () => {

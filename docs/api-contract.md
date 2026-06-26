@@ -211,11 +211,12 @@ indexed.
   retrieval corpus. Empty `docs` → `{ "items": [] }` (no LLM call); a doc the model omits
   falls back to `other`/RAG-on; unconfigured LLM → `400`; non-JSON reply → `502`. The
   classified docs are persisted on commit via the **Context documents** bulk endpoint.
-- `POST /storylines/build` — `{ seed?, docsOverview?, storylineId?, maxCharacters?, maxSettings? }`
-  (at least one of `seed`/`docsOverview` required — build from a sentence, from dropped
-  files, or both). Orchestrates several LLM calls (storyline draft → World Primer →
-  one **blueprint** call for the stat schema + cast/setting concepts → one draft per
-  character → one draft per setting) and returns a reviewable `ProposedWorld`:
+- `POST /storylines/build` — `{ seed?, docsOverview?, storylineId?, maxCharacters?,
+  maxSettings?, characterDocs?: [{ name, text }], settingDocs?: [{ name, text }] }`
+  (at least one of `seed` / `docsOverview` / a `characterDocs`/`settingDocs` entry is
+  required). Orchestrates several LLM calls (storyline draft → World Primer → one
+  **blueprint** call for the stat schema → one draft per attached character-doc → one
+  draft per attached setting-doc) and returns a reviewable `ProposedWorld`:
 
   ```json
   {
@@ -226,12 +227,17 @@ indexed.
   }
   ```
 
-  Nothing is persisted by this call — the page reviews the proposal and commits it via
-  the normal CRUD endpoints (rendering portraits/scene-art then, only if ComfyUI is
-  configured). Counts are bounded (≤6 characters, ≤5 settings, ≤8 stats); proposed stats
-  are sanitized to valid ranges so they persist straight through `POST /storylines/{id}/stats`;
-  starting stats default to the schema defaults. Empty seed **and** docs → `400`;
-  unconfigured LLM → `400`; a non-JSON sub-reply → `502`.
+  **The cast/settings come ONLY from the attached docs** — exactly one character per
+  `characterDocs` entry and one setting per `settingDocs` entry, each drafted from that
+  doc. The build never **invents** a character/setting the author didn't attach: with no
+  `characterDocs`, `characters` is `[]` (likewise settings). The storyline metadata,
+  World Primer, and the universal **stat schema** are always produced. Nothing is
+  persisted by this call — the page reviews the proposal and commits it via the normal
+  CRUD endpoints (rendering portraits/scene-art then, only if ComfyUI is reachable).
+  Counts are bounded (≤6 characters, ≤5 settings, ≤8 stats); proposed stats are
+  sanitized to valid ranges so they persist straight through `POST /storylines/{id}/stats`;
+  starting stats default to the schema defaults. No context at all → `400`; unconfigured
+  LLM → `400`; a non-JSON sub-reply → `502`.
 
 ### Live Authoring Stream (NDJSON)
 
@@ -247,9 +253,9 @@ same generators).
   - `{ "type": "status", "stage": "metadata|primer|blueprint|characters|settings", "message": "…" }` — progress markers.
   - `{ "type": "meta", "title", "genre", "tagline", "premise" }` — storyline metadata drafted.
   - `{ "type": "primer", "worldPrimer": "…" }` — the World Primer.
-  - `{ "type": "plan", "stats": […], "characters": ["concept", …], "settings": ["concept", …] }` — the blueprint: the stat schema + one-sentence cast/setting **concepts** (skeleton cards).
-  - `{ "type": "character", "index", "total", "character": { … } }` — one full character per concept (fills its skeleton).
-  - `{ "type": "setting", "index", "total", "setting": { … } }` — one full setting per concept.
+  - `{ "type": "plan", "stats": […], "characters": ["label", …], "settings": ["label", …] }` — the stat schema + the skeleton labels for the cast/settings to be built (the attached doc names; empty when none are attached).
+  - `{ "type": "character", "index", "total", "character": { … } }` — one full character per attached character-doc (fills its skeleton).
+  - `{ "type": "setting", "index", "total", "setting": { … } }` — one full setting per attached setting-doc.
   - `{ "type": "done", "world": ProposedWorld }` — terminal success (the assembled proposal).
   - `{ "type": "error", "message": "…" }` — terminal in-band failure.
 - `POST /storylines/triage/stream` — same body as `/triage`, but classifies **one

@@ -23,6 +23,13 @@ MAX_SETTINGS = 5
 MAX_STATS = 8
 
 
+class BuildDoc(CamelModel):
+    """An attached reference document that names ONE character or setting to build."""
+
+    name: str = ""
+    text: str = ""
+
+
 class BuildWorldRequest(CamelModel):
     # At least one of seed / docsOverview is required (build from a sentence, from
     # dropped files, or both — the author need not "describe" the world by hand
@@ -32,6 +39,12 @@ class BuildWorldRequest(CamelModel):
     storyline_id: str | None = None
     max_characters: int | None = None
     max_settings: int | None = None
+    # Attached, triaged docs that ARE the cast / places: when present, the build
+    # creates exactly one character per character-doc and one setting per
+    # setting-doc (it does NOT invent its own). Only when a list is empty does the
+    # build fall back to inventing that kind from the blueprint (seed-only flow).
+    character_docs: list[BuildDoc] = []
+    setting_docs: list[BuildDoc] = []
 
 
 class ProposedStoryline(CamelModel):

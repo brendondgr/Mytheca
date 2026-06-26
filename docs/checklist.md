@@ -40,6 +40,14 @@
 
 ## Follow-up Work (next steps)
 
+### Build from attached docs only + ComfyUI down-guard (done; `fix/build-from-attached-docs`)
+Two bug fixes to **Build the whole world**, from user reports.
+- **(1) Cast/settings come ONLY from attached docs.** The build was inventing a cast/settings via the blueprint, ignoring the author's attached character/setting docs. Now: `BuildWorldRequest` carries `character_docs` / `setting_docs` (`BuildDoc{name,text}`); `build_agent.iter_build_world` creates **exactly one character per character-doc and one setting per setting-doc**, drafted from that doc, and **invents nothing** — no character docs → `characters == []` (likewise settings). The blueprint is now used only for the **stat schema** (its invented concepts are discarded). Attached docs alone are valid context (build with no seed/lore). The frontend (`useStorylineCreator.build()`) sends the docs categorized `character`/`setting`; the `plan` event's skeleton labels are the doc names.
+- **(2) Stop hammering a down ComfyUI.** `imagesAvailable` only means a URL is *configured*; a stopped server 502'd on every entity. Now the build runs a **status preflight** (`checkComfyStatus`) before rendering and skips images entirely if unreachable, and both `renderProposalImages` (build) and `commitWorld` (commit) have a **circuit breaker** — the first failed render stops all further image calls (entities are still created, just without art).
+- **Validation:** 202 backend tests (ruff + mypy clean; build tests rewritten for the no-invention behavior + per-doc cast) + 143 frontend tests (typecheck + lint + build clean; new tests for docs-as-cast, the circuit breaker, and the reachability skip).
+- **Decisions (from the user):** the build must create **only** the attached characters/settings — never invent; if none are attached, none are created.
+- **Note:** the per-build hard caps (≤6 characters / ≤5 settings) still apply to attached docs; attaching more than the cap silently builds only the first N (revisit if authors hit it).
+
 ### Self-Triage — default "Select" category for dropped context docs (done; `main`; plan: `docs/plans/self-triage-category-select.md`)
 Frontend-only. Two phases, commit-per-phase, merged directly to `main`.
 - Adds `"select"` to the frontend `DocCategory` union as a UI-only placeholder for uncategorized docs (`lib/types.ts`).
