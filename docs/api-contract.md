@@ -234,7 +234,8 @@ indexed.
   World Primer, and the universal **stat schema** are always produced. Nothing is
   persisted by this call — the page reviews the proposal and commits it via the normal
   CRUD endpoints (rendering portraits/scene-art then, only if ComfyUI is reachable).
-  Counts are bounded (≤6 characters, ≤5 settings, ≤8 stats); proposed stats are
+  The cast/settings are **one per attached doc (no cap)** — build as many as you
+  attach; only the invented **stats** are bounded (≤8). Proposed stats are
   sanitized to valid ranges so they persist straight through `POST /storylines/{id}/stats`;
   starting stats default to the schema defaults. No context at all → `400`; unconfigured
   LLM → `400`; a non-JSON sub-reply → `502`.

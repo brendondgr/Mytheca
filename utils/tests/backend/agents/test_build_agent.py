@@ -186,6 +186,22 @@ def test_build_from_docs_only(client, monkeypatch):
     assert world["settings"] == []
 
 
+def test_build_cast_is_uncapped(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    # 9 character docs + 7 setting docs — both exceed the old 6/5 blueprint caps.
+    char_docs = [{"name": f"c{i}.md", "text": f"Character {i}."} for i in range(9)]
+    setting_docs = [{"name": f"s{i}.md", "text": f"Setting {i}."} for i in range(7)]
+    res = client.post(
+        "/api/storylines/build",
+        json={"seed": "A world.", "characterDocs": char_docs, "settingDocs": setting_docs},
+    )
+    assert res.status_code == 200
+    world = res.json()
+    assert len(world["characters"]) == 9  # all of them, not capped
+    assert len(world["settings"]) == 7
+
+
 def test_build_from_attached_docs_only_no_seed(client, monkeypatch):
     _configure_llm(client)
     _patch_upstream(monkeypatch)
