@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import type { ContextBudget } from "@/lib/contextBudget";
 
 const LEVEL_TEXT: Record<ContextBudget["level"], string> = {
-  ok: "text-mute",
+  ok: "text-ink-soft",
   warn: "text-gold",
   over: "text-danger",
 };
@@ -20,6 +20,12 @@ const LEVEL_NOTE: Record<ContextBudget["level"], string> = {
   over: "Over budget — the primer / grounding will be truncated.",
 };
 
+function fmtTokens(n: number): string {
+  if (n < 1000) return String(n);
+  const k = Math.round((n / 1000) * 10) / 10;
+  return `${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
+}
+
 /**
  * Advisory meter estimating the context the always-injected World Primer (a
  * per-scene cost) and the Draft-included documents (creation-time grounding) will
@@ -33,11 +39,11 @@ export function ContextBudgetMeter({ budget }: { budget: ContextBudget }) {
   return (
     <div role="status" className="rounded-[4px] border border-cardbd bg-field px-[12px] py-[10px]">
       <div className="flex items-center justify-between">
-        <Eyebrow size={8.5} tracking="0.14em" color="#A8762A">
+        <Eyebrow size={9.5} tracking="0.14em" color="#A8762A">
           ⚖ Context budget
         </Eyebrow>
-        <span className={cn("font-mono text-[10px]", LEVEL_TEXT[budget.level])}>
-          ~{budget.totalTokens.toLocaleString()} tok
+        <span className={cn("font-mono text-[12px] font-medium", LEVEL_TEXT[budget.level])}>
+          ~{fmtTokens(budget.totalTokens)} tok
         </span>
       </div>
       <div
@@ -53,17 +59,17 @@ export function ContextBudgetMeter({ budget }: { budget: ContextBudget }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <dl className="mt-[8px] flex flex-col gap-[3px] font-mono text-[10px] text-mute">
+      <dl className="mt-[8px] flex flex-col gap-[4px] font-mono text-[12px]">
         <div className="flex justify-between gap-[8px]">
-          <dt>World Primer · every scene</dt>
-          <dd className="text-ink-soft">~{budget.primerTokens.toLocaleString()}</dd>
+          <dt className="text-ink-soft">World Primer · every scene</dt>
+          <dd className="text-ink">~{fmtTokens(budget.primerTokens)}</dd>
         </div>
         <div className="flex justify-between gap-[8px]">
-          <dt>Draft docs · grounding</dt>
-          <dd className="text-ink-soft">~{budget.draftDocsTokens.toLocaleString()}</dd>
+          <dt className="text-ink-soft">Draft docs · grounding</dt>
+          <dd className="text-ink">~{fmtTokens(budget.draftDocsTokens)}</dd>
         </div>
       </dl>
-      <p className={cn("mt-[6px] font-body text-[11.5px]", LEVEL_TEXT[budget.level])}>
+      <p className={cn("mt-[7px] font-body text-[13px]", LEVEL_TEXT[budget.level])}>
         {LEVEL_NOTE[budget.level]}
       </p>
     </div>
