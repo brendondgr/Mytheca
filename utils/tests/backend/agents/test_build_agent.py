@@ -164,3 +164,80 @@ def test_build_requires_llm_configured(client):
     res = client.post("/api/storylines/build", json={"seed": "A world."})
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "bad_request"
+
+
+# ---- streaming build (NDJSON) ----------------------------------------------
+
+
+def _stream_events(res) -> list[dict]:
+    """Parse an ``application/x-ndjson`` body into a list of event dicts."""
+    return [json.loads(line) for line in res.text.splitlines() if line.strip()]
+
+
+def test_build_stream_emits_event_sequence(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    res = client.post("/api/storylines/build/stream", json={"seed": "A drowned harbor town."})
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("application/x-ndjson")
+    events = _stream_events(res)
+    types = [e["type"] for e in events]
+
+    # Ordered stages, the per-entity events, and a terminal `done`.
+    assert types[0] == "status"
+    assert "meta" in types and "primer" in types and "plan" in types
+    assert types.count("character") == 2  # two cast concepts in the blueprint
+    assert types.count("setting") == 2
+    assert types[-1] == "done"
+
+    meta = next(e for e in events if e["type"] == "meta")
+    assert meta["title"] == "Embergate"
+    plan = next(e for e in events if e["type"] == "plan")
+    assert [s["key"] for s in plan["stats"]] == ["health", "suspicion"]
+    assert len(plan["characters"]) == 2  # concept sentences
+
+    first_char = next(e for e in events if e["type"] == "character")
+    assert first_char["index"] == 0
+    assert first_char["character"]["name"] == "Maerin Voss"
+
+
+def test_build_stream_done_matches_collector(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    streamed = _stream_events(
+        client.post("/api/storylines/build/stream", json={"seed": "A harbor."})
+    )
+    done = next(e for e in streamed if e["type"] == "done")
+    collected = client.post("/api/storylines/build", json={"seed": "A harbor."}).json()
+    assert done["world"] == collected
+
+
+def test_build_stream_requires_context(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    res = client.post("/api/storylines/build/stream", json={})
+    assert res.status_code == 400  # validated before the stream opens
+    assert res.json()["error"]["code"] == "bad_request"
+
+
+def test_build_stream_requires_llm_configured(client):
+    client.patch("/api/options/llm", json={"baseUrl": "", "model": ""})
+    res = client.post("/api/storylines/build/stream", json={"seed": "A world."})
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "bad_request"
+
+
+def test_build_stream_emits_error_event_on_upstream_failure(client, monkeypatch):
+    _configure_llm(client)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        # The very first call (storyline draft) returns junk → extract_json raises
+        # mid-stream, after the 200 has opened → surfaces as an in-band error event.
+        return _completion("not json at all")
+
+    _patch_upstream(monkeypatch, handler)
+    res = client.post("/api/storylines/build/stream", json={"seed": "A world."})
+    assert res.status_code == 200  # the stream already opened
+    events = _stream_events(res)
+    assert events[-1]["type"] == "error"
+    assert "JSON" in events[-1]["message"] or events[-1]["message"]

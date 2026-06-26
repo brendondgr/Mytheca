@@ -10,6 +10,8 @@ straight onto ``CharacterCreate`` / ``SettingCreate``.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from app.schemas.base import CamelModel
 from app.schemas.character import CharacterDraftResponse
 from app.schemas.setting import SettingDraftResponse
@@ -65,3 +67,96 @@ class ProposedWorld(CamelModel):
     stats: list[ProposedStat] = []
     characters: list[ProposedCharacter] = []
     settings: list[ProposedSetting] = []
+
+
+# ---- Live build stream (NDJSON) --------------------------------------------
+#
+# The streaming build endpoint (``POST /storylines/build/stream``) emits one of
+# these JSON objects per line (``application/x-ndjson``) as the world is drafted,
+# so the New Storyline page can render the title/genre/premier, the cast, and the
+# settings *as they are built* instead of waiting for the whole proposal. The
+# non-streaming ``/build`` route still returns a single ``ProposedWorld`` (the
+# collector over the same generator), so both contracts coexist.
+
+
+class BuildStatusEvent(CamelModel):
+    """A human-readable stage marker (drive the progress line / spinner)."""
+
+    type: Literal["status"] = "status"
+    stage: str
+    message: str
+
+
+class BuildMetaEvent(CamelModel):
+    """Storyline metadata is drafted — fill the Title/Genre/Tagline/Premise."""
+
+    type: Literal["meta"] = "meta"
+    title: str = ""
+    genre: str = ""
+    tagline: str = ""
+    premise: str = ""
+
+
+class BuildPrimerEvent(CamelModel):
+    """The World Primer is written."""
+
+    type: Literal["primer"] = "primer"
+    world_primer: str = ""
+
+
+class BuildPlanEvent(CamelModel):
+    """The blueprint is ready: the stat schema + the cast/setting concept list.
+
+    The ``characters``/``settings`` here are one-sentence *concepts* (not full
+    drafts) — enough for the UI to render skeleton cards that fill in as each
+    ``character``/``setting`` event arrives.
+    """
+
+    type: Literal["plan"] = "plan"
+    stats: list[ProposedStat] = []
+    characters: list[str] = []
+    settings: list[str] = []
+
+
+class BuildCharacterEvent(CamelModel):
+    """One character finished drafting (slots into the skeleton at ``index``)."""
+
+    type: Literal["character"] = "character"
+    index: int
+    total: int
+    character: ProposedCharacter
+
+
+class BuildSettingEvent(CamelModel):
+    """One setting finished drafting (slots into the skeleton at ``index``)."""
+
+    type: Literal["setting"] = "setting"
+    index: int
+    total: int
+    setting: ProposedSetting
+
+
+class BuildDoneEvent(CamelModel):
+    """Terminal success event — carries the assembled ``ProposedWorld``."""
+
+    type: Literal["done"] = "done"
+    world: ProposedWorld
+
+
+class BuildErrorEvent(CamelModel):
+    """Terminal error event — emitted in-band once the 200 stream has opened."""
+
+    type: Literal["error"] = "error"
+    message: str
+
+
+BuildEvent = (
+    BuildStatusEvent
+    | BuildMetaEvent
+    | BuildPrimerEvent
+    | BuildPlanEvent
+    | BuildCharacterEvent
+    | BuildSettingEvent
+    | BuildDoneEvent
+    | BuildErrorEvent
+)

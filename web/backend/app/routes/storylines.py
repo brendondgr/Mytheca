@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.agents import build_agent, storyline_agent, triage_agent
 from app.core.db import get_db
-from app.schemas.build import BuildWorldRequest, ProposedWorld
+from app.core.errors import APIError
+from app.schemas.build import BuildErrorEvent, BuildWorldRequest, ProposedWorld
 from app.schemas.context_document import TriageRequest, TriageResponse
 from app.schemas.storyline import (
     StorylineCreate,
@@ -65,6 +69,45 @@ def build_world(data: BuildWorldRequest, db: Session = Depends(get_db)):
         data.storyline_id,
         max_characters=data.max_characters,
         max_settings=data.max_settings,
+    )
+
+
+# NDJSON streaming headers: keep proxies (nginx) from buffering the live stream.
+_STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+
+
+@router.post("/build/stream")
+def build_world_stream(data: BuildWorldRequest, db: Session = Depends(get_db)):
+    """Stream the world build live as NDJSON (``application/x-ndjson``).
+
+    One JSON object per line: ``status`` / ``meta`` / ``primer`` / ``plan`` /
+    ``character`` / ``setting`` / ``done`` (or a terminal ``error``). Missing
+    context or an unconfigured LLM is validated *before* the stream opens, so those
+    still return a normal ``400`` envelope.
+    """
+    # Pre-flight (status can't change once the 200 stream has opened).
+    build_agent.validate_build_inputs(db, data.seed, data.docs_overview)
+
+    def _lines() -> Iterator[str]:
+        try:
+            for event in build_agent.iter_build_world(
+                db,
+                data.seed,
+                data.docs_overview,
+                data.storyline_id,
+                max_characters=data.max_characters,
+                max_settings=data.max_settings,
+            ):
+                yield event.model_dump_json(by_alias=True) + "\n"
+        except APIError as exc:
+            yield BuildErrorEvent(message=exc.message).model_dump_json(by_alias=True) + "\n"
+        except Exception:  # never leak a stack trace into the stream
+            yield BuildErrorEvent(
+                message="The build failed unexpectedly."
+            ).model_dump_json(by_alias=True) + "\n"
+
+    return StreamingResponse(
+        _lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS
     )
 
 
