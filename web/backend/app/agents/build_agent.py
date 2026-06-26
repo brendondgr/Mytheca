@@ -196,11 +196,13 @@ def _propose_blueprint(
     return stats, characters, settings
 
 
-def _doc_sources(docs: list[BuildDoc] | None, cap: int) -> list[tuple[str, str]]:
+def _doc_sources(docs: list[BuildDoc] | None, cap: int | None = None) -> list[tuple[str, str]]:
     """Turn attached character/setting docs into ``(label, source-text)`` pairs.
 
     ``label`` is the doc name (shown on the skeleton card); ``source-text`` is the
     doc body fed to the draft agent as the entity's source. Blank docs are skipped.
+    By default there is **no cap** — every attached doc becomes an entity (the author
+    asked for exactly these); pass ``cap`` only to bound a specific call.
     """
     out: list[tuple[str, str]] = []
     for d in docs or []:
@@ -209,7 +211,7 @@ def _doc_sources(docs: list[BuildDoc] | None, cap: int) -> list[tuple[str, str]]
             continue
         label = (d.name or "").strip() or text[:60]
         out.append((label, text[:DOCS_CAP]))
-        if len(out) >= cap:
+        if cap is not None and len(out) >= cap:
             break
     return out
 
@@ -307,10 +309,10 @@ def iter_build_world(
         db, brief, docs_overview, n_chars=n_chars, n_settings=n_settings
     )
 
-    # Cast/settings come ONLY from the attached docs (one per doc). No docs of a kind
-    # → none of that kind is created.
-    char_sources = _doc_sources(character_docs, MAX_CHARACTERS)
-    setting_sources = _doc_sources(setting_docs, MAX_SETTINGS)
+    # Cast/settings come ONLY from the attached docs (one per doc, no cap — the author
+    # attached exactly the entities they want). No docs of a kind → none is created.
+    char_sources = _doc_sources(character_docs)
+    setting_sources = _doc_sources(setting_docs)
     yield BuildPlanEvent(
         stats=stats,
         characters=[label for label, _ in char_sources],
