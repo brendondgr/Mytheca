@@ -36,7 +36,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
 | Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
-| Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation) plus read-only inference-engine detection (`/llm/backend`). Prefix is `/options` (the Setting entity owns `/settings`). |
+| Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation), read-only inference-engine detection (`/llm/backend`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
 | Stream | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | NDJSON event stream (see below). |
 | Admin (future) | `GET /admin/*` | High-permission only. |
@@ -176,6 +176,24 @@ key is **write-only**: it is stored server-side and never returned in clear.
   unreachable) means no thinking budget is sent. See **Reasoning budget** below.
   Surfaced read-only in the Options **About** tab (`getLlmBackend` in `lib/api.ts`):
   the detected engine plus the budget ladder, degrading to "unavailable" on error.
+
+**Orphaned-media cleanup** (maintenance — generated WebPs that no DB row references,
+left by cancelled drafts or deleted entities):
+
+- `GET /options/media/orphans?min_age_hours=24` — dry-run scan (deletes nothing).
+  Cross-references the `*.webp` files under `MEDIA_DIR/portraits` + `MEDIA_DIR/scenes`
+  against every `Character.portrait` / `Setting.image` basename. Response →
+  `{ "portraits": {...}, "scenes": {...}, "orphanCount", "eligibleCount", "totalBytes",
+  "eligibleBytes", "minAgeHours" }` where each per-dir object is
+  `{ "orphanCount", "eligibleCount", "totalBytes", "eligibleBytes" }`. An orphan is a
+  WebP whose basename is unreferenced; it is *eligible* only when its mtime is older
+  than `minAgeHours` — the **grace period** that protects files from an in-flight draft
+  (generated but not yet saved).
+- `POST /options/media/cleanup?min_age_hours=24` — deletes only **eligible** orphans
+  (unreferenced AND grace-expired); recent orphans are skipped. Response →
+  `{ "deletedCount", "freedBytes", "skippedRecentCount" }`. Safe by construction: never
+  touches referenced files, non-`.webp` files, or anything outside the two media subdirs.
+  Surfaced in the Options **About** tab's Maintenance section (scan → confirm → delete).
 
 **ComfyUI image generation** (the local Comfy server — its own HTTP + WebSocket
 protocol, not OpenAI-compatible):
