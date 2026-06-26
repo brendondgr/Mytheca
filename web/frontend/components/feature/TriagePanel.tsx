@@ -149,11 +149,12 @@ export function TriagePanel({
   }
 
   return (
-    // Full-height right pane on lg+. The aside itself does NOT scroll — the sticky
-    // top (upload + triage) stays pinned, and the inner body scrolls independently.
+    // Contained right pane: a fixed-width column at md+, a bounded strip below md.
+    // The aside itself does NOT scroll — the sticky top (upload target + triage) stays
+    // pinned and the inner body scrolls independently.
     <aside
       aria-label="Context files"
-      className="flex flex-col border-t border-hair-strong bg-card lg:w-[360px] lg:shrink-0 lg:border-t-0 lg:border-l lg:min-h-0 lg:self-stretch"
+      className="flex min-h-0 max-h-[42dvh] shrink-0 flex-col border-t border-hair-strong bg-card md:max-h-none md:w-[360px] md:border-t-0 md:border-l md:self-stretch"
     >
       {/* ── Sticky top: upload zone + triage button ─────────────────────── */}
       <div className="sticky top-0 z-10 flex flex-col gap-[12px] border-b border-hair-strong bg-card p-[18px_20px]">
@@ -282,7 +283,7 @@ export function TriagePanel({
       </div>
 
       {/* ── Scrollable body: doc list + budget meter ─────────────────────── */}
-      <div className="flex flex-1 flex-col gap-[14px] overflow-y-auto p-[18px_20px] pt-[16px]">
+      <div className="flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto p-[18px_20px] pt-[16px]">
         {docs.length === 0 ? (
           <p className="font-body text-[13px] text-ink-soft">
             Drop reference files, then use Self-Triage to categorize each one manually —

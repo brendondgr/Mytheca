@@ -54,12 +54,13 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
   }
 
   return (
-    // Full-height two-pane shell at lg+: the left (world fields) and the right
-    // (Context files) each own an independent vertical scroll. Below lg it's normal
-    // block flow (the page scrolls) with the context column stacked beneath.
-    <main className="lg:flex lg:h-dvh lg:min-h-0 lg:overflow-hidden">
-      {/* ── Left pane — the world fields (own scroll on lg+) ─────────────── */}
-      <div className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto">
+    // Self-contained one-screen shell at every width: the page never scrolls as a
+    // whole — the left (world fields) and the right (Context files) each own an
+    // independent vertical scroll. Two columns at md+; below md they stack, the
+    // fields taking the bulk and the context pane a bounded, scrollable strip.
+    <main className="flex h-dvh min-h-0 flex-col overflow-hidden md:flex-row">
+      {/* ── Left pane — the world fields (own scroll) ───────────────────── */}
+      <div className="min-h-0 flex-1 min-w-0 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[840px] flex-col px-[22px] py-[20px]">
           <Link
             href="/"
