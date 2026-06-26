@@ -40,9 +40,9 @@ velora/
 │   │   ├── docker-compose.yml  # Postgres + Redis + Neo4j containers (started by app.py)
 │   │   └── app/
 │   │       ├── routes/     # API + SSE/WebSocket endpoints (+ graph: Story-Graph Type Registry + scenario subgraph)
-│   │       ├── services/   # Orchestrator/Director, event engine, validator; Story Graph: type_registry, graph_writer, graph_reader
+│   │       ├── services/   # Orchestrator/Director, event engine, validator; stat_guidance (per-stat Markdown loader); Story Graph: type_registry, graph_writer, graph_reader
 │   │       ├── agents/     # LLM agents — storyline_agent (draft + World Primer), character_agent (draft + portrait prompts + stats), setting_agent (draft + scene-art prompts), shared _common; Narrator agents later
-│   │       ├── content/    # Authored content — the built-in Story-Graph type catalogue (graph_registry.py); YAML config + Markdown stat guidance later
+│   │       ├── content/    # Authored content — the built-in Story-Graph type catalogue (graph_registry.py) + per-stat Markdown guidance (stats/*.md, loaded by services/stat_guidance.py); YAML config later
 │   │       ├── memory/     # Memory seam (Postgres/Redis now; vector DB later)
 │   │       ├── events/     # Event / NDJSON stream definitions (5 event types)
 │   │       ├── models/     # PostgreSQL models (storylines, characters, settings, scenarios, events, stats, app_settings, graph_type_definitions, context_documents)

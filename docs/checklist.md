@@ -215,7 +215,7 @@ Replaces the one-shot "Untitled Storyline" create with a write-first modal (done
 
 ### Storyline data layer — Postgres persistence + Library wiring (done; `feat/storyline-data-layer`)
 Backend stood up end-to-end (plan: `docs/plans/storyline-data-layer.md`): core config/db/redis clients; SQLAlchemy models + camelCase Pydantic schemas for Storyline/Character/Setting/Scenario + the stat seam; CRUD routes under `/api` with the error envelope; per-storyline stat definitions + clamped character stat values; Embergate seed; `python app.py backend` preflight (docker compose up + checks + schema + seed) with `web/backend/docker-compose.yml` (Postgres on host **5544**); chat-scaffold `events`/`play_sessions` tables + NDJSON envelope types (no streaming). Frontend `lib/api.ts` client + `NEXT_PUBLIC_API_URL`; the **Library now reads/writes the backend** (await-then-apply, loading/error/Retry) and **persists** (verified end-to-end via preview: create → reload → survives; delete → gone). 38 backend tests + 33 frontend tests green.
-- **Remaining:** populate `web/shared/contracts/` (currently the FE reuses `lib/types.ts` and BE owns Pydantic); wire the **Story player** to the backend; surface stats on the **scene pages**; author stat **guidance Markdown** + loader; introduce **Alembic** before the first non-additive schema change; add a `users`/auth owner column.
+- **Remaining:** populate `web/shared/contracts/` (currently the FE reuses `lib/types.ts` and BE owns Pydantic); wire the **Story player** to the backend; surface stats on the **scene pages**; introduce **Alembic** before the first non-additive schema change; add a `users`/auth owner column.
 
 ### Frontend — Embergate UI (built from `docs/CharacterFrontpage/`)
 - [x] Library at `/` — header (wordmark/storyline/search/theme/create), recent-scenario carousel, ARIA tabs, character/setting/scenario/branch cards, create/edit/delete editors (By-hand + faked Agentic), character profile, begin-scene → `/play/[id]`.
@@ -235,14 +235,14 @@ Backend stood up end-to-end (plan: `docs/plans/storyline-data-layer.md`): core c
 - [x] Add backend deps (declared in `pyproject.toml`; `uv sync`). No new deps were needed for the data layer.
 - [x] Set up PostgreSQL + Redis connections in `app/core/` (`config.py`, `db.py`, `redis.py`).
 - [x] Create initial DB models (storylines, characters, settings, scenarios, events/play_sessions, stat definitions, stat values). **Deferred:** a `users` table (no auth yet) and **migrations** (Alembic — using idempotent `create_all` for now).
-- [ ] Add YAML config + Markdown stat-guidance loaders in `app/core/` (`app/content/`).
+- [~] Markdown **stat-guidance loader** done (`services/stat_guidance.py` + `app/content/stats/*.md`, injected into `character_agent`). **Remaining:** YAML config loaders in `app/content/`.
 
 ### Core domain & event system (next after scaffolding)
 - [x] Lock the four core objects (Storyline / Character / Setting / Scenario) as Pydantic models + ORM (`app/models`, `app/schemas`). **Remaining:** move the shared types into `web/shared/contracts/` (FE currently reuses `lib/types.ts`).
 - [~] Five-event NDJSON schema — the envelope **types** exist as a discriminated union (`app/events/envelope.py`); the validator (parse → validate → repair/retry) and the stream are not built yet.
 - [ ] Stand up the NDJSON stream in full-event mode, then add delta streaming for visible messages.
 - [~] Stat system — storyline stat schema, per-character values, and validator **clamping** are done at the data layer (`/api` stat endpoints). **Remaining:** the Stats panel UI (on scene pages) and `state_update`-carried stat changes (needs the stream).
-- [ ] Author guidance files for the first handful of stats and wire them into agent context.
+- [x] Author guidance files for the first handful of stats and wire them into agent context. **Done:** `web/backend/app/content/stats/{health,suspicion,trust,patience}.md` authored; `services/stat_guidance.py` is a path-safe (traversal-rejecting), cached loader resolving paths against `Settings.content_dir`; `character_agent.propose_starting_stats` folds each definition's guidance (trimmed to 400 chars) into the stat-schema prompt. `build_agent` is **not** wired — it designs a stat schema from scratch (no `StatDefinition` rows / guidance paths exist at blueprint time).
 - [ ] Extend stats to relationship/mood values (same machinery, relational target).
 
 ### Architecture decisions to finalize

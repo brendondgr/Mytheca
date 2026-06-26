@@ -12,7 +12,7 @@ import json
 
 import httpx
 
-from app.services import llm
+from app.services import llm, stat_guidance
 
 
 def _patch_upstream(monkeypatch, handler):
@@ -209,3 +209,47 @@ def test_starting_stats_prompt_includes_band_meanings(client, monkeypatch, story
     assert res.status_code == 200
     # The band's meaning is in the prompt so the model can choose a coherent value.
     assert "NEARLY_DEAD_MARKER" in seen["body"]
+
+
+def test_starting_stats_prompt_includes_guidance_text(client, monkeypatch, storyline_id):
+    """Guidance loaded from a real seeded .md file appears in the LLM prompt.
+
+    Uses the actual ``stats/health.md`` file (which ships with the codebase) so
+    the test stays offline — no network, no DB seed required beyond the stat row.
+    """
+    _configure_llm(client)
+
+    # Clear the guidance cache so a fresh read occurs for this test.
+    stat_guidance._clear_cache()
+
+    # Create a stat definition that points at the real health guidance file.
+    client.post(
+        f"/api/storylines/{storyline_id}/stats",
+        json={
+            "key": "health",
+            "displayName": "Health",
+            "min": 0,
+            "max": 100,
+            "default": 100,
+            "guidance": "stats/health.md",
+        },
+    )
+
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = request.content.decode()
+        return _completion(json.dumps({"proposals": [{"key": "health", "value": 90}]}))
+
+    _patch_upstream(monkeypatch, handler)
+    res = client.post(
+        "/api/characters/starting-stats",
+        json={"storylineId": storyline_id, "name": "Theron"},
+    )
+    assert res.status_code == 200
+    # The guidance file content (title heading) must appear in the outbound prompt.
+    assert "Health" in seen["body"]
+    # The "Guidance:" prefix injected by the agent must be present.
+    assert "Guidance:" in seen["body"]
+
+    stat_guidance._clear_cache()

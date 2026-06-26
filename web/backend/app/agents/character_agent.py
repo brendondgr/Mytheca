@@ -37,7 +37,12 @@ from app.schemas.character import (
 )
 from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
+from app.services import stat_guidance
 from app.services import stats as stat_service
+
+# Maximum characters of per-stat guidance text to include in the prompt.
+# Long guidance files are trimmed so the prompt stays bounded.
+_GUIDANCE_TRIM = 400
 
 _DRAFT_SYSTEM = (
     "You are Velora's character-creation assistant. Given a short description of a "
@@ -206,9 +211,22 @@ def propose_starting_stats(
     by_key = {d.key: d for d in definitions}
 
     base_url, api_key, model, params = resolve_llm(db)
+
+    def _guidance_suffix(d) -> str:
+        text = stat_guidance.guidance_for(d)
+        if not text:
+            return ""
+        trimmed = text[:_GUIDANCE_TRIM]
+        if len(text) > _GUIDANCE_TRIM:
+            trimmed += "…"
+        return f"\n  Guidance: {trimmed}"
+
     schema_lines = "\n".join(
-        f"- {d.key} ({d.display_name}): range [{d.min}, {d.max}], default {d.default}."
-        f" {d.description}{_bands_text(d)}".rstrip()
+        (
+            f"- {d.key} ({d.display_name}): range [{d.min}, {d.max}], default {d.default}."
+            f" {d.description}{_bands_text(d)}".rstrip()
+            + _guidance_suffix(d)
+        )
         for d in definitions
     )
     char_fields = {
