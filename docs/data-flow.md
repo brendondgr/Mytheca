@@ -158,6 +158,31 @@ play-accrued **event timeline** (ships empty, written async once play exists) an
 never graph edges. Scene art is an explicit, opt-in step (it spends GPU time on
 the local ComfyUI server).
 
+## Orphaned-Media Cleanup Flow (maintenance)
+
+```
+Options → About tab → Maintenance section → lib/api.ts
+  → GET  /api/options/media/orphans?min_age_hours=24   (dry-run scan)
+        → routes/options → services/media_cleanup.scan_orphans
+            referenced = {basenames of Character.portrait} ∪ {Setting.image}
+            for *.webp in MEDIA_DIR/portraits + MEDIA_DIR/scenes:
+              orphan   = basename ∉ referenced
+              eligible = orphan AND mtime older than min_age_hours (grace period)
+        → {portraits, scenes, orphanCount, eligibleCount, totalBytes, eligibleBytes, minAgeHours}
+  → author reviews counts, confirms, then
+  → POST /api/options/media/cleanup?min_age_hours=24   (delete eligible only)
+        → services/media_cleanup.delete_orphans (re-scans; unlinks eligible orphans)
+        → {deletedCount, freedBytes, skippedRecentCount}
+```
+
+A WebP is written to disk the moment ComfyUI renders it — before the entity is
+saved — so a cancelled draft or a deleted Character/Setting leaves an unreferenced
+file behind. Cleanup cross-references disk against the two media columns. The
+**grace period** (`min_age_hours`, default 24) is the safety valve: a just-generated
+file from an in-flight draft counts as an orphan but is *not eligible*, so an
+author mid-creation never loses their pending image. Deletion is doubly guarded
+(unreferenced AND grace-expired), `.webp`-only, and scoped to the two media subdirs.
+
 ## Build Everything Flow (the New Storyline world build)
 
 ```

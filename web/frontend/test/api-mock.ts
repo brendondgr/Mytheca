@@ -369,6 +369,26 @@ export function makeApiMock() {
     })),
 
     getHealth: vi.fn(async () => ({ status: "ok" })),
+    getLlmBackend: vi.fn(async () => ({
+      backend: "vllm",
+      budgets: { low: 256, medium: 512, high: 1024, very_high: 2048, max: 4096 },
+    })),
+
+    // ---- Orphaned-media cleanup ----
+    getMediaOrphans: vi.fn(async () => ({
+      portraits: { orphanCount: 3, eligibleCount: 2, totalBytes: 30720, eligibleBytes: 20480 },
+      scenes: { orphanCount: 1, eligibleCount: 1, totalBytes: 10240, eligibleBytes: 10240 },
+      orphanCount: 4,
+      eligibleCount: 3,
+      totalBytes: 40960,
+      eligibleBytes: 30720,
+      minAgeHours: 24,
+    })),
+    cleanupMediaOrphans: vi.fn(async () => ({
+      deletedCount: 3,
+      freedBytes: 30720,
+      skippedRecentCount: 1,
+    })),
 
     // ---- Story Graph (Neo4j substrate) ----
     getScenarioGraph: vi.fn(async (scenarioId: string) => ({

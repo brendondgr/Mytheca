@@ -85,6 +85,37 @@ def test_preflight_neo4j_is_optional_and_does_not_gate(monkeypatch, tmp_path):
         config.get_settings.cache_clear()
 
 
+def test_preflight_migrations_skipped_on_sqlite(monkeypatch, tmp_path):
+    """run_preflight() on SQLite records migrations as skipped (not an error).
+
+    This verifies three things:
+    1. The ``migrations`` entry is present in the report.
+    2. It is marked optional (required=False), consistent with best-effort posture.
+    3. Its detail says "skipped (sqlite)" — the DB URL never sent to Alembic.
+    The test is idempotent: a second run produces the same result.
+    """
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'velora.db'}")
+    monkeypatch.setenv("NEO4J_URI", "")
+    config.get_settings.cache_clear()
+    try:
+        report = bootstrap.run_preflight()
+        assert report.ok
+
+        mig = next((c for c in report.checks if c.name == "migrations"), None)
+        assert mig is not None, "Expected a 'migrations' check in the report"
+        assert mig.ok is True
+        assert mig.required is False
+        assert "skipped" in mig.detail and "sqlite" in mig.detail
+
+        # Second run is idempotent.
+        report2 = bootstrap.run_preflight()
+        assert report2.ok
+        mig2 = next(c for c in report2.checks if c.name == "migrations")
+        assert mig2.ok is True and "skipped" in mig2.detail
+    finally:
+        config.get_settings.cache_clear()
+
+
 def test_preflight_reports_db_failure(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@localhost:1/none")
     config.get_settings.cache_clear()

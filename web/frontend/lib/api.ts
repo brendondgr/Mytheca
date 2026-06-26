@@ -525,6 +525,14 @@ export interface LlmTestResult {
   sample: string;
 }
 
+/** Auto-detected local inference backend info returned by `GET /api/options/llm/backend`. */
+export interface LlmBackendInfo {
+  /** Detected engine: "vllm" | "llamacpp" | "unknown". "unknown" when OpenAI/unreachable. */
+  backend: string;
+  /** Reasoning effort → thinking-token budget ladder. */
+  budgets: Record<string, number>;
+}
+
 export const getSettings = () => request<AppSettings>("/options");
 export const updateLlmConfig = (body: LlmConfigUpdate) =>
   patch<LlmConfig>("/options/llm", body);
@@ -538,6 +546,7 @@ export const testLlmConnection = (body: {
   model: string;
   params?: LlmParams;
 }) => post<LlmTestResult>("/options/llm/test", body);
+export const getLlmBackend = () => request<LlmBackendInfo>("/options/llm/backend");
 
 // ---- ComfyUI image generation ----
 export const updateComfyConfig = (body: ComfyConfigUpdate) =>
@@ -546,6 +555,47 @@ export const fetchComfyWorkflows = () =>
   request<ComfyWorkflowsResult>("/options/comfy/workflows");
 export const checkComfyStatus = (body: { baseUrl?: string }) =>
   post<ComfyStatusResult>("/options/comfy/status", body);
+
+// ---- Orphaned-media cleanup ----
+
+/** Per-directory breakdown within a MediaOrphansResult. */
+export interface MediaDirOrphans {
+  orphanCount: number;
+  eligibleCount: number;
+  totalBytes: number;
+  eligibleBytes: number;
+}
+
+/** Dry-run scan result from `GET /api/options/media/orphans`. */
+export interface MediaOrphansResult {
+  portraits: MediaDirOrphans;
+  scenes: MediaDirOrphans;
+  orphanCount: number;
+  eligibleCount: number;
+  totalBytes: number;
+  eligibleBytes: number;
+  minAgeHours: number;
+}
+
+/** Cleanup result from `POST /api/options/media/cleanup`. */
+export interface MediaCleanupResult {
+  deletedCount: number;
+  freedBytes: number;
+  skippedRecentCount: number;
+}
+
+/** Scan for orphaned WebP files (dry-run, no deletions). */
+export const getMediaOrphans = (minAgeHours?: number) =>
+  request<MediaOrphansResult>(
+    `/options/media/orphans${minAgeHours !== undefined ? `?min_age_hours=${minAgeHours}` : ""}`,
+  );
+
+/** Delete eligible orphaned WebP files (grace-period expired). */
+export const cleanupMediaOrphans = (minAgeHours?: number) =>
+  request<MediaCleanupResult>(
+    `/options/media/cleanup${minAgeHours !== undefined ? `?min_age_hours=${minAgeHours}` : ""}`,
+    { method: "POST" },
+  );
 
 // ---- Story Graph (Neo4j substrate) ----
 // The scenario subgraph read live on load, plus the Type Registry (§1.4). These

@@ -72,6 +72,11 @@ class Settings(BaseSettings):
         return REPO_ROOT / "utils" / "workflows"
 
     @property
+    def content_dir(self) -> Path:
+        """Directory holding the authored content package (Markdown guidance, etc.)."""
+        return Path(__file__).resolve().parents[1] / "content"
+
+    @property
     def portraits_dir(self) -> Path:
         """Directory holding generated character portraits (WebP)."""
         return self.media_dir / "portraits"

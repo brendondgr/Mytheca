@@ -132,3 +132,46 @@ class LlmBackendResponse(CamelModel):
 
     backend: str
     budgets: dict[str, int]
+
+
+# ---- Orphaned-media cleanup -----------------------------------------------
+
+
+class MediaDirOrphans(CamelModel):
+    """Per-directory orphan counts for the scan report."""
+
+    orphan_count: int
+    eligible_count: int
+    total_bytes: int
+    eligible_bytes: int
+
+
+class MediaOrphansResponse(CamelModel):
+    """Response for ``GET /options/media/orphans`` (dry-run scan).
+
+    ``portraits`` and ``scenes`` break down the counts per directory.
+    ``orphanCount`` / ``eligibleCount`` are totals across both.
+    ``minAgeHours`` echoes the effective grace-period threshold used.
+    """
+
+    portraits: MediaDirOrphans
+    scenes: MediaDirOrphans
+    orphan_count: int
+    eligible_count: int
+    total_bytes: int
+    eligible_bytes: int
+    min_age_hours: float
+
+
+class MediaCleanupResponse(CamelModel):
+    """Response for ``POST /options/media/cleanup``.
+
+    ``deletedCount`` — number of files successfully unlinked.
+    ``freedBytes`` — total bytes reclaimed.
+    ``skippedRecentCount`` — orphans that exist but are too new (within the
+    grace period) and were therefore left untouched.
+    """
+
+    deleted_count: int
+    freed_bytes: int
+    skipped_recent_count: int
