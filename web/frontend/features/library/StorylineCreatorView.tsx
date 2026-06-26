@@ -261,6 +261,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
           onSetCategory={c.setDocCategory}
           onTriage={c.triage}
           triaging={c.triaging}
+          triageActive={c.triageActive}
           budget={c.budget}
         />
       )}
