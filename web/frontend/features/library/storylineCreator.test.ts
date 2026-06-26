@@ -1,8 +1,16 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { applyTriage, draftDocTexts, persistStatsDiff, toCreatorDoc } from "./storylineCreator";
+import {
+  applyTriage,
+  BLANK_FIELDS,
+  commitWorld,
+  type CommitEntityPatch,
+  draftDocTexts,
+  persistStatsDiff,
+  toCreatorDoc,
+} from "./storylineCreator";
 import { blankStat } from "./editor";
 import * as api from "@/lib/api";
-import type { StatDefinition } from "@/lib/types";
+import type { ProposedWorld, StatDefinition } from "@/lib/types";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
@@ -73,5 +81,74 @@ describe("storylineCreator helpers", () => {
       { ...toCreatorDoc({ name: "b.md", text: "BBB" }), useDraft: false },
     ];
     expect(draftDocTexts(docs)).toEqual(["AAA"]);
+  });
+});
+
+describe("storylineCreator.commitWorld image previews", () => {
+  const PROPOSED: ProposedWorld = {
+    storyline: { title: "W", genre: "G", tagline: "", premise: "", worldPrimer: "" },
+    stats: [],
+    characters: [
+      {
+        name: "Hero",
+        role: "Lead",
+        traits: "Bold",
+        speech: "",
+        goal: "",
+        secret: "",
+        appearance: "",
+        background: "",
+        personality: "",
+        color: "#000",
+        startingStats: [],
+      },
+    ],
+    settings: [
+      { name: "Place", type: "Hub", desc: "", atmosphere: "", features: "", currentState: "" },
+    ],
+  };
+
+  it("emits onEntity patches as each portrait / scene-art renders", async () => {
+    const events: CommitEntityPatch[] = [];
+    await commitWorld(
+      {
+        fields: { ...BLANK_FIELDS, title: "World" },
+        stats: [],
+        statsOriginal: [],
+        proposed: PROPOSED,
+        docs: [],
+        generateImages: true,
+      },
+      undefined,
+      (e) => events.push(e),
+    );
+    expect(events).toContainEqual({
+      type: "character",
+      index: 0,
+      patch: { portrait: "/media/portraits/test.webp" },
+    });
+    expect(events).toContainEqual({
+      type: "setting",
+      index: 0,
+      patch: { image: "/media/scenes/test.webp" },
+    });
+  });
+
+  it("emits no entity patches when image generation is off", async () => {
+    const events: CommitEntityPatch[] = [];
+    await commitWorld(
+      {
+        fields: { ...BLANK_FIELDS, title: "World" },
+        stats: [],
+        statsOriginal: [],
+        proposed: PROPOSED,
+        docs: [],
+        generateImages: false,
+      },
+      undefined,
+      (e) => events.push(e),
+    );
+    expect(events).toHaveLength(0);
+    expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
   });
 });

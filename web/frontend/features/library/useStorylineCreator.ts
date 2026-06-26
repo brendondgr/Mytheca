@@ -375,6 +375,22 @@ export function useStorylineCreator(editId?: string) {
           generateImages: imagesAvailable && generateImages,
         },
         setProgress,
+        // Patch the displayed cast/settings as each image renders, so previews
+        // pop into the right column live during "Create World".
+        (e) =>
+          setProposed((p) => {
+            if (!p) return p;
+            if (e.type === "character") {
+              return {
+                ...p,
+                characters: p.characters.map((c, i) => (i === e.index ? { ...c, ...e.patch } : c)),
+              };
+            }
+            return {
+              ...p,
+              settings: p.settings.map((s, i) => (i === e.index ? { ...s, ...e.patch } : s)),
+            };
+          }),
       );
       return id;
     } catch (e) {

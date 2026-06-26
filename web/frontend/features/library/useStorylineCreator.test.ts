@@ -106,6 +106,9 @@ describe("useStorylineCreator", () => {
       expect.any(String),
       expect.objectContaining({ portrait: expect.any(String) }),
     );
+    // The rendered images are patched back onto the displayed proposal (live preview).
+    expect(result.current.proposed?.characters[0].portrait).toBe("/media/portraits/test.webp");
+    expect(result.current.proposed?.settings[0].image).toBe("/media/scenes/test.webp");
   });
 
   it("skips images when ComfyUI is not configured", async () => {
