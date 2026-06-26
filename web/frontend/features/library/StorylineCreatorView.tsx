@@ -256,7 +256,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
       ) : (
         <TriagePanel
           docs={c.docs}
-          onAddFiles={(files) => void c.addFiles(files)}
+          onAddFiles={(files, opts) => void c.addFiles(files, opts)}
           onRemove={c.removeDoc}
           onToggleUse={c.toggleDocUse}
           onSetCategory={c.setDocCategory}

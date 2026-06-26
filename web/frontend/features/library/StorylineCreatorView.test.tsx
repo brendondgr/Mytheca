@@ -65,6 +65,19 @@ describe("StorylineCreatorView", () => {
     expect(await screen.findByText(/character details/i)).toBeInTheDocument();
   });
 
+  it("drops files pre-categorized when an 'Add as' bucket is chosen (no triage)", async () => {
+    const user = userEvent.setup();
+    render(<StorylineCreatorView />);
+    // Choose Character as the upload target, then add a file.
+    await user.selectOptions(screen.getByRole("combobox", { name: /add as/i }), "character");
+    await user.upload(screen.getByLabelText(/browse files/i), md("hero.md", "A person."));
+    // It lands under Characters immediately — no Triage run.
+    expect(await screen.findByText(/character details/i)).toBeInTheDocument();
+    const row = screen.getByRole("combobox", { name: /category for hero\.md/i });
+    expect(row).toHaveValue("character");
+    expect(vi.mocked(api.triageDocumentsStream)).not.toHaveBeenCalled();
+  });
+
   it("shows the context-budget meter", () => {
     render(<StorylineCreatorView />);
     expect(screen.getByText(/context budget/i)).toBeInTheDocument();
