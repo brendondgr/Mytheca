@@ -8,6 +8,7 @@ import {
   deleteCharacter,
   getScenarioGraph,
   listStorylines,
+  postNdjson,
   triageDocuments,
 } from "@/lib/api";
 
@@ -15,6 +16,24 @@ function mockFetch(impl: (url: string, init?: RequestInit) => Response) {
   const spy = vi.fn((url: string, init?: RequestInit) => Promise.resolve(impl(url, init)));
   vi.stubGlobal("fetch", spy);
   return spy;
+}
+
+/** A streamed Response body from raw chunks (to exercise line buffering). */
+function streamResponse(chunks: string[], init?: ResponseInit): Response {
+  const enc = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const c of chunks) controller.enqueue(enc.encode(c));
+      controller.close();
+    },
+  });
+  return new Response(body, { status: 200, ...init });
+}
+
+async function collect<T>(gen: AsyncGenerator<T>): Promise<T[]> {
+  const out: T[] = [];
+  for await (const ev of gen) out.push(ev);
+  return out;
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -89,6 +108,27 @@ describe("api client", () => {
     const [url, init] = spy.mock.calls[0];
     expect(url).toContain("/storylines/embergate/context-docs/bulk");
     expect(JSON.parse(init?.body as string).docs[0].name).toBe("a.md");
+  });
+
+  it("postNdjson parses streamed lines, including a chunk split mid-line", async () => {
+    mockFetch(() =>
+      streamResponse(['{"type":"a"}\n{"ty', 'pe":"b"}\n', '{"type":"c"}']),
+    );
+    const events = await collect(postNdjson<{ type: string }>("/x/stream", {}));
+    expect(events.map((e) => e.type)).toEqual(["a", "b", "c"]);
+  });
+
+  it("postNdjson throws the error envelope before the stream opens", async () => {
+    mockFetch(
+      () =>
+        new Response(JSON.stringify({ error: { code: "bad_request", message: "no" } }), {
+          status: 400,
+        }),
+    );
+    await expect(collect(postNdjson("/x/stream", {}))).rejects.toMatchObject({
+      code: "bad_request",
+      status: 400,
+    });
   });
 
   it("registers a user-defined graph type at the storyline-scoped endpoint", async () => {

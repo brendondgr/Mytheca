@@ -30,7 +30,7 @@ describe("StorylineCreatorView", () => {
     expect(buildBtn).toBeEnabled();
     await user.click(buildBtn);
 
-    expect(vi.mocked(api.buildWorld)).toHaveBeenCalled();
+    expect(vi.mocked(api.buildWorldStream)).toHaveBeenCalled();
     // The proposal reflects the storyline core into the Title field…
     await waitFor(() => expect(screen.getByLabelText(/^title$/i)).toHaveValue("Built World"));
     // …and lists the proposed cast for review.

@@ -27,11 +27,13 @@ describe("useStorylineCreator", () => {
     await act(async () => {
       await result.current.triage();
     });
-    expect(vi.mocked(api.triageDocuments)).toHaveBeenCalled();
+    expect(vi.mocked(api.triageDocumentsStream)).toHaveBeenCalled();
     // The mock cycles character/setting/other across the docs.
     expect(result.current.docs[0].category).toBe("character");
     expect(result.current.docs[1].category).toBe("setting");
     expect(result.current.docs.every((d) => d.triaged)).toBe(true);
+    // The per-file indicator clears once the stream completes.
+    expect(result.current.triageActive).toBeNull();
   });
 
   it("builds a proposed world and reflects it into the editable fields", async () => {
@@ -40,12 +42,14 @@ describe("useStorylineCreator", () => {
     await act(async () => {
       await result.current.build();
     });
-    expect(vi.mocked(api.buildWorld)).toHaveBeenCalled();
+    expect(vi.mocked(api.buildWorldStream)).toHaveBeenCalled();
     expect(result.current.proposed?.characters[0].name).toBe("Built Hero");
     // The build reflects the storyline core into the left column + stats.
     expect(result.current.fields.title).toBe("Built World");
     expect(result.current.stats[0].key).toBe("health");
     expect(result.current.isValid).toBe(true);
+    // The blueprint concepts seeded the live skeleton (one cast + one setting).
+    expect(result.current.planConcepts?.characters).toHaveLength(1);
   });
 
   it("refuses to build with neither a seed nor draft docs", async () => {
@@ -53,7 +57,7 @@ describe("useStorylineCreator", () => {
     await act(async () => {
       await result.current.build();
     });
-    expect(vi.mocked(api.buildWorld)).not.toHaveBeenCalled();
+    expect(vi.mocked(api.buildWorldStream)).not.toHaveBeenCalled();
     expect(result.current.error).toMatch(/seed or drop context/i);
   });
 

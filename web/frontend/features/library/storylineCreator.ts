@@ -26,6 +26,34 @@ export interface CreatorDoc extends ReadDoc {
   triaged: boolean;
 }
 
+/**
+ * The blueprint concepts (one vivid sentence each) the build emits before drafting
+ * the full entities — they drive the "drafting…" skeleton cards in the right column
+ * until each `character`/`setting` event fills its slot.
+ */
+export interface PlanConcepts {
+  characters: string[];
+  settings: string[];
+}
+
+/** The document currently being classified during a live (per-file) triage. */
+export interface TriageActive {
+  name: string;
+  index: number;
+  total: number;
+}
+
+/**
+ * Set `arr[index] = value` immutably. The build streams characters/settings in
+ * order (index === current length), so this is effectively an append; written
+ * generically so an out-of-order event still lands in the right slot.
+ */
+export function upsertAt<T>(arr: T[], index: number, value: T): T[] {
+  const out = arr.slice();
+  out[index] = value;
+  return out;
+}
+
 /** The creator's by-hand fields (mirror the storyline wire shape). */
 export interface CreatorFields {
   title: string;

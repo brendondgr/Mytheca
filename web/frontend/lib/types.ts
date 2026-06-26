@@ -245,6 +245,29 @@ export interface ProposedWorld {
   settings: ProposedSetting[];
 }
 
+// ---- Live build / triage stream events (NDJSON) -----------------------------
+// Mirror the backend event unions (app/schemas/build.py, context_document.py).
+// `POST /storylines/build/stream` and `/triage/stream` emit one of these per line
+// so the New Storyline page can render the world / triage as they are built.
+
+/** One progress event from the streaming world build. */
+export type BuildEvent =
+  | { type: "status"; stage: string; message: string }
+  | { type: "meta"; title: string; genre: string; tagline: string; premise: string }
+  | { type: "primer"; worldPrimer: string }
+  | { type: "plan"; stats: StatDefinition[]; characters: string[]; settings: string[] }
+  | { type: "character"; index: number; total: number; character: ProposedCharacter }
+  | { type: "setting"; index: number; total: number; setting: ProposedSetting }
+  | { type: "done"; world: ProposedWorld }
+  | { type: "error"; message: string };
+
+/** One progress event from the streaming (per-file) triage. */
+export type TriageEvent =
+  | { type: "status"; name: string; index: number; total: number }
+  | { type: "item"; item: TriageItem }
+  | { type: "done" }
+  | { type: "error"; message: string };
+
 // ---- The Story Graph (Neo4j substrate) --------------------------------------
 // One knowledge graph over the storyline's entities. Characters/Settings are
 // node types; their connections are edges. The graph is read live on scenario
