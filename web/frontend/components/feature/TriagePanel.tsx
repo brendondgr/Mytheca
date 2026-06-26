@@ -104,100 +104,105 @@ export function TriagePanel({
   }
 
   return (
-    // Full-height right pane on lg+ with its own vertical scroll (paired with the
-    // page's two-pane shell); below lg it's a full-width panel stacked under the form.
-    <aside className="flex flex-col gap-[12px] border-t border-hair-strong bg-card p-[18px_20px] lg:w-[360px] lg:shrink-0 lg:border-t-0 lg:border-l lg:min-h-0 lg:self-stretch lg:overflow-y-auto">
-      <div className="flex items-center justify-between gap-[8px]">
-        <Eyebrow size={9} tracking="0.2em" color="#A8762A">
-          ⎙ Context files
-        </Eyebrow>
-        {docs.length > 0 ? (
-          <span className="font-mono text-[10px] tracking-[0.08em] text-mute2 uppercase">
-            {docs.length} {docs.length === 1 ? "file" : "files"}
-          </span>
-        ) : null}
-      </div>
+    // Full-height right pane on lg+. The aside itself does NOT scroll — the sticky
+    // top (upload + triage) stays pinned, and the inner body scrolls independently.
+    <aside className="flex flex-col border-t border-hair-strong bg-card lg:w-[360px] lg:shrink-0 lg:border-t-0 lg:border-l lg:min-h-0 lg:self-stretch">
+      {/* ── Sticky top: upload zone + triage button ─────────────────────── */}
+      <div className="sticky top-0 z-10 flex flex-col gap-[12px] border-b border-hair-strong bg-card p-[18px_20px]">
+        <div className="flex items-center justify-between gap-[8px]">
+          <Eyebrow size={10} tracking="0.2em" color="#A8762A">
+            ⎙ Context files
+          </Eyebrow>
+          {docs.length > 0 ? (
+            <span className="font-mono text-[11px] tracking-[0.08em] text-mute uppercase">
+              {docs.length} {docs.length === 1 ? "file" : "files"}
+            </span>
+          ) : null}
+        </div>
 
-      <div
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          onAddFiles(e.dataTransfer.files);
-        }}
-        className="flex flex-col items-center gap-[6px] rounded-[4px] border border-dashed border-cardbd bg-field/50 px-[14px] py-[16px] text-center"
-      >
-        <span aria-hidden className="text-[18px] text-mute">
-          ⤓
-        </span>
-        <p className="font-body text-[13px] text-ink-soft">
-          Drag <code className="font-mono text-[12px]">.txt</code> or{" "}
-          <code className="font-mono text-[12px]">.md</code> files here.
-        </p>
-        <input
-          id={inputId}
-          type="file"
-          multiple
-          accept=".txt,.md,.markdown,text/plain,text/markdown"
-          className="sr-only"
-          onChange={(e) => {
-            onAddFiles(e.currentTarget.files);
-            e.currentTarget.value = "";
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            onAddFiles(e.dataTransfer.files);
           }}
-        />
-        <label
-          htmlFor={inputId}
-          className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:underline"
+          className="flex flex-col items-center gap-[6px] rounded-[4px] border border-dashed border-cardbd bg-field/50 px-[14px] py-[16px] text-center"
         >
-          Browse files
-        </label>
+          <span aria-hidden className="text-[18px] text-mute">
+            ⤓
+          </span>
+          <p className="font-body text-[13px] text-ink-soft">
+            Drag <code className="font-mono text-[12px]">.txt</code> or{" "}
+            <code className="font-mono text-[12px]">.md</code> files here.
+          </p>
+          <input
+            id={inputId}
+            type="file"
+            multiple
+            accept=".txt,.md,.markdown,text/plain,text/markdown"
+            className="sr-only"
+            onChange={(e) => {
+              onAddFiles(e.currentTarget.files);
+              e.currentTarget.value = "";
+            }}
+          />
+          <label
+            htmlFor={inputId}
+            className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:underline"
+          >
+            Browse files
+          </label>
+        </div>
+
+        <Button
+          variant="secondary"
+          onClick={onTriage}
+          disabled={docs.length === 0 || triaging}
+          className="w-full"
+        >
+          {triaging ? "Triaging…" : "⚖ Triage context"}
+        </Button>
       </div>
 
-      {/* Triage button — sits beneath the dropped markdowns. */}
-      <Button
-        variant="secondary"
-        onClick={onTriage}
-        disabled={docs.length === 0 || triaging}
-        className="w-full"
-      >
-        {triaging ? "Triaging…" : "⚖ Triage context"}
-      </Button>
-
-      {docs.length === 0 ? (
-        <p className="font-body text-[12.5px] text-mute">
-          Drop reference files, then Triage sorts each into Characters, Settings, or
-          Other and tags it for Draft / RAG. They persist as this world&apos;s corpus.
-        </p>
-      ) : anyTriaged ? (
-        // After triage: grouped by bucket.
-        GROUPS.map(({ key, label, hint }) => {
-          const inGroup = docs.filter((d) => d.category === key);
-          if (inGroup.length === 0) return null;
-          return (
-            <div key={key}>
-              <div className="mb-[6px] flex items-baseline gap-[6px]">
-                <Eyebrow size={9} tracking="0.12em" color="#A8762A">
-                  {label}
-                </Eyebrow>
-                <span className="font-mono text-[9px] tracking-[0.04em] text-mute2">· {hint}</span>
+      {/* ── Scrollable body: doc list + budget meter ─────────────────────── */}
+      <div className="flex flex-1 flex-col gap-[14px] overflow-y-auto p-[18px_20px] pt-[16px]">
+        {docs.length === 0 ? (
+          <p className="font-body text-[13px] text-ink-soft">
+            Drop reference files, then Triage sorts each into Characters, Settings, or
+            Other and tags it for Draft / RAG. They persist as this world&apos;s corpus.
+          </p>
+        ) : anyTriaged ? (
+          // After triage: grouped by bucket.
+          GROUPS.map(({ key, label, hint }) => {
+            const inGroup = docs.filter((d) => d.category === key);
+            if (inGroup.length === 0) return null;
+            return (
+              <div key={key}>
+                <div className="mb-[8px] flex items-baseline gap-[8px]">
+                  <span className="font-mono text-[11.5px] font-semibold tracking-[0.12em] text-ink uppercase">
+                    {label}
+                  </span>
+                  <span className="font-mono text-[10.5px] text-mute">· {hint}</span>
+                </div>
+                <ul className="flex flex-col gap-[8px]">
+                  {inGroup.map((doc) => (
+                    <DocRow key={doc.name} doc={doc} />
+                  ))}
+                </ul>
               </div>
-              <ul className="flex flex-col gap-[8px]">
-                {inGroup.map((doc) => (
-                  <DocRow key={doc.name} doc={doc} />
-                ))}
-              </ul>
-            </div>
-          );
-        })
-      ) : (
-        // Before triage: a flat list.
-        <ul className="flex flex-col gap-[8px]">
-          {docs.map((doc) => (
-            <DocRow key={doc.name} doc={doc} />
-          ))}
-        </ul>
-      )}
+            );
+          })
+        ) : (
+          // Before triage: a flat list.
+          <ul className="flex flex-col gap-[8px]">
+            {docs.map((doc) => (
+              <DocRow key={doc.name} doc={doc} />
+            ))}
+          </ul>
+        )}
 
-      <ContextBudgetMeter budget={budget} />
+        <ContextBudgetMeter budget={budget} />
+      </div>
     </aside>
   );
 }
