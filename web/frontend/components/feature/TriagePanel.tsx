@@ -104,7 +104,9 @@ export function TriagePanel({
   }
 
   return (
-    <aside className="flex flex-col gap-[12px] rounded-[5px] border border-cardbd bg-card p-[18px_20px]">
+    // Full-height right pane on lg+ with its own vertical scroll (paired with the
+    // page's two-pane shell); below lg it's a full-width panel stacked under the form.
+    <aside className="flex flex-col gap-[12px] border-t border-hair-strong bg-card p-[18px_20px] lg:w-[360px] lg:shrink-0 lg:border-t-0 lg:border-l lg:min-h-0 lg:self-stretch lg:overflow-y-auto">
       <div className="flex items-center justify-between gap-[8px]">
         <Eyebrow size={9} tracking="0.2em" color="#A8762A">
           ⎙ Context files
