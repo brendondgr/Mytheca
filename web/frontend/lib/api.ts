@@ -556,6 +556,47 @@ export const fetchComfyWorkflows = () =>
 export const checkComfyStatus = (body: { baseUrl?: string }) =>
   post<ComfyStatusResult>("/options/comfy/status", body);
 
+// ---- Orphaned-media cleanup ----
+
+/** Per-directory breakdown within a MediaOrphansResult. */
+export interface MediaDirOrphans {
+  orphanCount: number;
+  eligibleCount: number;
+  totalBytes: number;
+  eligibleBytes: number;
+}
+
+/** Dry-run scan result from `GET /api/options/media/orphans`. */
+export interface MediaOrphansResult {
+  portraits: MediaDirOrphans;
+  scenes: MediaDirOrphans;
+  orphanCount: number;
+  eligibleCount: number;
+  totalBytes: number;
+  eligibleBytes: number;
+  minAgeHours: number;
+}
+
+/** Cleanup result from `POST /api/options/media/cleanup`. */
+export interface MediaCleanupResult {
+  deletedCount: number;
+  freedBytes: number;
+  skippedRecentCount: number;
+}
+
+/** Scan for orphaned WebP files (dry-run, no deletions). */
+export const getMediaOrphans = (minAgeHours?: number) =>
+  request<MediaOrphansResult>(
+    `/options/media/orphans${minAgeHours !== undefined ? `?min_age_hours=${minAgeHours}` : ""}`,
+  );
+
+/** Delete eligible orphaned WebP files (grace-period expired). */
+export const cleanupMediaOrphans = (minAgeHours?: number) =>
+  request<MediaCleanupResult>(
+    `/options/media/cleanup${minAgeHours !== undefined ? `?min_age_hours=${minAgeHours}` : ""}`,
+    { method: "POST" },
+  );
+
 // ---- Story Graph (Neo4j substrate) ----
 // The scenario subgraph read live on load, plus the Type Registry (§1.4). These
 // degrade gracefully: `getScenarioGraph` returns `{ available: false, … }` when
