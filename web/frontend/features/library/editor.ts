@@ -65,9 +65,10 @@ export interface Draft {
 }
 
 export interface ModalState {
-  // "storyline" drives the write-first storyline creation modal (StorylineModal);
-  // it is intentionally outside EntityType so the per-entity Records below stay
-  // exhaustive over just character/setting/scenario.
+  // EntityType covers the modal editors (character/setting/scenario). "begin" is the
+  // begin-scene preview. ("storyline" is retained in the union only so the legacy
+  // guards stay well-typed — storyline create/edit now live on their own page,
+  // `StorylineCreatorView`, not a modal.)
   type: EntityType | "begin" | "storyline";
   mode: EditorMode;
   editId: string | null;

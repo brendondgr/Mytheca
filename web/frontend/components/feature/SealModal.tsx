@@ -13,8 +13,8 @@ import {
 
 /**
  * Seal editor pop-up — the "own page" for a storyline's seal, opened from the
- * compact Seal row's **Edit** button in {@link StorylineModal} (mirrors the
- * Character creator's PortraitModal). It holds everything seal-related: a large
+ * compact Seal row's **Edit** button on the New Storyline page (`StorylineCreatorView`;
+ * mirrors the Character creator's PortraitModal). It holds everything seal-related: a large
  * live preview, the expanded shape grid, a curated color palette, and a free
  * **color wheel** for any custom hex. Purely presentational — the chosen
  * `symbol`/`symbolColor` flow back through the parent's draft setters.

@@ -21,7 +21,7 @@ const LINK =
   "cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40";
 
 /**
- * Agentic Character Creator modal — the character counterpart to StorylineModal.
+ * Agentic Character Creator modal — the character counterpart to the storyline creator.
  *
  * The author writes a character here (by hand or by prompting Velora), fleshing
  * out the by-hand fields plus the base-identity prose (Appearance / Background /
