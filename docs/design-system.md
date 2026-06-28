@@ -20,9 +20,24 @@ Three families, each with a fixed role. Load via Google Fonts (or self-host equi
 | --- | --- | --- |
 | Display / headings | **Cinzel** (500/600/700) | Wordmark, storyline/scenario titles, character names, section headers. Letterspaced (`.16em`–`.2em`) for the wordmark and small caps headers. |
 | Body / reading | **EB Garamond** (400/500/600 + italic) | All story prose, descriptions, card body, inputs. Narrator prose is **italic**. Line height 1.45–1.55. |
-| Labels / metadata | **IBM Plex Mono** (400/500) | Eyebrow labels, role tags, counts, stat values, check labels — uppercase, letterspaced (`.1em`–`.22em`), small (8–11px). |
+| Labels / metadata | **IBM Plex Mono** (400/500) | Eyebrow labels, role tags, counts, stat values, check labels — uppercase, letterspaced (`.1em`–`.22em`). |
 
 Rules: body story text ≥ 16px on mobile; reading measure capped (~720px transcript column). Distinguish narrator beats, character turns, and player turns by **typography + layout + a left-accent**, never by color alone.
+
+### Typography Scale (font-size presets)
+
+Text sizes are driven by six CSS custom properties defined in `styles/themes.css` under `:root`, with four named preset classes that the user chooses from **Settings → Appearance → Text size**:
+
+| CSS variable | Default | Compact | Comfortable | Large | Used for |
+| --- | --- | --- | --- | --- | --- |
+| `--fs-eyebrow` | 11px | 9px | 12.5px | 14px | `Eyebrow` component (role tags, section kickers, "❖ Draft with Velora" labels) |
+| `--fs-label` | 12px | 11px | 13px | 14px | `FieldLabel` headings, form section labels |
+| `--fs-ui` | 12px | 11px | 13px | 14px | `Button` text, tab labels |
+| `--fs-body-sm` | 14px | 13px | 15px | 16px | Card descriptions, modal body prose |
+| `--fs-body` | 15px | 14px | 16px | 17px | Input fields, longer reading text |
+| `--fs-tag` | 10.5px | 9px | 11.5px | 12.5px | `Tag` chips (genre, tone, role pills) |
+
+The active preset is stored in `localStorage` key `velora-font-size` (default: `"default"`) and applied as a class on `<html>` (e.g., `.fs-comfortable`) by `lib/font-size.ts`'s no-flash inline script in `app/layout.tsx`. The hook is `useFontSize()` in `hooks/use-font-size.ts`. Tailwind utilities `text-eyebrow`, `text-label`, `text-ui`, `text-body-sm`, `text-body`, `text-tag` resolve from the live CSS variable via `@theme inline` in `globals.css`.
 
 ## Themes & Color Tokens
 
