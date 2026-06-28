@@ -226,12 +226,15 @@ export function ScenarioCarousel({
                       </div>
                     )}
 
-                    {/* Bottom scrim so overlaid text stays legible (AA) over any art */}
+                    {/* Bottom scrim — the portrait reads clearly in the upper
+                        ~55%, then the lower band darkens to near-opaque by the
+                        footer line so the colored name + role + stats clear AA
+                        over any artwork (even bright portraits). */}
                     <div
                       className="pointer-events-none absolute inset-0"
                       style={{
                         background:
-                          "linear-gradient(180deg, rgba(20,14,6,0) 32%, rgba(20,14,6,0.5) 58%, rgba(14,9,4,0.93) 100%)",
+                          "linear-gradient(180deg, rgba(20,14,6,0) 22%, rgba(18,12,5,0.5) 44%, rgba(14,9,4,0.9) 62%, rgba(10,6,2,0.97) 100%)",
                       }}
                     />
 

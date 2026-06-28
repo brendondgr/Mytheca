@@ -118,6 +118,21 @@ On `< lg` they collapse to a single column chosen by a 3-tab section switcher (t
 tablist, `lg:hidden`); each column is rendered exactly once (CSS-only visibility), never
 duplicated.
 
+The **recent-scenario hero** (`ScenarioCarousel`) is the page's lead artifact and leans on
+real imagery for contrast. A **left scene-art panel** sets the scenario's `image` full-bleed
+behind a **graduated scrim** (strong on the left and bottom, under the title / location / tags
+/ goal / Begin Scene button, fading to near-clear on the right so the artwork reads) — not a
+flat wash. Beside it, a horizontally-scrolling **cast strip** renders one **full-bleed portrait
+card** per cast member: the WebP portrait fills the card, the upper ~55% shows the face, and a
+bottom scrim darkens the lower band so an overlaid footer (the character's **name** — lightened
+toward parchment via `color-mix` so every accent clears AA over the dark scrim — plus **role**,
+a hairline, and a `Statistics` block, currently the "No statistics available." empty state)
+stays legible over any artwork. A small **wax-seal monogram badge** in the character's accent
+sits top-right; when no portrait exists the card falls back to a tinted panel with a large faint
+monogram initial. **Deviation from the reference:** the reference mockup shows pictographic
+role icons in the corner; we have no role→icon data, so the corner badge uses the character's
+monogram instead (data-backed, on-brand with the wax-seal motif).
+
 The page is **self-contained** (`h-dvh`, no page scroll): on desktop the column row is pinned
 to the viewport and **each column scrolls independently**; on mobile the single active column
 scrolls. Each column header is **sticky** so its identity stays visible while its cards scroll.
