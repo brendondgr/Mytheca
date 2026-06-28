@@ -126,6 +126,12 @@ export interface Storyline {
   characters: Character[];
   settings: Setting[];
   scenarios: Scenario[];
+  // Entity counts from the API list/get endpoints — populated so the storyline
+  // switcher shows accurate totals for every world, not just the active one.
+  // Optional: seed data and tests that omit them still type-check.
+  scenarioCount?: number;
+  characterCount?: number;
+  settingCount?: number;
 }
 
 /** A labeled value band ("ticker") — what a sub-range of a stat *means*. */
