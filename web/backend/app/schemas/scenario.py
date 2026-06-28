@@ -23,6 +23,10 @@ class ScenarioBase(CamelModel):
     setting_id: str = ""
     opening: str = ""
     branches: list[Branch] = Field(default_factory=list)
+    # Optional scene art — persisted when the author renders an image via ComfyUI.
+    image: str | None = None
+    scene_art_positive: str | None = None
+    scene_art_negative: str | None = None
 
 
 class ScenarioCreate(ScenarioBase):
@@ -38,6 +42,9 @@ class ScenarioUpdate(CamelModel):
     setting_id: str | None = None
     opening: str | None = None
     branches: list[Branch] | None = None
+    image: str | None = None
+    scene_art_positive: str | None = None
+    scene_art_negative: str | None = None
 
 
 class ScenarioRead(CamelModel):
@@ -50,6 +57,9 @@ class ScenarioRead(CamelModel):
     setting_id: str
     opening: str
     branches: list[Branch]
+    image: str | None = None
+    scene_art_positive: str | None = None
+    scene_art_negative: str | None = None
 
 
 # ---- Authoring (the agentic Scenario Creator) -------------------------------
@@ -100,3 +110,22 @@ class ScenarioGraphRead(CamelModel):
     scenario_id: str
     nodes: list[GraphNodeRead] = Field(default_factory=list)
     edges: list[GraphEdgeRead] = Field(default_factory=list)
+
+
+# ---- Scene-art authoring (the agentic Scenario Scene Art creator) ------------
+# Reuse ``SceneArtPromptResponse`` / ``SceneArtGenerateResponse`` from
+# ``app.schemas.setting`` — they have the exact same shape.
+
+
+class ScenarioSceneArtPromptRequest(CamelModel):
+    """The scenario context the scene-art prompts should depict."""
+
+    title: str = ""
+    genre: str | None = None
+    tone: str | None = None
+    goal: str | None = None
+    opening: str | None = None
+    # Resolved setting context (passed by the frontend from the active world).
+    setting_name: str | None = None
+    setting_desc: str | None = None
+    notes: str | None = None

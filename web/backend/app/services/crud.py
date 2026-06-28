@@ -431,6 +431,9 @@ def create_scenario(db: Session, storyline_id: str, data: ScenarioCreate) -> Sce
         cast_ids=list(data.cast_ids),
         branches=[b.model_dump() for b in data.branches],
         position=_next_position(db, Scenario, storyline_id),
+        image=data.image,
+        scene_art_positive=data.scene_art_positive,
+        scene_art_negative=data.scene_art_negative,
     )
     db.add(scenario)
     db.commit()

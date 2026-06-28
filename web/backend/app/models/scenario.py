@@ -36,5 +36,9 @@ class Scenario(Base):
     cast_ids: Mapped[list[str]] = mapped_column(JSONColumn, default=list)
     branches: Mapped[list[dict]] = mapped_column(JSONColumn, default=list)
     position: Mapped[int] = mapped_column(default=0)
+    # Scene art generated for this scenario (opt-in, requires ComfyUI).
+    image: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    scene_art_positive: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    scene_art_negative: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
 
     storyline: Mapped[Storyline] = relationship(back_populates="scenarios")

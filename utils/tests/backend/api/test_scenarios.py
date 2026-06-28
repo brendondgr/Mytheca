@@ -1,4 +1,4 @@
-"""Scenario CRUD: referential validation, camelCase, branches round-trip."""
+"""Scenario CRUD: referential validation, camelCase, branches round-trip, scene art."""
 
 from __future__ import annotations
 
@@ -44,3 +44,41 @@ def test_scenario_crud_and_camel(client, storyline_id):
 
     assert client.delete(f"/api/scenarios/{scid}").status_code == 204
     assert client.get(f"/api/scenarios/{scid}").status_code == 404
+
+
+def test_scenario_image_default_null(client, storyline_id):
+    """Newly created scenario has null image/prompt fields."""
+    cid, sid = _make_refs(client, storyline_id)
+    body = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Scene", "castIds": [cid], "settingId": sid},
+    ).json()
+    assert body["image"] is None
+    assert body["sceneArtPositive"] is None
+    assert body["sceneArtNegative"] is None
+
+
+def test_scenario_image_roundtrip(client, storyline_id):
+    """PATCH persists image + prompts; GET reflects them."""
+    cid, sid = _make_refs(client, storyline_id)
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Scene", "castIds": [cid], "settingId": sid},
+    ).json()["id"]
+
+    patch = client.patch(
+        f"/api/scenarios/{scid}",
+        json={
+            "image": "/media/scenes/abc123.webp",
+            "sceneArtPositive": "foggy harbor, watercolor",
+            "sceneArtNegative": "people, text",
+        },
+    )
+    assert patch.status_code == 200
+    data = patch.json()
+    assert data["image"] == "/media/scenes/abc123.webp"
+    assert data["sceneArtPositive"] == "foggy harbor, watercolor"
+    assert data["sceneArtNegative"] == "people, text"
+
+    fetched = client.get(f"/api/scenarios/{scid}").json()
+    assert fetched["image"] == "/media/scenes/abc123.webp"
