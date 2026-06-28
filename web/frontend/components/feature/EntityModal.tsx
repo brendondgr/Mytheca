@@ -92,7 +92,6 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
             <ScenarioForm
               draft={d}
               setDraft={lib.setDraft}
-              toggleCast={lib.toggleDraftCast}
               characters={lib.characters}
               settings={lib.settings}
             />
