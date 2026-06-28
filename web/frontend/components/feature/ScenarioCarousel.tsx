@@ -1,6 +1,6 @@
 import { mediaUrl } from "@/lib/api";
 import { Monogram } from "@/components/ui/Monogram";
-import type { ResolvedScenario } from "@/lib/types";
+import type { Character, ResolvedScenario } from "@/lib/types";
 
 // Theme-aware hero palette — all values reference CSS design tokens so the
 // carousel adapts to Parchment / Ember / Slate automatically.
@@ -9,11 +9,9 @@ const HERO = {
   art: "repeating-linear-gradient(45deg,var(--field-bg),var(--field-bg) 8px,var(--card-bg) 8px,var(--card-bg) 16px)",
   label: "#C8862A",       // gold — theme-agnostic per design-system.md
   medBg: "var(--field-bg)",
-  artLabel: "var(--mute2)",
-  artLabelBg: "var(--field-bg)",
+  toneText: "var(--ink-soft)",
   chev: "var(--field-bg)",
   chevBd: "var(--card-bd)",
-  toneText: "var(--ink-soft)",
   border: "var(--hair-strong)",
   divider: "var(--hair)",
 };
@@ -25,8 +23,17 @@ const LIGHT = {
   desc: "rgba(246,236,218,0.82)",
   toneBd: "rgba(200,134,42,0.4)",
   tone: "rgba(246,236,218,0.75)",
-  charName: "#F0E4C8",
 };
+
+// The character "stats" the carousel surfaces — each attribute field on the
+// Character, shown as `LABEL` + value. Order matters: most identifying first.
+const STAT_FIELDS: { key: keyof Character; label: string }[] = [
+  { key: "role", label: "Role" },
+  { key: "traits", label: "Traits" },
+  { key: "speech", label: "Speech" },
+  { key: "goal", label: "Goal" },
+  { key: "secret", label: "Secret" },
+];
 
 /** The recent-scenario hero carousel (display + prev/next navigation). */
 export function ScenarioCarousel({
@@ -55,7 +62,7 @@ export function ScenarioCarousel({
     return (
       <section
         aria-label="Recent scenarios"
-        className="relative mx-[16px] mt-[18px] flex h-[246px] flex-none flex-col items-center justify-center gap-[8px] overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-[28px]"
+        className="relative mx-[16px] mt-[18px] flex h-[326px] flex-none flex-col items-center justify-center gap-[8px] overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-[28px]"
         style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
       >
         <span
@@ -80,7 +87,7 @@ export function ScenarioCarousel({
     <section
       aria-roledescription="carousel"
       aria-label="Recent scenarios"
-      className="relative mx-[16px] mt-[18px] h-[246px] flex-none overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-[28px]"
+      className="relative mx-[16px] mt-[18px] h-[326px] flex-none overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-[28px]"
     >
       <div
         className="flex h-full transition-transform duration-[550ms] ease-[cubic-bezier(.45,.05,.2,1)]"
@@ -96,7 +103,7 @@ export function ScenarioCarousel({
           >
             {/* LEFT PANEL — scene art as background, dark overlay, text + Begin Scene */}
             <div
-              className="relative flex w-[178px] flex-none flex-col overflow-hidden border-r sm:w-[210px]"
+              className="relative flex w-[210px] flex-none flex-col overflow-hidden border-r sm:w-[238px]"
               style={{ borderColor: HERO.divider }}
             >
               {/* Background: scene art image or hatched placeholder */}
@@ -121,16 +128,16 @@ export function ScenarioCarousel({
               />
 
               {/* Text content above the overlay */}
-              <div className="relative z-[1] flex flex-1 flex-col overflow-hidden p-[42px_14px_14px] sm:p-[46px_18px_16px]">
+              <div className="relative z-[1] flex flex-1 flex-col overflow-hidden p-[42px_16px_16px] sm:p-[46px_20px_18px]">
                 <h2
-                  className="line-clamp-2 font-display text-[20px] font-bold leading-[1.05] sm:text-[24px]"
+                  className="font-display text-[21px] font-bold leading-[1.08] sm:text-[25px]"
                   style={{ color: LIGHT.title }}
                 >
                   {s.title}
                 </h2>
 
                 {/* Location */}
-                <div className="mt-[6px] flex items-baseline gap-[5px]">
+                <div className="mt-[7px] flex items-baseline gap-[5px]">
                   <span
                     className="flex-none font-mono text-eyebrow uppercase tracking-[0.18em]"
                     style={{ color: HERO.label }}
@@ -138,7 +145,7 @@ export function ScenarioCarousel({
                     Location
                   </span>
                   <span
-                    className="truncate font-mono text-label font-medium"
+                    className="font-mono text-label font-medium"
                     style={{ color: LIGHT.loc }}
                   >
                     ◆ {s.setting.name}
@@ -146,7 +153,7 @@ export function ScenarioCarousel({
                 </div>
 
                 {/* Genre / tone tags */}
-                <div className="mt-[7px] flex flex-wrap gap-[5px]">
+                <div className="mt-[8px] flex flex-wrap gap-[5px]">
                   <span
                     className="rounded-[2px] px-[7px] py-[2px] font-mono text-tag uppercase tracking-[0.09em]"
                     style={{ background: HERO.label, color: "#1f160c" }}
@@ -163,7 +170,7 @@ export function ScenarioCarousel({
 
                 {/* Description — grows to fill remaining space */}
                 <p
-                  className="mt-[8px] flex-1 overflow-hidden font-body text-body-sm leading-[1.4] line-clamp-3"
+                  className="mt-[9px] flex-1 overflow-hidden font-body text-body-sm leading-[1.42] line-clamp-6"
                   style={{ color: LIGHT.desc }}
                 >
                   {s.goal}
@@ -174,7 +181,7 @@ export function ScenarioCarousel({
                   <button
                     type="button"
                     onClick={() => onBegin(s.id)}
-                    className="mt-[8px] w-full rounded-[2px] px-[4px] py-[7px] font-mono text-label uppercase tracking-[0.09em] hover:brightness-110"
+                    className="mt-[10px] w-full rounded-[2px] px-[4px] py-[8px] font-mono text-label uppercase tracking-[0.09em] hover:brightness-110"
                     style={{ background: HERO.label, color: "#1f160c" }}
                   >
                     Begin Scene ▸
@@ -192,10 +199,10 @@ export function ScenarioCarousel({
                 {s.cast.map((c) => (
                   <div
                     key={c.id}
-                    className="flex w-[114px] flex-none flex-col items-center border-r px-[8px] pb-[14px] pt-[42px] sm:w-[130px] sm:px-[10px] sm:pt-[48px]"
+                    className="flex w-[166px] flex-none flex-col items-center border-r px-[12px] pb-[14px] pt-[16px] sm:w-[188px] sm:px-[14px]"
                     style={{ borderColor: HERO.divider }}
                   >
-                    {/* Portrait */}
+                    {/* Portrait — high up in the card */}
                     {onProfile ? (
                       <button
                         type="button"
@@ -207,7 +214,7 @@ export function ScenarioCarousel({
                         <Monogram
                           mono={c.mono}
                           color={c.color}
-                          size={52}
+                          size={56}
                           ring={2}
                           bg={HERO.medBg}
                           src={c.portrait ? mediaUrl(c.portrait) : undefined}
@@ -217,7 +224,7 @@ export function ScenarioCarousel({
                       <Monogram
                         mono={c.mono}
                         color={c.color}
-                        size={52}
+                        size={56}
                         ring={2}
                         bg={HERO.medBg}
                         src={c.portrait ? mediaUrl(c.portrait) : undefined}
@@ -226,7 +233,7 @@ export function ScenarioCarousel({
 
                     {/* Character name */}
                     <div
-                      className="mt-[6px] w-full truncate text-center font-display text-[13px] font-semibold leading-[1.2] sm:text-[15px]"
+                      className="mt-[7px] w-full truncate text-center font-display text-[14px] font-semibold leading-[1.2] sm:text-[16px]"
                       style={{ color: c.color }}
                     >
                       {c.name}
@@ -234,42 +241,32 @@ export function ScenarioCarousel({
 
                     {/* Divider */}
                     <div
-                      className="mx-[4px] mt-[7px] w-full border-t"
+                      className="mt-[8px] w-full border-t"
                       style={{ borderColor: HERO.divider }}
                     />
 
-                    {/* Stat rows */}
-                    <div className="mt-[6px] w-full flex-1 space-y-[6px] overflow-hidden">
-                      <div>
-                        <div
-                          className="font-mono text-eyebrow uppercase tracking-[0.12em]"
-                          style={{ color: HERO.label }}
-                        >
-                          Role
-                        </div>
-                        <div
-                          className="mt-[2px] line-clamp-2 font-mono text-label leading-[1.3]"
-                          style={{ color: HERO.toneText }}
-                        >
-                          {c.role}
-                        </div>
-                      </div>
-                      {c.traits ? (
-                        <div>
-                          <div
-                            className="font-mono text-eyebrow uppercase tracking-[0.12em]"
-                            style={{ color: HERO.label }}
-                          >
-                            Traits
+                    {/* Stat rows — every character attribute, scrolls if tall */}
+                    <div className="mt-[7px] w-full flex-1 space-y-[6px] overflow-y-auto pr-[2px]">
+                      {STAT_FIELDS.map(({ key, label }) => {
+                        const value = c[key];
+                        if (!value || typeof value !== "string") return null;
+                        return (
+                          <div key={key}>
+                            <div
+                              className="font-mono text-eyebrow uppercase tracking-[0.12em]"
+                              style={{ color: HERO.label }}
+                            >
+                              {label}
+                            </div>
+                            <div
+                              className="mt-[1px] font-mono text-label leading-[1.3]"
+                              style={{ color: HERO.toneText }}
+                            >
+                              {value}
+                            </div>
                           </div>
-                          <div
-                            className="mt-[2px] line-clamp-2 font-mono text-label leading-[1.3]"
-                            style={{ color: HERO.toneText }}
-                          >
-                            {c.traits}
-                          </div>
-                        </div>
-                      ) : null}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
