@@ -191,78 +191,102 @@ export function ScenarioCarousel({
                 {s.cast.map((c) => (
                   <div
                     key={c.id}
-                    className="flex w-[250px] flex-none flex-col items-center border-r px-[16px] pb-[14px] pt-[16px] sm:w-[282px] sm:px-[20px]"
+                    className="group relative flex w-[250px] flex-none flex-col overflow-hidden border-r sm:w-[282px]"
                     style={{ borderColor: HERO.divider }}
                   >
-                    {/* Portrait — high up in the card */}
+                    {/* Full-bleed portrait — or a tinted monogram fallback when
+                        no generated portrait exists yet. Decorative; the real
+                        name is rendered in the footer below. */}
+                    {c.portrait ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
+                      <img
+                        src={mediaUrl(c.portrait)}
+                        alt=""
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
+                      />
+                    ) : (
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 flex items-start justify-center pt-[34px]"
+                        style={{ background: `linear-gradient(180deg, ${c.color}33, var(--field-bg))` }}
+                      >
+                        <span
+                          className="font-display font-bold leading-none"
+                          style={{ color: c.color, fontSize: 78, opacity: 0.42 }}
+                        >
+                          {c.mono}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Bottom scrim so overlaid text stays legible (AA) over any art */}
+                    <div
+                      className="pointer-events-none absolute inset-0"
+                      style={{
+                        background:
+                          "linear-gradient(180deg, rgba(20,14,6,0) 32%, rgba(20,14,6,0.5) 58%, rgba(14,9,4,0.93) 100%)",
+                      }}
+                    />
+
+                    {/* Corner wax-seal badge — the character's monogram + color ring */}
+                    <div className="pointer-events-none absolute right-[10px] top-[10px] z-[2]">
+                      <Monogram mono={c.mono} color={c.color} size={26} ring={2} />
+                    </div>
+
+                    {/* Footer — name / role / divider / statistics, pinned to bottom */}
+                    <div className="relative z-[1] mt-auto flex flex-col p-[14px_16px_15px] sm:p-[16px_20px_17px]">
+                      <div
+                        className="truncate font-display text-[16px] font-semibold leading-[1.15] sm:text-[18px]"
+                        // color-mix lightens the character's accent toward parchment so
+                        // every palette color clears AA over the dark scrim while still
+                        // reading as that character's color.
+                        style={{ color: `color-mix(in srgb, ${c.color}, #F6ECDA)` }}
+                      >
+                        {c.name}
+                      </div>
+
+                      {c.role ? (
+                        <div
+                          className="mt-[2px] truncate font-mono text-label"
+                          style={{ color: LIGHT.loc }}
+                        >
+                          {c.role}
+                        </div>
+                      ) : null}
+
+                      <div
+                        className="mt-[10px] w-full border-t"
+                        style={{ borderColor: "rgba(246,236,218,0.2)" }}
+                      />
+
+                      {/* Statistics — per-character stat values aren't wired to the
+                          resolved Character yet, so this shows the empty state. */}
+                      <div
+                        className="mt-[8px] font-mono text-eyebrow uppercase tracking-[0.14em]"
+                        style={{ color: HERO.label }}
+                      >
+                        Statistics
+                      </div>
+                      <p
+                        className="mt-[3px] font-body text-body-sm italic"
+                        style={{ color: LIGHT.desc }}
+                      >
+                        No statistics available.
+                      </p>
+                    </div>
+
+                    {/* Whole-card click target opens the character profile */}
                     {onProfile ? (
                       <button
                         type="button"
                         onClick={() => onProfile(c.id)}
                         aria-label={`View ${c.name}`}
                         title={c.name}
-                        className="flex-none rounded-full transition-transform hover:scale-110"
-                      >
-                        <Monogram
-                          mono={c.mono}
-                          color={c.color}
-                          size={56}
-                          ring={2}
-                          bg={HERO.medBg}
-                          src={c.portrait ? mediaUrl(c.portrait) : undefined}
-                        />
-                      </button>
-                    ) : (
-                      <Monogram
-                        mono={c.mono}
-                        color={c.color}
-                        size={56}
-                        ring={2}
-                        bg={HERO.medBg}
-                        src={c.portrait ? mediaUrl(c.portrait) : undefined}
+                        className="absolute inset-0 z-[3] cursor-pointer transition-transform duration-200 ease-out group-hover:scale-[1.015] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2"
+                        style={{ outlineColor: HERO.label }}
                       />
-                    )}
-
-                    {/* Character name */}
-                    <div
-                      className="mt-[7px] w-full truncate text-center font-display text-[14px] font-semibold leading-[1.2] sm:text-[16px]"
-                      style={{ color: c.color }}
-                    >
-                      {c.name}
-                    </div>
-
-                    {/* Role — value only, no label */}
-                    {c.role ? (
-                      <div
-                        className="mt-[2px] w-full truncate text-center font-mono text-label"
-                        style={{ color: HERO.toneText }}
-                      >
-                        {c.role}
-                      </div>
                     ) : null}
-
-                    {/* Divider */}
-                    <div
-                      className="mt-[9px] w-full border-t"
-                      style={{ borderColor: HERO.divider }}
-                    />
-
-                    {/* Statistics — per-character stat values are not wired to the
-                        resolved Character yet, so this shows the empty state. */}
-                    <div className="mt-[9px] w-full flex-1 overflow-y-auto pr-[2px]">
-                      <div
-                        className="font-mono text-eyebrow uppercase tracking-[0.14em]"
-                        style={{ color: HERO.label }}
-                      >
-                        Statistics
-                      </div>
-                      <p
-                        className="mt-[4px] font-body text-body-sm italic"
-                        style={{ color: HERO.toneText }}
-                      >
-                        No statistics available.
-                      </p>
-                    </div>
                   </div>
                 ))}
                 {/* Trailing spacer */}
