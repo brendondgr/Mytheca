@@ -8,26 +8,73 @@ import { CloseButton } from "@/components/ui/CloseButton";
 import { mediaUrl } from "@/lib/api";
 import type { Character } from "@/lib/types";
 
-function ProfileCell({
+const GOLD = "#A8762A";
+
+/**
+ * One framed content section (Background, Appearance, …). A bordered manuscript
+ * box with a circular glyph badge, a small-caps section header on a hairline
+ * rule, and the prose below. Renders nothing when the value is empty so the
+ * grid stays tidy.
+ */
+function ProfileSection({
   label,
-  color,
+  glyph,
   value,
+  color = GOLD,
+  tone = "default",
   spanFull,
 }: {
   label: string;
-  color: string;
+  glyph: string;
   value: string | null | undefined;
+  color?: string;
+  /** "danger" gives the Secret box its warning tint + accent. */
+  tone?: "default" | "danger";
   spanFull?: boolean;
 }) {
   if (!value) return null;
+  const danger = tone === "danger";
   return (
-    <div className={spanFull ? "col-span-2" : undefined}>
-      <Eyebrow tracking="0.1em" color={color} className="mb-[4px] block">
-        {label}
-      </Eyebrow>
-      <p className="font-body text-body-sm leading-[1.45] text-ink">{value}</p>
-    </div>
+    <section
+      className={spanFull ? "sm:col-span-2" : undefined}
+      style={{
+        border: `1px solid ${danger ? "var(--accent)" : "var(--card-bd)"}`,
+        background: danger ? "rgba(154,53,32,.08)" : "var(--card-bg2)",
+        borderRadius: 4,
+        boxShadow: "0 1px 2px rgba(20,14,6,.06)",
+      }}
+    >
+      <div className="flex items-center gap-[10px] px-[14px] pt-[12px]">
+        <span
+          aria-hidden
+          className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full text-[13px] leading-none"
+          style={{
+            color,
+            border: `1px solid ${color}`,
+            background: "var(--card-bg)",
+          }}
+        >
+          {glyph}
+        </span>
+        <Eyebrow tracking="0.16em" color={color} className="block">
+          {label}
+        </Eyebrow>
+        <span className="h-px flex-1" style={{ background: "var(--hair-strong)" }} />
+      </div>
+      <p className="px-[14px] pb-[13px] pt-[9px] font-body text-body-sm leading-[1.5] text-ink">
+        {value}
+      </p>
+    </section>
   );
+}
+
+/** Split a free-text traits string ("Energetic · Observant") into tokens. */
+function splitTraits(traits: string | null | undefined): string[] {
+  if (!traits) return [];
+  return traits
+    .split(/[·,]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
 }
 
 /** Read-only character profile (opened from cast monograms / the cast list). */
@@ -43,77 +90,106 @@ export function CharacterProfileModal({
 }) {
   if (!character) return null;
   const c = character;
-
-  const hasAppearance = Boolean(c.appearance);
-  const hasBackground = Boolean(c.background);
-  const hasPersonality = Boolean(c.personality);
+  const traits = splitTraits(c.traits);
 
   return (
-    <Modal open onClose={onClose} labelledBy="profile-name" className="sm:w-[560px]" z={70}>
-      {/* Header */}
-      <div className="flex items-center gap-4 border-b border-hair p-[22px_24px]">
-        <Monogram
-          mono={c.mono}
-          color={c.color}
-          size={64}
-          ring={3}
-          fontSize={24}
-          src={c.portrait ? mediaUrl(c.portrait) : undefined}
-          alt={c.portrait ? `Portrait of ${c.name}` : undefined}
-        />
-        <div className="min-w-0 flex-1">
-          <div
-            id="profile-name"
-            className="font-display text-[22px] font-bold leading-[1.05] text-ink"
-          >
-            {c.name}
+    <Modal open onClose={onClose} labelledBy="profile-name" className="sm:w-[640px]" z={70}>
+      <div className="relative">
+        <CloseButton onClose={onClose} className="absolute right-[16px] top-[16px] z-[2]" />
+
+        {/* Hero: framed portrait + seal medallion · name · role · trait pills */}
+        <div className="flex flex-col gap-5 border-b border-hair p-[24px_24px_20px] sm:flex-row sm:items-center">
+          <div className="relative mx-auto flex-none sm:mx-0">
+            <div
+              className="flex items-center justify-center p-[6px]"
+              style={{
+                border: `2px solid ${c.color}`,
+                borderRadius: 6,
+                background: "var(--card-bg2)",
+                boxShadow: "0 6px 22px rgba(40,30,16,.16)",
+              }}
+            >
+              <div style={{ border: "1px solid var(--card-bd)", borderRadius: 4, padding: 3 }}>
+                <Monogram
+                  mono={c.mono}
+                  color={c.color}
+                  size={108}
+                  ring={0}
+                  fontSize={40}
+                  className="!rounded-[3px]"
+                  src={c.portrait ? mediaUrl(c.portrait) : undefined}
+                  alt={c.portrait ? `Portrait of ${c.name}` : undefined}
+                />
+              </div>
+            </div>
+            {/* Seal medallion overlapping the frame's bottom edge */}
+            <span
+              aria-hidden
+              className="absolute -bottom-[14px] left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full text-[16px] leading-none"
+              style={{
+                color: GOLD,
+                background: "var(--card-bg)",
+                border: `2px solid ${GOLD}`,
+                boxShadow: "0 4px 14px rgba(40,30,16,.22)",
+              }}
+            >
+              ❖
+            </span>
           </div>
-          <Eyebrow size={9.5} tracking="0.14em" color={c.color} className="mt-[5px] block">
-            {c.role}
-          </Eyebrow>
-          {c.traits ? (
-            <p className="mt-[6px] font-body text-[13px] italic leading-[1.35] text-ink-soft">
-              {c.traits}
-            </p>
-          ) : null}
+
+          <div className="min-w-0 flex-1 pr-[36px] text-center sm:text-left">
+            <h2
+              id="profile-name"
+              className="font-display text-[30px] font-bold uppercase leading-[1.02] tracking-[0.04em] text-ink"
+            >
+              {c.name}
+            </h2>
+            <Eyebrow size={11} tracking="0.18em" color={c.color} className="mt-[7px] block">
+              {c.role}
+            </Eyebrow>
+            <div
+              className="mx-auto mt-[10px] h-px w-[64px] sm:mx-0"
+              style={{ background: "var(--hair-strong)" }}
+            />
+            {traits.length > 0 ? (
+              <ul className="mt-[12px] flex flex-wrap justify-center gap-[7px] sm:justify-start">
+                {traits.map((t) => (
+                  <li
+                    key={t}
+                    className="inline-flex items-center gap-[6px] rounded-full px-[10px] py-[4px] font-body text-[13px] italic text-ink-soft"
+                    style={{ border: "1px solid var(--card-bd)", background: "var(--card-bg)" }}
+                  >
+                    <span aria-hidden className="text-[9px] not-italic" style={{ color: c.color }}>
+                      ◆
+                    </span>
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </div>
-        <CloseButton onClose={onClose} />
-      </div>
 
-      {/* 2-column body: row-pair grid */}
-      <div className="p-[18px_24px_22px]">
-        <div className="grid grid-cols-2 gap-x-[20px] gap-y-[14px]">
-          {/* Row 1: Appearance | Background (skip row if both empty) */}
-          {(hasAppearance || hasBackground) ? (
-            <>
-              <ProfileCell
-                label="Appearance"
-                color="#A8762A"
-                value={c.appearance}
-                spanFull={!hasBackground}
-              />
-              {hasBackground ? (
-                <ProfileCell label="Background" color="#A8762A" value={c.background} />
-              ) : null}
-            </>
-          ) : null}
+        {/* Section boxes */}
+        <div className="p-[20px_24px_24px]">
+          <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+            <ProfileSection label="Background" glyph="❖" value={c.background} spanFull />
+            <ProfileSection label="Appearance" glyph="◈" value={c.appearance} />
+            <ProfileSection label="Personality" glyph="✦" value={c.personality} />
+            <ProfileSection label="Voice" glyph="◆" value={c.speech} />
+            <ProfileSection label="Goal" glyph="◎" value={c.goal} />
+            <ProfileSection
+              label="Secret"
+              glyph="✺"
+              value={c.secret}
+              color="var(--accent)"
+              tone="danger"
+              spanFull
+            />
+          </div>
 
-          {/* Row 2: Personality | Voice */}
-          <ProfileCell
-            label="Personality"
-            color="#A8762A"
-            value={c.personality}
-            spanFull={!hasPersonality}
-          />
-          <ProfileCell label="Voice" color="#A8762A" value={c.speech} spanFull={hasPersonality ? false : true} />
-
-          {/* Row 3: Goal | Secret */}
-          <ProfileCell label="Goal" color="#A8762A" value={c.goal} />
-          <ProfileCell label="Secret" color="var(--accent)" value={c.secret} />
-
-          {/* Row 4: Edit button, full width */}
           {onEdit ? (
-            <div className="col-span-2 flex justify-end pt-[4px]">
+            <div className="mt-[18px] flex justify-end">
               <Button variant="secondary" onClick={() => onEdit(c.id)}>
                 ✎ Edit Character
               </Button>

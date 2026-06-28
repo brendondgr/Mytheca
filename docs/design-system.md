@@ -164,6 +164,8 @@ Purposeful only, and always with a near-instant `prefers-reduced-motion` fallbac
 
 Near the top of key pages show **real artifacts**: a live/sample scene transcript, a teal narrator card, a stat/tension panel, a character card with monogram and role — not abstract orbs, mesh gradients, or fake dashboards. The landing page should preview an actual narrator-card + dialogue exchange.
 
+**Character dossier (read-only profile).** The expanded character view (`CharacterProfileModal`) is styled as a **bold, structured dossier**: a hero band pairing a framed portrait (a 2px character-color frame + inner hairline, with the `❖` seal medallion overlapping its bottom edge) with a large uppercase Cinzel name, a character-color role eyebrow set off by a hairline rule, and a row of `◆`-led trait pills (the free-text traits string split into one pill per token). Each prose field (Background, Appearance, Personality, Voice, Goal) sits in its own bordered manuscript box (`--card-bg2` surface, `--card-bd` border, ~4px radius, a circular gold glyph badge + small-caps header on a rule), with **Secret** called out in a full-width `--accent`-bordered danger-tinted box. Section identity is carried by the badge + header + border, never color alone. All surfaces use theme tokens, so the treatment holds across Parchment / Ember / Slate; the box grid collapses from two columns to one below `sm`.
+
 ## Required UI States (design all)
 
 loading (scenario loader) · empty · error · partial-data (mid-stream / streaming deltas) · stalled/reconnecting stream · success · permission-denied · long-content · dense-data · hidden-stat (a stat the player isn't allowed to see) · mobile · reduced-motion · **all three themes**.
