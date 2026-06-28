@@ -12,7 +12,7 @@ export function TurnOrder({
 }) {
   return (
     <div className="mt-[22px]">
-      <Eyebrow size={9} tracking="0.16em" className="mb-[10px] block">
+      <Eyebrow size={9} tracking="0.16em" className="mb-[10px] block" color="var(--chrome-ink-soft)">
         Turn order
       </Eyebrow>
       <div className="flex flex-wrap gap-[5px]">
@@ -57,7 +57,7 @@ export function CastRail({
 }) {
   return (
     <aside className="velora-rail hidden w-[236px] flex-none overflow-auto border-r border-hair-strong p-[18px_16px] lg:block">
-      <Eyebrow size={9} tracking="0.16em" className="mb-3 block">
+      <Eyebrow size={9} tracking="0.16em" className="mb-3 block" color="var(--chrome-ink-soft)">
         At the table
       </Eyebrow>
       <div className="flex flex-col gap-[7px]">

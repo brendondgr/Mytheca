@@ -9,24 +9,26 @@
 
 .theme-light {
   --page-bg: #e7dbc2;
-  --page-img: radial-gradient(at 16% 6%, rgba(255, 250, 235, 0.7), transparent 50%),
-    radial-gradient(at 88% 96%, rgba(120, 90, 40, 0.08), transparent 52%);
+  --page-img: radial-gradient(at 16% 6%, rgba(255, 248, 230, 0.75), transparent 50%),
+    radial-gradient(at 88% 96%, rgba(140, 100, 44, 0.12), transparent 52%);
   --card-bg: #f4ecda;
   --card-bg2: #f8f1e0;
-  --card-bd: #d8c7a0;
-  --hair: #e0d2ae;
-  --hair-strong: #cbb78e;
+  --card-bd: #a88860;
+  --hair: #c8a070;
+  --hair-strong: #8a6a3c;
   --ink: #2a2016;
   --ink-soft: #6b5b45;
   --mute: #8e7a56;
   --mute2: #9a875f;
   --field-bg: #fbf6ea;
-  --field-bd: #cbb78e;
-  --header-grad: linear-gradient(#efe5cf, #e8dcc3);
-  --rail-grad: linear-gradient(#ebe0c8, #e6dac0);
-  --modal-bg: #eee3cc;
+  --field-bd: #a88860;
+  --header-grad: linear-gradient(#3e2c18, #302110);
+  --rail-grad: linear-gradient(#7a5a38, #6a4c2c);
+  --modal-bg: #e8d9ba;
   --accent: #8e2b1c;
   --tab-ink: #6b5b45;
+  --chrome-ink: #f0e4c8;
+  --chrome-ink-soft: #dcc290;
 }
 
 .theme-dark {
@@ -49,6 +51,8 @@
   --modal-bg: #221a11;
   --accent: #cc5a41;
   --tab-ink: #a8966f;
+  --chrome-ink: #f1e5cc;
+  --chrome-ink-soft: #c3b191;
 }
 
 .theme-slate {
@@ -71,6 +75,8 @@
   --modal-bg: #1a2129;
   --accent: #e0654a;
   --tab-ink: #afc0ce;
+  --chrome-ink: #e7edf3;
+  --chrome-ink-soft: #a0b1bf;
 }
 
 /* Gradient-backed surfaces (can't be expressed as Tailwind color utilities). */

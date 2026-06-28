@@ -16,23 +16,23 @@ export function SceneHeader({
       <div className="flex min-w-0 items-center gap-[14px]">
         <Link
           href={backHref}
-          className="flex flex-none items-center gap-[7px] rounded-[2px] border border-field-bd px-[11px] py-[6px] font-mono text-[10px] tracking-[0.1em] text-accent uppercase hover:bg-accent hover:text-[#F6ECDA]"
+          className="flex flex-none items-center gap-[7px] rounded-[2px] border border-chrome-ink px-[11px] py-[6px] font-mono text-[10px] tracking-[0.1em] text-chrome-ink uppercase hover:bg-accent hover:text-[#F6ECDA]"
         >
           ‹ Library
         </Link>
         <span className="h-[22px] w-px flex-none bg-hair-strong" aria-hidden />
         <div className="min-w-0">
-          <div className="truncate font-display text-[16px] font-bold leading-none text-ink">
+          <div className="truncate font-display text-[16px] font-bold leading-none text-chrome-ink">
             {title}
           </div>
-          <div className="mt-1 truncate font-mono text-[8.5px] tracking-[0.14em] text-mute uppercase">
+          <div className="mt-1 truncate font-mono text-[8.5px] tracking-[0.14em] text-chrome-ink-soft uppercase">
             ◆ {settingName} · live scene
           </div>
         </div>
       </div>
       <div className="flex flex-none items-center gap-[14px]">
         <ThemeSwitcher />
-        <div className="hidden items-center gap-2 font-mono text-[9px] tracking-[0.12em] text-mute uppercase sm:flex">
+        <div className="hidden items-center gap-2 font-mono text-[9px] tracking-[0.12em] text-chrome-ink-soft uppercase sm:flex">
           <span className="h-[7px] w-[7px] rounded-full bg-success" aria-hidden /> Narrator
           active
         </div>

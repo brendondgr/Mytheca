@@ -47,14 +47,14 @@ export function OptionsView() {
     <AppShell>
       <header className="velora-header flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] sm:px-[26px]">
         <div className="flex items-center gap-[13px]">
-          <span aria-hidden className="text-[16px] text-accent">
+          <span aria-hidden className="text-[16px] text-chrome-ink">
             ❖
           </span>
-          <span className="font-display text-[20px] font-bold tracking-[0.2em] text-ink">
+          <span className="font-display text-[20px] font-bold tracking-[0.2em] text-chrome-ink">
             VELORA
           </span>
           <span className="hidden h-5 w-px bg-hair-strong md:block" aria-hidden />
-          <span className="hidden font-mono text-[10.5px] tracking-[0.18em] text-mute uppercase md:block">
+          <span className="hidden font-mono text-[10.5px] tracking-[0.18em] text-chrome-ink-soft uppercase md:block">
             Options
           </span>
         </div>
