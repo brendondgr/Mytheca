@@ -47,6 +47,8 @@ export interface Draft {
   tone?: string;
   cast?: string[];
   settingId?: string;
+  // Narrator-voice scene-opening prose (drafted by the agentic Scenario Creator).
+  opening?: string;
   branches?: Branch[];
   _prompt?: string;
   // Reference files dropped in the create modal, read into memory to ground a

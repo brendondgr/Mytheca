@@ -1,24 +1,34 @@
-import { Monogram } from "@/components/ui/Monogram";
+import { mediaUrl } from "@/lib/api";
 import { TextField } from "@/components/ui/TextField";
-import { FieldLabel } from "@/components/ui/FieldLabel";
-import { ToggleChip } from "@/components/ui/ToggleChip";
+import { MultiSelect, type MultiSelectOption } from "@/components/ui/MultiSelect";
 import type { Character, Setting } from "@/lib/types";
 import type { Draft } from "@/features/library/editor";
 
 export function ScenarioForm({
   draft,
   setDraft,
-  toggleCast,
   characters,
   settings,
 }: {
   draft: Draft;
   setDraft: (key: keyof Draft, value: unknown) => void;
-  toggleCast: (id: string) => void;
   characters: Character[];
   settings: Setting[];
 }) {
   const cast = draft.cast ?? [];
+  const castOptions: MultiSelectOption[] = characters.map((c) => ({
+    id: c.id,
+    label: c.name,
+    mono: c.mono,
+    color: c.color,
+    portrait: c.portrait ? mediaUrl(c.portrait) : null,
+  }));
+  const settingOptions: MultiSelectOption[] = settings.map((s) => ({
+    id: s.id,
+    label: s.name,
+    seal: true,
+  }));
+
   return (
     <>
       <TextField
@@ -51,30 +61,24 @@ export function ScenarioForm({
         onChange={(e) => setDraft("goal", e.target.value)}
         className="mb-[14px]"
       />
-      <div className="mb-[14px]">
-        <FieldLabel>Cast — choose who appears</FieldLabel>
-        <div className="flex flex-wrap gap-[7px]">
-          {characters.map((c) => (
-            <ToggleChip key={c.id} selected={cast.includes(c.id)} onClick={() => toggleCast(c.id)}>
-              <Monogram mono={c.mono} color={c.color} size={20} ring={1.5} fontSize={9} />
-              {c.name}
-            </ToggleChip>
-          ))}
-        </div>
-      </div>
-      <div>
-        <FieldLabel>Setting — choose one</FieldLabel>
-        <div className="flex flex-wrap gap-[7px]">
-          {settings.map((s) => (
-            <ToggleChip
-              key={s.id}
-              selected={draft.settingId === s.id}
-              onClick={() => setDraft("settingId", s.id)}
-            >
-              ◆ {s.name}
-            </ToggleChip>
-          ))}
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <MultiSelect
+          multiple
+          label="Cast — choose who appears"
+          placeholder="Add characters…"
+          emptyText="No characters yet — add one first"
+          options={castOptions}
+          selected={cast}
+          onChange={(next) => setDraft("cast", next)}
+        />
+        <MultiSelect
+          label="Setting — choose one"
+          placeholder="Pick a setting…"
+          emptyText="No settings yet"
+          options={settingOptions}
+          selected={draft.settingId ? [draft.settingId] : []}
+          onChange={(next) => setDraft("settingId", next[0] ?? "")}
+        />
       </div>
     </>
   );

@@ -158,6 +158,29 @@ play-accrued **event timeline** (ships empty, written async once play exists) an
 never graph edges. Scene art is an explicit, opt-in step (it spends GPU time on
 the local ComfyUI server).
 
+## Scenario Authoring Flow (creation-time agent)
+
+```
+Scenario modal (EntityModal + ScenarioForm) → lib/api.ts
+  → POST /api/scenarios/draft   {seed, docsOverview?, storylineId?}
+        → routes/scenarios → agents/scenario_agent.draft_scenario
+            world_context + numbered ROSTER (crud.list_characters / list_settings,
+              capped at 40 each) → services/llm.chat_complete (same settings_store)
+            model returns names → resolve names→ids (case/whitespace-folded):
+              drop unknown cast · setting → "" when unmatched · dedupe cast
+        → {title, genre, tone, goal, opening, castIds, settingId}
+  → drafted fields + the resolved cast (MultiSelect multiple) + setting (MultiSelect
+    single) fill the form; author edits, then the normal
+    POST/PATCH /api/storylines/{id}/scenarios persists it
+```
+
+Same **creation-time, no-RAG** rules. The key invariant: the drafted `castIds` /
+`settingId` are **always real members of the active storyline** — the agent never
+trusts model-emitted ids, it resolves names against the live roster and drops
+anything that doesn't match, preserving `resolveScenario`'s soft-reference
+fallback by construction. The scenario modal grounds on **seed + world roster**
+only (no `ContextFilesPanel` yet); branches are not drafted in this first cut.
+
 ## Orphaned-Media Cleanup Flow (maintenance)
 
 ```

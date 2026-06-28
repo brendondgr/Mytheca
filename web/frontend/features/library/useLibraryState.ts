@@ -1,20 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  AI_BRANCHES,
-  AI_CHARACTERS,
-  AI_SCENARIOS,
-  AI_SETTINGS,
-  resolveScenario,
-} from "@/lib/seed-data";
+import { resolveScenario } from "@/lib/seed-data";
 import * as api from "@/lib/api";
 import { concatDocs, docsForDraft } from "@/lib/readDocs";
 import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
 import {
   DEFAULT_DRAFTS,
   isDraftValid,
-  pickUnused,
   type Draft,
   type EditorMode,
   type EntityType,
@@ -105,7 +98,6 @@ export function useLibraryState(initialStorylineId?: string) {
   const [generatingStats, setGeneratingStats] = useState(false);
   const [applyingStats, setApplyingStats] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
-  const generateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---- data loading ----
   /** Fetch a storyline's children once and merge them in; returns its scenarios. */
@@ -506,7 +498,6 @@ export function useLibraryState(initialStorylineId?: string) {
     setModal((prev) => (prev ? { ...prev, mode } : prev));
   }
   function closeModal() {
-    if (generateTimer.current) clearTimeout(generateTimer.current);
     setGenerating(false);
     setGeneratingPrompts(false);
     setGeneratingPortrait(false);
@@ -574,30 +565,38 @@ export function useLibraryState(initialStorylineId?: string) {
     setMenuOpen(false);
   }
 
-  // ---- agentic fake-draft (client-only; no model call) ----
-  function generate() {
-    if (!modal || modal.type === "begin" || modal.type === "storyline") return;
-    const type = modal.type;
+  // ---- scenario agentic authoring (real model call via backend) ----
+  /** Draft a scenario (fields + a roster-grounded cast & setting) from the seed. */
+  async function draftScenario() {
+    if (!modal || modal.type !== "scenario") return;
+    const seed = (draft._prompt ?? "").trim();
+    if (!seed) return;
+    const docsOverview = draft._docFiles?.length
+      ? concatDocs(docsForDraft(draft._docFiles))
+      : undefined;
     setGenerating(true);
-    if (generateTimer.current) clearTimeout(generateTimer.current);
-    generateTimer.current = setTimeout(() => {
-      let next: Draft;
-      if (type === "character") {
-        next = { ...pickUnused(AI_CHARACTERS, characters.map((c) => c.name), (c) => c.name), _ai: true };
-      } else if (type === "setting") {
-        next = { ...pickUnused(AI_SETTINGS, settings.map((s) => s.name), (s) => s.name), _ai: true };
-      } else if (type === "scenario") {
-        const base = pickUnused(AI_SCENARIOS, scenarios.map((s) => s.title), (s) => s.title);
-        const ids = [...characters].sort(() => Math.random() - 0.5).slice(0, 3).map((c) => c.id);
-        const settingId = settings[Math.floor(Math.random() * settings.length)]?.id ?? "";
-        next = { ...base, cast: ids, settingId, branches: AI_BRANCHES.slice(0, 3).map((b) => ({ ...b })), _ai: true };
-      } else {
-        next = { ...AI_BRANCHES[Math.floor(Math.random() * AI_BRANCHES.length)], _ai: true };
-      }
-      setDraftState(next);
-      setGenerating(false);
+    setError(null);
+    try {
+      const s = await api.draftScenario(seed, activeStorylineId || undefined, docsOverview);
+      setDraftState((prev) => ({
+        ...prev,
+        title: s.title || prev.title,
+        genre: s.genre || prev.genre,
+        tone: s.tone || prev.tone,
+        goal: s.goal || prev.goal,
+        opening: s.opening || prev.opening,
+        // Cast + setting are real members of the active world (resolved server-side).
+        cast: s.castIds,
+        settingId: s.settingId,
+        _ai: true,
+      }));
+      // On mobile the seam is its own tab — drop back to the form to reveal fields.
       setModal((prev) => (prev ? { ...prev, mode: "manual" } : prev));
-    }, 850);
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGenerating(false);
+    }
   }
 
   // ---- submit / delete (await the API, then splice the returned entity) ----
@@ -667,16 +666,14 @@ export function useLibraryState(initialStorylineId?: string) {
           goal: d.goal?.trim() || "Goal to be set.",
           castIds: [...(d.cast ?? [])],
           settingId: d.settingId ?? "",
+          opening: d.opening?.trim() || "A new scene awaits its first line of narration…",
           branches: [...(d.branches ?? [])],
         };
         if (editId) {
           const updated = await api.updateScenario(editId, body);
           setScenarios((xs) => xs.map((x) => (x.id === editId ? updated : x)));
         } else {
-          const created = await api.createScenario(activeStorylineId, {
-            ...body,
-            opening: "A new scene awaits its first line of narration…",
-          });
+          const created = await api.createScenario(activeStorylineId, body);
           setScenarios((xs) => [...xs, created]);
           setTab("scenarios");
           setFeaturedId(created.id);
@@ -731,6 +728,8 @@ export function useLibraryState(initialStorylineId?: string) {
     generatingPrompts, generatingPortrait, generatingStats, applyingStats,
     // setting agentic authoring
     draftSetting, generateSceneArtPrompts, generateSceneArt,
+    // scenario agentic authoring
+    draftScenario,
     requestDeleteStoryline, confirmDeleteStoryline, cancelDeleteStoryline,
     storylineToDelete,
     characters, settings, scenarios, resolvedScenarios,
@@ -758,7 +757,7 @@ export function useLibraryState(initialStorylineId?: string) {
         ? isDraftValid(modal.type, draft)
         : false,
     openCreate, editCharacter, editSetting, editScenario,
-    setDraft, setMode, toggleDraftCast, generate, submit, deleteEntity, closeModal,
+    setDraft, setMode, toggleDraftCast, submit, deleteEntity, closeModal,
     // profile + begin
     profileId, profileChar, openProfile, closeProfile, openBegin,
   };

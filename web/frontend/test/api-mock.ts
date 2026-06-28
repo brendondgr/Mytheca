@@ -295,6 +295,16 @@ export function makeApiMock() {
     })),
     generateSceneArt: vi.fn(async () => ({ image: "/media/scenes/test.webp" })),
 
+    draftScenario: vi.fn(async (seed: string) => ({
+      title: "Drafted Scene",
+      genre: "Intrigue",
+      tone: "Tension · rising",
+      goal: `At stake: ${seed}`,
+      opening: "A drafted opening beat.",
+      castIds: ["c-maerin", "c-doran"],
+      settingId: "s-harbor",
+    })),
+
     createScenario: vi.fn(async (storylineId: string, body: Omit<Scenario, "id">) => ({
       id: nid("sc"),
       ...body,

@@ -25,8 +25,9 @@ const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor
  * between the form and the agentic draft panel; on desktop both show at once —
  * the form fills the left, the agentic chat panel sits in a fixed right column.
  *
- * The scenario agentic draft is still the client-only stub (`lib.generate`) — only
- * the storyline, character, and setting creators are wired to real model calls.
+ * The scenario agentic draft calls the real backend agent (`lib.draftScenario`),
+ * which picks a valid cast + setting from the active world's roster — in line with
+ * the storyline, character, and setting creators.
  */
 export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }) {
   const m = lib.modal;
@@ -92,7 +93,6 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
             <ScenarioForm
               draft={d}
               setDraft={lib.setDraft}
-              toggleCast={lib.toggleDraftCast}
               characters={lib.characters}
               settings={lib.settings}
             />
@@ -176,7 +176,7 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
               <Button variant="ghost" onClick={lib.closeModal} className="md:hidden">
                 Cancel
               </Button>
-              <Button onClick={lib.generate} disabled={lib.generating}>
+              <Button onClick={lib.draftScenario} disabled={lib.generating}>
                 {lib.generating ? "Drafting…" : "❖ Draft with Velora"}
               </Button>
             </div>

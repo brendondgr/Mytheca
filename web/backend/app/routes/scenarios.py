@@ -5,9 +5,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.agents import scenario_agent
 from app.core.db import get_db
 from app.schemas.scenario import (
     ScenarioCreate,
+    ScenarioDraftRequest,
+    ScenarioDraftResponse,
     ScenarioGraphRead,
     ScenarioRead,
     ScenarioUpdate,
@@ -29,6 +32,17 @@ def list_scenarios(storyline_id: str, db: Session = Depends(get_db)):
 )
 def create_scenario(storyline_id: str, data: ScenarioCreate, db: Session = Depends(get_db)):
     return crud.create_scenario(db, storyline_id, data)
+
+
+# ---- Authoring (the agentic Scenario Creator) — fixed sub-path ---------------
+# Declared before the dynamic ``/scenarios/{scenario_id}`` routes below, or the
+# dynamic segment would shadow ``/scenarios/draft``.
+
+
+@router.post("/scenarios/draft", response_model=ScenarioDraftResponse)
+def draft_scenario(data: ScenarioDraftRequest, db: Session = Depends(get_db)):
+    """Draft a scenario (fields + a roster-grounded cast & setting) from a seed."""
+    return scenario_agent.draft_scenario(db, data.seed, data.docs_overview, data.storyline_id)
 
 
 @router.get("/scenarios/{scenario_id}", response_model=ScenarioRead)
