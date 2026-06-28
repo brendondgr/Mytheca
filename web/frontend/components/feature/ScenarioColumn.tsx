@@ -14,6 +14,7 @@ export function ScenarioColumn({
   onSelect,
   onEdit,
   onProfile,
+  onAdd,
 }: {
   scenarios: ResolvedScenario[];
   featuredId: string;
@@ -21,6 +22,7 @@ export function ScenarioColumn({
   onSelect: (id: string) => void;
   onEdit: (id: string) => void;
   onProfile: (id: string) => void;
+  onAdd?: () => void;
 }) {
   return (
     <div>
@@ -28,6 +30,8 @@ export function ScenarioColumn({
         title="Scenarios"
         count={scenarios.length}
         hint="Select a scene — its cast & setting light up."
+        onAdd={onAdd}
+        addLabel="Add scenario"
       />
       {scenarios.length === 0 ? (
         <ColumnEmpty query={query} noun="scenarios" />

@@ -78,6 +78,7 @@ export function LibraryColumns({
             onSelect={lib.setFeaturedId}
             onEdit={lib.editScenario}
             onProfile={lib.openProfile}
+            onAdd={() => lib.openCreate("scenario")}
           />
         </Column>
 
@@ -89,6 +90,7 @@ export function LibraryColumns({
             query={lib.query}
             onToggle={lib.toggleExpand}
             onEdit={lib.editCharacter}
+            onAdd={() => lib.openCreate("character")}
           />
         </Column>
 
@@ -98,6 +100,7 @@ export function LibraryColumns({
             activeId={settingId}
             query={lib.query}
             onEdit={lib.editSetting}
+            onAdd={() => lib.openCreate("setting")}
           />
         </Column>
       </div>
