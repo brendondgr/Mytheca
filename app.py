@@ -28,6 +28,7 @@ from __future__ import annotations
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -192,6 +193,8 @@ def run_frontend() -> int:
         return 1
     if not _ensure_frontend_deps(npm):
         return 1
+    if _frontend_port_blocked():
+        return 1
 
     print(f"Starting Velora frontend — npm run dev (http://localhost:{FRONTEND_PORT})\n")
     return subprocess.run([npm, "run", "dev"], cwd=FRONTEND).returncode
@@ -240,6 +243,35 @@ def run_backend() -> int:
         reload_dirs=[str(BACKEND)],
     )
     return 0
+
+
+def _port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+    """True when something is already listening on ``host:port``.
+
+    The Next.js dev server binds ``::`` (all interfaces) and dies with a bare
+    ``EADDRINUSE`` when the port is taken — usually a leftover ``next dev`` from a
+    previous run. We probe with a quick connect so we can catch that *before*
+    bringing the backend all the way up only to tear it straight back down.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.5)
+        return sock.connect_ex((host, port)) == 0
+
+
+def _frontend_port_blocked() -> bool:
+    """Print actionable guidance and return ``True`` if the frontend port is taken."""
+    if not _port_in_use(FRONTEND_PORT):
+        return False
+    print(
+        f"\nPort {FRONTEND_PORT} is already in use — the frontend can't start "
+        f"(EADDRINUSE).\n"
+        f"  Something is still bound to it, usually a leftover `next dev` from a "
+        f"previous run.\n"
+        f"  Free it, then try again:\n"
+        f"      lsof -ti tcp:{FRONTEND_PORT} | xargs -r kill",
+        file=sys.stderr,
+    )
+    return True
 
 
 def _wait_for_health(proc: subprocess.Popen, timeout: float = 120.0) -> bool:
@@ -291,6 +323,10 @@ def run_all() -> int:
         )
         return 1
     if not _ensure_frontend_deps(npm):
+        return 1
+    # Check the frontend port up front: starting the backend (Docker, preflight,
+    # health-wait) only to have `next dev` die on EADDRINUSE wastes ~all of that.
+    if _frontend_port_blocked():
         return 1
 
     # Bring Docker up here in the foreground (visible first-run download) so the
