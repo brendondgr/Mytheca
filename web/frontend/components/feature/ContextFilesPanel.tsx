@@ -83,7 +83,7 @@ export function ContextFilesPanel({
       )}
     >
       <div className="mb-[10px] flex items-center justify-between gap-[8px]">
-        <Eyebrow size={8.5} tracking="0.2em" color="#A8762A">
+        <Eyebrow tracking="0.2em" color="#A8762A">
           ⎙ Context files
         </Eyebrow>
         {docFiles.length > 0 ? (
@@ -129,7 +129,7 @@ export function ContextFilesPanel({
       {/* Bulk select/deselect per category — for many dropped files. */}
       {docFiles.length > 0 ? (
         <div className="mt-[12px] rounded-[4px] border border-cardbd bg-field px-[10px] py-[8px]">
-          <Eyebrow size={8.5} tracking="0.14em" color="#A8762A">
+          <Eyebrow tracking="0.14em" color="#A8762A">
             Select all
           </Eyebrow>
           <div className="mt-[6px] flex flex-col gap-[5px]">
@@ -151,7 +151,7 @@ export function ContextFilesPanel({
                       type="button"
                       aria-label={`Select all for ${label}`}
                       onClick={() => setAllDocUse(key, true)}
-                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-[9.5px] tracking-[0.08em] text-ink-soft uppercase hover:border-accent"
+                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] text-ink-soft uppercase hover:border-accent"
                     >
                       All
                     </button>
@@ -159,7 +159,7 @@ export function ContextFilesPanel({
                       type="button"
                       aria-label={`Deselect all for ${label}`}
                       onClick={() => setAllDocUse(key, false)}
-                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-[9.5px] tracking-[0.08em] text-mute uppercase hover:border-accent"
+                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] text-mute uppercase hover:border-accent"
                     >
                       None
                     </button>
@@ -205,7 +205,7 @@ export function ContextFilesPanel({
                         aria-label={`${label} for ${doc.name}`}
                         onClick={() => toggleDocUse(doc.name, key)}
                         className={cn(
-                          "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-[9.5px] tracking-[0.08em] uppercase focus-visible:border-accent",
+                          "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
                           on
                             ? "border-accent bg-card2 text-ink"
                             : "border-cardbd bg-transparent text-mute hover:border-accent",

@@ -22,7 +22,7 @@ export function SceneLoader({
         </div>
       </div>
       <div className="text-center">
-        <Eyebrow size={9} tracking="0.22em" color="#A8762A" className="mb-[9px] block">
+        <Eyebrow tracking="0.22em" color="#A8762A" className="mb-[9px] block">
           Entering Embergate
         </Eyebrow>
         <div className="font-display text-[24px] font-bold tracking-[0.03em] text-ink">

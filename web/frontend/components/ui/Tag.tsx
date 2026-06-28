@@ -32,7 +32,7 @@ export function Tag({
   return (
     <span
       className={cn(
-        "inline-flex items-center px-[9px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.1em] whitespace-nowrap",
+        "inline-flex items-center px-[9px] py-[3px] font-mono text-tag uppercase tracking-[0.1em] whitespace-nowrap",
         pill ? "rounded-full" : "rounded-[2px]",
         variant === "fill" ? FILL[tone] : OUTLINE[tone],
         className,

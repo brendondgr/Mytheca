@@ -43,7 +43,7 @@ export function ColumnHeader({
           ) : null}
         </div>
         {hint ? (
-          <p className="mt-[5px] font-mono text-[9.5px] tracking-[0.05em] text-mute">
+          <p className="mt-[5px] font-mono text-tag tracking-[0.05em] text-mute">
             {hint}
           </p>
         ) : null}

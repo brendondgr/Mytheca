@@ -57,7 +57,7 @@ export function ScenarioCarousel({
         style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
       >
         <span
-          className="font-mono text-[9.5px] uppercase tracking-[0.22em]"
+          className="font-mono text-tag uppercase tracking-[0.22em]"
           style={{ color: HERO.label }}
         >
           No scenarios yet
@@ -106,13 +106,13 @@ export function ScenarioCarousel({
               {/* Genre / tone tags */}
               <div className="mt-[8px] flex gap-[6px]">
                 <span
-                  className="rounded-[2px] px-[8px] py-[2px] font-mono text-[9px] uppercase tracking-[0.1em]"
+                  className="rounded-[2px] px-[9px] py-[3px] font-mono text-tag uppercase tracking-[0.1em]"
                   style={{ background: HERO.label, color: "#1f160c" }}
                 >
                   {s.genre}
                 </span>
                 <span
-                  className="rounded-[2px] border px-[8px] py-[2px] font-mono text-[9px] uppercase tracking-[0.1em]"
+                  className="rounded-[2px] border px-[9px] py-[3px] font-mono text-tag uppercase tracking-[0.1em]"
                   style={{ color: HERO.toneText, borderColor: HERO.chevBd }}
                 >
                   {s.tone}
@@ -253,7 +253,7 @@ export function ScenarioCarousel({
                   style={{ background: HERO.art }}
                 >
                   <span
-                    className="rounded-[2px] px-[9px] py-[3px] font-mono text-[9.5px] tracking-[0.1em]"
+                    className="rounded-[2px] px-[9px] py-[3px] font-mono text-tag tracking-[0.1em]"
                     style={{ color: HERO.artLabel, background: HERO.artLabelBg }}
                   >
                     scene art
@@ -270,7 +270,7 @@ export function ScenarioCarousel({
           stopping before the scene art panel (246px × 16/9 ≈ 437px wide). */}
       <div className="pointer-events-none absolute top-[14px] left-[16px] right-[16px] flex items-center gap-3 sm:left-[30px] lg:right-[437px]">
         <span
-          className="font-mono text-[9.5px] uppercase tracking-[0.22em]"
+          className="font-mono text-tag uppercase tracking-[0.22em]"
           style={{ color: HERO.label }}
         >
           Recent Scenario
@@ -285,7 +285,7 @@ export function ScenarioCarousel({
           >
             ‹
           </button>
-          <span className="font-mono text-[9.5px]" style={{ color: HERO.label }}>
+          <span className="font-mono text-tag" style={{ color: HERO.label }}>
             {counterText}
           </span>
           <button

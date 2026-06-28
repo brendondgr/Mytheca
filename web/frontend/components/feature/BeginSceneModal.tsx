@@ -26,7 +26,7 @@ export function BeginSceneModal({
       <div className="p-[24px_28px]">
         <div className="flex items-center justify-between">
           <div>
-            <Eyebrow size={9} tracking="0.2em" color="#A8762A">
+            <Eyebrow tracking="0.2em" color="#A8762A">
               Enter the scene
             </Eyebrow>
             <div id="begin-title" className="mt-1 font-display text-[24px] font-bold text-ink">
@@ -38,7 +38,7 @@ export function BeginSceneModal({
         <div className="my-[12px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
         <div className="rounded-[0_4px_4px_0] border-l-[3px] border-l-narrator bg-[rgba(31,138,130,.12)] p-[14px_16px]">
-          <Eyebrow size={8.5} tracking="0.16em" color="#1F8A82" className="mb-[6px] block">
+          <Eyebrow tracking="0.16em" color="#1F8A82" className="mb-[6px] block">
             Narrator
           </Eyebrow>
           <p className="font-body text-[15.5px] leading-[1.5] text-ink italic">{s.opening}</p>

@@ -63,15 +63,15 @@ export function ScenarioCard({
             {s.title}
           </h3>
           {featured ? (
-            <span className="rounded-full bg-accent px-[7px] py-[2px] font-mono text-[8px] uppercase tracking-[0.1em] whitespace-nowrap text-[#F6ECDA]">
+            <span className="rounded-full bg-accent px-[7px] py-[2px] font-mono text-eyebrow uppercase tracking-[0.1em] whitespace-nowrap text-[#F6ECDA]">
               Recent
             </span>
           ) : null}
         </div>
-        <Eyebrow size={9} tracking="0.1em" color="#A8762A" className="mt-[6px] block">
+        <Eyebrow tracking="0.1em" color="#A8762A" className="mt-[6px] block">
           {s.genre} · {s.tone}
         </Eyebrow>
-        <p className="mt-[9px] font-body text-[14px] leading-[1.4] text-ink-soft">
+        <p className="mt-[9px] font-body text-body-sm leading-[1.4] text-ink-soft">
           {s.goal}
         </p>
         <div className="mt-[14px] flex items-center justify-between border-t border-hair pt-[11px]">
@@ -93,7 +93,7 @@ export function ScenarioCard({
               ),
             )}
           </div>
-          <span className="font-body text-[13px] text-ink-soft">◆ {s.setting.name}</span>
+          <span className="font-body text-body-sm text-ink-soft">◆ {s.setting.name}</span>
         </div>
       </div>
     </div>

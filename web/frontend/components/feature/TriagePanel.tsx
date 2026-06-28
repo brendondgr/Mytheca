@@ -113,7 +113,7 @@ export function TriagePanel({
             id={`cat-${doc.name}`}
             value={doc.category}
             onChange={(e) => onSetCategory(doc.name, e.target.value as DocCategory)}
-            className="rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.06em] text-ink-soft"
+            className="rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-tag uppercase tracking-[0.06em] text-ink-soft"
           >
             {CATEGORY_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -132,7 +132,7 @@ export function TriagePanel({
                 aria-label={`${label} for ${doc.name}`}
                 onClick={() => onToggleUse(doc.name, key)}
                 className={cn(
-                  "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-[9.5px] tracking-[0.08em] uppercase focus-visible:border-accent",
+                  "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
                   on
                     ? "border-accent bg-card2 text-ink"
                     : "border-cardbd bg-transparent text-mute hover:border-accent",
@@ -173,7 +173,7 @@ export function TriagePanel({
         <div className="flex flex-wrap items-center gap-[6px]">
           <span
             id="upload-as-label"
-            className="font-mono text-[9.5px] tracking-[0.1em] text-mute2 uppercase"
+            className="font-mono text-tag tracking-[0.1em] text-mute2 uppercase"
           >
             Add as
           </span>
@@ -181,7 +181,7 @@ export function TriagePanel({
             aria-labelledby="upload-as-label"
             value={uploadCategory}
             onChange={(e) => setUploadCategory(e.target.value as DocCategory)}
-            className="rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.06em] text-ink-soft"
+            className="rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-tag uppercase tracking-[0.06em] text-ink-soft"
           >
             {CATEGORY_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -201,7 +201,7 @@ export function TriagePanel({
                 aria-label={`Default ${label} for uploads`}
                 onClick={() => toggle((v) => !v)}
                 className={cn(
-                  "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-[9.5px] tracking-[0.08em] uppercase focus-visible:border-accent",
+                  "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
                   on
                     ? "border-accent bg-card2 text-ink"
                     : "border-cardbd bg-transparent text-mute hover:border-accent",

@@ -62,14 +62,14 @@ export function OptionsMenu() {
               <span className="font-display text-[14px] font-semibold text-ink">
                 Settings Menu
               </span>
-              <span className="font-mono text-[8.5px] tracking-[0.04em] text-mute">
+              <span className="font-mono text-tag tracking-[0.04em] text-mute">
                 models · appearance · defaults
               </span>
             </span>
           </Link>
 
           <div className="mt-[5px] border-t border-hair px-[11px] pt-[9px] pb-[4px]">
-            <div className="mb-[8px] font-mono text-[8.5px] tracking-[0.18em] text-mute uppercase">
+            <div className="mb-[8px] font-mono text-tag tracking-[0.18em] text-mute uppercase">
               Appearance
             </div>
             <div role="group" aria-label="Theme" className="flex items-center gap-[10px]">

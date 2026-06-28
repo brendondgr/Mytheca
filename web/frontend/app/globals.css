@@ -37,6 +37,16 @@
   --color-narrator: #1f8a82;
   --color-success: #1f8a5b;
   --color-danger: #9a3520;
+
+  /* Typography scale — map --fs-* vars to Tailwind text-* utilities.
+   * These resolve live from the active .fs-* class on <html>, so
+   * `text-eyebrow` scales with the user's chosen size preset. */
+  --text-eyebrow: var(--fs-eyebrow);
+  --text-label:   var(--fs-label);
+  --text-ui:      var(--fs-ui);
+  --text-body-sm: var(--fs-body-sm);
+  --text-body:    var(--fs-body);
+  --text-tag:     var(--fs-tag);
 }
 
 * {

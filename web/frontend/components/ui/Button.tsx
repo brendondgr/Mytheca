@@ -21,7 +21,7 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex cursor-pointer items-center justify-center rounded-[2px] px-[18px] py-[10px] font-mono text-[11px] uppercase tracking-[0.08em]",
+        "inline-flex cursor-pointer items-center justify-center rounded-[2px] px-[18px] py-[10px] font-mono text-ui uppercase tracking-[0.08em]",
         VARIANT[variant],
         "disabled:cursor-not-allowed disabled:border-hair disabled:bg-hair disabled:text-mute2",
         className,

@@ -152,7 +152,6 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
               </div>
 
               <Eyebrow
-                size={8.5}
                 tracking="0.2em"
                 color="#A8762A"
                 className="mb-[10px] block"
@@ -171,7 +170,7 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
                 onChange={(e) => lib.setDraft("_prompt", e.target.value)}
               />
               <div className="mt-[9px] flex flex-wrap items-center gap-[9px]">
-                <Eyebrow size={8.5} tracking="0.14em">
+                <Eyebrow tracking="0.14em">
                   Try
                 </Eyebrow>
                 {PROMPT_EXAMPLES[type].map((ex) => (

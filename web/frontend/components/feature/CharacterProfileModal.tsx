@@ -22,10 +22,10 @@ function ProfileCell({
   if (!value) return null;
   return (
     <div className={spanFull ? "col-span-2" : undefined}>
-      <Eyebrow size={9} tracking="0.1em" color={color} className="mb-[4px] block">
+      <Eyebrow tracking="0.1em" color={color} className="mb-[4px] block">
         {label}
       </Eyebrow>
-      <p className="font-body text-[13.5px] leading-[1.45] text-ink">{value}</p>
+      <p className="font-body text-body-sm leading-[1.45] text-ink">{value}</p>
     </div>
   );
 }

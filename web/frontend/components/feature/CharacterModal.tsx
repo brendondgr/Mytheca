@@ -270,7 +270,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 </Button>
               </div>
 
-              <Eyebrow size={8.5} tracking="0.2em" color="#A8762A" className="mb-[10px] block">
+              <Eyebrow tracking="0.2em" color="#A8762A" className="mb-[10px] block">
                 ❖ Draft with Velora
               </Eyebrow>
               <p className="mb-[10px] font-body text-[14px] text-ink">
@@ -338,7 +338,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                     <div className="flex items-center justify-between gap-[10px]">
                       <span className="font-body text-[14px] text-ink">{p.displayName}</span>
                       <label className="flex items-center gap-[6px]">
-                        <span className="font-mono text-[9.5px] tracking-[0.06em] text-mute2">
+                        <span className="font-mono text-tag tracking-[0.06em] text-mute2">
                           {p.min}–{p.max}
                         </span>
                         <input

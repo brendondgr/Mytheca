@@ -25,7 +25,7 @@ export function SceneHeader({
           <div className="truncate font-display text-[16px] font-bold leading-none text-ink">
             {title}
           </div>
-          <div className="mt-1 truncate font-mono text-[8.5px] tracking-[0.14em] text-mute uppercase">
+          <div className="mt-1 truncate font-mono text-tag tracking-[0.14em] text-mute uppercase">
             ◆ {settingName} · live scene
           </div>
         </div>

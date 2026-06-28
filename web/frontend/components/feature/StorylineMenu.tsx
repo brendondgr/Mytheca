@@ -57,7 +57,7 @@ function StorylineCounts({ storyline: s }: { storyline: Storyline }) {
   const characters = s.characterCount ?? s.characters.length;
   const settings = s.settingCount ?? s.settings.length;
   return (
-    <span className="font-mono text-[8.5px] tracking-[0.04em] text-mute">
+    <span className="font-mono text-tag tracking-[0.04em] text-mute">
       {scenarios} scenario{scenarios === 1 ? "" : "s"} · {characters} cast ·{" "}
       {settings} setting{settings === 1 ? "" : "s"}
     </span>
@@ -152,7 +152,7 @@ export function StorylineMenu({
           aria-label="Switch storyline"
           className="absolute top-[38px] left-0 z-40 w-[268px] rounded-[4px] border border-cardbd bg-card p-[7px] shadow-[0_16px_40px_rgba(20,12,4,.5)]"
         >
-          <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-[8.5px] uppercase tracking-[0.18em] text-mute2">
+          <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-tag uppercase tracking-[0.18em] text-mute2">
             Storylines
           </div>
           {storylines.map((s) => {

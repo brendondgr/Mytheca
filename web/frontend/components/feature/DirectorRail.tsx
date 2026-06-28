@@ -86,22 +86,22 @@ export function DirectorRail({
 }) {
   return (
     <aside className="velora-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block">
-      <Eyebrow size={9} tracking="0.16em" className="mb-[9px] block">
+      <Eyebrow tracking="0.16em" className="mb-[9px] block">
         Scene goal
       </Eyebrow>
       <p className="font-body text-[14px] leading-[1.45] text-ink italic">{goal}</p>
 
-      <Eyebrow size={9} tracking="0.16em" className="mt-5 mb-[9px] block">
+      <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
         Tension
       </Eyebrow>
       <TensionMeter pct={tension} label={tensionText} />
 
-      <Eyebrow size={9} tracking="0.16em" className="mt-5 mb-[9px] block">
+      <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
         Scene state
       </Eyebrow>
       <StateChips stats={stats} />
 
-      <Eyebrow size={9} tracking="0.16em" className="mt-5 mb-[9px] block">
+      <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
         Relationships
       </Eyebrow>
       <Relationships items={relationships} />

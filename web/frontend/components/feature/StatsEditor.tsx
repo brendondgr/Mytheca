@@ -128,7 +128,7 @@ export function StatsEditor({
               <div className="mt-[10px] flex flex-wrap items-center gap-x-[16px] gap-y-[8px]">
                 {(["min", "max", "default"] as const).map((field) => (
                   <label key={field} className="flex items-center gap-[6px]">
-                    <span className="font-mono text-[9.5px] tracking-[0.08em] text-mute2 uppercase">
+                    <span className="font-mono text-tag tracking-[0.08em] text-mute2 uppercase">
                       {field}
                     </span>
                     <input
@@ -145,7 +145,7 @@ export function StatsEditor({
               {/* Bands ("tickers") */}
               <div className="mt-[12px] border-t border-hair-strong pt-[10px]">
                 <div className="flex items-center justify-between gap-[10px]">
-                  <span className="font-mono text-[9.5px] tracking-[0.1em] text-mute2 uppercase">
+                  <span className="font-mono text-tag tracking-[0.1em] text-mute2 uppercase">
                     Bands · what the ranges mean
                   </span>
                   <button

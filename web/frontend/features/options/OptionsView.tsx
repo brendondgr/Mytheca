@@ -119,7 +119,7 @@ export function OptionsView() {
                   )}
                 >
                   <span className="font-display text-[14.5px] font-semibold">{tab.label}</span>
-                  <span className="font-mono text-[8.5px] tracking-[0.06em] text-mute uppercase">
+                  <span className="font-mono text-tag tracking-[0.06em] text-mute uppercase">
                     {tab.sub}
                   </span>
                 </button>

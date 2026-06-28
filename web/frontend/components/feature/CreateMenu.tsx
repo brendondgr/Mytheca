@@ -57,7 +57,7 @@ export function CreateMenu({
           aria-label="Create new"
           className="absolute top-[42px] right-0 z-40 w-[236px] rounded-[4px] border border-cardbd bg-card p-[7px] shadow-[0_16px_40px_rgba(14,9,4,.45)]"
         >
-          <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-[8.5px] uppercase tracking-[0.18em] text-mute">
+          <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-tag uppercase tracking-[0.18em] text-mute">
             New in Embergate
           </div>
           {ITEMS.map((item) => (
@@ -74,7 +74,7 @@ export function CreateMenu({
                 <span className="font-display text-[14px] font-semibold text-ink">
                   {item.label}
                 </span>
-                <span className="font-mono text-[8.5px] tracking-[0.04em] text-mute">
+                <span className="font-mono text-tag tracking-[0.04em] text-mute">
                   {item.sub}
                 </span>
               </span>

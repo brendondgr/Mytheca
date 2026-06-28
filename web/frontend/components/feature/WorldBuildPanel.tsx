@@ -262,7 +262,7 @@ export function WorldBuildPanel({
 
         {chars.length + pendingChars.length > 0 ? (
           <div>
-            <Eyebrow size={9} tracking="0.14em" color="#A8762A" className="mb-[8px] block">
+            <Eyebrow tracking="0.14em" color="#A8762A" className="mb-[8px] block">
               Characters
             </Eyebrow>
             <ul className="flex flex-col gap-[8px]">
@@ -286,7 +286,7 @@ export function WorldBuildPanel({
 
         {settings.length + pendingSettings.length > 0 ? (
           <div>
-            <Eyebrow size={9} tracking="0.14em" color="#A8762A" className="mb-[8px] block">
+            <Eyebrow tracking="0.14em" color="#A8762A" className="mb-[8px] block">
               Settings
             </Eyebrow>
             <ul className="flex flex-col gap-[8px]">

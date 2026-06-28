@@ -57,17 +57,17 @@ export function CharacterCard({
             <span className="block font-display text-[16px] font-semibold leading-[1.1] text-ink">
               {c.name}
             </span>
-            <Eyebrow size={9} tracking="0.12em" color={c.color} className="mt-1 block">
+            <Eyebrow tracking="0.12em" color={c.color} className="mt-1 block">
               {c.role}
             </Eyebrow>
             {highlighted ? (
-              <span className="mt-[3px] block font-mono text-[8.5px] uppercase tracking-[0.12em] text-accent">
+              <span className="mt-[3px] block font-mono text-eyebrow uppercase tracking-[0.12em] text-accent">
                 ◆ In this scene
               </span>
             ) : null}
           </span>
         </span>
-        <span className="mt-[11px] block font-body text-[14px] italic leading-[1.35] text-ink-soft">
+        <span className="mt-[11px] block font-body text-body-sm italic leading-[1.35] text-ink-soft">
           {c.traits}
         </span>
       </button>

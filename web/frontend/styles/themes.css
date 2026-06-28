@@ -73,6 +73,59 @@
   --tab-ink: #afc0ce;
 }
 
+/* ------------------------------------------------------------------ *
+ * Typography scale — font-size CSS variables.
+ * Six tokens cover every distinct text tier in the UI. The active
+ * size-preset class (.fs-compact / .fs-default / .fs-comfortable /
+ * .fs-large) sits on <html> alongside .theme-*; :root holds the
+ * Default values so no class is needed for the most common case.
+ * ------------------------------------------------------------------ */
+:root {
+  --fs-eyebrow: 11px;   /* mono uppercase labels, section kickers, card eyebrows */
+  --fs-label:   12px;   /* FieldLabel headings, form section labels */
+  --fs-ui:      12px;   /* Button text, tab labels */
+  --fs-body-sm: 14px;   /* card descriptions, modal body prose */
+  --fs-body:    15px;   /* input fields, longer reading text */
+  --fs-tag:     10.5px; /* Tag chips (genre, tone, role pills) */
+}
+
+.fs-compact {
+  --fs-eyebrow: 9px;
+  --fs-label:   11px;
+  --fs-ui:      11px;
+  --fs-body-sm: 13px;
+  --fs-body:    14px;
+  --fs-tag:     9px;
+}
+
+/* .fs-default — inherits :root values above; class applied for symmetry */
+.fs-default {
+  --fs-eyebrow: 11px;
+  --fs-label:   12px;
+  --fs-ui:      12px;
+  --fs-body-sm: 14px;
+  --fs-body:    15px;
+  --fs-tag:     10.5px;
+}
+
+.fs-comfortable {
+  --fs-eyebrow: 12.5px;
+  --fs-label:   13px;
+  --fs-ui:      13px;
+  --fs-body-sm: 15px;
+  --fs-body:    16px;
+  --fs-tag:     11.5px;
+}
+
+.fs-large {
+  --fs-eyebrow: 14px;
+  --fs-label:   14px;
+  --fs-ui:      14px;
+  --fs-body-sm: 16px;
+  --fs-body:    17px;
+  --fs-tag:     12.5px;
+}
+
 /* Gradient-backed surfaces (can't be expressed as Tailwind color utilities). */
 .velora-page {
   background-color: var(--page-bg);

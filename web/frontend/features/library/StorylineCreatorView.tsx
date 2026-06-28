@@ -184,7 +184,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
             {/* Seal */}
             <div className="mt-[18px] flex items-center justify-between gap-[12px] border-t border-hair-strong pt-[16px]">
               <div className="flex items-center gap-[10px]">
-                <span className="font-mono text-[9.5px] tracking-[0.1em] text-mute2 uppercase">
+                <span className="font-mono text-tag tracking-[0.1em] text-mute2 uppercase">
                   Seal
                 </span>
                 <span

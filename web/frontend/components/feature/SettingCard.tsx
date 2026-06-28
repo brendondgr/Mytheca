@@ -51,7 +51,7 @@ export function SettingCard({
           style={{ backgroundImage: PLATE_STRIPES }}
           aria-hidden
         >
-          <span className="rounded-[2px] bg-card px-[9px] py-[3px] font-mono text-[9.5px] tracking-[0.1em] text-mute">
+          <span className="rounded-[2px] bg-card px-[9px] py-[3px] font-mono text-tag tracking-[0.1em] text-mute">
             setting plate
           </span>
         </div>
@@ -62,15 +62,15 @@ export function SettingCard({
             {s.name}
           </div>
           {active ? (
-            <span className="flex-none font-mono text-[8.5px] uppercase tracking-[0.12em] text-accent">
+            <span className="flex-none font-mono text-eyebrow uppercase tracking-[0.12em] text-accent">
               ◆ In this scene
             </span>
           ) : null}
         </div>
-        <Eyebrow size={9} tracking="0.12em" color="#A8762A" className="mt-1 block">
+        <Eyebrow tracking="0.12em" color="#A8762A" className="mt-1 block">
           {s.type}
         </Eyebrow>
-        <p className="mt-[7px] font-body text-[14px] leading-[1.4] text-ink-soft">
+        <p className="mt-[7px] font-body text-body-sm leading-[1.4] text-ink-soft">
           {s.desc}
         </p>
       </div>

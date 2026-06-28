@@ -206,7 +206,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 </Button>
               </div>
 
-              <Eyebrow size={8.5} tracking="0.2em" color="#A8762A" className="mb-[10px] block">
+              <Eyebrow tracking="0.2em" color="#A8762A" className="mb-[10px] block">
                 ❖ Draft with Velora
               </Eyebrow>
               <p className="mb-[10px] font-body text-[14px] text-ink">

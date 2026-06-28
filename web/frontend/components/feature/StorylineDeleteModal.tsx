@@ -38,7 +38,7 @@ export function StorylineDeleteModal({
       <div className="p-[22px_26px_24px]">
         <div className="flex items-start justify-between gap-[14px]">
           <div>
-            <Eyebrow size={8.5} tracking="0.2em" color="#9A3520">
+            <Eyebrow tracking="0.2em" color="#9A3520">
               Delete Storyline
             </Eyebrow>
             <div

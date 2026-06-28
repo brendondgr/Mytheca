@@ -135,7 +135,7 @@ export function BranchChoices({
   return (
     <div className="w-full max-w-[600px] self-center">
       <div className="mb-[10px] text-center">
-        <Eyebrow size={8.5} tracking="0.16em" color="var(--accent)">
+        <Eyebrow tracking="0.16em" color="var(--accent)">
           Your move — choose a path
         </Eyebrow>
       </div>
