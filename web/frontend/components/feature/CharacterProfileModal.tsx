@@ -22,7 +22,6 @@ function ProfileSection({
   value,
   color = GOLD,
   tone = "default",
-  spanFull,
 }: {
   label: string;
   glyph: string;
@@ -30,13 +29,11 @@ function ProfileSection({
   color?: string;
   /** "danger" gives the Secret box its warning tint + accent. */
   tone?: "default" | "danger";
-  spanFull?: boolean;
 }) {
   if (!value) return null;
   const danger = tone === "danger";
   return (
     <section
-      className={spanFull ? "sm:col-span-2" : undefined}
       style={{
         border: `1px solid ${danger ? "var(--accent)" : "var(--card-bd)"}`,
         background: danger ? "rgba(154,53,32,.08)" : "var(--card-bg2)",
@@ -93,15 +90,22 @@ export function CharacterProfileModal({
   const traits = splitTraits(c.traits);
 
   return (
-    <Modal open onClose={onClose} labelledBy="profile-name" className="sm:w-[640px]" z={70}>
+    <Modal
+      open
+      onClose={onClose}
+      labelledBy="profile-name"
+      className="sm:w-[640px] md:w-[860px] lg:w-[900px]"
+      z={70}
+    >
       <div className="relative">
         <CloseButton onClose={onClose} className="absolute right-[16px] top-[16px] z-[2]" />
 
-        {/* Hero: framed portrait + seal medallion · name · role · trait pills */}
-        <div className="flex flex-col gap-5 border-b border-hair p-[24px_24px_20px] sm:flex-row sm:items-center">
-          <div className="relative mx-auto flex-none sm:mx-0">
+        {/* Hero: tall portrait (left) · identity + Appearance + Background (right) */}
+        <div className="border-b border-hair p-[24px_24px_22px] md:flex md:gap-[24px]">
+          {/* Portrait — 2:3 framed, character-color frame + inner hairline + medallion */}
+          <div className="relative mx-auto w-[190px] flex-none sm:w-[210px] md:mx-0">
             <div
-              className="flex items-center justify-center p-[6px]"
+              className="p-[5px]"
               style={{
                 border: `2px solid ${c.color}`,
                 borderRadius: 6,
@@ -109,17 +113,26 @@ export function CharacterProfileModal({
                 boxShadow: "0 6px 22px rgba(40,30,16,.16)",
               }}
             >
-              <div style={{ border: "1px solid var(--card-bd)", borderRadius: 4, padding: 3 }}>
-                <Monogram
-                  mono={c.mono}
-                  color={c.color}
-                  size={108}
-                  ring={0}
-                  fontSize={40}
-                  className="!rounded-[3px]"
-                  src={c.portrait ? mediaUrl(c.portrait) : undefined}
-                  alt={c.portrait ? `Portrait of ${c.name}` : undefined}
-                />
+              <div
+                className="relative aspect-[2/3] overflow-hidden"
+                style={{
+                  border: "1px solid var(--card-bd)",
+                  borderRadius: 3,
+                  background: "var(--field-bg)",
+                }}
+              >
+                {c.portrait ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
+                  <img
+                    src={mediaUrl(c.portrait)}
+                    alt={`Portrait of ${c.name}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Monogram mono={c.mono} color={c.color} size={96} ring={2} fontSize={36} />
+                  </div>
+                )}
               </div>
             </div>
             {/* Seal medallion overlapping the frame's bottom edge */}
@@ -137,22 +150,22 @@ export function CharacterProfileModal({
             </span>
           </div>
 
-          <div className="min-w-0 flex-1 pr-[36px] text-center sm:text-left">
+          {/* Right column: name · role · trait pills · Appearance · Background */}
+          <div className="mt-[26px] min-w-0 flex-1 pr-[36px] md:mt-0">
             <h2
               id="profile-name"
-              className="font-display text-[30px] font-bold uppercase leading-[1.02] tracking-[0.04em] text-ink"
+              className="text-center font-display text-[30px] font-bold uppercase leading-[1.02] tracking-[0.04em] text-ink md:text-left"
             >
               {c.name}
             </h2>
-            <Eyebrow size={11} tracking="0.18em" color={c.color} className="mt-[7px] block">
-              {c.role}
-            </Eyebrow>
-            <div
-              className="mx-auto mt-[10px] h-px w-[64px] sm:mx-0"
-              style={{ background: "var(--hair-strong)" }}
-            />
+            <div className="flex flex-col items-center md:items-start">
+              <Eyebrow size={11} tracking="0.18em" color={c.color} className="mt-[7px] block">
+                {c.role}
+              </Eyebrow>
+              <div className="mt-[10px] h-px w-[64px]" style={{ background: "var(--hair-strong)" }} />
+            </div>
             {traits.length > 0 ? (
-              <ul className="mt-[12px] flex flex-wrap justify-center gap-[7px] sm:justify-start">
+              <ul className="mt-[12px] flex flex-wrap justify-center gap-[7px] md:justify-start">
                 {traits.map((t) => (
                   <li
                     key={t}
@@ -167,14 +180,17 @@ export function CharacterProfileModal({
                 ))}
               </ul>
             ) : null}
+
+            <div className="mt-[16px] grid grid-cols-1 gap-[14px]">
+              <ProfileSection label="Appearance" glyph="◈" value={c.appearance} />
+              <ProfileSection label="Background" glyph="❖" value={c.background} />
+            </div>
           </div>
         </div>
 
-        {/* Section boxes */}
+        {/* Remaining four sections — 2×2 grid */}
         <div className="p-[20px_24px_24px]">
           <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
-            <ProfileSection label="Background" glyph="❖" value={c.background} spanFull />
-            <ProfileSection label="Appearance" glyph="◈" value={c.appearance} />
             <ProfileSection label="Personality" glyph="✦" value={c.personality} />
             <ProfileSection label="Voice" glyph="◆" value={c.speech} />
             <ProfileSection label="Goal" glyph="◎" value={c.goal} />
@@ -184,7 +200,6 @@ export function CharacterProfileModal({
               value={c.secret}
               color="var(--accent)"
               tone="danger"
-              spanFull
             />
           </div>
 
