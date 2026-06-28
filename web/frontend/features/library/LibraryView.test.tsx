@@ -23,8 +23,9 @@ describe("LibraryView", () => {
     const user = userEvent.setup();
     render(<LibraryView />);
     await user.click(screen.getByRole("tab", { name: /characters/i }));
-    expect(await screen.findByText("Maerin Voss")).toBeInTheDocument();
-    expect(screen.getByText("Captain Doran Hale")).toBeInTheDocument();
+    // findAllByText: names appear in both the carousel cast column and character cards
+    expect((await screen.findAllByText("Maerin Voss")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Captain Doran Hale").length).toBeGreaterThan(0);
   });
 
   it("filters the visible cards by search", async () => {
@@ -35,8 +36,12 @@ describe("LibraryView", () => {
       screen.getByRole("searchbox", { name: /search the library/i }),
       "oracle",
     );
-    expect(await screen.findByText("Nyssa, Oracle of Salt")).toBeInTheDocument();
-    expect(screen.queryByText("Maerin Voss")).not.toBeInTheDocument();
+    // Nyssa may appear in both the character card and an inactive carousel slide;
+    // scope to the Characters panel so the assertion is about the filtered list.
+    const charPanel = screen.getByRole("tabpanel", { name: /characters/i });
+    expect(await within(charPanel).findByText("Nyssa, Oracle of Salt")).toBeInTheDocument();
+    // Maerin Voss should be filtered from the character list (carousel still shows her).
+    expect(within(charPanel).queryByText("Maerin Voss")).not.toBeInTheDocument();
   });
 
   it("opens a character profile modal when a character card is clicked", async () => {

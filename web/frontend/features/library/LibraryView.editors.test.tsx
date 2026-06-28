@@ -116,6 +116,8 @@ describe("LibraryView — editors & modals", () => {
     await user.type(nameInput, "Maerin Reborn");
     await user.click(within(dialog).getByRole("button", { name: /save changes/i }));
 
-    expect(await screen.findByText("Maerin Reborn")).toBeInTheDocument();
+    // findAllByText: the updated name appears in both the carousel cast column
+    // and the character card — either confirms the save succeeded.
+    expect((await screen.findAllByText("Maerin Reborn")).length).toBeGreaterThan(0);
   });
 });

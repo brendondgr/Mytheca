@@ -92,6 +92,7 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
         onSelect={lib.setFeaturedId}
         onBegin={lib.openBegin}
         onProfile={lib.openProfile}
+        onEdit={lib.editScenario}
       />
 
       <div className="mt-[16px] flex min-h-0 flex-1 flex-col">

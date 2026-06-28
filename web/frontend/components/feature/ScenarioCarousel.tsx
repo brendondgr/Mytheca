@@ -18,7 +18,13 @@ const HERO = {
   chevBd: "var(--card-bd)",
   toneText: "var(--ink-soft)",
   border: "var(--hair-strong)",
+  divider: "var(--hair)",
+  statKey: "var(--mute)",
 };
+
+// Scene art column: aspect-[16/9] h-[246px] → width ≈ 437px. Used to position
+// the header overlay and dot pagination so they stop before the art panel.
+const ART_RIGHT = "437px";
 
 /** The recent-scenario hero carousel (display + prev/next/dots navigation). */
 export function ScenarioCarousel({
@@ -30,6 +36,7 @@ export function ScenarioCarousel({
   counterText,
   onBegin,
   onProfile,
+  onEdit,
 }: {
   slides: ResolvedScenario[];
   index: number;
@@ -39,6 +46,8 @@ export function ScenarioCarousel({
   counterText: string;
   onBegin?: (id: string) => void;
   onProfile?: (id: string) => void;
+  /** When provided, shows a ✎ edit button in the header row. */
+  onEdit?: (id: string) => void;
 }) {
   if (slides.length === 0) {
     return (
@@ -64,6 +73,9 @@ export function ScenarioCarousel({
       </section>
     );
   }
+
+  const current = slides[index];
+
   return (
     <section
       aria-roledescription="carousel"
@@ -82,84 +94,181 @@ export function ScenarioCarousel({
             className="flex h-full flex-[0_0_100%]"
             style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
           >
-            <div className="min-w-0 flex-1 p-[40px_18px_18px] sm:p-[46px_30px_22px]">
+            {/* Left column: title + setting location + description */}
+            <div className="min-w-0 flex-1 overflow-hidden p-[40px_16px_16px] sm:p-[46px_22px_18px]">
               <h2
-                className="font-display text-[24px] font-bold leading-[1.05] sm:text-[32px]"
+                className="truncate font-display text-[22px] font-bold leading-[1.05] sm:text-[28px]"
                 style={{ color: HERO.title }}
               >
                 {s.title}
               </h2>
-              <div className="mt-[12px] flex gap-2">
+
+              {/* Genre / tone tags */}
+              <div className="mt-[8px] flex gap-[6px]">
                 <span
-                  className="rounded-[2px] px-[9px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.1em]"
+                  className="rounded-[2px] px-[8px] py-[2px] font-mono text-[9px] uppercase tracking-[0.1em]"
                   style={{ background: HERO.label, color: "#1f160c" }}
                 >
                   {s.genre}
                 </span>
                 <span
-                  className="rounded-[2px] border px-[9px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.1em]"
+                  className="rounded-[2px] border px-[8px] py-[2px] font-mono text-[9px] uppercase tracking-[0.1em]"
                   style={{ color: HERO.toneText, borderColor: HERO.chevBd }}
                 >
                   {s.tone}
                 </span>
               </div>
+
+              {/* Setting — prominent location indicator below the title */}
+              <div className="mt-[10px] flex items-baseline gap-[6px]">
+                <span
+                  className="flex-none font-mono text-[8px] uppercase tracking-[0.18em]"
+                  style={{ color: HERO.label }}
+                >
+                  Location
+                </span>
+                <span
+                  className="truncate font-mono text-[10.5px] font-medium"
+                  style={{ color: HERO.title }}
+                >
+                  ◆ {s.setting.name}
+                </span>
+              </div>
+
+              {/* Description / goal — capped to 2 lines */}
               <p
-                className="mt-[13px] max-w-[600px] font-body text-[15.5px] leading-[1.45]"
+                className="mt-[8px] line-clamp-2 font-body text-[13.5px] leading-[1.4]"
                 style={{ color: HERO.goal }}
               >
                 {s.goal}
               </p>
-              <div className="mt-[18px] flex flex-wrap items-center gap-[14px] sm:gap-[18px]">
-                <div className="flex items-center gap-[6px]">
-                  {s.cast.map((c) =>
-                    onProfile ? (
+            </div>
+
+            {/* Middle column: cast with role/trait stats + Begin Scene */}
+            <div
+              className="hidden sm:flex w-[168px] flex-none flex-col border-l p-[40px_12px_12px] lg:w-[186px] lg:p-[46px_14px_14px]"
+              style={{ borderColor: HERO.divider }}
+            >
+              <div className="flex flex-1 flex-col gap-[8px] overflow-hidden">
+                {s.cast.slice(0, 3).map((c) => (
+                  <div key={c.id} className="flex min-w-0 items-start gap-[7px]">
+                    {onProfile ? (
                       <button
-                        key={c.id}
                         type="button"
                         onClick={() => onProfile(c.id)}
                         aria-label={`View ${c.name}`}
                         title={c.name}
-                        className="rounded-full transition-transform hover:scale-110"
+                        className="flex-none rounded-full transition-transform hover:scale-110"
                       >
-                        <Monogram mono={c.mono} color={c.color} size={34} ring={1.5} bg={HERO.medBg} src={c.portrait ? mediaUrl(c.portrait) : undefined} />
+                        <Monogram
+                          mono={c.mono}
+                          color={c.color}
+                          size={26}
+                          ring={1.5}
+                          bg={HERO.medBg}
+                          src={c.portrait ? mediaUrl(c.portrait) : undefined}
+                        />
                       </button>
                     ) : (
-                      <Monogram key={c.id} mono={c.mono} color={c.color} size={34} ring={1.5} bg={HERO.medBg} src={c.portrait ? mediaUrl(c.portrait) : undefined} />
-                    ),
-                  )}
-                  <span className="ml-[8px] font-mono text-[10.5px]" style={{ color: HERO.set }}>
-                    ◆ {s.setting.name}
+                      <div className="flex-none">
+                        <Monogram
+                          mono={c.mono}
+                          color={c.color}
+                          size={26}
+                          ring={1.5}
+                          bg={HERO.medBg}
+                          src={c.portrait ? mediaUrl(c.portrait) : undefined}
+                        />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1 pt-[1px]">
+                      <div
+                        className="truncate font-display text-[10.5px] font-semibold leading-[1.15]"
+                        style={{ color: c.color }}
+                      >
+                        {c.name}
+                      </div>
+                      <div className="mt-[2px] flex items-baseline gap-[2px] truncate">
+                        <span
+                          className="flex-none font-mono text-[7px] uppercase tracking-[0.07em]"
+                          style={{ color: HERO.statKey }}
+                        >
+                          Role —
+                        </span>
+                        <span
+                          className="truncate font-mono text-[7px]"
+                          style={{ color: HERO.toneText }}
+                        >
+                          {c.role}
+                        </span>
+                      </div>
+                      {c.traits ? (
+                        <div className="flex items-baseline gap-[2px] truncate">
+                          <span
+                            className="flex-none font-mono text-[7px] uppercase tracking-[0.07em]"
+                            style={{ color: HERO.statKey }}
+                          >
+                            Traits —
+                          </span>
+                          <span
+                            className="truncate font-mono text-[7px]"
+                            style={{ color: HERO.toneText }}
+                          >
+                            {c.traits}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {onBegin ? (
+                <button
+                  type="button"
+                  onClick={() => onBegin(s.id)}
+                  className="mt-[8px] w-full rounded-[2px] px-[8px] py-[8px] font-mono text-[10px] uppercase tracking-[0.1em] hover:brightness-110"
+                  style={{ background: HERO.label, color: "#1f160c" }}
+                >
+                  Begin Scene ▸
+                </button>
+              ) : null}
+            </div>
+
+            {/* Right column: scene art (actual image or hatched placeholder) */}
+            <div
+              className="hidden aspect-[16/9] h-full w-auto flex-none overflow-hidden lg:flex"
+              style={{ borderLeft: `1px solid ${HERO.border}` }}
+            >
+              {s.image ? (
+                // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
+                <img
+                  src={mediaUrl(s.image)}
+                  alt={`Scene art for ${s.title}`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div
+                  className="flex h-full w-full items-center justify-center"
+                  style={{ background: HERO.art }}
+                >
+                  <span
+                    className="rounded-[2px] px-[9px] py-[3px] font-mono text-[9.5px] tracking-[0.1em]"
+                    style={{ color: HERO.artLabel, background: HERO.artLabelBg }}
+                  >
+                    scene art
                   </span>
                 </div>
-                {onBegin ? (
-                  <button
-                    type="button"
-                    onClick={() => onBegin(s.id)}
-                    className="ml-auto rounded-[2px] px-[20px] py-[10px] font-mono text-[11px] uppercase tracking-[0.1em] hover:brightness-110"
-                    style={{ background: HERO.label, color: "#1f160c" }}
-                  >
-                    Begin Scene ▸
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            <div
-              className="hidden aspect-[16/9] h-full w-auto flex-none items-center justify-center lg:flex"
-              style={{ background: HERO.art, borderLeft: `1px solid ${HERO.border}` }}
-            >
-              <span
-                className="rounded-[2px] px-[9px] py-[3px] font-mono text-[9.5px] tracking-[0.1em]"
-                style={{ color: HERO.artLabel, background: HERO.artLabelBg }}
-              >
-                scene art
-              </span>
+              )}
             </div>
           </div>
         ))}
       </div>
 
-      {/* overlay: label + chevrons + counter */}
-      <div className="pointer-events-none absolute top-[16px] right-[16px] left-[16px] flex items-center gap-3 sm:left-[30px] lg:right-[449px]">
+      {/* overlay: "Recent Scenario" label + chevrons + counter + edit button
+          lg:right-[437px] keeps the overlay within the narrative+cast columns,
+          stopping before the scene art panel (246px × 16/9 ≈ 437px wide). */}
+      <div className="pointer-events-none absolute top-[14px] left-[16px] right-[16px] flex items-center gap-3 sm:left-[30px] lg:right-[437px]">
         <span
           className="font-mono text-[9.5px] uppercase tracking-[0.22em]"
           style={{ color: HERO.label }}
@@ -189,10 +298,23 @@ export function ScenarioCarousel({
             ›
           </button>
         </div>
+        {/* Edit button — ml-auto pushes it to the right edge of the overlay,
+            vertically centered with the "Recent Scenario" label via items-center. */}
+        {onEdit && current ? (
+          <button
+            type="button"
+            onClick={() => onEdit(current.id)}
+            aria-label={`Edit ${current.title}`}
+            className="pointer-events-auto ml-auto flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] leading-none"
+            style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label }}
+          >
+            ✎
+          </button>
+        ) : null}
       </div>
 
-      {/* overlay: dots */}
-      <div className="absolute right-[16px] bottom-[16px] flex gap-[7px] lg:right-[449px]">
+      {/* overlay: slide-select dots */}
+      <div className="absolute bottom-[16px] right-[16px] flex gap-[7px] lg:right-[437px]">
         {slides.map((s, i) => {
           const on = i === index;
           return (
