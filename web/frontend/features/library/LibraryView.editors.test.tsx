@@ -108,4 +108,17 @@ describe("LibraryView — editors & modals", () => {
     // and the character card — either confirms the save succeeded.
     expect((await screen.findAllByText("Maerin Reborn")).length).toBeGreaterThan(0);
   });
+
+  it("previews the begin-scene with a link into the player", async () => {
+    const user = userEvent.setup();
+    render(<LibraryView />);
+    await user.click(await screen.findByRole("button", { name: /begin scene/i }));
+
+    const dialog = screen.getByRole("dialog", {
+      name: /the embergate conspiracy/i,
+    });
+    expect(
+      within(dialog).getByRole("link", { name: /enter scene/i }),
+    ).toHaveAttribute("href", "/embergate/embergate");
+  });
 });

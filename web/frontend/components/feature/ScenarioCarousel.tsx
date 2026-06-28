@@ -7,8 +7,6 @@ import type { ResolvedScenario } from "@/lib/types";
 const HERO = {
   panel: "linear-gradient(135deg,var(--card-bg) 0%,var(--card-bg2) 60%,var(--card-bd) 100%)",
   art: "repeating-linear-gradient(45deg,var(--field-bg),var(--field-bg) 8px,var(--card-bg) 8px,var(--card-bg) 16px)",
-  title: "var(--ink)",
-  goal: "var(--ink-soft)",
   label: "#C8862A",       // gold — theme-agnostic per design-system.md
   medBg: "var(--field-bg)",
   artLabel: "var(--mute2)",
@@ -18,14 +16,19 @@ const HERO = {
   toneText: "var(--ink-soft)",
   border: "var(--hair-strong)",
   divider: "var(--hair)",
-  statKey: "var(--mute)",
 };
 
-// Scene art panel: aspect-[16/9] × h-[246px] → width ≈ 437px.
-// Used to keep the header overlay and dots within the narrative+cast zone at lg.
-const ART_RIGHT = "437px";
+// Light text constants for content rendered over the dark scene-art overlay.
+const LIGHT = {
+  title: "#F6ECDA",
+  loc: "#E8D8B8",
+  desc: "rgba(246,236,218,0.82)",
+  toneBd: "rgba(200,134,42,0.4)",
+  tone: "rgba(246,236,218,0.75)",
+  charName: "#F0E4C8",
+};
 
-/** The recent-scenario hero carousel (display + prev/next/dots navigation). */
+/** The recent-scenario hero carousel (display + prev/next navigation). */
 export function ScenarioCarousel({
   slides,
   index,
@@ -33,9 +36,9 @@ export function ScenarioCarousel({
   onNext,
   onSelect,
   counterText,
+  onBegin,
   onProfile,
-  // onEdit and onBegin kept in the signature for caller compat but not rendered.
-  onBegin: _onBegin,
+  // Edit button removed from carousel — prop kept for caller compat.
   onEdit: _onEdit,
 }: {
   slides: ResolvedScenario[];
@@ -63,7 +66,7 @@ export function ScenarioCarousel({
         </span>
         <p
           className="max-w-[420px] px-4 text-center font-body text-body-sm italic"
-          style={{ color: HERO.goal }}
+          style={{ color: HERO.toneText }}
         >
           This storyline has no scenes. Use{" "}
           <span style={{ color: HERO.label }}>+ Create</span> to assemble its
@@ -91,60 +94,96 @@ export function ScenarioCarousel({
             className="flex h-full flex-[0_0_100%]"
             style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
           >
-            {/* LEFT PANEL — compact info strip: title, location, genre/tone, description */}
+            {/* LEFT PANEL — scene art as background, dark overlay, text + Begin Scene */}
             <div
-              className="flex w-[178px] flex-none flex-col overflow-hidden border-r p-[42px_14px_16px] sm:w-[210px] sm:p-[46px_18px_18px]"
+              className="relative flex w-[178px] flex-none flex-col overflow-hidden border-r sm:w-[210px]"
               style={{ borderColor: HERO.divider }}
             >
-              <h2
-                className="line-clamp-2 font-display text-[20px] font-bold leading-[1.05] sm:text-[24px]"
-                style={{ color: HERO.title }}
-              >
-                {s.title}
-              </h2>
+              {/* Background: scene art image or hatched placeholder */}
+              {s.image ? (
+                // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
+                <img
+                  src={mediaUrl(s.image)}
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                />
+              ) : (
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{ background: HERO.art }}
+                />
+              )}
+              {/* Dark overlay so text remains readable against any art */}
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{ background: "rgba(20,14,6,0.68)" }}
+              />
 
-              {/* Location */}
-              <div className="mt-[6px] flex items-baseline gap-[5px]">
-                <span
-                  className="flex-none font-mono text-eyebrow uppercase tracking-[0.18em]"
-                  style={{ color: HERO.label }}
+              {/* Text content above the overlay */}
+              <div className="relative z-[1] flex flex-1 flex-col overflow-hidden p-[42px_14px_14px] sm:p-[46px_18px_16px]">
+                <h2
+                  className="line-clamp-2 font-display text-[20px] font-bold leading-[1.05] sm:text-[24px]"
+                  style={{ color: LIGHT.title }}
                 >
-                  Location
-                </span>
-                <span
-                  className="truncate font-mono text-label font-medium"
-                  style={{ color: HERO.title }}
+                  {s.title}
+                </h2>
+
+                {/* Location */}
+                <div className="mt-[6px] flex items-baseline gap-[5px]">
+                  <span
+                    className="flex-none font-mono text-eyebrow uppercase tracking-[0.18em]"
+                    style={{ color: HERO.label }}
+                  >
+                    Location
+                  </span>
+                  <span
+                    className="truncate font-mono text-label font-medium"
+                    style={{ color: LIGHT.loc }}
+                  >
+                    ◆ {s.setting.name}
+                  </span>
+                </div>
+
+                {/* Genre / tone tags */}
+                <div className="mt-[7px] flex flex-wrap gap-[5px]">
+                  <span
+                    className="rounded-[2px] px-[7px] py-[2px] font-mono text-tag uppercase tracking-[0.09em]"
+                    style={{ background: HERO.label, color: "#1f160c" }}
+                  >
+                    {s.genre}
+                  </span>
+                  <span
+                    className="rounded-[2px] border px-[7px] py-[2px] font-mono text-tag uppercase tracking-[0.09em]"
+                    style={{ color: LIGHT.tone, borderColor: LIGHT.toneBd }}
+                  >
+                    {s.tone}
+                  </span>
+                </div>
+
+                {/* Description — grows to fill remaining space */}
+                <p
+                  className="mt-[8px] flex-1 overflow-hidden font-body text-body-sm leading-[1.4] line-clamp-3"
+                  style={{ color: LIGHT.desc }}
                 >
-                  ◆ {s.setting.name}
-                </span>
+                  {s.goal}
+                </p>
+
+                {/* Begin Scene — pinned at bottom */}
+                {onBegin ? (
+                  <button
+                    type="button"
+                    onClick={() => onBegin(s.id)}
+                    className="mt-[8px] w-full rounded-[2px] px-[4px] py-[7px] font-mono text-label uppercase tracking-[0.09em] hover:brightness-110"
+                    style={{ background: HERO.label, color: "#1f160c" }}
+                  >
+                    Begin Scene ▸
+                  </button>
+                ) : null}
               </div>
-
-              {/* Genre / tone tags */}
-              <div className="mt-[7px] flex flex-wrap gap-[5px]">
-                <span
-                  className="rounded-[2px] px-[7px] py-[2px] font-mono text-tag uppercase tracking-[0.09em]"
-                  style={{ background: HERO.label, color: "#1f160c" }}
-                >
-                  {s.genre}
-                </span>
-                <span
-                  className="rounded-[2px] border px-[7px] py-[2px] font-mono text-tag uppercase tracking-[0.09em]"
-                  style={{ color: HERO.toneText, borderColor: HERO.chevBd }}
-                >
-                  {s.tone}
-                </span>
-              </div>
-
-              {/* Description */}
-              <p
-                className="mt-[8px] line-clamp-3 font-body text-body-sm leading-[1.4]"
-                style={{ color: HERO.goal }}
-              >
-                {s.goal}
-              </p>
             </div>
 
-            {/* CHARACTER STRIP — wide horizontal scroll of vertical character cards */}
+            {/* CHARACTER STRIP — wide horizontal scroll of vertical character columns */}
             <div
               className="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
               style={{ scrollbarWidth: "thin", scrollbarColor: `${HERO.label}44 transparent` }}
@@ -199,7 +238,7 @@ export function ScenarioCarousel({
                       style={{ borderColor: HERO.divider }}
                     />
 
-                    {/* Stat rows — Role and Traits */}
+                    {/* Stat rows */}
                     <div className="mt-[6px] w-full flex-1 space-y-[6px] overflow-hidden">
                       <div>
                         <div
@@ -234,44 +273,16 @@ export function ScenarioCarousel({
                     </div>
                   </div>
                 ))}
-                {/* Trailing spacer so the last card has room before the art panel */}
+                {/* Trailing spacer */}
                 <div className="w-[10px] flex-none" />
               </div>
-            </div>
-
-            {/* SCENE ART — actual image, graceful placeholder fallback */}
-            <div
-              className="hidden aspect-[16/9] h-full w-auto flex-none overflow-hidden lg:flex"
-              style={{ borderLeft: `1px solid ${HERO.border}` }}
-            >
-              {s.image ? (
-                // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
-                <img
-                  src={mediaUrl(s.image)}
-                  alt={`Scene art for ${s.title}`}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div
-                  className="flex h-full w-full items-center justify-center"
-                  style={{ background: HERO.art }}
-                >
-                  <span
-                    className="rounded-[2px] px-[9px] py-[3px] font-mono text-tag tracking-[0.1em]"
-                    style={{ color: HERO.artLabel, background: HERO.artLabelBg }}
-                  >
-                    scene art
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         ))}
       </div>
 
-      {/* overlay: "Recent Scenario" label + chevrons + counter
-          lg:right-[437px] keeps the overlay within the left+character zone. */}
-      <div className="pointer-events-none absolute top-[14px] left-[16px] right-[16px] flex items-center gap-3 sm:left-[30px] lg:right-[437px]">
+      {/* overlay: "Recent Scenario" label + chevrons + counter */}
+      <div className="pointer-events-none absolute top-[14px] left-[16px] right-[16px] flex items-center gap-3 sm:left-[30px]">
         <span
           className="font-mono text-tag uppercase tracking-[0.22em]"
           style={{ color: HERO.label }}
@@ -301,27 +312,6 @@ export function ScenarioCarousel({
             ›
           </button>
         </div>
-      </div>
-
-      {/* overlay: slide-select dots (left+character zone only at lg) */}
-      <div className="absolute bottom-[16px] right-[16px] flex gap-[7px] lg:right-[437px]">
-        {slides.map((s, i) => {
-          const on = i === index;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => onSelect(s.id)}
-              aria-label={`Show ${s.title}`}
-              aria-current={on}
-              className="h-[8px] rounded-full transition-all duration-300"
-              style={{
-                width: on ? 20 : 8,
-                background: on ? HERO.label : "rgba(200,180,140,.5)",
-              }}
-            />
-          );
-        })}
       </div>
     </section>
   );
