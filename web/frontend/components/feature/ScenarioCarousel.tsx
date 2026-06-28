@@ -112,10 +112,16 @@ export function ScenarioCarousel({
                   style={{ background: HERO.art }}
                 />
               )}
-              {/* Dark overlay so text remains readable against any art */}
+              {/* Graduated scrim — strong on the left (under the title/description
+                  column) and along the bottom (under the Begin button), fading to
+                  near-clear on the right so the scene art reads boldly. Keeps the
+                  left text column at AA while letting the artwork show through. */}
               <div
                 className="pointer-events-none absolute inset-0"
-                style={{ background: "rgba(20,14,6,0.68)" }}
+                style={{
+                  background:
+                    "linear-gradient(96deg, rgba(18,12,5,0.9) 0%, rgba(18,12,5,0.74) 38%, rgba(18,12,5,0.34) 70%, rgba(18,12,5,0.12) 100%), linear-gradient(0deg, rgba(14,9,4,0.55) 0%, rgba(14,9,4,0) 42%)",
+                }}
               />
 
               {/* Text content above the overlay — capped width for readable
