@@ -62,7 +62,7 @@ export function SettingCard({
             {s.name}
           </div>
           {active ? (
-            <span className="flex-none font-mono text-eyebrow uppercase tracking-[0.12em] text-accent">
+            <span className="flex-none font-mono text-[8.5px] uppercase tracking-[0.12em] text-accent">
               ◆ In this scene
             </span>
           ) : null}

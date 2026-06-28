@@ -61,7 +61,7 @@ export function CharacterCard({
               {c.role}
             </Eyebrow>
             {highlighted ? (
-              <span className="mt-[3px] block font-mono text-eyebrow uppercase tracking-[0.12em] text-accent">
+              <span className="mt-[3px] block font-mono text-[8.5px] uppercase tracking-[0.12em] text-accent">
                 ◆ In this scene
               </span>
             ) : null}

@@ -63,7 +63,7 @@ export function ScenarioCard({
             {s.title}
           </h3>
           {featured ? (
-            <span className="rounded-full bg-accent px-[7px] py-[2px] font-mono text-eyebrow uppercase tracking-[0.1em] whitespace-nowrap text-[#F6ECDA]">
+            <span className="rounded-full bg-accent px-[7px] py-[2px] font-mono text-[8px] uppercase tracking-[0.1em] whitespace-nowrap text-[#F6ECDA]">
               Recent
             </span>
           ) : null}

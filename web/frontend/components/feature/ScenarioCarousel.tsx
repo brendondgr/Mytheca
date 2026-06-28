@@ -290,7 +290,7 @@ export function ScenarioCarousel({
           stopping before the scene art panel (246 × 16/9 ≈ 437px wide). */}
       <div className="pointer-events-none absolute top-[14px] left-[16px] right-[16px] flex items-center gap-3 sm:left-[30px] lg:right-[437px]">
         <span
-          className="font-mono text-tag uppercase tracking-[0.22em]"
+          className="font-mono text-[8px] uppercase tracking-[0.22em]"
           style={{ color: HERO.label }}
         >
           Recent Scenario
