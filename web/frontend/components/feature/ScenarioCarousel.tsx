@@ -1,6 +1,9 @@
+"use client";
+
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { mediaUrl } from "@/lib/api";
 import { Monogram } from "@/components/ui/Monogram";
-import type { ResolvedScenario } from "@/lib/types";
+import type { Character, ResolvedScenario } from "@/lib/types";
 
 // Theme-aware hero palette — all values reference CSS design tokens so the
 // carousel adapts to Parchment / Ember / Slate automatically.
@@ -188,120 +191,8 @@ export function ScenarioCarousel({
               </div>
             </div>
 
-            {/* CHARACTER STRIP — wide horizontal scroll of vertical character columns */}
-            <div
-              className="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
-              style={{ scrollbarWidth: "thin", scrollbarColor: `${HERO.label}44 transparent` }}
-            >
-              <div className="flex h-full items-stretch">
-                {s.cast.map((c) => (
-                  <div
-                    key={c.id}
-                    className="group relative flex w-[250px] flex-none flex-col overflow-hidden border-r sm:w-[282px]"
-                    style={{ borderColor: HERO.divider }}
-                  >
-                    {/* Full-bleed portrait — or a tinted monogram fallback when
-                        no generated portrait exists yet. Decorative; the real
-                        name is rendered in the footer below. */}
-                    {c.portrait ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
-                      <img
-                        src={mediaUrl(c.portrait)}
-                        alt=""
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
-                      />
-                    ) : (
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 flex items-start justify-center pt-[34px]"
-                        style={{ background: `linear-gradient(180deg, ${c.color}33, var(--field-bg))` }}
-                      >
-                        <span
-                          className="font-display font-bold leading-none"
-                          style={{ color: c.color, fontSize: 78, opacity: 0.42 }}
-                        >
-                          {c.mono}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Bottom scrim — the portrait reads clearly in the upper
-                        ~55%, then the lower band darkens to near-opaque by the
-                        footer line so the colored name + role + stats clear AA
-                        over any artwork (even bright portraits). */}
-                    <div
-                      className="pointer-events-none absolute inset-0"
-                      style={{
-                        background:
-                          "linear-gradient(180deg, rgba(20,14,6,0) 22%, rgba(18,12,5,0.5) 44%, rgba(14,9,4,0.9) 62%, rgba(10,6,2,0.97) 100%)",
-                      }}
-                    />
-
-                    {/* Corner wax-seal badge — the character's monogram + color ring */}
-                    <div className="pointer-events-none absolute right-[10px] top-[10px] z-[2]">
-                      <Monogram mono={c.mono} color={c.color} size={26} ring={2} />
-                    </div>
-
-                    {/* Footer — name / role / divider / statistics, pinned to bottom */}
-                    <div className="relative z-[1] mt-auto flex flex-col p-[14px_16px_15px] sm:p-[16px_20px_17px]">
-                      <div
-                        className="truncate font-display text-[16px] font-semibold leading-[1.15] sm:text-[18px]"
-                        // color-mix lightens the character's accent toward parchment so
-                        // every palette color clears AA over the dark scrim while still
-                        // reading as that character's color.
-                        style={{ color: `color-mix(in srgb, ${c.color}, #F6ECDA)` }}
-                      >
-                        {c.name}
-                      </div>
-
-                      {c.role ? (
-                        <div
-                          className="mt-[2px] truncate font-mono text-label"
-                          style={{ color: LIGHT.loc }}
-                        >
-                          {c.role}
-                        </div>
-                      ) : null}
-
-                      <div
-                        className="mt-[10px] w-full border-t"
-                        style={{ borderColor: "rgba(246,236,218,0.2)" }}
-                      />
-
-                      {/* Statistics — per-character stat values aren't wired to the
-                          resolved Character yet, so this shows the empty state. */}
-                      <div
-                        className="mt-[8px] font-mono text-eyebrow uppercase tracking-[0.14em]"
-                        style={{ color: HERO.label }}
-                      >
-                        Statistics
-                      </div>
-                      <p
-                        className="mt-[3px] font-body text-body-sm italic"
-                        style={{ color: LIGHT.desc }}
-                      >
-                        No statistics available.
-                      </p>
-                    </div>
-
-                    {/* Whole-card click target opens the character profile */}
-                    {onProfile ? (
-                      <button
-                        type="button"
-                        onClick={() => onProfile(c.id)}
-                        aria-label={`View ${c.name}`}
-                        title={c.name}
-                        className="absolute inset-0 z-[3] cursor-pointer transition-transform duration-200 ease-out group-hover:scale-[1.015] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2"
-                        style={{ outlineColor: HERO.label }}
-                      />
-                    ) : null}
-                  </div>
-                ))}
-                {/* Trailing spacer */}
-                <div className="w-[10px] flex-none" />
-              </div>
-            </div>
+            {/* CHARACTER STRIP — an arrow-paged carousel of portrait cards */}
+            <CastStrip cast={s.cast} onProfile={onProfile} />
           </div>
         ))}
       </div>
@@ -339,5 +230,215 @@ export function ScenarioCarousel({
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * The horizontally-scrolling cast strip for one scenario slide. Native scroll is
+ * preserved (keyboard / trackpad); when the cards overflow the visible width it
+ * additionally shows left/right arrow buttons that page the strip — and each
+ * arrow hides at its respective end so they only appear when there's somewhere
+ * to go. Overflow is measured from the DOM (mount + scroll + resize +
+ * ResizeObserver when available); under jsdom (no layout) the arrows stay hidden.
+ */
+function CastStrip({
+  cast,
+  onProfile,
+}: {
+  cast: Character[];
+  onProfile?: (id: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [nav, setNav] = useState({ overflow: false, atStart: true, atEnd: false });
+
+  const measure = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setNav({
+      overflow: max > 1,
+      atStart: el.scrollLeft <= 1,
+      atEnd: el.scrollLeft >= max - 1,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    measure();
+    const el = scrollRef.current;
+    if (!el) return;
+    let ro: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(measure);
+      ro.observe(el);
+    }
+    window.addEventListener("resize", measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [measure, cast.length]);
+
+  const page = useCallback((dir: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" });
+  }, []);
+
+  return (
+    <div className="relative flex min-w-0 flex-1">
+      <div
+        ref={scrollRef}
+        onScroll={measure}
+        className="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+        style={{ scrollbarWidth: "thin", scrollbarColor: `${HERO.label}44 transparent` }}
+      >
+        <div className="flex h-full items-stretch gap-[16px] p-[16px]">
+          {cast.map((c) => (
+            <CastCard key={c.id} c={c} onProfile={onProfile} />
+          ))}
+        </div>
+      </div>
+
+      {nav.overflow && !nav.atStart ? (
+        <button
+          type="button"
+          onClick={() => page(-1)}
+          aria-label="Previous characters"
+          className="absolute left-[8px] top-1/2 z-[4] flex h-[30px] w-[30px] -translate-y-1/2 items-center justify-center rounded-full text-[16px] leading-none shadow-[0_2px_10px_rgba(8,5,2,0.55)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label, outlineColor: HERO.label }}
+        >
+          ‹
+        </button>
+      ) : null}
+      {nav.overflow && !nav.atEnd ? (
+        <button
+          type="button"
+          onClick={() => page(1)}
+          aria-label="Next characters"
+          className="absolute right-[8px] top-1/2 z-[4] flex h-[30px] w-[30px] -translate-y-1/2 items-center justify-center rounded-full text-[16px] leading-none shadow-[0_2px_10px_rgba(8,5,2,0.55)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label, outlineColor: HERO.label }}
+        >
+          ›
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** One full-bleed portrait card in the cast strip. */
+function CastCard({ c, onProfile }: { c: Character; onProfile?: (id: string) => void }) {
+  return (
+    <div
+      className="group relative flex w-[230px] flex-none flex-col overflow-hidden rounded-[8px] sm:w-[256px]"
+      // Per-character framing: a colored hairline border + a soft outer glow
+      // keyed to the character's accent (plus a neutral drop shadow for depth)
+      // so each card reads as its own tile.
+      style={{
+        border: `1px solid ${c.color}8c`,
+        boxShadow: `0 0 0 1px ${c.color}40, 0 0 14px 1px ${c.color}5e, 0 8px 20px rgba(8,5,2,0.5)`,
+      }}
+    >
+      {/* Full-bleed portrait — or a tinted monogram fallback when no generated
+          portrait exists yet. Decorative; the real name is in the footer below. */}
+      {c.portrait ? (
+        // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
+        <img
+          src={mediaUrl(c.portrait)}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
+        />
+      ) : (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 flex items-start justify-center pt-[34px]"
+          style={{ background: `linear-gradient(180deg, ${c.color}33, var(--field-bg))` }}
+        >
+          <span
+            className="font-display font-bold leading-none"
+            style={{ color: c.color, fontSize: 78, opacity: 0.42 }}
+          >
+            {c.mono}
+          </span>
+        </div>
+      )}
+
+      {/* Bottom scrim — a gentle fade that blends the portrait into the
+          now-opaque footer plate below; the heavy near-opaque band is no longer
+          needed since the footer is solid. */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(20,14,6,0) 40%, rgba(14,9,4,0.34) 78%, rgba(12,8,3,0.55) 100%)",
+        }}
+      />
+
+      {/* Corner wax-seal badge — the character's monogram + color ring */}
+      <div className="pointer-events-none absolute right-[10px] top-[10px] z-[2]">
+        <Monogram mono={c.mono} color={c.color} size={26} ring={2} />
+      </div>
+
+      {/* Footer — a SOLID accent-tinted plate (not see-through) so name / role /
+          Statistics read independent of the portrait behind them; a thin accent
+          top hairline frames it. */}
+      <div
+        className="relative z-[1] mt-auto flex flex-col p-[13px_14px_14px] sm:p-[14px_16px_15px]"
+        style={{
+          background: `color-mix(in srgb, ${c.color} 16%, #0e0a04)`,
+          borderTop: `1px solid ${c.color}66`,
+        }}
+      >
+        <div
+          className="truncate font-display text-[16px] font-semibold leading-[1.15] sm:text-[18px]"
+          // color-mix lightens the character's accent toward parchment so every
+          // palette color clears AA over the dark footer plate while still
+          // reading as that character's color.
+          style={{ color: `color-mix(in srgb, ${c.color}, #F6ECDA)` }}
+        >
+          {c.name}
+        </div>
+
+        {c.role ? (
+          <div className="mt-[2px] truncate font-mono text-label" style={{ color: LIGHT.loc }}>
+            {c.role}
+          </div>
+        ) : null}
+
+        {/* Statistics — its own non-transparent inset panel, tinted with the
+            character's accent, so the block has a solid colored background
+            instead of showing the portrait. Stat values aren't wired to the
+            resolved Character yet → empty state. */}
+        <div
+          className="mt-[10px] rounded-[5px] px-[10px] py-[8px]"
+          style={{
+            background: `color-mix(in srgb, ${c.color} 22%, #0a0703)`,
+            borderTop: `1px solid ${c.color}59`,
+          }}
+        >
+          <div
+            className="font-mono text-eyebrow uppercase tracking-[0.14em]"
+            style={{ color: HERO.label }}
+          >
+            Statistics
+          </div>
+          <p className="mt-[3px] font-body text-body-sm italic" style={{ color: LIGHT.desc }}>
+            No statistics available.
+          </p>
+        </div>
+      </div>
+
+      {/* Whole-card click target opens the character profile */}
+      {onProfile ? (
+        <button
+          type="button"
+          onClick={() => onProfile(c.id)}
+          aria-label={`View ${c.name}`}
+          title={c.name}
+          className="absolute inset-0 z-[3] cursor-pointer transition-transform duration-200 ease-out group-hover:scale-[1.015] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2"
+          style={{ outlineColor: HERO.label }}
+        />
+      ) : null}
+    </div>
   );
 }

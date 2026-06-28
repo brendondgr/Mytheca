@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { ScenarioCarousel } from "./ScenarioCarousel";
@@ -124,7 +124,54 @@ describe("ScenarioCarousel", () => {
     expect(onPrev).toHaveBeenCalledTimes(1);
     expect(onNext).toHaveBeenCalledTimes(1);
   });
+
+  it("renders each cast card as a discrete tile with a non-transparent Statistics panel", () => {
+    const { container } = renderWithContainer();
+    // Each card is a rounded, gapped tile (no flush border-r dividers).
+    expect(container.querySelectorAll(".group.rounded-\\[8px\\]").length).toBe(2);
+    // The Statistics block is wrapped in its own inset panel (non-transparent,
+    // accent-tinted) rather than sitting directly on the see-through scrim.
+    const stat = screen.getAllByText("Statistics")[0];
+    const panel = stat.parentElement as HTMLElement;
+    expect(panel.className).toContain("rounded-[5px]");
+  });
+
+  it("hides the cast carousel arrows when the cast fits within the strip", () => {
+    // jsdom reports zero layout, so scrollWidth === clientWidth → no overflow.
+    renderCarousel();
+    expect(screen.queryByRole("button", { name: /next characters/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /previous characters/i })).toBeNull();
+  });
+
+  it("shows arrow controls and pages the cast strip when it overflows", async () => {
+    const user = userEvent.setup();
+    const { container } = renderWithContainer();
+    const strip = container.querySelector(".overflow-x-auto") as HTMLElement;
+    const scrollBy = vi.fn();
+    strip.scrollBy = scrollBy;
+
+    // At the start of an overflowing strip: only the Next arrow shows.
+    forceStripMetrics(strip, 0);
+    const next = screen.getByRole("button", { name: /next characters/i });
+    expect(screen.queryByRole("button", { name: /previous characters/i })).toBeNull();
+    await user.click(next);
+    expect(scrollBy).toHaveBeenCalled();
+    expect(scrollBy.mock.calls[0][0].left).toBeGreaterThan(0);
+
+    // Scrolled to the end: only the Previous arrow shows.
+    forceStripMetrics(strip, 800);
+    expect(screen.getByRole("button", { name: /previous characters/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /next characters/i })).toBeNull();
+  });
 });
+
+/** Force a scroll container's layout metrics (jsdom reports 0) and fire scroll. */
+function forceStripMetrics(strip: HTMLElement, scrollLeft: number, scrollWidth = 1200, clientWidth = 400) {
+  Object.defineProperty(strip, "scrollWidth", { configurable: true, value: scrollWidth });
+  Object.defineProperty(strip, "clientWidth", { configurable: true, value: clientWidth });
+  Object.defineProperty(strip, "scrollLeft", { configurable: true, writable: true, value: scrollLeft });
+  fireEvent.scroll(strip);
+}
 
 // Helper that also returns the container for DOM-level (decorative img) queries.
 function renderWithContainer() {
