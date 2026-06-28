@@ -1,6 +1,6 @@
 import { mediaUrl } from "@/lib/api";
 import { Monogram } from "@/components/ui/Monogram";
-import type { Character, ResolvedScenario } from "@/lib/types";
+import type { ResolvedScenario } from "@/lib/types";
 
 // Theme-aware hero palette — all values reference CSS design tokens so the
 // carousel adapts to Parchment / Ember / Slate automatically.
@@ -24,16 +24,6 @@ const LIGHT = {
   toneBd: "rgba(200,134,42,0.4)",
   tone: "rgba(246,236,218,0.75)",
 };
-
-// The character "stats" the carousel surfaces — each attribute field on the
-// Character, shown as `LABEL` + value. Order matters: most identifying first.
-const STAT_FIELDS: { key: keyof Character; label: string }[] = [
-  { key: "role", label: "Role" },
-  { key: "traits", label: "Traits" },
-  { key: "speech", label: "Speech" },
-  { key: "goal", label: "Goal" },
-  { key: "secret", label: "Secret" },
-];
 
 /** The recent-scenario hero carousel (display + prev/next navigation). */
 export function ScenarioCarousel({
@@ -101,9 +91,10 @@ export function ScenarioCarousel({
             className="flex h-full flex-[0_0_100%]"
             style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
           >
-            {/* LEFT PANEL — scene art as background, dark overlay, text + Begin Scene */}
+            {/* LEFT PANEL — scene art as background (sized to the 16:9 image
+                aspect ratio), dark overlay, text + Begin Scene. */}
             <div
-              className="relative flex w-[210px] flex-none flex-col overflow-hidden border-r sm:w-[238px]"
+              className="relative flex aspect-[16/9] h-full flex-none flex-col overflow-hidden border-r"
               style={{ borderColor: HERO.divider }}
             >
               {/* Background: scene art image or hatched placeholder */}
@@ -127,8 +118,9 @@ export function ScenarioCarousel({
                 style={{ background: "rgba(20,14,6,0.68)" }}
               />
 
-              {/* Text content above the overlay */}
-              <div className="relative z-[1] flex flex-1 flex-col overflow-hidden p-[42px_16px_16px] sm:p-[46px_20px_18px]">
+              {/* Text content above the overlay — capped width for readable
+                  line length even on the wide 16:9 panel. */}
+              <div className="relative z-[1] flex w-full max-w-[340px] flex-1 flex-col overflow-hidden p-[42px_16px_16px] sm:p-[46px_20px_18px]">
                 <h2
                   className="font-display text-[21px] font-bold leading-[1.08] sm:text-[25px]"
                   style={{ color: LIGHT.title }}
@@ -199,7 +191,7 @@ export function ScenarioCarousel({
                 {s.cast.map((c) => (
                   <div
                     key={c.id}
-                    className="flex w-[166px] flex-none flex-col items-center border-r px-[12px] pb-[14px] pt-[16px] sm:w-[188px] sm:px-[14px]"
+                    className="flex w-[250px] flex-none flex-col items-center border-r px-[16px] pb-[14px] pt-[16px] sm:w-[282px] sm:px-[20px]"
                     style={{ borderColor: HERO.divider }}
                   >
                     {/* Portrait — high up in the card */}
@@ -239,34 +231,37 @@ export function ScenarioCarousel({
                       {c.name}
                     </div>
 
+                    {/* Role — value only, no label */}
+                    {c.role ? (
+                      <div
+                        className="mt-[2px] w-full truncate text-center font-mono text-label"
+                        style={{ color: HERO.toneText }}
+                      >
+                        {c.role}
+                      </div>
+                    ) : null}
+
                     {/* Divider */}
                     <div
-                      className="mt-[8px] w-full border-t"
+                      className="mt-[9px] w-full border-t"
                       style={{ borderColor: HERO.divider }}
                     />
 
-                    {/* Stat rows — every character attribute, scrolls if tall */}
-                    <div className="mt-[7px] w-full flex-1 space-y-[6px] overflow-y-auto pr-[2px]">
-                      {STAT_FIELDS.map(({ key, label }) => {
-                        const value = c[key];
-                        if (!value || typeof value !== "string") return null;
-                        return (
-                          <div key={key}>
-                            <div
-                              className="font-mono text-eyebrow uppercase tracking-[0.12em]"
-                              style={{ color: HERO.label }}
-                            >
-                              {label}
-                            </div>
-                            <div
-                              className="mt-[1px] font-mono text-label leading-[1.3]"
-                              style={{ color: HERO.toneText }}
-                            >
-                              {value}
-                            </div>
-                          </div>
-                        );
-                      })}
+                    {/* Statistics — per-character stat values are not wired to the
+                        resolved Character yet, so this shows the empty state. */}
+                    <div className="mt-[9px] w-full flex-1 overflow-y-auto pr-[2px]">
+                      <div
+                        className="font-mono text-eyebrow uppercase tracking-[0.14em]"
+                        style={{ color: HERO.label }}
+                      >
+                        Statistics
+                      </div>
+                      <p
+                        className="mt-[4px] font-body text-body-sm italic"
+                        style={{ color: HERO.toneText }}
+                      >
+                        No statistics available.
+                      </p>
                     </div>
                   </div>
                 ))}
