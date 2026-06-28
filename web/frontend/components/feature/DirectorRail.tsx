@@ -31,7 +31,7 @@ export function TensionMeter({ pct, label }: { pct: number; label: string }) {
           style={{ width: `${pct}%`, background: "linear-gradient(90deg,#C8862A,#8E2B1C)" }}
         />
       </div>
-      <div className="mt-[6px] font-mono text-[9px] tracking-[0.06em] text-chrome-ink">{label}</div>
+      <div className="mt-[6px] font-mono text-[9px] tracking-[0.06em] text-accent">{label}</div>
     </div>
   );
 }
@@ -59,7 +59,7 @@ export function Relationships({ items }: { items: Relationship[] }) {
   return (
     <div className="flex flex-col gap-[6px]">
       {items.map((r, i) => (
-        <p key={`${r.who}-${i}`} className="font-body text-[13px] leading-[1.4] text-chrome-ink-soft">
+        <p key={`${r.who}-${i}`} className="font-body text-[13px] leading-[1.4] text-ink-soft">
           <span className="font-semibold" style={{ color: r.color }}>
             {r.who}
           </span>{" "}
@@ -86,22 +86,22 @@ export function DirectorRail({
 }) {
   return (
     <aside className="velora-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block">
-      <Eyebrow size={9} tracking="0.16em" className="mb-[9px] block" color="var(--chrome-ink-soft)">
+      <Eyebrow size={9} tracking="0.16em" className="mb-[9px] block">
         Scene goal
       </Eyebrow>
-      <p className="font-body text-[14px] leading-[1.45] text-chrome-ink italic">{goal}</p>
+      <p className="font-body text-[14px] leading-[1.45] text-ink italic">{goal}</p>
 
-      <Eyebrow size={9} tracking="0.16em" className="mt-5 mb-[9px] block" color="var(--chrome-ink-soft)">
+      <Eyebrow size={9} tracking="0.16em" className="mt-5 mb-[9px] block">
         Tension
       </Eyebrow>
       <TensionMeter pct={tension} label={tensionText} />
 
-      <Eyebrow size={9} tracking="0.16em" className="mt-5 mb-[9px] block" color="var(--chrome-ink-soft)">
+      <Eyebrow size={9} tracking="0.16em" className="mt-5 mb-[9px] block">
         Scene state
       </Eyebrow>
       <StateChips stats={stats} />
 
-      <Eyebrow size={9} tracking="0.16em" className="mt-5 mb-[9px] block" color="var(--chrome-ink-soft)">
+      <Eyebrow size={9} tracking="0.16em" className="mt-5 mb-[9px] block">
         Relationships
       </Eyebrow>
       <Relationships items={relationships} />

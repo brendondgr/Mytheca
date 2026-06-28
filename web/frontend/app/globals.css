@@ -30,8 +30,6 @@
   --color-modal: var(--modal-bg);
   --color-accent: var(--accent);
   --color-tab-ink: var(--tab-ink);
-  --color-chrome-ink: var(--chrome-ink);
-  --color-chrome-ink-soft: var(--chrome-ink-soft);
 
   /* Theme-agnostic semantic colors (same across all three themes). */
   --color-gold: #c8862a;
