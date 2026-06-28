@@ -193,12 +193,18 @@ export function ScenarioCarousel({
               className="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
               style={{ scrollbarWidth: "thin", scrollbarColor: `${HERO.label}44 transparent` }}
             >
-              <div className="flex h-full items-stretch">
+              <div className="flex h-full items-stretch gap-[16px] p-[16px]">
                 {s.cast.map((c) => (
                   <div
                     key={c.id}
-                    className="group relative flex w-[250px] flex-none flex-col overflow-hidden border-r sm:w-[282px]"
-                    style={{ borderColor: HERO.divider }}
+                    className="group relative flex w-[230px] flex-none flex-col overflow-hidden rounded-[8px] sm:w-[256px]"
+                    // Per-character framing: a colored hairline border + a soft
+                    // outer glow keyed to the character's accent (plus a neutral
+                    // drop shadow for depth) so each card reads as its own tile.
+                    style={{
+                      border: `1px solid ${c.color}8c`,
+                      boxShadow: `0 0 0 1px ${c.color}40, 0 0 14px 1px ${c.color}5e, 0 8px 20px rgba(8,5,2,0.5)`,
+                    }}
                   >
                     {/* Full-bleed portrait — or a tinted monogram fallback when
                         no generated portrait exists yet. Decorative; the real
@@ -298,8 +304,6 @@ export function ScenarioCarousel({
                     ) : null}
                   </div>
                 ))}
-                {/* Trailing spacer */}
-                <div className="w-[10px] flex-none" />
               </div>
             </div>
           </div>
