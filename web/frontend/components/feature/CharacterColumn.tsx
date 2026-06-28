@@ -13,6 +13,7 @@ export function CharacterColumn({
   query,
   onToggle,
   onEdit,
+  onAdd,
 }: {
   characters: Character[];
   castIds: string[];
@@ -20,11 +21,12 @@ export function CharacterColumn({
   query: string;
   onToggle: (id: string) => void;
   onEdit: (id: string) => void;
+  onAdd?: () => void;
 }) {
   const cast = new Set(castIds);
   return (
     <div>
-      <ColumnHeader title="Characters" count={characters.length} hint="The cast of this world." />
+      <ColumnHeader title="Characters" count={characters.length} hint="The cast of this world." onAdd={onAdd} addLabel="Add character" />
       {characters.length === 0 ? (
         <ColumnEmpty query={query} noun="characters" />
       ) : (

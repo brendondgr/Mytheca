@@ -16,11 +16,13 @@ export function SettingColumn({
   activeId,
   query,
   onEdit,
+  onAdd,
 }: {
   settings: Setting[];
   activeId: string;
   query: string;
   onEdit: (id: string) => void;
+  onAdd?: () => void;
 }) {
   const activeRef = useRef<HTMLDivElement>(null);
 
@@ -37,7 +39,7 @@ export function SettingColumn({
 
   return (
     <div>
-      <ColumnHeader title="Settings" count={settings.length} hint="The places of this world." />
+      <ColumnHeader title="Settings" count={settings.length} hint="The places of this world." onAdd={onAdd} addLabel="Add setting" />
       {settings.length === 0 ? (
         <ColumnEmpty query={query} noun="settings" />
       ) : (
