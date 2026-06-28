@@ -148,6 +148,19 @@ highlights also carry a mono **"◆ In this scene"** label, and the active setti
 shows empty-state columns and an empty hero ("No scenarios yet"). This is deliberately a
 manuscript "index" surface — not a generic SaaS card grid.
 
+**Card art (Scenario & Setting cards).** When a scenario/setting has generated art, the image
+**fills the whole card** behind the shared **`CARD_SCRIM`** "filter" (`lib/cardArt.ts`) — the
+same left-dark→right-bright gradient as the hero panel: a near-opaque dark left under the text,
+brightening to near-clear on the right so the artwork reads. The card's text (title/name, genre·tone
+or type eyebrow, goal/description) is **light** (theme-independent over the dark scrim) and
+**width-capped (~58–60%)** so it stays in the dark zone while the art shows on the right; the
+Scenario card adds a cast + `◆ setting` footer and a top-right Recent/edit cluster. Cards **without**
+art keep the prior solid, theme-aware treatment (Setting's striped "setting plate"). **AA note:**
+over typical mid-tone watercolor art the capped left-side text clears AA (measured ~14–17:1 over
+the scrim base; the active `◆ In this scene` marker ~9:1); near-white art directly behind the text
+band is the known edge — accepted as a deliberate, requested look, mitigated by the strong scrim +
+width cap (mirrors the hero scrim).
+
 ## Motion (Framer Motion)
 
 Purposeful only, and always with a near-instant `prefers-reduced-motion` fallback.
