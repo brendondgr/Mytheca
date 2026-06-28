@@ -25,7 +25,7 @@ function Column({
       id={`lib-panel-${tabKey}`}
       aria-labelledby={`lib-tab-${tabKey}`}
       className={cn(
-        "outline-none lg:block lg:h-full lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-hair lg:px-[24px] lg:pb-[28px] lg:first:border-l-0 lg:first:pl-0 lg:last:pr-0",
+        "outline-none lg:block lg:h-full lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-hair lg:pb-[28px] lg:first:border-l-0",
         active !== tabKey && "hidden",
       )}
     >
@@ -79,6 +79,7 @@ export function LibraryColumns({
             onEdit={lib.editScenario}
             onProfile={lib.openProfile}
             onAdd={() => lib.openCreate("scenario")}
+            padX="lg:pr-[24px]"
           />
         </Column>
 
@@ -91,6 +92,7 @@ export function LibraryColumns({
             onToggle={lib.toggleExpand}
             onEdit={lib.editCharacter}
             onAdd={() => lib.openCreate("character")}
+            padX="lg:px-[24px]"
           />
         </Column>
 
@@ -101,6 +103,7 @@ export function LibraryColumns({
             query={lib.query}
             onEdit={lib.editSetting}
             onAdd={() => lib.openCreate("setting")}
+            padX="lg:pl-[24px]"
           />
         </Column>
       </div>
