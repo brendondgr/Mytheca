@@ -443,6 +443,26 @@ export const updateScenario = (id: string, body: Partial<ScenarioInput>) =>
   patch<Scenario>(`/scenarios/${id}`, body);
 export const deleteScenario = (id: string) => del(`/scenarios/${id}`);
 
+// ---- scenario authoring (the agentic Scenario Creator) ----
+// Drafts a scenario from a seed, picking a valid cast + setting from the active
+// world's real roster (the backend resolves names→ids and drops dangling refs).
+
+/** A scenario drafted from a seed (fills the create form). */
+export interface ScenarioDraftResult {
+  title: string;
+  genre: string;
+  tone: string;
+  goal: string;
+  opening: string;
+  /** Character ids resolved from the world roster (never invented). */
+  castIds: string[];
+  /** Setting id resolved from the world roster, or "" when none matched. */
+  settingId: string;
+}
+
+export const draftScenario = (seed: string, storylineId?: string, docsOverview?: string) =>
+  post<ScenarioDraftResult>("/scenarios/draft", { seed, docsOverview, storylineId });
+
 // ---- options / settings ----
 // Mirrors web/backend/app/schemas/settings.py. The LLM API key is write-only:
 // reads expose only `hasApiKey` + a masked `apiKeyHint`.
