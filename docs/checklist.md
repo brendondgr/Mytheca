@@ -40,14 +40,6 @@
 
 ## Follow-up Work (next steps)
 
-### Character Card Preview Modal — click opens profile popup, 2-column layout (done; `feat/character-card-preview-modal`; plan: `docs/plans/character-card-preview-modal.md`)
-Frontend-only. Three phases, commit-per-phase, merged to `main`.
-- **Phase 1 — `CharacterProfileModal` 2-column layout:** widened to `sm:w-[560px]`; body replaced by a 2-column CSS grid with row pairs: Appearance|Background · Personality|Voice · Goal|Secret · Edit button (full span). Empty cells omitted; if only one in a pair is present it spans both columns. Traits line moved into the header. 6 tests (existing + new row/column assertions + edit callback + omit-empty-row).
-- **Phase 2 — wire CharacterCard to open modal:** `CharacterCard` `expanded`/`onToggle` props replaced by `onPreview`; inline detail section removed; card click calls `onPreview()`. `CharacterColumn` swapped `expandedId`/`onToggle` for `onPreview`. `LibraryColumns` wires `onPreview={lib.openProfile}`. `useLibraryState` removes `expandedCharId`/`toggleExpand` state + the `setExpandedCharId(created.id)` post-create call (replaced by nothing — new character just appears in the list). Updated `LibraryView.test.tsx` ("expands character" → "opens profile modal" assertion).
-- **Phase 3 — docs + validation:** `component-map.md` (CharacterCard behavior + CharacterProfileModal layout); `checklist.md` this entry.
-- **Validation:** 184 frontend tests (typecheck + lint + build clean; 4 net-new tests in CharacterProfileModal). No backend changes.
-- **Deferred — live in-browser a11y/responsive pass (320/375/768/1024):** same standing constraint (shared working dir, `preview_start` can't reuse the external dev server on 3346). Verified structurally: `CharacterProfileModal` is already focus-trapped via `Modal`; the 2-column grid adds no new interactive elements; `CharacterCard` still has a single `<button>` as its clickable element; `Edit Character` is a standard `<Button>` with visible label. Run the in-browser pass once the dir is free.
-
 ### Scenario Editor — three-column layout (done; `feat/scenario-editor-three-column`; plan: `docs/plans/scenario-editor-three-column.md`)
 Restructured `EntityModal` (scenario editor) to match `CharacterModal`/`SettingModal`'s three-column pattern. Two phases, commit-per-phase, merged to `main`.
 - **Phase 1 — UI restructure:** `EntityModal.tsx` now uses `Modal` `externalClose` + `splitScroll`; outer `lg:flex` wrapper; main column is `lg:flex-1 lg:overflow-y-auto`; inner two-column `md:flex` (form `md:flex-1 md:pr-[26px]` + aside `md:w-[300px]`); `ContextFilesPanel` added as the third `lg:w-[330px]` column. Footer moved outside the inner flex to be full-width. Removed unused `CloseButton` import.

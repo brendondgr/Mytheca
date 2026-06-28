@@ -85,6 +85,8 @@ export function useLibraryState(initialStorylineId?: string) {
   const [tab, setTab] = useState<LibraryTabKey>("scenarios");
   const [featuredId, setFeaturedId] = useState<string>("");
   const [query, setQuery] = useState("");
+  const [expandedCharId, setExpandedCharId] = useState<string | null>(null);
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [modal, setModal] = useState<ModalState | null>(null);
   const [draft, setDraftState] = useState<Draft>({});
@@ -195,6 +197,9 @@ export function useLibraryState(initialStorylineId?: string) {
   );
 
   // ---- read interactions ----
+  function toggleExpand(id: string) {
+    setExpandedCharId((prev) => (prev === id ? null : id));
+  }
   function cycleFeatured(direction: number) {
     if (scenarios.length === 0) return;
     const i = scenarios.findIndex((s) => s.id === featuredId);
@@ -207,6 +212,7 @@ export function useLibraryState(initialStorylineId?: string) {
   // ---- storyline switching ----
   function resetForStoryline(firstScenarioId: string) {
     setFeaturedId(firstScenarioId);
+    setExpandedCharId(null);
     setQuery("");
     setTab("scenarios");
     setMenuOpen(false);
@@ -685,6 +691,7 @@ export function useLibraryState(initialStorylineId?: string) {
           if (Object.keys(statValues).length) await api.setCharacterStats(created.id, statValues);
           setCharacters((cs) => [...cs, created]);
           setTab("characters");
+          setExpandedCharId(created.id);
         }
       } else if (type === "setting") {
         const body = {
@@ -787,6 +794,7 @@ export function useLibraryState(initialStorylineId?: string) {
     tab, setTab,
     featured, featuredId, setFeaturedId, featuredIndex,
     query, setQuery,
+    expandedCharId, toggleExpand,
     cycleFeatured,
     // data-loading status
     loading, error, pending, retry,

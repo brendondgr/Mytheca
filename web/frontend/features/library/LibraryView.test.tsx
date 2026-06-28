@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { LibraryView } from "./LibraryView";
@@ -39,18 +39,16 @@ describe("LibraryView", () => {
     expect(screen.queryByText("Maerin Voss")).not.toBeInTheDocument();
   });
 
-  it("opens a character profile modal when a character card is clicked", async () => {
+  it("expands a character to reveal hidden details", async () => {
     const user = userEvent.setup();
     render(<LibraryView />);
     await user.click(screen.getByRole("tab", { name: /characters/i }));
-    const card = await screen.findByRole("button", { name: /^maerin voss/i });
-    // Card is a plain button — no disclosure attributes.
-    expect(card).not.toHaveAttribute("aria-expanded");
-    await user.click(card);
-    // Profile modal opens.
-    const dialog = screen.getByRole("dialog", { name: /maerin voss/i });
+    const summary = await screen.findByRole("button", { name: /^maerin voss/i });
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+    await user.click(summary);
+    expect(summary).toHaveAttribute("aria-expanded", "true");
     expect(
-      within(dialog).getByText("She answers to the Drowned Court."),
+      screen.getByText("She answers to the Drowned Court."),
     ).toBeInTheDocument();
   });
 });

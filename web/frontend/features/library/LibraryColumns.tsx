@@ -87,8 +87,9 @@ export function LibraryColumns({
           <CharacterColumn
             characters={lib.filteredCharacters}
             castIds={castIds}
+            expandedId={lib.expandedCharId}
             query={lib.query}
-            onPreview={lib.openProfile}
+            onToggle={lib.toggleExpand}
             onEdit={lib.editCharacter}
             onAdd={() => lib.openCreate("character")}
             padX="lg:px-[24px]"

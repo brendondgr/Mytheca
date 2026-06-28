@@ -5,19 +5,40 @@ import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type { Character } from "@/lib/types";
 
+function Detail({
+  label,
+  color,
+  children,
+}: {
+  label: string;
+  color: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <p className="font-body text-[13.5px] leading-[1.4] text-ink">
+      <Eyebrow size={9} tracking="0.1em" color={color} className="mr-[6px]">
+        {label}
+      </Eyebrow>
+      {children}
+    </p>
+  );
+}
+
 /**
- * Character card — clicking the card body opens the character profile modal.
- * The optional edit pencil (top-right) is a sibling button (no nested interactives).
+ * Character card — an accessible disclosure: the summary (monogram + name +
+ * traits) is a button that reveals voice/goal/secret. The optional edit pencil
+ * is a sibling button (no nested interactives).
  */
 export function CharacterCard({
   character,
-  onPreview,
+  expanded,
+  onToggle,
   onEdit,
   highlighted = false,
 }: {
   character: Character;
-  /** Opens the character profile modal. */
-  onPreview: () => void;
+  expanded: boolean;
+  onToggle: () => void;
   onEdit?: () => void;
   /** Lit up when this character is in the selected scenario's cast. */
   highlighted?: boolean;
@@ -43,7 +64,8 @@ export function CharacterCard({
       ) : null}
       <button
         type="button"
-        onClick={onPreview}
+        onClick={onToggle}
+        aria-expanded={expanded}
         className="block w-full cursor-pointer p-[15px] text-left"
       >
         <span className="flex items-center gap-3">
@@ -71,6 +93,21 @@ export function CharacterCard({
           {c.traits}
         </span>
       </button>
+      {expanded ? (
+        <div className="px-[15px] pb-[15px]">
+          <div className="flex flex-col gap-[7px] border-t border-hair pt-[10px]">
+            <Detail label="Voice" color="#A8762A">
+              {c.speech}
+            </Detail>
+            <Detail label="Goal" color="#A8762A">
+              {c.goal}
+            </Detail>
+            <Detail label="Secret" color="var(--accent)">
+              {c.secret}
+            </Detail>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
