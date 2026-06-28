@@ -16,6 +16,8 @@ export interface MultiSelectOption {
   portrait?: string | null;
   /** Setting affordance — renders the `◆` seal instead of a monogram. */
   seal?: boolean;
+  /** Secondary descriptor shown in the dropdown list only (e.g. role/archetype). Not shown in selected chips. */
+  sublabel?: string;
 }
 
 /**
@@ -248,7 +250,14 @@ export function MultiSelect({
                     fontSize={9}
                   />
                 )}
-                <span className="min-w-0 flex-1 truncate text-ink">{o.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-ink">{o.label}</span>
+                  {o.sublabel ? (
+                    <span className="block font-mono text-[10px] tracking-[0.06em] uppercase text-mute">
+                      {o.sublabel}
+                    </span>
+                  ) : null}
+                </span>
               </li>
             );
           })}

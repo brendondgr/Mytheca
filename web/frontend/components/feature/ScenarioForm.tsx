@@ -22,6 +22,7 @@ export function ScenarioForm({
     mono: c.mono,
     color: c.color,
     portrait: c.portrait ? mediaUrl(c.portrait) : null,
+    sublabel: c.role || undefined,
   }));
   const settingOptions: MultiSelectOption[] = settings.map((s) => ({
     id: s.id,
@@ -61,25 +62,24 @@ export function ScenarioForm({
         onChange={(e) => setDraft("goal", e.target.value)}
         className="mb-[14px]"
       />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <MultiSelect
-          multiple
-          label="Cast — choose who appears"
-          placeholder="Add characters…"
-          emptyText="No characters yet — add one first"
-          options={castOptions}
-          selected={cast}
-          onChange={(next) => setDraft("cast", next)}
-        />
-        <MultiSelect
-          label="Setting — choose one"
-          placeholder="Pick a setting…"
-          emptyText="No settings yet"
-          options={settingOptions}
-          selected={draft.settingId ? [draft.settingId] : []}
-          onChange={(next) => setDraft("settingId", next[0] ?? "")}
-        />
-      </div>
+      <MultiSelect
+        multiple
+        label="Cast — choose who appears"
+        placeholder="Add characters…"
+        emptyText="No characters yet — add one first"
+        options={castOptions}
+        selected={cast}
+        onChange={(next) => setDraft("cast", next)}
+        className="mb-[14px]"
+      />
+      <MultiSelect
+        label="Setting — choose one"
+        placeholder="Pick a setting…"
+        emptyText="No settings yet"
+        options={settingOptions}
+        selected={draft.settingId ? [draft.settingId] : []}
+        onChange={(next) => setDraft("settingId", next[0] ?? "")}
+      />
     </>
   );
 }

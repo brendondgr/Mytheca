@@ -45,22 +45,23 @@ function TrashIcon() {
 }
 
 /**
- * Shows scenario / cast / setting totals for one storyline row.
+ * Shows scenario / cast / setting totals — each count on its own line.
  *
- * Uses the count fields from the API (`scenarioCount` etc.) as the primary
- * source so non-active storylines display accurate numbers without loading
- * their full child arrays. Falls back to array length for the active storyline
- * (which is always hydrated) and for seed/test data that omits the count fields.
+ * Uses API count fields as the primary source so non-active storylines
+ * display accurate numbers without loading their full child arrays.
  */
 function StorylineCounts({ storyline: s }: { storyline: Storyline }) {
   const scenarios = s.scenarioCount ?? s.scenarios.length;
   const characters = s.characterCount ?? s.characters.length;
   const settings = s.settingCount ?? s.settings.length;
   return (
-    <span className="font-mono text-tag tracking-[0.04em] text-mute">
-      {scenarios} scenario{scenarios === 1 ? "" : "s"} · {characters} cast ·{" "}
-      {settings} setting{settings === 1 ? "" : "s"}
-    </span>
+    // pl-[55px] = 11px outer padding + w-3 checkmark (12px) + gap-[10px] + w-3 symbol (12px) + gap-[10px]
+    // aligns each count under the title text above
+    <div className="flex flex-col pb-[10px] pl-[55px] font-mono text-[12px] leading-[1.7] tracking-[0.03em] text-mute">
+      <span>{scenarios} scenario{scenarios === 1 ? "" : "s"}</span>
+      <span>{characters} cast</span>
+      <span>{settings} setting{settings === 1 ? "" : "s"}</span>
+    </div>
   );
 }
 
@@ -150,9 +151,9 @@ export function StorylineMenu({
         <div
           id={menuId}
           aria-label="Switch storyline"
-          className="absolute top-[38px] left-0 z-40 w-[268px] rounded-[4px] border border-cardbd bg-card p-[7px] shadow-[0_16px_40px_rgba(20,12,4,.5)]"
+          className="absolute top-[38px] left-0 z-40 w-[280px] rounded-[4px] border border-cardbd bg-card p-[7px] shadow-[0_16px_40px_rgba(20,12,4,.5)]"
         >
-          <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-tag uppercase tracking-[0.18em] text-mute2">
+          <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-[11px] uppercase tracking-[0.18em] text-mute2">
             Storylines
           </div>
           {storylines.map((s) => {
@@ -160,69 +161,68 @@ export function StorylineMenu({
             return (
               <div
                 key={s.id}
-                className={cn(
-                  "flex items-stretch rounded-[3px] hover:bg-card2",
-                  isActive && "bg-card2",
-                )}
+                className={cn("rounded-[3px] hover:bg-card2", isActive && "bg-card2")}
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSwitch(s.id);
-                    setOpen(false);
-                  }}
-                  aria-current={isActive ? "true" : undefined}
-                  className="flex min-w-0 flex-1 items-start gap-[10px] rounded-[3px] px-[11px] py-[9px] text-left"
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "mt-[2px] w-3 flex-none text-center text-[11px]",
-                      isActive ? "text-accent" : "text-transparent",
-                    )}
+                {/* Title row: checkmark + symbol + title + edit/delete right-aligned */}
+                <div className="flex items-center gap-[10px] px-[11px] pt-[9px] pb-[3px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSwitch(s.id);
+                      setOpen(false);
+                    }}
+                    aria-current={isActive ? "true" : undefined}
+                    className="flex min-w-0 flex-1 items-center gap-[10px] text-left"
                   >
-                    ✓
-                  </span>
-                  <span
-                    aria-hidden
-                    className="mt-[1px] w-3 flex-none text-center text-[12px] leading-none"
-                    style={{ color: s.symbolColor || DEFAULT_SEAL_COLOR }}
-                  >
-                    {s.symbol || DEFAULT_SEAL_SYMBOL}
-                  </span>
-                  <span className="flex min-w-0 flex-col gap-[2px]">
-                    <span className="font-display text-[14px] font-semibold text-ink">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "w-3 flex-none text-center text-[11px]",
+                        isActive ? "text-accent" : "text-transparent",
+                      )}
+                    >
+                      ✓
+                    </span>
+                    <span
+                      aria-hidden
+                      className="w-3 flex-none text-center text-[13px] leading-none"
+                      style={{ color: s.symbolColor || DEFAULT_SEAL_COLOR }}
+                    >
+                      {s.symbol || DEFAULT_SEAL_SYMBOL}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-display text-[15px] font-semibold text-ink">
                       {s.title}
                     </span>
-                    <StorylineCounts storyline={s} />
-                  </span>
-                </button>
-                <div className="flex flex-none items-center gap-[1px] pr-[5px]">
-                  <button
-                    type="button"
-                    aria-label={`Edit ${s.title}`}
-                    title="Edit storyline"
-                    onClick={() => {
-                      onEdit(s.id);
-                      setOpen(false);
-                    }}
-                    className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-accent focus-visible:text-accent"
-                  >
-                    <PencilIcon />
                   </button>
-                  <button
-                    type="button"
-                    aria-label={`Delete ${s.title}`}
-                    title="Delete storyline"
-                    onClick={() => {
-                      onDelete(s.id);
-                      setOpen(false);
-                    }}
-                    className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-danger focus-visible:text-danger"
-                  >
-                    <TrashIcon />
-                  </button>
+                  <div className="flex flex-none items-center gap-[1px]">
+                    <button
+                      type="button"
+                      aria-label={`Edit ${s.title}`}
+                      title="Edit storyline"
+                      onClick={() => {
+                        onEdit(s.id);
+                        setOpen(false);
+                      }}
+                      className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-accent focus-visible:text-accent"
+                    >
+                      <PencilIcon />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Delete ${s.title}`}
+                      title="Delete storyline"
+                      onClick={() => {
+                        onDelete(s.id);
+                        setOpen(false);
+                      }}
+                      className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-danger focus-visible:text-danger"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
                 </div>
+                {/* Counts: each on its own line, indented to align with the title */}
+                <StorylineCounts storyline={s} />
               </div>
             );
           })}
@@ -238,7 +238,7 @@ export function StorylineMenu({
             <span aria-hidden className="w-3 flex-none text-center text-[14px] text-gold">
               ＋
             </span>
-            <span className="font-display text-[14px] font-semibold text-ink">
+            <span className="font-display text-[15px] font-semibold text-ink">
               New Storyline
             </span>
           </button>
