@@ -232,15 +232,14 @@ export function ScenarioCarousel({
                       </div>
                     )}
 
-                    {/* Bottom scrim — the portrait reads clearly in the upper
-                        ~55%, then the lower band darkens to near-opaque by the
-                        footer line so the colored name + role + stats clear AA
-                        over any artwork (even bright portraits). */}
+                    {/* Bottom scrim — a gentle fade that blends the portrait into
+                        the now-opaque footer plate below; the heavy near-opaque
+                        band is no longer needed since the footer is solid. */}
                     <div
                       className="pointer-events-none absolute inset-0"
                       style={{
                         background:
-                          "linear-gradient(180deg, rgba(20,14,6,0) 22%, rgba(18,12,5,0.5) 44%, rgba(14,9,4,0.9) 62%, rgba(10,6,2,0.97) 100%)",
+                          "linear-gradient(180deg, rgba(20,14,6,0) 40%, rgba(14,9,4,0.34) 78%, rgba(12,8,3,0.55) 100%)",
                       }}
                     />
 
@@ -249,13 +248,21 @@ export function ScenarioCarousel({
                       <Monogram mono={c.mono} color={c.color} size={26} ring={2} />
                     </div>
 
-                    {/* Footer — name / role / divider / statistics, pinned to bottom */}
-                    <div className="relative z-[1] mt-auto flex flex-col p-[14px_16px_15px] sm:p-[16px_20px_17px]">
+                    {/* Footer — a SOLID accent-tinted plate (not see-through) so
+                        name / role / Statistics read independent of the portrait
+                        behind them; a thin accent top hairline frames it. */}
+                    <div
+                      className="relative z-[1] mt-auto flex flex-col p-[13px_14px_14px] sm:p-[14px_16px_15px]"
+                      style={{
+                        background: `color-mix(in srgb, ${c.color} 16%, #0e0a04)`,
+                        borderTop: `1px solid ${c.color}66`,
+                      }}
+                    >
                       <div
                         className="truncate font-display text-[16px] font-semibold leading-[1.15] sm:text-[18px]"
                         // color-mix lightens the character's accent toward parchment so
-                        // every palette color clears AA over the dark scrim while still
-                        // reading as that character's color.
+                        // every palette color clears AA over the dark footer plate while
+                        // still reading as that character's color.
                         style={{ color: `color-mix(in srgb, ${c.color}, #F6ECDA)` }}
                       >
                         {c.name}
@@ -270,25 +277,31 @@ export function ScenarioCarousel({
                         </div>
                       ) : null}
 
+                      {/* Statistics — its own non-transparent inset panel, tinted
+                          with the character's accent, so the block has a solid
+                          colored background instead of showing the portrait. Stat
+                          values aren't wired to the resolved Character yet → empty
+                          state. */}
                       <div
-                        className="mt-[10px] w-full border-t"
-                        style={{ borderColor: "rgba(246,236,218,0.2)" }}
-                      />
-
-                      {/* Statistics — per-character stat values aren't wired to the
-                          resolved Character yet, so this shows the empty state. */}
-                      <div
-                        className="mt-[8px] font-mono text-eyebrow uppercase tracking-[0.14em]"
-                        style={{ color: HERO.label }}
+                        className="mt-[10px] rounded-[5px] px-[10px] py-[8px]"
+                        style={{
+                          background: `color-mix(in srgb, ${c.color} 22%, #0a0703)`,
+                          borderTop: `1px solid ${c.color}59`,
+                        }}
                       >
-                        Statistics
+                        <div
+                          className="font-mono text-eyebrow uppercase tracking-[0.14em]"
+                          style={{ color: HERO.label }}
+                        >
+                          Statistics
+                        </div>
+                        <p
+                          className="mt-[3px] font-body text-body-sm italic"
+                          style={{ color: LIGHT.desc }}
+                        >
+                          No statistics available.
+                        </p>
                       </div>
-                      <p
-                        className="mt-[3px] font-body text-body-sm italic"
-                        style={{ color: LIGHT.desc }}
-                      >
-                        No statistics available.
-                      </p>
                     </div>
 
                     {/* Whole-card click target opens the character profile */}
