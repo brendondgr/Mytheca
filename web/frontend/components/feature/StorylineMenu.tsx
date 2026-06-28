@@ -45,6 +45,26 @@ function TrashIcon() {
 }
 
 /**
+ * Shows scenario / cast / setting totals for one storyline row.
+ *
+ * Uses the count fields from the API (`scenarioCount` etc.) as the primary
+ * source so non-active storylines display accurate numbers without loading
+ * their full child arrays. Falls back to array length for the active storyline
+ * (which is always hydrated) and for seed/test data that omits the count fields.
+ */
+function StorylineCounts({ storyline: s }: { storyline: Storyline }) {
+  const scenarios = s.scenarioCount ?? s.scenarios.length;
+  const characters = s.characterCount ?? s.characters.length;
+  const settings = s.settingCount ?? s.settings.length;
+  return (
+    <span className="font-mono text-[8.5px] tracking-[0.04em] text-mute">
+      {scenarios} scenario{scenarios === 1 ? "" : "s"} · {characters} cast ·{" "}
+      {settings} setting{settings === 1 ? "" : "s"}
+    </span>
+  );
+}
+
+/**
  * The header storyline switcher: the active storyline's name is a dropdown that
  * lists every storyline (each owns its own cast/settings/scenarios), with
  * per-row Edit / Delete actions, and offers "+ New Storyline". Closes on
@@ -174,12 +194,7 @@ export function StorylineMenu({
                     <span className="font-display text-[14px] font-semibold text-ink">
                       {s.title}
                     </span>
-                    <span className="font-mono text-[8.5px] tracking-[0.04em] text-mute">
-                      {s.scenarios.length} scenario
-                      {s.scenarios.length === 1 ? "" : "s"} · {s.characters.length}{" "}
-                      cast · {s.settings.length} setting
-                      {s.settings.length === 1 ? "" : "s"}
-                    </span>
+                    <StorylineCounts storyline={s} />
                   </span>
                 </button>
                 <div className="flex flex-none items-center gap-[1px] pr-[5px]">

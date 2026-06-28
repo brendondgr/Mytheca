@@ -44,6 +44,12 @@ class StorylineRead(CamelModel):
     world_primer: str | None = None
     symbol: str = "◆"
     symbol_color: str = "#C8862A"
+    # Entity counts — populated by the list and single-get routes via SQL
+    # subqueries so the switcher dropdown always shows accurate totals without
+    # loading full child arrays. Defaults to 0 for create/update responses.
+    scenario_count: int = 0
+    character_count: int = 0
+    setting_count: int = 0
 
 
 # ---- Authoring (the agent process of building a storyline) ------------------

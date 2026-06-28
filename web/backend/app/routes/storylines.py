@@ -6,11 +6,13 @@ from collections.abc import Iterator
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.agents import build_agent, storyline_agent, triage_agent
 from app.core.db import get_db
 from app.core.errors import APIError
+from app.models import Character, Scenario, Setting
 from app.schemas.build import BuildErrorEvent, BuildWorldRequest, ProposedWorld
 from app.schemas.context_document import TriageErrorEvent, TriageRequest, TriageResponse
 from app.schemas.storyline import (
@@ -148,7 +150,23 @@ def build_world_stream(data: BuildWorldRequest, db: Session = Depends(get_db)):
 
 @router.get("/{storyline_id}", response_model=StorylineRead)
 def get_storyline(storyline_id: str, db: Session = Depends(get_db)):
-    return crud.get_storyline(db, storyline_id)
+    sl = crud.get_storyline(db, storyline_id)
+    char_count = db.scalar(select(func.count()).where(Character.storyline_id == storyline_id)) or 0
+    setting_count = db.scalar(select(func.count()).where(Setting.storyline_id == storyline_id)) or 0
+    scenario_count = db.scalar(select(func.count()).where(Scenario.storyline_id == storyline_id)) or 0
+    return StorylineRead(
+        id=sl.id,
+        title=sl.title,
+        genre=sl.genre,
+        tagline=sl.tagline,
+        premise=sl.premise,
+        world_primer=sl.world_primer,
+        symbol=sl.symbol,
+        symbol_color=sl.symbol_color,
+        character_count=char_count,
+        setting_count=setting_count,
+        scenario_count=scenario_count,
+    )
 
 
 @router.patch("/{storyline_id}", response_model=StorylineRead)
