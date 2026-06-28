@@ -9,14 +9,14 @@ const STORYLINES: Storyline[] = [
   { id: "tidefall", title: "Tidefall", genre: "Naval", characters: [], settings: [], scenarios: [] },
 ];
 
-function setup() {
+function setup(storylines = STORYLINES) {
   const handlers = {
     onSwitch: vi.fn(),
     onCreate: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
   };
-  render(<StorylineMenu storylines={STORYLINES} activeId="embergate" {...handlers} />);
+  render(<StorylineMenu storylines={storylines} activeId="embergate" {...handlers} />);
   return handlers;
 }
 
@@ -60,5 +60,48 @@ describe("StorylineMenu", () => {
     await user.click(screen.getByTitle(/switch storyline/i));
     await user.click(screen.getByRole("button", { name: /new storyline/i }));
     expect(onCreate).toHaveBeenCalled();
+  });
+
+  it("shows counts from API count fields for non-hydrated storylines", async () => {
+    const user = userEvent.setup();
+    const storylines: Storyline[] = [
+      {
+        id: "embergate", title: "Embergate", genre: "Maritime",
+        characters: [], settings: [], scenarios: [],
+        scenarioCount: 3, characterCount: 5, settingCount: 2,
+      },
+      {
+        id: "tidefall", title: "Tidefall", genre: "Naval",
+        characters: [], settings: [], scenarios: [],
+        scenarioCount: 1, characterCount: 4, settingCount: 7,
+      },
+    ];
+    setup(storylines);
+    await user.click(screen.getByTitle(/switch storyline/i));
+    // Tidefall counts come from API fields, not from the empty arrays
+    expect(screen.getByText(/1 scenario\b/)).toBeInTheDocument();
+    expect(screen.getByText(/4 cast/)).toBeInTheDocument();
+    expect(screen.getByText(/7 settings/)).toBeInTheDocument();
+  });
+
+  it("falls back to array length when API count fields are absent", async () => {
+    const user = userEvent.setup();
+    const storylines: Storyline[] = [
+      {
+        id: "embergate", title: "Embergate", genre: "Maritime",
+        characters: [{ id: "c1", name: "A", role: "r", color: "#000", mono: "A", traits: "", speech: "", goal: "", secret: "" }],
+        settings: [{ id: "s1", name: "S", type: "T", desc: "d" }],
+        scenarios: [
+          { id: "sc1", title: "Sc1", genre: "g", tone: "t", goal: "g", castIds: [], settingId: "s1", opening: "", branches: [] },
+          { id: "sc2", title: "Sc2", genre: "g", tone: "t", goal: "g", castIds: [], settingId: "s1", opening: "", branches: [] },
+        ],
+        // No count fields — should fall back to array length
+      },
+    ];
+    setup(storylines);
+    await user.click(screen.getByTitle(/switch storyline/i));
+    expect(screen.getByText(/2 scenarios/)).toBeInTheDocument();
+    expect(screen.getByText(/1 cast/)).toBeInTheDocument();
+    expect(screen.getByText(/1 setting\b/)).toBeInTheDocument();
   });
 });
