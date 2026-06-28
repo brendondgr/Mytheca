@@ -38,10 +38,10 @@ export function AppHeader({
   return (
     <header className="velora-header flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] sm:px-[26px]">
       <div className="flex items-center gap-[13px]">
-        <span aria-hidden className="text-[16px] text-accent">
+        <span aria-hidden className="text-[16px] text-chrome-ink">
           ❖
         </span>
-        <span className="font-display text-[20px] font-bold leading-none tracking-[0.2em] text-ink">
+        <span className="font-display text-[20px] font-bold leading-none tracking-[0.2em] text-chrome-ink">
           VELORA
         </span>
         {storylineSlot ? (
