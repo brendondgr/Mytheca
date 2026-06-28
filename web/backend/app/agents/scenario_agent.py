@@ -33,7 +33,27 @@ from app.agents._common import (
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.scenario import ScenarioDraftResponse
+from app.schemas.setting import SceneArtPromptResponse
 from app.services import crud, llm
+
+_SCENE_ART_SYSTEM = (
+    "You are Velora's scene-art-prompt writer for a watercolor image model "
+    "(Z-Image-Turbo via ComfyUI). The model responds best to SHORT phrases "
+    "separated by commas — not sentences. Given a scenario description, write the "
+    "prompts for an atmospheric establishing shot of the SETTING as it appears in "
+    "this specific scene moment — a vista or interior shaped by the scenario's tone "
+    "and atmosphere, with NO people as the subject. Respond with ONLY a JSON object "
+    '— no prose, no fences — with exactly two string keys: "positive" and "negative".'
+    "\npositive: 10-16 short comma-separated phrases. Lead with the setting name and "
+    "its kind (e.g. 'fog-bound harbor at dawn', 'candlelit merchant hall, tense "
+    "atmosphere'), then the scene's lighting and time-of-day (drawn from the tone "
+    "and opening), its salient features, and the emotional atmosphere matching the "
+    "tone. End with style tags: 'watercolor, soft washes, painterly, atmospheric, "
+    "establishing shot, wide view, no people, detailed environment'.\n"
+    "negative: a comma-separated list of what to avoid, e.g. 'people, figures, "
+    "portrait, photorealistic, 3d render, text, watermark, signature, blurry, "
+    "lowres'. Keep both prompts concise."
+)
 
 # Bound the roster passed to the model so a very large world keeps the prompt in
 # check (the same discipline as ``_common.DOCS_CAP``). ``list_characters`` /
@@ -155,4 +175,53 @@ def draft_scenario(
         opening=_s("opening"),
         cast_ids=cast_ids,
         setting_id=setting_id,
+    )
+
+
+def generate_scene_art_prompts(
+    db: Session,
+    *,
+    title: str = "",
+    genre: str | None = None,
+    tone: str | None = None,
+    goal: str | None = None,
+    opening: str | None = None,
+    setting_name: str | None = None,
+    setting_desc: str | None = None,
+    notes: str | None = None,
+    reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
+) -> SceneArtPromptResponse:
+    """Write the watercolor positive/negative ComfyUI prompts for a scenario moment."""
+    fields = {
+        "Scene title": title,
+        "Genre": genre,
+        "Tone": tone,
+        "Goal": goal,
+        "Opening prose": opening,
+        "Setting": setting_name,
+        "Setting description": setting_desc,
+        "Notes": notes,
+    }
+    described = "\n".join(
+        f"{k}: {v}".strip() for k, v in fields.items() if (v or "").strip()
+    )
+    if not described:
+        raise APIError(
+            400,
+            "bad_request",
+            "Describe the scenario (at least a title or tone) to generate scene-art prompts.",
+        )
+    base_url, api_key, model, params = resolve_llm(db)
+    messages = [
+        {"role": "system", "content": _SCENE_ART_SYSTEM},
+        {"role": "user", "content": f"Scenario:\n{described}"},
+    ]
+    data = extract_json(
+        llm.chat_complete(
+            base_url, api_key, model, messages, gen_params(params), reasoning=reasoning
+        )
+    )
+    return SceneArtPromptResponse(
+        positive=str(data.get("positive") or "").strip(),
+        negative=str(data.get("negative") or "").strip(),
     )

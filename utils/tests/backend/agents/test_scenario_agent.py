@@ -1,4 +1,4 @@
-"""Scenario authoring agent — draft with roster-grounded name→id resolution.
+"""Scenario authoring agent — draft with roster-grounded name→id resolution, scene-art prompts.
 
 No real network: ``app.services.llm.get_http_client`` is patched to an
 ``httpx.MockTransport`` returning canned OpenAI-compatible completions, mirroring
@@ -167,3 +167,69 @@ def test_draft_unknown_setting_resolves_to_empty(client, monkeypatch, storyline_
     assert res.status_code == 200
     # A bad setting reference falls back to "" (the soft-reference contract).
     assert res.json()["settingId"] == ""
+
+
+# ---- scene-art prompt generation -----------------------------------------------
+
+_ART_JSON = json.dumps(
+    {
+        "positive": "fog-bound harbor at dusk, tension in the air, cold light, watercolor, "
+        "soft washes, atmospheric, establishing shot, no people",
+        "negative": "people, figures, photorealistic, 3d render, text, watermark",
+    }
+)
+
+
+def test_scene_art_prompts_returns_positive_and_negative(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch, lambda req: _completion(_ART_JSON))
+    res = client.post(
+        "/api/scenarios/scene-art-prompts",
+        json={"title": "The Salt Ledger", "tone": "Tension · rising", "settingName": "Embergate Harbor"},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert "watercolor" in data["positive"]
+    assert "no people" in data["positive"]
+    assert "watermark" in data["negative"]
+
+
+def test_scene_art_prompts_title_reaches_prompt(client, monkeypatch):
+    _configure_llm(client)
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = request.content.decode()
+        return _completion(_ART_JSON)
+
+    _patch_upstream(monkeypatch, handler)
+    client.post(
+        "/api/scenarios/scene-art-prompts",
+        json={"title": "MARKER_SCENE_TITLE", "tone": "MARKER_TONE"},
+    )
+    assert "MARKER_SCENE_TITLE" in seen["body"]
+    assert "MARKER_TONE" in seen["body"]
+
+
+def test_scene_art_prompts_require_at_least_one_field(client):
+    _configure_llm(client)
+    res = client.post("/api/scenarios/scene-art-prompts", json={})
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "bad_request"
+
+
+def test_scene_art_prompts_without_llm_is_bad_request(client):
+    client.patch("/api/options/llm", json={"baseUrl": "", "model": ""})
+    res = client.post(
+        "/api/scenarios/scene-art-prompts",
+        json={"title": "A night at the harbor."},
+    )
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "bad_request"
+
+
+def test_scenario_scene_art_route_requires_positive(client):
+    """POST /scenarios/scene-art with an empty positive prompt → 400."""
+    res = client.post("/api/scenarios/scene-art", json={"positive": "   "})
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "bad_request"
