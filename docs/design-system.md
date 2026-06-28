@@ -34,17 +34,19 @@ Three themes ship from day one, switched by a `ThemeSwitcher` and persisted (`lo
 | `--page-img` | warm radial wash | ember radial wash | cool radial wash | Subtle page glow (two `radial-gradient`s) |
 | `--card-bg` | `#F4ECDA` | `#241C13` | `#1A2129` | Card / bubble surface |
 | `--card-bg2` | `#F8F1E0` | `#2E2417` | `#222B35` | Selected / raised surface |
-| `--card-bd` | `#D8C7A0` | `#463A24` | `#303C47` | Card border |
-| `--hair` | `#E0D2AE` | `#3A2E1E` | `#2A333C` | Hairline divider |
-| `--hair-strong` | `#CBB78E` | `#3A2E1E` | `#2A333C` | Stronger divider / rail edge |
+| `--card-bd` | `#A88860` | `#463A24` | `#303C47` | Card border |
+| `--hair` | `#C8A070` | `#3A2E1E` | `#2A333C` | Hairline divider |
+| `--hair-strong` | `#8A6A3C` | `#3A2E1E` | `#2A333C` | Stronger divider / rail edge |
 | `--ink` | `#2A2016` | `#F1E5CC` | `#E7EDF3` | Primary text |
 | `--ink-soft` | `#6B5B45` | `#C3B191` | `#A0B1BF` | Secondary text |
 | `--mute` | `#8E7A56` | `#9C875D` | `#6F8495` | Muted labels |
 | `--mute2` | `#9A875F` | `#8C774F` | `#5F7384` | Faint labels / placeholders |
 | `--field-bg` | `#FBF6EA` | `#1D160F` | `#141A21` | Inputs / icon buttons |
-| `--field-bd` | `#CBB78E` | `#463A24` | `#303C47` | Input border |
-| `--header-grad` | `linear-gradient(#EFE5CF,#E8DCC3)` | `linear-gradient(#221A11,#1A140C)` | `linear-gradient(#1A222B,#141A21)` | Header / composer bar |
-| `--rail-grad` | `linear-gradient(#EBE0C8,#E6DAC0)` | `linear-gradient(#1F1810,#1A140D)` | `linear-gradient(#161D25,#11171E)` | Side rails |
+| `--field-bd` | `#A88860` | `#463A24` | `#303C47` | Input border |
+| `--header-grad` | `linear-gradient(#3E2C18,#302110)` | `linear-gradient(#221A11,#1A140C)` | `linear-gradient(#1A222B,#141A21)` | Header / composer bar |
+| `--rail-grad` | `linear-gradient(#7A5A38,#6A4C2C)` | `linear-gradient(#1F1810,#1A140D)` | `linear-gradient(#161D25,#11171E)` | Side rails |
+| `--chrome-ink` | `#F0E4C8` | `#F1E5CC` | `#E7EDF3` | Light text on dark chrome (header/rail) |
+| `--chrome-ink-soft` | `#DCC290` | `#C3B191` | `#A0B1BF` | Secondary light text on dark chrome |
 | `--accent` | `#8E2B1C` | `#CC5A41` | `#E0654A` | Primary accent (ember) |
 
 **Theme-agnostic semantic colors** (used across all themes):
@@ -57,7 +59,7 @@ Three themes ship from day one, switched by a `ThemeSwitcher` and persisted (`lo
 
 All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every theme** — verify Parchment, Ember, and Slate. Status and stat changes are never conveyed by color alone (pair with a label, sign, or icon).
 
-**Frontend implementation.** The three token sets live in `web/frontend/styles/themes.css` as `.theme-light` / `.theme-dark` / `.theme-slate`; the active class sits on `<html>`, applied pre-paint by a no-flash inline script (`themeInitScript` in `lib/theme.ts`). `app/globals.css` maps the variables to Tailwind utilities via `@theme inline` — e.g. `bg-page`, `bg-card`, `bg-card2`, `text-ink`, `text-ink-soft`, `text-mute`, `border-cardbd`, `border-hair`, `text-accent`, plus theme-agnostic `text-gold` / `text-narrator` / `text-success` / `text-danger`. Gradient surfaces (page glow, header, rails) use the `.velora-page` / `.velora-header` / `.velora-rail` helper classes. The current theme is read via `useTheme()` (a `useSyncExternalStore` over the `<html>` class + `localStorage['velora-theme']`, so no provider is needed) and toggled by `ThemeSwitcher`.
+**Frontend implementation.** The three token sets live in `web/frontend/styles/themes.css` as `.theme-light` / `.theme-dark` / `.theme-slate`; the active class sits on `<html>`, applied pre-paint by a no-flash inline script (`themeInitScript` in `lib/theme.ts`). `app/globals.css` maps the variables to Tailwind utilities via `@theme inline` — e.g. `bg-page`, `bg-card`, `bg-card2`, `text-ink`, `text-ink-soft`, `text-mute`, `border-cardbd`, `border-hair`, `text-accent`, `text-chrome-ink`, `text-chrome-ink-soft` (light text for the dark-chrome header/rail surfaces in Parchment theme), plus theme-agnostic `text-gold` / `text-narrator` / `text-success` / `text-danger`. Gradient surfaces (page glow, header, rails) use the `.velora-page` / `.velora-header` / `.velora-rail` helper classes. The current theme is read via `useTheme()` (a `useSyncExternalStore` over the `<html>` class + `localStorage['velora-theme']`, so no provider is needed) and toggled by `ThemeSwitcher`.
 
 ## Geometry, Elevation, Icon, Spacing
 
