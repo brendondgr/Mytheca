@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { ScenarioCarousel } from "./ScenarioCarousel";
@@ -85,14 +85,44 @@ describe("ScenarioCarousel", () => {
     expect(onBegin).toHaveBeenCalledWith("sc1");
   });
 
-  it("renders each cast member's name, role, and the statistics empty state", () => {
+  it("renders each cast member's name and role (no always-on statistics)", () => {
     renderCarousel();
     expect(screen.getByText("Hunter Krow")).toBeInTheDocument();
     expect(screen.getByText("Warden Hunter")).toBeInTheDocument();
     expect(screen.getByText("Ren")).toBeInTheDocument();
-    // One "Statistics" eyebrow + empty-state line per cast member.
-    expect(screen.getAllByText("Statistics")).toHaveLength(2);
-    expect(screen.getAllByText(/no statistics available/i)).toHaveLength(2);
+    // Statistics are hidden behind the per-card arrow — none shown initially.
+    expect(screen.queryByText("Statistics")).toBeNull();
+  });
+
+  it("toggles an inline statistics panel from a per-card arrow (one open at a time)", async () => {
+    const user = userEvent.setup();
+    renderCarousel();
+    await user.click(screen.getByRole("button", { name: /show statistics for hunter krow/i }));
+    expect(screen.getByRole("region", { name: /hunter krow statistics/i })).toBeInTheDocument();
+    expect(screen.getByText(/no statistics available/i)).toBeInTheDocument();
+    // Opening another card's panel closes the first.
+    await user.click(screen.getByRole("button", { name: /show statistics for ren/i }));
+    expect(screen.getByRole("region", { name: /ren statistics/i })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /hunter krow statistics/i })).toBeNull();
+    // Clicking the open card's arrow again closes it.
+    await user.click(screen.getByRole("button", { name: /hide statistics for ren/i }));
+    expect(screen.queryByRole("region", { name: /ren statistics/i })).toBeNull();
+  });
+
+  it("lists the storyline's public stat names + defaults in the panel", async () => {
+    const user = userEvent.setup();
+    renderCarousel({
+      statDefs: [
+        { key: "resolve", displayName: "Resolve", description: "", min: 0, max: 10, default: 7, visibility: "public", guidance: null, appliesTo: [], bands: [] },
+        { key: "secrecy", displayName: "Secrecy", description: "", min: 0, max: 10, default: 4, visibility: "hidden", guidance: null, appliesTo: [], bands: [] },
+      ],
+    });
+    await user.click(screen.getByRole("button", { name: /show statistics for hunter krow/i }));
+    const region = screen.getByRole("region", { name: /hunter krow statistics/i });
+    expect(within(region).getByText("Resolve")).toBeInTheDocument();
+    expect(within(region).getByText("7")).toBeInTheDocument();
+    // Hidden-visibility stats are omitted from the player view.
+    expect(within(region).queryByText("Secrecy")).toBeNull();
   });
 
   it("shows a full-bleed portrait image when the character has one", () => {
@@ -125,15 +155,12 @@ describe("ScenarioCarousel", () => {
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
-  it("renders each cast card as a discrete tile with a non-transparent Statistics panel", () => {
+  it("renders each cast card as a discrete rounded, transparent tile", () => {
     const { container } = renderWithContainer();
     // Each card is a rounded, gapped tile (no flush border-r dividers).
-    expect(container.querySelectorAll(".group.rounded-\\[8px\\]").length).toBe(2);
-    // The Statistics block is wrapped in its own inset panel (non-transparent,
-    // accent-tinted) rather than sitting directly on the see-through scrim.
-    const stat = screen.getAllByText("Statistics")[0];
-    const panel = stat.parentElement as HTMLElement;
-    expect(panel.className).toContain("rounded-[5px]");
+    expect(container.querySelectorAll(".group.rounded-\\[6px\\]").length).toBe(2);
+    // Cards are transparent — no always-on solid Statistics block.
+    expect(screen.queryByText("Statistics")).toBeNull();
   });
 
   it("hides the cast carousel arrows when the cast fits within the strip", () => {

@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { mediaUrl } from "@/lib/api";
 import { Monogram } from "@/components/ui/Monogram";
-import type { Character, ResolvedScenario } from "@/lib/types";
+import { PORTRAIT_SCRIM, OVER_ART } from "@/lib/cardArt";
+import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 
 // Theme-aware hero palette — all values reference CSS design tokens so the
 // carousel adapts to Parchment / Ember / Slate automatically.
@@ -31,6 +32,7 @@ const LIGHT = {
 /** The recent-scenario hero carousel (display + prev/next navigation). */
 export function ScenarioCarousel({
   slides,
+  statDefs = [],
   index,
   onPrev,
   onNext,
@@ -42,6 +44,8 @@ export function ScenarioCarousel({
   onEdit: _onEdit,
 }: {
   slides: ResolvedScenario[];
+  /** Active storyline's stat definitions — shown in each cast card's stats panel. */
+  statDefs?: StatDefinition[];
   index: number;
   onPrev: () => void;
   onNext: () => void;
@@ -83,7 +87,7 @@ export function ScenarioCarousel({
       className="relative mx-[16px] mt-[18px] h-[326px] flex-none overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-[28px]"
     >
       <div
-        className="flex h-full transition-transform duration-[550ms] ease-[cubic-bezier(.45,.05,.2,1)]"
+        className="flex h-full w-full transition-transform duration-[550ms] ease-[cubic-bezier(.45,.05,.2,1)]"
         style={{ transform: `translateX(-${index * 100}%)` }}
       >
         {slides.map((s, i) => (
@@ -91,7 +95,7 @@ export function ScenarioCarousel({
             key={s.id}
             aria-hidden={i !== index}
             inert={i !== index}
-            className="flex h-full flex-[0_0_100%]"
+            className="flex h-full w-full min-w-0 flex-[0_0_100%]"
             style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
           >
             {/* LEFT PANEL — scene art as background (sized to the 16:9 image
@@ -192,7 +196,7 @@ export function ScenarioCarousel({
             </div>
 
             {/* CHARACTER STRIP — an arrow-paged carousel of portrait cards */}
-            <CastStrip cast={s.cast} onProfile={onProfile} />
+            <CastStrip cast={s.cast} statDefs={statDefs} onProfile={onProfile} />
           </div>
         ))}
       </div>
@@ -243,13 +247,18 @@ export function ScenarioCarousel({
  */
 function CastStrip({
   cast,
+  statDefs,
   onProfile,
 }: {
   cast: Character[];
+  statDefs: StatDefinition[];
   onProfile?: (id: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [nav, setNav] = useState({ overflow: false, atStart: true, atEnd: false });
+  // Which card's inline statistics panel is open (one at a time). The panel is a
+  // flex sibling inserted after that card, so it pushes the following cards over.
+  const [openStatsId, setOpenStatsId] = useState<string | null>(null);
 
   const measure = useCallback(() => {
     const el = scrollRef.current;
@@ -276,7 +285,7 @@ function CastStrip({
       ro?.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [measure, cast.length]);
+  }, [measure, cast.length, openStatsId]);
 
   const page = useCallback((dir: number) => {
     const el = scrollRef.current;
@@ -294,7 +303,23 @@ function CastStrip({
       >
         <div className="flex h-full items-stretch gap-[16px] p-[16px]">
           {cast.map((c) => (
-            <CastCard key={c.id} c={c} onProfile={onProfile} />
+            <Fragment key={c.id}>
+              <CastCard
+                c={c}
+                expanded={openStatsId === c.id}
+                onToggleStats={() =>
+                  setOpenStatsId((id) => (id === c.id ? null : c.id))
+                }
+                onProfile={onProfile}
+              />
+              {openStatsId === c.id ? (
+                <CastStatsPanel
+                  c={c}
+                  statDefs={statDefs}
+                  onClose={() => setOpenStatsId(null)}
+                />
+              ) : null}
+            </Fragment>
           ))}
         </div>
       </div>
@@ -325,25 +350,37 @@ function CastStrip({
   );
 }
 
-/** One full-bleed portrait card in the cast strip. */
-function CastCard({ c, onProfile }: { c: Character; onProfile?: (id: string) => void }) {
+/**
+ * One full-bleed portrait card in the cast strip — transparent like the Library
+ * `CharacterCard`: the portrait fills the tile behind the shared `PORTRAIT_SCRIM`
+ * with name/role over it (large monogram fallback on a solid surface), framed in
+ * the character's color. A `❯` arrow toggles an inline {@link CastStatsPanel}
+ * (rendered as the next flex sibling, pushing the following cards over).
+ */
+function CastCard({
+  c,
+  expanded,
+  onToggleStats,
+  onProfile,
+}: {
+  c: Character;
+  expanded: boolean;
+  onToggleStats: () => void;
+  onProfile?: (id: string) => void;
+}) {
+  const hasPortrait = Boolean(c.portrait);
   return (
     <div
-      className="group relative flex w-[230px] flex-none flex-col overflow-hidden rounded-[8px] sm:w-[256px]"
-      // Per-character framing: a colored hairline border + a soft outer glow
-      // keyed to the character's accent (plus a neutral drop shadow for depth)
-      // so each card reads as its own tile.
+      className="group relative flex w-[184px] flex-none flex-col overflow-hidden rounded-[6px] sm:w-[200px]"
       style={{
-        border: `1px solid ${c.color}8c`,
-        boxShadow: `0 0 0 1px ${c.color}40, 0 0 14px 1px ${c.color}5e, 0 8px 20px rgba(8,5,2,0.5)`,
+        border: `2px solid ${c.color}`,
+        background: hasPortrait ? undefined : "var(--card-bg2)",
       }}
     >
-      {/* Full-bleed portrait — or a tinted monogram fallback when no generated
-          portrait exists yet. Decorative; the real name is in the footer below. */}
-      {c.portrait ? (
+      {hasPortrait ? (
         // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
         <img
-          src={mediaUrl(c.portrait)}
+          src={mediaUrl(c.portrait!)}
           alt=""
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
@@ -351,94 +388,142 @@ function CastCard({ c, onProfile }: { c: Character; onProfile?: (id: string) => 
       ) : (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 flex items-start justify-center pt-[34px]"
-          style={{ background: `linear-gradient(180deg, ${c.color}33, var(--field-bg))` }}
+          className="pointer-events-none absolute inset-0 flex items-center justify-center pb-[52px]"
         >
-          <span
-            className="font-display font-bold leading-none"
-            style={{ color: c.color, fontSize: 78, opacity: 0.42 }}
-          >
-            {c.mono}
-          </span>
+          <Monogram mono={c.mono} color={c.color} size={84} ring={2} fontSize={32} />
         </div>
       )}
 
-      {/* Bottom scrim — a gentle fade that blends the portrait into the
-          now-opaque footer plate below; the heavy near-opaque band is no longer
-          needed since the footer is solid. */}
+      {/* Transparent bottom scrim — name/role read over the lower portrait. */}
       <div
         className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(20,14,6,0) 40%, rgba(14,9,4,0.34) 78%, rgba(12,8,3,0.55) 100%)",
-        }}
+        style={{ background: PORTRAIT_SCRIM }}
       />
 
-      {/* Corner wax-seal badge — the character's monogram + color ring */}
-      <div className="pointer-events-none absolute right-[10px] top-[10px] z-[2]">
-        <Monogram mono={c.mono} color={c.color} size={26} ring={2} />
-      </div>
-
-      {/* Footer — a SOLID accent-tinted plate (not see-through) so name / role /
-          Statistics read independent of the portrait behind them; a thin accent
-          top hairline frames it. */}
-      <div
-        className="relative z-[1] mt-auto flex flex-col p-[13px_14px_14px] sm:p-[14px_16px_15px]"
-        style={{
-          background: `color-mix(in srgb, ${c.color} 16%, #0e0a04)`,
-          borderTop: `1px solid ${c.color}66`,
-        }}
-      >
+      {/* Footer over the scrim: name + role (light text, theme-independent). */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] p-[11px_12px_12px]">
         <div
-          className="truncate font-display text-[16px] font-semibold leading-[1.15] sm:text-[18px]"
-          // color-mix lightens the character's accent toward parchment so every
-          // palette color clears AA over the dark footer plate while still
-          // reading as that character's color.
-          style={{ color: `color-mix(in srgb, ${c.color}, #F6ECDA)` }}
+          className="truncate font-display text-[15px] font-semibold leading-[1.12] sm:text-[16px]"
+          style={{ color: OVER_ART.title }}
+          title={c.name}
         >
           {c.name}
         </div>
-
         {c.role ? (
-          <div className="mt-[2px] truncate font-mono text-label" style={{ color: LIGHT.loc }}>
+          <div
+            className="mt-[2px] truncate font-mono text-label"
+            style={{ color: OVER_ART.eyebrow }}
+          >
             {c.role}
           </div>
         ) : null}
-
-        {/* Statistics — its own non-transparent inset panel, tinted with the
-            character's accent, so the block has a solid colored background
-            instead of showing the portrait. Stat values aren't wired to the
-            resolved Character yet → empty state. */}
-        <div
-          className="mt-[10px] rounded-[5px] px-[10px] py-[8px]"
-          style={{
-            background: `color-mix(in srgb, ${c.color} 22%, #0a0703)`,
-            borderTop: `1px solid ${c.color}59`,
-          }}
-        >
-          <div
-            className="font-mono text-eyebrow uppercase tracking-[0.14em]"
-            style={{ color: HERO.label }}
-          >
-            Statistics
-          </div>
-          <p className="mt-[3px] font-body text-body-sm italic" style={{ color: LIGHT.desc }}>
-            No statistics available.
-          </p>
-        </div>
       </div>
 
-      {/* Whole-card click target opens the character profile */}
+      {/* Whole-card click target opens the character profile. */}
       {onProfile ? (
         <button
           type="button"
           onClick={() => onProfile(c.id)}
           aria-label={`View ${c.name}`}
           title={c.name}
-          className="absolute inset-0 z-[3] cursor-pointer transition-transform duration-200 ease-out group-hover:scale-[1.015] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2"
+          className="absolute inset-0 z-[3] cursor-pointer transition-transform duration-200 ease-out group-hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2"
           style={{ outlineColor: HERO.label }}
         />
       ) : null}
+
+      {/* Stats arrow (above the profile button) — opens the inline stats panel. */}
+      <button
+        type="button"
+        onClick={onToggleStats}
+        aria-label={expanded ? `Hide statistics for ${c.name}` : `Show statistics for ${c.name}`}
+        aria-expanded={expanded}
+        className="absolute right-[8px] top-[8px] z-[5] flex h-[26px] w-[26px] items-center justify-center rounded-full text-[13px] leading-none shadow-[0_2px_8px_rgba(8,5,2,0.5)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        style={{ background: HERO.chev, border: `1px solid ${c.color}`, color: HERO.label, outlineColor: HERO.label }}
+      >
+        {expanded ? "❮" : "❯"}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Inline statistics panel for one cast member — rendered as the flex sibling
+ * right after its card so the following cards are pushed over. Lists the
+ * storyline's player-visible (public) stat definitions that apply to this
+ * character with their default values; falls back to an empty-state line.
+ */
+function CastStatsPanel({
+  c,
+  statDefs,
+  onClose,
+}: {
+  c: Character;
+  statDefs: StatDefinition[];
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Optional-call: jsdom (tests) doesn't implement scrollIntoView.
+    ref.current?.scrollIntoView?.({ behavior: "smooth", inline: "nearest", block: "nearest" });
+  }, []);
+  const stats = statDefs.filter(
+    (d) =>
+      d.visibility === "public" &&
+      (d.appliesTo.length === 0 || d.appliesTo.includes(c.id)),
+  );
+  return (
+    <div
+      ref={ref}
+      role="region"
+      aria-label={`${c.name} statistics`}
+      className="flex w-[196px] flex-none flex-col overflow-hidden rounded-[6px] sm:w-[208px]"
+      style={{
+        border: `1px solid ${c.color}8c`,
+        background: `color-mix(in srgb, ${c.color} 12%, #0e0a04)`,
+      }}
+    >
+      <div className="flex items-start justify-between gap-2 px-[12px] pt-[12px]">
+        <div className="min-w-0">
+          <div
+            className="font-mono text-eyebrow uppercase tracking-[0.16em]"
+            style={{ color: HERO.label }}
+          >
+            Statistics
+          </div>
+          <div className="truncate font-display text-[14px] font-semibold" style={{ color: OVER_ART.title }}>
+            {c.name}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close statistics"
+          className="flex h-[20px] w-[20px] flex-none items-center justify-center rounded-full text-[12px] leading-none hover:brightness-110 focus-visible:outline focus-visible:outline-2"
+          style={{ color: OVER_ART.title, background: `${c.color}55`, outlineColor: HERO.label }}
+        >
+          ×
+        </button>
+      </div>
+      <div className="mt-[8px] min-h-0 flex-1 overflow-y-auto px-[12px] pb-[12px]">
+        {stats.length === 0 ? (
+          <p className="font-body text-body-sm italic" style={{ color: LIGHT.desc }}>
+            No statistics available.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-[6px]">
+            {stats.map((d) => (
+              <li key={d.key} className="flex items-baseline justify-between gap-2">
+                <span className="truncate font-body text-body-sm" style={{ color: LIGHT.loc }}>
+                  {d.displayName}
+                </span>
+                <span className="flex-none font-mono text-label" style={{ color: OVER_ART.title }}>
+                  {d.default}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
