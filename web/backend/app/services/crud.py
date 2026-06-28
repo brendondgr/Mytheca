@@ -24,7 +24,7 @@ from app.schemas.context_document import (
 )
 from app.schemas.scenario import ScenarioCreate, ScenarioUpdate
 from app.schemas.setting import SettingCreate, SettingUpdate
-from app.schemas.storyline import StorylineCreate, StorylineUpdate
+from app.schemas.storyline import StorylineCreate, StorylineRead, StorylineUpdate
 
 # ---- helpers ---------------------------------------------------------------
 
@@ -85,8 +85,49 @@ def _validate_refs(
 # ---- storylines ------------------------------------------------------------
 
 
-def list_storylines(db: Session) -> list[Storyline]:
-    return list(db.scalars(select(Storyline).order_by(Storyline.position, Storyline.title)))
+def list_storylines(db: Session) -> list[StorylineRead]:
+    char_count = (
+        select(func.count())
+        .where(Character.storyline_id == Storyline.id)
+        .correlate(Storyline)
+        .scalar_subquery()
+    )
+    setting_count = (
+        select(func.count())
+        .where(Setting.storyline_id == Storyline.id)
+        .correlate(Storyline)
+        .scalar_subquery()
+    )
+    scenario_count = (
+        select(func.count())
+        .where(Scenario.storyline_id == Storyline.id)
+        .correlate(Storyline)
+        .scalar_subquery()
+    )
+    rows = db.execute(
+        select(
+            Storyline,
+            char_count.label("character_count"),
+            setting_count.label("setting_count"),
+            scenario_count.label("scenario_count"),
+        ).order_by(Storyline.position, Storyline.title)
+    ).all()
+    return [
+        StorylineRead(
+            id=row.Storyline.id,
+            title=row.Storyline.title,
+            genre=row.Storyline.genre,
+            tagline=row.Storyline.tagline,
+            premise=row.Storyline.premise,
+            world_primer=row.Storyline.world_primer,
+            symbol=row.Storyline.symbol,
+            symbol_color=row.Storyline.symbol_color,
+            character_count=row.character_count,
+            setting_count=row.setting_count,
+            scenario_count=row.scenario_count,
+        )
+        for row in rows
+    ]
 
 
 def get_storyline(db: Session, storyline_id: str) -> Storyline:
