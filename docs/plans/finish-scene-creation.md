@@ -1,7 +1,7 @@
 # Plan — Finish Scene Creation (Cast/Setting dropdowns + agentic Scenario Creator)
 
 **Branch:** `feat/finish-scene-creation` (worktree: `.claude/worktrees/finish-scene-creation`)
-**Status:** In progress
+**Status:** Done — all 6 phases complete; 266 backend + 171 frontend tests green; merged to `main`.
 **Scope:** The scenario editor only (`EntityModal` + `ScenarioForm`) + a new backend Scenario Creator agent. No graph, no player, no migration (no new columns).
 
 ---

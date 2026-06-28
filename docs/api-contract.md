@@ -35,6 +35,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Authoring (live) | `POST /storylines/build/stream`, `POST /storylines/triage/stream` | **Implemented.** NDJSON (`application/x-ndjson`) streaming variants of build + triage so the New Storyline page renders the world / triage **as they are built** — the build emits `meta`/`primer`/`plan`/`character`/`setting`/`done`; triage classifies **per file**, emitting `status`+`item` per doc then `done`. Pre-flight failures (no context / unconfigured LLM) return a normal `400` before the stream opens; mid-stream failures arrive as a terminal `error` event. See Live Authoring Stream below. |
 | Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
 | Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
+| Scenario authoring | `POST /scenarios/draft` | **Implemented.** The agentic Scenario Creator: draft a scenario (title/genre/tone/goal/opening) from a seed, plus a **valid cast + setting chosen from the active world's real roster**. The model returns names from a numbered roster; the agent resolves names→ids server-side, **dropping** unknown cast and falling back to `""` for an unmatched setting — so the draft never invents or dangles a reference. Declared above `/scenarios/{id}`. See Scenario Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation), read-only inference-engine detection (`/llm/backend`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
@@ -374,6 +375,32 @@ rule: `docsOverview` is inline dropped-file text used for one generation only.
   so it works during creation before a row exists). Empty `positive` / unconfigured
   ComfyUI URL → `400 bad_request`; a Comfy failure → `502`. **Opt-in — it spends GPU
   time on the local Comfy server.**
+
+## Scenario Authoring Shapes (agentic Scenario Creator)
+
+The agent process that assembles a **scenario** at creation time — the present-
+moment "truth object" — from a one-line scene seed. Run over the configured LLM.
+Same **no retrieval** rule: `docsOverview` is accepted for parity but the scenario
+modal does not wire dropped files yet (first cut grounds on **seed + world
+roster** only).
+
+- `POST /scenarios/draft` — `{ seed, docsOverview?, storylineId? }`. Drafts a
+  scenario → `{ title, genre, tone, goal, opening, castIds, settingId }`.
+  - **Roster grounding, name→id resolution.** When `storylineId` is given, the
+    agent builds a **numbered roster** of that world's real characters and settings
+    (`crud.list_characters` / `list_settings`, capped at 40 each, ordered by
+    position) and instructs the model to return character/place **names drawn only
+    from the roster**. Names are resolved back to ids server-side via a
+    case/whitespace-folded match: **unknown cast names are dropped**, an **unmatched
+    setting falls back to `""`** (the soft-reference contract), and cast ids are
+    de-duplicated in order. So `castIds`/`settingId` are **always** real members of
+    the active world — never invented or dangling.
+  - World grounding (primer/genre) is folded in the same way as the character and
+    setting drafts (shared `agents/_common.world_context`).
+  - Empty `seed` → `400 bad_request`; unconfigured LLM → `400 bad_request`; a reply
+    that is not valid JSON → `502 upstream_error`.
+  - Persists nothing — the draft fills the create form; the author reviews, then the
+    normal `POST /storylines/{id}/scenarios` saves it.
 
 ## NDJSON Event Stream
 
