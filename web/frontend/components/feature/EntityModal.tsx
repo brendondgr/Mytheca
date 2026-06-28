@@ -1,12 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { CloseButton } from "@/components/ui/CloseButton";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { FieldLabel } from "@/components/ui/FieldLabel";
 import { TextArea } from "@/components/ui/TextArea";
 import { ScenarioForm } from "@/components/feature/ScenarioForm";
+import { SceneArtModal } from "@/components/feature/SceneArtModal";
 import { cn } from "@/lib/cn";
+import { mediaUrl } from "@/lib/api";
 import {
   EDITOR_META,
   PROMPT_EXAMPLES,
@@ -14,7 +18,7 @@ import {
 } from "@/features/library/editor";
 import type { useLibraryState } from "@/features/library/useLibraryState";
 
-const WIDTH = "sm:w-[600px] md:w-[960px]";
+const WIDTH = "sm:w-[520px] md:w-[920px] lg:w-[1120px]";
 
 const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
 
@@ -30,6 +34,9 @@ const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor
  * the storyline, character, and setting creators.
  */
 export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }) {
+  // Declare hook before the early-return guard to keep the hook order stable.
+  const [sceneArtOpen, setSceneArtOpen] = useState(false);
+
   const m = lib.modal;
   if (!m || m.type !== "scenario") return null;
   const type = m.type;
@@ -37,6 +44,10 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
   const isEdit = lib.isEditing;
   const agentic = m.mode === "agentic";
   const d = lib.draft;
+
+  const imageUrl = d.image ? mediaUrl(d.image) : null;
+  const hasDescription = Boolean((d.title || d.goal || d.opening || "").toString().trim());
+  const canRenderSceneArt = Boolean((d._sceneArtPositive ?? "").trim());
 
   return (
     <Modal
@@ -133,6 +144,37 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
               !agentic && "hidden md:block",
             )}
           >
+            {/* Scene art — compact preview + Edit-image trigger. */}
+            <div className="mb-[18px] border-b border-hair-strong pb-[16px]">
+              <FieldLabel>Scene art</FieldLabel>
+              <div className="overflow-hidden rounded-[6px] border border-cardbd bg-field">
+                {imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
+                  <img
+                    src={imageUrl}
+                    alt={`Scene art for ${d.title || "this scenario"}`}
+                    className="aspect-[16/9] w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex aspect-[16/9] w-full flex-col items-center justify-center gap-[6px] px-[10px] text-center">
+                    <span aria-hidden className="text-[20px] text-mute2">
+                      ◇
+                    </span>
+                    <span className="font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
+                      No scene art yet
+                    </span>
+                  </div>
+                )}
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() => setSceneArtOpen(true)}
+                className="mt-[10px] w-full"
+              >
+                ✎ Edit image
+              </Button>
+            </div>
+
             <Eyebrow
               size={8.5}
               tracking="0.2em"
@@ -183,6 +225,25 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
           </aside>
         </div>
       </div>
+
+      {/* Scene-art editor pop-up — prompts, generate, and the rendered preview. */}
+      <SceneArtModal
+        open={sceneArtOpen}
+        onClose={() => setSceneArtOpen(false)}
+        name={d.title || ""}
+        imageUrl={imageUrl}
+        positive={d._sceneArtPositive || ""}
+        negative={d._sceneArtNegative || ""}
+        onPositiveChange={(v) => lib.setDraft("_sceneArtPositive", v)}
+        onNegativeChange={(v) => lib.setDraft("_sceneArtNegative", v)}
+        hasDescription={hasDescription}
+        generatingPrompts={lib.generatingPrompts}
+        onGeneratePrompts={lib.generateScenarioSceneArtPrompts}
+        canRender={canRenderSceneArt}
+        generatingImage={lib.generatingPortrait}
+        onGenerate={lib.generateScenarioSceneArt}
+        error={lib.error}
+      />
     </Modal>
   );
 }
