@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, it, expect, vi } from "vitest";
 import { CharacterProfileModal } from "./CharacterProfileModal";
 import type { Character } from "@/lib/types";
 
@@ -41,5 +42,46 @@ describe("CharacterProfileModal", () => {
     render(<CharacterProfileModal character={base} onClose={() => {}} />);
     expect(screen.getByText("MV")).toBeInTheDocument();
     expect(screen.queryByText(/appearance/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/background/i)).not.toBeInTheDocument();
+  });
+
+  it("shows traits in the header", () => {
+    render(<CharacterProfileModal character={base} onClose={() => {}} />);
+    expect(screen.getByText("Patient · Calculating")).toBeInTheDocument();
+  });
+
+  it("shows all 2-column rows when all fields are present", () => {
+    render(
+      <CharacterProfileModal
+        character={{
+          ...base,
+          appearance: "Tall.",
+          background: "Merchant family.",
+          personality: "Cold.",
+        }}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.getByText(/appearance/i)).toBeInTheDocument();
+    expect(screen.getByText(/background/i)).toBeInTheDocument();
+    expect(screen.getByText(/personality/i)).toBeInTheDocument();
+    expect(screen.getByText(/voice/i)).toBeInTheDocument();
+    expect(screen.getByText(/goal/i)).toBeInTheDocument();
+    expect(screen.getByText(/secret/i)).toBeInTheDocument();
+  });
+
+  it("shows Edit Character button when onEdit is provided and calls it on click", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    render(<CharacterProfileModal character={base} onClose={() => {}} onEdit={onEdit} />);
+    const btn = screen.getByRole("button", { name: /edit character/i });
+    expect(btn).toBeInTheDocument();
+    await user.click(btn);
+    expect(onEdit).toHaveBeenCalledWith("mei");
+  });
+
+  it("hides Edit Character button when onEdit is omitted", () => {
+    render(<CharacterProfileModal character={base} onClose={() => {}} />);
+    expect(screen.queryByRole("button", { name: /edit character/i })).not.toBeInTheDocument();
   });
 });

@@ -6,22 +6,21 @@ import { cn } from "@/lib/cn";
 /**
  * Characters column — two characters per row. Members of the selected
  * scenario's cast are lit up via the card's `highlighted` state.
+ * Clicking a card opens the character profile modal.
  */
 export function CharacterColumn({
   characters,
   castIds,
-  expandedId,
   query,
-  onToggle,
+  onPreview,
   onEdit,
   onAdd,
   padX,
 }: {
   characters: Character[];
   castIds: string[];
-  expandedId: string | null;
   query: string;
-  onToggle: (id: string) => void;
+  onPreview: (id: string) => void;
   onEdit: (id: string) => void;
   onAdd?: () => void;
   padX?: string;
@@ -39,9 +38,8 @@ export function CharacterColumn({
               <CharacterCard
                 key={c.id}
                 character={c}
-                expanded={expandedId === c.id}
                 highlighted={cast.has(c.id)}
-                onToggle={() => onToggle(c.id)}
+                onPreview={() => onPreview(c.id)}
                 onEdit={() => onEdit(c.id)}
               />
             ))}
