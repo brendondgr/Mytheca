@@ -27,10 +27,10 @@ export function ScenarioCard({
   return (
     <div
       className={cn(
-        "velora-card relative rounded-[4px] hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        "velora-card relative overflow-hidden rounded-[4px] hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
         featured
-          ? "border-2 border-accent bg-card2 p-[15px] shadow-[0_6px_18px_rgba(142,43,28,.16)]"
-          : "border border-cardbd bg-card p-[16px]",
+          ? "border-2 border-accent bg-card2 shadow-[0_6px_18px_rgba(142,43,28,.16)]"
+          : "border border-cardbd bg-card",
       )}
     >
       <button
@@ -54,10 +54,16 @@ export function ScenarioCard({
         <img
           src={mediaUrl(s.image)}
           alt={`Scene art for ${s.title}`}
-          className="pointer-events-none relative z-[1] -mx-[16px] -mt-[15px] mb-[12px] h-[96px] w-[calc(100%+32px)] object-cover"
+          className="pointer-events-none relative z-[1] h-[96px] w-full object-cover"
         />
       ) : null}
-      <div className="pointer-events-none relative z-[1]">
+      <div
+        className={cn(
+          "pointer-events-none relative z-[1]",
+          featured ? "p-[15px]" : "p-[16px]",
+          s.image && "pt-[12px]",
+        )}
+      >
         <div className="flex items-baseline justify-between gap-[10px] pr-[22px]">
           <h3 className="font-display text-[19px] font-bold leading-[1.08] text-ink">
             {s.title}
