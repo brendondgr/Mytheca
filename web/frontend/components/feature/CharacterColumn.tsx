@@ -4,9 +4,9 @@ import type { Character } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
 /**
- * Characters column — two characters per row. Members of the selected
- * scenario's cast are lit up via the card's `highlighted` state.
- * Clicking a card opens the character profile modal.
+ * Characters column — three characters per row (two on the narrowest widths).
+ * Members of the selected scenario's cast are lit up via the card's
+ * `highlighted` state. Clicking a card opens the character profile modal.
  */
 export function CharacterColumn({
   characters,
@@ -33,7 +33,7 @@ export function CharacterColumn({
         {characters.length === 0 ? (
           <ColumnEmpty query={query} noun="characters" />
         ) : (
-          <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-[12px] sm:grid-cols-3">
             {characters.map((c) => (
               <CharacterCard
                 key={c.id}

@@ -61,13 +61,13 @@ describe("CharacterProfileModal", () => {
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
   });
 
-  it("renders the secret in its own section", () => {
+  it("does not render the secret (removed from the profile view)", () => {
     render(<CharacterProfileModal character={base} onClose={() => {}} />);
-    expect(screen.getByText(/secret/i)).toBeInTheDocument();
-    expect(screen.getByText("Answers to the Court.")).toBeInTheDocument();
+    expect(screen.queryByText(/secret/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Answers to the Court.")).not.toBeInTheDocument();
   });
 
-  it("shows all 2-column rows when all fields are present", () => {
+  it("shows Background + the Appearance/Personality/Voice/Goal sections (no Secret)", () => {
     render(
       <CharacterProfileModal
         character={{
@@ -84,7 +84,7 @@ describe("CharacterProfileModal", () => {
     expect(screen.getByText(/personality/i)).toBeInTheDocument();
     expect(screen.getByText(/voice/i)).toBeInTheDocument();
     expect(screen.getByText(/goal/i)).toBeInTheDocument();
-    expect(screen.getByText(/secret/i)).toBeInTheDocument();
+    expect(screen.queryByText(/secret/i)).not.toBeInTheDocument();
   });
 
   it("shows Edit Character button when onEdit is provided and calls it on click", async () => {

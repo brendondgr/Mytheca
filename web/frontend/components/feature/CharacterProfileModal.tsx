@@ -21,22 +21,18 @@ function ProfileSection({
   glyph,
   value,
   color = GOLD,
-  tone = "default",
 }: {
   label: string;
   glyph: string;
   value: string | null | undefined;
   color?: string;
-  /** "danger" gives the Secret box its warning tint + accent. */
-  tone?: "default" | "danger";
 }) {
   if (!value) return null;
-  const danger = tone === "danger";
   return (
     <section
       style={{
-        border: `1px solid ${danger ? "var(--accent)" : "var(--card-bd)"}`,
-        background: danger ? "rgba(154,53,32,.08)" : "var(--card-bg2)",
+        border: "1px solid var(--card-bd)",
+        background: "var(--card-bg2)",
         borderRadius: 4,
         boxShadow: "0 1px 2px rgba(20,14,6,.06)",
       }}
@@ -135,22 +131,9 @@ export function CharacterProfileModal({
                 )}
               </div>
             </div>
-            {/* Seal medallion overlapping the frame's bottom edge */}
-            <span
-              aria-hidden
-              className="absolute -bottom-[14px] left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full text-[16px] leading-none"
-              style={{
-                color: GOLD,
-                background: "var(--card-bg)",
-                border: `2px solid ${GOLD}`,
-                boxShadow: "0 4px 14px rgba(40,30,16,.22)",
-              }}
-            >
-              ❖
-            </span>
           </div>
 
-          {/* Right column: name · role · trait pills · Appearance · Background */}
+          {/* Right column: name · role · trait pills · Background */}
           <div className="mt-[26px] min-w-0 flex-1 pr-[36px] md:mt-0">
             <h2
               id="profile-name"
@@ -182,7 +165,6 @@ export function CharacterProfileModal({
             ) : null}
 
             <div className="mt-[16px] grid grid-cols-1 gap-[14px]">
-              <ProfileSection label="Appearance" glyph="◈" value={c.appearance} />
               <ProfileSection label="Background" glyph="❖" value={c.background} />
             </div>
           </div>
@@ -191,16 +173,10 @@ export function CharacterProfileModal({
         {/* Remaining four sections — 2×2 grid */}
         <div className="p-[20px_24px_24px]">
           <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+            <ProfileSection label="Appearance" glyph="◈" value={c.appearance} />
             <ProfileSection label="Personality" glyph="✦" value={c.personality} />
             <ProfileSection label="Voice" glyph="◆" value={c.speech} />
             <ProfileSection label="Goal" glyph="◎" value={c.goal} />
-            <ProfileSection
-              label="Secret"
-              glyph="✺"
-              value={c.secret}
-              color="var(--accent)"
-              tone="danger"
-            />
           </div>
 
           {onEdit ? (
