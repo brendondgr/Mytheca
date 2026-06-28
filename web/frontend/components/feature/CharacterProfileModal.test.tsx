@@ -45,9 +45,26 @@ describe("CharacterProfileModal", () => {
     expect(screen.queryByText(/background/i)).not.toBeInTheDocument();
   });
 
-  it("shows traits in the header", () => {
+  it("splits the traits string into one pill per trait", () => {
     render(<CharacterProfileModal character={base} onClose={() => {}} />);
-    expect(screen.getByText("Patient · Calculating")).toBeInTheDocument();
+    const pills = screen.getAllByRole("listitem");
+    expect(pills.map((p) => p.textContent?.replace(/^◆/, "").trim())).toEqual([
+      "Patient",
+      "Calculating",
+    ]);
+  });
+
+  it("renders no trait pills when traits is empty", () => {
+    render(
+      <CharacterProfileModal character={{ ...base, traits: "" }} onClose={() => {}} />,
+    );
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+  });
+
+  it("renders the secret in its own section", () => {
+    render(<CharacterProfileModal character={base} onClose={() => {}} />);
+    expect(screen.getByText(/secret/i)).toBeInTheDocument();
+    expect(screen.getByText("Answers to the Court.")).toBeInTheDocument();
   });
 
   it("shows all 2-column rows when all fields are present", () => {

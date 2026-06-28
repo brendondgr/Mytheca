@@ -40,6 +40,13 @@
 
 ## Follow-up Work (next steps)
 
+### Character profile — bolder, more structured dossier (done; `feat/character-profile-bolder`; plan: `docs/plans/character-profile-bolder-structure.md`)
+Frontend-only restyle of `CharacterProfileModal` to match a bolder/structured reference (scope: profile modal only — `CharacterCard`/`CastRail` unchanged). Three phases, commit-per-phase, merged to `main`.
+- **Phase 1 — restructure:** flat 2-col grid replaced by a framed-portrait hero (2px character-color frame + inner hairline + `❖` seal medallion), large uppercase Cinzel name, role eyebrow on a rule, and `◆`-led **trait pills** (free-text `traits` split on `·`/`,`). Body is bordered manuscript section boxes (`ProfileSection` replaces `ProfileCell`): Background full-width, Appearance|Personality + Voice|Goal in a 2-col grid, full-width danger-tinted Secret box; widened to `sm:w-[640px]`. `CloseButton` gained an optional `className`.
+- **Phase 2 — theme/a11y/responsive (verified, no code delta needed):** all surfaces use theme tokens — confirmed in-browser across **Parchment / Ember / Slate** (section boxes resolve `--card-bg2`/`--card-bd`; Secret keeps its `--accent` border + rust tint; name uses the theme ink). Responsive verified at **320 / 375** (single-column grid, stacked hero, no horizontal overflow) and **desktop** (2-col). Decorative glyphs are `aria-hidden`; modal focus-trap/Escape inherited from `Modal`.
+- **Phase 3 — tests + docs:** `CharacterProfileModal.test.tsx` updated for the pill split (one `listitem` per trait), empty-traits, and the Secret section → **8 tests**; `component-map.md` + `design-system.md` (Meaningful Imagery → "Character dossier") + this entry.
+- **Validation:** typecheck clean; full Vitest suite **192 passed (42 files)**. No backend changes → `pytest` N/A. In-browser a11y/responsive pass done in a worktree dev server (screenshots unavailable in this env — verified via a11y snapshot + computed styles).
+
 ### Character Card Preview Modal — click opens profile popup, 2-column layout (done; `feat/character-card-preview-modal`; plan: `docs/plans/character-card-preview-modal.md`)
 Frontend-only. Three phases, commit-per-phase, merged to `main`.
 - **Phase 1 — `CharacterProfileModal` 2-column layout:** widened to `sm:w-[560px]`; body replaced by a 2-column CSS grid with row pairs: Appearance|Background · Personality|Voice · Goal|Secret · Edit button (full span). Empty cells omitted; if only one in a pair is present it spans both columns. Traits line moved into the header. 6 tests (existing + new row/column assertions + edit callback + omit-empty-row).
