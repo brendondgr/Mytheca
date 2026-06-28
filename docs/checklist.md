@@ -40,6 +40,13 @@
 
 ## Follow-up Work (next steps)
 
+### Scenario Editor — three-column layout (done; `feat/scenario-editor-three-column`; plan: `docs/plans/scenario-editor-three-column.md`)
+Restructured `EntityModal` (scenario editor) to match `CharacterModal`/`SettingModal`'s three-column pattern. Two phases, commit-per-phase, merged to `main`.
+- **Phase 1 — UI restructure:** `EntityModal.tsx` now uses `Modal` `externalClose` + `splitScroll`; outer `lg:flex` wrapper; main column is `lg:flex-1 lg:overflow-y-auto`; inner two-column `md:flex` (form `md:flex-1 md:pr-[26px]` + aside `md:w-[300px]`); `ContextFilesPanel` added as the third `lg:w-[330px]` column. Footer moved outside the inner flex to be full-width. Removed unused `CloseButton` import.
+- **Phase 2 — tests + docs:** `EntityModal.test.tsx` gained `_docFiles: []` in the draft baseline + two new tests (ContextFilesPanel visible in agentic mode; hidden class present in manual mode). `docs/component-map.md` updated for `EntityModal` (three-column entry) and `ContextFilesPanel` (now also used by EntityModal).
+- **Validation:** 182 frontend tests (typecheck + lint + build clean). Backend untouched — `draft._docFiles → draftScenario` wire already existed.
+- **Deferred — live in-browser a11y/responsive pass (320/375/768/1024):** same standing constraint (shared working dir, `preview_start` can't reuse the external dev server on 3346). Verified structurally: `EntityModal` now uses `Modal` `splitScroll`/`externalClose` (same as Setting/CharacterModal); `ContextFilesPanel` is a native drag-drop zone + `Browse files` label; aside hidden via `hidden md:flex` when not in agentic mode. Run the in-browser pass once the dir is free: open a scenario, confirm the three-column layout + context-files drop zone at lg+, then drop a `.txt` file and verify it grounds "Draft with Velora."
+
 ### Scenario Scene Art — watercolor image generation for Scenarios (done; `feat/scenario-scene-art`; plan: `docs/plans/scenario-scene-art.md`)
 Brought **Scenario** scene-art generation to parity with the Setting Creator. Five phases, commit-per-phase, merged to `main`.
 - **Phase 1 — data layer:** nullable `image`, `scene_art_positive`, `scene_art_negative` (all String) columns on `Scenario` (model/schemas/CRUD); Alembic migration `20260628_121750_scenario_scene_art_columns.py` (`revision e13f0f3faea0`); `services/media_cleanup.py` extended to track `Scenario.image` alongside `Character.portrait` and `Setting.image`. Roundtrip + null-default tests.

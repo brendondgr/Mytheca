@@ -20,6 +20,7 @@ function makeLib(overrides: Partial<Lib> = {}): Lib {
       _sceneArtPositive: "",
       _sceneArtNegative: "",
       _ai: false,
+      _docFiles: [],
     },
     isEditing: false,
     isValid: true,
@@ -78,5 +79,21 @@ describe("EntityModal (scenario)", () => {
     lib.modal = { type: "setting", mode: "manual", editId: null };
     const { container } = render(<EntityModal lib={lib} />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("shows the ContextFilesPanel context files section in agentic mode", () => {
+    render(<EntityModal lib={makeLib()} />);
+    // Eyebrow renders "⎙ Context files" — use regex; browse-files is a <label>
+    expect(screen.getByText(/context files/i)).toBeInTheDocument();
+    expect(screen.getByText("Browse files")).toBeInTheDocument();
+  });
+
+  it("hides the ContextFilesPanel in manual mode on small screens", () => {
+    const lib = makeLib();
+    lib.modal = { type: "scenario", mode: "manual", editId: null };
+    render(<EntityModal lib={lib} />);
+    // The panel uses `hidden md:flex` when show=false — confirm the aside carries hidden
+    const aside = screen.getByText(/context files/i).closest("aside");
+    expect(aside).toHaveClass("hidden");
   });
 });
