@@ -13,9 +13,15 @@ from app.schemas.scenario import (
     ScenarioDraftResponse,
     ScenarioGraphRead,
     ScenarioRead,
+    ScenarioSceneArtPromptRequest,
     ScenarioUpdate,
 )
-from app.services import crud, graph_reader
+from app.schemas.setting import (
+    SceneArtGenerateRequest,
+    SceneArtGenerateResponse,
+    SceneArtPromptResponse,
+)
+from app.services import crud, graph_reader, scene_art
 
 router = APIRouter(tags=["scenarios"])
 
@@ -43,6 +49,39 @@ def create_scenario(storyline_id: str, data: ScenarioCreate, db: Session = Depen
 def draft_scenario(data: ScenarioDraftRequest, db: Session = Depends(get_db)):
     """Draft a scenario (fields + a roster-grounded cast & setting) from a seed."""
     return scenario_agent.draft_scenario(db, data.seed, data.docs_overview, data.storyline_id)
+
+
+@router.post("/scenarios/scene-art-prompts", response_model=SceneArtPromptResponse)
+def scenario_scene_art_prompts(data: ScenarioSceneArtPromptRequest, db: Session = Depends(get_db)):
+    """Write the watercolor positive/negative prompts for a scenario establishing shot."""
+    return scenario_agent.generate_scene_art_prompts(
+        db,
+        title=data.title,
+        genre=data.genre,
+        tone=data.tone,
+        goal=data.goal,
+        opening=data.opening,
+        setting_name=data.setting_name,
+        setting_desc=data.setting_desc,
+        notes=data.notes,
+    )
+
+
+@router.post("/scenarios/scene-art", response_model=SceneArtGenerateResponse)
+def scenario_scene_art(data: SceneArtGenerateRequest, db: Session = Depends(get_db)):
+    """Render a watercolor establishing image via ComfyUI, save it as WebP, return its URL."""
+    result = scene_art.generate_scene_art(
+        db,
+        data.positive,
+        data.negative,
+        base_url=data.base_url,
+        workflow=data.workflow,
+        width=data.width,
+        height=data.height,
+        steps=data.steps,
+        cfg=data.cfg,
+    )
+    return SceneArtGenerateResponse(image=result["image"])
 
 
 @router.get("/scenarios/{scenario_id}", response_model=ScenarioRead)

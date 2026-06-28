@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { SettingCard } from "@/components/feature/SettingCard";
 import { ColumnEmpty, ColumnHeader } from "@/components/feature/ColumnChrome";
 import type { Setting } from "@/lib/types";
+import { cn } from "@/lib/cn";
 
 /**
  * Settings column — one setting per row. The selected scenario's setting is
@@ -17,12 +18,14 @@ export function SettingColumn({
   query,
   onEdit,
   onAdd,
+  padX,
 }: {
   settings: Setting[];
   activeId: string;
   query: string;
   onEdit: (id: string) => void;
   onAdd?: () => void;
+  padX?: string;
 }) {
   const activeRef = useRef<HTMLDivElement>(null);
 
@@ -39,29 +42,31 @@ export function SettingColumn({
 
   return (
     <div>
-      <ColumnHeader title="Settings" count={settings.length} hint="The places of this world." onAdd={onAdd} addLabel="Add setting" />
-      {settings.length === 0 ? (
-        <ColumnEmpty query={query} noun="settings" />
-      ) : (
-        <div className="flex flex-col gap-[14px]">
-          {settings.map((s) => {
-            const isActive = s.id === activeId;
-            return (
-              <div
-                key={s.id}
-                ref={isActive ? activeRef : undefined}
-                className={isActive ? "scroll-mt-[68px]" : undefined}
-              >
-                <SettingCard
-                  setting={s}
-                  active={isActive}
-                  onEdit={() => onEdit(s.id)}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <ColumnHeader title="Settings" count={settings.length} hint="The places of this world." onAdd={onAdd} addLabel="Add setting" className={padX} />
+      <div className={cn(padX)}>
+        {settings.length === 0 ? (
+          <ColumnEmpty query={query} noun="settings" />
+        ) : (
+          <div className="flex flex-col gap-[14px]">
+            {settings.map((s) => {
+              const isActive = s.id === activeId;
+              return (
+                <div
+                  key={s.id}
+                  ref={isActive ? activeRef : undefined}
+                  className={isActive ? "scroll-mt-[68px]" : undefined}
+                >
+                  <SettingCard
+                    setting={s}
+                    active={isActive}
+                    onEdit={() => onEdit(s.id)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

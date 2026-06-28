@@ -49,6 +49,14 @@ export function ScenarioCard({
           ✎
         </IconButton>
       ) : null}
+      {s.image ? (
+        // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
+        <img
+          src={mediaUrl(s.image)}
+          alt={`Scene art for ${s.title}`}
+          className="pointer-events-none relative z-[1] -mx-[16px] -mt-[15px] mb-[12px] h-[96px] w-[calc(100%+32px)] object-cover"
+        />
+      ) : null}
       <div className="pointer-events-none relative z-[1]">
         <div className="flex items-baseline justify-between gap-[10px] pr-[22px]">
           <h3 className="font-display text-[19px] font-bold leading-[1.08] text-ink">

@@ -463,6 +463,28 @@ export interface ScenarioDraftResult {
 export const draftScenario = (seed: string, storylineId?: string, docsOverview?: string) =>
   post<ScenarioDraftResult>("/scenarios/draft", { seed, docsOverview, storylineId });
 
+export const generateScenarioSceneArtPrompts = (body: {
+  title?: string;
+  genre?: string | null;
+  tone?: string | null;
+  goal?: string | null;
+  opening?: string | null;
+  settingName?: string | null;
+  settingDesc?: string | null;
+  notes?: string | null;
+}) => post<SceneArtPromptResult>("/scenarios/scene-art-prompts", body);
+
+export const generateScenarioSceneArt = (body: {
+  positive: string;
+  negative?: string;
+  baseUrl?: string;
+  workflow?: string;
+  width?: number;
+  height?: number;
+  steps?: number;
+  cfg?: number;
+}) => post<SceneArtResult>("/scenarios/scene-art", body);
+
 // ---- options / settings ----
 // Mirrors web/backend/app/schemas/settings.py. The LLM API key is write-only:
 // reads expose only `hasApiKey` + a masked `apiKeyHint`.

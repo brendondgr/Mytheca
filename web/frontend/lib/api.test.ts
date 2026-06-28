@@ -6,6 +6,8 @@ import {
   createCharacter,
   createGraphType,
   deleteCharacter,
+  generateScenarioSceneArt,
+  generateScenarioSceneArtPrompts,
   getScenarioGraph,
   listStorylines,
   postNdjson,
@@ -148,5 +150,27 @@ describe("api client", () => {
     expect(url).toContain("/storylines/embergate/graph/types");
     expect(init?.method).toBe("POST");
     expect(JSON.parse(init?.body as string).valence).toBe("positive");
+  });
+
+  it("generateScenarioSceneArtPrompts POSTs to /scenarios/scene-art-prompts", async () => {
+    const spy = mockFetch(() =>
+      new Response(JSON.stringify({ positive: "foggy harbor, watercolor", negative: "people, text" }), { status: 200 }),
+    );
+    const result = await generateScenarioSceneArtPrompts({ title: "The Salt Ledger", tone: "Tension · rising" });
+    expect(result.positive).toContain("watercolor");
+    const [url, init] = spy.mock.calls[0];
+    expect(url).toContain("/scenarios/scene-art-prompts");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init?.body as string).title).toBe("The Salt Ledger");
+  });
+
+  it("generateScenarioSceneArt POSTs to /scenarios/scene-art and returns image", async () => {
+    const spy = mockFetch(() =>
+      new Response(JSON.stringify({ image: "/media/scenes/abc.webp" }), { status: 200 }),
+    );
+    const result = await generateScenarioSceneArt({ positive: "foggy harbor, watercolor" });
+    expect(result.image).toBe("/media/scenes/abc.webp");
+    const [url] = spy.mock.calls[0];
+    expect(url).toContain("/scenarios/scene-art");
   });
 });

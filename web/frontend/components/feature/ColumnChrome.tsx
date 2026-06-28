@@ -1,24 +1,29 @@
 /** Shared chrome for the Library's three open columns: a header + empty note. */
 
+import { cn } from "@/lib/cn";
+
 export function ColumnHeader({
   title,
   count,
   hint,
   onAdd,
   addLabel,
+  className,
 }: {
   title: string;
   count: number;
   hint?: string;
   onAdd?: () => void;
   addLabel?: string;
+  className?: string;
 }) {
   // Sticky so the column's identity stays visible while its content scrolls.
-  // The bg-page wrapper extends below the rule so scrolling cards never peek
-  // through a margin gap.
+  // The outer wrapper has no horizontal padding so bg-page covers the full
+  // column width (edge-to-edge). Horizontal padding lives on the inner div
+  // via the className prop so content aligns with the cards below.
   return (
     <div className="sticky top-0 z-[10] bg-page pb-[12px]">
-      <div className="border-b border-hair-strong pb-[8px]">
+      <div className={cn("border-b border-hair-strong pb-[8px]", className)}>
         <div className="flex items-center justify-between gap-[8px]">
           <div className="flex items-baseline gap-[8px]">
             <h2 className="font-display text-[16px] font-semibold tracking-[0.06em] text-ink uppercase">

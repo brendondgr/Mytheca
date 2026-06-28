@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.character import Character
+from app.models.scenario import Scenario
 from app.models.setting import Setting
 
 
@@ -62,6 +63,11 @@ def _referenced_basenames(db: Session) -> set[str]:
             basenames.add(basename)
 
     for (value,) in db.query(Setting.image).filter(Setting.image.isnot(None)):
+        basename = value.rsplit("/", 1)[-1]
+        if basename.endswith(".webp"):
+            basenames.add(basename)
+
+    for (value,) in db.query(Scenario.image).filter(Scenario.image.isnot(None)):
         basename = value.rsplit("/", 1)[-1]
         if basename.endswith(".webp"):
             basenames.add(basename)
