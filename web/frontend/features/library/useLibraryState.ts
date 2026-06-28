@@ -445,6 +445,54 @@ export function useLibraryState(initialStorylineId?: string) {
     }
   }
 
+  // ---- scenario scene-art authoring (ComfyUI, mirrors the setting path) ------
+  /** Write the watercolor positive/negative scene-art prompts for a scenario moment. */
+  async function generateScenarioSceneArtPrompts() {
+    if (!modal || modal.type !== "scenario") return;
+    setGeneratingPrompts(true);
+    setError(null);
+    try {
+      const activeSetting = settings.find((s) => s.id === draft.settingId);
+      const r = await api.generateScenarioSceneArtPrompts({
+        title: draft.title,
+        genre: draft.genre,
+        tone: draft.tone,
+        goal: draft.goal,
+        opening: draft.opening,
+        settingName: activeSetting?.name,
+        settingDesc: activeSetting?.desc,
+      });
+      setDraftState((prev) => ({
+        ...prev,
+        _sceneArtPositive: r.positive,
+        _sceneArtNegative: r.negative,
+      }));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGeneratingPrompts(false);
+    }
+  }
+  /** Render the establishing image via ComfyUI for a scenario → draft.image. */
+  async function generateScenarioSceneArt() {
+    if (!modal || modal.type !== "scenario") return;
+    const positive = (draft._sceneArtPositive ?? "").trim();
+    if (!positive) return;
+    setGeneratingPortrait(true);
+    setError(null);
+    try {
+      const { image } = await api.generateScenarioSceneArt({
+        positive,
+        negative: draft._sceneArtNegative?.trim() || undefined,
+      });
+      setDraftState((prev) => ({ ...prev, image }));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGeneratingPortrait(false);
+    }
+  }
+
   // ---- storyline delete (confirm → delete → reselect if it was active) ----
   const [deleteStorylineId, setDeleteStorylineId] = useState<string | null>(null);
   const storylineToDelete =
@@ -541,7 +589,13 @@ export function useLibraryState(initialStorylineId?: string) {
   function editScenario(id: string) {
     const s = scenarios.find((x) => x.id === id);
     if (!s) return;
-    setDraftState({ title: s.title, genre: s.genre, tone: s.tone, goal: s.goal, cast: [...s.castIds], settingId: s.settingId, branches: [...s.branches] });
+    setDraftState({
+      title: s.title, genre: s.genre, tone: s.tone, goal: s.goal,
+      cast: [...s.castIds], settingId: s.settingId, branches: [...s.branches],
+      image: s.image ?? null,
+      _sceneArtPositive: s.sceneArtPositive ?? "",
+      _sceneArtNegative: s.sceneArtNegative ?? "",
+    });
     setError(null);
     setModal({ type: "scenario", mode: "manual", editId: id });
   }
@@ -668,6 +722,9 @@ export function useLibraryState(initialStorylineId?: string) {
           settingId: d.settingId ?? "",
           opening: d.opening?.trim() || "A new scene awaits its first line of narration…",
           branches: [...(d.branches ?? [])],
+          image: d.image || null,
+          sceneArtPositive: d._sceneArtPositive?.trim() || null,
+          sceneArtNegative: d._sceneArtNegative?.trim() || null,
         };
         if (editId) {
           const updated = await api.updateScenario(editId, body);
@@ -729,7 +786,7 @@ export function useLibraryState(initialStorylineId?: string) {
     // setting agentic authoring
     draftSetting, generateSceneArtPrompts, generateSceneArt,
     // scenario agentic authoring
-    draftScenario,
+    draftScenario, generateScenarioSceneArtPrompts, generateScenarioSceneArt,
     requestDeleteStoryline, confirmDeleteStoryline, cancelDeleteStoryline,
     storylineToDelete,
     characters, settings, scenarios, resolvedScenarios,

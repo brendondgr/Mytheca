@@ -92,6 +92,12 @@ export interface Scenario {
   /** Narrator opening line, shown in the begin-scene preview. */
   opening: string;
   branches: Branch[];
+  /** Relative `/media/...` URL of an optional scene-art image; plate fallback. */
+  image?: string | null;
+  /** Persisted positive ComfyUI prompt for the scene-art image. */
+  sceneArtPositive?: string | null;
+  /** Persisted negative ComfyUI prompt for the scene-art image. */
+  sceneArtNegative?: string | null;
 }
 
 /** A scenario with its cast + setting resolved from id references. */
