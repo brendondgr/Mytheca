@@ -33,9 +33,10 @@ export function ScenarioCarousel({
   onNext,
   onSelect,
   counterText,
-  onBegin,
   onProfile,
-  onEdit,
+  // onEdit and onBegin kept in the signature for caller compat but not rendered.
+  onBegin: _onBegin,
+  onEdit: _onEdit,
 }: {
   slides: ResolvedScenario[];
   index: number;
@@ -45,7 +46,6 @@ export function ScenarioCarousel({
   counterText: string;
   onBegin?: (id: string) => void;
   onProfile?: (id: string) => void;
-  /** When provided, shows a ✎ edit button in the header row. */
   onEdit?: (id: string) => void;
 }) {
   if (slides.length === 0) {
@@ -62,7 +62,7 @@ export function ScenarioCarousel({
           No scenarios yet
         </span>
         <p
-          className="max-w-[420px] px-4 text-center font-body text-[15px] italic"
+          className="max-w-[420px] px-4 text-center font-body text-body-sm italic"
           style={{ color: HERO.goal }}
         >
           This storyline has no scenes. Use{" "}
@@ -72,8 +72,6 @@ export function ScenarioCarousel({
       </section>
     );
   }
-
-  const current = slides[index];
 
   return (
     <section
@@ -93,28 +91,28 @@ export function ScenarioCarousel({
             className="flex h-full flex-[0_0_100%]"
             style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
           >
-            {/* LEFT PANEL — compact: title, location, genre/tone, goal, begin scene */}
+            {/* LEFT PANEL — compact info strip: title, location, genre/tone, description */}
             <div
-              className="flex w-[140px] flex-none flex-col overflow-hidden border-r p-[40px_10px_12px] sm:w-[158px] sm:p-[46px_14px_14px]"
+              className="flex w-[178px] flex-none flex-col overflow-hidden border-r p-[42px_14px_16px] sm:w-[210px] sm:p-[46px_18px_18px]"
               style={{ borderColor: HERO.divider }}
             >
               <h2
-                className="line-clamp-2 font-display text-[15px] font-bold leading-[1.1] sm:text-[18px]"
+                className="line-clamp-2 font-display text-[20px] font-bold leading-[1.05] sm:text-[24px]"
                 style={{ color: HERO.title }}
               >
                 {s.title}
               </h2>
 
               {/* Location */}
-              <div className="mt-[5px] flex items-baseline gap-[4px]">
+              <div className="mt-[6px] flex items-baseline gap-[5px]">
                 <span
-                  className="flex-none font-mono text-[7.5px] uppercase tracking-[0.16em]"
+                  className="flex-none font-mono text-eyebrow uppercase tracking-[0.18em]"
                   style={{ color: HERO.label }}
                 >
                   Location
                 </span>
                 <span
-                  className="truncate font-mono text-[9px] font-medium"
+                  className="truncate font-mono text-label font-medium"
                   style={{ color: HERO.title }}
                 >
                   ◆ {s.setting.name}
@@ -122,40 +120,28 @@ export function ScenarioCarousel({
               </div>
 
               {/* Genre / tone tags */}
-              <div className="mt-[6px] flex flex-wrap gap-[4px]">
+              <div className="mt-[7px] flex flex-wrap gap-[5px]">
                 <span
-                  className="rounded-[2px] px-[6px] py-[1px] font-mono text-[7.5px] uppercase tracking-[0.09em]"
+                  className="rounded-[2px] px-[7px] py-[2px] font-mono text-tag uppercase tracking-[0.09em]"
                   style={{ background: HERO.label, color: "#1f160c" }}
                 >
                   {s.genre}
                 </span>
                 <span
-                  className="rounded-[2px] border px-[6px] py-[1px] font-mono text-[7.5px] uppercase tracking-[0.09em]"
+                  className="rounded-[2px] border px-[7px] py-[2px] font-mono text-tag uppercase tracking-[0.09em]"
                   style={{ color: HERO.toneText, borderColor: HERO.chevBd }}
                 >
                   {s.tone}
                 </span>
               </div>
 
-              {/* Description — grows to fill remaining space */}
+              {/* Description */}
               <p
-                className="mt-[7px] flex-1 overflow-hidden font-body text-[12px] leading-[1.4] line-clamp-3"
+                className="mt-[8px] line-clamp-3 font-body text-body-sm leading-[1.4]"
                 style={{ color: HERO.goal }}
               >
                 {s.goal}
               </p>
-
-              {/* Begin Scene pinned to bottom */}
-              {onBegin ? (
-                <button
-                  type="button"
-                  onClick={() => onBegin(s.id)}
-                  className="mt-[8px] w-full rounded-[2px] px-[4px] py-[7px] font-mono text-[8.5px] uppercase tracking-[0.09em] hover:brightness-110"
-                  style={{ background: HERO.label, color: "#1f160c" }}
-                >
-                  Begin Scene ▸
-                </button>
-              ) : null}
             </div>
 
             {/* CHARACTER STRIP — wide horizontal scroll of vertical character cards */}
@@ -167,7 +153,7 @@ export function ScenarioCarousel({
                 {s.cast.map((c) => (
                   <div
                     key={c.id}
-                    className="flex w-[88px] flex-none flex-col items-center border-r px-[6px] pb-[12px] pt-[42px] sm:w-[100px] sm:px-[8px] sm:pt-[48px]"
+                    className="flex w-[114px] flex-none flex-col items-center border-r px-[8px] pb-[14px] pt-[42px] sm:w-[130px] sm:px-[10px] sm:pt-[48px]"
                     style={{ borderColor: HERO.divider }}
                   >
                     {/* Portrait */}
@@ -182,7 +168,7 @@ export function ScenarioCarousel({
                         <Monogram
                           mono={c.mono}
                           color={c.color}
-                          size={42}
+                          size={52}
                           ring={2}
                           bg={HERO.medBg}
                           src={c.portrait ? mediaUrl(c.portrait) : undefined}
@@ -192,7 +178,7 @@ export function ScenarioCarousel({
                       <Monogram
                         mono={c.mono}
                         color={c.color}
-                        size={42}
+                        size={52}
                         ring={2}
                         bg={HERO.medBg}
                         src={c.portrait ? mediaUrl(c.portrait) : undefined}
@@ -201,7 +187,7 @@ export function ScenarioCarousel({
 
                     {/* Character name */}
                     <div
-                      className="mt-[5px] w-full truncate text-center font-display text-[10px] font-semibold leading-[1.2] sm:text-[11px]"
+                      className="mt-[6px] w-full truncate text-center font-display text-[13px] font-semibold leading-[1.2] sm:text-[15px]"
                       style={{ color: c.color }}
                     >
                       {c.name}
@@ -209,38 +195,36 @@ export function ScenarioCarousel({
 
                     {/* Divider */}
                     <div
-                      className="mx-[4px] mt-[6px] w-full border-t"
+                      className="mx-[4px] mt-[7px] w-full border-t"
                       style={{ borderColor: HERO.divider }}
                     />
 
-                    {/* Stat rows: key label above value */}
-                    <div className="mt-[5px] w-full flex-1 space-y-[5px] overflow-hidden">
-                      {/* Role */}
+                    {/* Stat rows — Role and Traits */}
+                    <div className="mt-[6px] w-full flex-1 space-y-[6px] overflow-hidden">
                       <div>
                         <div
-                          className="font-mono text-[6.5px] uppercase tracking-[0.1em]"
+                          className="font-mono text-eyebrow uppercase tracking-[0.12em]"
                           style={{ color: HERO.label }}
                         >
                           Role
                         </div>
                         <div
-                          className="mt-[1px] line-clamp-2 font-mono text-[7px] leading-[1.25]"
+                          className="mt-[2px] line-clamp-2 font-mono text-label leading-[1.3]"
                           style={{ color: HERO.toneText }}
                         >
                           {c.role}
                         </div>
                       </div>
-                      {/* Traits */}
                       {c.traits ? (
                         <div>
                           <div
-                            className="font-mono text-[6.5px] uppercase tracking-[0.1em]"
+                            className="font-mono text-eyebrow uppercase tracking-[0.12em]"
                             style={{ color: HERO.label }}
                           >
                             Traits
                           </div>
                           <div
-                            className="mt-[1px] line-clamp-2 font-mono text-[7px] leading-[1.25]"
+                            className="mt-[2px] line-clamp-2 font-mono text-label leading-[1.3]"
                             style={{ color: HERO.toneText }}
                           >
                             {c.traits}
@@ -250,8 +234,8 @@ export function ScenarioCarousel({
                     </div>
                   </div>
                 ))}
-                {/* Trailing spacer so the last card doesn't clip against the art panel */}
-                <div className="w-[8px] flex-none" />
+                {/* Trailing spacer so the last card has room before the art panel */}
+                <div className="w-[10px] flex-none" />
               </div>
             </div>
 
@@ -285,12 +269,11 @@ export function ScenarioCarousel({
         ))}
       </div>
 
-      {/* overlay: "Recent Scenario" label + chevrons + counter + edit button
-          lg:right-[437px] keeps the overlay within the left+character zone,
-          stopping before the scene art panel (246 × 16/9 ≈ 437px wide). */}
+      {/* overlay: "Recent Scenario" label + chevrons + counter
+          lg:right-[437px] keeps the overlay within the left+character zone. */}
       <div className="pointer-events-none absolute top-[14px] left-[16px] right-[16px] flex items-center gap-3 sm:left-[30px] lg:right-[437px]">
         <span
-          className="font-mono text-[8px] uppercase tracking-[0.22em]"
+          className="font-mono text-tag uppercase tracking-[0.22em]"
           style={{ color: HERO.label }}
         >
           Recent Scenario
@@ -318,18 +301,6 @@ export function ScenarioCarousel({
             ›
           </button>
         </div>
-        {/* Edit button — ml-auto, vertically centered with the label. */}
-        {onEdit && current ? (
-          <button
-            type="button"
-            onClick={() => onEdit(current.id)}
-            aria-label={`Edit ${current.title}`}
-            className="pointer-events-auto ml-auto flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] leading-none"
-            style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label }}
-          >
-            ✎
-          </button>
-        ) : null}
       </div>
 
       {/* overlay: slide-select dots (left+character zone only at lg) */}

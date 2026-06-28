@@ -90,18 +90,6 @@ describe("LibraryView — editors & modals", () => {
     ).toBeInTheDocument();
   });
 
-  it("previews the begin-scene with a link into the player", async () => {
-    const user = userEvent.setup();
-    render(<LibraryView />);
-    await user.click(await screen.findByRole("button", { name: /begin scene/i }));
-
-    const dialog = screen.getByRole("dialog", {
-      name: /the embergate conspiracy/i,
-    });
-    expect(
-      within(dialog).getByRole("link", { name: /enter scene/i }),
-    ).toHaveAttribute("href", "/embergate/embergate");
-  });
 
   it("edits a character via the card pencil", async () => {
     const user = userEvent.setup();
