@@ -10,7 +10,6 @@ const HERO = {
   title: "var(--ink)",
   goal: "var(--ink-soft)",
   label: "#C8862A",       // gold — theme-agnostic per design-system.md
-  set: "var(--mute)",
   medBg: "var(--field-bg)",
   artLabel: "var(--mute2)",
   artLabelBg: "var(--field-bg)",
@@ -22,8 +21,8 @@ const HERO = {
   statKey: "var(--mute)",
 };
 
-// Scene art column: aspect-[16/9] h-[246px] → width ≈ 437px. Used to position
-// the header overlay and dot pagination so they stop before the art panel.
+// Scene art panel: aspect-[16/9] × h-[246px] → width ≈ 437px.
+// Used to keep the header overlay and dots within the narrative+cast zone at lg.
 const ART_RIGHT = "437px";
 
 /** The recent-scenario hero carousel (display + prev/next/dots navigation). */
@@ -94,64 +93,84 @@ export function ScenarioCarousel({
             className="flex h-full flex-[0_0_100%]"
             style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
           >
-            {/* Left column: title + setting location + description */}
-            <div className="min-w-0 flex-1 overflow-hidden p-[40px_16px_16px] sm:p-[46px_22px_18px]">
+            {/* LEFT PANEL — compact: title, location, genre/tone, goal, begin scene */}
+            <div
+              className="flex w-[140px] flex-none flex-col overflow-hidden border-r p-[40px_10px_12px] sm:w-[158px] sm:p-[46px_14px_14px]"
+              style={{ borderColor: HERO.divider }}
+            >
               <h2
-                className="truncate font-display text-[22px] font-bold leading-[1.05] sm:text-[28px]"
+                className="line-clamp-2 font-display text-[15px] font-bold leading-[1.1] sm:text-[18px]"
                 style={{ color: HERO.title }}
               >
                 {s.title}
               </h2>
 
-              {/* Genre / tone tags */}
-              <div className="mt-[8px] flex gap-[6px]">
+              {/* Location */}
+              <div className="mt-[5px] flex items-baseline gap-[4px]">
                 <span
-                  className="rounded-[2px] px-[9px] py-[3px] font-mono text-tag uppercase tracking-[0.1em]"
-                  style={{ background: HERO.label, color: "#1f160c" }}
-                >
-                  {s.genre}
-                </span>
-                <span
-                  className="rounded-[2px] border px-[9px] py-[3px] font-mono text-tag uppercase tracking-[0.1em]"
-                  style={{ color: HERO.toneText, borderColor: HERO.chevBd }}
-                >
-                  {s.tone}
-                </span>
-              </div>
-
-              {/* Setting — prominent location indicator below the title */}
-              <div className="mt-[10px] flex items-baseline gap-[6px]">
-                <span
-                  className="flex-none font-mono text-[8px] uppercase tracking-[0.18em]"
+                  className="flex-none font-mono text-[7.5px] uppercase tracking-[0.16em]"
                   style={{ color: HERO.label }}
                 >
                   Location
                 </span>
                 <span
-                  className="truncate font-mono text-[10.5px] font-medium"
+                  className="truncate font-mono text-[9px] font-medium"
                   style={{ color: HERO.title }}
                 >
                   ◆ {s.setting.name}
                 </span>
               </div>
 
-              {/* Description / goal — capped to 2 lines */}
+              {/* Genre / tone tags */}
+              <div className="mt-[6px] flex flex-wrap gap-[4px]">
+                <span
+                  className="rounded-[2px] px-[6px] py-[1px] font-mono text-[7.5px] uppercase tracking-[0.09em]"
+                  style={{ background: HERO.label, color: "#1f160c" }}
+                >
+                  {s.genre}
+                </span>
+                <span
+                  className="rounded-[2px] border px-[6px] py-[1px] font-mono text-[7.5px] uppercase tracking-[0.09em]"
+                  style={{ color: HERO.toneText, borderColor: HERO.chevBd }}
+                >
+                  {s.tone}
+                </span>
+              </div>
+
+              {/* Description — grows to fill remaining space */}
               <p
-                className="mt-[8px] line-clamp-2 font-body text-[13.5px] leading-[1.4]"
+                className="mt-[7px] flex-1 overflow-hidden font-body text-[12px] leading-[1.4] line-clamp-3"
                 style={{ color: HERO.goal }}
               >
                 {s.goal}
               </p>
+
+              {/* Begin Scene pinned to bottom */}
+              {onBegin ? (
+                <button
+                  type="button"
+                  onClick={() => onBegin(s.id)}
+                  className="mt-[8px] w-full rounded-[2px] px-[4px] py-[7px] font-mono text-[8.5px] uppercase tracking-[0.09em] hover:brightness-110"
+                  style={{ background: HERO.label, color: "#1f160c" }}
+                >
+                  Begin Scene ▸
+                </button>
+              ) : null}
             </div>
 
-            {/* Middle column: cast with role/trait stats + Begin Scene */}
+            {/* CHARACTER STRIP — wide horizontal scroll of vertical character cards */}
             <div
-              className="hidden sm:flex w-[168px] flex-none flex-col border-l p-[40px_12px_12px] lg:w-[186px] lg:p-[46px_14px_14px]"
-              style={{ borderColor: HERO.divider }}
+              className="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+              style={{ scrollbarWidth: "thin", scrollbarColor: `${HERO.label}44 transparent` }}
             >
-              <div className="flex flex-1 flex-col gap-[8px] overflow-hidden">
-                {s.cast.slice(0, 3).map((c) => (
-                  <div key={c.id} className="flex min-w-0 items-start gap-[7px]">
+              <div className="flex h-full items-stretch">
+                {s.cast.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex w-[88px] flex-none flex-col items-center border-r px-[6px] pb-[12px] pt-[42px] sm:w-[100px] sm:px-[8px] sm:pt-[48px]"
+                    style={{ borderColor: HERO.divider }}
+                  >
+                    {/* Portrait */}
                     {onProfile ? (
                       <button
                         type="button"
@@ -163,79 +182,80 @@ export function ScenarioCarousel({
                         <Monogram
                           mono={c.mono}
                           color={c.color}
-                          size={26}
-                          ring={1.5}
+                          size={42}
+                          ring={2}
                           bg={HERO.medBg}
                           src={c.portrait ? mediaUrl(c.portrait) : undefined}
                         />
                       </button>
                     ) : (
-                      <div className="flex-none">
-                        <Monogram
-                          mono={c.mono}
-                          color={c.color}
-                          size={26}
-                          ring={1.5}
-                          bg={HERO.medBg}
-                          src={c.portrait ? mediaUrl(c.portrait) : undefined}
-                        />
-                      </div>
+                      <Monogram
+                        mono={c.mono}
+                        color={c.color}
+                        size={42}
+                        ring={2}
+                        bg={HERO.medBg}
+                        src={c.portrait ? mediaUrl(c.portrait) : undefined}
+                      />
                     )}
-                    <div className="min-w-0 flex-1 pt-[1px]">
-                      <div
-                        className="truncate font-display text-[10.5px] font-semibold leading-[1.15]"
-                        style={{ color: c.color }}
-                      >
-                        {c.name}
-                      </div>
-                      <div className="mt-[2px] flex items-baseline gap-[2px] truncate">
-                        <span
-                          className="flex-none font-mono text-[7px] uppercase tracking-[0.07em]"
-                          style={{ color: HERO.statKey }}
+
+                    {/* Character name */}
+                    <div
+                      className="mt-[5px] w-full truncate text-center font-display text-[10px] font-semibold leading-[1.2] sm:text-[11px]"
+                      style={{ color: c.color }}
+                    >
+                      {c.name}
+                    </div>
+
+                    {/* Divider */}
+                    <div
+                      className="mx-[4px] mt-[6px] w-full border-t"
+                      style={{ borderColor: HERO.divider }}
+                    />
+
+                    {/* Stat rows: key label above value */}
+                    <div className="mt-[5px] w-full flex-1 space-y-[5px] overflow-hidden">
+                      {/* Role */}
+                      <div>
+                        <div
+                          className="font-mono text-[6.5px] uppercase tracking-[0.1em]"
+                          style={{ color: HERO.label }}
                         >
-                          Role —
-                        </span>
-                        <span
-                          className="truncate font-mono text-[7px]"
+                          Role
+                        </div>
+                        <div
+                          className="mt-[1px] line-clamp-2 font-mono text-[7px] leading-[1.25]"
                           style={{ color: HERO.toneText }}
                         >
                           {c.role}
-                        </span>
+                        </div>
                       </div>
+                      {/* Traits */}
                       {c.traits ? (
-                        <div className="flex items-baseline gap-[2px] truncate">
-                          <span
-                            className="flex-none font-mono text-[7px] uppercase tracking-[0.07em]"
-                            style={{ color: HERO.statKey }}
+                        <div>
+                          <div
+                            className="font-mono text-[6.5px] uppercase tracking-[0.1em]"
+                            style={{ color: HERO.label }}
                           >
-                            Traits —
-                          </span>
-                          <span
-                            className="truncate font-mono text-[7px]"
+                            Traits
+                          </div>
+                          <div
+                            className="mt-[1px] line-clamp-2 font-mono text-[7px] leading-[1.25]"
                             style={{ color: HERO.toneText }}
                           >
                             {c.traits}
-                          </span>
+                          </div>
                         </div>
                       ) : null}
                     </div>
                   </div>
                 ))}
+                {/* Trailing spacer so the last card doesn't clip against the art panel */}
+                <div className="w-[8px] flex-none" />
               </div>
-
-              {onBegin ? (
-                <button
-                  type="button"
-                  onClick={() => onBegin(s.id)}
-                  className="mt-[8px] w-full rounded-[2px] px-[8px] py-[8px] font-mono text-[10px] uppercase tracking-[0.1em] hover:brightness-110"
-                  style={{ background: HERO.label, color: "#1f160c" }}
-                >
-                  Begin Scene ▸
-                </button>
-              ) : null}
             </div>
 
-            {/* Right column: scene art (actual image or hatched placeholder) */}
+            {/* SCENE ART — actual image, graceful placeholder fallback */}
             <div
               className="hidden aspect-[16/9] h-full w-auto flex-none overflow-hidden lg:flex"
               style={{ borderLeft: `1px solid ${HERO.border}` }}
@@ -266,8 +286,8 @@ export function ScenarioCarousel({
       </div>
 
       {/* overlay: "Recent Scenario" label + chevrons + counter + edit button
-          lg:right-[437px] keeps the overlay within the narrative+cast columns,
-          stopping before the scene art panel (246px × 16/9 ≈ 437px wide). */}
+          lg:right-[437px] keeps the overlay within the left+character zone,
+          stopping before the scene art panel (246 × 16/9 ≈ 437px wide). */}
       <div className="pointer-events-none absolute top-[14px] left-[16px] right-[16px] flex items-center gap-3 sm:left-[30px] lg:right-[437px]">
         <span
           className="font-mono text-tag uppercase tracking-[0.22em]"
@@ -298,8 +318,7 @@ export function ScenarioCarousel({
             ›
           </button>
         </div>
-        {/* Edit button — ml-auto pushes it to the right edge of the overlay,
-            vertically centered with the "Recent Scenario" label via items-center. */}
+        {/* Edit button — ml-auto, vertically centered with the label. */}
         {onEdit && current ? (
           <button
             type="button"
@@ -313,7 +332,7 @@ export function ScenarioCarousel({
         ) : null}
       </div>
 
-      {/* overlay: slide-select dots */}
+      {/* overlay: slide-select dots (left+character zone only at lg) */}
       <div className="absolute bottom-[16px] right-[16px] flex gap-[7px] lg:right-[437px]">
         {slides.map((s, i) => {
           const on = i === index;
