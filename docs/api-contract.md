@@ -27,7 +27,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Stat definitions | `GET /storylines/{id}/stats`, `POST /storylines/{id}/stats`, `PATCH /storylines/{id}/stats/{key}`, `DELETE /storylines/{id}/stats/{key}` | The world's universal stat schema, shared by every character. Freely add/edit/remove: `PATCH` edits name/description/range/bands (range narrowing re-clamps character values); `DELETE` prunes the stat's values from every character. Each definition carries labeled `bands` ("tickers"). |
 | Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. Read/write shape: `id`, `name`, `role`, `color`, `mono` (derived), `traits`, `speech`, `goal`, `secret`, plus base-identity prose `appearance`, `background`, `personality` (all nullable), and `portrait` (nullable relative `/media/...` URL of the generated WebP avatar). |
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. Read/write shape: `id`, `name`, `type`, `desc` (short base description), plus §4.1 Setting-node metadata `atmosphere` (sensory character), `features` (notable fixtures/points of interest), `currentState` (initial here-and-now), and `image` (nullable relative `/media/scenes/...` URL of the generated WebP establishing shot) — all nullable; and `timeline` (append-only event log, **empty at authoring**, play-accrued; defaults `[]`). |
-| Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. |
+| Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. Read/write shape includes `image` (nullable relative `/media/scenes/...` URL of the generated WebP scene art), `sceneArtPositive`, and `sceneArtNegative` (nullable prompt strings). |
 | Context documents | `GET /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs/bulk`, `PATCH /context-docs/{docId}`, `DELETE /context-docs/{docId}` | **Implemented.** The persisted **triaged RAG corpus** for a world (written by the New Storyline page's Triage → commit). Each doc carries a `category` (`character`/`setting`/`other`) and inclusion tiers `includeDraft` / `includeRag`. Persistence only — retrieval (chunking/embeddings/hybrid search) is still deferred; nothing reads `content` at runtime yet. See Context Document Shape below. |
 | Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
 | Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
@@ -35,7 +35,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Authoring (live) | `POST /storylines/build/stream`, `POST /storylines/triage/stream` | **Implemented.** NDJSON (`application/x-ndjson`) streaming variants of build + triage so the New Storyline page renders the world / triage **as they are built** — the build emits `meta`/`primer`/`plan`/`character`/`setting`/`done`; triage classifies **per file**, emitting `status`+`item` per doc then `done`. Pre-flight failures (no context / unconfigured LLM) return a normal `400` before the stream opens; mid-stream failures arrive as a terminal `error` event. See Live Authoring Stream below. |
 | Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
 | Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
-| Scenario authoring | `POST /scenarios/draft` | **Implemented.** The agentic Scenario Creator: draft a scenario (title/genre/tone/goal/opening) from a seed, plus a **valid cast + setting chosen from the active world's real roster**. The model returns names from a numbered roster; the agent resolves names→ids server-side, **dropping** unknown cast and falling back to `""` for an unmatched setting — so the draft never invents or dangles a reference. Declared above `/scenarios/{id}`. See Scenario Authoring Shapes below. |
+| Scenario authoring | `POST /scenarios/draft`, `POST /scenarios/scene-art-prompts`, `POST /scenarios/scene-art` | **Implemented.** The agentic Scenario Creator: draft a scenario (title/genre/tone/goal/opening) from a seed, plus a **valid cast + setting chosen from the active world's real roster**. The model returns names from a numbered roster; the agent resolves names→ids server-side, **dropping** unknown cast and falling back to `""` for an unmatched setting — so the draft never invents or dangles a reference. Scene-art prompts and image generation follow the same watercolor pipeline as Setting authoring. Declared above `/scenarios/{id}`. See Scenario Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation), read-only inference-engine detection (`/llm/backend`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
@@ -401,6 +401,43 @@ roster** only).
     that is not valid JSON → `502 upstream_error`.
   - Persists nothing — the draft fills the create form; the author reviews, then the
     normal `POST /storylines/{id}/scenarios` saves it.
+
+- `POST /scenarios/scene-art-prompts` — `{ title?, genre?, tone?, goal?, opening?,
+  settingName?, settingDesc?, notes? }`. Calls the LLM to produce a watercolor
+  establishing-shot prompt pair for the scenario's setting atmosphere (no characters
+  or people). Returns `{ positive, negative }` (`SceneArtPromptResponse`). At least
+  one non-empty field required; unconfigured LLM → `400 bad_request`.
+
+- `POST /scenarios/scene-art` — `{ positive, negative?, baseUrl?, workflow?, width?,
+  height?, steps?, cfg? }`. Renders the scene-art image through the configured
+  ComfyUI watercolor pipeline (landscape 16:9 default), converts to **WebP**, saves
+  it under `MEDIA_DIR/scenes`, and returns `{ image: "/media/scenes/<uuid>.webp" }`.
+  The URL is stored in the scenario's `image` field. Empty `positive` /
+  unconfigured ComfyUI → `400 bad_request`; a Comfy failure → `502`. **Opt-in —
+  spends GPU time on the local Comfy server.**
+
+**`ScenarioRead` shape** — includes the three scene-art fields added alongside the
+original draft fields:
+
+```json
+{
+  "id": "9f8e",
+  "title": "The Salt Ledger",
+  "genre": "Intrigue",
+  "tone": "Tension · rising",
+  "goal": "Keep the ledger safe.",
+  "opening": "Lamplight gutters over the wet dock.",
+  "castIds": ["c_abc123"],
+  "settingId": "s_def456",
+  "branches": [],
+  "image": "/media/scenes/abc123.webp",
+  "sceneArtPositive": "misty harbor, lamplit cobblestones, watercolor",
+  "sceneArtNegative": "people, text, anime, cartoon"
+}
+```
+
+`image`, `sceneArtPositive`, and `sceneArtNegative` default to `null`; they are
+populated when the author generates scene art in the Scenario Creator.
 
 ## NDJSON Event Stream
 

@@ -181,13 +181,38 @@ anything that doesn't match, preserving `resolveScenario`'s soft-reference
 fallback by construction. The scenario modal grounds on **seed + world roster**
 only (no `ContextFilesPanel` yet); branches are not drafted in this first cut.
 
+## Scenario Scene Art Flow (creation-time agent + image)
+
+```
+Scenario modal (EntityModal) → lib/api.ts
+  → POST /api/scenarios/scene-art-prompts
+        {title?, genre?, tone?, goal?, opening?, settingName?, settingDesc?, notes?}
+        → routes/scenarios → agents/scenario_agent.generate_scene_art_prompts
+            builds a setting-atmosphere watercolor prompt (no people)
+            → services/llm.chat_complete (same settings_store)
+        → {positive, negative}  (SceneArtPromptResponse)
+  → POST /api/scenarios/scene-art   {positive, negative}
+        → routes/scenarios → services/scene_art.generate_scene_art
+            (watercolor pipeline, landscape 16:9) → PNG → services/media (Pillow → WebP)
+            saved under MEDIA_DIR/scenes, served at /media/scenes
+        → {image: "/media/scenes/<uuid>.webp"}
+  → image URL stored in draft.image; author edits in SceneArtModal, then
+    POST/PATCH /api/storylines/{id}/scenarios persists image + sceneArtPositive + sceneArtNegative
+```
+
+Same **creation-time, no-RAG** rules. Scene art depicts the setting atmosphere shaped
+by the scenario's tone — no characters or people. The active setting's name/description
+are passed as context when available. Scene art is an explicit, opt-in step (it spends
+GPU time on the local ComfyUI server). The prompt pair is saved alongside the image URL
+so it can be refined and re-rendered.
+
 ## Orphaned-Media Cleanup Flow (maintenance)
 
 ```
 Options → About tab → Maintenance section → lib/api.ts
   → GET  /api/options/media/orphans?min_age_hours=24   (dry-run scan)
         → routes/options → services/media_cleanup.scan_orphans
-            referenced = {basenames of Character.portrait} ∪ {Setting.image}
+            referenced = {basenames of Character.portrait} ∪ {Setting.image} ∪ {Scenario.image}
             for *.webp in MEDIA_DIR/portraits + MEDIA_DIR/scenes:
               orphan   = basename ∉ referenced
               eligible = orphan AND mtime older than min_age_hours (grace period)
