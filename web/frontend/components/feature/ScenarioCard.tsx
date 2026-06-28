@@ -1,14 +1,18 @@
 import { cn } from "@/lib/cn";
 import { mediaUrl } from "@/lib/api";
+import { CARD_SCRIM, OVER_ART } from "@/lib/cardArt";
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
 import type { ResolvedScenario } from "@/lib/types";
 
 /**
- * Scenario card. The whole card is a single "feature this scenario" button
- * (stretched, behind the content); secondary actions (edit, cast profiles) sit
- * above it with `pointer-events-auto`, avoiding nested interactive elements.
+ * Scenario card. When the scenario has scene art the image fills the whole card
+ * behind a left-dark→right-bright gradient "filter" (text on the dark left, art
+ * reading on the right); otherwise it falls back to a solid, theme-aware card.
+ * The whole card is a single "feature this scenario" button (stretched, behind
+ * the content); secondary actions (edit, cast profiles) sit above it with
+ * `pointer-events-auto`, avoiding nested interactive elements.
  */
 export function ScenarioCard({
   scenario,
@@ -24,15 +28,33 @@ export function ScenarioCard({
   onProfile?: (id: string) => void;
 }) {
   const s = scenario;
+  const hasImage = !!s.image;
   return (
     <div
       className={cn(
         "velora-card relative overflow-hidden rounded-[4px] hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        hasImage && "min-h-[176px]",
         featured
-          ? "border-2 border-accent bg-card2 shadow-[0_6px_18px_rgba(142,43,28,.16)]"
-          : "border border-cardbd bg-card",
+          ? "border-2 border-accent shadow-[0_6px_18px_rgba(142,43,28,.16)]"
+          : "border border-cardbd",
+        !hasImage && (featured ? "bg-card2" : "bg-card"),
       )}
     >
+      {hasImage ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount */}
+          <img
+            src={mediaUrl(s.image!)}
+            alt={`Scene art for ${s.title}`}
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          />
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ background: CARD_SCRIM }}
+          />
+        </>
+      ) : null}
+
       <button
         type="button"
         onClick={onSelect}
@@ -40,47 +62,60 @@ export function ScenarioCard({
         aria-label={`Feature scenario ${s.title}`}
         className="absolute inset-0 z-0 cursor-pointer rounded-[4px]"
       />
-      {onEdit ? (
-        <IconButton
-          label={`Edit ${s.title}`}
-          onClick={onEdit}
-          className="absolute right-[10px] top-[10px] z-[2]"
-        >
-          ✎
-        </IconButton>
-      ) : null}
-      {s.image ? (
-        // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
-        <img
-          src={mediaUrl(s.image)}
-          alt={`Scene art for ${s.title}`}
-          className="pointer-events-none relative z-[1] h-[96px] w-full object-cover"
-        />
-      ) : null}
-      <div
-        className={cn(
-          "pointer-events-none relative z-[1]",
-          featured ? "p-[15px]" : "p-[16px]",
-          s.image && "pt-[12px]",
-        )}
-      >
-        <div className="flex items-baseline justify-between gap-[10px] pr-[22px]">
-          <h3 className="font-display text-[19px] font-bold leading-[1.08] text-ink">
-            {s.title}
-          </h3>
+
+      {/* Top-right cluster: Recent badge + edit pencil, grouped so they never
+          overlap when both are present. */}
+      {featured || onEdit ? (
+        <div className="pointer-events-none absolute right-[10px] top-[10px] z-[2] flex items-center gap-[6px]">
           {featured ? (
             <span className="rounded-full bg-accent px-[7px] py-[2px] font-mono text-[8px] uppercase tracking-[0.1em] whitespace-nowrap text-[#F6ECDA]">
               Recent
             </span>
           ) : null}
+          {onEdit ? (
+            <IconButton label={`Edit ${s.title}`} onClick={onEdit} className="pointer-events-auto">
+              ✎
+            </IconButton>
+          ) : null}
         </div>
-        <Eyebrow tracking="0.1em" color="#A8762A" className="mt-[6px] block">
-          {s.genre} · {s.tone}
-        </Eyebrow>
-        <p className="mt-[9px] font-body text-body-sm leading-[1.4] text-ink-soft">
-          {s.goal}
-        </p>
-        <div className="mt-[14px] flex items-center justify-between border-t border-hair pt-[11px]">
+      ) : null}
+
+      <div className={cn("pointer-events-none relative z-[1]", featured ? "p-[15px]" : "p-[16px]")}>
+        <h3
+          className={cn(
+            "pr-[92px] font-display text-[19px] font-bold leading-[1.08]",
+            !hasImage && "text-ink",
+          )}
+          style={hasImage ? { color: OVER_ART.title } : undefined}
+        >
+          {s.title}
+        </h3>
+
+        {/* Eyebrow + goal are width-capped on image cards so they stay over the
+            dark side of the gradient and the art reads on the right. */}
+        <div className={cn(hasImage && "max-w-[60%]")}>
+          <Eyebrow
+            tracking="0.1em"
+            color={hasImage ? OVER_ART.eyebrow : "#A8762A"}
+            className="mt-[6px] block"
+          >
+            {s.genre} · {s.tone}
+          </Eyebrow>
+          <p
+            className={cn(
+              "mt-[9px] font-body text-body-sm leading-[1.4]",
+              hasImage ? "line-clamp-3" : "text-ink-soft",
+            )}
+            style={hasImage ? { color: OVER_ART.body } : undefined}
+          >
+            {s.goal}
+          </p>
+        </div>
+
+        <div
+          className={cn("mt-[14px] flex items-center justify-between border-t pt-[11px]")}
+          style={{ borderColor: hasImage ? OVER_ART.hair : "var(--hair)" }}
+        >
           <div className="flex items-center gap-[5px]">
             {s.cast.map((c) =>
               onProfile ? (
@@ -99,7 +134,12 @@ export function ScenarioCard({
               ),
             )}
           </div>
-          <span className="font-body text-body-sm text-ink-soft">◆ {s.setting.name}</span>
+          <span
+            className={cn("font-body text-body-sm", !hasImage && "text-ink-soft")}
+            style={hasImage ? { color: OVER_ART.meta } : undefined}
+          >
+            ◆ {s.setting.name}
+          </span>
         </div>
       </div>
     </div>
