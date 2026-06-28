@@ -52,6 +52,29 @@ class ScenarioRead(CamelModel):
     branches: list[Branch]
 
 
+# ---- Authoring (the agentic Scenario Creator) -------------------------------
+# A scenario drafted from a one-line seed. The agent picks a *valid* cast and
+# setting grounded in the active world's real roster: it returns names chosen
+# from a numbered roster, which the agent resolves to ids server-side, dropping
+# anything that doesn't match (so the draft never invents or dangles a reference).
+
+
+class ScenarioDraftRequest(CamelModel):
+    seed: str
+    docs_overview: str | None = None
+    storyline_id: str | None = None
+
+
+class ScenarioDraftResponse(CamelModel):
+    title: str = ""
+    genre: str = ""
+    tone: str = ""
+    goal: str = ""
+    opening: str = ""
+    cast_ids: list[str] = Field(default_factory=list)
+    setting_id: str = ""
+
+
 # ---- the Story-Graph read on scenario load (§7.2) ---------------------------
 # Returned by GET /scenarios/{id}/graph: the cast + setting subgraph read live
 # from Neo4j. ``available`` is False (empty lists) when the graph is off/unreachable.
