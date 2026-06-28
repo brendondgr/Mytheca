@@ -40,6 +40,14 @@
 
 ## Follow-up Work (next steps)
 
+### Character Card Preview Modal — click opens profile popup, 2-column layout (done; `feat/character-card-preview-modal`; plan: `docs/plans/character-card-preview-modal.md`)
+Frontend-only. Three phases, commit-per-phase, merged to `main`.
+- **Phase 1 — `CharacterProfileModal` 2-column layout:** widened to `sm:w-[560px]`; body replaced by a 2-column CSS grid with row pairs: Appearance|Background · Personality|Voice · Goal|Secret · Edit button (full span). Empty cells omitted; if only one in a pair is present it spans both columns. Traits line moved into the header. 6 tests (existing + new row/column assertions + edit callback + omit-empty-row).
+- **Phase 2 — wire CharacterCard to open modal:** `CharacterCard` `expanded`/`onToggle` props replaced by `onPreview`; inline detail section removed; card click calls `onPreview()`. `CharacterColumn` swapped `expandedId`/`onToggle` for `onPreview`. `LibraryColumns` wires `onPreview={lib.openProfile}`. `useLibraryState` removes `expandedCharId`/`toggleExpand` state + the `setExpandedCharId(created.id)` post-create call (replaced by nothing — new character just appears in the list). Updated `LibraryView.test.tsx` ("expands character" → "opens profile modal" assertion).
+- **Phase 3 — docs + validation:** `component-map.md` (CharacterCard behavior + CharacterProfileModal layout); `checklist.md` this entry.
+- **Validation:** 184 frontend tests (typecheck + lint + build clean; 4 net-new tests in CharacterProfileModal). No backend changes.
+- **Deferred — live in-browser a11y/responsive pass (320/375/768/1024):** same standing constraint (shared working dir, `preview_start` can't reuse the external dev server on 3346). Verified structurally: `CharacterProfileModal` is already focus-trapped via `Modal`; the 2-column grid adds no new interactive elements; `CharacterCard` still has a single `<button>` as its clickable element; `Edit Character` is a standard `<Button>` with visible label. Run the in-browser pass once the dir is free.
+
 ### Scenario Scene Art — watercolor image generation for Scenarios (done; `feat/scenario-scene-art`; plan: `docs/plans/scenario-scene-art.md`)
 Brought **Scenario** scene-art generation to parity with the Setting Creator. Five phases, commit-per-phase, merged to `main`.
 - **Phase 1 — data layer:** nullable `image`, `scene_art_positive`, `scene_art_negative` (all String) columns on `Scenario` (model/schemas/CRUD); Alembic migration `20260628_121750_scenario_scene_art_columns.py` (`revision e13f0f3faea0`); `services/media_cleanup.py` extended to track `Scenario.image` alongside `Character.portrait` and `Setting.image`. Roundtrip + null-default tests.
