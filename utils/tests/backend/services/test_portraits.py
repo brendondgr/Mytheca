@@ -58,10 +58,10 @@ def test_generate_portrait_writes_webp_and_returns_url(db_session, tmp_path, mon
     assert written.is_file()
     with Image.open(written) as im:
         assert im.format == "WEBP"
-    # Prompts + a square 1024×1024 frame + a concrete seed reached the pipeline.
+    # Prompts + a portrait 832×1216 (2:3) frame + a concrete seed reached the pipeline.
     assert captured["positive"].startswith("young orc warrior")
     assert captured["negative"] == "blurry, text"
-    assert captured["width"] == captured["height"] == 1024
+    assert captured["width"] == 832 and captured["height"] == 1216
     assert isinstance(captured["seed"], int)
 
 

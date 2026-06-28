@@ -8,8 +8,9 @@ served media directory. Returns the relative ``/media/...`` URL the character
 stores in its ``portrait`` column.
 
 The ComfyUI client and the bundled workflow stay untouched — conversion happens
-at the edge here. Portraits render as a square **1024×1024** frame by default but
-the caller may override the size.
+at the edge here. Portraits render as a **portrait 832×1216 (2:3)** frame by
+default — taller than wide, to suit character cards and the profile hero — but the
+caller may override the size. (Scene art keeps its landscape 1024×576 frame.)
 
 Every render uses a **fresh random seed** so re-rendering a character produces a
 genuinely new image. It also avoids a ComfyUI stall: with a fixed seed an
@@ -30,10 +31,10 @@ from app.core.errors import APIError
 from app.services import comfyui, settings_store
 from app.services.media import save_webp, to_webp
 
-# Default portrait frame — square 1024×1024 (divisible by 8 for the latent grid);
-# overridable by the caller.
-_PORTRAIT_W = 1024
-_PORTRAIT_H = 1024
+# Default portrait frame — portrait 832×1216 (2:3, both divisible by 8 for the
+# latent grid); overridable by the caller.
+_PORTRAIT_W = 832
+_PORTRAIT_H = 1216
 # ComfyUI seed bound — kept within unsigned 32-bit for broad node compatibility.
 _SEED_MAX = 2**32 - 1
 
