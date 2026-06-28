@@ -48,7 +48,8 @@ describe("LibraryView", () => {
     const user = userEvent.setup();
     render(<LibraryView />);
     await user.click(screen.getByRole("tab", { name: /characters/i }));
-    const card = await screen.findByRole("button", { name: /^maerin voss/i });
+    const charPanel = screen.getByRole("tabpanel", { name: /characters/i });
+    const card = await within(charPanel).findByRole("button", { name: /view maerin voss/i });
     // Card is a plain button — no disclosure attributes.
     expect(card).not.toHaveAttribute("aria-expanded");
     await user.click(card);

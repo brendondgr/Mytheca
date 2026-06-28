@@ -118,7 +118,7 @@ export function PortraitModal({
           {/* Preview — the rendered WebP, or a monogram placeholder. */}
           <div className="mt-[14px] flex flex-none justify-center md:mt-0">
             <div
-              className="flex aspect-square w-[220px] items-center justify-center overflow-hidden rounded-[6px] border border-cardbd bg-field"
+              className="flex aspect-[2/3] w-[200px] items-center justify-center overflow-hidden rounded-[6px] border border-cardbd bg-field"
               style={{ borderColor: color }}
             >
               {portraitUrl ? (
