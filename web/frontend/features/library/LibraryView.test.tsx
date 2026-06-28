@@ -56,7 +56,7 @@ describe("LibraryView", () => {
     // Profile modal opens.
     const dialog = screen.getByRole("dialog", { name: /maerin voss/i });
     expect(
-      within(dialog).getByText("She answers to the Drowned Court."),
+      within(dialog).getByText("Keep the salt routes hidden a little longer."),
     ).toBeInTheDocument();
   });
 });

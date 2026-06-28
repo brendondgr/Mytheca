@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { resolveScenario } from "@/lib/seed-data";
 import * as api from "@/lib/api";
 import { concatDocs, docsForDraft } from "@/lib/readDocs";
-import type { Character, Scenario, Setting, Storyline } from "@/lib/types";
+import type { Character, Scenario, Setting, StatDefinition, Storyline } from "@/lib/types";
 import {
   DEFAULT_DRAFTS,
   isDraftValid,
@@ -96,6 +96,9 @@ export function useLibraryState(initialStorylineId?: string) {
   const [generatingStats, setGeneratingStats] = useState(false);
   const [applyingStats, setApplyingStats] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
+  // Active storyline's universal stat definitions — loaded best-effort for the
+  // hero cast-card statistics panel (player-facing preview of stat names/defaults).
+  const [statDefs, setStatDefs] = useState<StatDefinition[]>([]);
 
   // ---- data loading ----
   /** Fetch a storyline's children once and merge them in; returns its scenarios. */
@@ -169,6 +172,27 @@ export function useLibraryState(initialStorylineId?: string) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadInitial();
   }, []);
+
+  // Load the active storyline's stat definitions (best-effort) for the hero
+  // cast-card statistics panel; clears/reloads when the active storyline changes.
+  useEffect(() => {
+    if (!activeStorylineId) {
+      setStatDefs([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .listStatDefinitions(activeStorylineId)
+      .then((defs) => {
+        if (!cancelled) setStatDefs(defs);
+      })
+      .catch(() => {
+        if (!cancelled) setStatDefs([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStorylineId]);
 
   // ---- derived ----
   const resolvedScenarios = useMemo(
@@ -782,7 +806,7 @@ export function useLibraryState(initialStorylineId?: string) {
     draftScenario, generateScenarioSceneArtPrompts, generateScenarioSceneArt,
     requestDeleteStoryline, confirmDeleteStoryline, cancelDeleteStoryline,
     storylineToDelete,
-    characters, settings, scenarios, resolvedScenarios,
+    characters, settings, scenarios, resolvedScenarios, statDefs,
     filteredCharacters, filteredSettings, filteredScenarios,
     tab, setTab,
     featured, featuredId, setFeaturedId, featuredIndex,
