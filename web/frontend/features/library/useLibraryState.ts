@@ -271,6 +271,25 @@ export function useLibraryState(initialStorylineId?: string) {
       }));
       // On mobile the seam is its own tab — drop back to the form to reveal fields.
       setModal((prev) => (prev ? { ...prev, mode: "manual" } : prev));
+      // Auto-propose starting stats from the drafted fields (best-effort).
+      if (activeStorylineId) {
+        setGeneratingStats(true);
+        try {
+          const { proposals } = await api.proposeStartingStats({
+            storylineId: activeStorylineId,
+            name: d.name,
+            role: d.role,
+            traits: d.traits,
+            personality: d.personality,
+            background: d.background,
+          });
+          setDraftState((prev) => ({ ...prev, _startingStats: proposals }));
+        } catch {
+          // silent — stat proposal is best-effort; draft already succeeded
+        } finally {
+          setGeneratingStats(false);
+        }
+      }
     } catch (e) {
       setError(messageOf(e));
     } finally {

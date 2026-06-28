@@ -13,7 +13,7 @@ describe("useLibraryState — character authoring", () => {
     return hook;
   }
 
-  it("drafts a full character into the draft and flags it AI-drafted", async () => {
+  it("drafts a full character and auto-proposes starting stats", async () => {
     const { result } = await mountReady();
 
     act(() => result.current.openCreate("character"));
@@ -28,6 +28,30 @@ describe("useLibraryState — character authoring", () => {
     expect(result.current.draft.background).toBe("A drafted background.");
     expect(result.current.draft.personality).toBe("A drafted personality.");
     expect(result.current.draft._ai).toBe(true);
+    // Starting stats should be auto-proposed using the drafted fields.
+    expect(vi.mocked(api.proposeStartingStats)).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Drafted Hero", role: "Drafted Role" }),
+    );
+    expect(result.current.draft._startingStats?.map((p) => p.key)).toEqual(["health", "trust"]);
+  });
+
+  it("still succeeds when auto-stat proposal fails during draft", async () => {
+    vi.mocked(api.proposeStartingStats).mockRejectedValueOnce(new Error("LLM unavailable"));
+    const { result } = await mountReady();
+
+    act(() => result.current.openCreate("character"));
+    act(() => result.current.setDraft("_prompt", "A rogue cartographer."));
+    await act(async () => {
+      await result.current.draftCharacter();
+    });
+
+    // Draft fields must be populated even if stat proposal failed.
+    expect(result.current.draft.name).toBe("Drafted Hero");
+    expect(result.current.draft._ai).toBe(true);
+    // No stats proposed — graceful degradation.
+    expect(result.current.draft._startingStats).toBeUndefined();
+    // No error surfaced to the user.
+    expect(result.current.error).toBeNull();
   });
 
   it("generates portrait prompts, then renders a portrait into the draft", async () => {
