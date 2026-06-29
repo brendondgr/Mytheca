@@ -40,7 +40,7 @@ export function StoryPlayerView({
   const profileChar = scene.profileId ? (byId(scene.profileId) ?? null) : null;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex h-dvh flex-col overflow-hidden">
       <h1 className="sr-only">{scenario.title} — live scene</h1>
       <SceneHeader
         title={scenario.title}

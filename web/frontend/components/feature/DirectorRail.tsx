@@ -56,45 +56,101 @@ export function StateChips({ stats }: { stats: StatChip[] }) {
   );
 }
 
-/** The band label whose range contains `value` (the storyline's stat "tickers"). */
-function bandFor(def: StatDefinition, value: number): string | null {
-  const band = def.bands.find((b) => value >= b.min && value <= b.max);
-  return band?.label ?? null;
+/**
+ * One stat as a min→max slider: a numeric readout floating above the value's
+ * position on the track, a filled track with a thumb, the min/max end ticks, and
+ * a hover/focus "?" that reveals what each labeled band range means. Read-only
+ * (the value sits at the schema default) — it visualizes the stat, not edits it.
+ */
+function StatSlider({ def }: { def: StatDefinition }) {
+  const { min, max, default: value, displayName, bands } = def;
+  const span = max - min;
+  const pct = span > 0 ? ((value - min) / span) * 100 : 0;
+  // Keep the floating readout from clipping at the track ends.
+  const labelPct = Math.max(7, Math.min(93, pct));
+  const hasBands = bands.length > 0;
+
+  return (
+    <div className="group/stat">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-body text-[13px] text-ink">{displayName}</span>
+        {hasBands ? (
+          <span
+            tabIndex={0}
+            role="button"
+            aria-label={`What ${displayName} ranges mean`}
+            className="flex h-[15px] w-[15px] flex-none cursor-help items-center justify-center rounded-full border border-cardbd font-mono text-[9px] leading-none text-mute hover:border-accent hover:text-accent focus:border-accent focus:text-accent focus:outline-none"
+          >
+            ?
+          </span>
+        ) : null}
+      </div>
+
+      {/* Floating value readout, centered over the thumb. */}
+      <div className="relative mt-[6px] h-[15px]">
+        <span
+          className="absolute -translate-x-1/2 font-mono text-[12px] font-medium text-accent"
+          style={{ left: `${labelPct}%` }}
+        >
+          {value}
+        </span>
+      </div>
+
+      {/* Track + fill + thumb. */}
+      <div className="relative h-[6px] rounded-full bg-cardbd">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${pct}%`, background: "linear-gradient(90deg,#C8862A,#8E2B1C)" }}
+        />
+        <span
+          aria-hidden
+          className="absolute top-1/2 h-[12px] w-[12px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-card"
+          style={{ left: `${pct}%` }}
+        />
+      </div>
+
+      <div className="mt-[4px] flex justify-between font-mono text-[8.5px] text-mute2">
+        <span>{min}</span>
+        <span>{max}</span>
+      </div>
+
+      {/* Band legend — revealed on hover/focus of the row (in-flow, never clipped). */}
+      {hasBands ? (
+        <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 group-hover/stat:grid-rows-[1fr] group-focus-within/stat:grid-rows-[1fr] motion-reduce:transition-none">
+          <div className="overflow-hidden">
+            <dl className="mt-[7px] rounded-[3px] border border-cardbd bg-card2 p-[7px_9px]">
+              {bands.map((b) => (
+                <div key={b.label} className="flex items-baseline justify-between gap-[10px] py-[2px]">
+                  <dt className="flex-none font-mono text-[9.5px] text-mute2">
+                    {b.min}–{b.max}
+                  </dt>
+                  <dd className="text-right font-body text-[11.5px] leading-[1.3] text-ink-soft">
+                    {b.label}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 /**
  * The storyline's universal stat schema (definitions + labeled bands) — the same
- * stats the Library/world editor define. Shown read-only at their default values
- * so the scene carries the world's real stat vocabulary; live deltas live in the
- * Scene-state chips below. Hidden/non-public stats are omitted.
+ * stats the Library/world editor define. Each renders as a min→max slider at its
+ * default value with a hover "?" that explains its band ranges; live deltas live
+ * in the Scene-state chips below. Hidden/non-public stats are omitted.
  */
 export function StatSchema({ defs }: { defs: StatDefinition[] }) {
   const visible = defs.filter((d) => d.visibility === "public");
   if (visible.length === 0) return null;
   return (
-    <div className="flex flex-col gap-[7px]">
-      {visible.map((d) => {
-        const band = bandFor(d, d.default);
-        return (
-          <div
-            key={d.key}
-            className="rounded-[3px] border border-cardbd bg-card p-[8px_11px]"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-body text-[13.5px] text-ink">{d.displayName}</span>
-              <span className="font-mono text-[11px] text-accent">
-                {d.default}
-                <span className="text-mute2">{` / ${d.min}–${d.max}`}</span>
-              </span>
-            </div>
-            {band ? (
-              <div className="mt-[3px] font-mono text-[9px] tracking-[0.08em] text-mute uppercase">
-                {band}
-              </div>
-            ) : null}
-          </div>
-        );
-      })}
+    <div className="flex flex-col gap-[16px]">
+      {visible.map((d) => (
+        <StatSlider key={d.key} def={d} />
+      ))}
     </div>
   );
 }

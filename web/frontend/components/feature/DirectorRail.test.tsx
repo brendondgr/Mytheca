@@ -19,10 +19,10 @@ describe("DirectorRail", () => {
     expect(screen.getByText("Character stats")).toBeInTheDocument();
     expect(screen.getByText("Health")).toBeInTheDocument();
     expect(screen.getByText("Patience")).toBeInTheDocument();
-    // Health default 100 sits in the "Very healthy" band.
+    // Health default 100 sits in the "Very healthy" band (shown in the band legend).
     expect(screen.getByText("Very healthy")).toBeInTheDocument();
-    // Range hint for Health (0–100).
-    expect(screen.getByText(/0–100/)).toBeInTheDocument();
+    // The "Very healthy" band's range is listed beside it.
+    expect(screen.getByText("81–100")).toBeInTheDocument();
   });
 
   it("keeps the live Scene-state chips distinct from the schema", () => {
