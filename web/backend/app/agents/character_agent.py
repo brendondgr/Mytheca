@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.agents._common import (
     DEFAULT_AUTHORING_EFFORT,
     docs_block,
+    rag_block,
     extract_json,
     gen_params,
     resolve_llm,
@@ -117,7 +118,10 @@ def draft_character(
     if not seed:
         raise APIError(400, "bad_request", "Describe the character in a sentence to draft them.")
     base_url, api_key, model, params = resolve_llm(db)
-    user = f"Character seed: {seed}{world_context(db, storyline_id)}{docs_block(docs_overview)}"
+    user = (
+        f"Character seed: {seed}{world_context(db, storyline_id)}"
+        f"{docs_block(docs_overview)}{rag_block(db, storyline_id, seed)}"
+    )
     messages = [
         {"role": "system", "content": _DRAFT_SYSTEM},
         {"role": "user", "content": user},

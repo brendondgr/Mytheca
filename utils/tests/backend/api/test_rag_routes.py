@@ -63,6 +63,21 @@ def test_reindex_stream_embeds_and_status_reflects_it(client, storyline_id, mem_
     assert status["available"] is True and status["indexed"] >= 2  # both points present
 
 
+def test_rag_query_disabled_returns_unavailable(client, storyline_id):
+    r = client.post(f"/api/storylines/{storyline_id}/rag/query", json={"query": "anything"})
+    assert r.status_code == 200
+    assert r.json() == {"available": False, "results": []}
+
+
+def test_rag_query_returns_ranked_results(client, storyline_id, mem_store):
+    client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Maerin", "role": "Warden"})
+    r = client.post(f"/api/storylines/{storyline_id}/rag/query", json={"query": "Maerin the warden"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["available"] is True
+    assert any(item["name"] == "Maerin" for item in body["results"])
+
+
 def test_crud_create_indexes_into_store_via_hook(client, storyline_id, mem_store):
     """A character created while the store is reachable is embedded by the CRUD hook."""
     from app.rag import store

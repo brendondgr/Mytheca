@@ -97,6 +97,47 @@ def test_draft_docs_overview_reaches_prompt(client, monkeypatch):
     assert "MARKER_CHAR_DOSSIER" in seen["body"]
 
 
+def test_draft_grounds_in_retrieved_rag_lore(client, monkeypatch, storyline_id):
+    """Utilization: an existing indexed entry is retrieved and folded into the prompt."""
+    _configure_llm(client)
+
+    from qdrant_client import QdrantClient
+
+    from app.models import Character
+    from app.rag import indexer, store
+    from app.rag.embedder import HashEmbedder
+    from app.rag.entries import entry_from_character
+
+    mem = QdrantClient(":memory:")
+    store.ensure_collection(mem)
+    monkeypatch.setattr("app.core.qdrant.get_client", lambda: mem)
+    indexer.index_entry(
+        mem,
+        HashEmbedder(),
+        entry_from_character(
+            Character(
+                id="c9", storyline_id=storyline_id, name="Selka", role="Smuggler",
+                background="RAG_LORE_MARKER about the tunnels beneath the harbor",
+            )
+        ),
+    )
+
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = request.content.decode()
+        return _completion(_DRAFT_JSON)
+
+    _patch_upstream(monkeypatch, handler)
+    res = client.post(
+        "/api/characters/draft",
+        json={"seed": "a smuggler who knows the tunnels", "storylineId": storyline_id},
+    )
+    assert res.status_code == 200
+    # The retrieved lore reached the outbound prompt — the RAG is actually used.
+    assert "RAG_LORE_MARKER" in seen["body"]
+
+
 def test_draft_requires_a_seed(client):
     _configure_llm(client)
     res = client.post("/api/characters/draft", json={"seed": "   "})

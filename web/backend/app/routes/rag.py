@@ -15,9 +15,19 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.core import qdrant
 from app.core.db import get_db
 from app.rag import indexer
-from app.schemas.rag import RagDoneEvent, RagErrorEvent, RagProgressEvent, RagStatusResponse
+from app.rag.retriever import retrieve
+from app.schemas.rag import (
+    RagDoneEvent,
+    RagErrorEvent,
+    RagProgressEvent,
+    RagQueryRequest,
+    RagQueryResponse,
+    RagResultItem,
+    RagStatusResponse,
+)
 from app.services import crud
 
 router = APIRouter(tags=["rag"])
@@ -30,6 +40,22 @@ def rag_status(storyline_id: str, db: Session = Depends(get_db)) -> RagStatusRes
     crud.get_storyline(db, storyline_id)  # 404 for an unknown world
     available, indexed = indexer.storyline_status(db, storyline_id)
     return RagStatusResponse(available=available, indexed=indexed)
+
+
+@router.post("/storylines/{storyline_id}/rag/query", response_model=RagQueryResponse)
+def rag_query(storyline_id: str, data: RagQueryRequest, db: Session = Depends(get_db)) -> RagQueryResponse:
+    """Inspect what hybrid retrieval returns for a query (debug/visibility)."""
+    crud.get_storyline(db, storyline_id)
+    if qdrant.get_client() is None:
+        return RagQueryResponse(available=False, results=[])
+    entries = retrieve(db, storyline_id, data.query, k=data.k, prefilter=data.prefilter)
+    return RagQueryResponse(
+        available=True,
+        results=[
+            RagResultItem(entry_id=e.entry_id, name=e.name, type=e.type, score=e.score, body=e.body)
+            for e in entries
+        ],
+    )
 
 
 @router.post("/storylines/{storyline_id}/rag/reindex/stream")

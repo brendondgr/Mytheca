@@ -42,3 +42,24 @@ class RagStatusResponse(CamelModel):
 
     available: bool
     indexed: int
+
+
+class RagQueryRequest(CamelModel):
+    """Inspect hybrid retrieval for a world (debug/visibility surface)."""
+
+    query: str
+    k: int = 8
+    prefilter: bool = False
+
+
+class RagResultItem(CamelModel):
+    entry_id: str
+    name: str
+    type: str
+    score: float
+    body: str
+
+
+class RagQueryResponse(CamelModel):
+    available: bool
+    results: list[RagResultItem] = []

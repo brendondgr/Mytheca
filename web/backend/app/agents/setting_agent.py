@@ -25,6 +25,7 @@ from app.agents._common import (
     docs_block,
     extract_json,
     gen_params,
+    rag_block,
     resolve_llm,
     world_context,
 )
@@ -84,7 +85,10 @@ def draft_setting(
     if not seed:
         raise APIError(400, "bad_request", "Describe the place in a sentence to draft it.")
     base_url, api_key, model, params = resolve_llm(db)
-    user = f"Setting seed: {seed}{world_context(db, storyline_id)}{docs_block(docs_overview)}"
+    user = (
+        f"Setting seed: {seed}{world_context(db, storyline_id)}"
+        f"{docs_block(docs_overview)}{rag_block(db, storyline_id, seed)}"
+    )
     messages = [
         {"role": "system", "content": _DRAFT_SYSTEM},
         {"role": "user", "content": user},

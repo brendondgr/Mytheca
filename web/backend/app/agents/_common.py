@@ -92,6 +92,36 @@ def docs_block(docs_overview: str | None) -> str:
     )
 
 
+# How much retrieved body text to fold per entry into the RAG grounding block.
+RAG_SNIPPET_CHARS = 600
+
+
+def rag_block(db: Session, storyline_id: str | None, query: str) -> str:
+    """Fold hybrid-retrieved world lore into a grounding block (bounded, best-effort).
+
+    This is where the persisted corpus is finally *used*: the seed/query retrieves
+    the most relevant existing entries (characters, settings, scenarios, lore docs)
+    from the same world and grounds the draft in them — alongside the transient
+    ``docs_block``. No store / nothing retrieved → empty string (drafting proceeds
+    ungrounded, never hard-fails)."""
+    if not storyline_id:
+        return ""
+    try:
+        from app.rag.retriever import retrieve
+
+        entries = retrieve(db, storyline_id, query)
+    except Exception:  # pragma: no cover - defensive; retrieval never blocks authoring
+        return ""
+    if not entries:
+        return ""
+    lines = [f"- {e.name} ({e.type}): {e.body[:RAG_SNIPPET_CHARS].strip()}" for e in entries]
+    block = "\n".join(lines)[:DOCS_CAP]
+    return (
+        "\n\nRelevant established world lore (retrieved for grounding — stay "
+        f"consistent with it, do not contradict or quote verbatim):\n{block}"
+    )
+
+
 def extract_json(raw: str) -> dict:
     """Best-effort parse of a model's JSON reply (tolerant of fences/surrounds)."""
     text = raw.strip()

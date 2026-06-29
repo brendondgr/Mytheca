@@ -27,6 +27,7 @@ from app.agents._common import (
     docs_block,
     extract_json,
     gen_params,
+    rag_block,
     resolve_llm,
     world_context,
 )
@@ -141,6 +142,7 @@ def draft_scenario(
         f"{world_context(db, storyline_id)}"
         f"{roster_block}"
         f"{docs_block(docs_overview)}"
+        f"{rag_block(db, storyline_id, seed)}"
     )
     messages = [
         {"role": "system", "content": _DRAFT_SYSTEM},
