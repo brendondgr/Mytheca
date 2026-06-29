@@ -1,6 +1,7 @@
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Tag } from "@/components/ui/Tag";
+import { mediaUrl } from "@/lib/api";
 import type { ResolvedScenario } from "@/lib/types";
 
 /**
@@ -76,7 +77,7 @@ export function SceneIntro({
                 <Monogram
                   mono={c.mono}
                   color={c.color}
-                  src={c.portrait}
+                  src={c.portrait ? mediaUrl(c.portrait) : undefined}
                   size={28}
                   ring={1.5}
                   fontSize={10}

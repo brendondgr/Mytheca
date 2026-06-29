@@ -1,5 +1,6 @@
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type { Character } from "@/lib/types";
 
@@ -74,7 +75,7 @@ export function CastRail({
                 speaking ? "border-accent bg-card2" : "border-cardbd bg-card",
               )}
             >
-              <Monogram mono={c.mono} color={c.color} src={c.portrait} size={34} fontSize={13} />
+              <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={34} fontSize={13} />
               <span className="min-w-0 flex-1">
                 <span className="block font-display text-[14px] font-semibold leading-[1.05] text-ink">
                   {c.name}

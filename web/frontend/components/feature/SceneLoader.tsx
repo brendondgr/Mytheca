@@ -1,5 +1,6 @@
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Monogram } from "@/components/ui/Monogram";
+import { mediaUrl } from "@/lib/api";
 import { CARD_SCRIM, OVER_ART } from "@/lib/cardArt";
 import type { ResolvedScenario } from "@/lib/types";
 
@@ -33,7 +34,7 @@ export function SceneLoader({
       {hasArt ? (
         // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
         <img
-          src={s.image ?? ""}
+          src={mediaUrl(s.image ?? "")}
           alt=""
           aria-hidden
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
@@ -88,7 +89,7 @@ export function SceneLoader({
                 <Monogram
                   mono={c.mono}
                   color={c.color}
-                  src={c.portrait}
+                  src={c.portrait ? mediaUrl(c.portrait) : undefined}
                   size={36}
                   ring={1.5}
                   fontSize={13}

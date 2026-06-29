@@ -1,5 +1,6 @@
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { mediaUrl } from "@/lib/api";
 import type { Character } from "@/lib/types";
 import type { SceneChoice, SceneMessage } from "@/features/story-player/scene-data";
 
@@ -56,7 +57,7 @@ export function CharacterMessage({
         title={c.name}
         className="flex-none rounded-full transition-transform hover:scale-105 disabled:hover:scale-100"
       >
-        <Monogram mono={c.mono} color={c.color} src={c.portrait} size={40} fontSize={14} />
+        <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={40} fontSize={14} />
       </button>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-[9px]">
