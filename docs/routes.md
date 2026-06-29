@@ -24,6 +24,19 @@ Planned routes for the Next.js frontend. Routes are not yet implemented; this is
 | `/settings` | Account & preferences (incl. theme) | User | Postgres | `app/(app)/settings` | `GET/PATCH /me` | loading, error, success |
 | `/admin/*` | Moderation/management (future) | Admin | Postgres | `app/(admin)` | `GET /admin/*` | permission, empty, error |
 
+## Hybrid RAG Backend Routes
+
+The three RAG endpoints live on the backend (not frontend routes) and are consumed
+by the storyline editor UI:
+
+| Backend endpoint | Consumed by |
+| --- | --- |
+| `GET /api/storylines/{id}/rag/status` | Storyline editor footer — shows "✦ N embedded" count |
+| `POST /api/storylines/{id}/rag/reindex/stream` | Storyline editor footer **"Re-embed"** button — streams live "Embedding i / N" progress (NDJSON) |
+| `POST /api/storylines/{id}/rag/query` | Debug only (not surfaced in the UI) |
+
+See `docs/api-contract.md` (RAG Shapes) and `docs/rag.md` for the full pipeline.
+
 ## Notes
 
 - **Storyline create/edit live on a dedicated page** (`/storylines/new`, `/storylines/[id]/edit`), not a modal — the former `StorylineModal` was retired. The literal `storylines/` segment resolves before the dynamic root `/[storylineId]` (Next.js static-first; confirmed by a clean `next build`). When the Library loads with **zero** storylines, `/` `router.replace`s to `/storylines/new` (the empty-state default).

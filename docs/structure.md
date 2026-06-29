@@ -23,7 +23,8 @@ velora/
 │   ├── data-flow.md        # Data origins + the streaming/event path
 │   ├── deployment.md       # Build, run, env, deploy targets
 │   ├── design-system.md    # Visual motif, tokens, UI states
-│   └── api-contract.md     # API + NDJSON event contract
+│   ├── api-contract.md     # API + NDJSON event contract
+│   └── rag.md              # Hybrid RAG: pipeline, components, embedding, Qdrant, utilization
 ├── web/
 │   ├── frontend/           # Live Next.js 16 app (App Router, Turbopack) + React 19 + TS + Tailwind v4 + Framer Motion
 │   │   ├── app/            # Routes, layouts, route handlers (+ co-located *.test.tsx)
@@ -37,7 +38,7 @@ velora/
 │   │   └── *config*        # package.json, next.config.ts, tsconfig.json, vitest.config.ts, eslint/postcss configs
 │   ├── backend/            # FastAPI "brain"
 │   │   ├── docker/neo4j/   # Custom Neo4j 5.26 image (APOC) — the Story Graph substrate, built by app.py
-│   │   ├── docker-compose.yml  # Postgres + Redis + Neo4j containers (started by app.py)
+│   │   ├── docker-compose.yml  # Postgres + Redis + Neo4j + Qdrant containers (started by app.py)
 │   │   ├── alembic.ini     # Alembic config (no secret — DB URL injected at runtime from app.core.config)
 │   │   ├── alembic/        # Migrations: env.py (→ Base.metadata + settings) + versions/ (baseline = current schema). Non-additive migration path; coexists with create_all/reconciler (preflight stamps/upgrades on Postgres, skips SQLite)
 │   │   └── app/
@@ -45,11 +46,12 @@ velora/
 │   │       ├── services/   # Orchestrator/Director, event engine, validator; stat_guidance (per-stat Markdown loader); media_cleanup (orphaned-WebP scan/delete); Story Graph: type_registry, graph_writer, graph_reader
 │   │       ├── agents/     # LLM agents — storyline_agent (draft + World Primer), character_agent (draft + portrait prompts + stats), setting_agent (draft + scene-art prompts), shared _common; Narrator agents later
 │   │       ├── content/    # Authored content — the built-in Story-Graph type catalogue (graph_registry.py) + per-stat Markdown guidance (stats/*.md, loaded by services/stat_guidance.py); YAML config later
-│   │       ├── memory/     # Memory seam (Postgres/Redis now; vector DB later)
+│   │       ├── rag/        # Entry-based hybrid RAG: schema.py (LoreEntry) · serializer.py (prefix-fusion) · tokens.py (512-token guard) · entries.py (entity→entry adapters) · embedder.py (fastembed bge-large + HashEmbedder fallback) · store.py (Qdrant) · indexer.py (embed-on-save/delete hooks + reindex progress) · retriever.py (dense+BM25+RRF+pre-filter) · const.py
+│   │       ├── memory/     # Memory seam (Postgres/Redis now; vector seam wired via rag/)
 │   │       ├── events/     # Event / NDJSON stream definitions (5 event types)
 │   │       ├── models/     # PostgreSQL models (storylines, characters, settings, scenarios, events, stats, app_settings, graph_type_definitions, context_documents)
-│   │       ├── schemas/    # Pydantic request/response + event schemas (stat clamping)
-│   │       └── core/       # Config, db/redis/neo4j clients, LLM provider interface, YAML/Markdown loaders
+│   │       ├── schemas/    # Pydantic request/response + event schemas (stat clamping, rag.py)
+│   │       └── core/       # Config, db/redis/neo4j/qdrant.py clients, LLM provider interface, YAML/Markdown loaders
 │   └── shared/
 │       └── contracts/      # Shared FE↔BE types / OpenAPI / event schemas
 ├── utils/                  # Small standalone helpers
@@ -65,7 +67,7 @@ velora/
 
 | Path | Why it exists |
 | --- | --- |
-| `app.py` | Single root launcher: `python app.py` starts **both** the backend (preflight + uvicorn, `web/backend`) and the frontend dev server (`npm run dev` in `web/frontend`), waiting for backend health before the frontend and stopping both on Ctrl+C; `python app.py frontend` / `python app.py backend` run a single side; `python app.py stop` forcibly ends any running frontend/backend processes and exits. **Forcibly frees its ports** — every launch terminates whatever still holds 3345/3346 (a leftover `next dev` / uvicorn) via SIGTERM→SIGKILL before starting, so a fresh run never hits `EADDRINUSE` (`_free_port`/`_pids_on_port`/`_kill_pid`). **Owns Docker** — `ensure_docker_services()` verifies Docker + daemon, pulls the Postgres/Redis images when missing, **builds the custom Neo4j image** (`docker/neo4j/Dockerfile`), and starts all three containers before the backend (`up -d --build --wait`; you never run `docker compose` yourself). |
+| `app.py` | Single root launcher: `python app.py` starts **both** the backend (preflight + uvicorn, `web/backend`) and the frontend dev server (`npm run dev` in `web/frontend`), waiting for backend health before the frontend and stopping both on Ctrl+C; `python app.py frontend` / `python app.py backend` run a single side; `python app.py stop` forcibly ends any running frontend/backend processes and exits. **Forcibly frees its ports** — every launch terminates whatever still holds 3345/3346 (a leftover `next dev` / uvicorn) via SIGTERM→SIGKILL before starting, so a fresh run never hits `EADDRINUSE` (`_free_port`/`_pids_on_port`/`_kill_pid`). **Owns Docker** — `ensure_docker_services()` verifies Docker + daemon, pulls the Postgres/Redis images when missing, **builds the custom Neo4j image** (`docker/neo4j/Dockerfile`), and starts all four containers (Postgres · Redis · Neo4j · **Qdrant**) before the backend (`up -d --build --wait`; you never run `docker compose` yourself). |
 | `docs/` | All durable documentation and canonical skills — the source of truth. |
 | `web/frontend/` | The Next.js UI: story player, narrator cards, character bubbles, stats/branch side panels. |
 | `web/backend/` | The FastAPI brain: routes, multi-agent logic, the stat system, events, validation, persistence. |

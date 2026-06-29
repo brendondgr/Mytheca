@@ -2,7 +2,7 @@
 
 The contract between the Next.js frontend and the FastAPI backend. Request/response schemas are owned by the backend (Pydantic, `web/backend/app/schemas/`); shared types and the event schema live in `web/shared/contracts/`. This document and those files must stay in sync.
 
-**Status:** the Storyline / Character / Setting / Scenario CRUD groups, the stat endpoints, the **Options** (global settings + LLM endpoint proxy) group, and the **Story Graph** (Type Registry + scenario subgraph read) are **implemented** (`web/backend/app/routes/`, served under `/api`). Auth, Play, Stream, and Admin remain **planned**. Wire payloads are camelCase (`castIds`, `settingId`, `displayName`) to match `web/frontend/lib/types.ts`.
+**Status:** the Storyline / Character / Setting / Scenario CRUD groups, the stat endpoints, the **Options** (global settings + LLM endpoint proxy) group, the **Story Graph** (Type Registry + scenario subgraph read), and the **Hybrid RAG** (status, reindex stream, query) are **implemented** (`web/backend/app/routes/`, served under `/api`). Auth, Play, Stream, and Admin remain **planned**. Wire payloads are camelCase (`castIds`, `settingId`, `displayName`) to match `web/frontend/lib/types.ts`.
 
 **Identifiers:** the two **URL-facing** ids are short, bare hex (no prefix) so they read cleanly in `/{storylineId}/{scenarioId}` — **Storyline = 8-hex** (`1a2b3c4d`), **Scenario = 4-hex** (`9f8e`), both collision-checked at create time (`services/crud.py`). All other entities keep prefixed ids (`c_…`, `s_…`, `stat_…`, `ev_…`). Ids are string primary keys, so hand-authored seed slugs (`embergate`, `maerin`) and any client-supplied id still pass through unchanged.
 
@@ -28,7 +28,8 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. Read/write shape: `id`, `name`, `role`, `color`, `mono` (derived), `traits`, `speech`, `goal`, `secret`, plus base-identity prose `appearance`, `background`, `personality` (all nullable), and `portrait` (nullable relative `/media/...` URL of the generated WebP avatar). |
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. Read/write shape: `id`, `name`, `type`, `desc` (short base description), plus §4.1 Setting-node metadata `atmosphere` (sensory character), `features` (notable fixtures/points of interest), `currentState` (initial here-and-now), and `image` (nullable relative `/media/scenes/...` URL of the generated WebP establishing shot) — all nullable; and `timeline` (append-only event log, **empty at authoring**, play-accrued; defaults `[]`). |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. Read/write shape includes `image` (nullable relative `/media/scenes/...` URL of the generated WebP scene art), `sceneArtPositive`, and `sceneArtNegative` (nullable prompt strings). |
-| Context documents | `GET /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs/bulk`, `PATCH /context-docs/{docId}`, `DELETE /context-docs/{docId}` | **Implemented.** The persisted **triaged RAG corpus** for a world (written by the New Storyline page's Triage → commit). Each doc carries a `category` (`character`/`setting`/`other`) and inclusion tiers `includeDraft` / `includeRag`. Persistence only — retrieval (chunking/embeddings/hybrid search) is still deferred; nothing reads `content` at runtime yet. See Context Document Shape below. |
+| Context documents | `GET /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs/bulk`, `PATCH /context-docs/{docId}`, `DELETE /context-docs/{docId}` | **Implemented.** The persisted **triaged RAG corpus** for a world (written by the New Storyline page's Triage → commit). Each doc carries a `category` (`character`/`setting`/`other`) and inclusion tiers `includeDraft` / `includeRag`. Docs are **storyline-level** (Triage default) or **entity-scoped** — a doc with `entityType` + `entityId` reappears in that editor on re-edit and is removed (with its embedding) when the entity is deleted. `GET /storylines/{id}/context-docs` accepts `?entityType=&entityId=` to filter by scope. Docs with `includeRag` are embedded on save (hybrid RAG). See Context Document Shape below. |
+| Hybrid RAG | `GET /storylines/{id}/rag/status`, `POST /storylines/{id}/rag/reindex/stream`, `POST /storylines/{id}/rag/query` | **Implemented.** Vector-store status, NDJSON reindex progress stream, and debug retrieval query for a world's corpus. Best-effort (`available: false` when Qdrant is down/disabled). See RAG Shapes below. |
 | Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
 | Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
 | Authoring | `POST /storylines/draft`, `POST /storylines/primer`, `POST /storylines/triage`, `POST /storylines/build` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, generate the agent-facing World Primer, **triage** dropped reference docs into Characters / Settings / Other with Draft/RAG inclusion, and **build** an entire reviewable world (metadata + primer + stat schema + cast + settings) in one orchestrated call (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
@@ -80,7 +81,9 @@ A persisted, triaged reference document on a storyline (the RAG-corpus seam):
   "includeDraft": false,
   "includeRag": true,
   "source": "upload",
-  "charCount": 812
+  "charCount": 812,
+  "entityType": "character",
+  "entityId": "c_abc123"
 }
 ```
 
@@ -88,9 +91,14 @@ A persisted, triaged reference document on a storyline (the RAG-corpus seam):
 lands in that bucket; one holding **multiple** characters or settings, or a general
 world doc, lands in `other` (set by Triage). `includeDraft` marks world-setting docs
 that ground generation; `includeRag` (default `true`) marks the retrieval corpus.
+`entityType` + `entityId` (both nullable) scope a doc to a specific
+character/setting/scenario: a scoped doc reappears in that editor on re-edit and is
+deleted (with its Qdrant point) when the entity is deleted. A doc without these
+fields is storyline-level (the Triage/bulk default). `GET /storylines/{id}/context-docs`
+accepts `?entityType=character&entityId=c_abc123` to filter by scope.
 `POST …/context-docs/bulk` takes `{ docs: [ContextDocumentCreate…] }` and persists
-the whole corpus in one call (the New Storyline commit). The text is stored verbatim;
-nothing chunks/embeds/retrieves it yet (deferred).
+the whole corpus in one call (the New Storyline commit). Docs with `includeRag: true`
+are embedded on save and pruned on delete (hybrid RAG).
 
 ## Story Graph Shapes
 
@@ -127,6 +135,52 @@ A Type Registry entry (`GET/POST /storylines/{id}/graph/types`):
 ```
 
 `kind` ∈ `node | edge`; `valence` ∈ `positive | negative | neutral` (edges only; required on create); `status` ∈ `built_in | experimental | trusted`. Built-in types have `storylineId: null` and are immutable; user types are storyline-scoped and start `experimental` (only `built_in`/`trusted` reach the hot path — §10). See `docs/story-graph-neo4j.md`.
+
+## RAG Shapes
+
+Three storyline-scoped endpoints for the hybrid RAG layer. All return `available: false`
+(with no error) when Qdrant is disabled or unreachable — best-effort, like the Story Graph.
+
+**`GET /api/storylines/{id}/rag/status`** — reachability + indexed count:
+
+```json
+{ "available": true, "indexed": 42 }
+```
+
+**`POST /api/storylines/{id}/rag/reindex/stream`** — re-embeds the world's corpus
+streaming NDJSON (`application/x-ndjson`). Emits one `embedding` event per entry,
+then a terminal `done` event:
+
+```json
+{ "stage": "embedding", "index": 1, "total": 42, "name": "Maerin Voss", "type": "character" }
+{ "stage": "done", "indexed": 41, "skipped": 1, "total": 42, "available": true }
+```
+
+`skipped` counts entries whose content hash is unchanged (idempotent — no re-embed
+for unchanged entries). `available: false` in the `done` event when Qdrant is
+unreachable.
+
+**`POST /api/storylines/{id}/rag/query`** — debug retrieval for a query string:
+
+Request body:
+```json
+{ "query": "who controls the harbor?", "k": 5, "prefilter": {} }
+```
+
+Response:
+```json
+{
+  "available": true,
+  "results": [
+    { "entryId": "character:c_abc123", "name": "Maerin Voss", "type": "character",
+      "score": 0.87, "body": "Maerin Voss is a harbor smuggler …" }
+  ]
+}
+```
+
+`k` (default 5) is the number of top entries after RRF fusion. `prefilter` is an
+optional payload filter passed to Qdrant (e.g. `{ "type": "character" }`). This
+endpoint is for debugging retrieval — the authoring agents call `rag_block` directly.
 
 ## Options / Settings Shape
 

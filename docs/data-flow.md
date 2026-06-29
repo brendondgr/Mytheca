@@ -16,7 +16,7 @@ How data originates and moves through Velora. The streaming/event path is first-
 | LLM providers | model completions for agents | `web/backend/app/core/` (provider interface) → `app/agents/` |
 | Client-only state | UI state, draft input, panel toggles, theme | `web/frontend/` (React state) |
 | Derived/cached | computed scenario state, summaries | `app/services/`, cached in Redis |
-| Vector DB (deferred) | semantic memory retrieval | `app/memory/` (seam) |
+| Qdrant (hybrid RAG) | named dense + sparse vectors for all entities/context-docs; hybrid dense+BM25+RRF retrieval injected into authoring agents | `app/core/qdrant.py` (client), `app/rag/{store,indexer,retriever}.py` |
 
 ## Read Path (e.g. open a scenario)
 
@@ -319,10 +319,10 @@ characters** (`_common.DOCS_CAP` / `readDocs.DOCS_CHAR_CAP`; ~8000 tokens), rais
 the original 8K so larger lore/corpus batches can ground generation.
 
 This is the **persistence seam** for retrieval: the documents are durably stored
-per storyline and survive reload. **Nothing reads `content` at runtime yet** —
-chunking, embeddings, hybrid search, and runtime retrieval remain a later plan.
-`includeDraft` docs additionally ground the creation-time generation (inline, not
-retrieved); `includeRag` simply marks corpus membership for the future retriever.
+per storyline and survive reload. The **Hybrid RAG** (see `docs/rag.md`) now reads
+`content` at runtime — `includeRag` docs are embedded on save and retrieved by the
+authoring agents. `includeDraft` docs additionally ground the creation-time
+generation inline (not retrieved, capped at 32K characters).
 
 ## Story Graph Flow (Neo4j substrate)
 
@@ -349,6 +349,55 @@ add per-storyline types via `POST /storylines/{id}/graph/types`. **Deferred seam
 the async turn-writer (§8 cold path), the vector entry-point (§7.1), and
 Text2Cypher (§7.3) — their prerequisites (a turn loop, an embedding stack) don't
 exist yet. See `docs/story-graph-neo4j.md`.
+
+## Hybrid RAG Flow
+
+### Ingest-on-save
+
+```
+CRUD write (character / setting / scenario / context-doc create or update)
+  → services/crud (commit to Postgres)
+  → indexer.sync_* hook (best-effort, after commit)
+      → entries.py: entity → LoreEntry (Frontmatter + body)
+      → serializer.py: prefix-fusion → dense embed text + BM25 vocabulary text
+      → embedder.py: FastEmbedEmbedder (fastembed bge-large) or HashEmbedder (offline)
+      → store.py: Qdrant upsert — named dense + sparse vectors, content-hash idempotency,
+          uuid5 point id, storyline-scoped payload
+  (Qdrant down/disabled → logged + skipped; CRUD still succeeds)
+```
+
+### Retrieval (agent draft)
+
+```
+agents/character_agent / setting_agent / scenario_agent → draft call
+  → agents/_common.rag_block(db, storyline_id, query)
+      → retriever.py: build_filter (storyline_id payload pre-filter)
+      → store.py: dense search + sparse (BM25) search
+      → retriever.py: RRF fusion (k=60) over both ranked lists → top-N entries
+      → format: name · type · body excerpts → bounded grounding block
+  → injected into the authoring prompt alongside world_context + docs_block
+```
+
+### Delete-from-index
+
+```
+CRUD delete (entity or context-doc)
+  → indexer.remove_* hook (best-effort)
+      → store.py: Qdrant delete by uuid5 point id
+  storyline delete → store.py: delete all points for storyline_id (drops the whole corpus)
+```
+
+### Reindex progress stream
+
+```
+Storyline editor footer → "Re-embed" → POST /api/storylines/{id}/rag/reindex/stream
+  → indexer.iter_reindex_storyline
+      → per entry: { "stage": "embedding", index, total, name, type }  (NDJSON)
+      → terminal: { "stage": "done", indexed, skipped, total, available }
+  → frontend: live "Embedding i / N" progress banner updates
+```
+
+See `docs/rag.md` for the full pipeline, component reference, and configuration.
 
 ## State Ownership
 

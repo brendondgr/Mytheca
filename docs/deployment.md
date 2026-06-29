@@ -6,7 +6,7 @@ Deployment is not yet configured; this records the intended approach and require
 
 - **Backend:** FastAPI (ASGI) served by Uvicorn, started from root `app.py`.
 - **Frontend:** Next.js app in `web/frontend/`.
-- **Data:** PostgreSQL + Redis + **Neo4j** (the Story Graph substrate — a custom `neo4j:5.26-community` image with APOC, `web/backend/docker/neo4j/Dockerfile`). A Vector DB (semantic memory) may be added in a later phase.
+- **Data:** PostgreSQL + Redis + **Neo4j** (the Story Graph substrate — a custom `neo4j:5.26-community` image with APOC, `web/backend/docker/neo4j/Dockerfile`) + **Qdrant** (the hybrid RAG vector store — standard `qdrant/qdrant` image, REST 3351 / gRPC 3352, volume `velora_qdrantdata`; best-effort, see `docs/rag.md`).
 
 ## Local Development
 
@@ -15,7 +15,7 @@ Deployment is not yet configured; this records the intended approach and require
 | Everything (dev) | `python app.py` (repo root) — backend (preflight + Uvicorn) **and** frontend together; waits for backend health, Ctrl+C stops both |
 | Backend only | `python app.py backend` (repo root) — runs preflight, then Uvicorn |
 | Frontend only | `python app.py frontend` (repo root) or `npm run dev` (`web/frontend/`) |
-| Postgres + Redis + Neo4j | Automatic — `app.py` checks Docker, pulls/builds the images, and starts them. Manual fallback: `docker compose -f web/backend/docker-compose.yml up -d --build` |
+| Postgres + Redis + Neo4j + Qdrant | Automatic — `app.py` checks Docker, pulls/builds the images, and starts them. Manual fallback: `docker compose -f web/backend/docker-compose.yml up -d --build` |
 
 ### Docker bring-up (owned by `app.py`)
 
@@ -31,7 +31,7 @@ A pull/up failure aborts startup. Missing Docker or a stopped daemon prints acti
 
 After the containers are up, `python app.py backend` runs `app/core/bootstrap.run_preflight()` before serving. It:
 
-1. waits for the database and pings Redis,
+1. waits for the database, pings Redis, and pings **Qdrant** (advisory — ensures the `velora_lore` collection),
 2. ensures the schema (`Base.metadata.create_all`),
 3. **reconciles additive columns** — `create_all` makes missing *tables* but never ALTERs existing ones, so a persistent dev DB drifts behind the models on every new column. The preflight self-heals the safe case (new **nullable** columns) with an idempotent `ADD COLUMN`; non-nullable additions on a populated table are *reported*, not attempted,
 4. **applies Alembic migrations** (non-SQLite only) — the versioned path for non-additive schema changes. On a DB with no `alembic_version` table it **stamps** `head` (adopts the existing `create_all` schema without re-running the baseline); otherwise it **upgrades to head**. Best-effort: failures are logged + reported but never block startup. Skipped entirely under SQLite (the test/embedded path). See `docs/workflow.md` (Migrations) for the author-side commands, and
@@ -39,7 +39,7 @@ After the containers are up, `python app.py backend` runs `app/core/bootstrap.ru
 
 It prints a pass/fail report; a failed **required** check (the database) aborts startup with remediation. Redis, the additive reconciliation, and the Alembic step are advisory. The schema/seed run here, **not** in the FastAPI lifespan (which only does a connection check), so Uvicorn `--reload` stays fast.
 
-Postgres is published on host port **3347** (a dedicated port so Velora coexists with any Postgres already on 5432); Redis on **3348**; Neo4j Bolt on **3349** and the Neo4j Browser on **3350** (coexisting with any Neo4j on 7687/7474). The frontend dev server runs on **3346** and the backend API on **3345**. Tests run on in-memory SQLite and need neither Docker nor Postgres nor Neo4j (the Story Graph is disabled in the suite).
+Postgres is published on host port **3347** (a dedicated port so Velora coexists with any Postgres already on 5432); Redis on **3348**; Neo4j Bolt on **3349** and the Neo4j Browser on **3350** (coexisting with any Neo4j on 7687/7474); **Qdrant REST on 3351 and gRPC on 3352**. The frontend dev server runs on **3346** and the backend API on **3345**. Tests run on in-memory SQLite and `QdrantClient(":memory:")` — no Docker, Postgres, Neo4j, or Qdrant server needed.
 
 ## Build
 
@@ -67,7 +67,13 @@ Copy `.env.example` → `.env` (gitignored). Document every new variable here an
 | `SECRET_KEY` | Session/token signing |
 | `FRONTEND_ORIGIN` | Allowed CORS origin for the frontend |
 | `NEXT_PUBLIC_API_URL` | Frontend → backend base URL (client-readable; see `web/frontend/.env.local.example`) |
-| `VECTOR_DB_URL` | (later) semantic memory store |
+| `EMBED_PROVIDER` | Embedding backend: `fastembed` (real, default) or `hash` (offline/test fallback — no model download) |
+| `EMBED_MODEL` | Dense embedding model (default `BAAI/bge-large-en-v1.5`); downloads ~1.3 GB on first use, cached under `EMBED_CACHE_DIR` |
+| `EMBED_DIM` | Vector dimension (default `1024`) |
+| `EMBED_DEVICE` | Execution device: `cpu` (default) / `cuda` / `rocm` |
+| `EMBED_CACHE_DIR` | ONNX model cache directory (defaults to fastembed's platform cache) |
+| `QDRANT_URL` | Qdrant REST URL (default `http://localhost:3351`); **blank to disable** the vector store (CRUD + tests run without Qdrant) |
+| `QDRANT_COLLECTION` | Qdrant collection name (default `velora_lore`) |
 
 ## Deployment Target
 
