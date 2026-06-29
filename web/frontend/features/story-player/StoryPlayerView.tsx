@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import type { Character, ResolvedScenario } from "@/lib/types";
 import { useScenePlay } from "./useScenePlay";
 import { tensionLabel } from "./scene-data";
@@ -102,7 +102,17 @@ export function StoryPlayerView({
         />
       </div>
 
-      <SceneLoader title={scenario.title} visible={scene.loading} />
+      <AnimatePresence>
+        {scene.loading ? (
+          <motion.div
+            key="scene-loader"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.45, ease: "easeInOut" }}
+          >
+            <SceneLoader scenario={scenario} visible />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
       <CharacterProfileModal character={profileChar} onClose={scene.closeProfile} />
     </div>
   );

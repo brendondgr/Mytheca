@@ -25,7 +25,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
     const timer = setTimeout(() => {
       setReveal(true);
       setLoading(false);
-    }, 1400);
+    }, 2200);
     return () => clearTimeout(timer);
   }, []);
 
