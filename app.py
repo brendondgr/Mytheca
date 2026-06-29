@@ -154,8 +154,8 @@ def ensure_docker_services() -> bool:
     compose = [docker, "compose", "-f", str(COMPOSE_FILE)]
     if not _images_present(docker, compose):
         print(
-            "Docker ✓  Downloading the Postgres + Redis + Neo4j images (first run —\n"
-            "this can take a few minutes)…"
+            "Docker ✓  Downloading the Postgres + Redis + Neo4j + Qdrant images (first\n"
+            "run — this can take a few minutes)…"
         )
         # `--ignore-buildable` skips the custom Neo4j service (built below from
         # docker/neo4j/Dockerfile); only the image-only services are pulled.
@@ -169,7 +169,7 @@ def ensure_docker_services() -> bool:
     else:
         print("Docker ✓  Container images already present.")
 
-    print("Starting Velora data containers (Postgres + Redis + Neo4j)…")
+    print("Starting Velora data containers (Postgres + Redis + Neo4j + Qdrant)…")
     # `--build` builds the custom Neo4j image (cached/near-instant when unchanged)
     # before bringing everything up; `--wait` blocks on each service's healthcheck.
     if subprocess.run(compose + ["up", "-d", "--build", "--wait"]).returncode != 0:

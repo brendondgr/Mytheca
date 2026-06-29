@@ -31,6 +31,8 @@ from app.core.config import Settings, get_settings
 from app.core.db import Base, make_engine
 from app.core.neo4j import is_enabled as neo4j_enabled
 from app.core.neo4j import ping as neo4j_ping
+from app.core.qdrant import is_enabled as qdrant_enabled
+from app.core.qdrant import ping as qdrant_ping
 from app.core.redis import ping as redis_ping
 from app.core.seed import seed_if_empty
 from app.services.type_registry import seed_builtin_types
@@ -203,6 +205,24 @@ def run_preflight(*, seed: bool = True) -> PreflightReport:
             ensure_constraints_safe()
     else:
         report.add("neo4j", True, "disabled (NEO4J_URI unset)", required=False)
+
+    # The Hybrid RAG vector store (Qdrant) is advisory too: indexing/retrieval are
+    # best-effort and CRUD never blocks on it (see app/core/qdrant.py).
+    if qdrant_enabled():
+        up = qdrant_ping()
+        report.add("qdrant", up, settings.qdrant_url, required=False)
+        if up:
+            from app.core.qdrant import get_client
+            from app.rag import store as rag_store
+
+            try:
+                client = get_client()
+                if client is not None:
+                    rag_store.ensure_collection(client)  # one-time scaffolding
+            except Exception:
+                pass
+    else:
+        report.add("qdrant", True, "disabled (QDRANT_URL unset)", required=False)
 
     Base.metadata.create_all(engine)
     _reconcile_additive_columns(engine, report)

@@ -58,7 +58,22 @@ services:
       timeout: 3s
       retries: 20
 
+  # The Hybrid RAG vector store — Qdrant. REST is published on host port 3351 and
+  # gRPC on 3352 (dedicated ports so Velora coexists with any Qdrant already on
+  # 6333/6334). `python app.py` starts it; the backend connects lazily and degrades
+  # gracefully when it's down (CRUD + tests run with no Qdrant). No healthcheck — the
+  # image ships no shell/curl, so `--wait` treats it as started; the lazy client +
+  # best-effort indexer absorb the brief startup gap.
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "3351:6333"  # rest (http)
+      - "3352:6334"  # grpc
+    volumes:
+      - velora_qdrantdata:/qdrant/storage
+
 volumes:
   velora_pgdata:
   velora_redisdata:
   velora_neo4jdata:
+  velora_qdrantdata:
