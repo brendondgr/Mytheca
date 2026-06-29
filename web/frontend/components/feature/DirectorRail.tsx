@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import type { StatDefinition } from "@/lib/types";
 import type { Relationship, StatChip } from "@/features/story-player/scene-data";
@@ -56,10 +59,17 @@ export function StateChips({ stats }: { stats: StatChip[] }) {
   );
 }
 
+/** The labeled band whose range contains `value` (e.g. 50 → "Charged"). */
+function bandLabelFor(def: StatDefinition): string | null {
+  const b = def.bands.find((x) => def.default >= x.min && def.default <= x.max);
+  return b?.label ?? null;
+}
+
 /**
- * One stat as a min→max slider: a numeric readout floating above the value's
- * position on the track, a filled track with a thumb, the min/max end ticks, and
- * a hover/focus "?" that reveals what each labeled band range means. Read-only
+ * One stat as a min→max slider: the stat name with its current band title beside
+ * it (e.g. "Essence: Charged"), a numeric readout floating above the value's
+ * position on the track, a filled track with a thumb, and the min/max end ticks.
+ * The band legend below opens only when the "?" is hovered or clicked. Read-only
  * (the value sits at the schema default) — it visualizes the stat, not edits it.
  */
 function StatSlider({ def }: { def: StatDefinition }) {
@@ -69,27 +79,41 @@ function StatSlider({ def }: { def: StatDefinition }) {
   // Keep the floating readout from clipping at the track ends.
   const labelPct = Math.max(7, Math.min(93, pct));
   const hasBands = bands.length > 0;
+  const currentBand = bandLabelFor(def);
+  const [pinned, setPinned] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const open = pinned || hovered;
 
   return (
-    <div className="group/stat">
+    <div>
       <div className="flex items-center justify-between gap-2">
-        <span className="font-body text-[13px] text-ink">{displayName}</span>
+        <span className="min-w-0 truncate font-body text-[13px] text-ink">
+          {displayName}
+          {currentBand ? (
+            <span style={{ color: "var(--accent)" }}>: {currentBand}</span>
+          ) : null}
+        </span>
         {hasBands ? (
-          <span
-            tabIndex={0}
-            role="button"
+          <button
+            type="button"
+            aria-expanded={open}
             aria-label={`What ${displayName} ranges mean`}
-            className="flex h-[15px] w-[15px] flex-none cursor-help items-center justify-center rounded-full border border-cardbd font-mono text-[9px] leading-none text-mute hover:border-accent hover:text-accent focus:border-accent focus:text-accent focus:outline-none"
+            onClick={() => setPinned((p) => !p)}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            onFocus={() => setHovered(true)}
+            onBlur={() => setHovered(false)}
+            className="flex h-[15px] w-[15px] flex-none cursor-pointer items-center justify-center rounded-full border border-cardbd font-mono text-[9px] leading-none text-mute hover:border-accent hover:text-accent focus:border-accent focus:text-accent focus:outline-none aria-expanded:border-accent aria-expanded:text-accent"
           >
             ?
-          </span>
+          </button>
         ) : null}
       </div>
 
-      {/* Floating value readout, centered over the thumb. */}
-      <div className="relative mt-[6px] h-[15px]">
+      {/* Floating value readout, centered over the thumb (sits above the track). */}
+      <div className="relative mt-[3px] h-[17px]">
         <span
-          className="absolute -translate-x-1/2 font-mono text-[12px] font-medium text-accent"
+          className="absolute top-0 -translate-x-1/2 font-mono text-[12px] font-medium text-accent"
           style={{ left: `${labelPct}%` }}
         >
           {value}
@@ -114,9 +138,13 @@ function StatSlider({ def }: { def: StatDefinition }) {
         <span>{max}</span>
       </div>
 
-      {/* Band legend — revealed on hover/focus of the row (in-flow, never clipped). */}
+      {/* Band legend — opens only via the "?" (hover or click); in-flow, never clipped. */}
       {hasBands ? (
-        <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 group-hover/stat:grid-rows-[1fr] group-focus-within/stat:grid-rows-[1fr] motion-reduce:transition-none">
+        <div
+          className={`grid transition-[grid-template-rows] duration-200 motion-reduce:transition-none ${
+            open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
           <div className="overflow-hidden">
             <dl className="mt-[7px] rounded-[3px] border border-cardbd bg-card2 p-[7px_9px]">
               {bands.map((b) => (

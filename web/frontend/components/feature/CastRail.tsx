@@ -59,7 +59,7 @@ export function CastRail({
   return (
     <aside className="velora-rail hidden w-[236px] flex-none overflow-auto border-r border-hair-strong p-[18px_16px] lg:block">
       <Eyebrow tracking="0.16em" className="mb-3 block">
-        At the table
+        In the Scene
       </Eyebrow>
       <div className="flex flex-col gap-[7px]">
         {cast.map((c) => {

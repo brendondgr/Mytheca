@@ -21,6 +21,8 @@ describe("DirectorRail", () => {
     expect(screen.getByText("Patience")).toBeInTheDocument();
     // Health default 100 sits in the "Very healthy" band (shown in the band legend).
     expect(screen.getByText("Very healthy")).toBeInTheDocument();
+    // The current band's title is shown beside the stat name ("Health: Very healthy").
+    expect(screen.getByText(": Very healthy")).toBeInTheDocument();
     // The "Very healthy" band's range is listed beside it.
     expect(screen.getByText("81–100")).toBeInTheDocument();
   });

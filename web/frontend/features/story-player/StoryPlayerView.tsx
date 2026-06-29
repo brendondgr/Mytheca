@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 import { useScenePlay } from "./useScenePlay";
@@ -13,6 +13,7 @@ import { SceneLoader } from "@/components/feature/SceneLoader";
 import { SceneIntro } from "@/components/feature/SceneIntro";
 import { TranscriptBeat } from "@/components/feature/TranscriptBeat";
 import { CharacterDossier } from "@/components/feature/CharacterDossier";
+import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 
 /** The signature surface: a three-zone "open book" live scene. */
 export function StoryPlayerView({
@@ -28,6 +29,7 @@ export function StoryPlayerView({
 }) {
   const scene = useScenePlay(scenario);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [modalId, setModalId] = useState<string | null>(null);
   const byId = (id: string): Character | undefined =>
     scenario.cast.find((c) => c.id === id);
 
@@ -38,6 +40,7 @@ export function StoryPlayerView({
   }, [scene.messages.length, scene.reveal]);
 
   const profileChar = scene.profileId ? (byId(scene.profileId) ?? null) : null;
+  const modalChar = modalId ? (byId(modalId) ?? null) : null;
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -106,6 +109,7 @@ export function StoryPlayerView({
             statDefs={statDefs}
             relationships={scene.relationships}
             onClose={scene.closeProfile}
+            onOpenProfile={setModalId}
           />
         ) : (
           <DirectorRail
@@ -120,6 +124,7 @@ export function StoryPlayerView({
       </div>
 
       <SceneLoader scenario={scenario} storylineName={storylineName} visible={scene.loading} />
+      <CharacterProfileModal character={modalChar} onClose={() => setModalId(null)} />
     </div>
   );
 }

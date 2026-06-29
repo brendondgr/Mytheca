@@ -44,7 +44,8 @@ export function SceneIntro({
       </div>
 
       <div className="mt-[10px] font-display text-[20px] font-semibold leading-[1.15] text-ink">
-        ◆ {s.title}: {s.setting.name}
+        ◆ {s.title}
+        <span className="text-[15px] font-normal text-ink-soft">: {s.setting.name}</span>
         <span className="ml-[8px] font-mono text-[11px] tracking-[0.12em] text-mute uppercase">
           {s.setting.type}
         </span>
@@ -68,7 +69,7 @@ export function SceneIntro({
 
       <div className="mt-[12px] border-t border-hair pt-[10px]">
         <Eyebrow size={9} tracking="0.16em" className="mb-[8px] block">
-          At the table
+          In the Scene
         </Eyebrow>
         <div className="flex flex-wrap gap-x-[16px] gap-y-[8px]">
           {s.cast.map((c) => {

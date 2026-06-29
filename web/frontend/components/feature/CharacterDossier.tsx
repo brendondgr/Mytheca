@@ -17,11 +17,14 @@ export function CharacterDossier({
   statDefs,
   relationships,
   onClose,
+  onOpenProfile,
 }: {
   character: Character;
   statDefs: StatDefinition[];
   relationships: Relationship[];
   onClose: () => void;
+  /** Clicking the portrait opens the full profile modal for this character. */
+  onOpenProfile: (id: string) => void;
 }) {
   const c = character;
   return (
@@ -37,9 +40,14 @@ export function CharacterDossier({
         ‹ Back to scene
       </button>
 
-      {/* Portrait header — full rail width, character-color frame */}
-      <div
-        className="w-full p-[4px]"
+      {/* Portrait header — full rail width, character-color frame. Opens the
+          full profile modal on click. */}
+      <button
+        type="button"
+        onClick={() => onOpenProfile(c.id)}
+        aria-label={`Open ${c.name}'s full profile`}
+        title="Open full profile"
+        className="group/portrait block w-full p-[4px]"
         style={{
           border: `2px solid ${c.color}`,
           borderRadius: 6,
@@ -60,15 +68,18 @@ export function CharacterDossier({
             <img
               src={mediaUrl(c.portrait)}
               alt={`Portrait of ${c.name}`}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover/portrait:scale-[1.03]"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               <Monogram mono={c.mono} color={c.color} size={84} ring={2} fontSize={32} />
             </div>
           )}
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center bg-gradient-to-t from-black/55 to-transparent pb-[7px] pt-[18px] font-mono text-[8.5px] tracking-[0.14em] text-[#F6ECDA] uppercase opacity-0 transition-opacity duration-200 group-hover/portrait:opacity-100 group-focus-visible/portrait:opacity-100">
+            ⤢ Full profile
+          </span>
         </div>
-      </div>
+      </button>
 
       {/* Identity */}
       <h3 className="mt-[14px] font-display text-[19px] font-bold leading-[1.12] text-ink">
