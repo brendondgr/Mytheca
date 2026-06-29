@@ -98,8 +98,16 @@ describe("ScenarioCarousel", () => {
     const user = userEvent.setup();
     renderCarousel();
     await user.click(screen.getByRole("button", { name: /show statistics for hunter krow/i }));
-    expect(screen.getByRole("region", { name: /hunter krow statistics/i })).toBeInTheDocument();
+    const region = screen.getByRole("region", { name: /hunter krow statistics/i });
+    expect(region).toBeInTheDocument();
     expect(screen.getByText(/no statistics available/i)).toBeInTheDocument();
+    // The panel is an extension *inside* the same card (a grid column), not a
+    // separate sibling box: it shares the card that holds the Hide-stats arrow.
+    const card = region.closest(".group");
+    expect(card).not.toBeNull();
+    expect(
+      within(card as HTMLElement).getByRole("button", { name: /hide statistics for hunter krow/i }),
+    ).toBeInTheDocument();
     // Opening another card's panel closes the first.
     await user.click(screen.getByRole("button", { name: /show statistics for ren/i }));
     expect(screen.getByRole("region", { name: /ren statistics/i })).toBeInTheDocument();

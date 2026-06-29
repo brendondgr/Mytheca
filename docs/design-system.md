@@ -127,10 +127,13 @@ tiles** that **match the Library Characters-column card**: the WebP portrait fil
 the vertical **`PORTRAIT_SCRIM`**, with the **name** (`OVER_ART.title`) + **role** (`OVER_ART.eyebrow`)
 reading over the lower scrim, framed in a **2px border keyed to the character's accent `color`**
 (large monogram fallback on a solid `--card-bg2` surface). Statistics are **not baked into the
-card**: a small **`❯`/`❮` arrow** (top-right) toggles an **inline statistics panel** rendered as
-the next tile in the row, so opening it **pushes the following cards over** (one open at a time);
-the panel lists the storyline's **player-visible (public) stat names + default values** for that
-character (filtered by `visibility`/`appliesTo`), with a "No statistics available." fallback. When
+card**: each tile is a **2-column grid** (portrait + stats), and a small **`❯`/`❮` arrow**
+(top-right) **slides a statistics extension out of the same bordered card** — the stats column's
+width animates `0 → ~208px` (`grid-template-columns` transition, reduced-motion aware), so the
+panel reads as **the character card extending**, not a separate box, and the now-wider card
+**pushes the following cards over** (one open at a time). The extension lists the storyline's
+**player-visible (public) stat names + default values** for that character (filtered by
+`visibility`/`appliesTo`), with a "No statistics available." fallback. When
 the cast **overflows** the visible width the strip shows **left/right arrow buttons** (`Previous` /
 `Next characters`) that page it (`scrollBy`); each arrow hides at its respective end and both stay
 hidden when everything fits, with native keyboard/trackpad scroll preserved underneath. The slide

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { mediaUrl } from "@/lib/api";
 import { Monogram } from "@/components/ui/Monogram";
 import { PORTRAIT_SCRIM, OVER_ART } from "@/lib/cardArt";
@@ -287,6 +287,14 @@ function CastStrip({
     };
   }, [measure, cast.length, openStatsId]);
 
+  // The stats extension slides open over ~300ms, growing the scroll content after
+  // the synchronous measure above — re-measure once it settles so the overflow
+  // arrows reflect the final width.
+  useEffect(() => {
+    const t = setTimeout(measure, 340);
+    return () => clearTimeout(t);
+  }, [measure, openStatsId]);
+
   const page = useCallback((dir: number) => {
     const el = scrollRef.current;
     if (!el) return;
@@ -303,23 +311,16 @@ function CastStrip({
       >
         <div className="flex h-full items-stretch gap-[16px] p-[16px]">
           {cast.map((c) => (
-            <Fragment key={c.id}>
-              <CastCard
-                c={c}
-                expanded={openStatsId === c.id}
-                onToggleStats={() =>
-                  setOpenStatsId((id) => (id === c.id ? null : c.id))
-                }
-                onProfile={onProfile}
-              />
-              {openStatsId === c.id ? (
-                <CastStatsPanel
-                  c={c}
-                  statDefs={statDefs}
-                  onClose={() => setOpenStatsId(null)}
-                />
-              ) : null}
-            </Fragment>
+            <CastCard
+              key={c.id}
+              c={c}
+              statDefs={statDefs}
+              expanded={openStatsId === c.id}
+              onToggleStats={() =>
+                setOpenStatsId((id) => (id === c.id ? null : c.id))
+              }
+              onProfile={onProfile}
+            />
           ))}
         </div>
       </div>
@@ -350,122 +351,161 @@ function CastStrip({
   );
 }
 
+// Width (px) of the statistics extension that slides out of a cast card.
+const CAST_STATS_W = 208;
+
 /**
- * One full-bleed portrait card in the cast strip — transparent like the Library
- * `CharacterCard`: the portrait fills the tile behind the shared `PORTRAIT_SCRIM`
- * with name/role over it (large monogram fallback on a solid surface), framed in
- * the character's color. A `❯` arrow toggles an inline {@link CastStatsPanel}
- * (rendered as the next flex sibling, pushing the following cards over).
+ * One cast tile in the strip — transparent like the Library `CharacterCard`: the
+ * portrait fills a fixed-width column behind the shared `PORTRAIT_SCRIM` with
+ * name/role over it (monogram fallback on a solid surface), framed in the
+ * character's color. The `❯` arrow slides out an attached **statistics
+ * extension** *inside the same bordered card* (width animates 0 → CAST_STATS_W),
+ * so the stats read as the card growing rather than a separate box; the wider
+ * card pushes the following cards over.
  */
 function CastCard({
   c,
+  statDefs,
   expanded,
   onToggleStats,
   onProfile,
 }: {
   c: Character;
+  statDefs: StatDefinition[];
   expanded: boolean;
   onToggleStats: () => void;
   onProfile?: (id: string) => void;
 }) {
   const hasPortrait = Boolean(c.portrait);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Reveal the grown card when its stats open. Optional-call: jsdom (tests)
+    // doesn't implement scrollIntoView.
+    if (expanded) {
+      ref.current?.scrollIntoView?.({ behavior: "smooth", inline: "nearest", block: "nearest" });
+    }
+  }, [expanded]);
+
   return (
     <div
-      className="group relative flex w-[184px] flex-none flex-col overflow-hidden rounded-[6px] sm:w-[200px]"
+      ref={ref}
+      className="group relative grid h-full flex-none overflow-hidden rounded-[6px] transition-[grid-template-columns] duration-300 ease-out motion-reduce:transition-none"
+      // The card is a 2-column grid: a fixed portrait column + a stats column that
+      // animates 0px → CAST_STATS_W when opened. Animating `grid-template-columns`
+      // slides the extension out as part of the same bordered card and pushes the
+      // following cards over — reliable where a flex `width` transition is not.
       style={{
         border: `2px solid ${c.color}`,
-        background: hasPortrait ? undefined : "var(--card-bg2)",
+        gridTemplateColumns: `200px ${expanded ? CAST_STATS_W : 0}px`,
       }}
     >
-      {hasPortrait ? (
-        // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
-        <img
-          src={mediaUrl(c.portrait!)}
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
-        />
-      ) : (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 flex items-center justify-center pb-[52px]"
-        >
-          <Monogram mono={c.mono} color={c.color} size={84} ring={2} fontSize={32} />
-        </div>
-      )}
-
-      {/* Transparent bottom scrim — name/role read over the lower portrait. */}
+      {/* Portrait column — the image/scrim/footer/buttons live here. */}
       <div
-        className="pointer-events-none absolute inset-0"
-        style={{ background: PORTRAIT_SCRIM }}
-      />
-
-      {/* Footer over the scrim: name + role (light text, theme-independent). */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] p-[11px_12px_12px]">
-        <div
-          className="truncate font-display text-[15px] font-semibold leading-[1.12] sm:text-[16px]"
-          style={{ color: OVER_ART.title }}
-          title={c.name}
-        >
-          {c.name}
-        </div>
-        {c.role ? (
+        className="relative h-full overflow-hidden"
+        style={{ background: hasPortrait ? undefined : "var(--card-bg2)" }}
+      >
+        {hasPortrait ? (
+          // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
+          <img
+            src={mediaUrl(c.portrait!)}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
+          />
+        ) : (
           <div
-            className="mt-[2px] truncate font-mono text-label"
-            style={{ color: OVER_ART.eyebrow }}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center pb-[52px]"
           >
-            {c.role}
+            <Monogram mono={c.mono} color={c.color} size={84} ring={2} fontSize={32} />
           </div>
-        ) : null}
-      </div>
+        )}
 
-      {/* Whole-card click target opens the character profile. */}
-      {onProfile ? (
+        {/* Transparent bottom scrim — name/role read over the lower portrait. */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: PORTRAIT_SCRIM }}
+        />
+
+        {/* Footer over the scrim: name + role (light text, theme-independent). */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] p-[11px_12px_12px]">
+          <div
+            className="truncate font-display text-[15px] font-semibold leading-[1.12] sm:text-[16px]"
+            style={{ color: OVER_ART.title }}
+            title={c.name}
+          >
+            {c.name}
+          </div>
+          {c.role ? (
+            <div
+              className="mt-[2px] truncate font-mono text-label"
+              style={{ color: OVER_ART.eyebrow }}
+            >
+              {c.role}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Whole-portrait click target opens the character profile. */}
+        {onProfile ? (
+          <button
+            type="button"
+            onClick={() => onProfile(c.id)}
+            aria-label={`View ${c.name}`}
+            title={c.name}
+            className="absolute inset-0 z-[3] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2"
+            style={{ outlineColor: HERO.label }}
+          />
+        ) : null}
+
+        {/* Stats arrow (above the profile button) — slides the extension out/in. */}
         <button
           type="button"
-          onClick={() => onProfile(c.id)}
-          aria-label={`View ${c.name}`}
-          title={c.name}
-          className="absolute inset-0 z-[3] cursor-pointer transition-transform duration-200 ease-out group-hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2"
-          style={{ outlineColor: HERO.label }}
-        />
-      ) : null}
+          onClick={onToggleStats}
+          aria-label={expanded ? `Hide statistics for ${c.name}` : `Show statistics for ${c.name}`}
+          aria-expanded={expanded}
+          className="absolute right-[8px] top-[8px] z-[5] flex h-[26px] w-[26px] items-center justify-center rounded-full text-[13px] leading-none shadow-[0_2px_8px_rgba(8,5,2,0.5)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          style={{ background: HERO.chev, border: `1px solid ${c.color}`, color: HERO.label, outlineColor: HERO.label }}
+        >
+          {expanded ? "❮" : "❯"}
+        </button>
+      </div>
 
-      {/* Stats arrow (above the profile button) — opens the inline stats panel. */}
-      <button
-        type="button"
-        onClick={onToggleStats}
-        aria-label={expanded ? `Hide statistics for ${c.name}` : `Show statistics for ${c.name}`}
-        aria-expanded={expanded}
-        className="absolute right-[8px] top-[8px] z-[5] flex h-[26px] w-[26px] items-center justify-center rounded-full text-[13px] leading-none shadow-[0_2px_8px_rgba(8,5,2,0.5)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-        style={{ background: HERO.chev, border: `1px solid ${c.color}`, color: HERO.label, outlineColor: HERO.label }}
+      {/* Statistics extension — the second grid column; slides open on toggle as
+          part of the same card (its track width animates above). */}
+      <div
+        aria-hidden={!expanded}
+        className="h-full min-w-0 overflow-hidden"
+        style={{
+          borderLeft: expanded ? `1px solid ${c.color}59` : undefined,
+          background: `color-mix(in srgb, ${c.color} 14%, #0e0a04)`,
+        }}
       >
-        {expanded ? "❮" : "❯"}
-      </button>
+        {expanded ? (
+          <CastStats c={c} statDefs={statDefs} width={CAST_STATS_W} onClose={onToggleStats} />
+        ) : null}
+      </div>
     </div>
   );
 }
 
 /**
- * Inline statistics panel for one cast member — rendered as the flex sibling
- * right after its card so the following cards are pushed over. Lists the
- * storyline's player-visible (public) stat definitions that apply to this
- * character with their default values; falls back to an empty-state line.
+ * The statistics content shown inside a cast card's slide-out extension. Lists
+ * the storyline's player-visible (public) stat definitions that apply to this
+ * character with their default values; falls back to an empty-state line. Fixed
+ * width so it doesn't reflow while the extension animates open.
  */
-function CastStatsPanel({
+function CastStats({
   c,
   statDefs,
+  width,
   onClose,
 }: {
   c: Character;
   statDefs: StatDefinition[];
+  width: number;
   onClose: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    // Optional-call: jsdom (tests) doesn't implement scrollIntoView.
-    ref.current?.scrollIntoView?.({ behavior: "smooth", inline: "nearest", block: "nearest" });
-  }, []);
   const stats = statDefs.filter(
     (d) =>
       d.visibility === "public" &&
@@ -473,14 +513,10 @@ function CastStatsPanel({
   );
   return (
     <div
-      ref={ref}
       role="region"
       aria-label={`${c.name} statistics`}
-      className="flex w-[196px] flex-none flex-col overflow-hidden rounded-[6px] sm:w-[208px]"
-      style={{
-        border: `1px solid ${c.color}8c`,
-        background: `color-mix(in srgb, ${c.color} 12%, #0e0a04)`,
-      }}
+      className="flex h-full flex-col"
+      style={{ width }}
     >
       <div className="flex items-start justify-between gap-2 px-[12px] pt-[12px]">
         <div className="min-w-0">
