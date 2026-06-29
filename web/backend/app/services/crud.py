@@ -177,15 +177,44 @@ def delete_storyline(db: Session, storyline_id: str) -> None:
 # ---- context documents (the persisted triaged RAG corpus) ------------------
 
 
-def list_context_documents(db: Session, storyline_id: str) -> list[ContextDocument]:
+def list_context_documents(
+    db: Session,
+    storyline_id: str,
+    *,
+    entity_type: str | None = None,
+    entity_id: str | None = None,
+) -> list[ContextDocument]:
+    """List a world's context docs, optionally narrowed to one entity's scope.
+
+    With no scope, returns every document (storyline-level + entity-scoped). With
+    ``entity_type``/``entity_id`` it returns just that entity's docs — what a
+    character/setting/scenario editor re-fetches so its files reappear."""
     get_storyline(db, storyline_id)
-    return list(
+    stmt = select(ContextDocument).where(ContextDocument.storyline_id == storyline_id)
+    if entity_type is not None and entity_id is not None:
+        stmt = stmt.where(
+            ContextDocument.entity_type == entity_type,
+            ContextDocument.entity_id == entity_id,
+        )
+    return list(db.scalars(stmt.order_by(ContextDocument.position, ContextDocument.name)))
+
+
+def _purge_entity_context_docs(db: Session, entity_type: str, entity_id: str) -> None:
+    """Delete an entity's scoped context docs + their embeddings (delete cascade).
+
+    Called from the character/setting/scenario delete paths so an entity's attached
+    reference files don't outlive it in the corpus or the vector store."""
+    docs = list(
         db.scalars(
-            select(ContextDocument)
-            .where(ContextDocument.storyline_id == storyline_id)
-            .order_by(ContextDocument.position, ContextDocument.name)
+            select(ContextDocument).where(
+                ContextDocument.entity_type == entity_type,
+                ContextDocument.entity_id == entity_id,
+            )
         )
     )
+    for doc in docs:
+        db.delete(doc)
+        rag_index.remove("context_document", doc.id)  # best-effort drop from the store
 
 
 def get_context_document(db: Session, doc_id: str) -> ContextDocument:
@@ -209,6 +238,8 @@ def _new_context_document(
         include_draft=data.include_draft,
         include_rag=data.include_rag,
         source=data.source,
+        entity_type=data.entity_type,
+        entity_id=data.entity_id,
         char_count=len(content),
         position=position,
     )
@@ -338,6 +369,7 @@ def delete_character(db: Session, character_id: str) -> None:
     for scenario in db.scalars(select(Scenario).where(Scenario.storyline_id == storyline_id)):
         if character_id in (scenario.cast_ids or []):
             scenario.cast_ids = [cid for cid in scenario.cast_ids if cid != character_id]
+    _purge_entity_context_docs(db, "character", character_id)  # drop attached docs + embeddings
     db.commit()
     graph_writer.remove_node(character_id)  # best-effort removal from the Story Graph
     rag_index.remove("character", character_id)  # best-effort drop from the vector store
@@ -403,6 +435,7 @@ def update_setting(db: Session, setting_id: str, data: SettingUpdate) -> Setting
 def delete_setting(db: Session, setting_id: str) -> None:
     # Scenarios keep their (now dangling) setting_id — the frontend falls back.
     db.delete(get_setting(db, setting_id))
+    _purge_entity_context_docs(db, "setting", setting_id)  # drop attached docs + embeddings
     db.commit()
     graph_writer.remove_node(setting_id)  # best-effort removal from the Story Graph
     rag_index.remove("setting", setting_id)  # best-effort drop from the vector store
@@ -476,5 +509,6 @@ def update_scenario(db: Session, scenario_id: str, data: ScenarioUpdate) -> Scen
 
 def delete_scenario(db: Session, scenario_id: str) -> None:
     db.delete(get_scenario(db, scenario_id))
+    _purge_entity_context_docs(db, "scenario", scenario_id)  # drop attached docs + embeddings
     db.commit()
     rag_index.remove("scenario", scenario_id)  # best-effort drop from the vector store

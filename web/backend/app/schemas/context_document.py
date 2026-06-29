@@ -17,6 +17,11 @@ from app.schemas.base import CamelModel
 DocCategory = Literal["character", "setting", "other"]
 
 
+# Entity scope for a context document. ``None`` = storyline-level (Triage default);
+# otherwise the doc belongs to a specific character/setting/scenario editor.
+EntityScope = Literal["character", "setting", "scenario"]
+
+
 class ContextDocumentBase(CamelModel):
     name: str
     content: str = ""
@@ -24,6 +29,8 @@ class ContextDocumentBase(CamelModel):
     include_draft: bool = False
     include_rag: bool = True
     source: str = "upload"
+    entity_type: EntityScope | None = None
+    entity_id: str | None = None
 
 
 class ContextDocumentCreate(ContextDocumentBase):
@@ -54,6 +61,8 @@ class ContextDocumentRead(CamelModel):
     include_rag: bool
     source: str
     char_count: int
+    entity_type: EntityScope | None = None
+    entity_id: str | None = None
 
 
 # ---- Triage (the agentic classification step) -------------------------------

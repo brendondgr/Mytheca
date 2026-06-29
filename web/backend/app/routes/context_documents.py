@@ -7,7 +7,7 @@ it is a later plan, so nothing reads ``content`` at runtime yet.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -26,8 +26,15 @@ router = APIRouter(tags=["context-documents"])
     "/storylines/{storyline_id}/context-docs",
     response_model=list[ContextDocumentRead],
 )
-def list_context_documents(storyline_id: str, db: Session = Depends(get_db)):
-    return crud.list_context_documents(db, storyline_id)
+def list_context_documents(
+    storyline_id: str,
+    entity_type: str | None = Query(default=None, alias="entityType"),
+    entity_id: str | None = Query(default=None, alias="entityId"),
+    db: Session = Depends(get_db),
+):
+    """List a world's context docs; pass ``entityType``+``entityId`` to scope to one
+    character/setting/scenario editor (so its files reappear on edit)."""
+    return crud.list_context_documents(db, storyline_id, entity_type=entity_type, entity_id=entity_id)
 
 
 @router.post(

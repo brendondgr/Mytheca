@@ -4,9 +4,11 @@ The durable corpus produced by the **Triage** step of the New Storyline page:
 each dropped ``.txt``/``.md`` file is classified into a ``category``
 (``character`` | ``setting`` | ``other``) and tagged for inclusion in **Draft**
 (world-setting documents that ground generation) and/or **RAG** (the retrieval
-corpus). This model is the *persistence seam* for that corpus — the documents are
-really stored and survive reload. Actual retrieval (chunking, embeddings, hybrid
-search) is still deferred; nothing reads ``content`` at runtime yet.
+corpus). This model is the persisted corpus for that retrieval. Documents are embedded
+into Qdrant on save (``app/rag/indexer.py``) and retrieved by the authoring
+agents (``app/rag/retriever.py``). A document may be **storyline-level** (the
+Triage default — ``entity_type``/``entity_id`` null) or **entity-scoped** to a
+single character/setting/scenario, in which case it reappears in that editor.
 """
 
 from __future__ import annotations
@@ -45,6 +47,13 @@ class ContextDocument(Base):
     include_rag: Mapped[bool] = mapped_column(Boolean, default=True)
     # Where the document came from (``upload`` today; future: ``event``, ``paste``).
     source: Mapped[str] = mapped_column(String, default="upload")
+    # Optional entity scope. When set, the document belongs to a specific
+    # character/setting/scenario — it reappears in *that* editor and is removed when
+    # the entity is deleted. When null it is a storyline-level corpus doc (the Triage
+    # default). ``entity_type`` ∈ {character, setting, scenario}. Nullable so they
+    # self-heal on the persistent dev DB via the additive-column reconcile.
+    entity_type: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    entity_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     # Cached length of ``content`` so list views can show size / estimate budget
     # without shipping the full text.
     char_count: Mapped[int] = mapped_column(Integer, default=0)
