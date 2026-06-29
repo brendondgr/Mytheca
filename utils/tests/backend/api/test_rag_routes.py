@@ -88,3 +88,30 @@ def test_crud_create_indexes_into_store_via_hook(client, storyline_id, mem_store
         json={"name": "Brightmane", "role": "Ranger"},
     )
     assert store.count(mem_store) == before + 1
+
+
+def test_deleting_a_context_doc_prunes_its_embedding(client, storyline_id, mem_store):
+    from app.rag import store
+
+    doc = client.post(
+        f"/api/storylines/{storyline_id}/context-docs",
+        json={"name": "a.md", "content": "secret tunnels beneath the harbor"},
+    ).json()
+    indexed = store.count(mem_store)
+    assert indexed >= 1  # embedded by the create hook
+
+    assert client.delete(f"/api/context-docs/{doc['id']}").status_code == 204
+    assert store.count(mem_store) == indexed - 1  # embedding pruned on delete
+
+
+def test_deleting_a_character_prunes_its_embedding(client, storyline_id, mem_store):
+    from app.rag import store
+
+    cid = client.post(
+        f"/api/storylines/{storyline_id}/characters", json={"name": "Maerin", "role": "Warden"}
+    ).json()["id"]
+    indexed = store.count(mem_store)
+    assert indexed >= 1
+
+    assert client.delete(f"/api/characters/{cid}").status_code == 204
+    assert store.count(mem_store) == indexed - 1

@@ -71,6 +71,11 @@ export function useStorylineCreator(editId?: string) {
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // RAG corpus (vector store) status + the live re-embed action (edit mode).
+  const [ragStatus, setRagStatus] = useState<{ available: boolean; indexed: number } | null>(null);
+  const [reembedding, setReembedding] = useState(false);
+  const [reembedProgress, setReembedProgress] = useState<string | null>(null);
+
   // Abort in-flight streams when the component unmounts (or a new run starts).
   const buildAbort = useRef<AbortController | null>(null);
   const triageAbort = useRef<AbortController | null>(null);
@@ -102,6 +107,10 @@ export function useStorylineCreator(editId?: string) {
         // context files stay visible on edit (the "lost track" fix). Only storyline-
         // level docs belong here; entity-scoped docs live in their own editors.
         setDocs(ctx.filter((d) => !d.entityType).map(fromContextDocument));
+        // Best-effort: how many entries are embedded for this world.
+        void api.getRagStatus(editId).then((s) => {
+          if (!cancelled) setRagStatus(s);
+        }).catch(() => {});
       } catch (e) {
         if (!cancelled) setError(messageOf(e));
       } finally {
@@ -494,6 +503,33 @@ export function useStorylineCreator(editId?: string) {
     [statsOriginal],
   );
 
+  // Re-embed the world's whole corpus, streaming "Embedding i / N" progress so the
+  // author sees the conversion happen and the resulting indexed count.
+  const reembed = useCallback(async () => {
+    if (!editId) return;
+    setReembedding(true);
+    setReembedProgress("Starting…");
+    let available = true;
+    try {
+      for await (const ev of api.reindexCorpusStream(editId)) {
+        if (ev.stage === "embedding") {
+          setReembedProgress(`Embedding ${ev.index} / ${ev.total}: ${ev.name}`);
+        } else if (ev.stage === "done") {
+          available = ev.available;
+        }
+      }
+      const status = await api.getRagStatus(editId).catch(() => null);
+      if (status) setRagStatus(status);
+      setReembedProgress(
+        available ? `Embedded ${status?.indexed ?? 0} entries` : "Vector store unavailable",
+      );
+    } catch {
+      setReembedProgress("Re-embed failed");
+    } finally {
+      setReembedding(false);
+    }
+  }, [editId]);
+
   return {
     isEdit: Boolean(editId),
     editId,
@@ -533,6 +569,10 @@ export function useStorylineCreator(editId?: string) {
     committing,
     progress,
     error,
+    ragStatus,
+    reembedding,
+    reembedProgress,
+    reembed,
     triage,
     draftMeta,
     generatePrimer,

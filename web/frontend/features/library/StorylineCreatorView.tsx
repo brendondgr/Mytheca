@@ -216,6 +216,27 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
               <span aria-live="polite" className="mr-auto font-body text-[13px] text-mute">
                 {c.progress}
               </span>
+            ) : c.isEdit ? (
+              <div className="mr-auto flex items-center gap-[10px]">
+                <span
+                  aria-live="polite"
+                  className="font-mono text-[10px] tracking-[0.12em] text-mute2 uppercase"
+                >
+                  {c.reembedProgress
+                    ? c.reembedProgress
+                    : c.ragStatus?.available
+                      ? `✦ ${c.ragStatus.indexed} embedded`
+                      : "✦ vector store off"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void c.reembed()}
+                  disabled={c.reembedding || !c.ragStatus?.available}
+                  className="font-mono text-[10px] tracking-[0.1em] text-accent uppercase hover:underline disabled:text-mute2 disabled:no-underline"
+                >
+                  {c.reembedding ? "Embedding…" : "Re-embed"}
+                </button>
+              </div>
             ) : null}
             <Link
               href="/"

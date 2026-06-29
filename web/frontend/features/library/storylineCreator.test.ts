@@ -11,7 +11,7 @@ import {
 } from "./storylineCreator";
 import { blankStat } from "./editor";
 import * as api from "@/lib/api";
-import type { ProposedWorld, StatDefinition } from "@/lib/types";
+import type { ContextDocument, ProposedWorld, StatDefinition } from "@/lib/types";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
@@ -239,5 +239,46 @@ describe("storylineCreator.commitWorld image previews", () => {
     // Both characters created; only ONE portrait render attempted (then circuit-broke).
     expect(vi.mocked(api.createCharacter)).toHaveBeenCalledTimes(2);
     expect(vi.mocked(api.generatePortrait)).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("storylineCreator.commitWorld edit-mode corpus reconcile", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function ctx(over: Partial<ContextDocument> & { id: string; name: string }): ContextDocument {
+    return {
+      storylineId: "w", content: "x", category: "other", includeDraft: false,
+      includeRag: true, source: "upload", charCount: 1, ...over,
+    } as ContextDocument;
+  }
+
+  it("creates new storyline docs and deletes removed ones (pruning embeddings)", async () => {
+    const existingDocs: ContextDocument[] = [
+      ctx({ id: "cd-keep", name: "keep.md" }),
+      ctx({ id: "cd-gone", name: "gone.md" }),
+      ctx({ id: "cd-entity", name: "char.md", category: "character", entityType: "character", entityId: "c1" }),
+    ];
+    await commitWorld({
+      editId: "w",
+      fields: { ...BLANK_FIELDS, title: "World" },
+      stats: [],
+      statsOriginal: [],
+      proposed: null,
+      docs: [
+        { name: "keep.md", text: "x", category: "other", triaged: true },
+        { name: "new.md", text: "n", category: "other", triaged: true },
+      ],
+      existingDocs,
+      generateImages: false,
+    });
+    // New storyline-level doc is created…
+    expect(vi.mocked(api.bulkCreateContextDocuments)).toHaveBeenCalledWith("w", [
+      expect.objectContaining({ name: "new.md" }),
+    ]);
+    // …the removed one is deleted (embedding pruned)…
+    expect(vi.mocked(api.deleteContextDocument)).toHaveBeenCalledWith("cd-gone");
+    // …and the kept + entity-scoped docs are left alone.
+    expect(vi.mocked(api.deleteContextDocument)).not.toHaveBeenCalledWith("cd-keep");
+    expect(vi.mocked(api.deleteContextDocument)).not.toHaveBeenCalledWith("cd-entity");
   });
 });

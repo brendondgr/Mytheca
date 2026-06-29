@@ -278,6 +278,26 @@ describe("useStorylineCreator", () => {
     expect(result.current.docs[0].useDraft).toBe(true);
   });
 
+  it("re-embeds the corpus, streaming progress and refreshing the indexed count", async () => {
+    vi.mocked(api.getStoryline).mockResolvedValueOnce({
+      id: "embergate", title: "Embergate", genre: "Maritime", symbol: "◆", symbolColor: "#C8862A",
+    });
+    vi.mocked(api.reindexCorpusStream).mockImplementationOnce(async function* () {
+      yield { stage: "embedding", index: 1, total: 2, name: "Maerin", type: "character" };
+      yield { stage: "done", indexed: 2, skipped: 0, total: 2, available: true };
+    });
+    vi.mocked(api.getRagStatus).mockResolvedValue({ available: true, indexed: 2 });
+
+    const { result } = renderHook(() => useStorylineCreator("embergate"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => {
+      await result.current.reembed();
+    });
+    expect(vi.mocked(api.reindexCorpusStream)).toHaveBeenCalledWith("embergate");
+    expect(result.current.ragStatus).toEqual({ available: true, indexed: 2 });
+    expect(result.current.reembedProgress).toContain("2");
+  });
+
   it("commit in edit mode updates the storyline (no new entities)", async () => {
     vi.mocked(api.getStoryline).mockResolvedValueOnce({
       id: "embergate",

@@ -225,6 +225,10 @@ export function makeApiMock() {
       ...body,
     })),
     deleteContextDocument: vi.fn(async () => {}),
+    getRagStatus: vi.fn(async () => ({ available: false, indexed: 0 })),
+    reindexCorpusStream: vi.fn(async function* () {
+      yield { stage: "done", indexed: 0, skipped: 0, total: 0, available: false };
+    }),
 
     listCharacters: vi.fn(async () => SEED_CHARACTERS),
     listSettings: vi.fn(async () => SEED_SETTINGS),

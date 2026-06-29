@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as api from "@/lib/api";
+import type { ContextDocument } from "@/lib/types";
 import { loadEntityDocs, syncEntityDocs } from "./entityDocs";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 beforeEach(() => vi.clearAllMocks());
 
-function doc(over: Record<string, unknown> = {}) {
+function doc(over: Record<string, unknown> = {}): ContextDocument {
   return {
     id: "cd1", storylineId: "w1", name: "a.md", content: "x", category: "character",
     includeDraft: false, includeRag: true, source: "upload", charCount: 1, ...over,
-  };
+  } as ContextDocument;
 }
 
 describe("entityDocs", () => {

@@ -433,9 +433,17 @@ export async function commitWorld(
     onProgress?.("Saving changes…");
     await api.updateStoryline(editId, coreInput(fields, true));
     await persistStatsDiff(editId, stats, statsOriginal);
-    const existing = new Set((args.existingDocs ?? []).map((d) => d.name));
-    const fresh = docs.filter((d) => d.text && !existing.has(d.name));
+    // Reconcile the storyline-LEVEL corpus only (entity-scoped docs belong to their
+    // own editors): create newly-dropped files, and delete ones the author removed —
+    // which prunes their embeddings from the vector store.
+    const slExisting = (args.existingDocs ?? []).filter((d) => !d.entityType);
+    const existingNames = new Set(slExisting.map((d) => d.name));
+    const keepNames = new Set(docs.map((d) => d.name));
+    const fresh = docs.filter((d) => d.text && !existingNames.has(d.name));
     if (fresh.length) await api.bulkCreateContextDocuments(editId, fresh.map(docToContextInput));
+    await Promise.all(
+      slExisting.filter((d) => !keepNames.has(d.name)).map((d) => api.deleteContextDocument(d.id)),
+    );
     return editId;
   }
 

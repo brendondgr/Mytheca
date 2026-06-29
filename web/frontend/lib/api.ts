@@ -274,6 +274,21 @@ export const updateContextDocument = (
 ) => patch<ContextDocument>(`/context-docs/${docId}`, body);
 export const deleteContextDocument = (docId: string) => del(`/context-docs/${docId}`);
 
+// ---- RAG corpus status + re-embed (the vector store) ----
+export type RagStatus = { available: boolean; indexed: number };
+export type RagEvent =
+  | { stage: "embedding"; index: number; total: number; name: string; type: string }
+  | { stage: "done"; indexed: number; skipped: number; total: number; available: boolean }
+  | { stage: "error"; message: string };
+
+/** Is the vector store reachable, and how many entries does this world have indexed? */
+export const getRagStatus = (storylineId: string) =>
+  request<RagStatus>(`/storylines/${storylineId}/rag/status`);
+
+/** Re-embed a world's whole corpus, streaming one event per entry then a summary. */
+export const reindexCorpusStream = (storylineId: string, signal?: AbortSignal) =>
+  postNdjson<RagEvent>(`/storylines/${storylineId}/rag/reindex/stream`, {}, signal);
+
 // ---- per-storyline children ----
 export const listCharacters = (storylineId: string) =>
   request<Character[]>(`/storylines/${storylineId}/characters`);
