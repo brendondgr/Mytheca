@@ -7,12 +7,19 @@ Single entry point for running Velora locally:
     python app.py all         # explicit "run everything"
     python app.py frontend    # frontend dev server only (npm run dev)
     python app.py backend     # FastAPI API only via uvicorn (web/backend)
+    python app.py stop        # forcibly end any running frontend/backend processes
 
 The default runs the backend (with its preflight: Postgres/Redis + schema +
 seed) and the Next.js dev server at once, waiting for the backend to report
 healthy before starting the frontend so the first API calls don't fail. Ctrl+C
 stops both. The frontend-only target needs just Node/npm (no Python deps); the
 backend target needs the uv environment (`uv sync`).
+
+Every launch first **forcibly frees its ports** — any process still bound to the
+backend (3345) or frontend (3346) port, typically a leftover ``next dev`` /
+uvicorn from a previous run, is terminated (SIGTERM, then SIGKILL) so a fresh
+start never dies on ``EADDRINUSE``. ``python app.py stop`` does only that and
+exits (it leaves the Docker data containers running).
 
 Docker is handled here, in one place: every backend launch first verifies Docker
 is installed and its daemon is running, downloads the Postgres + Redis images and
@@ -26,6 +33,7 @@ database instead.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import signal
 import socket
@@ -193,8 +201,7 @@ def run_frontend() -> int:
         return 1
     if not _ensure_frontend_deps(npm):
         return 1
-    if _frontend_port_blocked():
-        return 1
+    _free_port(FRONTEND_PORT, "frontend")  # kill any leftover next dev
 
     print(f"Starting Velora frontend — npm run dev (http://localhost:{FRONTEND_PORT})\n")
     return subprocess.run([npm, "run", "dev"], cwd=FRONTEND).returncode
@@ -233,6 +240,8 @@ def run_backend() -> int:
                 print(check.detail, file=sys.stderr)
         return 1
 
+    _free_port(BACKEND_PORT, "backend")  # kill any leftover uvicorn on the port
+
     print(f"\nStarting Velora backend — uvicorn (http://{BACKEND_HOST}:{BACKEND_PORT})\n")
     uvicorn.run(
         "app.main:create_app",
@@ -258,20 +267,105 @@ def _port_in_use(port: int, host: str = "127.0.0.1") -> bool:
         return sock.connect_ex((host, port)) == 0
 
 
-def _frontend_port_blocked() -> bool:
-    """Print actionable guidance and return ``True`` if the frontend port is taken."""
-    if not _port_in_use(FRONTEND_PORT):
-        return False
-    print(
-        f"\nPort {FRONTEND_PORT} is already in use — the frontend can't start "
-        f"(EADDRINUSE).\n"
-        f"  Something is still bound to it, usually a leftover `next dev` from a "
-        f"previous run.\n"
-        f"  Free it, then try again:\n"
-        f"      lsof -ti tcp:{FRONTEND_PORT} | xargs -r kill",
-        file=sys.stderr,
-    )
-    return True
+def _pids_on_port(port: int) -> set[int]:
+    """Best-effort set of PIDs listening on ``port`` (cross-platform, no deps).
+
+    Tries ``lsof`` → ``ss`` → ``fuser`` on posix, ``netstat -ano`` on Windows;
+    returns an empty set if none can identify the owner.
+    """
+    pids: set[int] = set()
+    if os.name == "posix":
+        lsof = shutil.which("lsof")
+        if lsof:
+            res = subprocess.run(
+                [lsof, "-ti", f"tcp:{port}", "-sTCP:LISTEN"],
+                capture_output=True, text=True,
+            )
+            pids.update(int(p) for p in res.stdout.split() if p.strip().isdigit())
+            if pids:
+                return pids
+        ss = shutil.which("ss")
+        if ss:
+            res = subprocess.run(
+                [ss, "-ltnpH", f"sport = :{port}"], capture_output=True, text=True
+            )
+            pids.update(int(m) for m in re.findall(r"pid=(\d+)", res.stdout))
+            if pids:
+                return pids
+        fuser = shutil.which("fuser")
+        if fuser:
+            res = subprocess.run(
+                [fuser, f"{port}/tcp"], capture_output=True, text=True
+            )
+            pids.update(
+                int(tok) for tok in (res.stdout + " " + res.stderr).split()
+                if tok.strip().isdigit()
+            )
+        return pids
+    netstat = shutil.which("netstat")  # Windows
+    if netstat:
+        res = subprocess.run([netstat, "-ano"], capture_output=True, text=True)
+        for line in res.stdout.splitlines():
+            parts = line.split()
+            if (
+                len(parts) >= 5
+                and parts[0].upper() == "TCP"
+                and parts[3].upper() == "LISTENING"
+                and parts[1].rsplit(":", 1)[-1] == str(port)
+                and parts[-1].isdigit()
+            ):
+                pids.add(int(parts[-1]))
+    return pids
+
+
+def _kill_pid(pid: int, sig: int) -> None:
+    """Send ``sig`` to ``pid`` — its whole process group on posix (so npm/uvicorn
+    workers die too), but never our own group (don't kill the launcher)."""
+    try:
+        if os.name == "posix":
+            pgid = os.getpgid(pid)
+            if pgid != os.getpgrp():
+                os.killpg(pgid, sig)
+            else:
+                os.kill(pid, sig)
+        else:
+            os.kill(pid, sig)
+    except (ProcessLookupError, PermissionError, OSError):
+        pass
+
+
+def _free_port(port: int, label: str) -> None:
+    """Forcibly stop whatever is bound to ``host:port`` — SIGTERM, then SIGKILL.
+
+    Velora launches free their ports first so a leftover ``next dev`` / uvicorn
+    from a previous run never blocks a fresh start (EADDRINUSE).
+    """
+    if not _port_in_use(port):
+        return
+    pids = _pids_on_port(port)
+    if not pids:
+        print(
+            f"⚠  Port {port} ({label}) is in use but the owning process couldn't "
+            f"be identified — close it manually if startup fails.",
+            file=sys.stderr,
+        )
+        return
+    print(f"Freeing {label} port {port} — stopping process(es) {sorted(pids)}…")
+    for pid in pids:
+        _kill_pid(pid, signal.SIGTERM)
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline and _port_in_use(port):
+        time.sleep(0.2)
+    if _port_in_use(port):  # didn't go quietly — escalate
+        for pid in _pids_on_port(port):
+            _kill_pid(pid, signal.SIGKILL)
+        time.sleep(0.4)
+    if _port_in_use(port):
+        print(
+            f"⚠  Port {port} ({label}) is still in use after SIGKILL — a process "
+            f"outside this user may own it.",
+            file=sys.stderr,
+        )
 
 
 def _wait_for_health(proc: subprocess.Popen, timeout: float = 120.0) -> bool:
@@ -324,10 +418,11 @@ def run_all() -> int:
         return 1
     if not _ensure_frontend_deps(npm):
         return 1
-    # Check the frontend port up front: starting the backend (Docker, preflight,
-    # health-wait) only to have `next dev` die on EADDRINUSE wastes ~all of that.
-    if _frontend_port_blocked():
-        return 1
+    # Forcibly free both ports up front so a leftover `next dev` / uvicorn from a
+    # previous run can't block this start (the backend child rebinds 3345 cleanly,
+    # and freeing now means the health-wait below never latches onto a stale API).
+    _free_port(BACKEND_PORT, "backend")
+    _free_port(FRONTEND_PORT, "frontend")
 
     # Bring Docker up here in the foreground (visible first-run download) so the
     # backend subprocess starts against ready containers — and isn't racing the
@@ -380,6 +475,20 @@ def run_all() -> int:
         _terminate(backend)
 
 
+def stop_all() -> int:
+    """Forcibly end any running Velora frontend/backend processes (free both ports).
+
+    Leaves the Docker data containers running — this only stops the app processes
+    bound to the backend (3345) and frontend (3346) ports.
+    """
+    print("Stopping any running Velora frontend/backend processes…")
+    busy = _port_in_use(BACKEND_PORT) or _port_in_use(FRONTEND_PORT)
+    _free_port(BACKEND_PORT, "backend")
+    _free_port(FRONTEND_PORT, "frontend")
+    print("Nothing was running." if not busy else "Done.")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     _load_dotenv()  # so DATABASE_URL / VELORA_SKIP_DOCKER from .env are honored here
     target = (argv[1] if len(argv) > 1 else "all").lower()
@@ -389,8 +498,10 @@ def main(argv: list[str]) -> int:
         return run_frontend()
     if target in {"backend", "be", "api"}:
         return run_backend()
+    if target in {"stop", "kill", "down"}:
+        return stop_all()
     print(
-        f"Unknown target {target!r}. Usage: python app.py [all|frontend|backend]",
+        f"Unknown target {target!r}. Usage: python app.py [all|frontend|backend|stop]",
         file=sys.stderr,
     )
     return 2
