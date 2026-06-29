@@ -4,6 +4,7 @@ import {
   SEED_CHARACTERS,
   SEED_SCENARIOS,
   SEED_SETTINGS,
+  SEED_STAT_DEFS,
 } from "@/lib/seed-data";
 import { StoryPlayerView } from "@/features/story-player/StoryPlayerView";
 
@@ -34,5 +35,11 @@ export default async function PlayPage({
     SEED_CHARACTERS,
     SEED_SETTINGS,
   );
-  return <StoryPlayerView scenario={scenario} backHref={`/${storylineId}`} />;
+  return (
+    <StoryPlayerView
+      scenario={scenario}
+      statDefs={SEED_STAT_DEFS}
+      backHref={`/${storylineId}`}
+    />
+  );
 }

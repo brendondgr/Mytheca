@@ -1,4 +1,5 @@
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import type { StatDefinition } from "@/lib/types";
 import type { Relationship, StatChip } from "@/features/story-player/scene-data";
 
 function fmt(n: number): string {
@@ -55,6 +56,49 @@ export function StateChips({ stats }: { stats: StatChip[] }) {
   );
 }
 
+/** The band label whose range contains `value` (the storyline's stat "tickers"). */
+function bandFor(def: StatDefinition, value: number): string | null {
+  const band = def.bands.find((b) => value >= b.min && value <= b.max);
+  return band?.label ?? null;
+}
+
+/**
+ * The storyline's universal stat schema (definitions + labeled bands) — the same
+ * stats the Library/world editor define. Shown read-only at their default values
+ * so the scene carries the world's real stat vocabulary; live deltas live in the
+ * Scene-state chips below. Hidden/non-public stats are omitted.
+ */
+export function StatSchema({ defs }: { defs: StatDefinition[] }) {
+  const visible = defs.filter((d) => d.visibility === "public");
+  if (visible.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-[7px]">
+      {visible.map((d) => {
+        const band = bandFor(d, d.default);
+        return (
+          <div
+            key={d.key}
+            className="rounded-[3px] border border-cardbd bg-card p-[8px_11px]"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-body text-[13.5px] text-ink">{d.displayName}</span>
+              <span className="font-mono text-[11px] text-accent">
+                {d.default}
+                <span className="text-mute2">{` / ${d.min}–${d.max}`}</span>
+              </span>
+            </div>
+            {band ? (
+              <div className="mt-[3px] font-mono text-[9px] tracking-[0.08em] text-mute uppercase">
+                {band}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function Relationships({ items }: { items: Relationship[] }) {
   return (
     <div className="flex flex-col gap-[6px]">
@@ -75,12 +119,14 @@ export function DirectorRail({
   goal,
   tension,
   tensionText,
+  statDefs,
   stats,
   relationships,
 }: {
   goal: string;
   tension: number;
   tensionText: string;
+  statDefs: StatDefinition[];
   stats: StatChip[];
   relationships: Relationship[];
 }) {
@@ -95,6 +141,11 @@ export function DirectorRail({
         Tension
       </Eyebrow>
       <TensionMeter pct={tension} label={tensionText} />
+
+      <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
+        Character stats
+      </Eyebrow>
+      <StatSchema defs={statDefs} />
 
       <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
         Scene state

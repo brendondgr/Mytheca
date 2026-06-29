@@ -74,7 +74,7 @@ export function CastRail({
                 speaking ? "border-accent bg-card2" : "border-cardbd bg-card",
               )}
             >
-              <Monogram mono={c.mono} color={c.color} size={34} fontSize={13} />
+              <Monogram mono={c.mono} color={c.color} src={c.portrait} size={34} fontSize={13} />
               <span className="min-w-0 flex-1">
                 <span className="block font-display text-[14px] font-semibold leading-[1.05] text-ink">
                   {c.name}

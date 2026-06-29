@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import type { Character, ResolvedScenario } from "@/lib/types";
+import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 import { useScenePlay } from "./useScenePlay";
 import { tensionLabel } from "./scene-data";
 import { SceneHeader } from "@/components/layout/SceneHeader";
@@ -17,9 +17,11 @@ import { CharacterProfileModal } from "@/components/feature/CharacterProfileModa
 /** The signature surface: a three-zone "open book" live scene. */
 export function StoryPlayerView({
   scenario,
+  statDefs = [],
   backHref = "/",
 }: {
   scenario: ResolvedScenario;
+  statDefs?: StatDefinition[];
   backHref?: string;
 }) {
   const scene = useScenePlay(scenario);
@@ -101,6 +103,7 @@ export function StoryPlayerView({
           goal={scenario.goal}
           tension={scene.tension}
           tensionText={tensionLabel(scene.tension)}
+          statDefs={statDefs}
           stats={scene.stats}
           relationships={scene.relationships}
         />

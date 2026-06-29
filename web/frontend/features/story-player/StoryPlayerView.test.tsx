@@ -7,6 +7,7 @@ import {
   SEED_CHARACTERS,
   SEED_SCENARIOS,
   SEED_SETTINGS,
+  SEED_STAT_DEFS,
 } from "@/lib/seed-data";
 
 const embergate = resolveScenario(
@@ -24,6 +25,12 @@ describe("StoryPlayerView", () => {
     expect(screen.getByText(/The tide doesn't wait/i)).toBeInTheDocument();
     expect(screen.getByText("d20 check")).toBeInTheDocument();
     expect(screen.getByText(/Your move/i)).toBeInTheDocument();
+  });
+
+  it("surfaces the storyline stat schema in the director rail", () => {
+    render(<StoryPlayerView scenario={embergate} statDefs={SEED_STAT_DEFS} />);
+    expect(screen.getByText("Character stats")).toBeInTheDocument();
+    expect(screen.getByText("Health")).toBeInTheDocument();
   });
 
   it("appends a player turn + narrator beat on send", async () => {
