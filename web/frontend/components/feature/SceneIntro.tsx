@@ -43,31 +43,31 @@ export function SceneIntro({
         </div>
       </div>
 
-      <div className="mt-[10px] font-display text-[17px] font-semibold leading-[1.15] text-ink">
-        ◆ {s.setting.name}
-        <span className="ml-[8px] font-mono text-[10px] tracking-[0.12em] text-mute uppercase">
+      <div className="mt-[10px] font-display text-[20px] font-semibold leading-[1.15] text-ink">
+        ◆ {s.title}: {s.setting.name}
+        <span className="ml-[8px] font-mono text-[11px] tracking-[0.12em] text-mute uppercase">
           {s.setting.type}
         </span>
       </div>
       {stateLine ? (
-        <p className="mt-[5px] font-body text-[13.5px] leading-[1.45] text-ink-soft">
+        <p className="mt-[5px] font-body text-[15px] leading-[1.45] text-ink-soft">
           {stateLine}
         </p>
       ) : null}
 
       {s.goal ? (
         <div className="mt-[12px] border-t border-hair pt-[10px]">
-          <Eyebrow size={8} tracking="0.16em" className="mb-[4px] block">
+          <Eyebrow size={9} tracking="0.16em" className="mb-[4px] block">
             Your aim
           </Eyebrow>
-          <p className="font-body text-[14px] leading-[1.45] text-ink italic">
+          <p className="font-body text-[15.5px] leading-[1.45] text-ink italic">
             {s.goal}
           </p>
         </div>
       ) : null}
 
       <div className="mt-[12px] border-t border-hair pt-[10px]">
-        <Eyebrow size={8} tracking="0.16em" className="mb-[8px] block">
+        <Eyebrow size={9} tracking="0.16em" className="mb-[8px] block">
           At the table
         </Eyebrow>
         <div className="flex flex-wrap gap-x-[16px] gap-y-[8px]">
@@ -78,15 +78,15 @@ export function SceneIntro({
                   mono={c.mono}
                   color={c.color}
                   src={c.portrait ? mediaUrl(c.portrait) : undefined}
-                  size={28}
+                  size={32}
                   ring={1.5}
-                  fontSize={10}
+                  fontSize={11}
                 />
                 <span className="min-w-0 text-left">
-                  <span className="block font-display text-[13px] leading-[1.05] font-semibold text-ink">
+                  <span className="block font-display text-[14.5px] leading-[1.05] font-semibold text-ink">
                     {c.name.split(",")[0]}
                   </span>
-                  <Eyebrow size={8} tracking="0.08em" color={c.color} className="block">
+                  <Eyebrow size={9} tracking="0.08em" color={c.color} className="block">
                     {c.role}
                   </Eyebrow>
                 </span>

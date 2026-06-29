@@ -43,23 +43,6 @@ export function useScenePlay(scenario: ResolvedScenario) {
     ]);
   }
 
-  function roll() {
-    const r = 1 + Math.floor(Math.random() * 20);
-    const ok = r >= 12;
-    setMessages((m) => [
-      ...m,
-      {
-        kind: "check",
-        check: "Open check · DC 12",
-        roll: r,
-        result: ok ? "Success" : "Failure",
-        text: ok
-          ? "Fortune leans your way — the moment turns in your favour."
-          : "The dice are unkind. The moment slips through your fingers.",
-      },
-    ]);
-  }
-
   function choose(c: SceneChoice) {
     setStats((s) =>
       s.map((chip) => {
@@ -100,7 +83,6 @@ export function useScenePlay(scenario: ResolvedScenario) {
     loading,
     reveal,
     send,
-    roll,
     choose,
     profileId,
     openProfile: (id: string) => setProfileId(id),

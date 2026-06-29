@@ -12,7 +12,7 @@ import { Composer } from "@/components/feature/Composer";
 import { SceneLoader } from "@/components/feature/SceneLoader";
 import { SceneIntro } from "@/components/feature/SceneIntro";
 import { TranscriptBeat } from "@/components/feature/TranscriptBeat";
-import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
+import { CharacterDossier } from "@/components/feature/CharacterDossier";
 
 /** The signature surface: a three-zone "open book" live scene. */
 export function StoryPlayerView({
@@ -97,22 +97,29 @@ export function StoryPlayerView({
             value={scene.composer}
             onChange={scene.setComposer}
             onSend={scene.send}
-            onRoll={scene.roll}
           />
         </div>
 
-        <DirectorRail
-          goal={scenario.goal}
-          tension={scene.tension}
-          tensionText={tensionLabel(scene.tension)}
-          statDefs={statDefs}
-          stats={scene.stats}
-          relationships={scene.relationships}
-        />
+        {profileChar ? (
+          <CharacterDossier
+            character={profileChar}
+            statDefs={statDefs}
+            relationships={scene.relationships}
+            onClose={scene.closeProfile}
+          />
+        ) : (
+          <DirectorRail
+            goal={scenario.goal}
+            tension={scene.tension}
+            tensionText={tensionLabel(scene.tension)}
+            statDefs={statDefs}
+            stats={scene.stats}
+            relationships={scene.relationships}
+          />
+        )}
       </div>
 
       <SceneLoader scenario={scenario} storylineName={storylineName} visible={scene.loading} />
-      <CharacterProfileModal character={profileChar} onClose={scene.closeProfile} />
     </div>
   );
 }

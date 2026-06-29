@@ -1,27 +1,16 @@
-/** Bottom composer: roll-a-check, the message input, and send. */
+/** Bottom composer: the message input and send. */
 export function Composer({
   value,
   onChange,
   onSend,
-  onRoll,
 }: {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
-  onRoll: () => void;
 }) {
   return (
     <div className="velora-header flex-none border-t border-hair-strong p-[13px_16px] sm:p-[13px_30px]">
       <div className="mx-auto flex max-w-[720px] items-center gap-[10px]">
-        <button
-          type="button"
-          onClick={onRoll}
-          aria-label="Roll a check"
-          title="Roll a check"
-          className="h-[38px] w-[38px] flex-none rounded-[3px] border border-field-bd bg-field text-[14px] text-accent hover:border-accent"
-        >
-          ⚄
-        </button>
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
