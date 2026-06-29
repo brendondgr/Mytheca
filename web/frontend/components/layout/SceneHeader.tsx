@@ -5,12 +5,17 @@ import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
 export function SceneHeader({
   title,
   settingName,
+  genre,
+  tone,
   backHref = "/",
 }: {
   title: string;
   settingName: string;
+  genre?: string;
+  tone?: string;
   backHref?: string;
 }) {
+  const meta = [`◆ ${settingName}`, genre, tone].filter(Boolean).join(" · ");
   return (
     <header className="velora-header flex h-[50px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[24px]">
       <div className="flex min-w-0 items-center gap-[14px]">
@@ -26,7 +31,7 @@ export function SceneHeader({
             {title}
           </div>
           <div className="mt-1 truncate font-mono text-tag tracking-[0.14em] text-mute uppercase">
-            ◆ {settingName} · live scene
+            {meta} · live scene
           </div>
         </div>
       </div>

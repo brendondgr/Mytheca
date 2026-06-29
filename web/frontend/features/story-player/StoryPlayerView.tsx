@@ -10,6 +10,7 @@ import { CastRail } from "@/components/feature/CastRail";
 import { DirectorRail } from "@/components/feature/DirectorRail";
 import { Composer } from "@/components/feature/Composer";
 import { SceneLoader } from "@/components/feature/SceneLoader";
+import { SceneIntro } from "@/components/feature/SceneIntro";
 import { TranscriptBeat } from "@/components/feature/TranscriptBeat";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 
@@ -40,6 +41,8 @@ export function StoryPlayerView({
       <SceneHeader
         title={scenario.title}
         settingName={scenario.setting.name}
+        genre={scenario.genre}
+        tone={scenario.tone}
         backHref={backHref}
       />
 
@@ -64,7 +67,8 @@ export function StoryPlayerView({
               aria-relevant="additions"
               aria-busy={!scene.reveal}
             >
-              <div className="py-[4px] text-center font-mono text-[9px] tracking-[0.16em] text-mute2 uppercase">
+              <SceneIntro scenario={scenario} onProfile={scene.openProfile} />
+              <div className="py-[2px] text-center font-mono text-[9px] tracking-[0.16em] text-mute2 uppercase">
                 — the scene is joined —
               </div>
               {scene.messages.map((m, i) => (

@@ -56,7 +56,7 @@ export function CharacterMessage({
         title={c.name}
         className="flex-none rounded-full transition-transform hover:scale-105 disabled:hover:scale-100"
       >
-        <Monogram mono={c.mono} color={c.color} size={40} fontSize={14} />
+        <Monogram mono={c.mono} color={c.color} src={c.portrait} size={40} fontSize={14} />
       </button>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-[9px]">
