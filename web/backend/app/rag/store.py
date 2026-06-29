@@ -147,3 +147,23 @@ def sparse_search(
 def count(client: QdrantClient, *, flt: models.Filter | None = None, collection: str | None = None) -> int:
     """Number of points (optionally within a filter) — used by the RAG status surface."""
     return client.count(collection_name=_collection(collection), count_filter=flt).count
+
+
+def existing_content_hash(
+    client: QdrantClient, entity_type: str, entity_id: str, *, collection: str | None = None
+) -> str | None:
+    """Return the stored ``content_hash`` of an entity's point, or ``None``.
+
+    Lets the indexer skip re-embedding an unchanged entry. Best-effort — a missing
+    collection/point or any client error reads as "no prior hash" (→ re-index)."""
+    try:
+        got = client.retrieve(
+            collection_name=_collection(collection),
+            ids=[point_id(entity_type, entity_id)],
+            with_payload=True,
+        )
+    except Exception:
+        return None
+    if not got:
+        return None
+    return (got[0].payload or {}).get("content_hash")

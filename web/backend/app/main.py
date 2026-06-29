@@ -25,6 +25,7 @@ from app.routes import (
     context_documents,
     graph,
     options,
+    rag,
     scenarios,
     settings,
     stats,
@@ -123,6 +124,7 @@ def create_app() -> FastAPI:
         stats,
         options,
         graph,
+        rag,
     ):
         api.include_router(module.router)
     app.include_router(api)

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import APIError
 from app.core.ids import new_hex_id, new_id
 from app.models import Character, ContextDocument, Scenario, Setting, Storyline
+from app.rag import indexer as rag_index
 from app.services import graph_writer
 from app.schemas.character import CharacterCreate, CharacterUpdate
 from app.schemas.context_document import (
@@ -153,6 +154,7 @@ def create_storyline(db: Session, data: StorylineCreate) -> Storyline:
     db.add(sl)
     db.commit()
     db.refresh(sl)
+    rag_index.sync_storyline(sl)  # best-effort embed into the vector store
     return sl
 
 
@@ -162,12 +164,14 @@ def update_storyline(db: Session, storyline_id: str, data: StorylineUpdate) -> S
         setattr(sl, key, value)
     db.commit()
     db.refresh(sl)
+    rag_index.sync_storyline(sl)  # best-effort re-embed into the vector store
     return sl
 
 
 def delete_storyline(db: Session, storyline_id: str) -> None:
     db.delete(get_storyline(db, storyline_id))  # ORM cascade removes children
     db.commit()
+    rag_index.remove_storyline(storyline_id)  # best-effort: drop the world's whole corpus
 
 
 # ---- context documents (the persisted triaged RAG corpus) ------------------
@@ -220,6 +224,7 @@ def create_context_document(
     db.add(doc)
     db.commit()
     db.refresh(doc)
+    rag_index.sync_context_document(doc)  # best-effort embed
     return doc
 
 
@@ -237,6 +242,7 @@ def bulk_create_context_documents(
     db.commit()
     for doc in created:
         db.refresh(doc)
+        rag_index.sync_context_document(doc)  # best-effort embed each
     return created
 
 
@@ -251,12 +257,14 @@ def update_context_document(
         doc.char_count = len(doc.content or "")
     db.commit()
     db.refresh(doc)
+    rag_index.sync_context_document(doc)  # re-embed (removes the point if include_rag was cleared)
     return doc
 
 
 def delete_context_document(db: Session, doc_id: str) -> None:
     db.delete(get_context_document(db, doc_id))
     db.commit()
+    rag_index.remove("context_document", doc_id)  # best-effort drop from the vector store
 
 
 # ---- characters ------------------------------------------------------------
@@ -304,6 +312,7 @@ def create_character(db: Session, storyline_id: str, data: CharacterCreate) -> C
     db.commit()
     db.refresh(char)
     graph_writer.sync_character(db, char)  # best-effort mirror into the Story Graph
+    rag_index.sync_character(char)  # best-effort embed into the vector store
     return char
 
 
@@ -317,6 +326,7 @@ def update_character(db: Session, character_id: str, data: CharacterUpdate) -> C
     db.commit()
     db.refresh(char)
     graph_writer.sync_character(db, char)  # best-effort mirror into the Story Graph
+    rag_index.sync_character(char)  # best-effort re-embed
     return char
 
 
@@ -330,6 +340,7 @@ def delete_character(db: Session, character_id: str) -> None:
             scenario.cast_ids = [cid for cid in scenario.cast_ids if cid != character_id]
     db.commit()
     graph_writer.remove_node(character_id)  # best-effort removal from the Story Graph
+    rag_index.remove("character", character_id)  # best-effort drop from the vector store
 
 
 # ---- settings --------------------------------------------------------------
@@ -374,6 +385,7 @@ def create_setting(db: Session, storyline_id: str, data: SettingCreate) -> Setti
     db.commit()
     db.refresh(setting)
     graph_writer.sync_setting(db, setting)  # best-effort mirror into the Story Graph
+    rag_index.sync_setting(setting)  # best-effort embed into the vector store
     return setting
 
 
@@ -384,6 +396,7 @@ def update_setting(db: Session, setting_id: str, data: SettingUpdate) -> Setting
     db.commit()
     db.refresh(setting)
     graph_writer.sync_setting(db, setting)  # best-effort mirror into the Story Graph
+    rag_index.sync_setting(setting)  # best-effort re-embed
     return setting
 
 
@@ -392,6 +405,7 @@ def delete_setting(db: Session, setting_id: str) -> None:
     db.delete(get_setting(db, setting_id))
     db.commit()
     graph_writer.remove_node(setting_id)  # best-effort removal from the Story Graph
+    rag_index.remove("setting", setting_id)  # best-effort drop from the vector store
 
 
 # ---- scenarios -------------------------------------------------------------
@@ -438,6 +452,7 @@ def create_scenario(db: Session, storyline_id: str, data: ScenarioCreate) -> Sce
     db.add(scenario)
     db.commit()
     db.refresh(scenario)
+    rag_index.sync_scenario(scenario)  # best-effort embed into the vector store
     return scenario
 
 
@@ -455,9 +470,11 @@ def update_scenario(db: Session, scenario_id: str, data: ScenarioUpdate) -> Scen
         setattr(scenario, key, value)
     db.commit()
     db.refresh(scenario)
+    rag_index.sync_scenario(scenario)  # best-effort re-embed
     return scenario
 
 
 def delete_scenario(db: Session, scenario_id: str) -> None:
     db.delete(get_scenario(db, scenario_id))
     db.commit()
+    rag_index.remove("scenario", scenario_id)  # best-effort drop from the vector store
