@@ -17,6 +17,7 @@ dependencies = [
     "pillow>=12.2.0",
     "neo4j>=5.26",
     "alembic>=1.18.5",
+    "fastembed>=0.8.0",
 ]
 
 [dependency-groups]

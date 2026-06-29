@@ -63,6 +63,25 @@ class Settings(BaseSettings):
     # ComfyUI image generation — a local Comfy server (HTTP + WebSocket protocol).
     comfyui_base_url: str = "http://localhost:8199"
 
+    # --- RAG: embeddings (fastembed/bge-large, CPU-default, no torch) ---
+    # ``embed_provider``: "fastembed" (real ONNX model) or "hash" (the deterministic
+    # offline fallback the test suite forces; see utils/tests/backend/conftest.py).
+    embed_provider: str = "fastembed"
+    embed_model: str = "BAAI/bge-large-en-v1.5"
+    embed_dim: int = 1024
+    # Execution device: "cpu" (default), "cuda" (needs onnxruntime-gpu), or "rocm".
+    # Unavailable accelerators fall back to CPU inside onnxruntime (best-effort).
+    embed_device: str = "cpu"
+    # Where fastembed caches downloaded ONNX models (defaults to its own cache).
+    embed_cache_dir: str = ""
+
+    # --- RAG: vector store (Qdrant) ---
+    # The container is owned by ``app.py`` like Postgres/Redis/Neo4j; the client
+    # connects lazily and degrades gracefully when unset/unreachable (CRUD and the
+    # test suite run with no Qdrant). Blank disables the vector store entirely.
+    qdrant_url: str = "http://localhost:3351"
+    qdrant_collection: str = "velora_lore"
+
     # Generated media (character portraits, etc.), served read-only at ``/media``.
     media_dir: Path = REPO_ROOT / "media"
 
@@ -99,6 +118,15 @@ class Settings(BaseSettings):
         CRUD and the test suite run with no Neo4j (see ``app/core/neo4j.py``).
         """
         return bool(self.neo4j_uri.strip())
+
+    @property
+    def qdrant_configured(self) -> bool:
+        """True when a Qdrant URL is set (the vector store is in play).
+
+        Like the Neo4j seam, retrieval is best-effort: when false the store/indexer
+        no-op so CRUD and the test suite run with no Qdrant (see app/core/qdrant.py).
+        """
+        return bool(self.qdrant_url.strip())
 
     @property
     def cors_origins(self) -> list[str]:

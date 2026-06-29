@@ -38,6 +38,26 @@ def _graph_disabled_by_default(monkeypatch) -> Iterator[None]:
     config.get_settings.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _rag_offline(monkeypatch) -> Iterator[None]:
+    """Run the suite with the real embedding model + Qdrant off.
+
+    ``EMBED_PROVIDER=hash`` forces the deterministic feature-hashing embedder so no
+    ~1.3 GB ONNX model is ever downloaded; blanking ``QDRANT_URL`` makes the vector
+    store best-effort-disabled. Tests that exercise retrieval inject an in-memory
+    ``QdrantClient(":memory:")`` explicitly. Mirrors ``_graph_disabled_by_default``.
+    """
+    from app.rag.embedder import get_embedder
+
+    monkeypatch.setenv("EMBED_PROVIDER", "hash")
+    monkeypatch.setenv("QDRANT_URL", "")
+    config.get_settings.cache_clear()
+    get_embedder.cache_clear()
+    yield
+    config.get_settings.cache_clear()
+    get_embedder.cache_clear()
+
+
 @pytest.fixture
 def engine() -> Iterator[Engine]:
     eng = create_engine(
