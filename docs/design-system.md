@@ -112,8 +112,8 @@ by a prominent **storyline switcher** — an outlined button rendering the activ
 large Cinzel small-caps (echoing the `VELORA` wordmark) with a ◆ seal and a rotating chevron,
 so it reads unmistakably as a dropdown. It lists every storyline (✓ active, with per-storyline
 counts) plus "New Storyline"; switching swaps the whole working set. Below the recent-scenario
-hero, the body is **three open columns** — **Scenarios** (one per row) · **Characters** (two
-per row) · **Settings** (one per row) — shown side-by-side on desktop with hairline dividers.
+hero, the body is **three open columns** — **Scenarios** (one per row) · **Characters** (three
+per row, two on the narrowest widths) · **Settings** (one per row) — shown side-by-side on desktop with hairline dividers.
 On `< lg` they collapse to a single column chosen by a 3-tab section switcher (the same ARIA
 tablist, `lg:hidden`); each column is rendered exactly once (CSS-only visibility), never
 duplicated.
@@ -122,23 +122,21 @@ The **recent-scenario hero** (`ScenarioCarousel`) is the page's lead artifact an
 real imagery for contrast. A **left scene-art panel** sets the scenario's `image` full-bleed
 behind a **graduated scrim** (strong on the left and bottom, under the title / location / tags
 / goal / Begin Scene button, fading to near-clear on the right so the artwork reads) — not a
-flat wash. Beside it, an **arrow-paged cast carousel** renders the cast as **discrete portrait
-tiles** — one **full-bleed portrait card** per cast member, set on a gapped track (space on all
-four edges, no flush dividers) so each reads as its own card. Every tile carries a **per-character
-outer glow + hairline border keyed to its accent `color`**, giving the strip the illuminated,
-character-coded look of the reference. The WebP portrait fills the card; the upper portion shows
-the face, then a **SOLID accent-tinted footer plate** (opaque — the portrait no longer shows
-through) carries the character's **name** (lightened toward parchment via `color-mix` so every
-accent clears AA over the dark plate), **role**, and a **non-transparent inset `Statistics`
-panel** (its own accent-tinted background — currently the "No statistics available." empty state).
-A small **wax-seal monogram badge** in the character's accent sits top-right; when no portrait
-exists the card falls back to a tinted panel with a large faint monogram initial. When the cast
-**overflows** the visible width the strip shows **left/right arrow buttons** (`Previous` /
-`Next characters`) that page it (`scrollBy`); each arrow hides at its respective end and both
-stay hidden when everything fits, with native keyboard/trackpad scroll preserved underneath.
-**Deviation from the reference:** the reference mockup shows pictographic role icons in the
-corner; we have no role→icon data, so the corner badge uses the character's monogram instead
-(data-backed, on-brand with the wax-seal motif).
+flat wash. Beside it, an **arrow-paged cast carousel** renders the cast as **transparent portrait
+tiles** that **match the Library Characters-column card**: the WebP portrait fills the card behind
+the vertical **`PORTRAIT_SCRIM`**, with the **name** (`OVER_ART.title`) + **role** (`OVER_ART.eyebrow`)
+reading over the lower scrim, framed in a **2px border keyed to the character's accent `color`**
+(large monogram fallback on a solid `--card-bg2` surface). Statistics are **not baked into the
+card**: a small **`❯`/`❮` arrow** (top-right) toggles an **inline statistics panel** rendered as
+the next tile in the row, so opening it **pushes the following cards over** (one open at a time);
+the panel lists the storyline's **player-visible (public) stat names + default values** for that
+character (filtered by `visibility`/`appliesTo`), with a "No statistics available." fallback. When
+the cast **overflows** the visible width the strip shows **left/right arrow buttons** (`Previous` /
+`Next characters`) that page it (`scrollBy`); each arrow hides at its respective end and both stay
+hidden when everything fits, with native keyboard/trackpad scroll preserved underneath. The slide
+is `w-full min-w-0` so the strip is bounded and **scrolls rather than clipping the cast off the
+right edge**. **Deviation from the reference:** the reference mockup shows pictographic role icons;
+we have no role→icon data, so role is shown as text.
 
 The page is **self-contained** (`h-dvh`, no page scroll): on desktop the column row is pinned
 to the viewport and **each column scrolls independently**; on mobile the single active column
@@ -184,7 +182,7 @@ Purposeful only, and always with a near-instant `prefers-reduced-motion` fallbac
 
 Near the top of key pages show **real artifacts**: a live/sample scene transcript, a teal narrator card, a stat/tension panel, a character card with monogram and role — not abstract orbs, mesh gradients, or fake dashboards. The landing page should preview an actual narrator-card + dialogue exchange.
 
-**Character dossier (read-only profile).** The expanded character view (`CharacterProfileModal`) is styled as a **bold, structured dossier** with a **two-column hero** (`md+`, stacking below): the **left** is a tall **2:3 framed portrait** (a 2px character-color frame + inner hairline, the `❖` seal medallion overlapping its bottom edge; `object-cover` image, monogram fallback); the **right** carries the large uppercase Cinzel name, a character-color role eyebrow set off by a hairline rule, a row of `◆`-led trait pills (the free-text traits string split into one pill per token), and the **Appearance** + **Background** boxes. The remaining four fields — **Personality, Voice, Goal, Secret** — sit below in a **2×2 grid** (one column below `sm`), each in its own bordered manuscript box (`--card-bg2` surface, `--card-bd` border, ~4px radius, a circular gold glyph badge + small-caps header on a rule), with **Secret** carrying a `--accent`-bordered danger tint. Section identity is carried by the badge + header + border, never color alone. All surfaces use theme tokens, so the treatment holds across Parchment / Ember / Slate.
+**Character dossier (read-only profile).** The expanded character view (`CharacterProfileModal`) is styled as a **bold, structured dossier** with a **two-column hero** (`md+`, stacking below): the **left** is a tall **2:3 framed portrait** (a 2px character-color frame + inner hairline; `object-cover` image, monogram fallback — no seal medallion); the **right** carries the large uppercase Cinzel name, a character-color role eyebrow set off by a hairline rule, a row of `◆`-led trait pills (the free-text traits string split into one pill per token), and **only the Background** box. The other four fields — **Appearance, Personality, Voice, Goal** — sit below in a **2×2 grid** (one column below `sm`), each in its own bordered manuscript box (`--card-bg2` surface, `--card-bd` border, ~4px radius, a circular gold glyph badge + small-caps header on a rule). **Secret is not surfaced** in the profile (it remains on the data model). Section identity is carried by the badge + header + border, never color alone. All surfaces use theme tokens, so the treatment holds across Parchment / Ember / Slate.
 
 **Generated-image orientation.** Character **portraits** render **vertical — 832×1216 (2:3 portrait)** (`services/portraits.py`), to suit the portrait-dominant character cards and the profile hero; the display frames use `aspect-[2/3]` + `object-cover`. **Scene art** (scenarios + settings) stays **landscape 1024×576 (16:9)**. Both dimensions are divisible by 8 for the latent grid. Character cards in the Library Characters column are **portrait-dominant 2:3 tiles** framed in the character's color: the portrait fills the card behind the vertical **`PORTRAIT_SCRIM`** with name/role in a bottom footer (large monogram fallback on a solid surface), cast members lit by an accent ring + `◆ In this scene`.
 
