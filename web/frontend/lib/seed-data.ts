@@ -4,6 +4,7 @@ import type {
   ResolvedScenario,
   Scenario,
   Setting,
+  StatDefinition,
   Storyline,
 } from "@/lib/types";
 
@@ -62,6 +63,12 @@ export const SEED_CHARACTERS: Character[] = [
     speech: "Measured and courteous; never raises her voice.",
     goal: "Keep the salt routes hidden a little longer.",
     secret: "She answers to the Drowned Court.",
+    appearance:
+      "A spare, upright woman in her fifties, grey hair drawn back without a single loose strand. Ink-stained fingers, a merchant's good coat gone slightly threadbare at the cuffs, and eyes that price a room before they greet it.",
+    background:
+      "Born to a harbor-ledger family that lost everything in the last blockade, Maerin rebuilt it ledger by ledger until she held half the docks' debts. The Saltworn is hers in all but name; she lets others believe otherwise.",
+    personality:
+      "Patient to the point of cruelty. She never gambles — she waits for the odds to walk to her. Loyalty is a line item; mercy is a favor she expects repaid with interest.",
   },
   {
     id: "aldous",
@@ -73,6 +80,12 @@ export const SEED_CHARACTERS: Character[] = [
     speech: "Soft, apologetic, scripture half-remembered.",
     goal: "Atone for the fire he failed to stop.",
     secret: "He set the fire.",
+    appearance:
+      "A soft-bodied monk in his forties, robes salt-stained at the hem, hands forever worrying a string of cheap prayer-beads. A burn scar climbs one wrist into his sleeve, which he keeps tugged down.",
+    background:
+      "Aldous tended the warehouse chapel that fed the dock's poor, until the night the fire took the stores — and three sleeping dockhands with them. The Order sent him back to serve where he sinned, never knowing the lantern was his.",
+    personality:
+      "Gentle, anxious, and stubborn in the way frightened people are. He apologizes before he is accused and confesses to everything except the one thing that matters.",
   },
   {
     id: "wren",
@@ -84,6 +97,12 @@ export const SEED_CHARACTERS: Character[] = [
     speech: "Clipped, sardonic, thick with dock-cant.",
     goal: "Earn enough coin to leave Embergate for good.",
     secret: "She has sold you out once already.",
+    appearance:
+      "Wiry and quick, late twenties, dark hair cropped short for practicality and a sailor's coat two sizes too big. Knuckles scarred, a knife she doesn't hide, and a grin she uses like a tool.",
+    background:
+      "Dock-born and dock-raised, Wren has run cargo, contraband, and the occasional message no one wanted traced. She has been almost-free of Embergate four times; the harbor keeps finding new ways to charge her rent.",
+    personality:
+      "Sardonic, fast-talking, loyal right up to the price where loyalty stops paying. She likes you more than she'll admit and trusts you exactly as far as her last empty purse.",
   },
   {
     id: "doran",
@@ -95,6 +114,12 @@ export const SEED_CHARACTERS: Character[] = [
     speech: "Formal and terse — strictly by the book.",
     goal: "Restore order to a rotting harbor.",
     secret: "His own brother runs the Drowned Market.",
+    appearance:
+      "Broad and straight-backed in a Tidewatch uniform kept immaculate against all the harbor's grime, greying at the temples. A old duelling scar along the jaw; hands that rest near, but never on, his sword.",
+    background:
+      "Doran took the Captaincy when the last one drowned drunk, and has spent a decade trying to scrub the rot out of an institution that runs on it. Every clean arrest he makes, his brother's market grows another stall.",
+    personality:
+      "Rigid, dutiful, honorable to a fault that everyone but him can see. He believes the law is a wall against the tide; he hasn't yet admitted the tide is family.",
   },
   {
     id: "nyssa",
@@ -106,6 +131,12 @@ export const SEED_CHARACTERS: Character[] = [
     speech: "Slow and layered; she speaks in tides.",
     goal: "See the vision through to its bitter end.",
     secret: "She is going blind to the future, not the world.",
+    appearance:
+      "Ageless and pale, draped in salt-crusted grey, eyes filmed the milky white of sea-glass. She moves slowly, surely, as if the floor were a tide she has already read.",
+    background:
+      "The Oracle of Salt has read the harbor's fortunes for longer than anyone living recalls. Sailors leave coin at her sanctum before every voyage; half of them sail anyway against her counsel, and drown proving her right.",
+    personality:
+      "Serene, cryptic, and kind in a way that frightens people. She speaks in tides and rarely answers the question asked — only the one you should have.",
   },
   {
     id: "grimm",
@@ -117,6 +148,12 @@ export const SEED_CHARACTERS: Character[] = [
     speech: "Few words, and most of them threats.",
     goal: "Get paid and get gone.",
     secret: "He is terrified of deep water.",
+    appearance:
+      "A slab of a man, scarred and shaven-headed, with a cudgel worn smooth by use and a coat that has stopped more than one knife. He stands a careful distance from any railing that overlooks the water.",
+    background:
+      "Grimm has been muscle for every crew that could meet his price and a few that only thought they could. No one knows where he's from; the harbor assumes he washed up, which he would not find funny.",
+    personality:
+      "Brutal, brief, and entirely transactional — until the deck pitches or the tide comes in, and the fear he buries under all that menace surfaces in his eyes.",
   },
 ];
 
@@ -126,30 +163,60 @@ export const SEED_SETTINGS: Setting[] = [
     name: "The Saltworn Tavern",
     type: "Social Hub",
     desc: "Lamplit and low-beamed — every secret here has a price.",
+    atmosphere:
+      "Smoke-darkened beams, the smell of tallow and spilled ale, rain ticking at the shutters. Conversation drops a register whenever the door opens, then resumes a beat too smoothly.",
+    features:
+      "A long ledger-table where Maerin holds court, a back stair to rooms that aren't rented, and a fireplace built over an older, bricked-up door no one mentions.",
+    currentState:
+      "Past midnight, half-full, a storm holding the usual crowd indoors. Maerin's table is occupied; the Captain's man has been nursing the same drink by the door for an hour.",
   },
   {
     id: "harbor",
     name: "Embergate Harbor",
     type: "Exploration",
     desc: "Fog, brine, and the groan of a hundred moored hulls.",
+    atmosphere:
+      "Wet rope and rotting fish, gulls arguing over the tideline, fog so thick the far quay is only a rumor of lamplight. Every plank underfoot is slick and complaining.",
+    features:
+      "The harbor master's counting-house, a crane that hasn't turned in years, and the north dock where the night cargo comes in without a manifest.",
+    currentState:
+      "Low tide, before dawn. The watch has changed and the new shift hasn't found its lanterns yet — a narrow, cold window where the docks belong to no one.",
   },
   {
     id: "keep",
     name: "Tidewatch Keep",
     type: "Fortress",
     desc: "The guard's stone fist clenched over the bay.",
+    atmosphere:
+      "Cold stone sweating with sea-damp, the clack of drilled boots, torchlight that never quite reaches the corners. Sound carries here — the keep was built to overhear.",
+    features:
+      "A signal beacon over the bay, a records vault of every ship's papers, and cells cut below the waterline that flood a little at every high tide.",
+    currentState:
+      "Tense and under-staffed. Half the garrison is loyal to the Captain, half to whoever pays better; both halves are pretending they haven't noticed the other.",
   },
   {
     id: "market",
     name: "The Drowned Market",
     type: "Black Market",
     desc: "Below the tideline, where nothing is illegal.",
+    atmosphere:
+      "A vaulted cellar that breathes with the sea, lantern-light swimming on standing water, voices kept low and quick. Everything for sale and nothing on a shelf.",
+    features:
+      "Stalls that pack up in a heartbeat, a money-changer who fences as a sideline, and a tide-gate that floods the lower vault when the bells ring the turn.",
+    currentState:
+      "Open for the night's trade, busy and wary. The tide is two hours from turning; everyone here is counting bells, including the people who shouldn't be.",
   },
   {
     id: "sanctum",
     name: "The Oracle's Sanctum",
     type: "Sacred",
     desc: "Salt-circles and the hush before a truth.",
+    atmosphere:
+      "Cold, still air that tastes of brine, salt crusting the stone in pale rings, a quiet so complete that your own pulse becomes a sound. Candle-flames stand without a flicker.",
+    features:
+      "Concentric salt-circles worn into the floor, a basin of seawater the Oracle reads, and an alcove of votive coins left by sailors who never came back for them.",
+    currentState:
+      "Lit and waiting, as if she expected you. The Oracle is present and unhurried; the salt-circles are freshly drawn, which she does for no one without reason.",
   },
 ];
 
@@ -263,6 +330,81 @@ export const SEED_STORYLINES: Storyline[] = [
     characters: SEED_CHARACTERS,
     settings: SEED_SETTINGS,
     scenarios: SEED_SCENARIOS,
+  },
+];
+
+// The Embergate world's universal stat schema (mirrors web/backend/app/core/seed.py
+// `_STATS` + content/stats/*.md). The Library loads these from the backend; the
+// Story player reads them here so the in-scene director rail can show the real
+// stat definitions + labeled bands without a backend round-trip.
+export const SEED_STAT_DEFS: StatDefinition[] = [
+  {
+    key: "health",
+    displayName: "Health",
+    description: "Physical condition and vitality.",
+    min: 0,
+    max: 100,
+    default: 100,
+    visibility: "public",
+    guidance: "stats/health.md",
+    appliesTo: [],
+    bands: [
+      { min: 0, max: 20, label: "Nearly dead" },
+      { min: 21, max: 40, label: "Badly hurt — needs to heal" },
+      { min: 41, max: 80, label: "Wounded but holding" },
+      { min: 81, max: 100, label: "Very healthy" },
+    ],
+  },
+  {
+    key: "suspicion",
+    displayName: "Suspicion",
+    description: "How wary the authorities and factions are of you.",
+    min: 0,
+    max: 10,
+    default: 0,
+    visibility: "public",
+    guidance: "stats/suspicion.md",
+    appliesTo: [],
+    bands: [
+      { min: 0, max: 3, label: "Unnoticed" },
+      { min: 4, max: 7, label: "Watched" },
+      { min: 8, max: 10, label: "Hunted" },
+    ],
+  },
+  {
+    key: "trust",
+    displayName: "Trust",
+    description: "Personal standing with your close allies.",
+    min: -5,
+    max: 5,
+    default: 0,
+    visibility: "public",
+    guidance: "stats/trust.md",
+    appliesTo: [],
+    bands: [
+      { min: -5, max: -3, label: "Betrayed" },
+      { min: -2, max: -1, label: "Skeptical" },
+      { min: 0, max: 0, label: "Neutral" },
+      { min: 1, max: 2, label: "Earned trust" },
+      { min: 3, max: 5, label: "Deep trust" },
+    ],
+  },
+  {
+    key: "patience",
+    displayName: "Patience",
+    description: "How much forbearance you have left before you act rashly.",
+    min: 0,
+    max: 10,
+    default: 5,
+    visibility: "public",
+    guidance: "stats/patience.md",
+    appliesTo: [],
+    bands: [
+      { min: 0, max: 2, label: "At the limit" },
+      { min: 3, max: 5, label: "Holding on" },
+      { min: 6, max: 8, label: "Composed" },
+      { min: 9, max: 10, label: "Serene" },
+    ],
   },
 ];
 
