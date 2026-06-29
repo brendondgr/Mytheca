@@ -85,7 +85,7 @@ All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every 
 
 ## Story-Player Layout (the signature surface)
 
-A three-zone "open book": a **left cast rail** (At the table · turn order), a **reading-first center column** (the transcript of beats + a bottom composer), and a **right director rail** (scenario goal · tone/tension meter · scenario state stats · relationships). The transcript is the primary surface and stays centered at ≤720px. On mobile the rails collapse to drawers; the transcript stays primary. This is deliberately **not** a generic three-pane SaaS shell or a card grid.
+A three-zone "open book": a **left cast rail** (At the table · turn order, portrait avatars), a **reading-first center column** (a `SceneIntro` "scene is set" band — setting, genre/tone, the player's aim, dramatis personae — then the transcript of beats + a bottom composer), and a **right director rail** (scenario goal · tone/tension meter · the storyline's **stat schema** with labeled bands · live scene-state stats · relationships). The transcript is the primary surface and stays centered at ≤720px; the `SceneIntro` band ensures the reading column carries the full scene context even on mobile, where the rails collapse to drawers. This is deliberately **not** a generic three-pane SaaS shell or a card grid.
 
 ### Event → component mapping (visual contract)
 
@@ -177,7 +177,7 @@ Purposeful only, and always with a near-instant `prefers-reduced-motion` fallbac
 - **Card/list entrance:** fade + small rise (~0.18–0.2s).
 - **Theme switch:** slow cross-fade of themed surfaces (background/border/color ~0.6s); buttons stay snappy (~0.16s) with a small hover lift (`translateY(-1px)` + soft shadow).
 - **Hover affordances:** cards lift `translateY(-2px)`; rows nudge `translateX(2–3px)`.
-- **Scenario load:** a centered ❖ spinner with "Conjuring the scene…" then a content reveal; navigation between library/scene may use the page-flip transition from the reference (optional, reduced-motion → instant).
+- **Scenario load:** a full-screen **establishing "curtain"** (`SceneLoader`) that carries the scenario's context — an optional scene-art backdrop behind `CARD_SCRIM` (gradient fallback), the storyline/genre kicker, scenario title, setting + genre/tone, a cast portrait row, the scene goal, and a ❖ "Conjuring the scene…" progress line — then dissolves into the content reveal. Rendered as a plain conditional on the loading flag (the reveal-into-scene continuity comes from the transcript's own opacity/transform transition); navigation between library/scene may use the page-flip transition from the reference (optional, reduced-motion → instant).
 
 **Implementation.** Framer Motion drives the signature **transcript beat entrances** (`StoryPlayerView`, opacity + 8px rise), wrapped in a `MotionConfig reducedMotion="user"` (`components/layout/MotionProvider`) so motion is dropped under `prefers-reduced-motion`. Simpler/continuous motion uses CSS keyframes from `styles/themes.css` — the modal (`embPop`/`embDim`, via Tailwind `motion-reduce:animate-none`), the scene loader (`embSpin`/`embDots`), the theme cross-fade (`.velora-page`/`.velora-card`/`.velora-row`), and the carousel slide. Keyboard focus is shown app-wide via a `:focus-visible` outline in `globals.css`. The full 3D page-flip is deferred.
 
