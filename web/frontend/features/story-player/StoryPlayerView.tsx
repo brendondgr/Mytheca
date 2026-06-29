@@ -18,10 +18,12 @@ import { CharacterProfileModal } from "@/components/feature/CharacterProfileModa
 export function StoryPlayerView({
   scenario,
   statDefs = [],
+  storylineName,
   backHref = "/",
 }: {
   scenario: ResolvedScenario;
   statDefs?: StatDefinition[];
+  storylineName?: string;
   backHref?: string;
 }) {
   const scene = useScenePlay(scenario);
@@ -109,7 +111,7 @@ export function StoryPlayerView({
         />
       </div>
 
-      <SceneLoader scenario={scenario} visible={scene.loading} />
+      <SceneLoader scenario={scenario} storylineName={storylineName} visible={scene.loading} />
       <CharacterProfileModal character={profileChar} onClose={scene.closeProfile} />
     </div>
   );

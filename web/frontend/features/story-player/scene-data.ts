@@ -120,7 +120,9 @@ function genericScene(scenario: ResolvedScenario): SceneSeed {
     relationships: cast.slice(0, 3).map((c) => ({
       who: c.name.split(",")[0].split(" ")[0],
       color: c.color,
-      text: `— ${c.secret.replace(/\.$/, "").toLowerCase()}.`,
+      text: c.secret
+        ? `— ${c.secret.replace(/\.$/, "").toLowerCase()}.`
+        : "— keeps their own counsel.",
     })),
     turnOrder: ["You", ...cast.map((c) => c.id)],
   };
