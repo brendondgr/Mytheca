@@ -250,6 +250,34 @@ describe("useStorylineCreator", () => {
     expect(vi.mocked(api.listContextDocuments)).toHaveBeenCalledWith("embergate");
   });
 
+  it("re-hydrates the context panel with the saved corpus on edit (lost-track fix)", async () => {
+    vi.mocked(api.getStoryline).mockResolvedValueOnce({
+      id: "embergate",
+      title: "Embergate",
+      genre: "Maritime",
+      symbol: "◆",
+      symbolColor: "#C8862A",
+    });
+    vi.mocked(api.listContextDocuments).mockResolvedValueOnce([
+      {
+        id: "cd1", storylineId: "embergate", name: "lore.md", content: "old lore",
+        category: "other", includeDraft: true, includeRag: true, source: "upload", charCount: 8,
+      },
+      {
+        id: "cd2", storylineId: "embergate", name: "maerin-notes.md", content: "x",
+        category: "character", includeDraft: false, includeRag: true, source: "upload",
+        charCount: 1, entityType: "character", entityId: "c1",
+      },
+    ]);
+    const { result } = renderHook(() => useStorylineCreator("embergate"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // The storyline-level doc reappears in the panel (was previously lost); the
+    // entity-scoped doc belongs to a character editor, so it is NOT shown here.
+    expect(result.current.docs.map((d) => d.name)).toEqual(["lore.md"]);
+    expect(result.current.docs[0].triaged).toBe(true);
+    expect(result.current.docs[0].useDraft).toBe(true);
+  });
+
   it("commit in edit mode updates the storyline (no new entities)", async () => {
     vi.mocked(api.getStoryline).mockResolvedValueOnce({
       id: "embergate",

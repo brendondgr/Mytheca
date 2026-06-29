@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { resolveScenario } from "@/lib/seed-data";
 import * as api from "@/lib/api";
-import { concatDocs, docsForDraft } from "@/lib/readDocs";
-import type { Character, Scenario, Setting, StatDefinition, Storyline } from "@/lib/types";
+import { concatDocs, docsForDraft, type ReadDoc } from "@/lib/readDocs";
+import { loadEntityDocs, syncEntityDocs } from "@/features/library/entityDocs";
+import type { Character, EntityScope, Scenario, Setting, StatDefinition, Storyline } from "@/lib/types";
 import {
   DEFAULT_DRAFTS,
   isDraftValid,
@@ -177,6 +178,7 @@ export function useLibraryState(initialStorylineId?: string) {
   // cast-card statistics panel; clears/reloads when the active storyline changes.
   useEffect(() => {
     if (!activeStorylineId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatDefs([]);
       return;
     }
@@ -579,6 +581,26 @@ export function useLibraryState(initialStorylineId?: string) {
     setMenuOpen(false);
     setGenerating(false);
   }
+  // Re-hydrate a modal's context files from the entity's persisted (scoped) docs so
+  // they stay visible on every re-edit. Fire-and-forget + merged into the draft so it
+  // never blocks opening the editor; best-effort if the corpus can't be fetched.
+  function hydrateEntityDocs(entityType: EntityScope, id: string) {
+    void loadEntityDocs(activeStorylineId, entityType, id)
+      .then((docs) => {
+        if (docs.length) setDraftState((prev) => ({ ...prev, _docFiles: docs }));
+      })
+      .catch(() => {});
+  }
+  // Persist a just-saved entity's attached context files (create new, delete removed).
+  // Best-effort: the entity is already stored, so a corpus hiccup must not surface as
+  // a save failure — the files re-sync on the next save.
+  async function persistEntityDocs(entityType: EntityScope, id: string, docFiles?: ReadDoc[]) {
+    try {
+      await syncEntityDocs(activeStorylineId, entityType, id, docFiles);
+    } catch {
+      /* swallow — best-effort */
+    }
+  }
   function editCharacter(id: string) {
     const c = characters.find((x) => x.id === id);
     if (!c) return;
@@ -591,6 +613,7 @@ export function useLibraryState(initialStorylineId?: string) {
     setError(null);
     setModal({ type: "character", mode: "manual", editId: id });
     setProfileId(null);
+    hydrateEntityDocs("character", id);
   }
   function editSetting(id: string) {
     const s = settings.find((x) => x.id === id);
@@ -603,6 +626,7 @@ export function useLibraryState(initialStorylineId?: string) {
     });
     setError(null);
     setModal({ type: "setting", mode: "manual", editId: id });
+    hydrateEntityDocs("setting", id);
   }
   function editScenario(id: string) {
     const s = scenarios.find((x) => x.id === id);
@@ -616,6 +640,7 @@ export function useLibraryState(initialStorylineId?: string) {
     });
     setError(null);
     setModal({ type: "scenario", mode: "manual", editId: id });
+    hydrateEntityDocs("scenario", id);
   }
   function toggleDraftCast(id: string) {
     setDraftState((prev) => {
@@ -704,11 +729,13 @@ export function useLibraryState(initialStorylineId?: string) {
           const updated = await api.updateCharacter(editId, body);
           if (Object.keys(statValues).length) await api.setCharacterStats(editId, statValues);
           setCharacters((cs) => cs.map((c) => (c.id === editId ? updated : c)));
+          await persistEntityDocs("character", editId, d._docFiles);
         } else {
           const created = await api.createCharacter(activeStorylineId, body);
           if (Object.keys(statValues).length) await api.setCharacterStats(created.id, statValues);
           setCharacters((cs) => [...cs, created]);
           setTab("characters");
+          await persistEntityDocs("character", created.id, d._docFiles);
         }
       } else if (type === "setting") {
         const body = {
@@ -724,10 +751,12 @@ export function useLibraryState(initialStorylineId?: string) {
         if (editId) {
           const updated = await api.updateSetting(editId, body);
           setSettings((xs) => xs.map((x) => (x.id === editId ? updated : x)));
+          await persistEntityDocs("setting", editId, d._docFiles);
         } else {
           const created = await api.createSetting(activeStorylineId, body);
           setSettings((xs) => [...xs, created]);
           setTab("settings");
+          await persistEntityDocs("setting", created.id, d._docFiles);
         }
       } else if (type === "scenario") {
         const body = {
@@ -746,11 +775,13 @@ export function useLibraryState(initialStorylineId?: string) {
         if (editId) {
           const updated = await api.updateScenario(editId, body);
           setScenarios((xs) => xs.map((x) => (x.id === editId ? updated : x)));
+          await persistEntityDocs("scenario", editId, d._docFiles);
         } else {
           const created = await api.createScenario(activeStorylineId, body);
           setScenarios((xs) => [...xs, created]);
           setTab("scenarios");
           setFeaturedId(created.id);
+          await persistEntityDocs("scenario", created.id, d._docFiles);
         }
       }
       closeModal();

@@ -239,7 +239,7 @@ export const buildWorld = (body: BuildWorldBody) =>
 export const buildWorldStream = (body: BuildWorldBody, signal?: AbortSignal) =>
   postNdjson<BuildEvent>("/storylines/build/stream", body, signal);
 
-// ---- context documents (the persisted triaged RAG corpus) ----
+// ---- context documents (the persisted RAG corpus) ----
 export type ContextDocumentInput = {
   name: string;
   content?: string;
@@ -247,10 +247,23 @@ export type ContextDocumentInput = {
   includeDraft?: boolean;
   includeRag?: boolean;
   source?: string;
+  /** Optional entity scope (character/setting/scenario); null = storyline-level. */
+  entityType?: "character" | "setting" | "scenario" | null;
+  entityId?: string | null;
 };
 
-export const listContextDocuments = (storylineId: string) =>
-  request<ContextDocument[]>(`/storylines/${storylineId}/context-docs`);
+/** List a world's context docs; pass a scope to get just one entity's files. */
+export const listContextDocuments = (
+  storylineId: string,
+  scope?: { entityType: string; entityId: string },
+) => {
+  const q = scope
+    ? `?entityType=${encodeURIComponent(scope.entityType)}&entityId=${encodeURIComponent(scope.entityId)}`
+    : "";
+  return request<ContextDocument[]>(`/storylines/${storylineId}/context-docs${q}`);
+};
+export const createContextDocument = (storylineId: string, doc: ContextDocumentInput) =>
+  post<ContextDocument>(`/storylines/${storylineId}/context-docs`, doc);
 export const bulkCreateContextDocuments = (
   storylineId: string,
   docs: ContextDocumentInput[],

@@ -21,6 +21,7 @@ import {
   type CreatorFields,
   draftDocTexts,
   fieldsFromStoryline,
+  fromContextDocument,
   isCreatorValid,
   type PlanConcepts,
   renderProposalImages,
@@ -97,6 +98,10 @@ export function useStorylineCreator(editId?: string) {
         setStats(defs);
         setStatsOriginal(defs);
         setExistingDocs(ctx);
+        // Re-hydrate the panel with the world's saved corpus so previously-uploaded
+        // context files stay visible on edit (the "lost track" fix). Only storyline-
+        // level docs belong here; entity-scoped docs live in their own editors.
+        setDocs(ctx.filter((d) => !d.entityType).map(fromContextDocument));
       } catch (e) {
         if (!cancelled) setError(messageOf(e));
       } finally {

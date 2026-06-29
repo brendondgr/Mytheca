@@ -11,6 +11,10 @@ export const DOCS_CHAR_CAP = 32000;
 export interface ReadDoc {
   name: string;
   text: string;
+  // Set when this file is an already-persisted ContextDocument loaded back into an
+  // entity editor (so re-saving reconciles instead of duplicating). Unset = a fresh
+  // drop not yet persisted.
+  id?: string;
   // Per-context usage selection (set when a file enters a create modal's draft).
   // `useDraft` grounds Velora's drafting/primer generation and is wired today.
   // `useRag` marks the retrieval corpus; on the New Storyline page it is persisted

@@ -100,4 +100,37 @@ describe("useLibraryState — character authoring", () => {
       { health: 90, trust: 1 },
     );
   });
+
+  it("persists attached context files scoped to the character on save", async () => {
+    const { result } = await mountReady();
+    act(() => result.current.openCreate("character"));
+    act(() => result.current.setDraft("name", "Maerin"));
+    act(() =>
+      result.current.setDraft("_docFiles", [{ name: "notes.md", text: "secret tunnels", useRag: true }]),
+    );
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(vi.mocked(api.bulkCreateContextDocuments)).toHaveBeenCalledWith(
+      result.current.activeStorylineId,
+      [expect.objectContaining({ name: "notes.md", entityType: "character", category: "character" })],
+    );
+  });
+
+  it("re-hydrates a character's saved context files when its editor opens", async () => {
+    const { result } = await mountReady();
+    const someId = result.current.characters[0].id;
+    vi.mocked(api.listContextDocuments).mockResolvedValueOnce([
+      {
+        id: "cd1", storylineId: "x", name: "notes.md", content: "secret tunnels",
+        category: "character", includeDraft: false, includeRag: true, source: "upload",
+        charCount: 13, entityType: "character", entityId: someId,
+      },
+    ]);
+    act(() => result.current.editCharacter(someId));
+    await waitFor(() => expect(result.current.draft._docFiles?.length).toBe(1));
+    expect(result.current.draft._docFiles?.[0]).toMatchObject({
+      id: "cd1", name: "notes.md", text: "secret tunnels",
+    });
+  });
 });

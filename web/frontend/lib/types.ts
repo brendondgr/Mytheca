@@ -185,7 +185,10 @@ export interface StatDefinition {
  */
 export type DocCategory = "character" | "setting" | "other" | "select";
 
-/** A persisted, triaged reference document (the RAG-corpus seam). */
+/** Entity a context document can be scoped to (else storyline-level). */
+export type EntityScope = "character" | "setting" | "scenario";
+
+/** A persisted, triaged reference document (the RAG corpus). */
 export interface ContextDocument {
   id: string;
   storylineId: string;
@@ -194,10 +197,14 @@ export interface ContextDocument {
   category: DocCategory;
   /** Grounds Velora's drafting (world-setting docs). */
   includeDraft: boolean;
-  /** Member of the retrieval corpus (retrieval itself is deferred). */
+  /** Member of the retrieval corpus (embedded into Qdrant on save). */
   includeRag: boolean;
   source: string;
   charCount: number;
+  /** When set, the doc belongs to a specific character/setting/scenario editor and
+   *  reappears there; when null it is a storyline-level corpus doc. */
+  entityType?: EntityScope | null;
+  entityId?: string | null;
 }
 
 /** One Triage classification for a dropped doc (before persistence). */

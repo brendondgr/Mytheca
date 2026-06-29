@@ -121,6 +121,22 @@ export function toCreatorDoc(doc: ReadDoc, opts: UploadDefaults = {}): CreatorDo
   };
 }
 
+/**
+ * A persisted `ContextDocument` → the creator's `CreatorDoc` shape, so previously
+ * saved files reappear in the panel on edit (already triaged/classified). This is
+ * the fix for files getting "lost" when re-opening a saved storyline.
+ */
+export function fromContextDocument(doc: ContextDocument): CreatorDoc {
+  return {
+    name: doc.name,
+    text: doc.content,
+    useDraft: doc.includeDraft,
+    useRag: doc.includeRag,
+    category: doc.category,
+    triaged: true,
+  };
+}
+
 /** Texts of the Draft-included docs (for the budget meter + grounding). */
 export function draftDocTexts(docs: CreatorDoc[]): string[] {
   return docs.filter((d) => d.useDraft && d.text).map((d) => d.text);

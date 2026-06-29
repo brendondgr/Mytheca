@@ -208,6 +208,18 @@ export function makeApiMock() {
           position: i,
         })),
     ),
+    createContextDocument: vi.fn(async (storylineId: string, body: Record<string, unknown>) => ({
+      id: nid("cd"),
+      storylineId,
+      name: "doc.md",
+      content: "",
+      category: "other",
+      includeDraft: false,
+      includeRag: true,
+      source: "upload",
+      charCount: 0,
+      ...body,
+    })),
     updateContextDocument: vi.fn(async (docId: string, body: Record<string, unknown>) => ({
       id: docId,
       ...body,

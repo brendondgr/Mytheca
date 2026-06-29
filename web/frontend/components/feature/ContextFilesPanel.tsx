@@ -228,7 +228,7 @@ export function ContextFilesPanel({
         )}
       </div>
       <p className="mt-[10px] font-mono text-[9px] tracking-[0.14em] text-mute2 uppercase">
-        Grounds this generation only — not stored yet
+        Saved with this entry · embedded for retrieval
       </p>
     </aside>
   );
