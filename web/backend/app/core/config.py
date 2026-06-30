@@ -38,6 +38,16 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://velora:velora@localhost:3347/velora"
     redis_url: str = "redis://localhost:3348/0"
 
+    # --- Turn loop (the runtime story engine) ---
+    # The recent-turn buffer + per-character interior state live in Redis; like the
+    # Neo4j/Qdrant seams the engine is best-effort (Redis down → no buffer/interior,
+    # the turn still runs and persists to Postgres). Blank ``REDIS_URL`` disables it.
+    # ``turn_buffer_size`` caps the recent-turn buffer; ``turn_max_concurrency``
+    # bounds the off-hot-path / independent worker pool (sequential speech stays
+    # sequential regardless).
+    turn_buffer_size: int = 12
+    turn_max_concurrency: int = 4
+
     # The Story Graph substrate (Neo4j). The container is owned by ``app.py`` like
     # Postgres/Redis; the driver connects lazily (on scenario load / character &
     # setting writes) and degrades gracefully when unset/unreachable. Bolt is
@@ -109,6 +119,15 @@ class Settings(BaseSettings):
     def is_sqlite(self) -> bool:
         """True when pointed at SQLite (used by tests and the engine factory)."""
         return self.database_url.startswith("sqlite")
+
+    @property
+    def redis_configured(self) -> bool:
+        """True when a Redis URL is set (the live turn buffer / interior state is in play).
+
+        Best-effort like the Neo4j/Qdrant seams: when false the buffer/interior
+        helpers no-op so CRUD and the test suite run with no Redis.
+        """
+        return bool(self.redis_url.strip())
 
     @property
     def neo4j_configured(self) -> bool:

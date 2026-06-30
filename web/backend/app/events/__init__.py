@@ -1,4 +1,4 @@
-"""Story-event envelope types (chat scaffold). See docs/api-contract.md."""
+"""Story-event envelope + stream-frame types. See docs/api-contract.md."""
 
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ from app.events.envelope import (
     CharacterDialogueData,
     CharacterDialogueEvent,
     EventEnvelope,
+    InternalThoughtData,
+    InternalThoughtEvent,
     NarrationData,
     NarrationEvent,
     StateUpdateData,
@@ -19,12 +21,19 @@ from app.events.envelope import (
     StoryEvent,
     story_event_adapter,
 )
+from app.events.stream import (
+    TurnErrorFrame,
+    build_event,
+    now_iso,
+    to_ndjson_line,
+)
 
 __all__ = [
     "StatPatch",
     "NarrationData",
     "CharacterDialogueData",
     "CharacterActionData",
+    "InternalThoughtData",
     "StateUpdateData",
     "BranchChoiceOption",
     "BranchChoicesData",
@@ -32,8 +41,14 @@ __all__ = [
     "NarrationEvent",
     "CharacterDialogueEvent",
     "CharacterActionEvent",
+    "InternalThoughtEvent",
     "StateUpdateEvent",
     "BranchChoicesEvent",
     "StoryEvent",
     "story_event_adapter",
+    # stream helpers
+    "TurnErrorFrame",
+    "build_event",
+    "to_ndjson_line",
+    "now_iso",
 ]
