@@ -133,7 +133,9 @@ Same **creation-time, no-RAG** rules as storyline authoring. Everything produced
 is a character's **own base identity** (§1 node properties) — no graph structure
 is built here. Portrait generation is an explicit, opt-in step (it spends GPU
 time on the local ComfyUI server); starting stats are **proposal-only** until the
-author saves them.
+author saves them. **"Draft with Velora" fires on a seed sentence, a Draft-tagged
+context file, or both** — the modal enables the button (and the backend accepts
+the request) whenever either is present, and only refuses when both are empty.
 
 ## Setting Authoring Flow (creation-time agent + scene art)
 
@@ -156,7 +158,9 @@ Same **creation-time, no-RAG** rules. Everything produced is a setting's **own
 base description + current state** (§4.1 Setting-node properties) — never the
 play-accrued **event timeline** (ships empty, written async once play exists) and
 never graph edges. Scene art is an explicit, opt-in step (it spends GPU time on
-the local ComfyUI server).
+the local ComfyUI server). As with characters, **"Draft with Velora" accepts a
+seed sentence, a Draft-tagged context file, or both** (only both-empty is
+refused).
 
 ## Scenario Authoring Flow (creation-time agent)
 

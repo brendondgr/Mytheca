@@ -377,10 +377,12 @@ rule: `docsOverview` is inline dropped-file text used for one generation only.
 
 - `POST /characters/draft` — `{ seed, docsOverview?, storylineId? }`. Drafts a
   full character → `{ name, role, traits, speech, goal, secret, appearance,
-  background, personality, color }`. When `storylineId` is given, the draft is
-  grounded in that world's primer/genre (best-effort). Empty `seed` →
-  `400 bad_request`; unconfigured LLM → `400 bad_request`; a reply that is not
-  valid JSON → `502 upstream_error`.
+  background, personality, color }`. **`seed` and `docsOverview` are each
+  optional individually but at least one must be non-empty** — with no seed the
+  draft is grounded purely on the Draft-tagged reference docs. When `storylineId`
+  is given, the draft is also grounded in that world's primer/genre (best-effort).
+  Empty `seed` **and** empty `docsOverview` → `400 bad_request`; unconfigured LLM
+  → `400 bad_request`; a reply that is not valid JSON → `502 upstream_error`.
 - `POST /characters/portrait-prompts` — `{ name?, role?, appearance?, traits?,
   personality?, species?, notes? }` (at least one descriptive field required).
   Writes the watercolor ComfyUI prompts → `{ positive, negative }`: short
@@ -413,10 +415,13 @@ rule: `docsOverview` is inline dropped-file text used for one generation only.
 
 - `POST /settings/draft` — `{ seed, docsOverview?, storylineId? }`. Drafts a full
   setting → `{ name, type, desc, atmosphere, features, currentState }`. `type` is
-  chosen from the canonical setting-type list. When `storylineId` is given, the
-  draft is grounded in that world's primer/genre (best-effort). Empty `seed` →
-  `400 bad_request`; unconfigured LLM → `400 bad_request`; a reply that is not
-  valid JSON → `502 upstream_error`.
+  chosen from the canonical setting-type list. **`seed` and `docsOverview` are
+  each optional individually but at least one must be non-empty** — with no seed
+  the draft is grounded purely on the Draft-tagged reference docs. When
+  `storylineId` is given, the draft is also grounded in that world's primer/genre
+  (best-effort). Empty `seed` **and** empty `docsOverview` → `400 bad_request`;
+  unconfigured LLM → `400 bad_request`; a reply that is not valid JSON →
+  `502 upstream_error`.
 - `POST /settings/scene-art-prompts` — `{ name?, type?, desc?, atmosphere?,
   features?, currentState?, notes? }` (at least one descriptive field required).
   Writes the watercolor ComfyUI prompts → `{ positive, negative }`: an atmospheric
