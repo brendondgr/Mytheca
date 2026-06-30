@@ -382,10 +382,16 @@ Read (scenario load) — GET /api/scenarios/{id}/graph:
 The **Type Registry** (`graph_type_definitions` in Postgres) is the semantic
 source of truth — what node/edge types exist, their field schema, and edge valence
 (§1.4); Neo4j holds the instances. Built-in types (§5) are global + immutable; users
-add per-storyline types via `POST /storylines/{id}/graph/types`. **Deferred seams:**
-the async turn-writer (§8 cold path), the vector entry-point (§7.1), and
-Text2Cypher (§7.3) — their prerequisites (a turn loop, an embedding stack) don't
-exist yet. See `docs/story-graph-neo4j.md`.
+add per-storyline types via `POST /storylines/{id}/graph/types`.
+
+The **cold-path turn-writer** (§8) now runs after a turn streams (`services/turn_writer.py`,
+called by `turn_engine.run_turn` once the last event is yielded — never blocks the player):
+on **consequence turns** it routes each consequence by the "…toward whom?" rule (relational
+target → an edge with a reified `:Consequence` node as shared provenance; no target → a stat,
+already applied + clamped on the hot path), and appends an `:Event` node (`occurred_at` the
+setting) so the moment is traversable + RAG-indexable. Best-effort: no consequences, or Neo4j
+disabled/down → a clean no-op (Postgres stays canonical). **Deferred seams:** the vector
+entry-point (§7.1) and Text2Cypher (§7.3). See `docs/story-graph-neo4j.md`.
 
 ## Hybrid RAG Flow
 

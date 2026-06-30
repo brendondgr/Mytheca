@@ -31,8 +31,9 @@ from app.memory import buffer
 from app.models import Scenario
 from app.schemas.base import EventType, Visibility
 from app.schemas.play import TurnRequest
-from app.services import assembler, crud, emission, events_store
+from app.services import assembler, crud, emission, events_store, turn_writer
 from app.services.assembler import CastMember, TurnContext
+from app.services.turn_writer import Consequence
 
 
 class _Emitter:
@@ -152,6 +153,10 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
     # genuinely reacts to its predecessor (sequential by nature — §9).
     turn_beats: list[dict] = [{"role": "player", "text": text, "characterId": None}]
 
+    # Durable consequences implied by the turn (populated from state_update events in
+    # the branch/stat phase); routed off the hot path by the cold-path turn-writer.
+    consequences: list[Consequence] = []
+
     decision = director_agent.who_is_up(db, ctx)
     speakers = [m for cid in decision.speakers if (m := ctx.cast_by_id(cid)) is not None]
     if not speakers:
@@ -160,11 +165,28 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
         )
         return
 
-    for index, speaker in enumerate(speakers):
+    for _index, speaker in enumerate(speakers):
         # Narrator Mode: a transition beat before the speaker (POV Mode: off — D1).
         if req.mode == "narrator":
             yield from _narrator_interstitial(db, ctx, turn_beats, emitter)
         yield from _generate_speaker(db, ctx, speaker, emitter, turn_beats)
+
+    # Cold path (Band 3): runs after the last event is yielded — never blocks the
+    # player, best-effort, no-op when there are no consequences or the graph is down.
+    turn_writer.write_turn(
+        db,
+        scenario=scenario,
+        session_id=session.id,
+        turn_seq=seq0,
+        summary=_turn_summary(turn_beats),
+        consequences=consequences,
+    )
+
+
+def _turn_summary(turn_beats: list[dict]) -> str:
+    """A one-line summary of the turn for the appended :Event node."""
+    parts = [str(b.get("text", "")).strip() for b in turn_beats if b.get("text")]
+    return " · ".join(parts)[:240]
 
 
 def _narrator_interstitial(
