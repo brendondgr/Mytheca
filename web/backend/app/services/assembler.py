@@ -17,14 +17,18 @@ LLM call with its own short-lived context.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
+from app.agents import _common
 from app.memory import buffer
 from app.models import Character, Scenario, Setting
 from app.models.stat import StatDefinition
-from app.services import crud, graph_reader, stat_guidance, stats
+from app.services import crud, graph_reader, retrieval_gate, stat_guidance, stats
+
+logger = logging.getLogger("velora.turn")
 
 # How many of a character's most-recent lines to keep as in-voice anchors.
 _ANCHOR_LINES = 2
@@ -60,6 +64,9 @@ class TurnContext:
     subgraph: dict
     world_primer: str | None
     stable_prefix: str
+    # Gated durable lore (a fenced RETRIEVED LORE block) — empty on a skip turn.
+    retrieved_lore: str = ""
+    gate_reason: str = ""
 
     def cast_by_id(self, character_id: str) -> CastMember | None:
         return next((c for c in self.cast if c.id == character_id), None)
@@ -70,6 +77,7 @@ def assemble_context(
     scenario: Scenario,
     session_id: str,
     directed_at: str | None = None,
+    player_text: str = "",
 ) -> TurnContext:
     """Assemble the read-only ``TurnContext`` for one turn (best-effort throughout)."""
     storyline_id = scenario.storyline_id
@@ -84,6 +92,7 @@ def assemble_context(
     setting = db.get(Setting, scenario.setting_id) if scenario.setting_id else None
     subgraph = _safe_subgraph(db, scenario.id)
     stable_prefix = _build_stable_prefix(storyline, stat_defs, guidance)
+    retrieved_lore, gate_reason = _gated_lore(db, storyline, cast, setting, player_text)
 
     return TurnContext(
         scenario=scenario,
@@ -98,7 +107,23 @@ def assemble_context(
         subgraph=subgraph,
         world_primer=storyline.world_primer,
         stable_prefix=stable_prefix,
+        retrieved_lore=retrieved_lore,
+        gate_reason=gate_reason,
     )
+
+
+def _gated_lore(db, storyline, cast, setting, player_text) -> tuple[str, str]:
+    """Run the retrieval gate; fetch + fence durable lore only when it fires (best-effort)."""
+    known = [storyline.title, *(m.name for m in cast)]
+    if setting is not None:
+        known.append(setting.name)
+    decision = retrieval_gate.gate(player_text, known_names=known)
+    logger.debug("retrieval gate: fetch=%s reason=%s", decision.fetch, decision.reason)
+    if not decision.fetch:
+        return "", f"skip — {decision.reason}"
+    # rag_block retrieves + formats a fenced reference block (best-effort → "" when the
+    # store is disabled/empty); the model treats it as reference, never as dialogue.
+    return _common.rag_block(db, storyline.id, decision.query), f"fetch — {decision.reason}"
 
 
 def _build_cast(

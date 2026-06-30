@@ -144,7 +144,7 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
     # Assemble against committed history, THEN push the player's line so it becomes
     # history for the next turn (the current line also seeds this turn's transcript,
     # so it is present even when the buffer is disabled).
-    ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at)
+    ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at, player_text=text)
     buffer.push_turn(session.id, "player", text)
 
     emitter = _Emitter(db, scenario.id, session.id, start_seq=seq0 + 1)

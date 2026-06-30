@@ -39,7 +39,9 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
       events_store: resolve/create PlaySession · record user_turn (seq 0, Postgres)
       assembler.assemble_context (Band-1, read-only): ordered cast + clamped stats + loaded
         stat guidance + recent buffer (Redis, best-effort) + scenario subgraph (Neo4j,
-        best-effort) + cacheable stable prefix
+        best-effort) + cacheable stable prefix + GATED RAG (retrieval_gate: a cheap
+        model-free skip-or-fetch — off-roster entity / world-history question; on fetch,
+        _common.rag_block retrieves + injects a fenced RETRIEVED LORE block, best-effort)
       memory.buffer.push_turn (player line → recent-turn buffer, best-effort)
       _pick_speaker → character_turn_agent.generate_line (ONE isolated, bookended LLM call)
         → services.llm.chat_complete (configured endpoint; reasoning budget; guided-decoding seam)

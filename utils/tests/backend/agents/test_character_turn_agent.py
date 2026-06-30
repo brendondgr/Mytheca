@@ -100,6 +100,20 @@ def test_prompt_is_bookended_and_grounded(client, db_session, monkeypatch):
     assert "Respond now, in Mei's voice" in user
 
 
+def test_retrieved_lore_is_injected_into_the_prompt(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    ctx.retrieved_lore = "\n\nRETRIEVED LORE:\n- the Ashford fire: a smuggling deal gone wrong."
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "Tell me about the Ashford fire.", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "the Ashford fire: a smuggling deal gone wrong." in user
+
+
 def test_prompt_requests_a_hidden_thinking_block(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}

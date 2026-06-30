@@ -113,6 +113,33 @@ def test_in_voice_anchors_pulled_per_character(db_session, monkeypatch):
     assert ctx.recent_beats[0]["text"] == "I slide the pouch."
 
 
+def test_skip_turn_injects_no_lore(db_session):
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")
+    sc = _scenario(db_session, ["c_mei"])
+    session = events_store.create_session(db_session, sc.id)
+    ctx = assembler.assemble_context(db_session, sc, session.id, player_text="I sit down quietly.")
+    assert ctx.retrieved_lore == ""
+    assert ctx.gate_reason.startswith("skip")
+
+
+def test_fetch_turn_injects_gated_lore(db_session, monkeypatch):
+    from app.agents import _common
+
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")
+    sc = _scenario(db_session, ["c_mei"])
+    session = events_store.create_session(db_session, sc.id)
+    monkeypatch.setattr(
+        _common, "rag_block", lambda db, sid, q: "\n\nRETRIEVED LORE:\n- the Ashford fire."
+    )
+    ctx = assembler.assemble_context(
+        db_session, sc, session.id, player_text="Tell me about the Ashford fire."
+    )
+    assert "Ashford fire" in ctx.retrieved_lore
+    assert ctx.gate_reason.startswith("fetch")
+
+
 def test_no_stats_defined_is_clean(db_session):
     db_session.add(Storyline(id="bare", title="Bare", genre="X"))
     db_session.commit()

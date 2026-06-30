@@ -126,6 +126,8 @@ def _build_user_prompt(ctx: TurnContext, speaker: CastMember, turn_beats: list[d
         middle.append(f"Setting: {ctx.setting.name}{(' — ' + flavor) if flavor else ''}.")
     roster = ", ".join(f"[{i + 1}] {m.name}" for i, m in enumerate(ctx.cast))
     middle.append(f"Cast in the scene: {roster}.")
+    if ctx.retrieved_lore:
+        middle.append(ctx.retrieved_lore.strip())  # fenced reference lore (gated)
     transcript = _transcript(ctx, turn_beats)
     if transcript:
         middle.append(f"Recent beats:\n{transcript}")
