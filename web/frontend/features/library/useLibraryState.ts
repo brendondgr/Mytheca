@@ -611,6 +611,8 @@ export function useLibraryState(initialStorylineId?: string) {
       speech: c.speech, goal: c.goal, secret: c.secret,
       appearance: c.appearance ?? "", background: c.background ?? "",
       personality: c.personality ?? "", portrait: c.portrait ?? null,
+      _portraitPositive: c.portraitPositive ?? "",
+      _portraitNegative: c.portraitNegative ?? "",
     });
     setError(null);
     setModal({ type: "character", mode: "manual", editId: id });
@@ -624,6 +626,8 @@ export function useLibraryState(initialStorylineId?: string) {
       name: s.name, type: s.type, desc: s.desc,
       atmosphere: s.atmosphere ?? "", features: s.features ?? "",
       currentState: s.currentState ?? "", image: s.image ?? null,
+      _sceneArtPositive: s.sceneArtPositive ?? "",
+      _sceneArtNegative: s.sceneArtNegative ?? "",
       timeline: s.timeline ?? [],
     });
     setError(null);
@@ -721,6 +725,9 @@ export function useLibraryState(initialStorylineId?: string) {
           background: d.background?.trim() || null,
           personality: d.personality?.trim() || null,
           portrait: d.portrait || null,
+          // Persist the prompts that produced the portrait so they survive re-edit.
+          portraitPositive: d._portraitPositive?.trim() || null,
+          portraitNegative: d._portraitNegative?.trim() || null,
         };
         // Proposed starting stats are applied with the save (the "save" the user
         // opted into); keyed/clamped server-side, skipped when there are none.
@@ -749,6 +756,9 @@ export function useLibraryState(initialStorylineId?: string) {
           features: d.features?.trim() || null,
           currentState: d.currentState?.trim() || null,
           image: d.image || null,
+          // Persist the prompts that produced the image so they survive re-edit.
+          sceneArtPositive: d._sceneArtPositive?.trim() || null,
+          sceneArtNegative: d._sceneArtNegative?.trim() || null,
         };
         if (editId) {
           const updated = await api.updateSetting(editId, body);

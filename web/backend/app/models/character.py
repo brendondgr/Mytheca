@@ -39,6 +39,11 @@ class Character(Base):
     # Relative URL of the generated WebP portrait (served under /media); monogram
     # is the fallback when unset.
     portrait: Mapped[str | None] = mapped_column(String, nullable=True)
+    # The ComfyUI prompts that produced the portrait — persisted so the author can
+    # tweak-and-re-render on re-edit instead of regenerating from scratch. Nullable
+    # so they self-heal on the persistent dev DB (see bootstrap reconcile).
+    portrait_positive: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    portrait_negative: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     position: Mapped[int] = mapped_column(default=0)
 
     storyline: Mapped[Storyline] = relationship(back_populates="characters")

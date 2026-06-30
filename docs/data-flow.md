@@ -125,8 +125,10 @@ Character modal (CharacterModal) → lib/api.ts
           (watercolor pipeline) → PNG → Pillow → WebP saved under MEDIA_DIR, served at /media
   → POST /api/characters/starting-stats   {storylineId, ...} → {proposals:[…]}  (proposal only)
   → drafted fields + portrait fill the form; author edits, then the normal
-    POST/PATCH /api/storylines/{id}/characters persists the fields + portrait URL;
-    accepted starting stats are applied via PUT /api/characters/{id}/stats
+    POST/PATCH /api/storylines/{id}/characters persists the fields + portrait URL
+    + portraitPositive/portraitNegative (the prompts that produced it, so the
+    portrait editor re-hydrates them on re-edit); accepted starting stats are
+    applied via PUT /api/characters/{id}/stats
 ```
 
 Same **creation-time, no-RAG** rules as storyline authoring. Everything produced
@@ -152,6 +154,8 @@ Setting modal (SettingModal) → lib/api.ts
           MEDIA_DIR/scenes, served at /media
   → drafted fields + image fill the form; author edits, then the normal
     POST/PATCH /api/storylines/{id}/settings persists the fields + image URL
+    + sceneArtPositive/sceneArtNegative (the prompts that produced it, so the
+    image editor re-hydrates them on re-edit)
 ```
 
 Same **creation-time, no-RAG** rules. Everything produced is a setting's **own

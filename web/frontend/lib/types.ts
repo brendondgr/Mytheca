@@ -36,6 +36,10 @@ export interface Character {
   personality?: string | null;
   /** Relative `/media/...` URL of the generated WebP portrait; monogram fallback. */
   portrait?: string | null;
+  /** Persisted positive ComfyUI prompt that produced the portrait. */
+  portraitPositive?: string | null;
+  /** Persisted negative ComfyUI prompt that produced the portrait. */
+  portraitNegative?: string | null;
 }
 
 /**
@@ -69,6 +73,10 @@ export interface Setting {
   currentState?: string | null;
   /** Relative `/media/...` URL of an optional establishing image; plate fallback. */
   image?: string | null;
+  /** Persisted positive ComfyUI prompt that produced the establishing image. */
+  sceneArtPositive?: string | null;
+  /** Persisted negative ComfyUI prompt that produced the establishing image. */
+  sceneArtNegative?: string | null;
   /** Append-only event timeline; empty at authoring, accrues from play. */
   timeline?: SettingTimelineEntry[];
 }

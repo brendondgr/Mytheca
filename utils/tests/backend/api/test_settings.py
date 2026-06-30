@@ -62,4 +62,44 @@ def test_setting_defaults_have_null_node_metadata(client, storyline_id):
     assert body["features"] is None
     assert body["currentState"] is None
     assert body["image"] is None
+    # Scene-art prompts default to null until an image is generated + saved.
+    assert body["sceneArtPositive"] is None
+    assert body["sceneArtNegative"] is None
     assert body["timeline"] == []
+
+
+def test_setting_scene_art_prompts_roundtrip(client, storyline_id):
+    """Create + PATCH persist the establishing-image prompts; GET reflects them."""
+    created = client.post(
+        f"/api/storylines/{storyline_id}/settings",
+        json={
+            "name": "The Lantern Bridge",
+            "image": "/media/scenes/bridge.webp",
+            "sceneArtPositive": "watercolor bridge at dusk, lanterns, mist",
+            "sceneArtNegative": "people, text, blurry",
+        },
+    )
+    assert created.status_code == 201
+    body = created.json()
+    assert body["image"] == "/media/scenes/bridge.webp"
+    assert body["sceneArtPositive"] == "watercolor bridge at dusk, lanterns, mist"
+    assert body["sceneArtNegative"] == "people, text, blurry"
+    sid = body["id"]
+
+    patched = client.patch(
+        f"/api/settings/{sid}",
+        json={
+            "sceneArtPositive": "watercolor bridge at dawn, lanterns dimming",
+            "sceneArtNegative": "lowres, watermark",
+        },
+    )
+    assert patched.status_code == 200
+    data = patched.json()
+    assert data["sceneArtPositive"] == "watercolor bridge at dawn, lanterns dimming"
+    assert data["sceneArtNegative"] == "lowres, watermark"
+    # Untouched field preserved by the partial update.
+    assert data["image"] == "/media/scenes/bridge.webp"
+
+    fetched = client.get(f"/api/settings/{sid}").json()
+    assert fetched["sceneArtPositive"] == "watercolor bridge at dawn, lanterns dimming"
+    assert fetched["sceneArtNegative"] == "lowres, watermark"

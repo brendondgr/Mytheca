@@ -45,10 +45,13 @@ def test_character_read_matches_frontend_shape():
         id, name, role, color, mono = "maerin", "Maerin Voss", "Antagonist", "#8E2B1C", "MV"
         traits = speech = goal = secret = "—"
         appearance = background = personality = portrait = None
+        portrait_positive = portrait_negative = None
 
     dumped = CharacterRead.model_validate(Obj()).model_dump(by_alias=True)
     assert set(dumped) == {
         "id", "name", "role", "color", "mono", "traits", "speech", "goal", "secret",
         # Base-identity prose + portrait (nullable node properties).
         "appearance", "background", "personality", "portrait",
+        # Persisted ComfyUI prompts that produced the portrait.
+        "portraitPositive", "portraitNegative",
     }

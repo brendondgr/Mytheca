@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { useLibraryState } from "./useLibraryState";
 import * as api from "@/lib/api";
+import { SEED_CHARACTERS } from "@/lib/seed-data";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
@@ -71,6 +72,38 @@ describe("useLibraryState — character authoring", () => {
       expect.objectContaining({ positive: expect.stringContaining("watercolor portrait") }),
     );
     expect(result.current.draft.portrait).toBe("/media/portraits/test.webp");
+  });
+
+  it("persists the portrait prompts with the character on save", async () => {
+    const { result } = await mountReady();
+    act(() => result.current.openCreate("character"));
+    act(() => result.current.setDraft("name", "Gorrok"));
+    act(() => result.current.setDraft("appearance", "A young orc warrior."));
+    await act(async () => {
+      await result.current.generatePortraitPrompts();
+    });
+    await act(async () => {
+      await result.current.submit();
+    });
+    // The prompts that produced the portrait are sent in the create payload.
+    expect(vi.mocked(api.createCharacter)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        portraitPositive: expect.stringContaining("watercolor portrait"),
+        portraitNegative: expect.any(String),
+      }),
+    );
+  });
+
+  it("re-hydrates saved portrait prompts when the character editor opens", async () => {
+    vi.mocked(api.listCharacters).mockResolvedValueOnce([
+      { ...SEED_CHARACTERS[0], portraitPositive: "saved positive", portraitNegative: "saved negative" },
+    ]);
+    const { result } = await mountReady();
+    const someId = result.current.characters[0].id;
+    act(() => result.current.editCharacter(someId));
+    await waitFor(() => expect(result.current.draft._portraitPositive).toBe("saved positive"));
+    expect(result.current.draft._portraitNegative).toBe("saved negative");
   });
 
   it("proposes starting stats keyed to the world's schema", async () => {

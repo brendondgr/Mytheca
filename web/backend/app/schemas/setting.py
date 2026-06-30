@@ -31,6 +31,9 @@ class SettingBase(CamelModel):
     current_state: str | None = None
     # Optional establishing image: relative /media/... URL of the saved WebP.
     image: str | None = None
+    # The ComfyUI prompts that produced the establishing image (persisted for re-edit).
+    scene_art_positive: str | None = None
+    scene_art_negative: str | None = None
     # Append-only event timeline; empty at authoring, accrues from play.
     timeline: list[SettingTimelineEntry] | None = None
 
@@ -47,6 +50,8 @@ class SettingUpdate(CamelModel):
     features: str | None = None
     current_state: str | None = None
     image: str | None = None
+    scene_art_positive: str | None = None
+    scene_art_negative: str | None = None
     timeline: list[SettingTimelineEntry] | None = None
 
 
@@ -59,6 +64,8 @@ class SettingRead(CamelModel):
     features: str | None = None
     current_state: str | None = None
     image: str | None = None
+    scene_art_positive: str | None = None
+    scene_art_negative: str | None = None
     timeline: list[SettingTimelineEntry] = []
 
     @field_validator("timeline", mode="before")

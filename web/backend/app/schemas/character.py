@@ -20,6 +20,9 @@ class CharacterBase(CamelModel):
     personality: str | None = None
     # Relative URL (/media/...) of the generated WebP portrait, or None.
     portrait: str | None = None
+    # The ComfyUI prompts that produced the portrait (persisted for re-edit).
+    portrait_positive: str | None = None
+    portrait_negative: str | None = None
 
 
 class CharacterCreate(CharacterBase):
@@ -41,6 +44,8 @@ class CharacterUpdate(CamelModel):
     background: str | None = None
     personality: str | None = None
     portrait: str | None = None
+    portrait_positive: str | None = None
+    portrait_negative: str | None = None
 
 
 class CharacterRead(CamelModel):
@@ -57,6 +62,8 @@ class CharacterRead(CamelModel):
     background: str | None = None
     personality: str | None = None
     portrait: str | None = None
+    portrait_positive: str | None = None
+    portrait_negative: str | None = None
 
 
 # ---- Authoring (the agentic Character Creator) ------------------------------

@@ -39,6 +39,10 @@ class Setting(Base):
     # Relative URL of an optional establishing image (served under /media); the
     # striped "setting plate" is the fallback when unset. Parity with Character.portrait.
     image: Mapped[str | None] = mapped_column(String, nullable=True)
+    # The ComfyUI prompts that produced the establishing image — persisted so the
+    # author can tweak-and-re-render on re-edit. Nullable (self-heal via reconcile).
+    scene_art_positive: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    scene_art_negative: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     # Event timeline (§4.1) — an append-only log of durable things that happen here,
     # accruing across scenarios. **Empty at authoring** and populated only by the
     # async worker once play exists (read-live/write-async, §6); shipped now as the

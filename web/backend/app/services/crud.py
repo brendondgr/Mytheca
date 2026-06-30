@@ -337,6 +337,8 @@ def create_character(db: Session, storyline_id: str, data: CharacterCreate) -> C
         background=data.background,
         personality=data.personality,
         portrait=data.portrait,
+        portrait_positive=data.portrait_positive,
+        portrait_negative=data.portrait_negative,
         position=_next_position(db, Character, storyline_id),
     )
     db.add(char)
@@ -409,6 +411,8 @@ def create_setting(db: Session, storyline_id: str, data: SettingCreate) -> Setti
         features=data.features,
         current_state=data.current_state,
         image=data.image,
+        scene_art_positive=data.scene_art_positive,
+        scene_art_negative=data.scene_art_negative,
         # Timeline is play-accrued (§4.1) — store an empty log at authoring, never None.
         timeline=[e.model_dump() for e in (data.timeline or [])],
         position=_next_position(db, Setting, storyline_id),
