@@ -253,7 +253,7 @@ export function MultiSelect({
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-ink">{o.label}</span>
                   {o.sublabel ? (
-                    <span className="block font-mono text-[10px] tracking-[0.06em] uppercase text-mute">
+                    <span className="block font-mono text-[8.5px] tracking-[0.06em] uppercase text-mute">
                       {o.sublabel}
                     </span>
                   ) : null}
