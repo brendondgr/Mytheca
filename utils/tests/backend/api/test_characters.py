@@ -82,6 +82,46 @@ def test_character_defaults_have_null_base_identity(client, storyline_id):
     assert body["background"] is None
     assert body["personality"] is None
     assert body["portrait"] is None
+    # Portrait prompts default to null until an image is generated + saved.
+    assert body["portraitPositive"] is None
+    assert body["portraitNegative"] is None
+
+
+def test_character_portrait_prompts_roundtrip(client, storyline_id):
+    """Create + PATCH persist the portrait prompts; GET reflects them."""
+    created = client.post(
+        f"/api/storylines/{storyline_id}/characters",
+        json={
+            "name": "Seraphine",
+            "portrait": "/media/portraits/abc123.webp",
+            "portraitPositive": "watercolor portrait, silver hair, regal",
+            "portraitNegative": "blurry, extra fingers, text",
+        },
+    )
+    assert created.status_code == 201
+    body = created.json()
+    assert body["portrait"] == "/media/portraits/abc123.webp"
+    assert body["portraitPositive"] == "watercolor portrait, silver hair, regal"
+    assert body["portraitNegative"] == "blurry, extra fingers, text"
+    cid = body["id"]
+
+    patched = client.patch(
+        f"/api/characters/{cid}",
+        json={
+            "portraitPositive": "watercolor portrait, silver hair, crowned",
+            "portraitNegative": "lowres, watermark",
+        },
+    )
+    assert patched.status_code == 200
+    data = patched.json()
+    assert data["portraitPositive"] == "watercolor portrait, silver hair, crowned"
+    assert data["portraitNegative"] == "lowres, watermark"
+    # Untouched field preserved by the partial update.
+    assert data["portrait"] == "/media/portraits/abc123.webp"
+
+    fetched = client.get(f"/api/characters/{cid}").json()
+    assert fetched["portraitPositive"] == "watercolor portrait, silver hair, crowned"
+    assert fetched["portraitNegative"] == "lowres, watermark"
 
 
 def test_list_for_unknown_storyline_is_404(client):
