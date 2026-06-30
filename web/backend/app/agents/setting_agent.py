@@ -80,13 +80,24 @@ def draft_setting(
     *,
     reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> SettingDraftResponse:
-    """Draft a full setting (by-hand fields + §4.1 node metadata) from a seed."""
+    """Draft a full setting (by-hand fields + §4.1 node metadata) from a seed
+    and/or dropped reference docs. At least one of the two must be present."""
     seed = (seed or "").strip()
-    if not seed:
-        raise APIError(400, "bad_request", "Describe the place in a sentence to draft it.")
+    has_docs = bool((docs_overview or "").strip())
+    if not seed and not has_docs:
+        raise APIError(
+            400,
+            "bad_request",
+            "Describe the place in a sentence or add a Draft reference file.",
+        )
     base_url, api_key, model, params = resolve_llm(db)
+    opener = (
+        f"Setting seed: {seed}"
+        if seed
+        else "Draft a setting grounded in the reference documents below."
+    )
     user = (
-        f"Setting seed: {seed}{world_context(db, storyline_id)}"
+        f"{opener}{world_context(db, storyline_id)}"
         f"{docs_block(docs_overview)}{rag_block(db, storyline_id, seed)}"
     )
     messages = [

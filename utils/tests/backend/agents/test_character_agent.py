@@ -138,11 +138,30 @@ def test_draft_grounds_in_retrieved_rag_lore(client, monkeypatch, storyline_id):
     assert "RAG_LORE_MARKER" in seen["body"]
 
 
-def test_draft_requires_a_seed(client):
+def test_draft_requires_a_seed_or_docs(client):
+    # An empty seed with no Draft reference docs is rejected.
     _configure_llm(client)
     res = client.post("/api/characters/draft", json={"seed": "   "})
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "bad_request"
+
+
+def test_draft_from_docs_without_a_seed(client, monkeypatch):
+    # No seed, but Draft reference docs are present → draft from the docs.
+    _configure_llm(client)
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = request.content.decode()
+        return _completion(_DRAFT_JSON)
+
+    _patch_upstream(monkeypatch, handler)
+    res = client.post(
+        "/api/characters/draft",
+        json={"seed": "   ", "docsOverview": "MARKER_CHAR_DOSSIER"},
+    )
+    assert res.status_code == 200
+    assert "MARKER_CHAR_DOSSIER" in seen["body"]
 
 
 def test_draft_without_llm_is_bad_request(client):

@@ -113,13 +113,24 @@ def draft_character(
     *,
     reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> CharacterDraftResponse:
-    """Draft a full character (by-hand fields + base-identity prose) from a seed."""
+    """Draft a full character (by-hand fields + base-identity prose) from a seed
+    and/or dropped reference docs. At least one of the two must be present."""
     seed = (seed or "").strip()
-    if not seed:
-        raise APIError(400, "bad_request", "Describe the character in a sentence to draft them.")
+    has_docs = bool((docs_overview or "").strip())
+    if not seed and not has_docs:
+        raise APIError(
+            400,
+            "bad_request",
+            "Describe the character in a sentence or add a Draft reference file.",
+        )
     base_url, api_key, model, params = resolve_llm(db)
+    opener = (
+        f"Character seed: {seed}"
+        if seed
+        else "Draft a character grounded in the reference documents below."
+    )
     user = (
-        f"Character seed: {seed}{world_context(db, storyline_id)}"
+        f"{opener}{world_context(db, storyline_id)}"
         f"{docs_block(docs_overview)}{rag_block(db, storyline_id, seed)}"
     )
     messages = [
