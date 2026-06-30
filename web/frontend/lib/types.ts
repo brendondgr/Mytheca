@@ -36,6 +36,10 @@ export interface Character {
   personality?: string | null;
   /** Relative `/media/...` URL of the generated WebP portrait; monogram fallback. */
   portrait?: string | null;
+  /** Persisted positive ComfyUI prompt that produced the portrait. */
+  portraitPositive?: string | null;
+  /** Persisted negative ComfyUI prompt that produced the portrait. */
+  portraitNegative?: string | null;
 }
 
 /**

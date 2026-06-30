@@ -102,8 +102,8 @@ export function blankStat(): StatDefinition {
 }
 
 export const DEFAULT_DRAFTS: Record<EntityType, Draft> = {
-  character: { name: "", role: "", color: "#8E2B1C", traits: "", speech: "", goal: "", secret: "", appearance: "", background: "", personality: "" },
-  setting: { name: "", type: "Social Hub", desc: "", atmosphere: "", features: "", currentState: "" },
+  character: { name: "", role: "", color: "#8E2B1C", traits: "", speech: "", goal: "", secret: "", appearance: "", background: "", personality: "", _portraitPositive: "", _portraitNegative: "" },
+  setting: { name: "", type: "Social Hub", desc: "", atmosphere: "", features: "", currentState: "", _sceneArtPositive: "", _sceneArtNegative: "" },
   scenario: { title: "", genre: "Intrigue", tone: "Tension · rising", goal: "", cast: [], settingId: "", branches: [], image: null, _sceneArtPositive: "", _sceneArtNegative: "" },
 };
 

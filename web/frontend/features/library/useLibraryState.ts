@@ -609,6 +609,8 @@ export function useLibraryState(initialStorylineId?: string) {
       speech: c.speech, goal: c.goal, secret: c.secret,
       appearance: c.appearance ?? "", background: c.background ?? "",
       personality: c.personality ?? "", portrait: c.portrait ?? null,
+      _portraitPositive: c.portraitPositive ?? "",
+      _portraitNegative: c.portraitNegative ?? "",
     });
     setError(null);
     setModal({ type: "character", mode: "manual", editId: id });
@@ -719,6 +721,9 @@ export function useLibraryState(initialStorylineId?: string) {
           background: d.background?.trim() || null,
           personality: d.personality?.trim() || null,
           portrait: d.portrait || null,
+          // Persist the prompts that produced the portrait so they survive re-edit.
+          portraitPositive: d._portraitPositive?.trim() || null,
+          portraitNegative: d._portraitNegative?.trim() || null,
         };
         // Proposed starting stats are applied with the save (the "save" the user
         // opted into); keyed/clamped server-side, skipped when there are none.
