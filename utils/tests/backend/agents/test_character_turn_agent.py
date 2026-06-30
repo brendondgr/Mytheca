@@ -63,7 +63,10 @@ def test_generate_line_returns_raw_emission(client, db_session, monkeypatch):
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
     ctx = _ctx()
-    raw = character_turn_agent.generate_line(db_session, ctx, ctx.cast[0], "I slide the pouch over.")
+    raw = character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "I slide the pouch over.", "characterId": None}],
+    )
     assert raw == _EMISSION
 
 
@@ -72,7 +75,10 @@ def test_prompt_is_bookended_and_grounded(client, db_session, monkeypatch):
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
     ctx = _ctx()
-    character_turn_agent.generate_line(db_session, ctx, ctx.cast[0], "I slide the pouch over.")
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "I slide the pouch over.", "characterId": None}],
+    )
 
     body = json.loads(capture["body"])
     system = body["messages"][0]["content"]
@@ -99,7 +105,10 @@ def test_prompt_requests_a_hidden_thinking_block(client, db_session, monkeypatch
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
     ctx = _ctx()
-    character_turn_agent.generate_line(db_session, ctx, ctx.cast[0], "x")
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
     system = json.loads(capture["body"])["messages"][0]["content"]
     assert "<thinking>" in system and "never shown" in system
 
@@ -109,7 +118,10 @@ def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
     ctx = _ctx()
-    character_turn_agent.generate_line(db_session, ctx, ctx.cast[0], "x")
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
     body = json.loads(capture["body"])
     assert body["top_p"] == 0.92
     assert body["frequency_penalty"] == 0.4

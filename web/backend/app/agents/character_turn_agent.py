@@ -70,14 +70,20 @@ def generate_line(
     db: Session,
     ctx: TurnContext,
     speaker: CastMember,
-    player_text: str,
     *,
+    turn_beats: list[dict],
     reasoning: ReasoningEffort = TURN_EFFORT,
 ) -> str:
-    """Generate one character's raw emission for this beat (thin-tag format)."""
+    """Generate one character's raw emission for this beat (thin-tag format).
+
+    ``turn_beats`` is the chronological this-turn transcript so far (the player's
+    line, then any earlier speakers' lines) — so a later speaker genuinely reacts to
+    its predecessor (the immediate predecessor sits last, where recency attention is
+    strongest).
+    """
     base_url, api_key, model, params = resolve_llm(db)
     system = f"{_OUTPUT_CONTRACT}\n\n{ctx.stable_prefix}".strip()
-    user = _build_user_prompt(ctx, speaker, player_text)
+    user = _build_user_prompt(ctx, speaker, turn_beats)
     return llm.chat_complete(
         base_url,
         api_key,
@@ -95,7 +101,7 @@ def _speaker_number(ctx: TurnContext, speaker: CastMember) -> int:
     return 1
 
 
-def _build_user_prompt(ctx: TurnContext, speaker: CastMember, player_text: str) -> str:
+def _build_user_prompt(ctx: TurnContext, speaker: CastMember, turn_beats: list[dict]) -> str:
     """Bookended volatile suffix: identity/state (front) · scene+transcript (middle) · act-now (tail)."""
     number = _speaker_number(ctx, speaker)
 
@@ -112,30 +118,34 @@ def _build_user_prompt(ctx: TurnContext, speaker: CastMember, player_text: str) 
         anchors = "  ".join(f"“{line}”" for line in speaker.recent_lines)
         head.append(f"Your recent lines (match this voice): {anchors}")
 
-    # MIDDLE — scene + roster + transcript (context, not driver).
+    # MIDDLE — scene + roster + transcript (context, not driver). The transcript ends
+    # with the most recent line (the player, or the predecessor who just spoke).
     middle: list[str] = []
     if ctx.setting is not None:
         flavor = ctx.setting.atmosphere or ctx.setting.current_state or ctx.setting.desc or ""
         middle.append(f"Setting: {ctx.setting.name}{(' — ' + flavor) if flavor else ''}.")
     roster = ", ".join(f"[{i + 1}] {m.name}" for i, m in enumerate(ctx.cast))
     middle.append(f"Cast in the scene: {roster}.")
-    transcript = _transcript(ctx)
+    transcript = _transcript(ctx, turn_beats)
     if transcript:
         middle.append(f"Recent beats:\n{transcript}")
-    directed = " (directed at you)" if ctx.directed_at == speaker.id else ""
-    middle.append(f'The player just did: "{player_text}"{directed}.')
 
     # TAIL — act-now (recency).
-    tail = f"Respond now, in {speaker.name}'s voice, to what was just said. Emit only the tagged format."
+    tail: list[str] = []
+    if ctx.directed_at == speaker.id:
+        tail.append("The player addressed you directly.")
+    tail.append(
+        f"Respond now, in {speaker.name}'s voice, to what was just said. Emit only the tagged format."
+    )
 
-    return "\n".join(["\n".join(head), "", "\n".join(middle), "", tail])
+    return "\n".join(["\n".join(head), "", "\n".join(middle), "", "\n".join(tail)])
 
 
-def _transcript(ctx: TurnContext) -> str:
-    """Render the recent buffer as a short transcript (best-effort; may be empty)."""
+def _transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
+    """Render prior history + this-turn beats as a short transcript (chronological)."""
     names = {m.id: m.name for m in ctx.cast}
     lines: list[str] = []
-    for beat in ctx.recent_beats:
+    for beat in [*ctx.recent_beats, *turn_beats]:
         text = str(beat.get("text", "")).strip()
         if not text:
             continue

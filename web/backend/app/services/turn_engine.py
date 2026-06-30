@@ -22,7 +22,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.agents import character_turn_agent
+from app.agents import character_turn_agent, director_agent, narrator_agent
 from app.core.errors import APIError
 from app.core.ids import new_id
 from app.events.envelope import StoryEvent
@@ -142,44 +142,58 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
     )
 
     # Assemble against committed history, THEN push the player's line so it becomes
-    # history for the next turn (the current line is handed to generation explicitly,
+    # history for the next turn (the current line also seeds this turn's transcript,
     # so it is present even when the buffer is disabled).
     ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at)
     buffer.push_turn(session.id, "player", text)
 
     emitter = _Emitter(db, scenario.id, session.id, start_seq=seq0 + 1)
-    speaker = _pick_speaker(ctx)
-    if speaker is None:
+    # The chronological this-turn transcript handed to each speaker so a later speaker
+    # genuinely reacts to its predecessor (sequential by nature — §9).
+    turn_beats: list[dict] = [{"role": "player", "text": text, "characterId": None}]
+
+    decision = director_agent.who_is_up(db, ctx)
+    speakers = [m for cid in decision.speakers if (m := ctx.cast_by_id(cid)) is not None]
+    if not speakers:
         yield from emitter.emit(
             "narration", {"text": "The scene waits, quiet.", "done": True}, buffer_role="narrator"
         )
         return
-    yield from _generate_speaker(db, ctx, speaker, text, emitter)
+
+    for index, speaker in enumerate(speakers):
+        # Narrator Mode: a transition beat before the speaker (POV Mode: off — D1).
+        if req.mode == "narrator":
+            yield from _narrator_interstitial(db, ctx, turn_beats, emitter)
+        yield from _generate_speaker(db, ctx, speaker, emitter, turn_beats)
 
 
-def _pick_speaker(ctx: TurnContext) -> CastMember | None:
-    """P3 single-speaker pick: the addressed cast member, else the first cast member."""
-    if not ctx.cast:
-        return None
-    if ctx.directed_at:
-        addressed = ctx.cast_by_id(ctx.directed_at)
-        if addressed is not None:
-            return addressed
-    return ctx.cast[0]
+def _narrator_interstitial(
+    db: Session,
+    ctx: TurnContext,
+    turn_beats: list[dict],
+    emitter: _Emitter,
+) -> Iterator[StoryEvent]:
+    """Emit an optional narrator beat (Narrator Mode); skip silently on failure."""
+    text = narrator_agent.interstitial(db, ctx, turn_beats)
+    if not text:
+        return
+    yield from emitter.emit_streamed("narration", text, buffer_role="narrator")
+    turn_beats.append({"role": "narrator", "text": text, "characterId": None})
 
 
 def _generate_speaker(
     db: Session,
     ctx: TurnContext,
     speaker: CastMember,
-    player_text: str,
     emitter: _Emitter,
+    turn_beats: list[dict],
 ) -> Iterator[StoryEvent]:
-    """Generate one speaker's beat and emit its events (action full, dialogue streamed)."""
-    raw = character_turn_agent.generate_line(db, ctx, speaker, player_text)
+    """Generate one speaker's beat, emit its events, and append them to ``turn_beats``."""
+    raw = character_turn_agent.generate_line(db, ctx, speaker, turn_beats=turn_beats)
     roster = {i + 1: m.id for i, m in enumerate(ctx.cast)}
     for seg in emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id):
         if seg.type == "internal_thought":
+            # Hidden conditioning — persisted, withheld, and NOT shown to later speakers.
             yield from emitter.emit(
                 "internal_thought",
                 {"characterId": seg.character_id, "text": seg.text},
@@ -192,6 +206,7 @@ def _generate_speaker(
                 buffer_role="character",
                 character_id=seg.character_id,
             )
+            turn_beats.append({"role": "character", "text": seg.text, "characterId": seg.character_id})
         elif seg.type == "character_dialogue":
             yield from emitter.emit_streamed(
                 "character_dialogue",
@@ -199,3 +214,4 @@ def _generate_speaker(
                 character_id=seg.character_id,
                 buffer_role="character",
             )
+            turn_beats.append({"role": "character", "text": seg.text, "characterId": seg.character_id})

@@ -8,6 +8,7 @@ the agent tests. Visible dialogue delta-streams (same id + seq, incremental text
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 
 import httpx
@@ -177,6 +178,70 @@ def test_internal_thought_persisted_hidden_and_withheld(client, db_session, stor
     assert len(rows) == 1
     assert rows[0].visibility == "hidden"
     assert "Let him sweat" in rows[0].data["text"]
+
+
+# ---- P5: Director (speaker queue) + Narrator interstitials --------------------
+
+
+def _patch_routed(monkeypatch, *, director_speakers, narration="A hush falls over the room."):
+    """Route the mock by system prompt: director → JSON, narrator → prose, character →
+    an emission echoing the prompt's speaker number/name."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        body = json.loads(request.content.decode())
+        system = body["messages"][0]["content"]
+        if "scene director" in system:
+            payload = json.dumps({"speakers": director_speakers, "needsBranch": False, "beat": "x"})
+            return httpx.Response(200, json={"choices": [{"message": {"content": payload}}]})
+        if "narrator of an interactive scene" in system:
+            return httpx.Response(200, json={"choices": [{"message": {"content": narration}}]})
+        user = body["messages"][1]["content"]
+        m = re.search(r"You are \[(\d+)\] (\w+)", user)
+        num, name = (m.group(1), m.group(2)) if m else ("1", "Someone")
+        emission = f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."'
+        return httpx.Response(200, json={"choices": [{"message": {"content": emission}}]})
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+
+
+def test_two_speaker_turn_streams_in_director_order(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    _patch_routed(monkeypatch, director_speakers=[1, 2])
+    mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    kira = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Kira"}).json()["id"]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
+    scid = _scenario(client, storyline_id, [mei, kira], sid)
+    # No directedAt → the Director escalates and returns [1, 2] = [Mei, Kira].
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I address the room."}))
+    dialogue = [e for e in events if e["type"] == "character_dialogue" and e["data"]["done"]]
+    speakers_in_order = [e["data"]["characterId"] for e in dialogue]
+    assert speakers_in_order == [mei, kira]
+
+
+def test_narrator_mode_inserts_an_interstitial_before_the_speaker(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    _patch_routed(monkeypatch, director_speakers=[1])
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid, "mode": "narrator"})
+    )
+    types = [e["type"] for e in events]
+    assert "narration" in types and "character_dialogue" in types
+    n_idx = types.index("narration")
+    d_idx = types.index("character_dialogue")
+    assert n_idx < d_idx  # the narrator beat leads
+
+
+def test_pov_mode_emits_no_narration(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    _patch_routed(monkeypatch, director_speakers=[1])
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+    assert all(e["type"] != "narration" for e in events)
 
 
 def test_unknown_scenario_returns_404(client):

@@ -39,7 +39,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Scenario authoring | `POST /scenarios/draft`, `POST /scenarios/scene-art-prompts`, `POST /scenarios/scene-art` | **Implemented.** The agentic Scenario Creator: draft a scenario (title/genre/tone/goal/opening) from a seed, plus a **valid cast + setting chosen from the active world's real roster**. The model returns names from a numbered roster; the agent resolves names→ids server-side, **dropping** unknown cast and falling back to `""` for an unmatched setting — so the draft never invents or dangles a reference. Scene-art prompts and image generation follow the same watercolor pipeline as Setting authoring. Declared above `/scenarios/{id}`. See Scenario Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation), read-only inference-engine detection (`/llm/backend`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
-| Play | `POST /play/{scenarioId}/turn` | **Implemented (turn transport).** Submit a player turn; the response body **is** the NDJSON event stream (`application/x-ndjson`, one event per line) — the turn engine runs and streams the resulting story events directly (reusing the build/triage streaming pattern), so there is no separate stream connection for the single-player case. Body: `{ text, directedAt?, sessionId? }` (omit `sessionId` to start a session). Pre-flight failures (unknown scenario → 404, empty text → 400, bad session → 404/400) return a normal error envelope before the 200 stream opens; a mid-stream failure is the terminal `{ "type": "error", "message": "…" }` frame. See Turn Stream below. |
+| Play | `POST /play/{scenarioId}/turn` | **Implemented.** Submit a player turn; the response body **is** the NDJSON event stream (`application/x-ndjson`, one event per line) — the turn engine runs the per-character POV loop and streams the resulting story events directly (reusing the build/triage streaming pattern), so there is no separate stream connection for the single-player case. Body: `{ text, directedAt?, sessionId?, mode? }` (omit `sessionId` to start a session; `mode` ∈ `pov` (default) \| `narrator`). The reasoned **Director** picks who reacts + order (a directed addressee / solo cast is the no-LLM fast path); **Narrator Mode** inserts a narration interstitial before each speaker, **POV Mode** omits it (one engine — D1). Pre-flight failures (unknown scenario → 404, empty text → 400, bad session → 404/400) return a normal error envelope before the 200 stream opens; a mid-stream failure is the terminal `{ "type": "error", "message": "…" }` frame. See Turn Stream below. |
 | Stream (seam) | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | **Deferred seam.** A separate fan-out connection (Redis pub/sub, reconnect/replay-from-`seq`, multi-watcher) for cases the single-response stream above doesn't cover. Not built. |
 | Admin (future) | `GET /admin/*` | High-permission only. |
 
@@ -560,9 +560,12 @@ Additional types to layer in later: `relationship_update`, `goal_update`, `turn_
 
 The response **is** the stream — `application/x-ndjson`, one event per line, in `seq`
 order — for the same `postNdjson`/`StreamingResponse` reasons as the build/triage streams.
-Request body: `{ "text": "…", "directedAt": "ch_id" | null, "sessionId": "ps_…" | null }`
-(omit `sessionId` to open a new play session; the streamed events carry the resolved
-`sessionId`). The player's input is persisted as a `user_turn` event at `seq` 0 of the turn
+Request body: `{ "text": "…", "directedAt": "ch_id" | null, "sessionId": "ps_…" | null,
+"mode": "pov" | "narrator" }` (omit `sessionId` to open a new play session; the streamed
+events carry the resolved `sessionId`; `mode` defaults to `pov`). Multiple speakers stream
+**sequentially** in the Director's order — a later speaker reacts to its predecessor (the
+hidden `internal_thought` of each is withheld from the stream and from later speakers). The
+player's input is persisted as a `user_turn` event at `seq` 0 of the turn
 (not streamed back — the client already shows it optimistically); the bot's events follow at
 the next seqs. A mid-stream failure is the terminal `{ "type": "error", "message": "…" }`
 frame; pre-flight failures (unknown scenario, empty text, bad session) are a normal error
