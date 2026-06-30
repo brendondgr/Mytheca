@@ -9,6 +9,7 @@ import { TextArea } from "@/components/ui/TextArea";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import { ContextFilesPanel } from "@/components/feature/ContextFilesPanel";
+import { docsForDraft } from "@/lib/readDocs";
 import { SceneArtModal } from "@/components/feature/SceneArtModal";
 import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
@@ -41,7 +42,8 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
   const agentic = m.mode === "agentic";
   const isEdit = m.editId != null;
   const seedText = (d._prompt ?? "").trim();
-  const canDraft = Boolean(seedText);
+  // Drafting needs either a seed sentence or at least one Draft-tagged reference file.
+  const canDraft = Boolean(seedText) || docsForDraft(d._docFiles ?? []).length > 0;
   const imageUrl = d.image ? mediaUrl(d.image) : null;
   const hasDescription = Boolean(
     (d.name || d.desc || d.atmosphere || d.features || "").toString().trim(),

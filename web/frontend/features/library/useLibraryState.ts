@@ -259,10 +259,11 @@ export function useLibraryState(initialStorylineId?: string) {
   async function draftCharacter() {
     if (!modal || modal.type !== "character") return;
     const seed = (draft._prompt ?? "").trim();
-    if (!seed) return;
     const docsOverview = draft._docFiles?.length
       ? concatDocs(docsForDraft(draft._docFiles))
       : undefined;
+    // Draft from a seed sentence, Draft-tagged reference files, or both.
+    if (!seed && !docsOverview) return;
     setGenerating(true);
     setError(null);
     try {
@@ -394,10 +395,11 @@ export function useLibraryState(initialStorylineId?: string) {
   async function draftSetting() {
     if (!modal || modal.type !== "setting") return;
     const seed = (draft._prompt ?? "").trim();
-    if (!seed) return;
     const docsOverview = draft._docFiles?.length
       ? concatDocs(docsForDraft(draft._docFiles))
       : undefined;
+    // Draft from a seed sentence, Draft-tagged reference files, or both.
+    if (!seed && !docsOverview) return;
     setGenerating(true);
     setError(null);
     try {

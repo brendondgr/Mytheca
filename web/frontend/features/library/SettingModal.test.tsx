@@ -117,4 +117,30 @@ describe("SettingModal — agentic creator", () => {
       ),
     );
   });
+
+  it("drafts from a Draft-tagged reference file alone (no seed sentence)", async () => {
+    const user = userEvent.setup();
+    const dialog = await openSettingCreator(user);
+
+    // With no seed typed, the Draft button is disabled.
+    const draftBtn = within(dialog).getByRole("button", { name: /draft with velora/i });
+    expect(draftBtn).toBeDisabled();
+
+    // Dropping a Draft-tagged file (Draft toggle defaults ON) enables it.
+    const file = new File(["Built on a sunken reef. DOCONLY_MARKER"], "lore.md", {
+      type: "text/markdown",
+    });
+    await user.upload(within(dialog).getByLabelText(/browse files/i), file);
+    await within(dialog).findByRole("button", { name: /remove lore\.md/i });
+    expect(draftBtn).toBeEnabled();
+
+    await user.click(draftBtn);
+    await waitFor(() =>
+      expect(vi.mocked(api.draftSetting)).toHaveBeenCalledWith(
+        "",
+        expect.stringContaining("DOCONLY_MARKER"),
+        expect.any(String),
+      ),
+    );
+  });
 });

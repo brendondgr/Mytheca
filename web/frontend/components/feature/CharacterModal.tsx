@@ -9,6 +9,7 @@ import { TextArea } from "@/components/ui/TextArea";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { Monogram } from "@/components/ui/Monogram";
 import { ContextFilesPanel } from "@/components/feature/ContextFilesPanel";
+import { docsForDraft } from "@/lib/readDocs";
 import { PortraitModal } from "@/components/feature/PortraitModal";
 import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
@@ -45,7 +46,8 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
   const color = d.color || "#8E2B1C";
   const mono = monoOf(d.name || "");
   const seedText = (d._prompt ?? "").trim();
-  const canDraft = Boolean(seedText);
+  // Drafting needs either a seed sentence or at least one Draft-tagged reference file.
+  const canDraft = Boolean(seedText) || docsForDraft(d._docFiles ?? []).length > 0;
   const portraitUrl = d.portrait ? mediaUrl(d.portrait) : null;
   const hasDescription = Boolean(
     (d.name || d.appearance || d.traits || d.personality || "").toString().trim(),

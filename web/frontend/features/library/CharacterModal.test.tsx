@@ -100,4 +100,30 @@ describe("CharacterModal — agentic creator", () => {
       ),
     );
   });
+
+  it("drafts from a Draft-tagged reference file alone (no seed sentence)", async () => {
+    const user = userEvent.setup();
+    const dialog = await openCharacterCreator(user);
+
+    // With no seed typed, the Draft button is disabled.
+    const draftBtn = within(dialog).getByRole("button", { name: /draft with velora/i });
+    expect(draftBtn).toBeDisabled();
+
+    // Dropping a Draft-tagged file (Draft toggle defaults ON) enables it.
+    const file = new File(["Born of the salt marsh. DOCONLY_MARKER"], "lore.md", {
+      type: "text/markdown",
+    });
+    await user.upload(within(dialog).getByLabelText(/browse files/i), file);
+    await within(dialog).findByRole("button", { name: /remove lore\.md/i });
+    expect(draftBtn).toBeEnabled();
+
+    await user.click(draftBtn);
+    await waitFor(() =>
+      expect(vi.mocked(api.draftCharacter)).toHaveBeenCalledWith(
+        "",
+        expect.stringContaining("DOCONLY_MARKER"),
+        expect.any(String),
+      ),
+    );
+  });
 });
