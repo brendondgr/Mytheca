@@ -553,8 +553,8 @@ Additional types to layer in later: `relationship_update`, `goal_update`, `turn_
 
 ### Streaming modes
 
-- **Full events** (one complete object) — used for `state_update` and `branch_choices`. Easy to validate and render.
-- **Delta streaming** — `message_start` → repeated `message_delta` → `message_end` — used for visible messages (`narration`, `character_dialogue`). The client renders deltas as they arrive and finalizes on `message_end`.
+- **Full events** (one complete object) — used for `state_update`, `branch_choices`, and `character_action`. Easy to validate and render.
+- **Delta streaming** — visible prose (`narration`, `character_dialogue`) is delta-streamed by emitting the **same event** (identical `id` + `seq`) repeatedly with an *incremental* `text` chunk and `done: false`, until the final chunk sets `done: true`. The client accumulates the chunks by `id` (`"".join` of the pieces == the full line); the **persisted** row holds the full text. This reuses the `done` field already on those payloads rather than a separate `message_start`/`message_delta`/`message_end` frame set. (`character_action` has no `done` field, so it streams as one full event.)
 
 ### Turn Stream (`POST /play/{scenarioId}/turn`)
 

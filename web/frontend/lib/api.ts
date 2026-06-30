@@ -5,6 +5,7 @@
 // should re-export from there. Errors surface as `ApiError` carrying the backend
 // envelope `{ error: { code, message, details } }`.
 
+import type { TurnRequestBody, TurnStreamFrame } from "@/lib/events";
 import type {
   BuildEvent,
   Character,
@@ -157,6 +158,20 @@ const patch = <T>(path: string, body: unknown) =>
 const put = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "PUT", body: JSON.stringify(body) });
 const del = (path: string) => request<void>(path, { method: "DELETE" });
+
+// ---- play (the turn loop) ----
+/**
+ * Submit one player turn and stream the resulting story events as NDJSON. The
+ * response body *is* the stream (one event per line); the client accumulates
+ * delta-streamed prose by event id. Pass an `AbortSignal` to cancel.
+ */
+export function postTurn(
+  scenarioId: string,
+  body: TurnRequestBody,
+  signal?: AbortSignal,
+): AsyncGenerator<TurnStreamFrame> {
+  return postNdjson<TurnStreamFrame>(`/play/${scenarioId}/turn`, body, signal);
+}
 
 /** Resolve a relative `/media/...` URL (portraits) against the API origin. */
 export function mediaUrl(path: string): string {

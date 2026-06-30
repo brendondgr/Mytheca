@@ -94,12 +94,18 @@ export function StoryPlayerView({
                   />
                 </motion.div>
               ))}
+              {scene.streamError ? (
+                <p role="alert" className="text-center font-mono text-[11px] tracking-[0.08em] text-danger">
+                  {scene.streamError}
+                </p>
+              ) : null}
             </div>
           </div>
           <Composer
             value={scene.composer}
             onChange={scene.setComposer}
             onSend={scene.send}
+            disabled={scene.sending}
           />
         </div>
 

@@ -74,9 +74,11 @@ export function CharacterMessage({
             <span className="font-body text-[13px] text-mute2 italic">{action}</span>
           ) : null}
         </div>
-        <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-ink shadow-[0_1px_2px_rgba(20,14,6,.06)]">
-          {text}
-        </div>
+        {text ? (
+          <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-ink shadow-[0_1px_2px_rgba(20,14,6,.06)]">
+            {text}
+          </div>
+        ) : null}
       </div>
     </div>
   );

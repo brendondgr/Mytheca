@@ -24,20 +24,40 @@ How data originates and moves through Velora. The streaming/event path is first-
 2. FastAPI route → service → Postgres model → Pydantic schema → JSON response.
 3. Frontend renders; server-state caching via TanStack Query if/when adopted.
 
-## Write Path (e.g. submit a turn)
+## Write + Streaming Path (submit a turn — the response *is* the stream)
 
-1. User submits a turn in the Story Player → `POST /play/{scenarioId}/turn`.
-2. Backend validates (Pydantic), persists the user event (Postgres), updates live scenario state (Redis).
-3. The **Orchestrator/Director** runs the relevant agents (Character/Narrator) against the canonical scenario state, the current stat values, and the injected stat guidance files, consulting the LLM provider.
-4. Each proposed event (and any implied stat change) is **validated and clamped**, persisted (Postgres), and emitted to the **Event Engine**.
+The turn engine (`web/backend/app/services/turn_engine.py`) runs the turn and streams
+the resulting story events directly in the `POST /play/{scenarioId}/turn` response body
+(NDJSON, reusing the `postNdjson` / `StreamingResponse` pattern) — there is no separate
+stream connection for the single-player case (the `GET /stream/{sessionId}` + Redis pub/sub
+fan-out is a deferred seam, see `api-contract.md`).
 
-## Streaming Path (live story output)
+```
+Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/turn  {text, directedAt?, sessionId?}
+  → routes/play (pre-flight: scenario exists, text present, session valid)
+  → turn_engine.run_turn:
+      events_store: resolve/create PlaySession · record user_turn (seq 0, Postgres)
+      assembler.assemble_context (Band-1, read-only): ordered cast + clamped stats + loaded
+        stat guidance + recent buffer (Redis, best-effort) + scenario subgraph (Neo4j,
+        best-effort) + cacheable stable prefix
+      memory.buffer.push_turn (player line → recent-turn buffer, best-effort)
+      _pick_speaker → character_turn_agent.generate_line (ONE isolated, bookended LLM call)
+        → services.llm.chat_complete (configured endpoint; reasoning budget; guided-decoding seam)
+      emission.parse_emission: thin <speaker:N>/<type:…> tags → typed segments (name→id; out-of-roster drop)
+      _Emitter: assign per-session seq · validate (build_event) · persist (Postgres) · push buffer
+        · WITHHOLD internal_thought (hidden) · yield visible events
+  → StreamingResponse NDJSON ──▶ client
+```
 
-1. The client opens `GET /stream/{sessionId}` (SSE or WebSocket).
-2. The Event Engine publishes typed events as **NDJSON** (one JSON object per line) — `narration`, `character_dialogue`, `character_action`, `state_update`, `branch_choices`.
-3. Redis pub/sub fans events from the orchestrator to the active stream connection(s).
-4. `useEventStream` parses each line and routes by `type`: visible messages render as deltas arrive (then finalize on `message_end`); `state_update` (incl. stat changes) updates the side panels without adding a chat message; `branch_choices` updates the branch panel.
-5. Connection states (connecting, open, stalled, reconnecting, closed) are surfaced in the UI.
+On the client, `useScenePlay` (via the generic `useEventStream` hook + `postTurn`) consumes
+the stream: **delta-streamed prose** (`narration`, `character_dialogue`) accumulates by event
+`id` (incremental `text` chunks, `done` flips true last; a `character_action` immediately
+followed by that speaker's dialogue merges into one beat); `state_update` / `branch_choices`
+drive the side panels (wired in the branch/stat phase). The composer is locked while a turn
+streams (in-flight guard); a mid-stream failure surfaces the terminal `error` frame.
+
+The hot path is **read-only** — all mutation (durable consequences, edges) defers to the
+cold-path turn-writer (a later phase); stat changes are clamped during validation.
 
 ## Stat Change Flow
 

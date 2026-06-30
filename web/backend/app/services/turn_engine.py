@@ -1,12 +1,18 @@
 """Turn engine — the runtime story loop.
 
-Drives one player turn: persist the ``user_turn``, then emit the bot's typed story
-events, validating + persisting each and streaming the visible ones as NDJSON.
+Drives one player turn: persist the ``user_turn``, assemble Band-1 context, run the
+per-character POV loop (one isolated LLM call per active speaker), and stream the
+visible story events as NDJSON while persisting each.
 
-This phase (P1) emits a deterministic **echo** set (narration + a single character's
-action/line) to prove the transport end to end; the real per-character POV
-think→speak generation replaces ``_echo_turn`` in later phases. ``_Emitter``
-centralizes the seq + persist + buffer + withhold-hidden plumbing every phase reuses.
+Visible prose (``narration`` / ``character_dialogue``) **delta-streams**: the same
+event (same id + seq) is emitted with incremental ``text`` + ``done: false`` until the
+last chunk sets ``done: true`` (the client accumulates by id; the persisted row holds
+the full text). ``character_action`` streams as one full event; ``internal_thought``
+(``visibility: hidden``) is persisted but withheld. ``_Emitter`` centralizes the
+seq + persist + buffer + withhold-hidden plumbing every phase reuses.
+
+This phase (P3) generates a single speaker (the addressed cast member, else the first);
+the reasoned Director / multi-speaker queue replaces ``_pick_speaker`` in later phases.
 """
 
 from __future__ import annotations
@@ -16,14 +22,17 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.agents import character_turn_agent
 from app.core.errors import APIError
+from app.core.ids import new_id
 from app.events.envelope import StoryEvent
-from app.events.stream import build_event
+from app.events.stream import build_event, chunk_text
 from app.memory import buffer
-from app.models import Character, Scenario, Setting
+from app.models import Scenario
 from app.schemas.base import EventType, Visibility
 from app.schemas.play import TurnRequest
-from app.services import crud, events_store
+from app.services import assembler, crud, emission, events_store
+from app.services.assembler import CastMember, TurnContext
 
 
 class _Emitter:
@@ -45,7 +54,7 @@ class _Emitter:
         buffer_role: str | None = None,
         character_id: str | None = None,
     ) -> Iterator[StoryEvent]:
-        """Build → persist → (buffer) → yield (unless hidden). One event, one seq."""
+        """Build → persist → (buffer) → yield (unless hidden). One full event, one seq."""
         event = build_event(
             type_,
             data,
@@ -62,6 +71,49 @@ class _Emitter:
             )
         if event.visibility != "hidden":
             yield event
+
+    def emit_streamed(
+        self,
+        type_: EventType,
+        text: str,
+        *,
+        character_id: str | None = None,
+        buffer_role: str | None = None,
+    ) -> Iterator[StoryEvent]:
+        """Delta-stream a visible prose event: persist the full text once, then yield
+        incremental same-id/same-seq chunks (``done: false`` until the final chunk)."""
+        event_id = new_id("ev")
+        seq = self._seq
+        self._seq += 1
+
+        full_data: dict[str, Any] = {"text": text, "done": True}
+        if character_id is not None:
+            full_data["characterId"] = character_id
+        full = build_event(
+            type_,
+            full_data,
+            scenario_id=self._scenario_id,
+            session_id=self._session_id,
+            seq=seq,
+            event_id=event_id,
+        )
+        events_store.persist_story_event(self._db, full)
+        if buffer_role:
+            buffer.push_turn(self._session_id, buffer_role, text, character_id=character_id)
+
+        chunks = chunk_text(text)
+        for i, chunk in enumerate(chunks):
+            data: dict[str, Any] = {"text": chunk, "done": i == len(chunks) - 1}
+            if character_id is not None:
+                data["characterId"] = character_id
+            yield build_event(
+                type_,
+                data,
+                scenario_id=self._scenario_id,
+                session_id=self._session_id,
+                seq=seq,
+                event_id=event_id,
+            )
 
 
 def validate_turn_inputs(db: Session, scenario_id: str, req: TurnRequest) -> Scenario:
@@ -88,59 +140,62 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
         text=text,
         directed_at=req.directed_at,
     )
+
+    # Assemble against committed history, THEN push the player's line so it becomes
+    # history for the next turn (the current line is handed to generation explicitly,
+    # so it is present even when the buffer is disabled).
+    ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at)
     buffer.push_turn(session.id, "player", text)
 
     emitter = _Emitter(db, scenario.id, session.id, start_seq=seq0 + 1)
-    yield from _echo_turn(db, scenario, req, text, emitter)
+    speaker = _pick_speaker(ctx)
+    if speaker is None:
+        yield from emitter.emit(
+            "narration", {"text": "The scene waits, quiet.", "done": True}, buffer_role="narrator"
+        )
+        return
+    yield from _generate_speaker(db, ctx, speaker, text, emitter)
 
 
-def _echo_turn(
+def _pick_speaker(ctx: TurnContext) -> CastMember | None:
+    """P3 single-speaker pick: the addressed cast member, else the first cast member."""
+    if not ctx.cast:
+        return None
+    if ctx.directed_at:
+        addressed = ctx.cast_by_id(ctx.directed_at)
+        if addressed is not None:
+            return addressed
+    return ctx.cast[0]
+
+
+def _generate_speaker(
     db: Session,
-    scenario: Scenario,
-    req: TurnRequest,
-    text: str,
+    ctx: TurnContext,
+    speaker: CastMember,
+    player_text: str,
     emitter: _Emitter,
 ) -> Iterator[StoryEvent]:
-    """Deterministic placeholder beat (replaced by real generation in P3+)."""
-    setting_name = _setting_name(db, scenario)
-    yield from emitter.emit(
-        "narration",
-        {"text": f"The {setting_name} stills as your words settle.", "done": True},
-        buffer_role="narrator",
-    )
-
-    speaker = _echo_speaker(db, scenario, req.directed_at)
-    if speaker is not None:
-        cid, name = speaker
-        yield from emitter.emit(
-            "character_action",
-            {"characterId": cid, "text": f"{name} weighs you for a moment, then meets your eyes."},
-            buffer_role="character",
-            character_id=cid,
-        )
-        yield from emitter.emit(
-            "character_dialogue",
-            {"characterId": cid, "text": f"You said: “{text}”", "done": True},
-            buffer_role="character",
-            character_id=cid,
-        )
-
-
-def _setting_name(db: Session, scenario: Scenario) -> str:
-    if scenario.setting_id:
-        setting = db.get(Setting, scenario.setting_id)
-        if setting is not None:
-            return setting.name
-    return "room"
-
-
-def _echo_speaker(db: Session, scenario: Scenario, directed_at: str | None) -> tuple[str, str] | None:
-    """Pick the echo speaker: the addressed cast member, else the first cast member."""
-    cast: list[str] = list(scenario.cast_ids or [])
-    candidate = directed_at if (directed_at and directed_at in cast) else (cast[0] if cast else None)
-    if candidate is None:
-        return None
-    char = db.get(Character, candidate)
-    if char is None:  # dangling soft-ref (deleted character) — skip gracefully
-        return None
-    return char.id, char.name
+    """Generate one speaker's beat and emit its events (action full, dialogue streamed)."""
+    raw = character_turn_agent.generate_line(db, ctx, speaker, player_text)
+    roster = {i + 1: m.id for i, m in enumerate(ctx.cast)}
+    for seg in emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id):
+        if seg.type == "internal_thought":
+            yield from emitter.emit(
+                "internal_thought",
+                {"characterId": seg.character_id, "text": seg.text},
+                visibility="hidden",
+            )
+        elif seg.type == "character_action":
+            yield from emitter.emit(
+                "character_action",
+                {"characterId": seg.character_id, "text": seg.text},
+                buffer_role="character",
+                character_id=seg.character_id,
+            )
+        elif seg.type == "character_dialogue":
+            yield from emitter.emit_streamed(
+                "character_dialogue",
+                seg.text,
+                character_id=seg.character_id,
+                buffer_role="character",
+            )

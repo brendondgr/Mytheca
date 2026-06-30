@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { StoryPlayerView } from "./StoryPlayerView";
+import { postTurn } from "@/lib/api";
+import type { TurnStreamFrame } from "@/lib/events";
 import {
   resolveScenario,
   SEED_CHARACTERS,
@@ -9,6 +11,18 @@ import {
   SEED_SETTINGS,
   SEED_STAT_DEFS,
 } from "@/lib/seed-data";
+
+// Keep the real api (mediaUrl etc.) but stub the streaming turn.
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
+  postTurn: vi.fn(),
+}));
+
+function streamOf(...frames: TurnStreamFrame[]) {
+  return async function* () {
+    for (const f of frames) yield f;
+  };
+}
 
 const embergate = resolveScenario(
   SEED_SCENARIOS[0],
@@ -33,7 +47,22 @@ describe("StoryPlayerView", () => {
     expect(screen.getByText("Health")).toBeInTheDocument();
   });
 
-  it("appends a player turn + narrator beat on send", async () => {
+  it("streams a turn on send: player bubble + the streamed reply", async () => {
+    const speaker = embergate.cast[0];
+    vi.mocked(postTurn).mockImplementation(
+      streamOf(
+        {
+          type: "character_dialogue",
+          id: "d1",
+          seq: 1,
+          scenarioId: embergate.id,
+          sessionId: "ps_live",
+          ts: "t",
+          visibility: "public",
+          data: { characterId: speaker.id, text: "The room turns to you.", done: true },
+        } as TurnStreamFrame,
+      ),
+    );
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
     await user.type(
@@ -42,7 +71,12 @@ describe("StoryPlayerView", () => {
     );
     await user.click(screen.getByRole("button", { name: /send/i }));
     expect(screen.getByText("I draw my blade.")).toBeInTheDocument();
-    expect(screen.getByText(/The table waits/i)).toBeInTheDocument();
+    expect(await screen.findByText("The room turns to you.")).toBeInTheDocument();
+    expect(vi.mocked(postTurn)).toHaveBeenCalledWith(
+      embergate.id,
+      expect.objectContaining({ text: "I draw my blade." }),
+      expect.anything(),
+    );
   });
 
   it("applies a choice: updates a stat and advances the scene", async () => {

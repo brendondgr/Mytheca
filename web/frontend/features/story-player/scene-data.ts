@@ -19,6 +19,8 @@ export interface SceneMessage {
   check?: string;
   roll?: number;
   result?: "Success" | "Failure";
+  /** Streamed-event id — used to accumulate delta chunks of narration/dialogue. */
+  id?: string;
 }
 
 export interface SceneChoice {

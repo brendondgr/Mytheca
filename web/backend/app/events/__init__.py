@@ -24,6 +24,7 @@ from app.events.envelope import (
 from app.events.stream import (
     TurnErrorFrame,
     build_event,
+    chunk_text,
     now_iso,
     to_ndjson_line,
 )
@@ -51,4 +52,5 @@ __all__ = [
     "build_event",
     "to_ndjson_line",
     "now_iso",
+    "chunk_text",
 ]

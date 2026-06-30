@@ -165,3 +165,14 @@ def test_chat_complete_unknown_engine_injects_nothing(monkeypatch):
     )
     assert "thinking_token_budget" not in captured
     assert "thinking_budget_tokens" not in captured
+
+
+def test_chat_complete_merges_extra_body(monkeypatch):
+    # The vLLM guided-decoding seam: extra_body is merged into the request body.
+    captured: dict = {}
+    _patch_upstream(monkeypatch, _chat_body(captured, "openai"))
+    llm.chat_complete(
+        "http://localhost:9000/v1", "", "m", [{"role": "user", "content": "hi"}],
+        extra_body={"guided_choice": ["1", "2"]},
+    )
+    assert captured["guided_choice"] == ["1", "2"]

@@ -64,6 +64,35 @@ def to_ndjson_line(frame: BaseModel) -> str:
     return frame.model_dump_json(by_alias=True) + "\n"
 
 
+# Visible prose (narration, character_dialogue) is delta-streamed by emitting the
+# **same event** (same id + seq) repeatedly with incremental ``text`` and ``done:
+# false`` until the final chunk sets ``done: true`` — the client accumulates by id.
+# This reuses the ``done`` field already on those payloads; the persisted row holds
+# the full text. (``character_action`` has no ``done`` field and streams as one event.)
+_DELTA_CHUNK_CHARS = 48
+
+
+def chunk_text(text: str, max_chunk_chars: int = _DELTA_CHUNK_CHARS) -> list[str]:
+    """Split text into incremental delta chunks; ``"".join(chunks) == text`` exactly.
+
+    Chunks break only on word boundaries (the breaking space stays at the end of the
+    chunk), so concatenating them on the client reconstructs the text verbatim.
+    Always returns at least one chunk (``[""]`` for empty text).
+    """
+    if not text:
+        return [""]
+    chunks: list[str] = []
+    start, n = 0, len(text)
+    while start < n:
+        end = min(start + max_chunk_chars, n)
+        if end < n:
+            space = text.find(" ", end)
+            end = space + 1 if space != -1 else n  # keep the space with this chunk
+        chunks.append(text[start:end])
+        start = end
+    return chunks
+
+
 class TurnErrorFrame(CamelModel):
     """Terminal in-band error frame for the turn stream.
 
