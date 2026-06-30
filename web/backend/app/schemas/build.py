@@ -65,12 +65,16 @@ class BuildWorldRequest(CamelModel):
     storyline_id: str | None = None
     max_characters: int | None = None
     max_settings: int | None = None
-    # Attached, triaged docs that ARE the cast / places: when present, the build
-    # creates exactly one character per character-doc and one setting per
-    # setting-doc (it does NOT invent its own). Only when a list is empty does the
-    # build fall back to inventing that kind from the blueprint (seed-only flow).
+    # Attached, triaged reference docs to mine for the cast / places. The build runs
+    # an extraction pass over EVERY attached doc (character + setting + other bucket)
+    # and drafts one card per distinct character and per distinct setting it finds —
+    # so a single file describing several characters yields several cards instead of
+    # being lost. The three lists carry the author's triage bucket; extraction
+    # surfaces whatever subjects each doc actually contains. The build never invents
+    # an entity from thin air — with no docs, no cast/settings are created.
     character_docs: list[BuildDoc] = []
     setting_docs: list[BuildDoc] = []
+    other_docs: list[BuildDoc] = []
 
 
 class ProposedStoryline(CamelModel):

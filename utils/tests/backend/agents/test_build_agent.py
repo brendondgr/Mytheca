@@ -8,6 +8,7 @@ system prompt, so a single handler serves the whole orchestration offline.
 from __future__ import annotations
 
 import json
+import re
 
 import httpx
 import pytest
@@ -90,6 +91,44 @@ def _completion(content: str) -> httpx.Response:
     return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
 
 
+def _extract_payload(body: str) -> str:
+    """Deterministic entity-extraction reply keyed off the document content.
+
+    The build now mines every attached doc for its distinct characters/settings; the
+    mock returns a roster shaped by keywords so a single 'roster'/'mixed' doc yields
+    several entities, the canonical maerin/kestrel/chapel/quay docs each yield their
+    one subject, and generic 'Character N'/'Setting N' docs yield a uniquely-named
+    entity (so cross-doc de-dup and counts are exercised)."""
+    content = json.loads(body)["messages"][1]["content"].lower()
+    chars: list[dict] = []
+    settings: list[dict] = []
+    if "roster" in content:  # one doc → several characters
+        chars = [
+            {"name": "Aldous Finch", "source": "A grizzled harbor captain."},
+            {"name": "Wynn Calder", "source": "A nimble young lookout."},
+            {"name": "Sera Dunne", "source": "A cunning quartermaster."},
+        ]
+    elif "mixed" in content:  # one doc → a character AND a setting
+        chars = [{"name": "Bram Hollow", "source": "A taciturn ferryman."}]
+        settings = [{"name": "The Reed Crossing", "source": "A misted tidal ford."}]
+    elif "maerin" in content or "smuggler" in content:
+        chars = [{"name": "Maerin Voss", "source": "A wary harbor smuggler."}]
+    elif "inquisitor" in content:
+        chars = [{"name": "Inquisitor Kestrel", "source": "A cold heretic-hunter."}]
+    elif "chapel" in content:
+        settings = [{"name": "The Drowned Chapel", "source": "A sunken shrine."}]
+    elif "quay" in content:
+        settings = [{"name": "The Lantern Quay", "source": "A lantern-lit pier."}]
+    else:  # generic "character N" / "setting N" docs → uniquely-named entities
+        mc = re.search(r"character (\d+)", content)
+        ms = re.search(r"setting (\d+)", content)
+        if mc:
+            chars = [{"name": f"Char {mc.group(1)}", "source": content}]
+        if ms:
+            settings = [{"name": f"Place {ms.group(1)}", "source": content}]
+    return json.dumps({"characters": chars, "settings": settings})
+
+
 def _route(request: httpx.Request) -> httpx.Response:
     # Engine-detection probes (GET /version, /props) — 404 so detection yields
     # UNKNOWN and no reasoning budget is injected (unchanged build behaviour).
@@ -102,6 +141,8 @@ def _route(request: httpx.Request) -> httpx.Response:
         return _completion("Play it grim. Three powers rule the port.")
     if "world-architect" in body:
         return _completion(_BLUEPRINT)
+    if "entity-extraction assistant" in body:
+        return _completion(_extract_payload(body))
     if "character-creation assistant" in body:
         return _completion(_CHARACTER)
     if "setting-creation assistant" in body:
@@ -254,6 +295,62 @@ def test_build_from_attached_docs_only_no_seed(client, monkeypatch):
     assert len(world["settings"]) == 2
 
 
+def test_build_splits_a_multi_character_doc(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    # A SINGLE document describing several characters must yield one card per person
+    # (the bug: these used to be dropped / collapsed into one).
+    res = client.post(
+        "/api/storylines/build",
+        json={
+            "seed": "A harbor.",
+            "characterDocs": [{"name": "crew.md", "text": "The ship's roster of three sailors."}],
+        },
+    )
+    assert res.status_code == 200
+    world = res.json()
+    assert len(world["characters"]) == 3  # three distinct subjects from one doc
+    starting = {s["key"]: s["value"] for s in world["characters"][0]["startingStats"]}
+    assert starting == {"health": 100, "suspicion": 0}
+
+
+def test_build_mines_other_bucket_doc_for_characters_and_settings(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    # An 'other'-bucket doc (multi-subject / mixed) is now mined too — it yields both
+    # a character and a setting instead of vanishing into lore.
+    events = _stream_events(
+        client.post(
+            "/api/storylines/build/stream",
+            json={"otherDocs": [{"name": "scene.md", "text": "A mixed scene at a crossing."}]},
+        )
+    )
+    plan = next(e for e in events if e["type"] == "plan")
+    assert plan["characters"] == ["Bram Hollow"]
+    assert plan["settings"] == ["The Reed Crossing"]
+    done = next(e for e in events if e["type"] == "done")
+    assert len(done["world"]["characters"]) == 1
+    assert len(done["world"]["settings"]) == 1
+
+
+def test_build_dedups_subjects_across_docs(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    # The same character named in two docs collapses to one card (folded-name dedup).
+    res = client.post(
+        "/api/storylines/build",
+        json={
+            "seed": "A harbor.",
+            "characterDocs": [
+                {"name": "a.md", "text": "Maerin the smuggler."},
+                {"name": "b.md", "text": "More notes on Maerin Voss, smuggler."},
+            ],
+        },
+    )
+    assert res.status_code == 200
+    assert len(res.json()["characters"]) == 1
+
+
 def test_build_requires_seed_or_docs(client, monkeypatch):
     _configure_llm(client)
     _patch_upstream(monkeypatch)
@@ -304,8 +401,9 @@ def test_build_stream_emits_event_sequence(client, monkeypatch):
     assert meta["title"] == "Embergate"
     plan = next(e for e in events if e["type"] == "plan")
     assert [s["key"] for s in plan["stats"]] == ["health", "suspicion"]
-    # The plan's skeleton labels are the attached doc names.
-    assert plan["characters"] == ["maerin.md", "kestrel.md"]
+    # The plan's skeleton labels are the EXTRACTED subject names (not doc filenames).
+    assert plan["characters"] == ["Maerin Voss", "Inquisitor Kestrel"]
+    assert plan["settings"] == ["The Drowned Chapel", "The Lantern Quay"]
 
     first_char = next(e for e in events if e["type"] == "character")
     assert first_char["index"] == 0

@@ -22,7 +22,7 @@ from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 
-from app.agents import character_agent, setting_agent, storyline_agent
+from app.agents import character_agent, extract_agent, setting_agent, storyline_agent
 from app.agents._common import (
     DEFAULT_AUTHORING_EFFORT,
     DOCS_CAP,
@@ -45,6 +45,7 @@ from app.schemas.build import (
     BuildPrimerEvent,
     BuildSettingEvent,
     BuildStatusEvent,
+    ExtractedEntity,
     ProposedCharacter,
     ProposedSetting,
     ProposedStartingStat,
@@ -232,8 +233,47 @@ def _doc_sources(docs: list[BuildDoc] | None, cap: int | None = None) -> list[tu
 
 
 def has_buildable_docs(*lists: list[BuildDoc] | None) -> bool:
-    """True if any attached character/setting doc carries text to build from."""
+    """True if any attached reference doc carries text to build from."""
     return any((d.text or "").strip() for docs in lists for d in (docs or []))
+
+
+def _dedup(entities: list[ExtractedEntity], seen: set[str]) -> list[ExtractedEntity]:
+    """Append entities not already seen (folded-name key); first occurrence wins."""
+    out: list[ExtractedEntity] = []
+    for e in entities:
+        key = e.name.casefold()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(e)
+    return out
+
+
+def _extract_roster(
+    db: Session,
+    doc_sources: list[tuple[str, str]],
+    grounding: str,
+) -> tuple[list[ExtractedEntity], list[ExtractedEntity]]:
+    """Mine every attached doc for its distinct characters + settings.
+
+    One extraction call per doc; results are de-duped across docs by folded name
+    (first occurrence wins). Deliberately **uncapped** — the author attached exactly
+    these documents, so every distinct subject they named becomes a card (mirroring
+    the prior one-entity-per-doc build, now per-subject); capping here would re-create
+    the very loss this change exists to fix. A doc that yields no profile-worthy
+    subject contributes nothing (it still grounds the world via ``docs_overview``).
+    Errors propagate — a malformed extraction surfaces as a visible build error
+    rather than silently dropping the author's characters.
+    """
+    characters: list[ExtractedEntity] = []
+    settings: list[ExtractedEntity] = []
+    seen_chars: set[str] = set()
+    seen_settings: set[str] = set()
+    for name, text in doc_sources:
+        found = extract_agent.extract_entities(db, text, grounding, doc_name=name)
+        characters.extend(_dedup(found.characters, seen_chars))
+        settings.extend(_dedup(found.settings, seen_settings))
+    return characters, settings
 
 
 def validate_build_inputs(
@@ -273,23 +313,31 @@ def iter_build_world(
     max_settings: int | None = None,
     character_docs: list[BuildDoc] | None = None,
     setting_docs: list[BuildDoc] | None = None,
+    other_docs: list[BuildDoc] | None = None,
 ) -> Iterator[BuildEvent]:
     """Draft a whole world, yielding a progress event at each stage.
 
     The live backbone for the New Storyline page: storyline metadata → World Primer
-    → blueprint (stat schema) → one full character per source → one full setting per
-    source → a terminal ``done`` carrying the assembled ``ProposedWorld``.
+    → blueprint (stat schema) → **extract every entity from every attached doc** →
+    one full character per extracted subject → one full setting per extracted subject
+    → a terminal ``done`` carrying the assembled ``ProposedWorld``.
 
     **Cast/settings come ONLY from the attached, triaged docs** (``character_docs`` /
-    ``setting_docs``) — exactly one entity per doc, drafted from that doc. The build
-    never invents a character or setting the author didn't attach: if no character
-    docs are attached, no characters are created; likewise settings. (The storyline
-    metadata, World Primer, and the universal stat schema are always produced.)
-    Errors propagate (the route wraps them into an in-band ``error`` event once the
-    stream is open).
+    ``setting_docs`` / ``other_docs``), but each doc is *mined*: a file describing
+    several characters yields several cards, a mixed file yields both characters and
+    settings, and a pure-lore file yields none (it still grounds the world). Subjects
+    are de-duped across docs (uncapped — every distinct subject the author attached
+    becomes a card). The build never invents an entity the author didn't attach: no
+    docs → no cast/settings.
+    (The storyline metadata, World Primer, and the universal stat schema are always
+    produced.) Errors propagate (the route wraps them into an in-band ``error`` event
+    once the stream is open).
     """
     seed, docs_overview = validate_build_inputs(
-        db, seed, docs_overview, has_entity_docs=has_buildable_docs(character_docs, setting_docs)
+        db,
+        seed,
+        docs_overview,
+        has_entity_docs=has_buildable_docs(character_docs, setting_docs, other_docs),
     )
     effective_seed = seed or _DOCS_ONLY_SEED
 
@@ -324,45 +372,52 @@ def iter_build_world(
         db, brief, docs_overview, n_chars=n_chars, n_settings=n_settings
     )
 
-    # Cast/settings come ONLY from the attached docs (one per doc, no cap — the author
-    # attached exactly the entities they want). No docs of a kind → none is created.
-    char_sources = _doc_sources(character_docs)
-    setting_sources = _doc_sources(setting_docs)
-    yield BuildPlanEvent(
-        stats=stats,
-        characters=[label for label, _ in char_sources],
-        settings=[label for label, _ in setting_sources],
-    )
-
-    # Ground each entity draft in the just-drafted world (it has no DB row yet, so the
-    # brief travels inline as reference text alongside any author-provided docs).
+    # Ground each draft in the just-drafted world (it has no DB row yet, so the brief
+    # travels inline as reference text alongside any author-provided docs).
     grounding = brief if not docs_overview else f"{brief}\n\n{docs_overview}"
     grounding = grounding[:DOCS_CAP]
+
+    # 4) Extract the roster: mine EVERY attached doc (character/setting/other bucket)
+    #    for its distinct characters + settings. One file with several characters now
+    #    yields several cards instead of being lost. Bound by the affordability caps.
+    yield BuildStatusEvent(
+        stage="extract", message="Reading your documents for characters and settings…"
+    )
+    doc_sources = (
+        _doc_sources(character_docs) + _doc_sources(setting_docs) + _doc_sources(other_docs)
+    )
+    char_entities, setting_entities = _extract_roster(db, doc_sources, grounding)
+    yield BuildPlanEvent(
+        stats=stats,
+        characters=[e.name for e in char_entities],
+        settings=[e.name for e in setting_entities],
+    )
+
     default_stats = [ProposedStartingStat(key=s.key, value=s.default) for s in stats]
 
-    # 4) One full character per source (+ schema-default starting stats).
+    # 5) One full character per extracted subject (+ schema-default starting stats).
     characters: list[ProposedCharacter] = []
-    for i, (_label, source) in enumerate(char_sources):
+    for i, entity in enumerate(char_entities):
         yield BuildStatusEvent(
             stage="characters",
-            message=f"Drafting character {i + 1} of {len(char_sources)}…",
+            message=f"Drafting character {i + 1} of {len(char_entities)}…",
         )
-        draft = character_agent.draft_character(db, source, grounding, None)
+        draft = character_agent.draft_character(db, entity.source, grounding, None)
         character = ProposedCharacter(**draft.model_dump(), starting_stats=list(default_stats))
         characters.append(character)
-        yield BuildCharacterEvent(index=i, total=len(char_sources), character=character)
+        yield BuildCharacterEvent(index=i, total=len(char_entities), character=character)
 
-    # 5) One full setting per source.
+    # 6) One full setting per extracted subject.
     settings: list[ProposedSetting] = []
-    for i, (_label, source) in enumerate(setting_sources):
+    for i, entity in enumerate(setting_entities):
         yield BuildStatusEvent(
             stage="settings",
-            message=f"Drafting setting {i + 1} of {len(setting_sources)}…",
+            message=f"Drafting setting {i + 1} of {len(setting_entities)}…",
         )
-        setting_draft = setting_agent.draft_setting(db, source, grounding, None)
+        setting_draft = setting_agent.draft_setting(db, entity.source, grounding, None)
         setting = ProposedSetting(**setting_draft.model_dump())
         settings.append(setting)
-        yield BuildSettingEvent(index=i, total=len(setting_sources), setting=setting)
+        yield BuildSettingEvent(index=i, total=len(setting_entities), setting=setting)
 
     yield BuildDoneEvent(
         world=ProposedWorld(
@@ -381,6 +436,7 @@ def build_world(
     max_settings: int | None = None,
     character_docs: list[BuildDoc] | None = None,
     setting_docs: list[BuildDoc] | None = None,
+    other_docs: list[BuildDoc] | None = None,
 ) -> ProposedWorld:
     """Draft an entire world for review — the non-streaming collector.
 
@@ -398,6 +454,7 @@ def build_world(
         max_settings=max_settings,
         character_docs=character_docs,
         setting_docs=setting_docs,
+        other_docs=other_docs,
     ):
         if isinstance(event, BuildDoneEvent):
             world = event.world
