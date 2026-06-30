@@ -99,6 +99,24 @@ describe("useStorylineCreator", () => {
     const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
     expect(body.characterDocs).toEqual([{ name: "hero.md", text: "A hero." }]);
     expect(body.settingDocs).toEqual([{ name: "keep.md", text: "A place." }]);
+    expect(body.otherDocs).toEqual([]);
+  });
+
+  it("sends 'other'-bucket (multi-subject) docs to the build for mining", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    await act(async () => {
+      await result.current.addFiles([file("cast.md", "Three sailors and a captain.")]);
+    });
+    act(() => result.current.setDocCategory("cast.md", "other"));
+    await act(async () => {
+      await result.current.build();
+    });
+    const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
+    // The multi-subject doc rides otherDocs (so the backend can extract every entity)
+    // instead of being dropped from the build entirely.
+    expect(body.otherDocs).toEqual([{ name: "cast.md", text: "Three sailors and a captain." }]);
+    expect(body.characterDocs).toEqual([]);
+    expect(body.settingDocs).toEqual([]);
   });
 
   it("skips image rendering when ComfyUI is configured but unreachable", async () => {

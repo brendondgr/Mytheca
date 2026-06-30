@@ -299,15 +299,20 @@ export function useStorylineCreator(editId?: string) {
   const build = useCallback(async () => {
     const s = seed.trim();
     const docsOverview = draftGrounding(docs);
-    // The cast/settings are built ONLY from the docs categorized as such — one
-    // entity per doc, nothing invented.
-    const characterDocs = docs
-      .filter((d) => d.category === "character" && d.text)
-      .map((d) => ({ name: d.name, text: d.text }));
-    const settingDocs = docs
-      .filter((d) => d.category === "setting" && d.text)
-      .map((d) => ({ name: d.name, text: d.text }));
-    if (!s && !docsOverview && characterDocs.length === 0 && settingDocs.length === 0) {
+    // Every kept document is sent to the build, which mines EACH for its distinct
+    // characters + settings (so a single file with several characters becomes several
+    // cards). The triage bucket only sorts which list a doc rides in; character /
+    // setting buckets carry their kind, and everything else (other + uncategorized)
+    // rides `otherDocs` and is mined for both. Nothing is invented from thin air.
+    const toBuildDoc = (d: CreatorDoc) => ({ name: d.name, text: d.text });
+    const withText = docs.filter((d) => d.text);
+    const characterDocs = withText.filter((d) => d.category === "character").map(toBuildDoc);
+    const settingDocs = withText.filter((d) => d.category === "setting").map(toBuildDoc);
+    const otherDocs = withText
+      .filter((d) => d.category !== "character" && d.category !== "setting")
+      .map(toBuildDoc);
+    const anyDoc = characterDocs.length || settingDocs.length || otherDocs.length;
+    if (!s && !docsOverview && !anyDoc) {
       setError(
         "Add a one-sentence seed, drop context files, or attach characters/settings to build from.",
       );
@@ -327,7 +332,14 @@ export function useStorylineCreator(editId?: string) {
     let finalWorld: ProposedWorld | null = null;
     try {
       for await (const ev of api.buildWorldStream(
-        { seed: s || undefined, docsOverview, storylineId: editId, characterDocs, settingDocs },
+        {
+          seed: s || undefined,
+          docsOverview,
+          storylineId: editId,
+          characterDocs,
+          settingDocs,
+          otherDocs,
+        },
         ac.signal,
       )) {
         switch (ev.type) {
