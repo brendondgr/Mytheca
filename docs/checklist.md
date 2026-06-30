@@ -40,6 +40,17 @@
 
 ## Follow-up Work (next steps)
 
+### Portrait & image prompt persistence — Character + Setting editors (done; `feat/portrait-image-prompt-persistence`; plan: `docs/plans/portrait-image-prompt-persistence.md`)
+Bug fix: in the Character and Setting edit menus the positive/negative ComfyUI prompts used to generate a portrait/establishing image were held in editor-only draft state (`_portraitPositive`/`_portraitNegative`, `_sceneArtPositive`/`_sceneArtNegative`) and **discarded on save** — re-opening the entity lost them. Replicated the proven Scenario `scene_art_*` pattern end-to-end. Five phases, commit-per-phase.
+- **Phase 1 — backend Character:** nullable `portrait_positive` / `portrait_negative` columns on `Character` (model + `CharacterBase`/`Update`/`Read` schemas + `create_character` wiring; `update_character` patch loop already covers it); Alembic `d4f1a2b3c5e6` (`batch_alter_table('characters')`); roundtrip + null-default tests (+ schema-shape test updated).
+- **Phase 2 — backend Setting:** nullable `scene_art_positive` / `scene_art_negative` columns on `Setting` (model + schemas + `create_setting` wiring); Alembic `e7a8b9c0d1f2` (chained after Phase 1); roundtrip + null-default tests.
+- **Phase 3 — frontend Character:** `portraitPositive`/`portraitNegative` on the `Character` type; `editCharacter` hydrates the draft `_portrait*` keys; character submit body sends the prompts (empty → null); `DEFAULT_DRAFTS.character` seeds the keys. New hook tests (persist-on-save + rehydrate-on-edit).
+- **Phase 4 — frontend Setting:** `sceneArtPositive`/`sceneArtNegative` on the `Setting` type; `editSetting` hydrates the draft `_sceneArt*` keys; setting submit body sends the prompts; `DEFAULT_DRAFTS.setting` seeds the keys. New `useLibraryState.setting.test.ts` (3: generate→render, persist-on-save, rehydrate-on-edit).
+- **Phase 5 — docs + validation + merge:** api-contract (Character/Setting read-write shapes + portrait endpoint note), data-flow (both authoring-flow diagrams), this entry.
+- **Validation:** backend **326 pytest** (+2; ruff clean); frontend **244 vitest** (+5) + typecheck + lint (0 errors) + `next build` clean.
+- **Decisions (autonomous):** Character columns named `portrait_*`, Setting columns `scene_art_*` (match each entity's existing draft keys + the shared `SceneArt*` schemas); all columns nullable so the additive reconciler self-heals dev DBs, Alembic covers Postgres; no new endpoints/agents/UI-layout — pure persistence wiring.
+- **Deferred — live ComfyUI render verification:** the generate→edit→save→reopen loop needs a running ComfyUI server (not assumed available); the persistence path is covered by the pytest roundtrips + vitest submit/edit-hydration assertions + typecheck/build. No new layout/interactive surface (data-only field additions), so the a11y/responsive surface is unchanged. Run the live render pass once a Comfy server + free dev dir are available.
+
 ### Hybrid RAG — implemented end-to-end (done; `worktree-rag-implementation`; plan: `docs/plans/velora-rag-implementation.md`, doc: `docs/rag.md`)
 The RAG layer is now real and **used**, not theory. Eight phases, commit-per-phase, all best-effort (CRUD + `pytest` run with no Qdrant / no model — mirrors the Neo4j substrate). See `docs/rag.md` for the full design.
 - **Phase 1 — core:** `web/backend/app/rag/` — `Frontmatter`/`LoreEntry` schema, prefix-fusion serializer (dense `build_embed_text` + sparse `build_bm25_text`), 512-token guard, and entity→entry adapters for storyline/character/setting/scenario/context-doc.

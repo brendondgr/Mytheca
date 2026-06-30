@@ -1,5 +1,7 @@
 # Plan — Persist Portrait & Image Prompts (Character + Setting Editors)
 
+> **Status: DONE** (branch `feat/portrait-image-prompt-persistence`, 5 phases, commit-per-phase). Backend 326 pytest / frontend 244 vitest + typecheck + lint + build all green. See `docs/checklist.md` for the completion record.
+
 ## 1. Introduction
 
 In the Character and Setting edit menus, an author can generate a portrait / establishing
