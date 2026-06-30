@@ -24,10 +24,36 @@ MAX_STATS = 8
 
 
 class BuildDoc(CamelModel):
-    """An attached reference document that names ONE character or setting to build."""
+    """An attached reference document to mine for characters / settings to build.
+
+    A doc may describe ONE subject or MANY (a roster, a mixed scene, general lore).
+    The build runs an extraction pass over every attached doc, so a single file with
+    several characters becomes several cards. ``category`` is the author's triage
+    bucket (``character`` / ``setting`` / ``other``), kept as a soft hint only — the
+    extractor surfaces whatever subjects it actually finds regardless.
+    """
 
     name: str = ""
     text: str = ""
+    category: str | None = None
+
+
+class ExtractedEntity(CamelModel):
+    """One distinct subject found inside a document by the extraction agent.
+
+    ``name`` labels the skeleton card; ``source`` is a focused brief for that single
+    subject, handed to ``draft_character`` / ``draft_setting`` to flesh out.
+    """
+
+    name: str = ""
+    source: str = ""
+
+
+class ExtractedEntities(CamelModel):
+    """The characters + settings the extraction agent found in one document."""
+
+    characters: list[ExtractedEntity] = []
+    settings: list[ExtractedEntity] = []
 
 
 class BuildWorldRequest(CamelModel):
