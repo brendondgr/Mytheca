@@ -4,30 +4,23 @@ import type { ResolvedScenario } from "@/lib/types";
 // match the reference; any other scenario gets a believable generic opening
 // built from its cast + branches. No model calls — interactions are local.
 
-export type SceneMessageKind =
-  | "narrator"
-  | "char"
-  | "player"
-  | "check"
-  | "choices";
+export type SceneMessageKind = "narrator" | "char" | "player" | "choices";
 
 export interface SceneMessage {
   kind: SceneMessageKind;
   who?: string;
   action?: string;
   text?: string;
-  check?: string;
-  roll?: number;
-  result?: "Success" | "Failure";
   /** Streamed-event id — used to accumulate delta chunks of narration/dialogue. */
   id?: string;
 }
 
+// A branch fork the player can pick — no dice/checks (D11): label + a narrative-
+// direction outcome. Selecting one submits a real turn.
 export interface SceneChoice {
   id: string;
   label: string;
   outcome: string;
-  check: string;
   player: string;
   follow: { who: string; action?: string; text: string };
   suspicion?: number;
@@ -41,6 +34,8 @@ export interface StatChip {
   value: number;
   /** "neutral" colors by --ink-soft; positive/negative tint accent/green. */
   kind?: "neutral" | "good" | "bad";
+  /** Free-text audit trail from a state_update (why the value moved). */
+  reason?: string;
 }
 
 export interface Relationship {
@@ -67,7 +62,6 @@ const EMBERGATE_MESSAGES: SceneMessage[] = [
   { kind: "narrator", text: "A hush settles over the table. Across from you, Brother Aldous's knuckles whiten around his cup." },
   { kind: "char", who: "aldous", action: "barely above a whisper", text: "Please — whatever you've heard, the fire at the warehouse was an accident. I never meant for anyone to—" },
   { kind: "char", who: "maerin", action: "cutting in", text: "Brother. Breathe. No one at this table has accused you of anything… yet. Let our guest speak." },
-  { kind: "check", check: "Insight · DC 15", roll: 17, result: "Success", text: "You read the stillness in Maerin's hands. Her composure is rehearsed — she is performing calm for someone. Her eyes flick, just once, to the Captain by the door." },
   { kind: "narrator", text: "By the door, Captain Doran Hale has not touched his drink. He has been watching the ledger in Maerin's hands the entire time." },
   { kind: "char", who: "doran", text: "Voss. The harbor master's ledger is missing three pages. You wouldn't happen to know where they went." },
   { kind: "char", who: "maerin", action: "to you, quieter now", text: "Choose your next words carefully. We can both walk out of here richer — or you can hand me to the Captain and learn nothing at all." },
@@ -75,9 +69,9 @@ const EMBERGATE_MESSAGES: SceneMessage[] = [
 ];
 
 const EMBERGATE_CHOICES: SceneChoice[] = [
-  { id: "confront", label: "Confront Maerin about the Captain", outcome: "Press the fear you just saw — Suspicion +2", check: "Insight · DC 15", player: "You're afraid of him, aren't you? The good Captain by the door.", follow: { who: "maerin", action: "her smile thins", text: "Afraid is a strong word. Cautious. As you should be." }, suspicion: 2, tension: 8 },
-  { id: "bargain", label: "Bargain — silence for the ledger", outcome: "Trade your discretion for the routes — Trust −1", check: "Persuasion · DC 20", player: "Give me the routes, and the Captain never hears your name from me.", follow: { who: "maerin", action: "considers", text: "A merchant's offer. I almost like you. Almost." }, trust: -1, tension: 4 },
-  { id: "expose", label: "Expose her to Captain Hale", outcome: "Turn the room — his favour +3", check: "Deception · DC 15", player: "Captain! The pages you're missing — they're in her ledger right now.", follow: { who: "doran", action: "steps forward", text: "Is that so. Voss — the book. On the table. Slowly." }, tension: 12 },
+  { id: "confront", label: "Confront Maerin about the Captain", outcome: "Press the fear you just saw", player: "You're afraid of him, aren't you? The good Captain by the door.", follow: { who: "maerin", action: "her smile thins", text: "Afraid is a strong word. Cautious. As you should be." }, suspicion: 2, tension: 8 },
+  { id: "bargain", label: "Bargain — silence for the ledger", outcome: "Trade your discretion for the routes", player: "Give me the routes, and the Captain never hears your name from me.", follow: { who: "maerin", action: "considers", text: "A merchant's offer. I almost like you. Almost." }, trust: -1, tension: 4 },
+  { id: "expose", label: "Expose her to Captain Hale", outcome: "Turn the room against her", player: "Captain! The pages you're missing — they're in her ledger right now.", follow: { who: "doran", action: "steps forward", text: "Is that so. Voss — the book. On the table. Slowly." }, tension: 12 },
 ];
 
 function genericScene(scenario: ResolvedScenario): SceneSeed {
@@ -102,7 +96,6 @@ function genericScene(scenario: ResolvedScenario): SceneSeed {
     id: `b${i}`,
     label: b.label,
     outcome: b.outcome,
-    check: b.check,
     player: b.label,
     follow: {
       who: cast[i % Math.max(cast.length, 1)]?.id ?? "",

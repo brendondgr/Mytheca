@@ -23,6 +23,9 @@ _THINKING_RE = re.compile(r"<thinking>(.*?)</thinking>", re.IGNORECASE | re.DOTA
 
 # Prose types a character may emit (internal_thought is hidden conditioning).
 _PROSE_TYPES = {"character_action", "character_dialogue"}
+# A character may also propose a stat change as a JSON body (validated + clamped
+# downstream); its ``text`` is the raw JSON block.
+_STAT_TYPE = "state_update"
 
 
 @dataclass
@@ -69,6 +72,8 @@ def parse_emission(
         kind = mark.group(1).lower()
         body_end = type_marks[i + 1].start() if i + 1 < len(type_marks) else len(text)
         body = text[mark.end() : body_end].strip()
-        if kind in _PROSE_TYPES and body:
+        if not body:
+            continue
+        if kind in _PROSE_TYPES or kind == _STAT_TYPE:
             segments.append(Segment(kind, body, speaker_id))
     return segments

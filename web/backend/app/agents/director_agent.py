@@ -108,6 +108,58 @@ def _reasoned_decision(db: Session, ctx: TurnContext) -> DirectorDecision:
     return DirectorDecision(speakers, bool(data.get("needsBranch", False)), str(data.get("beat", "")))
 
 
+_BRANCH_SYSTEM = """You are the scene director. The player faces a fork. Offer 2-4 distinct branch options — STRUCTURE ONLY, no prose narration.
+
+Return ONLY a JSON object:
+{"choices": [{"label": "what the player does/says (short)", "outcome": "direction tag: de-escalate | escalate | bribe | probe | retreat | …"}]}
+
+Rules:
+- Each option is a real, in-character direction the scene could take next.
+- "outcome" is a short narrative-direction tag, never a dice check or stat test.
+- Surface only options that fit the current stats/tone (e.g. don't offer a calm option to a furious character).
+- No prose, no commentary — just the JSON object."""
+
+# Cap branch options offered per fork.
+_MAX_BRANCHES = 4
+
+
+def propose_branches(db: Session, ctx: TurnContext, turn_beats: list[dict]) -> list[dict]:
+    """Generate branch options (label + outcome) for a fork; best-effort → ``[]``."""
+    try:
+        base_url, api_key, model, params = resolve_llm(db)
+    except APIError:
+        return []
+
+    roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(ctx.cast))
+    recent = "\n".join(f"{b.get('role')}: {b.get('text', '')}" for b in turn_beats if b.get("text"))
+    user = f"Roster:\n{roster}\n\nThis turn so far:\n{recent}\n\nOffer the player's branch options now."
+    try:
+        raw = llm.chat_complete(
+            base_url,
+            api_key,
+            model,
+            [{"role": "system", "content": _BRANCH_SYSTEM}, {"role": "user", "content": user}],
+            params,
+            reasoning=DIRECTOR_EFFORT,
+        )
+        data = extract_json(raw)
+    except APIError:
+        return []
+
+    raw_choices = data.get("choices", [])
+    choices: list[dict] = []
+    for item in raw_choices if isinstance(raw_choices, list) else []:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label", "")).strip()
+        if not label:
+            continue
+        choices.append({"label": label, "outcome": str(item.get("outcome", "")).strip()})
+        if len(choices) >= _MAX_BRANCHES:
+            break
+    return choices
+
+
 def _as_int(value: object) -> int | None:
     if isinstance(value, bool):
         return None

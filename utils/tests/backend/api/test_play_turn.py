@@ -244,6 +244,80 @@ def test_pov_mode_emits_no_narration(client, storyline_id, monkeypatch):
     assert all(e["type"] != "narration" for e in events)
 
 
+# ---- P8: stat changes (validated + clamped) + branch choices ------------------
+
+
+def _resp(content: str) -> httpx.Response:
+    return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+
+
+def test_stat_change_streams_clamped_state_update_and_applies(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    client.post(
+        f"/api/storylines/{storyline_id}/stats",
+        json={"key": "suspicion", "displayName": "Suspicion", "min": 0, "max": 100, "default": 50},
+    )
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    emission = (
+        "<speaker:1>\n"
+        '<type:character_dialogue>\n"Don\'t pretend you forgot."\n'
+        '<type:state_update>\n{"key":"suspicion","delta":12,"reason":"old guilt, raised guard"}'
+    )
+    _patch_llm(monkeypatch, emission)
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+    su = next(e for e in events if e["type"] == "state_update")
+    assert su["data"]["stat"]["key"] == "suspicion"
+    assert su["data"]["stat"]["value"] == 62  # default 50 + 12
+    assert su["data"]["stat"]["reason"] == "old guilt, raised guard"
+    # applied on the hot path (clamped) to the character
+    assert client.get(f"/api/characters/{cid}/stats").json()["suspicion"] == 62
+
+
+def test_unknown_proposed_stat_is_dropped_no_event(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    cid, sid = _refs(client, storyline_id)  # no stats defined on this world
+    scid = _scenario(client, storyline_id, [cid], sid)
+    emission = (
+        "<speaker:1>\n"
+        '<type:character_dialogue>\n"Fine."\n'
+        '<type:state_update>\n{"key":"mana","delta":5}'
+    )
+    _patch_llm(monkeypatch, emission)
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+    assert all(e["type"] != "state_update" for e in events)  # unknown stat dropped
+
+
+def test_branch_choices_emitted_when_director_flags_a_fork(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        body = json.loads(request.content.decode())
+        system = body["messages"][0]["content"]
+        if "faces a fork" in system:
+            return _resp(json.dumps({"choices": [{"label": "Back off", "outcome": "de-escalate"}, {"label": "Press her", "outcome": "escalate"}]}))
+        if "scene director" in system:
+            return _resp(json.dumps({"speakers": [1], "needsBranch": True, "beat": "fork"}))
+        user = body["messages"][1]["content"]
+        m = re.search(r"You are \[(\d+)\] (\w+)", user)
+        num, name = (m.group(1), m.group(2)) if m else ("1", "X")
+        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."')
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    kira = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Kira"}).json()["id"]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
+    scid = _scenario(client, storyline_id, [mei, kira], sid)
+    # No directedAt → the reasoned Director runs and flags needsBranch.
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I press the room."}))
+    branch = next(e for e in events if e["type"] == "branch_choices")
+    labels = [c["label"] for c in branch["data"]["choices"]]
+    assert labels == ["Back off", "Press her"]
+    assert all("check" not in c for c in branch["data"]["choices"])  # no dice
+
+
 def test_unknown_scenario_returns_404(client):
     assert client.post("/api/play/nope/turn", json={"text": "hi"}).status_code == 404
 

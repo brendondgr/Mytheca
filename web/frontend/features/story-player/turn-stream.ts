@@ -4,8 +4,8 @@
 // one beat (name once, action italic + bubble), matching the seeded look.
 // state_update / branch_choices are wired into the side panels in a later phase.
 
-import type { PlayEvent, TurnStreamFrame } from "@/lib/events";
-import type { SceneMessage } from "./scene-data";
+import type { PlayEvent, StatPatch, TurnStreamFrame } from "@/lib/events";
+import type { SceneChoice, SceneMessage, StatChip } from "./scene-data";
 
 /** Append/extend the message that owns `id`, or push a new one (delta accumulation). */
 function mergeDelta(
@@ -69,4 +69,31 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
 export function sessionIdOf(frame: TurnStreamFrame): string | null {
   if (frame.type === "error") return null;
   return frame.sessionId || null;
+}
+
+/** Upsert a stat chip from a clamped state_update (match by key, else append). */
+export function applyStatUpdate(stats: StatChip[], stat: StatPatch): StatChip[] {
+  const key = stat.key.toLowerCase();
+  const value = stat.value ?? 0;
+  const idx = stats.findIndex(
+    (c) => c.label.toLowerCase() === key || c.label.toLowerCase().includes(key),
+  );
+  const cap = stat.key.charAt(0).toUpperCase() + stat.key.slice(1);
+  if (idx === -1) return [...stats, { label: cap, value, reason: stat.reason }];
+  const next = stats.slice();
+  next[idx] = { ...next[idx], value, reason: stat.reason };
+  return next;
+}
+
+/** Map streamed branch options to renderable choices (no dice — D11). */
+export function branchOptionsToChoices(
+  options: { label: string; outcome: string }[],
+): SceneChoice[] {
+  return options.map((o, i) => ({
+    id: `live${i}`,
+    label: o.label,
+    outcome: o.outcome,
+    player: o.label,
+    follow: { who: "", text: "" },
+  }));
 }

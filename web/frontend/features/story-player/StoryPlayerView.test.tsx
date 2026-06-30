@@ -31,14 +31,14 @@ const embergate = resolveScenario(
 );
 
 describe("StoryPlayerView", () => {
-  it("renders the scripted transcript beats (narrator, dialogue, check, choices)", () => {
+  it("renders the seeded transcript beats (narrator, dialogue, choices — no dice)", () => {
     render(<StoryPlayerView scenario={embergate} />);
     expect(
       screen.getByText(/Lamplight gutters across the Saltworn/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/The tide doesn't wait/i)).toBeInTheDocument();
-    expect(screen.getByText("d20 check")).toBeInTheDocument();
     expect(screen.getByText(/Your move/i)).toBeInTheDocument();
+    expect(screen.queryByText("d20 check")).not.toBeInTheDocument(); // CheckCard retired (D11)
   });
 
   it("surfaces the storyline stat schema in the director rail", () => {
@@ -79,14 +79,30 @@ describe("StoryPlayerView", () => {
     );
   });
 
-  it("applies a choice: updates a stat and advances the scene", async () => {
+  it("selecting a branch submits a real turn; a streamed state_update moves the stat panel", async () => {
+    const speaker = embergate.cast[0];
+    vi.mocked(postTurn).mockImplementation(
+      streamOf(
+        {
+          type: "character_dialogue", id: "d1", seq: 1, scenarioId: embergate.id,
+          sessionId: "ps", ts: "t", visibility: "public",
+          data: { characterId: speaker.id, text: "Afraid is a strong word.", done: true },
+        } as TurnStreamFrame,
+        {
+          type: "state_update", id: "s1", seq: 2, scenarioId: embergate.id,
+          sessionId: "ps", ts: "t", visibility: "public",
+          data: { patch: {}, stat: { characterId: speaker.id, key: "suspicion", delta: 65, value: 67, reason: "pressed hard" } },
+        } as TurnStreamFrame,
+      ),
+    );
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
     expect(screen.getByText("+2")).toBeInTheDocument(); // Suspicion starts at +2
     await user.click(
       screen.getByRole("button", { name: /confront maerin about the captain/i }),
     );
-    expect(screen.getByText("+4")).toBeInTheDocument(); // Suspicion +2
-    expect(screen.getByText(/Afraid is a strong word/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Afraid is a strong word/i)).toBeInTheDocument();
+    expect(await screen.findByText("+67")).toBeInTheDocument(); // clamped value from the stream
+    expect(vi.mocked(postTurn)).toHaveBeenCalled();
   });
 });

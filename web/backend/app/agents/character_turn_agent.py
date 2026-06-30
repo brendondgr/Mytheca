@@ -47,12 +47,17 @@ Emit ONLY this format and nothing else — no preamble, no markdown, no commenta
 <type:character_dialogue>
 {your character's spoken line}
 
+You MAY, only when this beat genuinely moves a tracked stat, add a state_update block with a stat JSON:
+<type:state_update>
+{"key": "<stat key>", "delta": <signed integer>, "reason": "<short why>"}
+
 Rules:
 - N is your character's roster number (given below).
 - Lead with <thinking>: a brief, in-*your*-voice thought that sets up your line (e.g. "Coin first, favor later — let him sweat."). Condition it on concrete priorities, never on a trait label; keep it clipped, never a formal narrator's analysis.
 - Always include character_dialogue. Include character_action only when your character does something physical.
+- Use state_update only for a real shift in a stat listed in "Your current state", with a short reason — never invent a stat key. Most turns move nothing; omit it then.
 - Never narrate or speak for any other character; react only as your character.
-- Keep it tight and in-voice — the thought, one beat, the spoken line, nothing more."""
+- Keep it tight and in-voice — the thought, one beat, the spoken line, an optional stat shift, nothing more."""
 
 
 def _voice_params(params: LlmParams) -> LlmParams:

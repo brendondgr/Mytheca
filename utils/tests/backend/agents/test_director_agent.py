@@ -106,3 +106,32 @@ def test_malformed_director_reply_falls_back(client, db_session, monkeypatch):
     _patch(monkeypatch, "not json at all")
     d = director_agent.who_is_up(db_session, _ctx(_cast("mei", "kira")))
     assert d.speakers == ["mei"] and d.beat == "fallback"
+
+
+def test_propose_branches_parses_label_and_outcome(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch(
+        monkeypatch,
+        json.dumps(
+            {"choices": [{"label": "Back off", "outcome": "de-escalate"}, {"label": "Press her", "outcome": "escalate"}]}
+        ),
+    )
+    branches = director_agent.propose_branches(db_session, _ctx(_cast("mei", "kira")), [])
+    assert [b["label"] for b in branches] == ["Back off", "Press her"]
+    assert branches[0]["outcome"] == "de-escalate"
+    assert all("check" not in b for b in branches)  # no dice (D11)
+
+
+def test_propose_branches_drops_empty_labels_and_caps(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch(
+        monkeypatch,
+        json.dumps({"choices": [{"label": ""}, {"label": "A"}, {"label": "B"}, {"label": "C"}, {"label": "D"}, {"label": "E"}]}),
+    )
+    branches = director_agent.propose_branches(db_session, _ctx(_cast("mei")), [])
+    assert len(branches) == director_agent._MAX_BRANCHES
+    assert all(b["label"] for b in branches)
+
+
+def test_propose_branches_empty_when_unconfigured(db_session):
+    assert director_agent.propose_branches(db_session, _ctx(_cast("mei")), []) == []

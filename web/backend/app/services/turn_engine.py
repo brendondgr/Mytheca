@@ -31,7 +31,7 @@ from app.memory import buffer
 from app.models import Scenario
 from app.schemas.base import EventType, Visibility
 from app.schemas.play import TurnRequest
-from app.services import assembler, crud, emission, events_store, turn_writer
+from app.services import assembler, crud, emission, events_store, stats, turn_writer, validator
 from app.services.assembler import CastMember, TurnContext
 from app.services.turn_writer import Consequence
 
@@ -169,7 +169,14 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
         # Narrator Mode: a transition beat before the speaker (POV Mode: off — D1).
         if req.mode == "narrator":
             yield from _narrator_interstitial(db, ctx, turn_beats, emitter)
-        yield from _generate_speaker(db, ctx, speaker, emitter, turn_beats)
+        yield from _generate_speaker(db, ctx, speaker, emitter, turn_beats, consequences)
+
+    # A narrative fork (after the line-to-line consistency pass seam): stats inform
+    # which options surface, but never gate the choice mechanically (no dice — D11).
+    if decision.needs_branch:
+        branches = director_agent.propose_branches(db, ctx, turn_beats)
+        if branches:
+            yield from emitter.emit("branch_choices", {"choices": branches})
 
     # Cold path (Band 3): runs after the last event is yielded — never blocks the
     # player, best-effort, no-op when there are no consequences or the graph is down.
@@ -209,6 +216,7 @@ def _generate_speaker(
     speaker: CastMember,
     emitter: _Emitter,
     turn_beats: list[dict],
+    consequences: list[Consequence],
 ) -> Iterator[StoryEvent]:
     """Generate one speaker's beat, emit its events, and append them to ``turn_beats``."""
     raw = character_turn_agent.generate_line(db, ctx, speaker, turn_beats=turn_beats)
@@ -237,3 +245,35 @@ def _generate_speaker(
                 buffer_role="character",
             )
             turn_beats.append({"role": "character", "text": seg.text, "characterId": seg.character_id})
+        elif seg.type == "state_update":
+            yield from _apply_stat_change(db, ctx, seg.character_id, seg.text, emitter, consequences)
+
+
+def _apply_stat_change(
+    db: Session,
+    ctx: TurnContext,
+    character_id: str,
+    raw: str,
+    emitter: _Emitter,
+    consequences: list[Consequence],
+) -> Iterator[StoryEvent]:
+    """Validate + clamp a proposed stat change, apply it (hot path), emit, and record it."""
+    patch = validator.validate_stat(db, ctx.storyline_id, character_id, raw)
+    if patch is None:  # unknown stat / malformed → dropped
+        return
+    # Apply on the hot path (clamped again — idempotent); then emit the full event.
+    value = patch.value if patch.value is not None else 0
+    stats.set_character_stats(db, patch.character_id, {patch.key: value})
+    yield from emitter.emit(
+        "state_update", {"patch": {}, "stat": patch.model_dump(by_alias=True)}
+    )
+    delta = patch.delta or 0
+    consequences.append(
+        Consequence(
+            id=new_id("cons"),
+            summary=f"{patch.key} {delta:+d}: {patch.reason}".strip(),
+            source_id=patch.character_id,
+            reason=patch.reason,
+            weight=float(delta),
+        )
+    )

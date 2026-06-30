@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import type { TurnStreamFrame } from "@/lib/events";
-import type { SceneMessage } from "./scene-data";
-import { mergeFrame, sessionIdOf } from "./turn-stream";
+import type { StatPatch, TurnStreamFrame } from "@/lib/events";
+import type { SceneMessage, StatChip } from "./scene-data";
+import { applyStatUpdate, branchOptionsToChoices, mergeFrame, sessionIdOf } from "./turn-stream";
 
 function ev(type: string, id: string, data: unknown): TurnStreamFrame {
   return {
@@ -62,5 +62,33 @@ describe("sessionIdOf", () => {
   it("returns the envelope sessionId, null for error frames", () => {
     expect(sessionIdOf(ev("narration", "n1", { text: "a", done: true }))).toBe("ps1");
     expect(sessionIdOf({ type: "error", message: "x" })).toBeNull();
+  });
+});
+
+describe("applyStatUpdate", () => {
+  const stat = (key: string, value: number, reason = ""): StatPatch => ({
+    characterId: "c", key, value, reason,
+  });
+
+  it("updates a matching chip's value + reason (case-insensitive)", () => {
+    const chips: StatChip[] = [{ label: "Suspicion", value: 2 }];
+    const next = applyStatUpdate(chips, stat("suspicion", 67, "pressed"));
+    expect(next).toHaveLength(1);
+    expect(next[0].value === 67 && next[0].reason === "pressed").toBe(true);
+  });
+
+  it("appends a new chip for an unseen stat", () => {
+    const next = applyStatUpdate([], stat("trust", 38));
+    expect(next).toEqual([{ label: "Trust", value: 38, reason: "" }]);
+  });
+});
+
+describe("branchOptionsToChoices", () => {
+  it("maps label/outcome to renderable choices (no check field)", () => {
+    const choices = branchOptionsToChoices([{ label: "Back off", outcome: "de-escalate" }]);
+    expect(choices[0].label).toBe("Back off");
+    expect(choices[0].outcome).toBe("de-escalate");
+    expect(choices[0].player).toBe("Back off");
+    expect("check" in choices[0]).toBe(false);
   });
 });

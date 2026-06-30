@@ -564,10 +564,14 @@ Request body: `{ "text": "…", "directedAt": "ch_id" | null, "sessionId": "ps_�
 "mode": "pov" | "narrator" }` (omit `sessionId` to open a new play session; the streamed
 events carry the resolved `sessionId`; `mode` defaults to `pov`). Multiple speakers stream
 **sequentially** in the Director's order — a later speaker reacts to its predecessor (the
-hidden `internal_thought` of each is withheld from the stream and from later speakers). The
-player's input is persisted as a `user_turn` event at `seq` 0 of the turn
-(not streamed back — the client already shows it optimistically); the bot's events follow at
-the next seqs. A mid-stream failure is the terminal `{ "type": "error", "message": "…" }`
+hidden `internal_thought` of each is withheld from the stream and from later speakers). A
+speaker may propose a stat change (a thin `state_update` block): the validator confirms the
+stat exists, applies the **delta/value clamped to `[min,max]`** on the hot path (keeping the
+`reason`), and emits a `state_update` event — an unknown stat is dropped. When the Director
+flags a fork, a `branch_choices` event offers `label` + `outcome` options (no dice — D11);
+stats inform which surface, never gate them. The player's input is persisted as a
+`user_turn` event at `seq` 0 of the turn (not streamed back — the client already shows it
+optimistically); the bot's events follow at the next seqs. A mid-stream failure is the terminal `{ "type": "error", "message": "…" }`
 frame; pre-flight failures (unknown scenario, empty text, bad session) are a normal error
 envelope before the 200 opens.
 

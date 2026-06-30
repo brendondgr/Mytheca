@@ -11,14 +11,15 @@ import {
   type SceneMessage,
   type StatChip,
 } from "./scene-data";
-import { mergeFrame, sessionIdOf } from "./turn-stream";
+import { applyStatUpdate, branchOptionsToChoices, mergeFrame, sessionIdOf } from "./turn-stream";
 
 /** Client state + interactions for a live scene: a streamed turn loop over the backend. */
 export function useScenePlay(scenario: ResolvedScenario) {
   const [seed] = useState(() => buildScene(scenario));
   const [messages, setMessages] = useState<SceneMessage[]>(seed.messages);
-  const [tension, setTension] = useState(seed.tension);
+  const [tension] = useState(seed.tension);
   const [stats, setStats] = useState<StatChip[]>(seed.stats);
+  const [choices, setChoices] = useState<SceneChoice[]>(seed.choices);
   const [composer, setComposer] = useState("");
   const [loading, setLoading] = useState(true);
   const [reveal, setReveal] = useState(false);
@@ -44,48 +45,51 @@ export function useScenePlay(scenario: ResolvedScenario) {
       setStreamError(frame.message);
       return;
     }
+    if (frame.type === "state_update") {
+      if (frame.data.stat) setStats((s) => applyStatUpdate(s, frame.data.stat!));
+      return;
+    }
+    if (frame.type === "branch_choices") {
+      setChoices(branchOptionsToChoices(frame.data.choices));
+      setMessages((m) => [...m.filter((x) => x.kind !== "choices"), { kind: "choices" }]);
+      return;
+    }
     setMessages((prev) => mergeFrame(prev, frame));
   }, []);
 
   const stream = useEventStream<TurnStreamFrame>(onFrame);
   const sending = stream.status === "streaming";
 
-  const send = useCallback(() => {
-    const text = composer.trim();
-    if (!text || sending) return; // in-flight guard
-    setComposer("");
-    setStreamError(null);
-    // Optimistic player bubble; clear any open branch choices.
-    setMessages((m) => [...m.filter((x) => x.kind !== "choices"), { kind: "player", text }]);
-    void stream
-      .run((signal) => postTurn(scenario.id, { text, sessionId: sessionRef.current }, signal))
-      .catch(() => setStreamError((e) => e ?? "The turn could not be completed."));
-  }, [composer, sending, scenario.id, stream]);
+  const submit = useCallback(
+    (text: string) => {
+      const t = text.trim();
+      if (!t || sending) return; // in-flight guard
+      setStreamError(null);
+      // Optimistic player bubble; clear any open branch choices.
+      setMessages((m) => [...m.filter((x) => x.kind !== "choices"), { kind: "player", text: t }]);
+      void stream
+        .run((signal) => postTurn(scenario.id, { text: t, sessionId: sessionRef.current }, signal))
+        .catch(() => setStreamError((e) => e ?? "The turn could not be completed."));
+    },
+    [sending, scenario.id, stream],
+  );
 
-  // Branch selection stays scripted until the branch/stat phase wires it to the engine.
-  function choose(c: SceneChoice) {
-    setStats((s) =>
-      s.map((chip) => {
-        if (c.suspicion && chip.label === "Suspicion")
-          return { ...chip, value: chip.value + c.suspicion };
-        if (c.trust && chip.label.toLowerCase().includes("trust"))
-          return { ...chip, value: chip.value + c.trust };
-        return chip;
-      }),
-    );
-    setTension((t) => Math.min(100, t + (c.tension ?? 0)));
-    setMessages((m) => [
-      ...m.filter((x) => x.kind !== "choices"),
-      { kind: "player", text: c.player },
-      { kind: "char", who: c.follow.who, action: c.follow.action, text: c.follow.text },
-    ]);
-  }
+  const send = useCallback(() => {
+    if (sending) return;
+    const text = composer.trim();
+    if (!text) return;
+    setComposer("");
+    submit(text);
+  }, [composer, sending, submit]);
+
+  // Selecting a branch submits a real turn (no scripted check/follow — D11).
+  const choose = useCallback((c: SceneChoice) => submit(c.player || c.label), [submit]);
 
   const lastSpeaker = [...messages].reverse().find((m) => m.kind === "char");
 
   return {
     messages,
-    choices: seed.choices,
+    choices,
     tension,
     stats,
     relationships: seed.relationships,
