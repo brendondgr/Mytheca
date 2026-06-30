@@ -99,6 +99,7 @@ def build_world(data: BuildWorldRequest, db: Session = Depends(get_db)):
         max_settings=data.max_settings,
         character_docs=data.character_docs,
         setting_docs=data.setting_docs,
+        other_docs=data.other_docs,
     )
 
 
@@ -120,7 +121,9 @@ def build_world_stream(data: BuildWorldRequest, db: Session = Depends(get_db)):
         db,
         data.seed,
         data.docs_overview,
-        has_entity_docs=build_agent.has_buildable_docs(data.character_docs, data.setting_docs),
+        has_entity_docs=build_agent.has_buildable_docs(
+            data.character_docs, data.setting_docs, data.other_docs
+        ),
     )
 
     def _lines() -> Iterator[str]:
@@ -134,6 +137,7 @@ def build_world_stream(data: BuildWorldRequest, db: Session = Depends(get_db)):
                 max_settings=data.max_settings,
                 character_docs=data.character_docs,
                 setting_docs=data.setting_docs,
+                other_docs=data.other_docs,
             ):
                 yield event.model_dump_json(by_alias=True) + "\n"
         except APIError as exc:

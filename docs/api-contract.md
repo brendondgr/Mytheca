@@ -314,11 +314,13 @@ on-page context-budget meter).
   falls back to `other`/RAG-on; unconfigured LLM → `400`; non-JSON reply → `502`. The
   classified docs are persisted on commit via the **Context documents** bulk endpoint.
 - `POST /storylines/build` — `{ seed?, docsOverview?, storylineId?, maxCharacters?,
-  maxSettings?, characterDocs?: [{ name, text }], settingDocs?: [{ name, text }] }`
-  (at least one of `seed` / `docsOverview` / a `characterDocs`/`settingDocs` entry is
-  required). Orchestrates several LLM calls (storyline draft → World Primer → one
-  **blueprint** call for the stat schema → one draft per attached character-doc → one
-  draft per attached setting-doc) and returns a reviewable `ProposedWorld`:
+  maxSettings?, characterDocs?: [{ name, text }], settingDocs?: [{ name, text }],
+  otherDocs?: [{ name, text }] }`
+  (at least one of `seed` / `docsOverview` / any attached doc is required). Orchestrates
+  several LLM calls (storyline draft → World Primer → one **blueprint** call for the
+  stat schema → **one extraction call per attached doc** that lists the distinct
+  characters/settings it contains → one draft per extracted character → one draft per
+  extracted setting) and returns a reviewable `ProposedWorld`:
 
   ```json
   {
@@ -329,15 +331,18 @@ on-page context-budget meter).
   }
   ```
 
-  **The cast/settings come ONLY from the attached docs** — exactly one character per
-  `characterDocs` entry and one setting per `settingDocs` entry, each drafted from that
-  doc. The build never **invents** a character/setting the author didn't attach: with no
-  `characterDocs`, `characters` is `[]` (likewise settings). The storyline metadata,
-  World Primer, and the universal **stat schema** are always produced. Nothing is
-  persisted by this call — the page reviews the proposal and commits it via the normal
-  CRUD endpoints (rendering portraits/scene-art then, only if ComfyUI is reachable).
-  The cast/settings are **one per attached doc (no cap)** — build as many as you
-  attach; only the invented **stats** are bounded (≤8). Proposed stats are
+  **The cast/settings come ONLY from the attached docs, but each doc is *mined*** —
+  every attached doc (`characterDocs` + `settingDocs` + `otherDocs`) is scanned for the
+  **distinct characters and settings it contains**, and one card is drafted per subject
+  found. A single file describing several characters yields several character cards; a
+  mixed/`other` doc yields both kinds; a pure-lore doc yields none (it still grounds the
+  world). Subjects are de-duped across docs by folded name. The build never **invents** a
+  character/setting the author didn't attach: with no docs, `characters`/`settings` are
+  `[]`. The storyline metadata, World Primer, and the universal **stat schema** are
+  always produced. Nothing is persisted by this call — the page reviews the proposal and
+  commits it via the normal CRUD endpoints (rendering portraits/scene-art then, only if
+  ComfyUI is reachable). The cast/settings are **uncapped** (every distinct subject the
+  author attached becomes a card); only the invented **stats** are bounded (≤8). Proposed stats are
   sanitized to valid ranges so they persist straight through `POST /storylines/{id}/stats`;
   starting stats default to the schema defaults. No context at all → `400`; unconfigured
   LLM → `400`; a non-JSON sub-reply → `502`.
@@ -353,12 +358,12 @@ The non-streaming `/build` + `/triage` routes above are unchanged (collectors ov
 same generators).
 
 - `POST /storylines/build/stream` — same body as `/build`. Emits, in order:
-  - `{ "type": "status", "stage": "metadata|primer|blueprint|characters|settings", "message": "…" }` — progress markers.
+  - `{ "type": "status", "stage": "metadata|primer|blueprint|extract|characters|settings", "message": "…" }` — progress markers.
   - `{ "type": "meta", "title", "genre", "tagline", "premise" }` — storyline metadata drafted.
   - `{ "type": "primer", "worldPrimer": "…" }` — the World Primer.
-  - `{ "type": "plan", "stats": […], "characters": ["label", …], "settings": ["label", …] }` — the stat schema + the skeleton labels for the cast/settings to be built (the attached doc names; empty when none are attached).
-  - `{ "type": "character", "index", "total", "character": { … } }` — one full character per attached character-doc (fills its skeleton).
-  - `{ "type": "setting", "index", "total", "setting": { … } }` — one full setting per attached setting-doc.
+  - `{ "type": "plan", "stats": […], "characters": ["name", …], "settings": ["name", …] }` — the stat schema + the skeleton labels for the cast/settings to be built (the **extracted subject names**, after every attached doc is mined; empty when no subjects are found).
+  - `{ "type": "character", "index", "total", "character": { … } }` — one full character per extracted subject (fills its skeleton).
+  - `{ "type": "setting", "index", "total", "setting": { … } }` — one full setting per extracted subject.
   - `{ "type": "done", "world": ProposedWorld }` — terminal success (the assembled proposal).
   - `{ "type": "error", "message": "…" }` — terminal in-band failure.
 - `POST /storylines/triage/stream` — same body as `/triage`, but classifies **one

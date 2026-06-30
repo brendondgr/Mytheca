@@ -24,10 +24,36 @@ MAX_STATS = 8
 
 
 class BuildDoc(CamelModel):
-    """An attached reference document that names ONE character or setting to build."""
+    """An attached reference document to mine for characters / settings to build.
+
+    A doc may describe ONE subject or MANY (a roster, a mixed scene, general lore).
+    The build runs an extraction pass over every attached doc, so a single file with
+    several characters becomes several cards. ``category`` is the author's triage
+    bucket (``character`` / ``setting`` / ``other``), kept as a soft hint only — the
+    extractor surfaces whatever subjects it actually finds regardless.
+    """
 
     name: str = ""
     text: str = ""
+    category: str | None = None
+
+
+class ExtractedEntity(CamelModel):
+    """One distinct subject found inside a document by the extraction agent.
+
+    ``name`` labels the skeleton card; ``source`` is a focused brief for that single
+    subject, handed to ``draft_character`` / ``draft_setting`` to flesh out.
+    """
+
+    name: str = ""
+    source: str = ""
+
+
+class ExtractedEntities(CamelModel):
+    """The characters + settings the extraction agent found in one document."""
+
+    characters: list[ExtractedEntity] = []
+    settings: list[ExtractedEntity] = []
 
 
 class BuildWorldRequest(CamelModel):
@@ -39,12 +65,16 @@ class BuildWorldRequest(CamelModel):
     storyline_id: str | None = None
     max_characters: int | None = None
     max_settings: int | None = None
-    # Attached, triaged docs that ARE the cast / places: when present, the build
-    # creates exactly one character per character-doc and one setting per
-    # setting-doc (it does NOT invent its own). Only when a list is empty does the
-    # build fall back to inventing that kind from the blueprint (seed-only flow).
+    # Attached, triaged reference docs to mine for the cast / places. The build runs
+    # an extraction pass over EVERY attached doc (character + setting + other bucket)
+    # and drafts one card per distinct character and per distinct setting it finds —
+    # so a single file describing several characters yields several cards instead of
+    # being lost. The three lists carry the author's triage bucket; extraction
+    # surfaces whatever subjects each doc actually contains. The build never invents
+    # an entity from thin air — with no docs, no cast/settings are created.
     character_docs: list[BuildDoc] = []
     setting_docs: list[BuildDoc] = []
+    other_docs: list[BuildDoc] = []
 
 
 class ProposedStoryline(CamelModel):

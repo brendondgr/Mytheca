@@ -242,13 +242,15 @@ author mid-creation never loses their pending image. Deletion is doubly guarded
 ## Build Everything Flow (the New Storyline world build)
 
 ```
-New Storyline page → "Build the whole world" → POST /storylines/build {seed?, docsOverview?}
-  → build_agent orchestrates (configured LLM, one call per entity):
+New Storyline page → "Build the whole world" → POST /storylines/build {seed?, docsOverview?, …Docs?}
+  → build_agent orchestrates (configured LLM):
       draft_storyline → metadata
       generate_world_primer → World Primer
-      blueprint → universal stat schema + character/setting concepts
-      draft_character × N (grounded in the just-drafted world brief)
-      draft_setting   × M
+      blueprint → universal stat schema (its invented concepts are ignored)
+      extract_agent.extract_entities × (one per attached doc) → the roster of
+        distinct characters + settings each doc contains (deduped across docs)
+      draft_character × N (one per extracted character, grounded in the world brief)
+      draft_setting   × M (one per extracted setting)
   → ProposedWorld returned for REVIEW (nothing persisted yet)
   → author edits/prunes → "Create world" commits via normal CRUD:
       POST /storylines → POST …/stats × → POST …/characters × (+ portrait if ComfyUI)
@@ -271,9 +273,10 @@ New Storyline page → "Build the whole world" → POST /storylines/build/stream
   → for-await over the response body (lib/api.postNdjson):
       status → meta  → left fields fill (Title/Genre/Tagline/Premise)
       status → primer→ World Primer fills
-      status → plan  → stat schema + skeleton labels (the attached doc names)
-      character × N  → one per ATTACHED character-doc, fills its skeleton card
-      setting   × M  → one per ATTACHED setting-doc, fills its skeleton card
+      status → extract→ every attached doc is mined for its distinct subjects
+      status → plan  → stat schema + skeleton labels (the EXTRACTED subject names)
+      character × N  → one per extracted character, fills its skeleton card
+      setting   × M  → one per extracted setting, fills its skeleton card
       done           → canonical ProposedWorld swapped in (review mode)
   → if ComfyUI REACHABLE (status preflight): renderProposalImages renders each
       portrait/scene-art and patches the displayed entity → IMAGE previews pop in live
@@ -282,10 +285,14 @@ New Storyline page → "Build the whole world" → POST /storylines/build/stream
 ```
 
 The build creates the storyline, the stat schema, and **only the characters/settings
-attached as context docs** — one entity per doc, drafted from it. It never invents a
-cast: no character docs → no characters created (likewise settings). `useStorylineCreator.build()`
-sends `characterDocs`/`settingDocs` (docs categorized as such); the backend builds one
-entity per doc.
+found in the attached context docs** — but each doc is **mined** for *every* distinct
+subject it names (an extraction pass per doc), so a single markdown file describing
+several characters yields several cards instead of being lost or collapsed into one. A
+mixed/`other` doc yields both characters and settings; a pure-lore doc yields none (it
+still grounds the world). Subjects are de-duped across docs (uncapped). It never invents
+a cast from thin air: no docs → no characters/settings. `useStorylineCreator.build()`
+sends **every** kept doc — `characterDocs`/`settingDocs` (their triage bucket) plus
+`otherDocs` (everything else, mined for both) — and the backend extracts the roster.
 
 The page consumes the stream in `useStorylineCreator.build()`, accumulating into
 `proposed` + `planConcepts`; the right pane (`WorldBuildPanel`) renders the cast/settings

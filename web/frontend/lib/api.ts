@@ -226,10 +226,12 @@ export interface BuildWorldBody {
   storylineId?: string;
   maxCharacters?: number;
   maxSettings?: number;
-  /** Attached docs that ARE the cast — one character is built per doc (none if empty). */
+  /** Attached docs triaged as characters — mined for every distinct character. */
   characterDocs?: { name: string; text: string }[];
-  /** Attached docs that ARE the places — one setting is built per doc (none if empty). */
+  /** Attached docs triaged as settings — mined for every distinct place. */
   settingDocs?: { name: string; text: string }[];
+  /** Attached docs triaged as 'other' (multi-subject / mixed) — mined for both. */
+  otherDocs?: { name: string; text: string }[];
 }
 
 export const buildWorld = (body: BuildWorldBody) =>
