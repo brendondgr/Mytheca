@@ -624,6 +624,8 @@ export function useLibraryState(initialStorylineId?: string) {
       name: s.name, type: s.type, desc: s.desc,
       atmosphere: s.atmosphere ?? "", features: s.features ?? "",
       currentState: s.currentState ?? "", image: s.image ?? null,
+      _sceneArtPositive: s.sceneArtPositive ?? "",
+      _sceneArtNegative: s.sceneArtNegative ?? "",
       timeline: s.timeline ?? [],
     });
     setError(null);
@@ -752,6 +754,9 @@ export function useLibraryState(initialStorylineId?: string) {
           features: d.features?.trim() || null,
           currentState: d.currentState?.trim() || null,
           image: d.image || null,
+          // Persist the prompts that produced the image so they survive re-edit.
+          sceneArtPositive: d._sceneArtPositive?.trim() || null,
+          sceneArtNegative: d._sceneArtNegative?.trim() || null,
         };
         if (editId) {
           const updated = await api.updateSetting(editId, body);
