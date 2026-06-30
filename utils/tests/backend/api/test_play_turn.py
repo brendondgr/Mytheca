@@ -154,6 +154,31 @@ def test_unconfigured_llm_emits_terminal_error_frame(client, storyline_id):
     assert events[-1]["type"] == "error"
 
 
+def test_internal_thought_persisted_hidden_and_withheld(client, db_session, storyline_id, monkeypatch):
+    from sqlalchemy import select
+
+    from app.models import Event
+
+    _configure_llm(client)
+    emission = (
+        "<speaker:1>\n"
+        "<thinking>Coin first, favor later. Let him sweat.</thinking>\n"
+        "<type:character_dialogue>\n\"Coin's easy.\""
+    )
+    _patch_llm(monkeypatch, emission)
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+
+    # Hidden thinking is never placed on the wire …
+    assert all(e["type"] != "internal_thought" for e in events)
+    # … but it is persisted with visibility hidden, as conditioning context.
+    rows = db_session.scalars(select(Event).where(Event.type == "internal_thought")).all()
+    assert len(rows) == 1
+    assert rows[0].visibility == "hidden"
+    assert "Let him sweat" in rows[0].data["text"]
+
+
 def test_unknown_scenario_returns_404(client):
     assert client.post("/api/play/nope/turn", json={"text": "hi"}).status_code == 404
 

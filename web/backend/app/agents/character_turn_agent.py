@@ -18,17 +18,30 @@ from sqlalchemy.orm import Session
 
 from app.agents._common import gen_params, resolve_llm
 from app.schemas.reasoning import ReasoningEffort
+from app.schemas.settings import LlmParams
 from app.services import llm
 from app.services.assembler import CastMember, TurnContext
 
-# A spoken line wants minimal *hidden* reasoning (voice comes from the prompt, not a
-# long internal monologue); keep the thinking budget low so the turn stays snappy.
+# A spoken line wants minimal *hidden* reasoning (voice comes from the prompt + the
+# short visible thinking block, not a long internal monologue); keep the hidden
+# thinking budget low so the turn stays snappy.
 TURN_EFFORT = ReasoningEffort.LOW
+
+# Sampler tuning for in-character voice on small models (the turn-loop plan §7):
+# repetition/frequency penalties + a lower top_p rein in drift more reliably than
+# raising temperature. Applied per turn-call (a per-storyline/character voice setting
+# is a recorded seam). Temperature + max_tokens are kept from the operator's config.
+_VOICE_TOP_P = 0.92
+_VOICE_FREQUENCY_PENALTY = 0.4
+_VOICE_PRESENCE_PENALTY = 0.3
 
 _OUTPUT_CONTRACT = """You voice exactly ONE character in a living, in-progress scene. Stay fully in character.
 
 Emit ONLY this format and nothing else — no preamble, no markdown, no commentary:
 <speaker:N>
+<thinking>
+{a SHORT thought in your character's own voice — your standpoint and what you want right now, not analysis. One or two clipped sentences. This is private and is never shown to anyone.}
+</thinking>
 <type:character_action>
 {a short third-person beat of what your character physically does, present tense — optional}
 <type:character_dialogue>
@@ -36,9 +49,21 @@ Emit ONLY this format and nothing else — no preamble, no markdown, no commenta
 
 Rules:
 - N is your character's roster number (given below).
+- Lead with <thinking>: a brief, in-*your*-voice thought that sets up your line (e.g. "Coin first, favor later — let him sweat."). Condition it on concrete priorities, never on a trait label; keep it clipped, never a formal narrator's analysis.
 - Always include character_dialogue. Include character_action only when your character does something physical.
 - Never narrate or speak for any other character; react only as your character.
-- Keep it tight and in-voice — one beat, the spoken line, nothing more."""
+- Keep it tight and in-voice — the thought, one beat, the spoken line, nothing more."""
+
+
+def _voice_params(params: LlmParams) -> LlmParams:
+    """Floor max_tokens (reasoning headroom) and apply the voice-tuned sampler fields."""
+    return gen_params(params).model_copy(
+        update={
+            "top_p": _VOICE_TOP_P,
+            "frequency_penalty": _VOICE_FREQUENCY_PENALTY,
+            "presence_penalty": _VOICE_PRESENCE_PENALTY,
+        }
+    )
 
 
 def generate_line(
@@ -58,7 +83,7 @@ def generate_line(
         api_key,
         model,
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        gen_params(params),
+        _voice_params(params),
         reasoning=reasoning,
     )
 

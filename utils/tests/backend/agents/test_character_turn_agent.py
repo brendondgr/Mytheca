@@ -92,3 +92,25 @@ def test_prompt_is_bookended_and_grounded(client, db_session, monkeypatch):
     # TAIL (recency): act-now is last.
     assert user.rstrip().endswith("Emit only the tagged format.")
     assert "Respond now, in Mei's voice" in user
+
+
+def test_prompt_requests_a_hidden_thinking_block(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(db_session, ctx, ctx.cast[0], "x")
+    system = json.loads(capture["body"])["messages"][0]["content"]
+    assert "<thinking>" in system and "never shown" in system
+
+
+def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(db_session, ctx, ctx.cast[0], "x")
+    body = json.loads(capture["body"])
+    assert body["top_p"] == 0.92
+    assert body["frequency_penalty"] == 0.4
+    assert body["presence_penalty"] == 0.3
