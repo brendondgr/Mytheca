@@ -44,6 +44,17 @@ describe("SettingCard", () => {
     expect(container.querySelector('[aria-current="true"]')).toBeNull();
   });
 
+  it("glows in the theme accent color only when active", () => {
+    const { container, rerender } = render(<SettingCard setting={base} />);
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className).not.toContain("velora-glow");
+    expect(card.style.getPropertyValue("--glow-color")).toBe("");
+
+    rerender(<SettingCard setting={base} active />);
+    expect(card.className).toContain("velora-glow");
+    expect(card.style.getPropertyValue("--glow-color")).toBe("var(--accent)");
+  });
+
   it("fires onEdit from the pencil", async () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
