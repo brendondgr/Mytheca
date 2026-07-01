@@ -32,7 +32,8 @@ describe("TurnInspectorPanel", () => {
 
   it("renders the turn's steps in order with the Director rationale and hidden thinking", () => {
     render(<TurnInspectorPanel open onClose={() => {}} turns={[turn()]} />);
-    expect(screen.getByRole("dialog", { name: /turn inspector/i })).toBeInTheDocument();
+    // Docked column (complementary landmark, not a modal dialog) so the chat stays visible.
+    expect(screen.getByRole("complementary", { name: /turn inspector/i })).toBeInTheDocument();
     expect(screen.getByText(/You addressed Mei directly/)).toBeInTheDocument();
     expect(screen.getByText("Coin first, favor later.")).toBeInTheDocument(); // surfaced thinking
     expect(screen.getByText('"Coin is easy."')).toBeInTheDocument();
@@ -40,11 +41,10 @@ describe("TurnInspectorPanel", () => {
     expect(screen.queryByText("You submitted a message")).not.toBeInTheDocument();
   });
 
-  it("closes via the close button and the backdrop", async () => {
+  it("closes via the close button", async () => {
     const onClose = vi.fn();
     render(<TurnInspectorPanel open onClose={onClose} turns={[turn()]} />);
     await userEvent.click(screen.getByRole("button", { name: /^close$/i }));
-    await userEvent.click(screen.getByRole("button", { name: /close inspector/i }));
-    expect(onClose).toHaveBeenCalledTimes(2);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

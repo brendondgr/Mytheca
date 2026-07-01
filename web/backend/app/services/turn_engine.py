@@ -200,17 +200,34 @@ def run_turn(
     # so it is present even when the buffer is disabled).
     ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at, player_text=text)
     buffer.push_turn(session.id, "player", text)
+    graph_available = bool(ctx.subgraph.get("available"))
     yield from tracer.emit(
         "assemble",
         f"Gathered the scene ({len(ctx.cast)} character(s) present)",
-        detail=ctx.gate_reason,
+        detail=(
+            "Loaded each character's stats + carried-over mood, the recent transcript, and"
+            f" the story-graph subgraph ({'available' if graph_available else 'off/empty'})."
+        ),
         data={
             "cast": [
                 {"id": m.id, "name": m.name, "disposition": m.disposition} for m in ctx.cast
             ],
             "directedAt": req.directed_at,
+            "graph": graph_available,
             "retrievedLore": bool(ctx.retrieved_lore),
         },
+    )
+    # RAG look-up (Band-1): the gate decides per turn whether to hit the vector store.
+    fetched = ctx.gate_reason.startswith("fetch")
+    yield from tracer.emit(
+        "lore",
+        "World-lore look-up (RAG)" + (" — matched" if fetched and ctx.retrieved_lore else ""),
+        detail=(
+            ("Fetched durable lore and folded it into the prompt." if ctx.retrieved_lore else "Ran a lookup but found nothing to add.")
+            if fetched
+            else "Skipped — nothing in your message needed a lore look-up this turn."
+        ),
+        data={"reason": ctx.gate_reason, "fetched": fetched, "injected": bool(ctx.retrieved_lore)},
     )
 
     emitter = _Emitter(db, scenario.id, session.id, start_seq=seq0 + 1)
@@ -307,6 +324,21 @@ def run_turn(
 
     # Cold path (Band 3): runs after the last event is yielded — never blocks the
     # player, best-effort, no-op when there are no consequences or the graph is down.
+    yield from tracer.emit(
+        "commit",
+        (
+            f"Committing {len(consequences)} change(s) to the story graph"
+            if consequences
+            else "Nothing durable to commit to the story graph"
+        ),
+        detail=(
+            "Stat consequences + an :Event node are written to the knowledge graph (Neo4j) "
+            "after the turn."
+            if consequences
+            else "This turn moved no stat/relationship, so the knowledge graph is unchanged."
+        ),
+        data={"consequences": len(consequences)},
+    )
     turn_writer.write_turn(
         db,
         scenario=scenario,

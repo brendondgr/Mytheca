@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { CloseButton } from "@/components/ui/CloseButton";
 import type { TraceTurn } from "@/features/story-player/turn-stream";
 import type { TurnTraceFrame } from "@/lib/events";
@@ -10,6 +9,7 @@ import type { TurnTraceFrame } from "@/lib/events";
 const STEP_META: Record<string, { tag: string; accent: boolean }> = {
   turn: { tag: "You", accent: false },
   assemble: { tag: "Scene", accent: false },
+  lore: { tag: "Lore", accent: true },
   director: { tag: "Director", accent: true },
   speaker: { tag: "Speaker", accent: false },
   thinking: { tag: "Thinks", accent: true },
@@ -20,6 +20,7 @@ const STEP_META: Record<string, { tag: string; accent: boolean }> = {
   rerank: { tag: "Re-rank", accent: true },
   cascade: { tag: "Cascade", accent: true },
   branch: { tag: "Branch", accent: true },
+  commit: { tag: "Graph", accent: true },
   reflection: { tag: "Reflect", accent: false },
 };
 
@@ -77,10 +78,11 @@ function TurnBlock({ turn, index }: { turn: TraceTurn; index: number }) {
 }
 
 /**
- * A wide right-side drawer that explains the turn loop, in order, after each message:
+ * A docked right-side column that explains the turn loop, in order, after each message:
  * which characters the Director picked and why, their private thinking, stat changes,
- * mid-turn re-ranks, and the reflection step. Newest turn first. Read-only diagnostics
- * — the panel never changes the scene, it only reveals the reasoning behind it.
+ * mid-turn re-ranks, the graph commit, and the reflection step. It sits to the right of
+ * the Director rail (the chat stays visible), newest turn first. Read-only diagnostics —
+ * the panel never changes the scene, it only reveals the reasoning behind it.
  */
 export function TurnInspectorPanel({
   open,
@@ -91,60 +93,42 @@ export function TurnInspectorPanel({
   onClose: () => void;
   turns: TraceTurn[];
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
   if (!open) return null;
   const ordered = [...turns].reverse(); // newest turn at the top
 
   return (
-    <div className="fixed inset-0 z-[60]">
-      {/* Backdrop — click to dismiss. */}
-      <button
-        type="button"
-        aria-label="Close inspector"
-        onClick={onClose}
-        className="absolute inset-0 bg-[rgba(8,5,2,0.35)]"
-      />
-      <aside
-        role="dialog"
-        aria-label="Turn inspector"
-        className="absolute inset-y-0 right-0 flex w-[min(92vw,480px)] flex-col border-l border-hair-strong bg-page shadow-[0_0_40px_rgba(8,5,2,0.45)]"
-      >
-        <header className="flex flex-none items-start justify-between gap-3 border-b border-hair-strong p-[16px_18px]">
-          <div>
-            <h2 className="font-display text-[16px] font-bold leading-none text-ink">
-              Turn Inspector
-            </h2>
-            <p className="mt-[6px] font-mono text-[9.5px] leading-[1.5] tracking-[0.08em] text-mute uppercase">
-              What happened, in order, after each message
-            </p>
-          </div>
-          <CloseButton onClose={onClose} className="relative" />
-        </header>
-
-        <div className="min-h-0 flex-1 overflow-auto p-[14px_16px]">
-          {ordered.length === 0 ? (
-            <p className="mt-[10px] font-body text-[13px] leading-[1.5] text-ink-soft">
-              Send a message in the scene and the flow will appear here — the Director&apos;s
-              choice of who speaks and why, each character&apos;s private thinking, any stat
-              changes, and the reflection step that sets up the next turn.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-[12px]">
-              {ordered.map((turn, i) => (
-                <TurnBlock key={turn.id} turn={turn} index={ordered.length - i} />
-              ))}
-            </div>
-          )}
+    <aside
+      aria-label="Turn inspector"
+      className="flex w-[340px] flex-none flex-col border-l border-hair-strong bg-page"
+    >
+      <header className="flex flex-none items-start justify-between gap-3 border-b border-hair-strong p-[14px_16px]">
+        <div>
+          <h2 className="font-display text-[15px] font-bold leading-none text-ink">
+            Turn Inspector
+          </h2>
+          <p className="mt-[6px] font-mono text-[9px] leading-[1.5] tracking-[0.08em] text-mute uppercase">
+            What happens, step by step, per message
+          </p>
         </div>
-      </aside>
-    </div>
+        <CloseButton onClose={onClose} className="relative" />
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-auto p-[12px_14px]">
+        {ordered.length === 0 ? (
+          <p className="mt-[8px] font-body text-[13px] leading-[1.5] text-ink-soft">
+            Send a message in the scene and the flow will appear here — the Director&apos;s
+            choice of who speaks and why, each character&apos;s private thinking, any lore
+            look-up, stat changes, the story-graph commit, and the reflection step that sets
+            up the next turn.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-[12px]">
+            {ordered.map((turn, i) => (
+              <TurnBlock key={turn.id} turn={turn} index={ordered.length - i} />
+            ))}
+          </div>
+        )}
+      </div>
+    </aside>
   );
 }
