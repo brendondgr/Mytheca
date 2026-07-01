@@ -156,7 +156,7 @@ def test_unconfigured_llm_emits_terminal_error_frame(client, storyline_id):
     assert events[-1]["type"] == "error"
 
 
-def test_internal_thought_persisted_hidden_and_withheld(client, db_session, storyline_id, monkeypatch):
+def test_internal_thought_streams_as_private_to_user(client, db_session, storyline_id, monkeypatch):
     from sqlalchemy import select
 
     from app.models import Event
@@ -172,12 +172,14 @@ def test_internal_thought_persisted_hidden_and_withheld(client, db_session, stor
     scid = _scenario(client, storyline_id, [cid], sid)
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
 
-    # Hidden thinking is never placed on the wire …
-    assert all(e["type"] != "internal_thought" for e in events)
-    # … but it is persisted with visibility hidden, as conditioning context.
+    # The private thought now streams to the player as its own bubble (feedback #4) …
+    thought = next(e for e in events if e["type"] == "internal_thought")
+    assert thought["visibility"] == "private_to_user"
+    assert thought["data"]["characterId"] == cid and "Let him sweat" in thought["data"]["text"]
+    # … and it is persisted with the same visibility.
     rows = db_session.scalars(select(Event).where(Event.type == "internal_thought")).all()
     assert len(rows) == 1
-    assert rows[0].visibility == "hidden"
+    assert rows[0].visibility == "private_to_user"
     assert "Let him sweat" in rows[0].data["text"]
 
 
@@ -242,12 +244,51 @@ def test_planner_can_insert_a_narrator_beat(client, storyline_id, monkeypatch):
 
 
 def test_no_narration_when_planner_does_not_ask(client, storyline_id, monkeypatch):
+    # A DIRECTED turn (no scene-opening narration): with the planner only asking a
+    # character to speak, no narrator beat is inserted.
     _configure_llm(client)
     _plan_routed(monkeypatch, [{"action": "speak", "actor": 1}, {"action": "end"}])
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
-    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi"}))
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
     assert all(e["type"] != "narration" for e in events)
+
+
+def test_scene_opens_with_narration_before_any_character(client, storyline_id, monkeypatch):
+    # Cold open, freeform (no directed character): the NARRATOR opens the scene — a
+    # character never speaks first (feedback #1). Planner ends after the opening.
+    _configure_llm(client)
+    _plan_routed(monkeypatch, [{"action": "end"}])
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I step inside."}))
+    types = [e["type"] for e in events if e["type"] in ("narration", "character_dialogue")]
+    assert types and types[0] == "narration"  # the narrator opens
+    # No character dialogue precedes the opening narration.
+    dialogue = [e for e in events if e["type"] == "character_dialogue"]
+    if dialogue:
+        first_narration_seq = next(e["seq"] for e in events if e["type"] == "narration")
+        assert min(e["seq"] for e in dialogue) > first_narration_seq
+
+
+def test_branch_outcome_opens_with_progression_narration(client, storyline_id, monkeypatch):
+    # Selecting a path (``outcome`` set) opens with a fuller "progression" narration that
+    # plays the choice out (feedback #2), then the scene reacts.
+    _configure_llm(client)
+    _plan_routed(monkeypatch, [{"action": "speak", "actor": 1}, {"action": "end"}], narration="The doors slam wide.")
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "Press her", "outcome": "escalate the confrontation", "trace": True},
+        )
+    )
+    types = [e["type"] for e in events]
+    assert "narration" in types  # progression narration led the turn
+    # A plan trace announces the choice being played out.
+    plan = next(t for t in events if t["type"] == "trace" and t["step"] == "plan" and t["data"].get("outcome"))
+    assert plan["data"]["outcome"] == "escalate the confrontation"
 
 
 def test_broadcast_runs_the_whole_cast_uncapped(client, storyline_id, monkeypatch):
@@ -607,9 +648,9 @@ def test_trace_surfaces_hidden_thinking(client, storyline_id, monkeypatch):
     events = _stream(
         client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid, "trace": True})
     )
-    # The thought never rides the wire as a story event …
-    assert all(e["type"] != "internal_thought" for e in events)
-    # … but the Inspector trace surfaces it so the reasoning is visible.
+    # The thought streams as a private_to_user bubble …
+    assert any(e["type"] == "internal_thought" for e in events)
+    # … and the Inspector trace ALSO surfaces it so the reasoning is visible there.
     think = next(t for t in events if t["type"] == "trace" and t["step"] == "thinking")
     assert "Coin first" in think["detail"]
 

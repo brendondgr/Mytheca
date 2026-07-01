@@ -62,7 +62,10 @@ export interface BranchChoicesEvent extends PlayEnvelope {
   data: { choices: BranchChoiceOption[] };
 }
 
-/** Hidden conditioning thought — withheld from the stream server-side; typed for completeness. */
+/**
+ * A character's private thought. Streamed to the player (`visibility: private_to_user`)
+ * as its own "thinking" bubble, but kept out of other characters' context server-side.
+ */
 export interface InternalThoughtEvent extends PlayEnvelope {
   type: "internal_thought";
   data: { characterId: string; text: string };
@@ -108,4 +111,9 @@ export interface TurnRequestBody {
   sessionId?: string | null;
   /** Request interleaved diagnostic `trace` frames (the Inspector panel). */
   trace?: boolean;
+  /**
+   * The narrative-direction tag of a selected branch/path. When set, the turn opens
+   * with a fuller "progression" narration and plays the choice out over several beats.
+   */
+  outcome?: string | null;
 }

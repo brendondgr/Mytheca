@@ -64,3 +64,30 @@ def test_interstitial_returns_prose(client, db_session, monkeypatch):
 
 def test_interstitial_none_when_unconfigured(db_session):
     assert narrator_agent.interstitial(db_session, _ctx(), []) is None
+
+
+def test_long_progression_uses_the_paragraph_system_prompt(client, db_session, monkeypatch):
+    # The long variant (scene opening / branch progression) asks for a fuller paragraph
+    # and folds the ``lead`` direction into the prompt.
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        import json
+
+        body = json.loads(request.content.decode())
+        seen["system"] = body["messages"][0]["content"]
+        seen["user"] = body["messages"][1]["content"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": "The doors slam wide."}}]})
+
+    monkeypatch.setattr(
+        llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    _configure_llm(client)
+    text = narrator_agent.interstitial(
+        db_session, _ctx(), [], lead="escalate the confrontation", long=True
+    )
+    assert text == "The doors slam wide."
+    assert "full paragraph" in seen["system"]  # the long system prompt
+    assert "escalate the confrontation" in seen["user"]  # the lead direction folded in

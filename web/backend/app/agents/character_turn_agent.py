@@ -47,9 +47,9 @@ Emit ONLY this format and nothing else — no preamble, no markdown, no commenta
 {a SHORT thought in your character's own voice — your standpoint and what you want right now, not analysis. One or two clipped sentences. This is private and is never shown to anyone.}
 </thinking>
 <type:character_action>
-{a short third-person beat of what your character physically does, present tense — optional}
+{a SHORT third-person beat of what your character physically does, present tense — 5-10 words MAX, optional}
 <type:character_dialogue>
-{your character's spoken line}
+{your character's spoken line — 1-3 sentences, natural and in-voice}
 
 You MAY, only when this beat genuinely moves a tracked stat, add a state_update block with a stat JSON:
 <type:state_update>
@@ -63,7 +63,7 @@ Rules:
 - N is your character's roster number (given below).
 - Write each block's OPENING tag only (e.g. `<type:character_dialogue>`); do NOT write closing tags like `</type:character_dialogue>`.
 - Lead with <thinking>: a brief, in-*your*-voice thought that sets up your line (e.g. "Coin first, favor later — let him sweat."). Condition it on concrete priorities, never on a trait label; keep it clipped, never a formal narrator's analysis.
-- Always include character_dialogue. Include character_action only when your character does something physical.
+- Always include character_dialogue. Include character_action only when your character does something physical — keep it to a SHORT label of 5-10 words (it renders as a brief tag beside your name, e.g. "leans in, low"), never a full sentence.
 - Use state_update only for a real shift in a stat listed in "Your current state", with a short reason — never invent a stat key. Most turns move nothing; omit it then.
 - Use relationship_update only for a real shift in how you regard a specific other character (name them exactly). Most turns change nothing; omit it then.
 - Never narrate or speak for any other character; react only as your character.

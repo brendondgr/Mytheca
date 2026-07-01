@@ -4,14 +4,14 @@ import { mediaUrl } from "@/lib/api";
 import type { Character } from "@/lib/types";
 import type { SceneChoice, SceneMessage } from "@/features/story-player/scene-data";
 
-/** `narration` → teal-accented italic card. */
+/** `narration` → teal-accented card (upright, not italic — feedback #6). */
 export function NarratorCard({ text }: { text: string }) {
   return (
     <div className="rounded-[0_5px_5px_0] border-l-[3px] border-l-narrator bg-[rgba(31,138,130,.12)] p-[13px_17px]">
       <Eyebrow size={8} tracking="0.18em" color="#1F8A82" className="mb-[6px] block">
         Narrator
       </Eyebrow>
-      <p className="font-body text-[15.5px] leading-[1.55] text-ink italic">{text}</p>
+      <p className="font-body text-[15.5px] leading-[1.55] text-ink">{text}</p>
     </div>
   );
 }
@@ -71,7 +71,7 @@ export function CharacterMessage({
             {c.name}
           </button>
           {action ? (
-            <span className="font-body text-[13px] text-mute2 italic">{action}</span>
+            <span className="font-body text-[13px] text-mute2">{action}</span>
           ) : null}
         </div>
         {text ? (
@@ -84,6 +84,55 @@ export function CharacterMessage({
   );
 }
 
+
+/** `internal_thought` — a character's private thought, distinct from what they say out
+ * loud (feedback #4): a quiet, dashed bubble with a "thinking" tag. Not italic. */
+export function ThoughtBubble({
+  character,
+  text,
+  onProfile,
+}: {
+  character: Character;
+  text: string;
+  onProfile?: () => void;
+}) {
+  const c = character;
+  return (
+    <div className="flex items-start gap-3">
+      <button
+        type="button"
+        onClick={onProfile}
+        disabled={!onProfile}
+        aria-label={`View ${c.name}`}
+        title={c.name}
+        className="flex-none rounded-full opacity-70 transition-transform hover:scale-105 disabled:hover:scale-100"
+      >
+        <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={40} fontSize={14} />
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-[9px]">
+          <button
+            type="button"
+            onClick={onProfile}
+            disabled={!onProfile}
+            className="font-display text-[15px] font-semibold hover:underline disabled:no-underline"
+            style={{ color: c.color }}
+          >
+            {c.name}
+          </button>
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-mute2">
+            thinking
+          </span>
+        </div>
+        {text ? (
+          <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-dashed border-cardbd bg-card2 p-[11px_15px] font-body text-[15px] leading-[1.5] text-ink-soft">
+            {text}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 /** `branch_choices` — centered ◆ choice rows. */
 export function BranchChoices({
@@ -145,6 +194,14 @@ export function TranscriptBeat({
     return <BranchChoices choices={choices} onChoose={onChoose} />;
   const c = charById(m.who ?? "");
   if (!c) return null;
+  if (m.kind === "thought")
+    return (
+      <ThoughtBubble
+        character={c}
+        text={m.text ?? ""}
+        onProfile={onProfile ? () => onProfile(c.id) : undefined}
+      />
+    );
   return (
     <CharacterMessage
       character={c}

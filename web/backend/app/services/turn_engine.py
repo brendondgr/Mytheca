@@ -8,8 +8,9 @@ Visible prose (``narration`` / ``character_dialogue``) **delta-streams**: the sa
 event (same id + seq) is emitted with incremental ``text`` + ``done: false`` until the
 last chunk sets ``done: true`` (the client accumulates by id; the persisted row holds
 the full text). ``character_action`` streams as one full event; ``internal_thought``
-(``visibility: hidden``) is persisted but withheld. ``_Emitter`` centralizes the
-seq + persist + buffer + withhold-hidden plumbing every phase reuses.
+(``visibility: private_to_user``) streams to the player as a distinct "thinking" bubble
+but is kept OUT of ``turn_beats`` — later speakers never condition on it. ``_Emitter``
+centralizes the seq + persist + buffer + withhold-hidden plumbing every phase reuses.
 
 This phase (P3) generates a single speaker (the addressed cast member, else the first);
 the reasoned Director / multi-speaker queue replaces ``_pick_speaker`` in later phases.
@@ -274,6 +275,32 @@ def run_turn(
         },
     )
 
+    # Narration leads, before anyone speaks. Two cases (feedback #1/#2/#3):
+    #  • Branch continuation — the player picked a narrative direction (``outcome``): open
+    #    with a fuller "progression" paragraph that plays the choice out, then let the
+    #    scene react below.
+    #  • Cold scene open with NO direction — the narrator sets the moment and the turn is
+    #    narrator-only (no character talks unprompted); the character loop is skipped.
+    outcome = (req.outcome or "").strip()
+    scene_opening = not ctx.recent_beats  # nothing committed before this turn
+    narrated_open = False
+    if outcome:
+        yield from tracer.emit(
+            "plan", "The narrator plays out your choice", detail=outcome, data={"outcome": outcome}
+        )
+        narrated_open = yield from _narrator_interstitial(
+            db, ctx, turn_beats, emitter, lead=outcome, long=True
+        )
+    elif scene_opening and not intent.directed_actors and not intent.addressed and intent.scope != "all":
+        yield from tracer.emit(
+            "plan",
+            "The narrator opens the scene",
+            detail="Scene start — the narrator sets the moment before anyone responds.",
+        )
+        narrated_open = yield from _narrator_interstitial(
+            db, ctx, turn_beats, emitter, lead="Open the scene.", long=True
+        )
+
     # Puppet beats first: each directed character performs the player's direction in its
     # OWN voice (not a reply to the player's words).
     puppet_members = [m for cid in intent.directed_actors if (m := ctx.cast_by_id(cid)) is not None]
@@ -304,7 +331,9 @@ def run_turn(
     needs_branch = False
     beats = 0
     while beats < max_beats:
-        decision = planner_agent.next_beat(db, ctx, intent, turn_beats, acted)
+        decision = planner_agent.next_beat(
+            db, ctx, intent, turn_beats, acted, scene_opening=scene_opening and not narrated_open
+        )
         if decision.action == "end":
             needs_branch = decision.needs_branch
             yield from tracer.emit(
@@ -342,15 +371,16 @@ def run_turn(
         )
         acted.append(actor.id)
         beats += 1
-    else:
+    if beats >= max_beats:  # loop exhausted without an explicit end (runaway backstop)
         yield from tracer.emit(
             "plan",
             "Reached the turn's beat limit",
             detail=f"Stopped after {beats} beats (runaway backstop).",
         )
 
-    # Nobody spoke at all (no puppet, no planned beat) → a quiet holding narration.
-    if not acted:
+    # Nobody produced anything at all (no narration, no character) → a quiet holding
+    # narration. A narrator-only open / branch progression already spoke, so skip it then.
+    if not acted and not narrated_open:
         yield from emitter.emit(
             "narration", {"text": "The scene waits, quiet.", "done": True}, buffer_role="narrator"
         )
@@ -447,13 +477,21 @@ def _narrator_interstitial(
     ctx: TurnContext,
     turn_beats: list[dict],
     emitter: _Emitter,
-) -> Iterator[StoryEvent]:
-    """Emit an optional narrator beat (Narrator Mode); skip silently on failure."""
-    text = narrator_agent.interstitial(db, ctx, turn_beats)
+    *,
+    lead: str | None = None,
+    long: bool = False,
+) -> Generator[StoryEvent, None, bool]:
+    """Emit an optional narrator beat; skip silently on failure. Returns whether a beat
+    was actually emitted (so the caller can tell a real opening from a no-op).
+
+    ``lead``/``long`` drive the fuller opening + branch-progression passage (feedback
+    #1/#2/#3); the default (both unset) is the short between-speakers transition beat."""
+    text = narrator_agent.interstitial(db, ctx, turn_beats, lead=lead, long=long)
     if not text:
-        return
+        return False
     yield from emitter.emit_streamed("narration", text, buffer_role="narrator")
     turn_beats.append({"role": "narrator", "text": text, "characterId": None})
+    return True
 
 
 def _resolve_conn(db: Session) -> LlmConn | None:
@@ -568,12 +606,14 @@ def _generate_speaker(
     impact = 0
     for seg in segments:
         if seg.type == "internal_thought":
-            # Hidden conditioning — persisted, withheld, and NOT shown to later speakers,
-            # but surfaced in the Inspector trace so the reasoning is visible there.
+            # The character's private thought: streamed to the PLAYER as its own "thinking"
+            # bubble (visibility private_to_user), and surfaced in the Inspector trace — but
+            # kept OUT of ``turn_beats`` so later speakers never condition on it (it is the
+            # character's interiority, not shared dialogue).
             yield from emitter.emit(
                 "internal_thought",
                 {"characterId": seg.character_id, "text": seg.text},
-                visibility="hidden",
+                visibility="private_to_user",
             )
             yield from tr.emit(
                 "thinking",
