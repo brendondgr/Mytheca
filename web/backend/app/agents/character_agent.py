@@ -58,11 +58,15 @@ _DRAFT_SYSTEM = (
     "e.g. 'Reluctant Ally'), \"traits\" (3-4 personality adjectives joined with "
     "' · '), \"speech\" (one line on their voice/speech style), \"goal\" (what they "
     'want, one sentence), "secret" (what they hide, one sentence), "appearance" '
-    "(2-3 sentences of physical description — species/race if not human, age, "
-    'build, features, dress), "background" (2-3 sentences of backstory), '
-    '"personality" (2-3 sentences on temperament, values, fears, mannerisms), and '
-    '"color" (a single accent hex color that suits them, e.g. "#3A5A78"). Keep the '
-    "character consistent with any world context provided. Include no other keys."
+    "(3-5 sentences of vivid physical description — species/race if not human, age, "
+    "build, face, hair, eyes, distinctive marks, dress, and how they carry "
+    'themselves), "background" (3-5 sentences of backstory — origin, formative '
+    "events, how they came to be who they are, and current situation), "
+    '"personality" (3-5 sentences on temperament, values, fears, quirks, and '
+    'mannerisms — concrete and specific, not generic), and "color" (a single accent '
+    'hex color that suits them, e.g. "#3A5A78"). Write the three prose fields with '
+    "rich, specific detail (avoid one-line summaries). Keep the character consistent "
+    "with any world context provided. Include no other keys."
 )
 
 _PORTRAIT_SYSTEM = (
