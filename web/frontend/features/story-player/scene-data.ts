@@ -4,7 +4,7 @@ import type { ResolvedScenario } from "@/lib/types";
 // match the reference; any other scenario gets a believable generic opening
 // built from its cast + branches. No model calls — interactions are local.
 
-export type SceneMessageKind = "narrator" | "char" | "player" | "choices";
+export type SceneMessageKind = "narrator" | "char" | "thought" | "player" | "choices";
 
 export interface SceneMessage {
   kind: SceneMessageKind;
@@ -76,20 +76,11 @@ const EMBERGATE_CHOICES: SceneChoice[] = [
 
 function genericScene(scenario: ResolvedScenario): SceneSeed {
   const cast = scenario.cast;
+  // Only the narrator opens the scene — no character speaks unprompted at the start
+  // (feedback #1). Characters enter once the player takes their first action.
   const messages: SceneMessage[] = [
     { kind: "narrator", text: scenario.opening || "The scene opens. Every eye finds you." },
   ];
-  cast.slice(0, 2).forEach((c, i) => {
-    messages.push({
-      kind: "char",
-      who: c.id,
-      action: i === 0 ? undefined : "watching you",
-      text:
-        i === 0
-          ? "So you've come after all. Sit — let's see what you're made of."
-          : "Mind yourself here. Not everyone at this table wishes you well.",
-    });
-  });
   messages.push({ kind: "choices" });
 
   const choices: SceneChoice[] = scenario.branches.map((b, i) => ({

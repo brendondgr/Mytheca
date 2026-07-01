@@ -65,6 +65,25 @@ describe("mergeFrame", () => {
     expect(msgs[0].text).toBe("Hello.");
   });
 
+  it("renders an internal_thought as its own thought bubble (not merged)", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Coin first." }));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].kind).toBe("thought");
+    expect(msgs[0].who).toBe("mei");
+    expect(msgs[0].text).toBe("Coin first.");
+  });
+
+  it("keeps a thought and the following dialogue as two separate beats", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Let him sweat." }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "Fine.", done: true }));
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0].kind).toBe("thought");
+    expect(msgs[1].kind).toBe("char");
+    expect(msgs[1].text).toBe("Fine.");
+  });
+
   it("ignores error frames and unknown event types", () => {
     expect(mergeFrame([], { type: "error", message: "x" })).toEqual([]);
     expect(mergeFrame([], ev("state_update", "s1", { patch: {}, stat: null }))).toEqual([]);

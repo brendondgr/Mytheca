@@ -95,7 +95,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const sending = stream.status === "streaming";
 
   const submit = useCallback(
-    (text: string) => {
+    (text: string, outcome?: string) => {
       const t = text.trim();
       if (!t || sending) return; // in-flight guard
       setStreamError(null);
@@ -103,7 +103,11 @@ export function useScenePlay(scenario: ResolvedScenario) {
       setMessages((m) => [...m.filter((x) => x.kind !== "choices"), { kind: "player", text: t }]);
       void stream
         .run((signal) =>
-          postTurn(scenario.id, { text: t, sessionId: sessionRef.current, trace: true }, signal),
+          postTurn(
+            scenario.id,
+            { text: t, sessionId: sessionRef.current, trace: true, outcome: outcome || null },
+            signal,
+          ),
         )
         .catch(() => setStreamError((e) => e ?? "The turn could not be completed."));
     },
@@ -118,8 +122,12 @@ export function useScenePlay(scenario: ResolvedScenario) {
     submit(text);
   }, [composer, sending, submit]);
 
-  // Selecting a branch submits a real turn (no scripted check/follow — D11).
-  const choose = useCallback((c: SceneChoice) => submit(c.player || c.label), [submit]);
+  // Selecting a branch submits a real turn (no scripted check/follow — D11); its
+  // `outcome` tells the backend to play the chosen direction out over several beats.
+  const choose = useCallback(
+    (c: SceneChoice) => submit(c.player || c.label, c.outcome),
+    [submit],
+  );
 
   const lastSpeaker = [...messages].reverse().find((m) => m.kind === "char");
 

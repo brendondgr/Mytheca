@@ -69,6 +69,14 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
     case "narration":
       return mergeDelta(prev, event.id, { kind: "narrator" }, event.data.text);
 
+    case "internal_thought":
+      // A character's private thought — its own "thinking" bubble, distinct from what
+      // they say out loud (feedback #4). Never merged into a speech beat.
+      return [
+        ...prev,
+        { kind: "thought", id: event.id, who: event.data.characterId, text: event.data.text },
+      ];
+
     case "character_action":
       return [
         ...prev,
