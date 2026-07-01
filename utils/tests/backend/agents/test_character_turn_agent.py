@@ -127,6 +127,36 @@ def test_prompt_requests_a_hidden_thinking_block(client, db_session, monkeypatch
     assert "<thinking>" in system and "never shown" in system
 
 
+def test_interior_disposition_injected_and_shortens_thinking(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    ctx.cast[0].disposition = "Guarded — I want the coin without the strings."
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    # HEAD carries the carried-in stance; TAIL nudges a shorter hidden thinking block.
+    assert "Your current inner stance: Guarded — I want the coin without the strings." in user
+    assert "keep <thinking> to a few words" in user
+
+
+def test_no_disposition_omits_inner_stance(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()  # no disposition set
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "current inner stance" not in user
+    assert "keep <thinking> to a few words" not in user
+
+
 def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}

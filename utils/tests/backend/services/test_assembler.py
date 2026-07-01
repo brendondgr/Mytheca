@@ -140,6 +140,37 @@ def test_fetch_turn_injects_gated_lore(db_session, monkeypatch):
     assert ctx.gate_reason.startswith("fetch")
 
 
+def test_interior_disposition_read_into_cast(db_session, monkeypatch):
+    from app.memory import interior as interior_mem
+    from app.memory.interior import InteriorRecord
+
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")
+    sc = _scenario(db_session, ["c_mei"])
+    session = events_store.create_session(db_session, sc.id)
+    monkeypatch.setattr(
+        interior_mem,
+        "get_interior",
+        lambda sid, cid: (
+            InteriorRecord(character_id=cid, disposition="Guarded and tired.")
+            if cid == "c_mei"
+            else None
+        ),
+    )
+    ctx = assembler.assemble_context(db_session, sc, session.id)
+    assert ctx.cast[0].disposition == "Guarded and tired."
+
+
+def test_no_interior_leaves_disposition_empty(db_session):
+    # Interior is disabled (no Redis) by the autouse fixture → clean empty disposition.
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")
+    sc = _scenario(db_session, ["c_mei"])
+    session = events_store.create_session(db_session, sc.id)
+    ctx = assembler.assemble_context(db_session, sc, session.id)
+    assert ctx.cast[0].disposition == ""
+
+
 def test_no_stats_defined_is_clean(db_session):
     db_session.add(Storyline(id="bare", title="Bare", genre="X"))
     db_session.commit()

@@ -135,3 +135,44 @@ def test_propose_branches_drops_empty_labels_and_caps(client, db_session, monkey
 
 def test_propose_branches_empty_when_unconfigured(db_session):
     assert director_agent.propose_branches(db_session, _ctx(_cast("mei")), []) == []
+
+
+# ---- P10: mid-turn re-rank of the not-yet-spoken speakers ---------------------
+
+
+def test_rerank_reorders_remaining_by_roster_number(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch(monkeypatch, json.dumps({"speakers": [3, 2]}))  # roster 3=jax, 2=kira
+    out = director_agent.rerank(db_session, _ctx(_cast("mei", "kira", "jax")), ["kira", "jax"], [])
+    assert out == ["jax", "kira"]
+
+
+def test_rerank_drops_already_spoken_and_dedupes(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch(monkeypatch, json.dumps({"speakers": [1, 3, 3, 2]}))  # 1=mei already spoke
+    out = director_agent.rerank(db_session, _ctx(_cast("mei", "kira", "jax")), ["kira", "jax"], [])
+    assert out == ["jax", "kira"]  # mei dropped (not remaining), 3 de-duped, order 3,2
+
+
+def test_rerank_preserves_omitted_remaining_at_tail(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch(monkeypatch, json.dumps({"speakers": [3]}))  # model omits kira
+    out = director_agent.rerank(db_session, _ctx(_cast("mei", "kira", "jax")), ["kira", "jax"], [])
+    assert out == ["jax", "kira"]  # jax first (returned), kira kept (never silently dropped)
+
+
+def test_rerank_single_remaining_skips_llm(db_session):
+    # ≤1 remaining → nothing to re-rank; unchanged with no LLM configured.
+    assert director_agent.rerank(db_session, _ctx(_cast("mei", "kira")), ["kira"], []) == ["kira"]
+
+
+def test_rerank_unconfigured_llm_is_unchanged(db_session):
+    out = director_agent.rerank(db_session, _ctx(_cast("mei", "kira", "jax")), ["kira", "jax"], [])
+    assert out == ["kira", "jax"]  # no LLM → best-effort unchanged
+
+
+def test_rerank_malformed_reply_is_unchanged(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch(monkeypatch, "not json")
+    out = director_agent.rerank(db_session, _ctx(_cast("mei", "kira", "jax")), ["kira", "jax"], [])
+    assert out == ["kira", "jax"]

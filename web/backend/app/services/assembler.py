@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from sqlalchemy.orm import Session
 
 from app.agents import _common
-from app.memory import buffer
+from app.memory import buffer, interior
 from app.models import Character, Scenario, Setting
 from app.models.stat import StatDefinition
 from app.services import crud, graph_reader, retrieval_gate, stat_guidance, stats
@@ -46,6 +46,10 @@ class CastMember:
     color: str
     stats: dict[str, int]
     recent_lines: list[str] = field(default_factory=list)
+    # Read-time interior state carried in from the previous turn's reflection (§P9):
+    # ``disposition`` is the character's current mutable stance, injected into the HEAD
+    # of the generation prompt so it re-enters the scene already leaning where it left.
+    disposition: str = ""
 
 
 @dataclass
@@ -88,7 +92,7 @@ def assemble_context(
         sd.key: text for sd in stat_defs if (text := stat_guidance.guidance_for(sd))
     }
     recent_beats = buffer.recent_turns(session_id)
-    cast = _build_cast(db, scenario, stat_defs, recent_beats)
+    cast = _build_cast(db, scenario, session_id, stat_defs, recent_beats)
     setting = db.get(Setting, scenario.setting_id) if scenario.setting_id else None
     subgraph = _safe_subgraph(db, scenario.id)
     stable_prefix = _build_stable_prefix(storyline, stat_defs, guidance)
@@ -129,6 +133,7 @@ def _gated_lore(db, storyline, cast, setting, player_text) -> tuple[str, str]:
 def _build_cast(
     db: Session,
     scenario: Scenario,
+    session_id: str,
     stat_defs: list[StatDefinition],
     recent_beats: list[dict],
 ) -> list[CastMember]:
@@ -141,6 +146,8 @@ def _build_cast(
         values = stats.get_character_stats(db, char.id)
         # Full block: every defined stat, falling back to its default when unset.
         block = {sd.key: int(values.get(sd.key, sd.default)) for sd in stat_defs}
+        # Read-time interior state from the previous turn's reflection (best-effort).
+        record = interior.get_interior(session_id, char.id)
         members.append(
             CastMember(
                 id=char.id,
@@ -151,6 +158,7 @@ def _build_cast(
                 color=char.color,
                 stats=block,
                 recent_lines=_anchors_for(char.id, recent_beats),
+                disposition=record.disposition if record is not None else "",
             )
         )
     return members

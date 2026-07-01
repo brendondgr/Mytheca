@@ -10,6 +10,7 @@ The HTTP client is built by ``get_http_client`` so tests can inject an
 
 from __future__ import annotations
 
+import hashlib
 import time
 
 import httpx
@@ -28,6 +29,17 @@ _GEN_TIMEOUT = httpx.Timeout(300.0, connect=5.0)
 def get_http_client() -> httpx.Client:
     """Return an HTTP client. Patched in tests to use a MockTransport."""
     return httpx.Client(timeout=_TIMEOUT)
+
+
+def prefix_cache_key(prefix: str) -> str:
+    """Short, stable id for a cacheable prompt prefix (prefix-cache observability, §P11).
+
+    vLLM's automatic prefix caching keys on the leading tokens of the prompt; the turn
+    loop keeps the World Primer + output contract + stat guidance in a **byte-identical
+    system message** across every character in a turn, so those tokens are served from
+    the KV cache instead of recomputed per speaker. This id lets the engine log which
+    turns share a warm prefix (an empty prefix returns a stable sentinel)."""
+    return hashlib.sha256((prefix or "").encode("utf-8")).hexdigest()[:12]
 
 
 def _normalize(base_url: str) -> str:

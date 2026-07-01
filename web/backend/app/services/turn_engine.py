@@ -17,12 +17,14 @@ the reasoned Director / multi-speaker queue replaces ``_pick_speaker`` in later 
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.agents import character_turn_agent, director_agent, narrator_agent
+from app.agents._common import resolve_llm
+from app.agents.reflection_agent import LlmConn
 from app.core.errors import APIError
 from app.core.ids import new_id
 from app.events.envelope import StoryEvent
@@ -31,9 +33,24 @@ from app.memory import buffer
 from app.models import Scenario
 from app.schemas.base import EventType, Visibility
 from app.schemas.play import TurnRequest
-from app.services import assembler, crud, emission, events_store, stats, turn_writer, validator
+from app.services import (
+    assembler,
+    consistency,
+    crud,
+    emission,
+    events_store,
+    reflection,
+    stats,
+    turn_writer,
+    validator,
+)
 from app.services.assembler import CastMember, TurnContext
 from app.services.turn_writer import Consequence
+
+# A high-impact beat (Σ|stat delta| at/above this) moves the whole room: the cascade
+# refreshes every remaining speaker's disposition. A smaller shift only nudges the very
+# next speaker (§P10 — "width/strength scaled to impact").
+_CASCADE_WIDE_THRESHOLD = 10
 
 
 class _Emitter:
@@ -165,14 +182,36 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
         )
         return
 
-    for _index, speaker in enumerate(speakers):
+    # Multi-party turns get a continuity guard (a later line can't contradict an
+    # established beat) and a live queue (a high-impact beat re-ranks who is up next and
+    # cascades a disposition refresh). Solo turns skip both. The guard connection is
+    # resolved once — the LLM is already configured (generation would have failed first).
+    guard_conn = _resolve_conn(db) if len(ctx.cast) > 1 else None
+
+    index = 0
+    while index < len(speakers):
+        speaker = speakers[index]
         # Narrator Mode: a transition beat before the speaker (POV Mode: off — D1).
         if req.mode == "narrator":
             yield from _narrator_interstitial(db, ctx, turn_beats, emitter)
-        yield from _generate_speaker(db, ctx, speaker, emitter, turn_beats, consequences)
+        impact = yield from _generate_speaker(
+            db, ctx, speaker, emitter, turn_beats, consequences, guard_conn=guard_conn
+        )
+        remaining = speakers[index + 1 :]
+        if impact > 0 and remaining:
+            # Mid-turn re-consult: re-rank the not-yet-spoken speakers after the shift.
+            reordered_ids = director_agent.rerank(db, ctx, [m.id for m in remaining], turn_beats)
+            reordered = [m for cid in reordered_ids if (m := ctx.cast_by_id(cid)) is not None]
+            speakers[index + 1 :] = reordered
+            # Cascade the disposition refresh, width scaled to impact — a bigger shift
+            # moves more of the room; a small one only the very next speaker.
+            width = len(reordered) if impact >= _CASCADE_WIDE_THRESHOLD else 1
+            reflection.refresh_dispositions(db, ctx, reordered[:width], turn_beats, seq=seq0)
+        index += 1
 
     # A narrative fork (after the line-to-line consistency pass seam): stats inform
     # which options surface, but never gate the choice mechanically (no dice — D11).
+    branches: list[dict] = []
     if decision.needs_branch:
         branches = director_agent.propose_branches(db, ctx, turn_beats)
         if branches:
@@ -188,6 +227,17 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
         summary=_turn_summary(turn_beats),
         consequences=consequences,
     )
+
+    # Read-time reflection interlude (Band 4 / §P9): characters reflect while the player
+    # reads, writing the interior state Band-1 reads back next turn. Best-effort and off
+    # the hot path (branch-keyed when a fork was offered so a character pre-leans into
+    # whichever path the player takes). In a crowded scene (N>2) reflection is
+    # **universal** — the silent watchers also update their interior from the beat (§P10);
+    # a two-hander only reflects who actually spoke. Dispatched off the request thread
+    # when TURN_ASYNC_FINALIZE is on (P11) so the stream closes without waiting on the N
+    # reflection LLM calls; inline (deterministic) otherwise.
+    reflection_targets = ctx.cast if len(ctx.cast) > 2 else speakers
+    reflection.dispatch_reflection(db, ctx, reflection_targets, turn_beats, branches=branches, seq=seq0)
 
 
 def _turn_summary(turn_beats: list[dict]) -> str:
@@ -210,6 +260,39 @@ def _narrator_interstitial(
     turn_beats.append({"role": "narrator", "text": text, "characterId": None})
 
 
+def _resolve_conn(db: Session) -> LlmConn | None:
+    """Resolve the LLM connection for the mid-turn guards; ``None`` when unconfigured."""
+    try:
+        return resolve_llm(db)
+    except APIError:
+        return None
+
+
+def _has_prior_character_beat(turn_beats: list[dict]) -> bool:
+    """True once a character has already spoken this turn (the guard's precondition)."""
+    return any(b.get("role") == "character" for b in turn_beats)
+
+
+def _prior_transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
+    """Render the beats established so far THIS turn (the continuity guard's context)."""
+    names = {m.id: m.name for m in ctx.cast}
+    lines: list[str] = []
+    for beat in turn_beats:
+        text = str(beat.get("text", "")).strip()
+        if not text:
+            continue
+        role = beat.get("role")
+        if role == "player":
+            who = "Player"
+        elif role == "narrator":
+            who = "Narrator"
+        else:
+            cid = beat.get("characterId")
+            who = names.get(cid, "Someone") if cid else "Someone"
+        lines.append(f"{who}: {text}")
+    return "\n".join(lines)
+
+
 def _generate_speaker(
     db: Session,
     ctx: TurnContext,
@@ -217,11 +300,36 @@ def _generate_speaker(
     emitter: _Emitter,
     turn_beats: list[dict],
     consequences: list[Consequence],
-) -> Iterator[StoryEvent]:
-    """Generate one speaker's beat, emit its events, and append them to ``turn_beats``."""
-    raw = character_turn_agent.generate_line(db, ctx, speaker, turn_beats=turn_beats)
+    *,
+    guard_conn: LlmConn | None = None,
+) -> Generator[StoryEvent, None, int]:
+    """Generate one speaker's beat, guard it for continuity, emit its events, append them
+    to ``turn_beats``, and return the beat's impact (Σ|stat delta|) for the live queue."""
     roster = {i + 1: m.id for i, m in enumerate(ctx.cast)}
-    for seg in emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id):
+    raw = character_turn_agent.generate_line(db, ctx, speaker, turn_beats=turn_beats)
+    segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
+
+    # Consistency guard (§P10): once a character has already spoken this turn, a later
+    # line must not contradict the established beats. Regenerate once with the reason if
+    # it does; best-effort (an unconfigured/failed guard leaves the line as-is).
+    if guard_conn is not None and _has_prior_character_beat(turn_beats):
+        candidate = " ".join(
+            s.text for s in segments if s.type in ("character_action", "character_dialogue")
+        )
+        verdict = consistency.review(
+            guard_conn,
+            stable_prefix=ctx.stable_prefix,
+            prior=_prior_transcript(ctx, turn_beats),
+            candidate=candidate,
+        )
+        if not verdict.consistent:
+            raw = character_turn_agent.generate_line(
+                db, ctx, speaker, turn_beats=turn_beats, correction=verdict.reason
+            )
+            segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
+
+    impact = 0
+    for seg in segments:
         if seg.type == "internal_thought":
             # Hidden conditioning — persisted, withheld, and NOT shown to later speakers.
             yield from emitter.emit(
@@ -246,7 +354,10 @@ def _generate_speaker(
             )
             turn_beats.append({"role": "character", "text": seg.text, "characterId": seg.character_id})
         elif seg.type == "state_update":
-            yield from _apply_stat_change(db, ctx, seg.character_id, seg.text, emitter, consequences)
+            impact += yield from _apply_stat_change(
+                db, ctx, seg.character_id, seg.text, emitter, consequences
+            )
+    return impact
 
 
 def _apply_stat_change(
@@ -256,11 +367,15 @@ def _apply_stat_change(
     raw: str,
     emitter: _Emitter,
     consequences: list[Consequence],
-) -> Iterator[StoryEvent]:
-    """Validate + clamp a proposed stat change, apply it (hot path), emit, and record it."""
+) -> Generator[StoryEvent, None, int]:
+    """Validate + clamp a proposed stat change, apply it (hot path), emit, and record it.
+
+    Returns the change's impact (``|delta|``, ``0`` when dropped) so the live queue can
+    scale its re-rank + cascade to how much the beat actually moved.
+    """
     patch = validator.validate_stat(db, ctx.storyline_id, character_id, raw)
     if patch is None:  # unknown stat / malformed → dropped
-        return
+        return 0
     # Apply on the hot path (clamped again — idempotent); then emit the full event.
     value = patch.value if patch.value is not None else 0
     stats.set_character_stats(db, patch.character_id, {patch.key: value})
@@ -277,3 +392,4 @@ def _apply_stat_change(
             weight=float(delta),
         )
     )
+    return abs(delta)
