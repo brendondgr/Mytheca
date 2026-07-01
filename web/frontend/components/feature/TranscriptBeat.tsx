@@ -74,56 +74,16 @@ export function CharacterMessage({
             <span className="font-body text-[13px] text-mute2 italic">{action}</span>
           ) : null}
         </div>
-        <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-ink shadow-[0_1px_2px_rgba(20,14,6,.06)]">
-          {text}
-        </div>
+        {text ? (
+          <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-ink shadow-[0_1px_2px_rgba(20,14,6,.06)]">
+            {text}
+          </div>
+        ) : null}
       </div>
     </div>
   );
 }
 
-/** Optional dice `check` — gold d20 card with a Success/Failure pill. */
-export function CheckCard({
-  check,
-  roll,
-  result,
-  text,
-}: {
-  check: string;
-  roll: number;
-  result: "Success" | "Failure";
-  text: string;
-}) {
-  const ok = result === "Success";
-  return (
-    <div className="w-full max-w-[540px] self-center rounded-[6px] border border-[#C8A24A] bg-[linear-gradient(#FBF3DE,#F6EACB)] p-[13px_16px] shadow-[0_2px_10px_rgba(20,14,6,.12)]">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-[10px]">
-          <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[6px] bg-gold font-display text-[14px] font-bold text-[#1f160c]">
-            {roll}
-          </span>
-          <div>
-            <div className="font-mono text-[11px] tracking-[0.04em] text-[#7A5A1E]">
-              {check}
-            </div>
-            <Eyebrow size={8} tracking="0.14em" color="#A8762A" className="mt-[3px] block">
-              d20 check
-            </Eyebrow>
-          </div>
-        </div>
-        <span
-          className="rounded-[11px] px-[10px] py-1 font-mono text-[10px] tracking-[0.08em] text-[#F4ECDA] uppercase"
-          style={{ background: ok ? "#1F8A5B" : "#9A3520" }}
-        >
-          {result}
-        </span>
-      </div>
-      <p className="mt-[10px] font-body text-[14.5px] leading-[1.5] text-[#3A3024] italic">
-        {text}
-      </p>
-    </div>
-  );
-}
 
 /** `branch_choices` — centered ◆ choice rows. */
 export function BranchChoices({
@@ -157,9 +117,6 @@ export function BranchChoices({
                 {ch.outcome}
               </span>
             </span>
-            <span className="flex-none font-mono text-[10px] whitespace-nowrap text-accent">
-              {ch.check}
-            </span>
           </button>
         ))}
       </div>
@@ -184,15 +141,6 @@ export function TranscriptBeat({
   const m = message;
   if (m.kind === "narrator") return <NarratorCard text={m.text ?? ""} />;
   if (m.kind === "player") return <PlayerMessage text={m.text ?? ""} />;
-  if (m.kind === "check")
-    return (
-      <CheckCard
-        check={m.check ?? ""}
-        roll={m.roll ?? 0}
-        result={m.result ?? "Success"}
-        text={m.text ?? ""}
-      />
-    );
   if (m.kind === "choices")
     return <BranchChoices choices={choices} onChoose={onChoose} />;
   const c = charById(m.who ?? "");

@@ -58,6 +58,25 @@ def _rag_offline(monkeypatch) -> Iterator[None]:
     get_embedder.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _redis_disabled_by_default(monkeypatch) -> Iterator[None]:
+    """Run the suite with the live turn buffer / interior state off (no real Redis).
+
+    Blanking ``REDIS_URL`` makes ``Settings.redis_configured`` false, so the
+    best-effort ``app.memory`` helpers no-op — the turn loop still runs and persists
+    to (SQLite) Postgres. Mirrors ``_graph_disabled_by_default`` / ``_rag_offline``.
+    Tests that exercise the buffer inject a fake client explicitly.
+    """
+    from app.core.redis import get_redis
+
+    monkeypatch.setenv("REDIS_URL", "")
+    config.get_settings.cache_clear()
+    get_redis.cache_clear()
+    yield
+    config.get_settings.cache_clear()
+    get_redis.cache_clear()
+
+
 @pytest.fixture
 def engine() -> Iterator[Engine]:
     eng = create_engine(

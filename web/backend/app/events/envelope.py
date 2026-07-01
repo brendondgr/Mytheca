@@ -1,10 +1,13 @@
-"""NDJSON story-event envelope types (chat scaffold).
+"""NDJSON story-event envelope types.
 
-The five event types from ``docs/api-contract.md``, modeled as a discriminated
+The story-event types from ``docs/api-contract.md``, modeled as a discriminated
 union on the top-level ``type`` so the backend can validate a streamed event with
 one call (``story_event_adapter.validate_python(obj)``). Wire shape is camelCase
-(``scenarioId``, ``sessionId``, ``characterId``). No streaming/turn logic yet —
-this is the type scaffold the future event engine will emit and validate against.
+(``scenarioId``, ``sessionId``, ``characterId``). ``internal_thought`` is a
+conditioning-only event (``visibility: hidden``) persisted but withheld from the
+client stream. Delta-streaming wrapper frames (``message_start`` / ``message_delta``
+/ ``message_end``) live in ``app/events/stream.py`` — they are transport frames,
+not persisted story events, so they are intentionally not part of this union.
 """
 
 from __future__ import annotations
@@ -44,6 +47,17 @@ class CharacterActionData(CamelModel):
     text: str
 
 
+class InternalThoughtData(CamelModel):
+    """A character's hidden in-voice thinking (conditioning only, never shown).
+
+    Emitted with ``visibility: hidden`` (Step 5 / §7 of the turn-loop plan): it is
+    persisted as conditioning context but withheld from the client stream.
+    """
+
+    character_id: str
+    text: str
+
+
 class StateUpdateData(CamelModel):
     # Partial scenario-state patch; stat changes ride in `stat`.
     patch: dict = Field(default_factory=dict)
@@ -51,9 +65,11 @@ class StateUpdateData(CamelModel):
 
 
 class BranchChoiceOption(CamelModel):
+    # No dice/checks (D11): a branch is a narrative fork resolved by the player's
+    # selection + the characters' in-character response. ``outcome`` is a direction
+    # tag (de-escalate / escalate / bribe …), never a stat test.
     label: str
     outcome: str = ""
-    check: str | None = None
 
 
 class BranchChoicesData(CamelModel):
@@ -89,6 +105,12 @@ class CharacterActionEvent(EventEnvelope):
     data: CharacterActionData
 
 
+class InternalThoughtEvent(EventEnvelope):
+    type: Literal["internal_thought"] = "internal_thought"
+    visibility: Visibility = "hidden"
+    data: InternalThoughtData
+
+
 class StateUpdateEvent(EventEnvelope):
     type: Literal["state_update"] = "state_update"
     data: StateUpdateData
@@ -104,6 +126,7 @@ StoryEvent = Annotated[
         NarrationEvent,
         CharacterDialogueEvent,
         CharacterActionEvent,
+        InternalThoughtEvent,
         StateUpdateEvent,
         BranchChoicesEvent,
     ],
@@ -119,6 +142,7 @@ __all__ = [
     "NarrationData",
     "CharacterDialogueData",
     "CharacterActionData",
+    "InternalThoughtData",
     "StateUpdateData",
     "BranchChoiceOption",
     "BranchChoicesData",
@@ -126,6 +150,7 @@ __all__ = [
     "NarrationEvent",
     "CharacterDialogueEvent",
     "CharacterActionEvent",
+    "InternalThoughtEvent",
     "StateUpdateEvent",
     "BranchChoicesEvent",
     "StoryEvent",

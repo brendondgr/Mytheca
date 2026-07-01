@@ -1,24 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { postTurn } from "@/lib/api";
+import type { TurnStreamFrame } from "@/lib/events";
 import type { ResolvedScenario } from "@/lib/types";
+import { useEventStream } from "@/hooks/use-event-stream";
 import {
   buildScene,
   type SceneChoice,
   type SceneMessage,
   type StatChip,
 } from "./scene-data";
+import { applyStatUpdate, branchOptionsToChoices, mergeFrame, sessionIdOf } from "./turn-stream";
 
-/** Client state + interactions for a live scene (send / roll / choose). */
+/** Client state + interactions for a live scene: a streamed turn loop over the backend. */
 export function useScenePlay(scenario: ResolvedScenario) {
   const [seed] = useState(() => buildScene(scenario));
   const [messages, setMessages] = useState<SceneMessage[]>(seed.messages);
-  const [tension, setTension] = useState(seed.tension);
+  const [tension] = useState(seed.tension);
   const [stats, setStats] = useState<StatChip[]>(seed.stats);
+  const [choices, setChoices] = useState<SceneChoice[]>(seed.choices);
   const [composer, setComposer] = useState("");
   const [loading, setLoading] = useState(true);
   const [reveal, setReveal] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [streamError, setStreamError] = useState<string | null>(null);
+  // The play session id is captured from the first streamed event and reused so
+  // subsequent turns continue the same session.
+  const sessionRef = useRef<string | null>(null);
 
   // Loader → content reveal.
   useEffect(() => {
@@ -29,50 +38,58 @@ export function useScenePlay(scenario: ResolvedScenario) {
     return () => clearTimeout(timer);
   }, []);
 
-  function send() {
+  const onFrame = useCallback((frame: TurnStreamFrame) => {
+    const sid = sessionIdOf(frame);
+    if (sid) sessionRef.current = sid;
+    if (frame.type === "error") {
+      setStreamError(frame.message);
+      return;
+    }
+    if (frame.type === "state_update") {
+      if (frame.data.stat) setStats((s) => applyStatUpdate(s, frame.data.stat!));
+      return;
+    }
+    if (frame.type === "branch_choices") {
+      setChoices(branchOptionsToChoices(frame.data.choices));
+      setMessages((m) => [...m.filter((x) => x.kind !== "choices"), { kind: "choices" }]);
+      return;
+    }
+    setMessages((prev) => mergeFrame(prev, frame));
+  }, []);
+
+  const stream = useEventStream<TurnStreamFrame>(onFrame);
+  const sending = stream.status === "streaming";
+
+  const submit = useCallback(
+    (text: string) => {
+      const t = text.trim();
+      if (!t || sending) return; // in-flight guard
+      setStreamError(null);
+      // Optimistic player bubble; clear any open branch choices.
+      setMessages((m) => [...m.filter((x) => x.kind !== "choices"), { kind: "player", text: t }]);
+      void stream
+        .run((signal) => postTurn(scenario.id, { text: t, sessionId: sessionRef.current }, signal))
+        .catch(() => setStreamError((e) => e ?? "The turn could not be completed."));
+    },
+    [sending, scenario.id, stream],
+  );
+
+  const send = useCallback(() => {
+    if (sending) return;
     const text = composer.trim();
     if (!text) return;
     setComposer("");
-    setMessages((m) => [
-      ...m.filter((x) => x.kind !== "choices"),
-      { kind: "player", text },
-      {
-        kind: "narrator",
-        text: "The table waits. Somewhere behind the bar, a glass is set down a little too carefully.",
-      },
-    ]);
-  }
+    submit(text);
+  }, [composer, sending, submit]);
 
-  function choose(c: SceneChoice) {
-    setStats((s) =>
-      s.map((chip) => {
-        if (c.suspicion && chip.label === "Suspicion")
-          return { ...chip, value: chip.value + c.suspicion };
-        if (c.trust && chip.label.toLowerCase().includes("trust"))
-          return { ...chip, value: chip.value + c.trust };
-        return chip;
-      }),
-    );
-    setTension((t) => Math.min(100, t + (c.tension ?? 0)));
-    setMessages((m) => [
-      ...m.filter((x) => x.kind !== "choices"),
-      {
-        kind: "check",
-        check: c.check,
-        roll: 1 + Math.floor(Math.random() * 20),
-        result: "Success",
-        text: "You commit to the approach. The room shifts to meet it.",
-      },
-      { kind: "player", text: c.player },
-      { kind: "char", who: c.follow.who, action: c.follow.action, text: c.follow.text },
-    ]);
-  }
+  // Selecting a branch submits a real turn (no scripted check/follow — D11).
+  const choose = useCallback((c: SceneChoice) => submit(c.player || c.label), [submit]);
 
   const lastSpeaker = [...messages].reverse().find((m) => m.kind === "char");
 
   return {
     messages,
-    choices: seed.choices,
+    choices,
     tension,
     stats,
     relationships: seed.relationships,
@@ -82,6 +99,8 @@ export function useScenePlay(scenario: ResolvedScenario) {
     setComposer,
     loading,
     reveal,
+    sending,
+    streamError,
     send,
     choose,
     profileId,

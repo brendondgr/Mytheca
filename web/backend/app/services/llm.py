@@ -85,6 +85,7 @@ def chat_complete(
     params: LlmParams | None = None,
     *,
     reasoning: ReasoningEffort | None = None,
+    extra_body: dict | None = None,
 ) -> str:
     """Run one chat completion and return the assistant's text.
 
@@ -97,6 +98,10 @@ def chat_complete(
     models stop thinking once the budget is spent. This is **backend-controlled** —
     callers (the authoring agents) set the effort per operation; it is never exposed
     to the user. On an OpenAI / unknown endpoint the budget is silently omitted.
+
+    ``extra_body`` is merged into the request body — the seam for vLLM guided/structured
+    decoding (e.g. ``{"guided_choice": [...]}`` or ``{"guided_json": {...}}``) to pin the
+    turn loop's constrained control fields. Ignored by providers that don't support it.
     """
     if not model:
         raise APIError(400, "bad_request", "A model is required to generate.")
@@ -111,6 +116,8 @@ def chat_complete(
         "frequency_penalty": p.frequency_penalty,
         "presence_penalty": p.presence_penalty,
     }
+    if extra_body:
+        body.update(extra_body)
     if reasoning is not None:
         # Local import avoids a circular import (llm_backend imports this module).
         from app.services import llm_backend

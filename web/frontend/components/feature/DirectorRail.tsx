@@ -47,6 +47,7 @@ export function StateChips({ stats }: { stats: StatChip[] }) {
       {stats.map((s) => (
         <div
           key={s.label}
+          title={s.reason || undefined}
           className="flex items-center justify-between rounded-[3px] border border-cardbd bg-card p-[8px_11px]"
         >
           <span className="font-body text-[13.5px] text-ink">{s.label}</span>

@@ -42,13 +42,13 @@ velora/
 │   │   ├── alembic.ini     # Alembic config (no secret — DB URL injected at runtime from app.core.config)
 │   │   ├── alembic/        # Migrations: env.py (→ Base.metadata + settings) + versions/ (baseline = current schema). Non-additive migration path; coexists with create_all/reconciler (preflight stamps/upgrades on Postgres, skips SQLite)
 │   │   └── app/
-│   │       ├── routes/     # API + SSE/WebSocket endpoints (+ graph: Story-Graph Type Registry + scenario subgraph)
-│   │       ├── services/   # Orchestrator/Director, event engine, validator; stat_guidance (per-stat Markdown loader); media_cleanup (orphaned-WebP scan/delete); Story Graph: type_registry, graph_writer, graph_reader
-│   │       ├── agents/     # LLM agents — storyline_agent (draft + World Primer), character_agent (draft + portrait prompts + stats), setting_agent (draft + scene-art prompts), shared _common; Narrator agents later
+│   │       ├── routes/     # API + NDJSON streaming endpoints — incl. play.py (POST /play/{id}/turn streams the turn); (+ graph: Story-Graph Type Registry + scenario subgraph)
+│   │       ├── services/   # Turn loop: turn_engine (POV loop + delta streaming), assembler (Band-1 context), retrieval_gate, emission (thin-tag parse), validator (stat clamp), events_store (seq/persist), turn_writer (cold-path consequences); event engine; stat_guidance; media_cleanup; Story Graph: type_registry, graph_writer, graph_reader
+│   │       ├── agents/     # LLM agents — authoring (storyline/character/setting/scenario, build/triage/extract, shared _common); turn loop: character_turn_agent (think→speak), director_agent (who's-up + branches), narrator_agent (interstitials)
 │   │       ├── content/    # Authored content — the built-in Story-Graph type catalogue (graph_registry.py) + per-stat Markdown guidance (stats/*.md, loaded by services/stat_guidance.py); YAML config later
 │   │       ├── rag/        # Entry-based hybrid RAG: schema.py (LoreEntry) · serializer.py (prefix-fusion) · tokens.py (512-token guard) · entries.py (entity→entry adapters) · embedder.py (fastembed bge-large + HashEmbedder fallback) · store.py (Qdrant) · indexer.py (embed-on-save/delete hooks + reindex progress) · retriever.py (dense+BM25+RRF+pre-filter) · const.py
-│   │       ├── memory/     # Memory seam (Postgres/Redis now; vector seam wired via rag/)
-│   │       ├── events/     # Event / NDJSON stream definitions (5 event types)
+│   │       ├── memory/     # Live turn state (Redis, best-effort): buffer.py (recent-turn buffer); interior state + prefetch are later-phase seams
+│   │       ├── events/     # Story-event envelope (6 types incl. internal_thought) + stream.py (build_event/to_ndjson_line/chunk_text)
 │   │       ├── models/     # PostgreSQL models (storylines, characters, settings, scenarios, events, stats, app_settings, graph_type_definitions, context_documents)
 │   │       ├── schemas/    # Pydantic request/response + event schemas (stat clamping, rag.py)
 │   │       └── core/       # Config, db/redis/neo4j/qdrant.py clients, LLM provider interface, YAML/Markdown loaders

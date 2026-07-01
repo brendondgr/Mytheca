@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.events import StateUpdateEvent, story_event_adapter
+from app.events import InternalThoughtEvent, StateUpdateEvent, story_event_adapter
 from app.models import Event, PlaySession, Scenario, Storyline
 
 
@@ -35,6 +35,26 @@ def test_envelope_round_trips_camel_case():
     event = story_event_adapter.validate_python(_envelope("narration", {"text": "hi"}))
     dumped = event.model_dump(by_alias=True)
     assert dumped["scenarioId"] == "embergate" and dumped["sessionId"] == "ps1"
+
+
+def test_parses_internal_thought_hidden_by_default():
+    event = story_event_adapter.validate_python(
+        _envelope("internal_thought", {"characterId": "mei", "text": "Let him sweat."})
+    )
+    assert isinstance(event, InternalThoughtEvent)
+    # internal_thought is conditioning-only — hidden unless the caller overrides.
+    assert event.visibility == "hidden"
+    assert event.data.character_id == "mei"
+
+
+def test_branch_choice_has_no_check_field():
+    event = story_event_adapter.validate_python(
+        _envelope("branch_choices", {"choices": [{"label": "Run", "outcome": "escape", "check": "Athletics"}]})
+    )
+    option = event.data.choices[0]
+    assert option.label == "Run" and option.outcome == "escape"
+    assert not hasattr(option, "check")  # dice removed (D11)
+    assert "check" not in event.model_dump(by_alias=True)["data"]["choices"][0]
 
 
 def test_state_update_carries_stat_patch():

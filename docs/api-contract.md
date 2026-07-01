@@ -39,8 +39,8 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Scenario authoring | `POST /scenarios/draft`, `POST /scenarios/scene-art-prompts`, `POST /scenarios/scene-art` | **Implemented.** The agentic Scenario Creator: draft a scenario (title/genre/tone/goal/opening) from a seed, plus a **valid cast + setting chosen from the active world's real roster**. The model returns names from a numbered roster; the agent resolves names→ids server-side, **dropping** unknown cast and falling back to `""` for an unmatched setting — so the draft never invents or dangles a reference. Scene-art prompts and image generation follow the same watercolor pipeline as Setting authoring. Declared above `/scenarios/{id}`. See Scenario Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation), read-only inference-engine detection (`/llm/backend`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
-| Play | `POST /play/{scenarioId}/turn` | Submit a user turn; triggers the orchestrator. |
-| Stream | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | NDJSON event stream (see below). |
+| Play | `POST /play/{scenarioId}/turn` | **Implemented.** Submit a player turn; the response body **is** the NDJSON event stream (`application/x-ndjson`, one event per line) — the turn engine runs the per-character POV loop and streams the resulting story events directly (reusing the build/triage streaming pattern), so there is no separate stream connection for the single-player case. Body: `{ text, directedAt?, sessionId?, mode? }` (omit `sessionId` to start a session; `mode` ∈ `pov` (default) \| `narrator`). The reasoned **Director** picks who reacts + order (a directed addressee / solo cast is the no-LLM fast path); **Narrator Mode** inserts a narration interstitial before each speaker, **POV Mode** omits it (one engine — D1). Pre-flight failures (unknown scenario → 404, empty text → 400, bad session → 404/400) return a normal error envelope before the 200 stream opens; a mid-stream failure is the terminal `{ "type": "error", "message": "…" }` frame. See Turn Stream below. |
+| Stream (seam) | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | **Deferred seam.** A separate fan-out connection (Redis pub/sub, reconnect/replay-from-`seq`, multi-watcher) for cases the single-response stream above doesn't cover. Not built. |
 | Admin (future) | `GET /admin/*` | High-permission only. |
 
 ## Stat Definition Shape
@@ -508,7 +508,7 @@ populated when the author generates scene art in the Scenario Creator.
 
 ## NDJSON Event Stream
 
-> **Scaffold status:** the event envelope types (the five types below + `StatPatch`, as a discriminated union) exist in `web/backend/app/events/envelope.py`, and `events` + `play_sessions` tables exist in `web/backend/app/models/`. The streaming transport, turn engine, `seq` monotonicity, and validation/repair loop are **not built yet** — this is the data-structure scaffold only.
+> **Status:** the event envelope (the types below + `internal_thought` + `StatPatch`, as a discriminated union) lives in `web/backend/app/events/envelope.py`. The **turn transport is implemented** (P1): `POST /play/{scenarioId}/turn` streams a validated, `seq`-monotonic event set (DB-authoritative `seq` via a `(session_id, seq)` unique constraint; persisted to the `events` table). Per-character generation, delta streaming, the Director, gated RAG, the cold-path turn-writer, and the read-time reflection interlude land in the later turn-loop phases (`docs/plans/turn-loop-runtime.md`).
 
 The stream emits one JSON object per line. Every event shares a base envelope:
 
@@ -518,17 +518,26 @@ The stream emits one JSON object per line. Every event shares a base envelope:
 
 `visibility` ∈ `public | private_to_user | private_to_character | hidden` — some content is shown to the player, some only affects agent reasoning.
 
-### Event types (minimal set to start)
+### Event types
 
-Start with **five** types, not thirty. Each maps to one frontend component.
+Each maps to one frontend component.
 
 | `type` | UI rendering | `data` highlights |
 | --- | --- | --- |
-| `narration` | Teal narrator card | `text` (may delta-stream) |
+| `narration` | Teal narrator card | `text` (may delta-stream), `done` |
 | `character_dialogue` | Character chat bubble (speaker's avatar/color) | `characterId`, `text` (may delta-stream), `done` |
 | `character_action` | Action / emote card | `characterId`, `text` |
+| `internal_thought` | **Not rendered** — `visibility: hidden`, conditioning only | `characterId`, `text` (persisted, withheld from the stream) |
 | `state_update` | Updates side panels (no chat message) | `patch` — partial scenario state; **stat changes ride here** |
-| `branch_choices` | Branch-choices panel | `choices[]` (`label`, `outcome`, optional `check`) |
+| `branch_choices` | Branch-choices panel | `choices[]` (`label`, `outcome`) |
+
+**No dice (D11):** `branch_choices` options carry `label` + `outcome` (a narrative-direction
+tag) only — there is no `check` field. A branch is a narrative fork resolved by the player's
+selection + the characters' in-character response, never a stat test.
+
+**`internal_thought`** is the hidden think→speak conditioning block (the turn-loop plan
+Step 5 / §7): persisted with `visibility: hidden` and **withheld from the client stream**
+(it conditions the spoken line in the same context window; it is never shown).
 
 **Stat changes** are carried on `state_update`:
 
@@ -540,18 +549,38 @@ Start with **five** types, not thirty. Each maps to one frontend component.
 
 The validator confirms the stat exists and clamps `value` to `[min, max]`; the Stats panel re-renders and the narrator may reference the new state next turn. When bespoke rendering is wanted (an animating bar, a floating "+5 / −10"), promote stat changes to a dedicated `stat_update` event later — the data shape is the same.
 
-Additional types to layer in later: `internal_thought` (with visibility controls), `relationship_update`, `goal_update`, `turn_update`, and the dice-resolution set (`check_request`, `roll_result`, `consequence`).
+Additional types to layer in later: `relationship_update`, `goal_update`, `turn_update`.
 
 ### Streaming modes
 
-- **Full events** (one complete object) — used for `state_update` and `branch_choices`. Easy to validate and render.
-- **Delta streaming** — `message_start` → repeated `message_delta` → `message_end` — used for visible messages (`narration`, `character_dialogue`). The client renders deltas as they arrive and finalizes on `message_end`.
+- **Full events** (one complete object) — used for `state_update`, `branch_choices`, and `character_action`. Easy to validate and render.
+- **Delta streaming** — visible prose (`narration`, `character_dialogue`) is delta-streamed by emitting the **same event** (identical `id` + `seq`) repeatedly with an *incremental* `text` chunk and `done: false`, until the final chunk sets `done: true`. The client accumulates the chunks by `id` (`"".join` of the pieces == the full line); the **persisted** row holds the full text. This reuses the `done` field already on those payloads rather than a separate `message_start`/`message_delta`/`message_end` frame set. (`character_action` has no `done` field, so it streams as one full event.)
+
+### Turn Stream (`POST /play/{scenarioId}/turn`)
+
+The response **is** the stream — `application/x-ndjson`, one event per line, in `seq`
+order — for the same `postNdjson`/`StreamingResponse` reasons as the build/triage streams.
+Request body: `{ "text": "…", "directedAt": "ch_id" | null, "sessionId": "ps_…" | null,
+"mode": "pov" | "narrator" }` (omit `sessionId` to open a new play session; the streamed
+events carry the resolved `sessionId`; `mode` defaults to `pov`). Multiple speakers stream
+**sequentially** in the Director's order — a later speaker reacts to its predecessor (the
+hidden `internal_thought` of each is withheld from the stream and from later speakers). A
+speaker may propose a stat change (a thin `state_update` block): the validator confirms the
+stat exists, applies the **delta/value clamped to `[min,max]`** on the hot path (keeping the
+`reason`), and emits a `state_update` event — an unknown stat is dropped. When the Director
+flags a fork, a `branch_choices` event offers `label` + `outcome` options (no dice — D11);
+stats inform which surface, never gate them. The player's input is persisted as a
+`user_turn` event at `seq` 0 of the turn (not streamed back — the client already shows it
+optimistically); the bot's events follow at the next seqs. A mid-stream failure is the terminal `{ "type": "error", "message": "…" }`
+frame; pre-flight failures (unknown scenario, empty text, bad session) are a normal error
+envelope before the 200 opens.
 
 ### Rules
 
-- `seq` is monotonic per session so the client can detect gaps and reorder.
+- `seq` is monotonic per session (DB-authoritative: `max(seq)+1`, guarded by a
+  `(session_id, seq)` unique constraint) so the client can detect gaps and reorder.
 - Chunked/delta text sets `done: false` until the final chunk sets `done: true`.
-- The client must handle reconnect (resume from last `seq` where possible) and stalled streams.
+- `internal_thought` (`visibility: hidden`) is persisted but never placed on the wire.
 - The validator runs `parse → validate (incl. stat clamping) → repair/retry` before anything reaches the stream.
 
 ## Shared Contracts Location

@@ -26,11 +26,14 @@ BranchTag = Literal[
     "character_action",
 ]
 
-# The five live story-event types carried on the NDJSON stream (see app/events).
+# The live story-event types carried on the NDJSON stream (see app/events).
+# ``internal_thought`` is conditioning-only (``visibility: hidden``) — persisted but
+# withheld from the client stream.
 EventType = Literal[
     "narration",
     "character_dialogue",
     "character_action",
+    "internal_thought",
     "state_update",
     "branch_choices",
 ]

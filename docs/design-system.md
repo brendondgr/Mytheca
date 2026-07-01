@@ -95,9 +95,8 @@ A three-zone "open book": a **left cast rail** (At the table · turn order, port
 | `character_dialogue` | Monogram avatar (character color) + Cinzel name in that color + chat bubble (`--card-bg`, asymmetric radius). |
 | `character_action` | Inline italic emote next to the name (e.g. *leans in, low*), in `--mute2`. |
 | player turn | Right-aligned bubble in `--accent` with `#F6ECDA` text, mono "You" eyebrow. |
-| `state_update` (stats) | Updates the right-rail **scenario state chips** (label + signed value, colored by direction) and the tension meter; no chat message. |
-| `branch_choices` | Centered "Your move — choose a path" block of ◆ choice rows (label + outcome + optional check tag). |
-| check (dice, optional later) | Gold-bordered "d20 check" card with the roll in a gold tile and a Success/Failure pill (`#1F8A5B` / `#9A3520`). |
+| `state_update` (stats) | Updates the right-rail **scenario state chips** (label + signed value, colored by direction; the change `reason` rides as the chip's title); no chat message. |
+| `branch_choices` | Centered "Your move — choose a path" block of ◆ choice rows (**label + outcome only** — no dice/check, D11). Selecting a row submits a real turn. |
 
 ### Stats & tension display
 
