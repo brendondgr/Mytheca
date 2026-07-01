@@ -530,6 +530,72 @@ def test_universal_reflection_writes_interior_for_the_whole_cast(client, storyli
         assert rec is not None and rec.disposition.endswith("took it in.")
 
 
+# ---- Inspector: opt-in diagnostic trace frames --------------------------------
+
+
+def test_no_trace_frames_by_default(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    _patch_llm(monkeypatch)
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+    assert all(e["type"] != "trace" for e in events)  # off unless requested
+
+
+def test_trace_frames_when_requested_and_story_events_still_validate(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    _patch_llm(monkeypatch)
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid, "trace": True})
+    )
+    traces = [e for e in events if e["type"] == "trace"]
+    steps = [t["step"] for t in traces]
+    assert steps[0] == "turn"  # each turn opens with a "turn" step
+    assert {"assemble", "director", "speaker", "reflection"} <= set(steps)
+    ns = [t["n"] for t in traces]
+    assert ns == sorted(ns) and len(set(ns)) == len(ns)  # ordered, unique
+    # Trace frames are transport-only; every real story event still validates.
+    for e in events:
+        if e["type"] not in ("trace", "error"):
+            story_event_adapter.validate_python(e)
+
+
+def test_trace_director_step_explains_speaker_choice(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    _patch_routed(monkeypatch, director_speakers=[1, 2])
+    mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    kira = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Kira"}).json()["id"]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
+    scid = _scenario(client, storyline_id, [mei, kira], sid)
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "I address the room.", "trace": True})
+    )
+    director = next(t for t in events if t["type"] == "trace" and t["step"] == "director")
+    assert director["data"]["speakers"] == ["Mei", "Kira"]
+    assert director["detail"]  # a plain-language rationale is present
+
+
+def test_trace_surfaces_hidden_thinking(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    emission = (
+        "<speaker:1>\n<thinking>Coin first, favor later.</thinking>\n"
+        '<type:character_dialogue>\n"Fine."'
+    )
+    _patch_llm(monkeypatch, emission)
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid, "trace": True})
+    )
+    # The thought never rides the wire as a story event …
+    assert all(e["type"] != "internal_thought" for e in events)
+    # … but the Inspector trace surfaces it so the reasoning is visible.
+    think = next(t for t in events if t["type"] == "trace" and t["step"] == "thinking")
+    assert "Coin first" in think["detail"]
+
+
 def test_unknown_scenario_returns_404(client):
     assert client.post("/api/play/nope/turn", json={"text": "hi"}).status_code == 404
 

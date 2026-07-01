@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.ids import new_id
 from app.events.envelope import StoryEvent, story_event_adapter
@@ -103,3 +103,24 @@ class TurnErrorFrame(CamelModel):
 
     type: Literal["error"] = "error"
     message: str
+
+
+class TurnTraceFrame(CamelModel):
+    """Diagnostic trace frame for the turn stream (opt-in via ``TurnRequest.trace``).
+
+    **Not** a persisted story event — a transport frame (like :class:`TurnErrorFrame`)
+    the engine interleaves to explain, in order, what the turn loop did and *why*: the
+    Director's speaker choice + rationale, each character's hidden thinking, stat clamps,
+    the mid-turn re-rank / cascade, the reflection interlude. The story player's
+    **Inspector** panel renders these in order; the transcript ignores them. Emitted only
+    when the caller sets ``trace: true``, so the default stream and the story-event
+    contract are unchanged. ``n`` orders the frames within one turn; ``step`` is a stable
+    machine key (``turn`` opens each turn); ``title``/``detail`` are human-readable and
+    ``data`` carries the structured payload (speakers, deltas, order changes, …)."""
+
+    type: Literal["trace"] = "trace"
+    n: int = 0
+    step: str
+    title: str
+    detail: str = ""
+    data: dict = Field(default_factory=dict)

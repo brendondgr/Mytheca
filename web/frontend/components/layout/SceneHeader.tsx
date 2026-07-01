@@ -8,12 +8,17 @@ export function SceneHeader({
   genre,
   tone,
   backHref = "/",
+  onToggleInspector,
+  inspectorOpen = false,
 }: {
   title: string;
   settingName: string;
   genre?: string;
   tone?: string;
   backHref?: string;
+  /** Toggle the Turn Inspector drawer (omit to hide the control). */
+  onToggleInspector?: () => void;
+  inspectorOpen?: boolean;
 }) {
   const meta = [`◆ ${settingName}`, genre, tone].filter(Boolean).join(" · ");
   return (
@@ -41,6 +46,17 @@ export function SceneHeader({
           <span className="h-[7px] w-[7px] rounded-full bg-success" aria-hidden /> Narrator
           active
         </div>
+        {onToggleInspector ? (
+          <button
+            type="button"
+            onClick={onToggleInspector}
+            aria-pressed={inspectorOpen}
+            title="Turn Inspector — see how the scene responds to each message"
+            className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[10px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-pressed:border-accent aria-pressed:text-accent"
+          >
+            <span aria-hidden>⚙</span> Inspector
+          </button>
+        ) : null}
       </div>
     </header>
   );

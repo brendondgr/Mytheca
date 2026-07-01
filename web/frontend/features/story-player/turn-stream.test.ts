@@ -1,7 +1,18 @@
 import { describe, it, expect } from "vitest";
-import type { StatPatch, TurnStreamFrame } from "@/lib/events";
+import type { StatPatch, TurnStreamFrame, TurnTraceFrame } from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
-import { applyStatUpdate, branchOptionsToChoices, mergeFrame, sessionIdOf } from "./turn-stream";
+import {
+  applyStatUpdate,
+  branchOptionsToChoices,
+  foldTrace,
+  mergeFrame,
+  sessionIdOf,
+  type TraceTurn,
+} from "./turn-stream";
+
+function trace(step: string, n: number, extra: Partial<TurnTraceFrame> = {}): TurnTraceFrame {
+  return { type: "trace", n, step, title: `${step} ${n}`, detail: "", data: {}, ...extra };
+}
 
 function ev(type: string, id: string, data: unknown): TurnStreamFrame {
   return {
@@ -56,12 +67,45 @@ describe("mergeFrame", () => {
     expect(mergeFrame([], { type: "error", message: "x" })).toEqual([]);
     expect(mergeFrame([], ev("state_update", "s1", { patch: {}, stat: null }))).toEqual([]);
   });
+
+  it("ignores trace frames (they are for the Inspector, not the transcript)", () => {
+    expect(mergeFrame([], trace("director", 1))).toEqual([]);
+  });
 });
 
 describe("sessionIdOf", () => {
-  it("returns the envelope sessionId, null for error frames", () => {
+  it("returns the envelope sessionId, null for error/trace frames", () => {
     expect(sessionIdOf(ev("narration", "n1", { text: "a", done: true }))).toBe("ps1");
     expect(sessionIdOf({ type: "error", message: "x" })).toBeNull();
+    expect(sessionIdOf(trace("turn", 1))).toBeNull();
+  });
+});
+
+describe("foldTrace", () => {
+  it("opens a new turn group on a `turn` step and appends the rest in order", () => {
+    let turns: TraceTurn[] = [];
+    turns = foldTrace(turns, trace("turn", 1, { detail: "I slide the pouch." }));
+    turns = foldTrace(turns, trace("director", 2));
+    turns = foldTrace(turns, trace("thinking", 3));
+    expect(turns).toHaveLength(1);
+    expect(turns[0].label).toBe("I slide the pouch."); // player message labels the turn
+    expect(turns[0].steps.map((s) => s.step)).toEqual(["turn", "director", "thinking"]);
+  });
+
+  it("starts a fresh group for each new turn", () => {
+    let turns: TraceTurn[] = [];
+    turns = foldTrace(turns, trace("turn", 1, { detail: "one" }));
+    turns = foldTrace(turns, trace("director", 2));
+    turns = foldTrace(turns, trace("turn", 1, { detail: "two" }));
+    expect(turns).toHaveLength(2);
+    expect(turns[1].label).toBe("two");
+    expect(turns[1].steps).toHaveLength(1);
+  });
+
+  it("starts a group even if the first frame is not a `turn` step (never drops)", () => {
+    const turns = foldTrace([], trace("director", 5));
+    expect(turns).toHaveLength(1);
+    expect(turns[0].steps[0].step).toBe("director");
   });
 });
 

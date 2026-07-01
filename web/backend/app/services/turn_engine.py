@@ -28,7 +28,7 @@ from app.agents.reflection_agent import LlmConn
 from app.core.errors import APIError
 from app.core.ids import new_id
 from app.events.envelope import StoryEvent
-from app.events.stream import build_event, chunk_text
+from app.events.stream import TurnTraceFrame, build_event, chunk_text
 from app.memory import buffer
 from app.models import Scenario
 from app.schemas.base import EventType, Visibility
@@ -134,6 +134,32 @@ class _Emitter:
             )
 
 
+class _Tracer:
+    """Interleaves diagnostic :class:`TurnTraceFrame`s when the caller opts in.
+
+    Off by default: when disabled, :meth:`emit` yields nothing, so the stream and the
+    story-event contract are unchanged. When enabled it stamps a per-turn ordinal ``n``
+    so the Inspector can render the steps in the exact order they happened.
+    """
+
+    def __init__(self, enabled: bool) -> None:
+        self._enabled = enabled
+        self._n = 0
+
+    def emit(
+        self,
+        step: str,
+        title: str,
+        *,
+        detail: str = "",
+        data: dict[str, Any] | None = None,
+    ) -> Iterator[TurnTraceFrame]:
+        if not self._enabled:
+            return
+        self._n += 1
+        yield TurnTraceFrame(n=self._n, step=step, title=title, detail=detail, data=data or {})
+
+
 def validate_turn_inputs(db: Session, scenario_id: str, req: TurnRequest) -> Scenario:
     """Pre-flight (before the 200 stream opens): scenario exists, text present, session valid."""
     scenario = crud.get_scenario(db, scenario_id)  # raises 404 when missing
@@ -144,10 +170,14 @@ def validate_turn_inputs(db: Session, scenario_id: str, req: TurnRequest) -> Sce
     return scenario
 
 
-def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[StoryEvent]:
-    """Run one turn, yielding the visible story events in order."""
+def run_turn(
+    db: Session, scenario: Scenario, req: TurnRequest
+) -> Iterator[StoryEvent | TurnTraceFrame]:
+    """Run one turn, yielding the visible story events (and, when ``req.trace``, the
+    interleaved diagnostic trace frames the Inspector renders) in order."""
     session = events_store.resolve_session(db, scenario.id, req.session_id)
     text = (req.text or "").strip()
+    tracer = _Tracer(req.trace)
 
     seq0 = events_store.next_seq(db, session.id)
     events_store.record_user_turn(
@@ -158,12 +188,30 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
         text=text,
         directed_at=req.directed_at,
     )
+    yield from tracer.emit(
+        "turn",
+        "You submitted a message",
+        detail=text,
+        data={"directedAt": req.directed_at, "mode": req.mode},
+    )
 
     # Assemble against committed history, THEN push the player's line so it becomes
     # history for the next turn (the current line also seeds this turn's transcript,
     # so it is present even when the buffer is disabled).
     ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at, player_text=text)
     buffer.push_turn(session.id, "player", text)
+    yield from tracer.emit(
+        "assemble",
+        f"Gathered the scene ({len(ctx.cast)} character(s) present)",
+        detail=ctx.gate_reason,
+        data={
+            "cast": [
+                {"id": m.id, "name": m.name, "disposition": m.disposition} for m in ctx.cast
+            ],
+            "directedAt": req.directed_at,
+            "retrievedLore": bool(ctx.retrieved_lore),
+        },
+    )
 
     emitter = _Emitter(db, scenario.id, session.id, start_seq=seq0 + 1)
     # The chronological this-turn transcript handed to each speaker so a later speaker
@@ -176,7 +224,20 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
 
     decision = director_agent.who_is_up(db, ctx)
     speakers = [m for cid in decision.speakers if (m := ctx.cast_by_id(cid)) is not None]
+    yield from tracer.emit(
+        "director",
+        f"The Director chose {len(speakers)} speaker(s)",
+        detail=_director_rationale(decision, speakers),
+        data={
+            "speakers": [m.name for m in speakers],
+            "beat": decision.beat,
+            "needsBranch": decision.needs_branch,
+        },
+    )
     if not speakers:
+        yield from tracer.emit(
+            "director", "No one speaks", detail="No character was picked; the scene simply holds."
+        )
         yield from emitter.emit(
             "narration", {"text": "The scene waits, quiet.", "done": True}, buffer_role="narrator"
         )
@@ -191,22 +252,43 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
     index = 0
     while index < len(speakers):
         speaker = speakers[index]
+        yield from tracer.emit(
+            "speaker",
+            f"{speaker.name} responds",
+            detail=f"Speaker {index + 1} of {len(speakers)} this turn.",
+            data={"characterId": speaker.id, "name": speaker.name},
+        )
         # Narrator Mode: a transition beat before the speaker (POV Mode: off — D1).
         if req.mode == "narrator":
             yield from _narrator_interstitial(db, ctx, turn_beats, emitter)
         impact = yield from _generate_speaker(
-            db, ctx, speaker, emitter, turn_beats, consequences, guard_conn=guard_conn
+            db, ctx, speaker, emitter, turn_beats, consequences, guard_conn=guard_conn, tracer=tracer
         )
         remaining = speakers[index + 1 :]
         if impact > 0 and remaining:
             # Mid-turn re-consult: re-rank the not-yet-spoken speakers after the shift.
+            before = [m.name for m in remaining]
             reordered_ids = director_agent.rerank(db, ctx, [m.id for m in remaining], turn_beats)
             reordered = [m for cid in reordered_ids if (m := ctx.cast_by_id(cid)) is not None]
             speakers[index + 1 :] = reordered
+            after = [m.name for m in reordered]
+            if after != before:
+                yield from tracer.emit(
+                    "rerank",
+                    "Re-ranked who speaks next",
+                    detail=f"A strong beat (impact {impact}) shifted the order.",
+                    data={"from": before, "to": after},
+                )
             # Cascade the disposition refresh, width scaled to impact — a bigger shift
             # moves more of the room; a small one only the very next speaker.
             width = len(reordered) if impact >= _CASCADE_WIDE_THRESHOLD else 1
             reflection.refresh_dispositions(db, ctx, reordered[:width], turn_beats, seq=seq0)
+            yield from tracer.emit(
+                "cascade",
+                f"Refreshed {min(width, len(reordered))} character(s)' stance",
+                detail="They re-evaluate their mood mid-turn before speaking.",
+                data={"targets": [m.name for m in reordered[:width]], "impact": impact},
+            )
         index += 1
 
     # A narrative fork (after the line-to-line consistency pass seam): stats inform
@@ -216,6 +298,12 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
         branches = director_agent.propose_branches(db, ctx, turn_beats)
         if branches:
             yield from emitter.emit("branch_choices", {"choices": branches})
+            yield from tracer.emit(
+                "branch",
+                f"Offered {len(branches)} branch choice(s)",
+                detail="A fork — pick one to steer where the scene goes next.",
+                data={"choices": [b.get("label", "") for b in branches]},
+            )
 
     # Cold path (Band 3): runs after the last event is yielded — never blocks the
     # player, best-effort, no-op when there are no consequences or the graph is down.
@@ -238,6 +326,38 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
     # reflection LLM calls; inline (deterministic) otherwise.
     reflection_targets = ctx.cast if len(ctx.cast) > 2 else speakers
     reflection.dispatch_reflection(db, ctx, reflection_targets, turn_beats, branches=branches, seq=seq0)
+    yield from tracer.emit(
+        "reflection",
+        f"{len(reflection_targets)} character(s) reflect",
+        detail=(
+            "Each privately updates its stance for next turn"
+            + (" (branch-keyed for the fork above)" if branches else "")
+            + ("; the whole cast reflects in a crowd" if len(ctx.cast) > 2 else "")
+            + "."
+        ),
+        data={"targets": [m.name for m in reflection_targets], "universal": len(ctx.cast) > 2},
+    )
+
+
+def _director_rationale(decision: "director_agent.DirectorDecision", speakers: list[CastMember]) -> str:
+    """A plain-language "why these speakers" line for the Inspector."""
+    names = ", ".join(m.name for m in speakers) or "no one"
+    beat = decision.beat
+    if beat == "addressed":
+        return f"You addressed {names} directly, so only they respond."
+    if beat == "solo":
+        return f"{names} is the only character present, so they respond."
+    if beat == "empty":
+        return "No characters are in the scene."
+    if beat == "fallback":
+        return (
+            "The Director couldn't reason a choice (the model was unavailable), so the first "
+            f"character ({names}) responds."
+        )
+    return (
+        f"The Director read the moment ('{beat}') and picked who is most provoked to react, "
+        f"in order: {names}."
+    )
 
 
 def _turn_summary(turn_beats: list[dict]) -> str:
@@ -302,9 +422,11 @@ def _generate_speaker(
     consequences: list[Consequence],
     *,
     guard_conn: LlmConn | None = None,
-) -> Generator[StoryEvent, None, int]:
+    tracer: _Tracer | None = None,
+) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
     """Generate one speaker's beat, guard it for continuity, emit its events, append them
     to ``turn_beats``, and return the beat's impact (Σ|stat delta|) for the live queue."""
+    tr = tracer or _Tracer(False)
     roster = {i + 1: m.id for i, m in enumerate(ctx.cast)}
     raw = character_turn_agent.generate_line(db, ctx, speaker, turn_beats=turn_beats)
     segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
@@ -322,6 +444,12 @@ def _generate_speaker(
             prior=_prior_transcript(ctx, turn_beats),
             candidate=candidate,
         )
+        yield from tr.emit(
+            "consistency",
+            "Continuity check",
+            detail=("passed" if verdict.consistent else f"contradiction — regenerating: {verdict.reason}"),
+            data={"characterId": speaker.id, "consistent": verdict.consistent},
+        )
         if not verdict.consistent:
             raw = character_turn_agent.generate_line(
                 db, ctx, speaker, turn_beats=turn_beats, correction=verdict.reason
@@ -331,11 +459,18 @@ def _generate_speaker(
     impact = 0
     for seg in segments:
         if seg.type == "internal_thought":
-            # Hidden conditioning — persisted, withheld, and NOT shown to later speakers.
+            # Hidden conditioning — persisted, withheld, and NOT shown to later speakers,
+            # but surfaced in the Inspector trace so the reasoning is visible there.
             yield from emitter.emit(
                 "internal_thought",
                 {"characterId": seg.character_id, "text": seg.text},
                 visibility="hidden",
+            )
+            yield from tr.emit(
+                "thinking",
+                f"{speaker.name} thinks (private)",
+                detail=seg.text,
+                data={"characterId": seg.character_id},
             )
         elif seg.type == "character_action":
             yield from emitter.emit(
@@ -345,6 +480,9 @@ def _generate_speaker(
                 character_id=seg.character_id,
             )
             turn_beats.append({"role": "character", "text": seg.text, "characterId": seg.character_id})
+            yield from tr.emit(
+                "action", f"{speaker.name} acts", detail=seg.text, data={"characterId": seg.character_id}
+            )
         elif seg.type == "character_dialogue":
             yield from emitter.emit_streamed(
                 "character_dialogue",
@@ -353,9 +491,12 @@ def _generate_speaker(
                 buffer_role="character",
             )
             turn_beats.append({"role": "character", "text": seg.text, "characterId": seg.character_id})
+            yield from tr.emit(
+                "dialogue", f"{speaker.name} speaks", detail=seg.text, data={"characterId": seg.character_id}
+            )
         elif seg.type == "state_update":
             impact += yield from _apply_stat_change(
-                db, ctx, seg.character_id, seg.text, emitter, consequences
+                db, ctx, seg.character_id, seg.text, emitter, consequences, tracer=tr
             )
     return impact
 
@@ -367,14 +508,23 @@ def _apply_stat_change(
     raw: str,
     emitter: _Emitter,
     consequences: list[Consequence],
-) -> Generator[StoryEvent, None, int]:
+    *,
+    tracer: _Tracer | None = None,
+) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
     """Validate + clamp a proposed stat change, apply it (hot path), emit, and record it.
 
     Returns the change's impact (``|delta|``, ``0`` when dropped) so the live queue can
     scale its re-rank + cascade to how much the beat actually moved.
     """
+    tr = tracer or _Tracer(False)
     patch = validator.validate_stat(db, ctx.storyline_id, character_id, raw)
     if patch is None:  # unknown stat / malformed → dropped
+        yield from tr.emit(
+            "stat",
+            "Proposed stat change dropped",
+            detail="The character proposed an unknown or malformed stat — ignored.",
+            data={"characterId": character_id},
+        )
         return 0
     # Apply on the hot path (clamped again — idempotent); then emit the full event.
     value = patch.value if patch.value is not None else 0
@@ -383,6 +533,12 @@ def _apply_stat_change(
         "state_update", {"patch": {}, "stat": patch.model_dump(by_alias=True)}
     )
     delta = patch.delta or 0
+    yield from tr.emit(
+        "stat",
+        f"{patch.key} {delta:+d} → {value}",
+        detail=patch.reason,
+        data={"characterId": patch.character_id, "key": patch.key, "delta": delta, "value": value},
+    )
     consequences.append(
         Consequence(
             id=new_id("cons"),

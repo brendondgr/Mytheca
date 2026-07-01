@@ -11,7 +11,14 @@ import {
   type SceneMessage,
   type StatChip,
 } from "./scene-data";
-import { applyStatUpdate, branchOptionsToChoices, mergeFrame, sessionIdOf } from "./turn-stream";
+import {
+  applyStatUpdate,
+  branchOptionsToChoices,
+  foldTrace,
+  mergeFrame,
+  sessionIdOf,
+  type TraceTurn,
+} from "./turn-stream";
 
 /** Client state + interactions for a live scene: a streamed turn loop over the backend. */
 export function useScenePlay(scenario: ResolvedScenario) {
@@ -25,6 +32,9 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const [reveal, setReveal] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
+  // Ordered per-turn diagnostic trace (the Inspector panel). Populated only from the
+  // opt-in `trace` frames the backend interleaves when we request them.
+  const [traceTurns, setTraceTurns] = useState<TraceTurn[]>([]);
   // The play session id is captured from the first streamed event and reused so
   // subsequent turns continue the same session.
   const sessionRef = useRef<string | null>(null);
@@ -41,6 +51,10 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const onFrame = useCallback((frame: TurnStreamFrame) => {
     const sid = sessionIdOf(frame);
     if (sid) sessionRef.current = sid;
+    if (frame.type === "trace") {
+      setTraceTurns((t) => foldTrace(t, frame));
+      return;
+    }
     if (frame.type === "error") {
       setStreamError(frame.message);
       return;
@@ -68,7 +82,9 @@ export function useScenePlay(scenario: ResolvedScenario) {
       // Optimistic player bubble; clear any open branch choices.
       setMessages((m) => [...m.filter((x) => x.kind !== "choices"), { kind: "player", text: t }]);
       void stream
-        .run((signal) => postTurn(scenario.id, { text: t, sessionId: sessionRef.current }, signal))
+        .run((signal) =>
+          postTurn(scenario.id, { text: t, sessionId: sessionRef.current, trace: true }, signal),
+        )
         .catch(() => setStreamError((e) => e ?? "The turn could not be completed."));
     },
     [sending, scenario.id, stream],
@@ -101,6 +117,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
     reveal,
     sending,
     streamError,
+    traceTurns,
     send,
     choose,
     profileId,

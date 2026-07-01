@@ -22,10 +22,13 @@ class TurnRequest(CamelModel):
     ``sessionId`` resumes an existing play session; omit it to start a new one.
     ``directedAt`` is the optional character id the player is addressing. ``mode``
     selects POV (default) or Narrator rendering — the *same* loop, narrator
-    interstitials on or off.
+    interstitials on or off. ``trace`` opts into diagnostic ``trace`` frames
+    interleaved on the stream (the story player's Inspector panel) — off by default so
+    the default stream + the story-event contract are unchanged.
     """
 
     session_id: str | None = None
     text: str
     directed_at: str | None = None
     mode: TurnMode = "pov"
+    trace: bool = False
