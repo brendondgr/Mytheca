@@ -83,6 +83,12 @@ function CharacterCard({
             {c.traits ? ` · ${c.traits}` : ""}
             {rendering ? " · rendering portrait…" : ""}
           </p>
+          {c.voiceSamples?.length ? (
+            <p className="mt-[4px] font-mono text-[10px] tracking-[0.04em] text-accent">
+              ❖ {c.voiceSamples.length} voice sample
+              {c.voiceSamples.length === 1 ? "" : "s"}
+            </p>
+          ) : null}
         </div>
         {!building ? (
           <RemoveButton label={`Remove ${c.name}`} onClick={() => onRemove(index)} />
