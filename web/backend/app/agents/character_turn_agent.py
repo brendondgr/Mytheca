@@ -84,6 +84,7 @@ def generate_line(
     turn_beats: list[dict],
     reasoning: ReasoningEffort = TURN_EFFORT,
     correction: str | None = None,
+    directive: str | None = None,
 ) -> str:
     """Generate one character's raw emission for this beat (thin-tag format).
 
@@ -91,14 +92,17 @@ def generate_line(
     line, then any earlier speakers' lines) — so a later speaker genuinely reacts to
     its predecessor (the immediate predecessor sits last, where recency attention is
     strongest). ``correction`` re-runs the beat after the consistency guard (§P10)
-    flagged a continuity break, folding the reason into the act-now tail.
+    flagged a continuity break, folding the reason into the act-now tail. ``directive``
+    is a **puppet** performance (Reactive Turn Director D1): the player directed this
+    character to do/say something, so the character performs it **in their own voice**
+    rather than reacting to the player's words as if spoken to them.
     """
     base_url, api_key, model, params = resolve_llm(db)
     system = f"{_OUTPUT_CONTRACT}\n\n{ctx.stable_prefix}".strip()
     # The system message is byte-identical for every speaker this turn — log its
     # prefix-cache id so warm-prefix reuse across the turn's calls is observable (§P11).
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
-    user = _build_user_prompt(ctx, speaker, turn_beats, correction=correction)
+    user = _build_user_prompt(ctx, speaker, turn_beats, correction=correction, directive=directive)
     return llm.chat_complete(
         base_url,
         api_key,
@@ -122,6 +126,7 @@ def _build_user_prompt(
     turn_beats: list[dict],
     *,
     correction: str | None = None,
+    directive: str | None = None,
 ) -> str:
     """Bookended volatile suffix: identity/state (front) · scene+transcript (middle) · act-now (tail)."""
     number = _speaker_number(ctx, speaker)
@@ -170,9 +175,18 @@ def _build_user_prompt(
             f"Your previous line broke continuity ({correction}). Redo it consistently "
             "with the established beats above."
         )
-    tail.append(
-        f"Respond now, in {speaker.name}'s voice, to what was just said. Emit only the tagged format."
-    )
+    if directive:
+        # Puppet performance (D1): the player directed you — perform it in your own voice.
+        tail.append(
+            f"The player is directing you to: {directive}. Do it now in {speaker.name}'s own "
+            "voice and personality — make it yours, don't quote the player. "
+            "Emit only the tagged format."
+        )
+    else:
+        tail.append(
+            f"Respond now, in {speaker.name}'s voice, to what was just said. "
+            "Emit only the tagged format."
+        )
 
     return "\n".join(["\n".join(head), "", "\n".join(middle), "", "\n".join(tail)])
 

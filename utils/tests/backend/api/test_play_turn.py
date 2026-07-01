@@ -61,7 +61,8 @@ def _stream(resp) -> list[dict]:
 def _by_id(events: list[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = defaultdict(list)
     for e in events:
-        grouped[e["id"]].append(e)
+        if "id" in e:  # story events only — trace/error frames carry no envelope id
+            grouped[e["id"]].append(e)
     return grouped
 
 
@@ -620,6 +621,53 @@ def test_trace_surfaces_hidden_thinking(client, storyline_id, monkeypatch):
     # … but the Inspector trace surfaces it so the reasoning is visible.
     think = next(t for t in events if t["type"] == "trace" and t["step"] == "thinking")
     assert "Coin first" in think["detail"]
+
+
+# ---- Reactive Turn Director P1: puppet performance + attribution ---------------
+
+
+def test_puppeted_character_performs_then_target_reacts(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    beth = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Beth"}).json()["id"]
+    mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
+    scid = _scenario(client, storyline_id, [beth, mei], sid)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        body = json.loads(request.content.decode())
+        system, user = body["messages"][0]["content"], body["messages"][1]["content"]
+        if "You interpret" in system:  # intent → puppet Beth, addressed Mei
+            return _resp(
+                json.dumps(
+                    {"kind": "puppet", "actors": [1], "addressed": [2], "scope": "some",
+                     "directive": "Beth tells Mei she hates her"}
+                )
+            )
+        if "continuity auditor" in system:
+            return _resp(json.dumps({"consistent": True}))
+        if "private inner voice" in system:
+            return _resp("{}")
+        m = re.search(r"You are \[(\d+)\] (\w+)", user)
+        num, name = (m.group(1), m.group(2)) if m else ("1", "X")
+        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."')
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "Beth tells Mei 'I hate you'.", "trace": True})
+    )
+
+    # Beth PERFORMS first (the player directed her); Mei then reacts — not Mei answering
+    # the player's narration, and not a bystander.
+    order = [d["characterId"] for d in _reconstruct_dialogue(events)]
+    assert order == [beth, mei]
+    intent = next(t for t in events if t["type"] == "trace" and t["step"] == "intent")
+    assert intent["data"]["kind"] == "puppet"
+    perf = next(
+        t for t in events if t["type"] == "trace" and t["step"] == "speaker" and t["data"].get("puppet")
+    )
+    assert perf["data"]["characterId"] == beth  # Beth's beat is flagged a puppet performance
 
 
 def test_unknown_scenario_returns_404(client):

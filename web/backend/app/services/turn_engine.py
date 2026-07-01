@@ -22,7 +22,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.agents import character_turn_agent, director_agent, narrator_agent
+from app.agents import character_turn_agent, director_agent, intent_agent, narrator_agent
 from app.agents._common import resolve_llm
 from app.agents.reflection_agent import LlmConn
 from app.core.errors import APIError
@@ -239,11 +239,60 @@ def run_turn(
     # the branch/stat phase); routed off the hot path by the cold-path turn-writer.
     consequences: list[Consequence] = []
 
-    decision = director_agent.who_is_up(db, ctx)
-    speakers = [m for cid in decision.speakers if (m := ctx.cast_by_id(cid)) is not None]
+    # The continuity guard connection (resolved once; the LLM is already configured or
+    # generation would have failed first). Also used by the puppet beats below.
+    guard_conn = _resolve_conn(db) if len(ctx.cast) > 1 else None
+
+    # Interpret the player's line: narrating, addressing someone, or DIRECTING a character
+    # to act/speak (puppet)? This is what fixes attribution (Reactive Turn Director D1) —
+    # a puppeted character performs the direction in its own voice; the addressed character
+    # reacts, instead of a bystander answering the player's words.
+    intent = intent_agent.interpret(db, ctx, text)
+    yield from tracer.emit(
+        "intent",
+        f"Read your intent: {intent.kind}",
+        detail=intent.directive,
+        data={
+            "kind": intent.kind,
+            "actors": [m.name for cid in intent.directed_actors if (m := ctx.cast_by_id(cid))],
+            "addressed": [m.name for cid in intent.addressed if (m := ctx.cast_by_id(cid))],
+            "scope": intent.scope,
+        },
+    )
+
+    # Puppet beats first: each directed character performs the player's direction in its
+    # OWN voice (not a reply to the player's words).
+    puppet_members = [m for cid in intent.directed_actors if (m := ctx.cast_by_id(cid)) is not None]
+    for speaker in puppet_members:
+        yield from tracer.emit(
+            "speaker",
+            f"{speaker.name} performs your direction",
+            detail=intent.directive,
+            data={"characterId": speaker.id, "name": speaker.name, "puppet": True},
+        )
+        yield from _generate_speaker(
+            db, ctx, speaker, emitter, turn_beats, consequences,
+            guard_conn=guard_conn, directive=intent.directive, tracer=tracer,
+        )
+
+    # Reactors: an explicitly addressed character reacts; otherwise the Director picks.
+    addressed_members = [
+        m
+        for cid in intent.addressed
+        if (m := ctx.cast_by_id(cid)) is not None and cid not in intent.directed_actors
+    ]
+    if addressed_members:
+        decision = director_agent.DirectorDecision([m.id for m in addressed_members], False, "addressed")
+    else:
+        decision = director_agent.who_is_up(db, ctx)
+    speakers = [
+        m
+        for cid in decision.speakers
+        if (m := ctx.cast_by_id(cid)) is not None and m not in puppet_members
+    ]
     yield from tracer.emit(
         "director",
-        f"The Director chose {len(speakers)} speaker(s)",
+        f"The Director chose {len(speakers)} responder(s)",
         detail=_director_rationale(decision, speakers),
         data={
             "speakers": [m.name for m in speakers],
@@ -251,7 +300,7 @@ def run_turn(
             "needsBranch": decision.needs_branch,
         },
     )
-    if not speakers:
+    if not speakers and not puppet_members:
         yield from tracer.emit(
             "director", "No one speaks", detail="No character was picked; the scene simply holds."
         )
@@ -259,12 +308,6 @@ def run_turn(
             "narration", {"text": "The scene waits, quiet.", "done": True}, buffer_role="narrator"
         )
         return
-
-    # Multi-party turns get a continuity guard (a later line can't contradict an
-    # established beat) and a live queue (a high-impact beat re-ranks who is up next and
-    # cascades a disposition refresh). Solo turns skip both. The guard connection is
-    # resolved once — the LLM is already configured (generation would have failed first).
-    guard_conn = _resolve_conn(db) if len(ctx.cast) > 1 else None
 
     index = 0
     while index < len(speakers):
@@ -454,19 +497,24 @@ def _generate_speaker(
     consequences: list[Consequence],
     *,
     guard_conn: LlmConn | None = None,
+    directive: str | None = None,
     tracer: _Tracer | None = None,
 ) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
     """Generate one speaker's beat, guard it for continuity, emit its events, append them
-    to ``turn_beats``, and return the beat's impact (Σ|stat delta|) for the live queue."""
+    to ``turn_beats``, and return the beat's impact (Σ|stat delta|) for the live queue.
+
+    ``directive`` marks a **puppet** beat (the player directed this character): the
+    character performs it in-voice and the continuity guard is skipped (there is nothing
+    to contradict — the player asked for it)."""
     tr = tracer or _Tracer(False)
     roster = {i + 1: m.id for i, m in enumerate(ctx.cast)}
-    raw = character_turn_agent.generate_line(db, ctx, speaker, turn_beats=turn_beats)
+    raw = character_turn_agent.generate_line(db, ctx, speaker, turn_beats=turn_beats, directive=directive)
     segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
 
     # Consistency guard (§P10): once a character has already spoken this turn, a later
     # line must not contradict the established beats. Regenerate once with the reason if
     # it does; best-effort (an unconfigured/failed guard leaves the line as-is).
-    if guard_conn is not None and _has_prior_character_beat(turn_beats):
+    if guard_conn is not None and not directive and _has_prior_character_beat(turn_beats):
         candidate = " ".join(
             s.text for s in segments if s.type in ("character_action", "character_dialogue")
         )
