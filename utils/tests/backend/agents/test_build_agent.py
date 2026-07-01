@@ -174,8 +174,15 @@ def _configure_llm(client):
     )
 
 
+def _is_extract_body(body: dict) -> bool:
+    """A captured chat body belongs to the entity-extraction pass (LOW effort)."""
+    return any(
+        "entity-extraction" in (m.get("content") or "") for m in body.get("messages", [])
+    )
+
+
 def test_build_injects_medium_thinking_budget(client, monkeypatch):
-    """The world build runs at MEDIUM effort (512 thinking tokens) on a detected engine."""
+    """The build runs its drafts at MEDIUM (512); the doc-extraction pass runs at LOW (256)."""
     _configure_llm(client)
     bodies: list[dict] = []
 
@@ -193,10 +200,14 @@ def test_build_injects_medium_thinking_budget(client, monkeypatch):
         json={"seed": "A drowned harbor town.", "characterDocs": _CHAR_DOCS},
     )
     assert res.status_code == 200
-    # Every authoring call (draft, primer, blueprint, per-character) carries the
-    # llama.cpp budget key at MEDIUM = 512; none carries the vLLM key.
     assert bodies, "no chat completions captured"
-    assert all(b.get("thinking_budget_tokens") == 512 for b in bodies)
+    # Extraction is a LOW-effort segmentation pass (256 — faster, less JSON truncation);
+    # every other authoring call (draft, primer, blueprint, per-character) runs MEDIUM = 512.
+    extract_bodies = [b for b in bodies if _is_extract_body(b)]
+    other_bodies = [b for b in bodies if not _is_extract_body(b)]
+    assert extract_bodies, "no extraction call captured"
+    assert all(b.get("thinking_budget_tokens") == 256 for b in extract_bodies)
+    assert all(b.get("thinking_budget_tokens") == 512 for b in other_bodies)
     assert all("thinking_token_budget" not in b for b in bodies)
 
 
@@ -556,3 +567,106 @@ def test_build_skips_a_failed_per_entity_draft(client, monkeypatch):
     assert sum(1 for e in events if e["type"] == "character") == 1
     done = next(e for e in events if e["type"] == "done")
     assert len(done["world"]["characters"]) == 1
+
+
+# ---- doc extraction: parallel, fault-tolerant, per-doc progress -------------
+
+
+def _extract_msgs(events: list[dict]) -> list[str]:
+    return [e["message"] for e in events if e["type"] == "status" and e.get("stage") == "extract"]
+
+
+def test_build_extract_emits_per_doc_progress(client, monkeypatch):
+    """The extract stage streams a per-doc status (fixes the silent 'Reading docs' hang)."""
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    events = _stream_events(
+        client.post(
+            "/api/storylines/build/stream",
+            json={"seed": "A harbor.", "characterDocs": _CHAR_DOCS, "settingDocs": _SETTING_DOCS},
+        )
+    )
+    msgs = _extract_msgs(events)
+    # An opening "Reading N document(s)…" plus one "Read k/N: <name>" per attached doc.
+    assert any("Reading 4 document" in m for m in msgs)
+    read_lines = [m for m in msgs if m.startswith("Read ")]
+    assert len(read_lines) == 4
+    joined = " ".join(read_lines)
+    for name in ("maerin.md", "kestrel.md", "chapel.md", "quay.md"):
+        assert name in joined
+
+
+def test_build_skips_a_doc_whose_extraction_fails(client, monkeypatch):
+    """A doc whose extraction never parses is skipped (+ explained), not fatal.
+
+    This is the reported bug: one bad reply out of many aborted the whole build with
+    'The model did not return valid JSON.' Now the build reaches `done` and keeps the
+    other docs' entities.
+    """
+    _configure_llm(client)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path in ("/version", "/props"):
+            return httpx.Response(404)
+        body = request.content.decode()
+        if "entity-extraction assistant" in body:
+            content = json.loads(body)["messages"][1]["content"].lower()
+            if "badjson" in content:  # fails both the attempt and its single retry
+                return _completion("not json at all")
+        return _route(request)
+
+    _patch_upstream(monkeypatch, handler)
+    events = _stream_events(
+        client.post(
+            "/api/storylines/build/stream",
+            json={
+                "seed": "A harbor.",
+                "characterDocs": [
+                    {"name": "good.md", "text": "Maerin Voss, a wary harbor smuggler."},
+                    {"name": "bad.md", "text": "A badjson document that will not parse."},
+                ],
+            },
+        )
+    )
+    types = [e["type"] for e in events]
+    assert types[-1] == "done"  # did NOT abort (old behavior raised an error)
+    assert "error" not in types
+    # The good doc's character survived; the bad doc contributed nothing.
+    plan = next(e for e in events if e["type"] == "plan")
+    assert plan["characters"] == ["Maerin Voss"]
+    # The skip is explained in a status line (names the doc) instead of an opaque abort.
+    assert any("skipped" in m.lower() and "bad.md" in m for m in _extract_msgs(events))
+
+
+def test_build_extraction_retries_a_transient_failure(client, monkeypatch):
+    """A doc whose first extraction call fails is retried once and salvaged."""
+    _configure_llm(client)
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path in ("/version", "/props"):
+            return httpx.Response(404)
+        body = request.content.decode()
+        if "entity-extraction assistant" in body:
+            content = json.loads(body)["messages"][1]["content"].lower()
+            if "flaky" in content:
+                calls["n"] += 1
+                if calls["n"] == 1:  # first attempt fails, the retry succeeds
+                    return _completion("not json")
+                return _completion(
+                    json.dumps(
+                        {"characters": [{"name": "Rescued Soul", "source": "x"}], "settings": []}
+                    )
+                )
+        return _route(request)
+
+    _patch_upstream(monkeypatch, handler)
+    events = _stream_events(
+        client.post(
+            "/api/storylines/build/stream",
+            json={"seed": "A harbor.", "characterDocs": [{"name": "flaky.md", "text": "A flaky doc."}]},
+        )
+    )
+    assert calls["n"] == 2  # tried once, retried once
+    plan = next(e for e in events if e["type"] == "plan")
+    assert plan["characters"] == ["Rescued Soul"]  # not lost to the transient failure
