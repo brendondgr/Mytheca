@@ -50,6 +50,10 @@ class CastMember:
     # ``disposition`` is the character's current mutable stance, injected into the HEAD
     # of the generation prompt so it re-enters the scene already leaning where it left.
     disposition: str = ""
+    # Authored voice & tone profile, pre-rendered to a compact prompt block (situation
+    # → sample-response pairs). Injected into the generation HEAD so both spoken lines
+    # and the hidden thinking step stay in voice. Empty string when unauthored.
+    voice_samples: str = ""
 
 
 @dataclass
@@ -159,9 +163,28 @@ def _build_cast(
                 stats=block,
                 recent_lines=_anchors_for(char.id, recent_beats),
                 disposition=record.disposition if record is not None else "",
+                voice_samples=_format_voice_samples(char.voice_samples),
             )
         )
     return members
+
+
+def _format_voice_samples(samples: list[dict] | None) -> str:
+    """Render a character's situation → sample-response pairs as a compact block.
+
+    One bullet per pair; the sample is what the character actually says. Empty when
+    unauthored so the generation prompt simply omits the section.
+    """
+    if not samples:
+        return ""
+    lines: list[str] = []
+    for s in samples:
+        situation = str((s or {}).get("situation", "")).strip()
+        sample = str((s or {}).get("sample", "")).strip()
+        if not sample:
+            continue
+        lines.append(f"- When {situation}: \"{sample}\"" if situation else f"- \"{sample}\"")
+    return "\n".join(lines)
 
 
 def _anchors_for(character_id: str, recent_beats: list[dict]) -> list[str]:
