@@ -11,6 +11,7 @@ import {
   getScenarioGraph,
   listStorylines,
   postNdjson,
+  proposeVoiceSamples,
   triageDocuments,
 } from "@/lib/api";
 
@@ -172,5 +173,20 @@ describe("api client", () => {
     expect(result.image).toBe("/media/scenes/abc.webp");
     const [url] = spy.mock.calls[0];
     expect(url).toContain("/scenarios/scene-art");
+  });
+
+  it("proposeVoiceSamples POSTs to /characters/voice-samples and returns samples", async () => {
+    const spy = mockFetch(() =>
+      new Response(
+        JSON.stringify({ samples: [{ situation: "cornered", sample: "Back off." }] }),
+        { status: 200 },
+      ),
+    );
+    const result = await proposeVoiceSamples({ name: "Fenwick", personality: "guarded" });
+    expect(result.samples[0].sample).toBe("Back off.");
+    const [url, init] = spy.mock.calls[0];
+    expect(url).toContain("/characters/voice-samples");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init?.body as string).name).toBe("Fenwick");
   });
 });

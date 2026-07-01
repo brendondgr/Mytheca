@@ -134,6 +134,81 @@ describe("useLibraryState — character authoring", () => {
     );
   });
 
+  it("auto-generates voice samples during draft (before stats)", async () => {
+    const { result } = await mountReady();
+    act(() => result.current.openCreate("character"));
+    act(() => result.current.setDraft("_prompt", "A wary harbor smuggler."));
+    await act(async () => {
+      await result.current.draftCharacter();
+    });
+    // Voice samples derived from the drafted prose land on the draft.
+    expect(vi.mocked(api.proposeVoiceSamples)).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Drafted Hero" }),
+    );
+    expect(result.current.draft._voiceSamples?.map((s) => s.situation)).toEqual([
+      "greeted warmly",
+      "offered a bribe",
+    ]);
+  });
+
+  it("still drafts when voice-sample proposal fails", async () => {
+    vi.mocked(api.proposeVoiceSamples).mockRejectedValueOnce(new Error("LLM unavailable"));
+    const { result } = await mountReady();
+    act(() => result.current.openCreate("character"));
+    act(() => result.current.setDraft("_prompt", "A rogue cartographer."));
+    await act(async () => {
+      await result.current.draftCharacter();
+    });
+    expect(result.current.draft.name).toBe("Drafted Hero");
+    // Silent degradation: the samples stay at the seeded empty default.
+    expect(result.current.draft._voiceSamples).toEqual([]);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("proposes voice samples on demand (the editor's Redo action)", async () => {
+    const { result } = await mountReady();
+    act(() => result.current.openCreate("character"));
+    await act(async () => {
+      await result.current.proposeVoiceSamples();
+    });
+    expect(result.current.draft._voiceSamples?.[0].sample).toBe("State your business.");
+  });
+
+  it("persists voice samples with the character on save (trimming blank rows)", async () => {
+    const { result } = await mountReady();
+    act(() => result.current.openCreate("character"));
+    act(() => result.current.setDraft("name", "Fenwick"));
+    act(() =>
+      result.current.setDraft("_voiceSamples", [
+        { situation: " cornered ", sample: " Back off. Now. " },
+        { situation: "empty row", sample: "   " }, // dropped: no response text
+      ]),
+    );
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(vi.mocked(api.createCharacter)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        voiceSamples: [{ situation: "cornered", sample: "Back off. Now." }],
+      }),
+    );
+  });
+
+  it("re-hydrates saved voice samples when the character editor opens", async () => {
+    vi.mocked(api.listCharacters).mockResolvedValueOnce([
+      { ...SEED_CHARACTERS[0], voiceSamples: [{ situation: "questioned", sample: "Ask again." }] },
+    ]);
+    const { result } = await mountReady();
+    const someId = result.current.characters[0].id;
+    act(() => result.current.editCharacter(someId));
+    await waitFor(() => expect(result.current.draft._voiceSamples?.length).toBe(1));
+    expect(result.current.draft._voiceSamples?.[0]).toMatchObject({
+      situation: "questioned",
+      sample: "Ask again.",
+    });
+  });
+
   it("persists attached context files scoped to the character on save", async () => {
     const { result } = await mountReady();
     act(() => result.current.openCreate("character"));

@@ -280,6 +280,12 @@ export function makeApiMock() {
       negative: "blurry, text, watermark",
     })),
     generatePortrait: vi.fn(async () => ({ portrait: "/media/portraits/test.webp" })),
+    proposeVoiceSamples: vi.fn(async () => ({
+      samples: [
+        { situation: "greeted warmly", sample: "State your business." },
+        { situation: "offered a bribe", sample: "Coin talks. I decide what it says." },
+      ],
+    })),
     proposeStartingStats: vi.fn(async () => ({
       proposals: [
         { key: "health", displayName: "Health", value: 90, min: 0, max: 100, rationale: "hardy" },

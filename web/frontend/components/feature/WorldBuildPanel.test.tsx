@@ -15,6 +15,7 @@ function character(over: Partial<ProposedCharacter> = {}): ProposedCharacter {
     background: "Dockborn.",
     personality: "Guarded.",
     color: "#3A5A78",
+    voiceSamples: [],
     startingStats: [],
     ...over,
   };

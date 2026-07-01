@@ -20,6 +20,7 @@ import type {
   Storyline,
   TriageEvent,
   TriageItem,
+  VoiceSample,
 } from "@/lib/types";
 
 /** Backend base URL. Configurable via NEXT_PUBLIC_API_URL (see .env.example). */
@@ -438,6 +439,22 @@ export const proposeStartingStats = (body: {
   personality?: string | null;
   background?: string | null;
 }) => post<StartingStatsResult>("/characters/starting-stats", body);
+
+/** Proposed voice & tone samples (situation → sample-response pairs). */
+export interface VoiceSamplesResult {
+  samples: VoiceSample[];
+}
+
+/** Derive a voice/tone profile from a character's prose (before starting stats). */
+export const proposeVoiceSamples = (body: {
+  name?: string;
+  role?: string | null;
+  traits?: string | null;
+  speech?: string | null;
+  background?: string | null;
+  personality?: string | null;
+  storylineId?: string | null;
+}) => post<VoiceSamplesResult>("/characters/voice-samples", body);
 
 // ---- settings ----
 export const createSetting = (storylineId: string, body: SettingInput) =>

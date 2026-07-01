@@ -94,6 +94,7 @@ export function useLibraryState(initialStorylineId?: string) {
   // stat proposal, and stat-apply, so each button spins on its own.
   const [generatingPrompts, setGeneratingPrompts] = useState(false);
   const [generatingPortrait, setGeneratingPortrait] = useState(false);
+  const [generatingVoice, setGeneratingVoice] = useState(false);
   const [generatingStats, setGeneratingStats] = useState(false);
   const [applyingStats, setApplyingStats] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -284,6 +285,25 @@ export function useLibraryState(initialStorylineId?: string) {
       }));
       // On mobile the seam is its own tab — drop back to the form to reveal fields.
       setModal((prev) => (prev ? { ...prev, mode: "manual" } : prev));
+      // Voice & tone comes first — derive the samples from the drafted prose before
+      // stats (best-effort; the draft already succeeded either way).
+      setGeneratingVoice(true);
+      try {
+        const { samples } = await api.proposeVoiceSamples({
+          name: d.name,
+          role: d.role,
+          traits: d.traits,
+          speech: d.speech,
+          background: d.background,
+          personality: d.personality,
+          storylineId: activeStorylineId || undefined,
+        });
+        setDraftState((prev) => ({ ...prev, _voiceSamples: samples }));
+      } catch {
+        // silent — voice-sample proposal is best-effort; draft already succeeded
+      } finally {
+        setGeneratingVoice(false);
+      }
       // Auto-propose starting stats from the drafted fields (best-effort).
       if (activeStorylineId) {
         setGeneratingStats(true);
@@ -350,6 +370,28 @@ export function useLibraryState(initialStorylineId?: string) {
       setError(messageOf(e));
     } finally {
       setGeneratingPortrait(false);
+    }
+  }
+  /** Derive voice & tone samples from the current character prose (review/edit). */
+  async function proposeVoiceSamples() {
+    if (!modal || modal.type !== "character") return;
+    setGeneratingVoice(true);
+    setError(null);
+    try {
+      const { samples } = await api.proposeVoiceSamples({
+        name: draft.name,
+        role: draft.role,
+        traits: draft.traits,
+        speech: draft.speech,
+        background: draft.background,
+        personality: draft.personality,
+        storylineId: activeStorylineId || undefined,
+      });
+      setDraftState((prev) => ({ ...prev, _voiceSamples: samples }));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGeneratingVoice(false);
     }
   }
   /** Propose starting stats keyed to the active world's stat schema (review only). */
@@ -613,6 +655,7 @@ export function useLibraryState(initialStorylineId?: string) {
       personality: c.personality ?? "", portrait: c.portrait ?? null,
       _portraitPositive: c.portraitPositive ?? "",
       _portraitNegative: c.portraitNegative ?? "",
+      _voiceSamples: c.voiceSamples ?? [],
     });
     setError(null);
     setModal({ type: "character", mode: "manual", editId: id });
@@ -728,6 +771,11 @@ export function useLibraryState(initialStorylineId?: string) {
           // Persist the prompts that produced the portrait so they survive re-edit.
           portraitPositive: d._portraitPositive?.trim() || null,
           portraitNegative: d._portraitNegative?.trim() || null,
+          // Voice & tone samples: trimmed, blank rows dropped (a sample with no
+          // response text is meaningless), persisted with the character.
+          voiceSamples: (d._voiceSamples ?? [])
+            .map((s) => ({ situation: s.situation.trim(), sample: s.sample.trim() }))
+            .filter((s) => s.sample),
         };
         // Proposed starting stats are applied with the save (the "save" the user
         // opted into); keyed/clamped server-side, skipped when there are none.
@@ -841,8 +889,8 @@ export function useLibraryState(initialStorylineId?: string) {
     storylines, activeStorylineId, activeStoryline, switchStoryline,
     // character agentic authoring
     draftCharacter, generatePortraitPrompts, generatePortrait,
-    proposeStartingStats, applyStartingStats,
-    generatingPrompts, generatingPortrait, generatingStats, applyingStats,
+    proposeVoiceSamples, proposeStartingStats, applyStartingStats,
+    generatingPrompts, generatingPortrait, generatingVoice, generatingStats, applyingStats,
     // setting agentic authoring
     draftSetting, generateSceneArtPrompts, generateSceneArt,
     // scenario agentic authoring
