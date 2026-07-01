@@ -39,8 +39,9 @@ Return ONLY a JSON object:
 
 Rules:
 - "speak": character <actor> acts/speaks next, optionally directed at <addressing>. Pick whoever should naturally go next given the player's direction and the beats so far.
-- "narrate": insert a short narrator beat to set the scene or bridge between speakers — use it when it genuinely helps the flow, not every beat.
+- "narrate": insert a narrator beat to set the scene, describe what is happening / how the room reacts, or bridge between speakers. Narration carries the scene — lean on it: prefer a narrator beat between speakers and whenever the moment needs describing, not only rarely.
 - "end": the player's direction is satisfied and the exchange is at a natural stopping point.
+- SCENE OPENING: if nothing has happened yet this turn AND the player did not direct or address a specific character (and did not address the whole group), OPEN WITH "narrate" to set the scene — do NOT have a character speak first. A character speaks unprompted at a cold open is wrong.
 - HONOR THE PLAYER'S DIRECTION. If they told the WHOLE GROUP to do something ("everyone introduces themselves"), keep choosing the next character who has NOT yet taken a beat until every one of them has, THEN end — never stop early.
 - Do not repeat a character who already had their beat unless there is a real reason.
 - Use ONLY the roster numbers given. "needsBranch" is true only when you end at a genuine fork for the player.
@@ -64,22 +65,33 @@ def next_beat(
     intent: TurnIntent,
     turn_beats: list[dict],
     acted: list[str],
+    *,
+    scene_opening: bool = False,
 ) -> BeatDecision:
-    """Decide the next beat (best-effort; never raises)."""
+    """Decide the next beat (best-effort; never raises).
+
+    ``scene_opening`` marks the scene's very first beat (no committed history): a cold
+    open with no direction should be narrator-led, not a character talking unprompted.
+    """
     if not ctx.cast:
         return BeatDecision("end", reason="no cast")
     try:
         base_url, api_key, model, params = resolve_llm(db)
     except APIError:
-        return _fallback_beat(ctx, intent, acted)
+        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
 
     roster_ids = {i + 1: m.id for i, m in enumerate(ctx.cast)}
     roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(ctx.cast))
     acted_nums = [str(n) for n, cid in roster_ids.items() if cid in set(acted)]
     scope_note = " The player addressed the WHOLE GROUP." if intent.scope == "all" else ""
+    opening_note = (
+        " This is the SCENE OPENING (nothing has happened yet) — open with a narrator beat unless the player directed a specific character."
+        if scene_opening
+        else ""
+    )
     user = (
         f"Roster:\n{roster}\n\n"
-        f"Player's direction: {intent.directive or '(freeform)'}.{scope_note}\n"
+        f"Player's direction: {intent.directive or '(freeform)'}.{scope_note}{opening_note}\n"
         f"Characters who have ALREADY taken a beat this turn (roster numbers): "
         f"{', '.join(acted_nums) or 'none'}\n\n"
         f"This turn so far:\n{_recent(ctx, turn_beats)}\n\n"
@@ -96,18 +108,18 @@ def next_beat(
         )
         data = extract_json(raw)
     except APIError:
-        return _fallback_beat(ctx, intent, acted)
+        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
 
     action = str(data.get("action", "")).lower()
     if action not in _ACTIONS:
-        return _fallback_beat(ctx, intent, acted)
+        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
     if action == "end":
         return BeatDecision("end", reason=str(data.get("reason", "")), needs_branch=bool(data.get("needsBranch", False)))
     if action == "narrate":
         return BeatDecision("narrate", reason=str(data.get("reason", "")))
     actor_id = roster_ids.get(_as_int(data.get("actor")) or -1)
     if actor_id is None:
-        return _fallback_beat(ctx, intent, acted)
+        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
     return BeatDecision(
         "speak",
         actor_id=actor_id,
@@ -116,11 +128,19 @@ def next_beat(
     )
 
 
-def _fallback_beat(ctx: TurnContext, intent: TurnIntent, acted: list[str]) -> BeatDecision:
+def _fallback_beat(
+    ctx: TurnContext,
+    intent: TurnIntent,
+    acted: list[str],
+    *,
+    scene_opening: bool = False,
+) -> BeatDecision:
     """Model-free next beat: honor an explicit group/addressed target, else end.
 
     Keeps the loop sensible offline (and in tests): a broadcast walks the whole cast, an
-    addressed character reacts once, an opening beat with nothing said yet speaks once."""
+    addressed character reacts once, freeform input mid-scene gets one responder. On a
+    cold ``scene_opening`` with no direction, though, nobody is forced to speak — the
+    narrator opens the scene (handled by the engine) and the turn ends."""
     acted_set = set(acted)
     if intent.scope == "all":
         for m in ctx.cast:
@@ -130,8 +150,8 @@ def _fallback_beat(ctx: TurnContext, intent: TurnIntent, acted: list[str]) -> Be
     for cid in intent.addressed:
         if cid not in acted_set and ctx.cast_by_id(cid) is not None:
             return BeatDecision("speak", actor_id=cid, reason="addressed")
-    if not acted:  # nothing has happened yet (no puppet, no reactor) — open with one voice
-        return BeatDecision("speak", actor_id=ctx.cast[0].id, reason="opening")
+    if not acted and not scene_opening:  # freeform mid-scene — one character responds
+        return BeatDecision("speak", actor_id=ctx.cast[0].id, reason="responds")
     return BeatDecision("end", reason="direction satisfied")
 
 

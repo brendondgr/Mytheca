@@ -110,6 +110,26 @@ def test_addressed_fallback_reacts_then_ends(db_session):
     assert planner_agent.next_beat(db_session, ctx, intent, [], ["kira"]).action == "end"
 
 
+def test_scene_opening_freeform_does_not_force_a_speaker(db_session):
+    # Cold open + freeform (no LLM → fallback): the narrator opens the scene (engine), so
+    # the planner does NOT force a character. Mid-scene freeform still gets a responder.
+    ctx = _ctx(_cast("mei", "kira"))
+    intent = TurnIntent()  # freeform
+    assert planner_agent.next_beat(db_session, ctx, intent, [], [], scene_opening=True).action == "end"
+    assert (
+        planner_agent.next_beat(db_session, ctx, intent, [], [], scene_opening=False).actor_id == "mei"
+    )
+
+
+def test_scene_opening_still_honors_a_directed_character(db_session):
+    # Even at a cold open, an explicitly addressed character reacts (the player directed them).
+    ctx = _ctx(_cast("mei", "kira"))
+    intent = TurnIntent(kind="direct", addressed=["kira"])
+    assert (
+        planner_agent.next_beat(db_session, ctx, intent, [], [], scene_opening=True).actor_id == "kira"
+    )
+
+
 def test_no_cast_ends(db_session):
     assert planner_agent.next_beat(db_session, _ctx([]), TurnIntent(), [], []).action == "end"
 
