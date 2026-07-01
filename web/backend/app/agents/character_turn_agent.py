@@ -85,6 +85,7 @@ def generate_line(
     reasoning: ReasoningEffort = TURN_EFFORT,
     correction: str | None = None,
     directive: str | None = None,
+    relationship_note: str | None = None,
 ) -> str:
     """Generate one character's raw emission for this beat (thin-tag format).
 
@@ -102,7 +103,10 @@ def generate_line(
     # The system message is byte-identical for every speaker this turn — log its
     # prefix-cache id so warm-prefix reuse across the turn's calls is observable (§P11).
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
-    user = _build_user_prompt(ctx, speaker, turn_beats, correction=correction, directive=directive)
+    user = _build_user_prompt(
+        ctx, speaker, turn_beats, correction=correction, directive=directive,
+        relationship_note=relationship_note,
+    )
     return llm.chat_complete(
         base_url,
         api_key,
@@ -127,6 +131,7 @@ def _build_user_prompt(
     *,
     correction: str | None = None,
     directive: str | None = None,
+    relationship_note: str | None = None,
 ) -> str:
     """Bookended volatile suffix: identity/state (front) · scene+transcript (middle) · act-now (tail)."""
     number = _speaker_number(ctx, speaker)
@@ -158,6 +163,10 @@ def _build_user_prompt(
     middle.append(f"Cast in the scene: {roster}.")
     if ctx.retrieved_lore:
         middle.append(ctx.retrieved_lore.strip())  # fenced reference lore (gated)
+    if relationship_note:
+        # How this character actually relates to whom they're addressing (from the graph,
+        # incl. 2-hop shared ties) so the reply is relationship-appropriate (D4).
+        middle.append(f"Your ties in this scene: {relationship_note}")
     transcript = _transcript(ctx, turn_beats)
     if transcript:
         middle.append(f"Recent beats:\n{transcript}")

@@ -157,6 +157,20 @@ def test_no_disposition_omits_inner_stance(client, db_session, monkeypatch):
     assert "keep <thinking> to a few words" not in user
 
 
+def test_relationship_note_injected_into_prompt(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        relationship_note="You fear Beth (old debt). You and Beth are both connected to Cy.",
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "Your ties in this scene: You fear Beth (old debt)." in user
+
+
 def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}

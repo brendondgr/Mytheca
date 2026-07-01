@@ -47,6 +47,47 @@ def _cm_returning(obj):
     return _cm
 
 
+class _RelReadSession:
+    """Returns direct-edge rows for _REL_DIRECT, 2-hop rows for _REL_INDIRECT."""
+
+    def __init__(self, direct, indirect):
+        self.direct, self.indirect = direct, indirect
+
+    def run(self, cypher: str, **params):
+        if "mid:Character" in cypher:
+            return _Result(self.indirect)
+        return _Result(self.direct)
+
+
+def test_relationship_context_direct_and_indirect(monkeypatch):
+    direct = [{"target": "beth", "name": "Beth", "type": "fears", "src": "mei", "props": {"reason": "old debt"}}]
+    indirect = [{"target": "beth", "name": "Beth", "via": "Cy"}]
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
+    monkeypatch.setattr(neo4j_mod, "read_session", _cm_returning(_RelReadSession(direct, indirect)))
+    ctx = graph_reader.relationship_context("mei", ["beth"])
+    assert ctx["direct"][0]["type"] == "fears" and ctx["direct"][0]["outgoing"] is True
+    assert ctx["direct"][0]["reason"] == "old debt"
+    assert ctx["indirect"][0]["via"] == "Cy"
+
+
+def test_relationship_context_marks_incoming_direction(monkeypatch):
+    direct = [{"target": "beth", "name": "Beth", "type": "resents", "src": "beth", "props": {}}]
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
+    monkeypatch.setattr(neo4j_mod, "read_session", _cm_returning(_RelReadSession(direct, [])))
+    ctx = graph_reader.relationship_context("mei", ["beth"])
+    assert ctx["direct"][0]["outgoing"] is False  # Beth resents Mei (points at the speaker)
+
+
+def test_relationship_context_empty_when_graph_disabled():
+    # Neo4j disabled by the conftest fixture → empty, without opening a session.
+    assert graph_reader.relationship_context("mei", ["beth"]) == {"direct": [], "indirect": []}
+
+
+def test_relationship_context_no_others_is_empty(monkeypatch):
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
+    assert graph_reader.relationship_context("mei", ["mei"]) == {"direct": [], "indirect": []}
+
+
 def test_scenario_subgraph_serializes_rows():
     node_rows = [
         {"id": "c1", "type": "Character", "label": "Mei", "storyline": "w1",

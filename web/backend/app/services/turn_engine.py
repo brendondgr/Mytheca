@@ -46,6 +46,7 @@ from app.services import (
     crud,
     emission,
     events_store,
+    graph_reader,
     reflection,
     relationships,
     stats,
@@ -283,9 +284,14 @@ def run_turn(
             detail=intent.directive,
             data={"characterId": speaker.id, "name": speaker.name, "puppet": True},
         )
+        note = _relationship_note(
+            ctx, speaker.id, intent.addressed or [m.id for m in ctx.cast if m.id != speaker.id]
+        )
+        if note:
+            yield from tracer.emit("relationship", f"{speaker.name}'s ties", detail=note, data={"characterId": speaker.id})
         yield from _generate_speaker(
             db, ctx, speaker, emitter, turn_beats, consequences,
-            guard_conn=guard_conn, directive=intent.directive, tracer=tracer,
+            guard_conn=guard_conn, directive=intent.directive, relationship_note=note, tracer=tracer,
         )
 
     # ReAct loop (D3): after each beat, re-decide the next one from the transcript so
@@ -323,8 +329,16 @@ def run_turn(
         yield from tracer.emit(
             "speaker", f"{actor.name} responds", data={"characterId": actor.id, "name": actor.name}
         )
+        note = _relationship_note(
+            ctx,
+            actor.id,
+            [addressing.id] if addressing else [m.id for m in ctx.cast if m.id != actor.id],
+        )
+        if note:
+            yield from tracer.emit("relationship", f"{actor.name}'s ties", detail=note, data={"characterId": actor.id})
         yield from _generate_speaker(
-            db, ctx, actor, emitter, turn_beats, consequences, guard_conn=guard_conn, tracer=tracer
+            db, ctx, actor, emitter, turn_beats, consequences,
+            guard_conn=guard_conn, relationship_note=note, tracer=tracer,
         )
         acted.append(actor.id)
         beats += 1
@@ -455,6 +469,29 @@ def _has_prior_character_beat(turn_beats: list[dict]) -> bool:
     return any(b.get("role") == "character" for b in turn_beats)
 
 
+def _relationship_note(ctx: TurnContext, speaker_id: str, other_ids: list[str]) -> str:
+    """A plain-language summary of how ``speaker`` relates to the others (graph, 2-hop).
+
+    Best-effort → "" when the graph is off / empty (Reactive Turn Director D4)."""
+    ctxrel = graph_reader.relationship_context(speaker_id, other_ids)
+    lines: list[str] = []
+    for d in ctxrel.get("direct", []):
+        verb = str(d.get("type", "")).replace("_", " ")
+        reason = f" ({d['reason']})" if d.get("reason") else ""
+        if d.get("outgoing"):
+            lines.append(f"You {verb} {d['name']}{reason}.")
+        else:
+            lines.append(f"{d['name']} {verb} you{reason}.")
+    seen: set[tuple[str, str]] = set()
+    for i in ctxrel.get("indirect", []):
+        key = (str(i.get("name")), str(i.get("via")))
+        if key in seen:
+            continue
+        seen.add(key)
+        lines.append(f"You and {i['name']} are both connected to {i['via']}.")
+    return " ".join(lines[:8])
+
+
 def _prior_transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
     """Render the beats established so far THIS turn (the continuity guard's context)."""
     names = {m.id: m.name for m in ctx.cast}
@@ -485,6 +522,7 @@ def _generate_speaker(
     *,
     guard_conn: LlmConn | None = None,
     directive: str | None = None,
+    relationship_note: str | None = None,
     tracer: _Tracer | None = None,
 ) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
     """Generate one speaker's beat, guard it for continuity, emit its events, append them
@@ -492,10 +530,13 @@ def _generate_speaker(
 
     ``directive`` marks a **puppet** beat (the player directed this character): the
     character performs it in-voice and the continuity guard is skipped (there is nothing
-    to contradict — the player asked for it)."""
+    to contradict — the player asked for it). ``relationship_note`` folds the speaker's
+    graph relationships (to whom they address, + 2-hop) into the prompt (D4)."""
     tr = tracer or _Tracer(False)
     roster = {i + 1: m.id for i, m in enumerate(ctx.cast)}
-    raw = character_turn_agent.generate_line(db, ctx, speaker, turn_beats=turn_beats, directive=directive)
+    raw = character_turn_agent.generate_line(
+        db, ctx, speaker, turn_beats=turn_beats, directive=directive, relationship_note=relationship_note
+    )
     segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
 
     # Consistency guard (§P10): once a character has already spoken this turn, a later
@@ -519,7 +560,8 @@ def _generate_speaker(
         )
         if not verdict.consistent:
             raw = character_turn_agent.generate_line(
-                db, ctx, speaker, turn_beats=turn_beats, correction=verdict.reason
+                db, ctx, speaker, turn_beats=turn_beats, correction=verdict.reason,
+                relationship_note=relationship_note,
             )
             segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
 
