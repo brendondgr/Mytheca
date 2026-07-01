@@ -35,6 +35,7 @@ export function SceneArtModal({
   generatingImage,
   onGenerate,
   error,
+  activeField = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -51,6 +52,8 @@ export function SceneArtModal({
   generatingImage: boolean;
   onGenerate: () => void;
   error: string | null;
+  /** The prompt field being written right now (live highlight). */
+  activeField?: string | null;
 }) {
   if (!open) return null;
   return (
@@ -92,6 +95,7 @@ export function SceneArtModal({
             placeholder="Short comma-separated phrases — the place & its kind first, then features, materials, light, weather, mood, then watercolor style."
             value={positive}
             onChange={(e) => onPositiveChange(e.target.value)}
+            className={activeField === "_sceneArtPositive" ? "velora-field-active" : undefined}
           />
           <TextArea
             label="Negative prompt"
@@ -100,7 +104,10 @@ export function SceneArtModal({
             placeholder="What to avoid — e.g. people, figures, text, watermark, blurry."
             value={negative}
             onChange={(e) => onNegativeChange(e.target.value)}
-            className="mt-[12px]"
+            className={cn(
+              "mt-[12px]",
+              activeField === "_sceneArtNegative" && "velora-field-active",
+            )}
           />
           <Button
             onClick={onGenerate}

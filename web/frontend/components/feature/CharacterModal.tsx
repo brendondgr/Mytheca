@@ -508,6 +508,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
         generatingPortrait={lib.generatingPortrait}
         onGeneratePortrait={lib.generatePortrait}
         error={lib.error}
+        activeField={lib.activeField}
       />
     </Modal>
   );

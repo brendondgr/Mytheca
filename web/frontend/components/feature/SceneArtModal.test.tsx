@@ -1,0 +1,45 @@
+import { render, screen } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { SceneArtModal } from "./SceneArtModal";
+
+const baseProps = {
+  open: true,
+  onClose: () => {},
+  name: "The Quay",
+  imageUrl: null,
+  positive: "watercolor harbor",
+  negative: "people",
+  onPositiveChange: () => {},
+  onNegativeChange: () => {},
+  hasDescription: true,
+  generatingPrompts: false,
+  onGeneratePrompts: () => {},
+  canRender: true,
+  generatingImage: false,
+  onGenerate: () => {},
+  error: null,
+};
+
+describe("SceneArtModal", () => {
+  it("highlights the positive prompt while it is being written", () => {
+    render(<SceneArtModal {...baseProps} activeField="_sceneArtPositive" />);
+    const positive = screen.getByLabelText(/scene-art positive prompt/i);
+    const negative = screen.getByLabelText(/scene-art negative prompt/i);
+    expect(positive.closest("label")).toHaveClass("velora-field-active");
+    expect(negative.closest("label")).not.toHaveClass("velora-field-active");
+  });
+
+  it("highlights the negative prompt when it is the active field", () => {
+    render(<SceneArtModal {...baseProps} activeField="_sceneArtNegative" />);
+    expect(
+      screen.getByLabelText(/scene-art negative prompt/i).closest("label"),
+    ).toHaveClass("velora-field-active");
+  });
+
+  it("highlights nothing when no field is active", () => {
+    render(<SceneArtModal {...baseProps} activeField={null} />);
+    expect(
+      screen.getByLabelText(/scene-art positive prompt/i).closest("label"),
+    ).not.toHaveClass("velora-field-active");
+  });
+});

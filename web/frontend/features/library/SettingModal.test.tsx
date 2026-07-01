@@ -28,16 +28,37 @@ describe("SettingModal — agentic creator", () => {
     await user.click(draftBtn);
 
     expect(vi.mocked(api.draftSetting)).toHaveBeenCalled();
+    // Fields fill in one at a time (choreographed reveal) — wait for the last.
     await waitFor(() =>
       expect(within(dialog).getByLabelText(/^name$/i)).toHaveValue("Drafted Place"),
     );
-    expect(within(dialog).getByLabelText(/atmosphere & senses/i)).toHaveValue(
-      "A drafted atmosphere.",
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText(/atmosphere & senses/i)).toHaveValue(
+        "A drafted atmosphere.",
+      );
+      expect(within(dialog).getByLabelText(/notable features/i)).toHaveValue("Drafted features.");
+      expect(within(dialog).getByLabelText(/current state/i)).toHaveValue(
+        "A drafted current state.",
+      );
+    });
+  });
+
+  it("shows draft progress and highlights the field being written", async () => {
+    const user = userEvent.setup();
+    const dialog = await openSettingCreator(user);
+
+    await user.type(
+      within(dialog).getByLabelText(/describe the place to draft/i),
+      "A flooded smugglers' market.",
     );
-    expect(within(dialog).getByLabelText(/notable features/i)).toHaveValue("Drafted features.");
-    expect(within(dialog).getByLabelText(/current state/i)).toHaveValue(
-      "A drafted current state.",
-    );
+    await user.click(within(dialog).getByRole("button", { name: /draft with velora/i }));
+
+    expect(
+      await within(dialog).findByRole("group", { name: /setting draft progress/i }),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(dialog.querySelector(".velora-field-active")).not.toBeNull();
+    });
   });
 
   it("generates scene-art prompts, then renders an establishing image", async () => {

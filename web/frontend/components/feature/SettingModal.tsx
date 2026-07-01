@@ -9,6 +9,10 @@ import { TextArea } from "@/components/ui/TextArea";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import { ContextFilesPanel } from "@/components/feature/ContextFilesPanel";
+import {
+  ProcessProgress,
+  type ProcessStep,
+} from "@/components/feature/ProcessProgress";
 import { docsForDraft } from "@/lib/readDocs";
 import { SceneArtModal } from "@/components/feature/SceneArtModal";
 import { mediaUrl } from "@/lib/api";
@@ -17,6 +21,15 @@ import { SETTING_TYPES } from "@/lib/seed-data";
 import type { useLibraryState } from "@/features/library/useLibraryState";
 
 const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
+
+/** The setting prose fields, in reveal order — doubles as the draft progress. */
+const SETTING_DRAFT_STEPS: ProcessStep[] = [
+  { key: "name", label: "Name" },
+  { key: "desc", label: "Description" },
+  { key: "atmosphere", label: "Atmosphere" },
+  { key: "features", label: "Features" },
+  { key: "currentState", label: "Current state" },
+];
 
 /**
  * Agentic Setting Creator modal — the setting counterpart to CharacterModal.
@@ -50,6 +63,8 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
   );
   const canRenderSceneArt = Boolean((d._sceneArtPositive ?? "").trim());
   const timeline = d.timeline ?? [];
+  const fieldClass = (key: string) =>
+    lib.activeField === key ? "velora-field-active" : undefined;
 
   return (
     <Modal
@@ -101,6 +116,16 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
           </div>
           <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
+          {/* Live draft progress — which field Velora is writing right now. */}
+          {lib.generating ? (
+            <ProcessProgress
+              className="mb-[16px]"
+              label="Setting draft progress"
+              steps={SETTING_DRAFT_STEPS}
+              activeKey={lib.activeField}
+            />
+          ) : null}
+
           {/* By-hand form (left) + agentic Draft with Velora (right). */}
           <div className="md:flex md:items-stretch">
             <div className={cn("md:min-w-0 md:flex-1 md:pr-[26px]", agentic && "hidden md:block")}>
@@ -120,6 +145,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 placeholder="e.g. The Drowned Market"
                 value={d.name || ""}
                 onChange={(e) => lib.setDraft("name", e.target.value)}
+                className={fieldClass("name")}
               />
               <div className="mt-[14px]">
                 <FieldLabel>Type</FieldLabel>
@@ -142,7 +168,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 rows={2}
                 value={d.desc || ""}
                 onChange={(e) => lib.setDraft("desc", e.target.value)}
-                className="mt-[14px]"
+                className={cn("mt-[14px]", fieldClass("desc"))}
               />
               <TextArea
                 label="Atmosphere & senses"
@@ -150,7 +176,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 rows={3}
                 value={d.atmosphere || ""}
                 onChange={(e) => lib.setDraft("atmosphere", e.target.value)}
-                className="mt-[14px]"
+                className={cn("mt-[14px]", fieldClass("atmosphere"))}
               />
               <TextArea
                 label="Notable features"
@@ -158,7 +184,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 rows={3}
                 value={d.features || ""}
                 onChange={(e) => lib.setDraft("features", e.target.value)}
-                className="mt-[14px]"
+                className={cn("mt-[14px]", fieldClass("features"))}
               />
               <TextArea
                 label="Current state"
@@ -166,7 +192,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 rows={2}
                 value={d.currentState || ""}
                 onChange={(e) => lib.setDraft("currentState", e.target.value)}
-                className="mt-[14px]"
+                className={cn("mt-[14px]", fieldClass("currentState"))}
               />
             </div>
 
@@ -336,6 +362,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
         generatingImage={lib.generatingPortrait}
         onGenerate={lib.generateSceneArt}
         error={lib.error}
+        activeField={lib.activeField}
       />
     </Modal>
   );
