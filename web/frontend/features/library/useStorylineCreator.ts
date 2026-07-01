@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "@/lib/api";
+import { useToast } from "@/components/layout/ToastProvider";
+import { useFieldReveal } from "@/hooks/use-field-reveal";
 import { budgetFor } from "@/lib/contextBudget";
 import { concatDocs, readDocFiles } from "@/lib/readDocs";
 import type {
@@ -66,10 +68,26 @@ export function useStorylineCreator(editId?: string) {
   const [building, setBuilding] = useState(false);
   const [buildingImages, setBuildingImages] = useState(false);
   const [buildStage, setBuildStage] = useState<string | null>(null);
+  const [buildStageKey, setBuildStageKey] = useState<string | null>(null);
+  // Which cast/setting card is being drafted right now (for a live highlight).
+  const [activeEntity, setActiveEntity] = useState<{
+    type: "character" | "setting";
+    index: number;
+  } | null>(null);
   const [planConcepts, setPlanConcepts] = useState<PlanConcepts | null>(null);
   const [committing, setCommitting] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const toast = useToast();
+  // Highlights the left-pane field an event is writing right now (highlight only —
+  // the field values are still set synchronously below). The sweep clears itself.
+  // Destructure the stable callbacks so `build`'s memo doesn't churn every render.
+  const {
+    activeKey: activeField,
+    start: revealFields,
+    reset: resetReveal,
+  } = useFieldReveal<keyof CreatorFields>();
 
   // RAG corpus (vector store) status + the live re-embed action (edit mode).
   const [ragStatus, setRagStatus] = useState<{ available: boolean; indexed: number } | null>(null);
@@ -325,6 +343,9 @@ export function useStorylineCreator(editId?: string) {
     setBuildingImages(false);
     setError(null);
     setBuildStage(null);
+    setBuildStageKey(null);
+    setActiveEntity(null);
+    resetReveal();
     setProposed(null);
     setPlanConcepts(null);
     // Accumulate the storyline core across events so `plan` can seed the proposal.
@@ -345,6 +366,7 @@ export function useStorylineCreator(editId?: string) {
         switch (ev.type) {
           case "status":
             setBuildStage(ev.message);
+            setBuildStageKey(ev.stage);
             break;
           case "meta":
             meta.title = ev.title;
@@ -358,28 +380,44 @@ export function useStorylineCreator(editId?: string) {
               tagline: ev.tagline || prev.tagline,
               premise: ev.premise || prev.premise,
             }));
+            // Sweep the highlight across the four fields the meta event just wrote.
+            revealFields([
+              { key: "title", value: ev.title },
+              { key: "genre", value: ev.genre },
+              { key: "tagline", value: ev.tagline },
+              { key: "premise", value: ev.premise },
+            ]);
             break;
           case "primer":
             meta.worldPrimer = ev.worldPrimer;
             setFields((prev) => ({ ...prev, worldPrimer: ev.worldPrimer || prev.worldPrimer }));
+            revealFields([{ key: "worldPrimer", value: ev.worldPrimer }]);
             break;
           case "plan":
             if (ev.stats.length) setStats(ev.stats);
+            resetReveal();
             setPlanConcepts({ characters: ev.characters, settings: ev.settings });
             setProposed({ storyline: { ...meta }, stats: ev.stats, characters: [], settings: [] });
             break;
           case "character":
+            resetReveal();
+            setActiveEntity({ type: "character", index: ev.index });
             setProposed((p) =>
               p ? { ...p, characters: upsertAt(p.characters, ev.index, ev.character) } : p,
             );
             break;
           case "setting":
+            resetReveal();
+            setActiveEntity({ type: "setting", index: ev.index });
             setProposed((p) =>
               p ? { ...p, settings: upsertAt(p.settings, ev.index, ev.setting) } : p,
             );
             break;
           case "done":
             finalWorld = ev.world;
+            resetReveal();
+            setActiveEntity(null);
+            setBuildStageKey("done");
             setProposed(ev.world);
             if (ev.world.stats.length) setStats(ev.world.stats);
             setFields((prev) => ({
@@ -393,6 +431,11 @@ export function useStorylineCreator(editId?: string) {
             break;
           case "error":
             setError(ev.message);
+            toast.notify({
+              variant: "error",
+              title: "World build",
+              message: ev.message,
+            });
             break;
         }
       }
@@ -416,14 +459,30 @@ export function useStorylineCreator(editId?: string) {
         }
       }
     } catch (e) {
-      if (!ac.signal.aborted) setError(messageOf(e));
+      if (!ac.signal.aborted) {
+        const msg = messageOf(e);
+        setError(msg);
+        toast.notify({ variant: "error", title: "World build", message: msg });
+      }
     } finally {
       if (buildAbort.current === ac) buildAbort.current = null;
       setBuilding(false);
       setBuildingImages(false);
       setBuildStage(null);
+      setActiveEntity(null);
+      resetReveal();
     }
-  }, [seed, docs, editId, imagesAvailable, generateImages, applyEntityPatch]);
+  }, [
+    seed,
+    docs,
+    editId,
+    imagesAvailable,
+    generateImages,
+    applyEntityPatch,
+    toast,
+    revealFields,
+    resetReveal,
+  ]);
 
   // ---- proposed-world review edits ----
   const updateProposedCharacter = useCallback(
@@ -578,6 +637,9 @@ export function useStorylineCreator(editId?: string) {
     building,
     buildingImages,
     buildStage,
+    buildStageKey,
+    activeField,
+    activeEntity,
     committing,
     progress,
     error,

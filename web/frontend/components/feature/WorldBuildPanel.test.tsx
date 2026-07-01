@@ -114,6 +114,42 @@ describe("WorldBuildPanel", () => {
     expect(screen.getByAltText("The Quay scene art")).toBeInTheDocument();
   });
 
+  it("glows the card being drafted right now (active highlight) while building", () => {
+    render(
+      <WorldBuildPanel
+        {...baseProps}
+        building
+        buildStage="Drafting character 2 of 2…"
+        planConcepts={null}
+        activeEntity={{ type: "character", index: 1 }}
+        proposed={world({
+          characters: [character({ name: "Maerin" }), character({ name: "Sable" })],
+        })}
+      />,
+    );
+    // Only the active card carries the live highlight class.
+    expect(screen.getByText("Sable").closest("li")).toHaveClass("velora-field-active");
+    expect(screen.getByText("Maerin").closest("li")).not.toHaveClass(
+      "velora-field-active",
+    );
+  });
+
+  it("does not highlight any card once the build is done (review mode)", () => {
+    render(
+      <WorldBuildPanel
+        {...baseProps}
+        building={false}
+        buildStage={null}
+        planConcepts={null}
+        activeEntity={{ type: "character", index: 0 }}
+        proposed={world({ characters: [character({ name: "Maerin" })] })}
+      />,
+    );
+    expect(screen.getByDisplayValue("Maerin").closest("li")).not.toHaveClass(
+      "velora-field-active",
+    );
+  });
+
   it("shows a voice-samples indicator on a proposed character that has them", () => {
     render(
       <WorldBuildPanel

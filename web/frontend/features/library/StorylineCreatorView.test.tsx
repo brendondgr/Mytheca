@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { StorylineCreatorView } from "./StorylineCreatorView";
+import { ToastProvider } from "@/components/layout/ToastProvider";
 import * as api from "@/lib/api";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
@@ -76,6 +77,26 @@ describe("StorylineCreatorView", () => {
     const row = screen.getByRole("combobox", { name: /category for hero\.md/i });
     expect(row).toHaveValue("character");
     expect(vi.mocked(api.triageDocumentsStream)).not.toHaveBeenCalled();
+  });
+
+  it("raises a top-right error toast when the build stream fails", async () => {
+    vi.mocked(api.buildWorldStream).mockImplementationOnce(async function* () {
+      yield { type: "status" as const, stage: "metadata", message: "Drafting…" };
+      yield { type: "error" as const, message: "The model timed out." };
+    });
+    const user = userEvent.setup();
+    render(
+      <ToastProvider>
+        <StorylineCreatorView />
+      </ToastProvider>,
+    );
+    await user.type(screen.getByLabelText(/describe the world/i), "A drowned harbor town.");
+    await user.click(screen.getByRole("button", { name: /build the whole world/i }));
+
+    // The dismissible toast (unique to the notification) carries the message.
+    const dismiss = await screen.findByRole("button", { name: /dismiss notification/i });
+    expect(dismiss).toBeInTheDocument();
+    expect(screen.getAllByText(/the model timed out\./i).length).toBeGreaterThan(0);
   });
 
   it("shows the context-budget meter", () => {

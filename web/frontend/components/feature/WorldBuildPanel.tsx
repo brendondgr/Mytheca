@@ -45,6 +45,7 @@ function CharacterCard({
   index,
   building,
   committing,
+  active,
   onUpdate,
   onRemove,
 }: {
@@ -52,13 +53,19 @@ function CharacterCard({
   index: number;
   building: boolean;
   committing: boolean;
+  active?: boolean;
   onUpdate: (index: number, patch: Partial<ProposedCharacter>) => void;
   onRemove: (index: number) => void;
 }) {
   // While ComfyUI renders a portrait at commit, show a pulsing avatar until it lands.
   const rendering = committing && !c.portrait;
   return (
-    <li className="rounded-[4px] border border-cardbd bg-field px-[10px] py-[9px]">
+    <li
+      className={cn(
+        "rounded-[4px] border border-cardbd bg-field px-[10px] py-[9px]",
+        active && "velora-field-active",
+      )}
+    >
       <div className="flex items-start gap-[10px]">
         <Monogram
           mono={monoOf(c.name)}
@@ -103,6 +110,7 @@ function SettingCard({
   index,
   building,
   committing,
+  active,
   onUpdate,
   onRemove,
 }: {
@@ -110,12 +118,18 @@ function SettingCard({
   index: number;
   building: boolean;
   committing: boolean;
+  active?: boolean;
   onUpdate: (index: number, patch: Partial<ProposedSetting>) => void;
   onRemove: (index: number) => void;
 }) {
   const rendering = committing && !s.image;
   return (
-    <li className="overflow-hidden rounded-[4px] border border-cardbd bg-field">
+    <li
+      className={cn(
+        "overflow-hidden rounded-[4px] border border-cardbd bg-field",
+        active && "velora-field-active",
+      )}
+    >
       {s.image ? (
         // eslint-disable-next-line @next/next/no-img-element -- generated art from our media mount
         <img
@@ -168,6 +182,7 @@ export function WorldBuildPanel({
   planConcepts,
   building,
   buildStage,
+  activeEntity = null,
   renderingImages = false,
   onUpdateCharacter,
   onRemoveCharacter,
@@ -182,6 +197,8 @@ export function WorldBuildPanel({
   planConcepts: PlanConcepts | null;
   building: boolean;
   buildStage: string | null;
+  /** The cast/setting card being drafted right now (live highlight). */
+  activeEntity?: { type: "character" | "setting"; index: number } | null;
   /** Portraits / scene art are rendering (during the build or the commit). */
   renderingImages?: boolean;
   onUpdateCharacter: (index: number, patch: Partial<ProposedCharacter>) => void;
@@ -279,6 +296,11 @@ export function WorldBuildPanel({
                   index={i}
                   building={building}
                   committing={renderingImages}
+                  active={
+                    building &&
+                    activeEntity?.type === "character" &&
+                    activeEntity.index === i
+                  }
                   onUpdate={onUpdateCharacter}
                   onRemove={onRemoveCharacter}
                 />
@@ -303,6 +325,11 @@ export function WorldBuildPanel({
                   index={i}
                   building={building}
                   committing={renderingImages}
+                  active={
+                    building &&
+                    activeEntity?.type === "setting" &&
+                    activeEntity.index === i
+                  }
                   onUpdate={onUpdateSetting}
                   onRemove={onRemoveSetting}
                 />
