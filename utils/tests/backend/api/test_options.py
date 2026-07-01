@@ -14,6 +14,19 @@ def test_get_returns_defaults(client):
     # ComfyUI config ships with the bundled workflow + default params.
     assert body["comfy"]["workflow"] == "ZiT-Workflow.json"
     assert body["comfy"]["params"]["width"] == 1024
+    # Authoring concurrency defaults from BUILD_MAX_CONCURRENCY (3).
+    assert body["llm"]["authoringConcurrency"] == 3
+
+
+def test_patch_llm_authoring_concurrency(client):
+    patched = client.patch("/api/options/llm", json={"authoringConcurrency": 6}).json()
+    assert patched["authoringConcurrency"] == 6
+    # Persists across a fresh GET.
+    assert client.get("/api/options").json()["llm"]["authoringConcurrency"] == 6
+    # Clamped to a floor of 1 (a 0/negative would disable the pool).
+    assert client.patch("/api/options/llm", json={"authoringConcurrency": 0}).json()[
+        "authoringConcurrency"
+    ] == 1
 
 
 def test_patch_llm_persists_and_masks_key(client):

@@ -213,6 +213,7 @@ describe("useStorylineCreator", () => {
         params: { temperature: 0.7, maxTokens: 512, topP: 1, frequencyPenalty: 0, presencePenalty: 0 },
         hasApiKey: false,
         apiKeyHint: null,
+        authoringConcurrency: 3,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
       comfy: {

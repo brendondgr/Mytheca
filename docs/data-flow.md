@@ -285,6 +285,10 @@ New Storyline page → "Build the whole world" → POST /storylines/build {seed?
         distinct characters + settings each doc contains (deduped across docs)
       draft_character × N (one per extracted character, grounded in the world brief)
       draft_setting   × M (one per extracted setting)
+        ↑ N and M drafts run CONCURRENTLY (bounded by the operator's
+          authoringConcurrency; the LLM connection is pre-resolved once so the
+          worker threads never touch the request Session). 1 → sequential.
+          A per-entity draft failure is skipped (best-effort), never fatal.
   → ProposedWorld returned for REVIEW (nothing persisted yet)
   → author edits/prunes → "Create world" commits via normal CRUD:
       POST /storylines → POST …/stats × → POST …/characters × (+ portrait if ComfyUI)
@@ -311,6 +315,9 @@ New Storyline page → "Build the whole world" → POST /storylines/build/stream
       status → plan  → stat schema + skeleton labels (the EXTRACTED subject names)
       character × N  → one per extracted character, fills its skeleton card
       setting   × M  → one per extracted setting, fills its skeleton card
+        ↑ drafted CONCURRENTLY → events arrive OUT OF ORDER; the page places each by
+          its `index` (storylineCreator.upsertAt), so a sparse card fills as its
+          draft completes. Image rendering (renderProposalImages) stays sequential.
       done           → canonical ProposedWorld swapped in (review mode)
   → if ComfyUI REACHABLE (status preflight): renderProposalImages renders each
       portrait/scene-art and patches the displayed entity → IMAGE previews pop in live

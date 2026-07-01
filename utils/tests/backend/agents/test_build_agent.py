@@ -420,9 +420,11 @@ def test_build_stream_emits_event_sequence(client, monkeypatch):
     assert plan["characters"] == ["Maerin Voss", "Inquisitor Kestrel"]
     assert plan["settings"] == ["The Drowned Chapel", "The Lantern Quay"]
 
-    first_char = next(e for e in events if e["type"] == "character")
-    assert first_char["index"] == 0
-    assert first_char["character"]["name"] == "Maerin Voss"
+    # Drafting is concurrent, so character events may arrive out of order — the page
+    # places each by its `index`. Assert both slots are present (order-independent).
+    char_events = {e["index"]: e["character"]["name"] for e in events if e["type"] == "character"}
+    assert set(char_events) == {0, 1}
+    assert all(name == "Maerin Voss" for name in char_events.values())
 
 
 def test_build_stream_no_entity_docs_no_cast(client, monkeypatch):
@@ -479,3 +481,78 @@ def test_build_stream_emits_error_event_on_upstream_failure(client, monkeypatch)
     events = _stream_events(res)
     assert events[-1]["type"] == "error"
     assert "JSON" in events[-1]["message"] or events[-1]["message"]
+
+
+# ---- parallel drafting (configurable authoringConcurrency) -------------------
+
+
+def test_build_concurrency_one_drafts_sequentially_in_order(client, monkeypatch):
+    _configure_llm(client)
+    client.patch("/api/options/llm", json={"authoringConcurrency": 1})
+    _patch_upstream(monkeypatch)
+    events = _stream_events(
+        client.post(
+            "/api/storylines/build/stream",
+            json={"seed": "A harbor.", "characterDocs": _CHAR_DOCS, "settingDocs": _SETTING_DOCS},
+        )
+    )
+    # With concurrency=1 the pool runs inline in order → events stream 0, 1, …
+    char_indices = [e["index"] for e in events if e["type"] == "character"]
+    setting_indices = [e["index"] for e in events if e["type"] == "setting"]
+    assert char_indices == [0, 1]
+    assert setting_indices == [0, 1]
+
+
+def test_build_tolerates_out_of_order_completion(client, monkeypatch):
+    # Simulate parallel drafts finishing in reverse: the build must still place each
+    # by index and assemble the final world correctly (drops nothing).
+    from app.agents import build_agent
+
+    real = build_agent.concurrency.imap_unordered
+
+    def reversed_imap(thunks, **kw):
+        yield from reversed(list(real(thunks, max_workers=1)))
+
+    monkeypatch.setattr(build_agent.concurrency, "imap_unordered", reversed_imap)
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    events = _stream_events(
+        client.post(
+            "/api/storylines/build/stream",
+            json={"seed": "A harbor.", "characterDocs": _CHAR_DOCS, "settingDocs": _SETTING_DOCS},
+        )
+    )
+    # Character events arrive newest-index-first, but both slots land + done is whole.
+    char_indices = [e["index"] for e in events if e["type"] == "character"]
+    assert char_indices == [1, 0]
+    done = next(e for e in events if e["type"] == "done")
+    assert len(done["world"]["characters"]) == 2
+    assert len(done["world"]["settings"]) == 2
+
+
+def test_build_skips_a_failed_per_entity_draft(client, monkeypatch):
+    # One character draft returns junk → that entity is dropped (best-effort), the
+    # rest of the world still builds and the stream still ends with `done`.
+    _configure_llm(client)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path in ("/version", "/props"):
+            return httpx.Response(404)
+        body = request.content.decode()
+        # Fail only the Kestrel character draft (its focused source brief).
+        if "character-creation assistant" in body and "heretic-hunter" in body:
+            return _completion("not json")
+        return _route(request)
+
+    _patch_upstream(monkeypatch, handler)
+    events = _stream_events(
+        client.post(
+            "/api/storylines/build/stream",
+            json={"seed": "A harbor.", "characterDocs": _CHAR_DOCS},
+        )
+    )
+    assert events[-1]["type"] == "done"  # no error — the failure was isolated
+    # Two characters were extracted; one draft failed → one card survives, one event.
+    assert sum(1 for e in events if e["type"] == "character") == 1
+    done = next(e for e in events if e["type"] == "done")
+    assert len(done["world"]["characters"]) == 1

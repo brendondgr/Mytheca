@@ -31,6 +31,38 @@ def test_run_all_respects_max_workers_cap():
     assert concurrency.run_all([lambda i=i: i for i in range(4)], max_workers=1) == [0, 1, 2, 3]
 
 
+# ---- imap_unordered (as-completed, index-tagged, bounded) ----------------------
+
+
+def test_imap_unordered_yields_every_result_with_its_index():
+    out = dict(concurrency.imap_unordered([lambda i=i: i * 10 for i in range(6)], max_workers=4))
+    assert out == {0: 0, 1: 10, 2: 20, 3: 30, 4: 40, 5: 50}
+
+
+def test_imap_unordered_isolates_failures_as_none():
+    def boom() -> int:
+        raise RuntimeError("nope")
+
+    out = dict(concurrency.imap_unordered([lambda: 1, boom, lambda: 3], max_workers=3))
+    assert out == {0: 1, 1: None, 2: 3}
+
+
+def test_imap_unordered_empty_yields_nothing():
+    assert list(concurrency.imap_unordered([])) == []
+
+
+def test_imap_unordered_cap_one_runs_inline_in_order():
+    # max_workers<=1 runs inline, preserving order (deterministic dev/test path).
+    got = list(concurrency.imap_unordered([lambda i=i: i for i in range(4)], max_workers=1))
+    assert got == [(0, 0), (1, 1), (2, 2), (3, 3)]
+
+
+def test_imap_unordered_completes_all_under_concurrency():
+    # 8 units, cap 4 — every index appears exactly once regardless of completion order.
+    seen = [i for i, _ in concurrency.imap_unordered([lambda: 1] * 8, max_workers=4)]
+    assert sorted(seen) == list(range(8))
+
+
 # ---- P11: submit_background (inline by default, async when enabled) ------------
 
 

@@ -37,6 +37,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
   const [model, setModel] = useState(llm?.model ?? "");
   const [apiKey, setApiKey] = useState("");
   const [params, setParams] = useState<LlmParams>(llm?.params ?? DEFAULT_PARAMS);
+  const [authoringConcurrency, setAuthoringConcurrency] = useState(llm?.authoringConcurrency ?? 3);
 
   const [models, setModels] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
@@ -93,7 +94,13 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
     setSaving(true);
     setStatus(null);
     try {
-      await opts.saveLlm({ baseUrl, model, params, ...(apiKey ? { apiKey } : {}) });
+      await opts.saveLlm({
+        baseUrl,
+        model,
+        params,
+        authoringConcurrency,
+        ...(apiKey ? { apiKey } : {}),
+      });
       setApiKey("");
       setStatus("Saved.");
     } catch (err) {
@@ -193,6 +200,29 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
               />
             ))}
           </div>
+        </fieldset>
+
+        <fieldset className="rounded-[4px] border border-cardbd p-[14px]">
+          <legend className="px-[6px] font-mono text-[9px] tracking-[0.14em] text-gold uppercase">
+            Authoring
+          </legend>
+          <div className="grid gap-[4px] sm:max-w-[220px]">
+            <TextField
+              label="Max parallel authoring requests"
+              type="number"
+              step={1}
+              min={1}
+              max={16}
+              value={String(authoringConcurrency)}
+              onChange={(e) => setAuthoringConcurrency(Math.max(1, Number(e.target.value) || 1))}
+            />
+          </div>
+          <p className="mt-[8px] font-body text-[12.5px] text-ink-soft">
+            How many characters/settings the world build drafts at once (and how many
+            entries a RAG re-index embeds at once). A single-slot server (llama.cpp)
+            should stay at <span className="font-mono">1</span>; a batching server
+            (vLLM) can go higher. Image generation always runs one at a time.
+          </p>
         </fieldset>
 
         <div className="flex flex-wrap items-center gap-[12px]">

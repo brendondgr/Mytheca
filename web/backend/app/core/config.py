@@ -62,6 +62,15 @@ class Settings(BaseSettings):
     # ceiling is max(turn_max_beats, 2*cast + 6) so a large cast is never clipped.
     turn_max_beats: int = 24
 
+    # --- Authoring parallelism (the world build + RAG batch indexing) ---
+    # Default upper bound on how many characters/settings are drafted concurrently in
+    # the "Build the whole world" flow, and how many entities are embedded concurrently
+    # during a RAG re-index. This is only the SEED for the user-facing
+    # ``authoringConcurrency`` LLM setting (Options › Language Models) — operators on a
+    # single-slot llama.cpp keep it at 1; vLLM operators raise it. Image generation is
+    # always sequential (single-GPU ComfyUI) regardless of this value.
+    build_max_concurrency: int = 3
+
     # The Story Graph substrate (Neo4j). The container is owned by ``app.py`` like
     # Postgres/Redis; the driver connects lazily (on scenario load / character &
     # setting writes) and degrades gracefully when unset/unreachable. Bolt is

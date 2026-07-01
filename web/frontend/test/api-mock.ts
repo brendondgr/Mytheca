@@ -351,6 +351,7 @@ export function makeApiMock() {
         },
         hasApiKey: false,
         apiKeyHint: null,
+        authoringConcurrency: 3,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
       comfy: {
@@ -372,6 +373,7 @@ export function makeApiMock() {
       },
       hasApiKey: false,
       apiKeyHint: null,
+      authoringConcurrency: 3,
       ...body,
     })),
     updateLibraryDefaults: vi.fn(async (body: Record<string, unknown>) => ({

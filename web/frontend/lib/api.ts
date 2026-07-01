@@ -580,6 +580,12 @@ export interface LlmConfig {
   params: LlmParams;
   hasApiKey: boolean;
   apiKeyHint: string | null;
+  /**
+   * How many characters/settings the world build drafts concurrently (and how many
+   * entities a RAG re-index embeds concurrently). Bounded by what the backend serves:
+   * single-slot llama.cpp → 1, vLLM → higher. Images always render sequentially.
+   */
+  authoringConcurrency: number;
 }
 
 /** PATCH payload. Omit `apiKey` to keep the stored key; "" clears it. */
@@ -589,6 +595,7 @@ export interface LlmConfigUpdate {
   provider?: string;
   params?: LlmParams;
   apiKey?: string;
+  authoringConcurrency?: number;
 }
 
 export interface LibraryDefaults {

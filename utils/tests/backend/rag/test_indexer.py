@@ -88,3 +88,35 @@ def test_storyline_status_counts_indexed_points(db_session, mem_client):
     list(indexer.iter_reindex_storyline(db_session, "w1"))
     available, indexed = indexer.storyline_status(db_session, "w1")
     assert available is True and indexed == 5
+
+
+# ---- parallel indexing (concurrent embed, serialized write) ------------------
+
+
+def test_index_many_embeds_every_entry_concurrently(mem_client):
+    e = HashEmbedder()
+    entries = [
+        entry_from_context_document(
+            ContextDocument(id=f"cd{i}", storyline_id="w1", name=f"{i}.md",
+                            content=f"lore {i}", category="other", include_rag=True)
+        )
+        for i in range(8)
+    ]
+    indexed, skipped = indexer.index_many(mem_client, e, entries, max_workers=4)
+    assert indexed == 8 and skipped == 0
+    assert store.count(mem_client) == 8  # serialized writes → no lost/corrupt points
+    # Idempotent second pass: unchanged content → all skipped, still 8 points.
+    indexed2, skipped2 = indexer.index_many(mem_client, e, entries, max_workers=4)
+    assert indexed2 == 0 and skipped2 == 8 and store.count(mem_client) == 8
+
+
+def test_iter_reindex_parallel_indexes_all(db_session, mem_client):
+    _seed(db_session)
+    events = list(indexer.iter_reindex_storyline(db_session, "w1", max_workers=4))
+    stages = [s for s, _ in events]
+    assert stages.count("embedding") == 5 and stages[-1] == "done"
+    # Progress counts climb 1..5 as entries complete (arbitrary order).
+    counters = [d["index"] for s, d in events if s == "embedding"]
+    assert sorted(counters) == [1, 2, 3, 4, 5]
+    done = events[-1][1]
+    assert done["indexed"] == 5 and store.count(mem_client) == 5

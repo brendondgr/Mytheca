@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
@@ -23,6 +24,7 @@ from app.rag import store
 from app.rag.embedder import Embedder, get_embedder
 from app.rag.schema import LoreEntry
 from app.rag.serializer import build_bm25_text, build_embed_text
+from app.services import concurrency
 
 if TYPE_CHECKING:
     from qdrant_client import QdrantClient
@@ -84,6 +86,68 @@ def index_entry(client: QdrantClient, embedder: Embedder, entry: LoreEntry) -> s
     return "indexed"
 
 
+# --- parallel batch indexing ------------------------------------------------
+# The expensive step (embedding) runs concurrently across a bounded thread pool
+# — fastembed/ONNX releases the GIL, and HashEmbedder (the test path) is pure — so
+# many entities embed at once. The *quick* Qdrant reads/writes are serialized under
+# a shared lock so the store (incl. the in-memory test client) never sees concurrent
+# access. Workers touch only client + embedder + already-materialized LoreEntry
+# objects — never a SQLAlchemy Session.
+
+
+def _index_entry_locked(
+    client: QdrantClient, embedder: Embedder, entry: LoreEntry, lock: threading.Lock
+) -> str:
+    """``index_entry`` for a worker thread: embed outside the lock, store under it."""
+    if not entry.include_rag:
+        with lock:
+            store.delete_entry(client, entry.entity_type, entry.entity_id)
+        return "removed"
+    embed_text = build_embed_text(entry.fm, entry.body)
+    bm25_text = build_bm25_text(entry.fm, entry.body)
+    chash = _content_hash(embed_text, bm25_text)
+    with lock:
+        if store.existing_content_hash(client, entry.entity_type, entry.entity_id) == chash:
+            return "skipped"
+    dense = embedder.embed_passages([embed_text])[0]  # concurrent — the costly part
+    sparse = embedder.embed_sparse_passages([bm25_text])[0]
+    with lock:
+        store.upsert_entry(
+            client,
+            entity_type=entry.entity_type,
+            entity_id=entry.entity_id,
+            dense=dense,
+            sparse=sparse,
+            payload=_payload(entry, bm25_text, chash),
+        )
+    return "indexed"
+
+
+def index_many(
+    client: QdrantClient,
+    embedder: Embedder,
+    entries: list[LoreEntry],
+    *,
+    max_workers: int | None = None,
+) -> tuple[int, int]:
+    """Embed + upsert many entries concurrently (bounded). Returns (indexed, skipped).
+
+    Best-effort per entry: a failed one is counted as skipped, never fatal. Qdrant
+    writes are serialized; embedding is concurrent."""
+    if not entries:
+        return (0, 0)
+    store.ensure_collection(client)
+    lock = threading.Lock()
+    thunks = [(lambda e=e: _index_entry_locked(client, embedder, e, lock)) for e in entries]
+    indexed = skipped = 0
+    for _, result in concurrency.imap_unordered(thunks, max_workers=max_workers):
+        if result == "indexed":
+            indexed += 1
+        else:  # "skipped" / "removed" / None (failed) all count as not-indexed
+            skipped += 1
+    return (indexed, skipped)
+
+
 # --- best-effort CRUD hooks -------------------------------------------------
 
 
@@ -115,6 +179,20 @@ def sync_scenario(sc: Scenario) -> None:
 
 def sync_context_document(doc: ContextDocument) -> None:
     _sync(adapters.entry_from_context_document(doc))
+
+
+def sync_context_documents(docs: list[ContextDocument], *, max_workers: int | None = None) -> None:
+    """Best-effort **parallel** embed of a batch of context documents (the bulk
+    corpus commit). Embeds concurrently, serializes the Qdrant writes; a store that's
+    down/disabled no-ops so the CRUD write still succeeds."""
+    client = qdrant.get_client()
+    if client is None:
+        return
+    try:
+        entries = [adapters.entry_from_context_document(d) for d in docs]
+        index_many(client, get_embedder(), entries, max_workers=max_workers)
+    except Exception as exc:  # pragma: no cover - defensive; indexing never blocks CRUD
+        logger.debug("RAG batch index of %d context documents failed: %s", len(docs), exc)
 
 
 def remove(entity_type: str, entity_id: str) -> None:
@@ -161,11 +239,17 @@ def collect_entries(db: Session, storyline_id: str) -> list[LoreEntry]:
     return out
 
 
-def iter_reindex_storyline(db: Session, storyline_id: str) -> Iterator[tuple[str, dict[str, Any]]]:
+def iter_reindex_storyline(
+    db: Session, storyline_id: str, *, max_workers: int | None = None
+) -> Iterator[tuple[str, dict[str, Any]]]:
     """Yield ``("embedding", {...})`` per entry then ``("done", {...})``.
 
-    The route serializes these into the NDJSON progress stream. Best-effort: when
-    the store is disabled it yields a single ``done`` with ``available=False``.
+    The route serializes these into the NDJSON progress stream. Entities embed
+    **concurrently** (bounded by ``max_workers`` — the caller passes the operator's
+    ``authoringConcurrency``); each ``embedding`` event is emitted as its entry
+    *completes*, so progress climbs as fast as the pool drains (order is arbitrary).
+    Qdrant writes are serialized. Best-effort: when the store is disabled it yields a
+    single ``done`` with ``available=False``; a failed entry counts as skipped.
     """
     entries = collect_entries(db, storyline_id)
     total = len(entries)
@@ -174,17 +258,20 @@ def iter_reindex_storyline(db: Session, storyline_id: str) -> Iterator[tuple[str
         yield ("done", {"indexed": 0, "skipped": 0, "total": total, "available": False})
         return
     embedder = get_embedder()
-    indexed = skipped = 0
-    for i, entry in enumerate(entries, start=1):
-        yield ("embedding", {"index": i, "total": total, "name": entry.fm.name, "type": entry.fm.type.value})
-        try:
-            result = index_entry(client, embedder, entry)
-            if result == "indexed":
-                indexed += 1
-            else:
-                skipped += 1
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.debug("RAG reindex of %s failed: %s", entry.entity_id, exc)
+    store.ensure_collection(client)
+    lock = threading.Lock()
+    thunks = [(lambda e=e: _index_entry_locked(client, embedder, e, lock)) for e in entries]
+    indexed = skipped = done = 0
+    for idx, result in concurrency.imap_unordered(thunks, max_workers=max_workers):
+        done += 1
+        entry = entries[idx]
+        yield (
+            "embedding",
+            {"index": done, "total": total, "name": entry.fm.name, "type": entry.fm.type.value},
+        )
+        if result == "indexed":
+            indexed += 1
+        else:  # "skipped" / "removed" / None (failed)
             skipped += 1
     yield ("done", {"indexed": indexed, "skipped": skipped, "total": total, "available": True})
 

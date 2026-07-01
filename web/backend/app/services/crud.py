@@ -17,7 +17,7 @@ from app.core.errors import APIError
 from app.core.ids import new_hex_id, new_id
 from app.models import Character, ContextDocument, Scenario, Setting, Storyline
 from app.rag import indexer as rag_index
-from app.services import graph_writer
+from app.services import graph_writer, settings_store
 from app.schemas.character import CharacterCreate, CharacterUpdate
 from app.schemas.context_document import (
     ContextDocumentCreate,
@@ -273,7 +273,11 @@ def bulk_create_context_documents(
     db.commit()
     for doc in created:
         db.refresh(doc)
-        rag_index.sync_context_document(doc)  # best-effort embed each
+    # Embed the whole batch in parallel (bounded by the operator's authoringConcurrency),
+    # best-effort — a slow/large corpus commit no longer blocks one embed at a time.
+    rag_index.sync_context_documents(
+        created, max_workers=settings_store.get_llm(db).authoring_concurrency
+    )
     return created
 
 

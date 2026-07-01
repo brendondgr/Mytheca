@@ -86,6 +86,18 @@ footer surfaces this as **"✦ N embedded · Re-embed"** with live "Embedding i 
 progress. `GET /storylines/{id}/rag/status` reports reachability + the indexed count.
 `POST /storylines/{id}/rag/query` inspects retrieval for a query (debug).
 
+**Parallel batch indexing.** The reindex (`iter_reindex_storyline`) and the bulk
+corpus commit (`indexer.sync_context_documents`, from `bulk_create_context_documents`)
+embed entries **concurrently** via `indexer.index_many` — a bounded thread pool
+(`services.concurrency.imap_unordered`, capped by the operator's `authoringConcurrency`
+setting). Embedding is the costly step and runs in parallel (fastembed/ONNX releases
+the GIL; the `HashEmbedder` test path is pure); the quick Qdrant reads/writes are
+serialized under a shared lock, so the store (incl. the in-memory test client) never
+sees concurrent access. Workers touch only the client + embedder + already-materialized
+`LoreEntry` objects — never a SQLAlchemy `Session`. Reindex `embedding` events are
+emitted as each entry *completes* (so `index` is a 1..N completion counter). The
+per-single-save `sync_*` hooks stay inline (one embed each).
+
 ## Utilization (the agents)
 
 `agents/_common.rag_block(db, storyline_id, query)` retrieves the top entries for a
