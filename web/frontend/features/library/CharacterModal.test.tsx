@@ -28,12 +28,38 @@ describe("CharacterModal — agentic creator", () => {
     await user.click(draftBtn);
 
     expect(vi.mocked(api.draftCharacter)).toHaveBeenCalled();
+    // Fields fill in one at a time (choreographed reveal) — wait for the last.
     await waitFor(() =>
       expect(within(dialog).getByLabelText(/display name/i)).toHaveValue("Drafted Hero"),
     );
-    expect(within(dialog).getByLabelText(/^appearance$/i)).toHaveValue("A drafted appearance.");
-    expect(within(dialog).getByLabelText(/^background$/i)).toHaveValue("A drafted background.");
-    expect(within(dialog).getByLabelText(/^personality$/i)).toHaveValue("A drafted personality.");
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText(/^appearance$/i)).toHaveValue("A drafted appearance.");
+      expect(within(dialog).getByLabelText(/^background$/i)).toHaveValue("A drafted background.");
+      expect(within(dialog).getByLabelText(/^personality$/i)).toHaveValue(
+        "A drafted personality.",
+      );
+    });
+  });
+
+  it("highlights the field being written and shows draft progress", async () => {
+    const user = userEvent.setup();
+    const dialog = await openCharacterCreator(user);
+
+    await user.type(
+      within(dialog).getByLabelText(/describe the character to draft/i),
+      "A by-the-book harbor captain.",
+    );
+    await user.click(within(dialog).getByRole("button", { name: /draft with velora/i }));
+
+    // The progress stepper appears during the draft…
+    expect(
+      await within(dialog).findByRole("group", { name: /character draft progress/i }),
+    ).toBeInTheDocument();
+    // …and at some point a field carries the live "editing now" highlight.
+    await waitFor(() => {
+      const active = dialog.querySelector(".velora-field-active");
+      expect(active).not.toBeNull();
+    });
   });
 
   it("generates portrait prompts, then renders a portrait preview", async () => {

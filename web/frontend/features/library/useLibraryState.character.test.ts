@@ -36,6 +36,28 @@ describe("useLibraryState — character authoring", () => {
     expect(result.current.draft._startingStats?.map((p) => p.key)).toEqual(["health", "trust"]);
   });
 
+  it("lights the active field during the draft, then clears it when done", async () => {
+    const { result } = await mountReady();
+    act(() => result.current.openCreate("character"));
+    act(() => result.current.setDraft("_prompt", "A by-the-book harbor captain."));
+
+    let pending: Promise<void>;
+    act(() => {
+      pending = result.current.draftCharacter();
+    });
+    // Mid-reveal, some field is the active (being-written) one, on the identity stage.
+    await waitFor(() => expect(result.current.activeField).not.toBeNull());
+    expect(result.current.draftStage).toBe("identity");
+
+    await act(async () => {
+      await pending!;
+    });
+    // Fully drafted → highlights cleared.
+    expect(result.current.activeField).toBeNull();
+    expect(result.current.draftStage).toBeNull();
+    expect(result.current.draft.personality).toBe("A drafted personality.");
+  });
+
   it("still succeeds when auto-stat proposal fails during draft", async () => {
     vi.mocked(api.proposeStartingStats).mockRejectedValueOnce(new Error("LLM unavailable"));
     const { result } = await mountReady();

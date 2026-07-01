@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { resolveScenario } from "@/lib/seed-data";
 import * as api from "@/lib/api";
 import { concatDocs, docsForDraft, type ReadDoc } from "@/lib/readDocs";
+import { useToast } from "@/components/layout/ToastProvider";
+import { REVEAL_INTERVAL_MS } from "@/hooks/use-field-reveal";
 import { loadEntityDocs, syncEntityDocs } from "@/features/library/entityDocs";
 import type { Character, EntityScope, Scenario, Setting, StatDefinition, Storyline } from "@/lib/types";
 import {
@@ -25,6 +27,28 @@ function messageOf(error: unknown): string {
   if (error instanceof Error) return error.message;
   return "Something went wrong.";
 }
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** The *visible* by-hand character fields, in the order Velora "writes" them —
+ * these get the paced field-by-field highlight. goal/secret are drafted too but
+ * have no input in the modal, so they're set immediately (no highlight pause). */
+const CHARACTER_REVEAL_KEYS = [
+  "name",
+  "role",
+  "traits",
+  "speech",
+  "appearance",
+  "background",
+  "personality",
+] as const;
 
 /** Wrap a summary from the API into the nested Storyline shape the UI holds. */
 function emptyStoryline(summary: api.StorylineSummary): Storyline {
@@ -97,6 +121,10 @@ export function useLibraryState(initialStorylineId?: string) {
   const [generatingVoice, setGeneratingVoice] = useState(false);
   const [generatingStats, setGeneratingStats] = useState(false);
   const [applyingStats, setApplyingStats] = useState(false);
+  // Real-time draft feedback: which field is being written now + the current stage.
+  const [activeField, setActiveField] = useState<string | null>(null);
+  const [draftStage, setDraftStage] = useState<string | null>(null);
+  const toast = useToast();
   const [profileId, setProfileId] = useState<string | null>(null);
   // Active storyline's universal stat definitions — loaded best-effort for the
   // hero cast-card statistics panel (player-facing preview of stat names/defaults).
@@ -267,26 +295,48 @@ export function useLibraryState(initialStorylineId?: string) {
     if (!seed && !docsOverview) return;
     setGenerating(true);
     setError(null);
+    setDraftStage("identity");
     try {
       const d = await api.draftCharacter(seed, docsOverview, activeStorylineId || undefined);
+      // On mobile the seam is its own tab — drop back to the form so the fields are
+      // visible as they fill in.
+      setModal((prev) => (prev ? { ...prev, mode: "manual" } : prev));
+      const values: Record<string, string> = {
+        name: d.name,
+        role: d.role,
+        traits: d.traits,
+        speech: d.speech,
+        appearance: d.appearance,
+        background: d.background,
+        personality: d.personality,
+      };
+      // Accent, goal + secret (no visible input) and the AI flag land immediately.
       setDraftState((prev) => ({
         ...prev,
-        name: d.name || prev.name,
-        role: d.role || prev.role,
-        traits: d.traits || prev.traits,
-        speech: d.speech || prev.speech,
+        color: d.color || prev.color,
         goal: d.goal || prev.goal,
         secret: d.secret || prev.secret,
-        appearance: d.appearance || prev.appearance,
-        background: d.background || prev.background,
-        personality: d.personality || prev.personality,
-        color: d.color || prev.color,
         _ai: true,
       }));
-      // On mobile the seam is its own tab — drop back to the form to reveal fields.
-      setModal((prev) => (prev ? { ...prev, mode: "manual" } : prev));
+      if (prefersReducedMotion()) {
+        setDraftState((prev) => ({
+          ...prev,
+          ...Object.fromEntries(
+            CHARACTER_REVEAL_KEYS.map((k) => [k, values[k] || (prev[k] as string) || ""]),
+          ),
+        }));
+      } else {
+        // Choreograph the reveal — one field lit + filled at a time.
+        for (const key of CHARACTER_REVEAL_KEYS) {
+          setActiveField(key);
+          setDraftState((prev) => ({ ...prev, [key]: values[key] || (prev[key] as string) || "" }));
+          await sleep(REVEAL_INTERVAL_MS);
+        }
+        setActiveField(null);
+      }
       // Voice & tone comes first — derive the samples from the drafted prose before
       // stats (best-effort; the draft already succeeded either way).
+      setDraftStage("voice");
       setGeneratingVoice(true);
       try {
         const { samples } = await api.proposeVoiceSamples({
@@ -306,6 +356,7 @@ export function useLibraryState(initialStorylineId?: string) {
       }
       // Auto-propose starting stats from the drafted fields (best-effort).
       if (activeStorylineId) {
+        setDraftStage("stats");
         setGeneratingStats(true);
         try {
           const { proposals } = await api.proposeStartingStats({
@@ -324,9 +375,13 @@ export function useLibraryState(initialStorylineId?: string) {
         }
       }
     } catch (e) {
-      setError(messageOf(e));
+      const msg = messageOf(e);
+      setError(msg);
+      toast.notify({ variant: "error", title: "Character draft", message: msg });
     } finally {
       setGenerating(false);
+      setActiveField(null);
+      setDraftStage(null);
     }
   }
   /** Write the watercolor positive/negative portrait prompts (editable after). */
@@ -389,7 +444,9 @@ export function useLibraryState(initialStorylineId?: string) {
       });
       setDraftState((prev) => ({ ...prev, _voiceSamples: samples }));
     } catch (e) {
-      setError(messageOf(e));
+      const msg = messageOf(e);
+      setError(msg);
+      toast.notify({ variant: "error", title: "Voice & tone", message: msg });
     } finally {
       setGeneratingVoice(false);
     }
@@ -410,7 +467,9 @@ export function useLibraryState(initialStorylineId?: string) {
       });
       setDraftState((prev) => ({ ...prev, _startingStats: proposals }));
     } catch (e) {
-      setError(messageOf(e));
+      const msg = messageOf(e);
+      setError(msg);
+      toast.notify({ variant: "error", title: "Starting stats", message: msg });
     } finally {
       setGeneratingStats(false);
     }
@@ -891,6 +950,8 @@ export function useLibraryState(initialStorylineId?: string) {
     draftCharacter, generatePortraitPrompts, generatePortrait,
     proposeVoiceSamples, proposeStartingStats, applyStartingStats,
     generatingPrompts, generatingPortrait, generatingVoice, generatingStats, applyingStats,
+    // real-time draft feedback
+    activeField, draftStage,
     // setting agentic authoring
     draftSetting, generateSceneArtPrompts, generateSceneArt,
     // scenario agentic authoring
