@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     turn_reflection_enabled: bool = True
     turn_ttft_slo_ms: int = 1200
     turn_async_finalize: bool = False
+    # Runaway backstop for the ReAct planner loop — NOT a feature cap. The loop runs
+    # until the player's direction is satisfied ("everyone introduces themselves" walks
+    # the whole cast); this only stops a planner that never says "end". The effective
+    # ceiling is max(turn_max_beats, 2*cast + 6) so a large cast is never clipped.
+    turn_max_beats: int = 24
 
     # The Story Graph substrate (Neo4j). The container is owned by ``app.py`` like
     # Postgres/Redis; the driver connects lazily (on scenario load / character &

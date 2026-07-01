@@ -22,9 +22,16 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.agents import character_turn_agent, director_agent, intent_agent, narrator_agent
+from app.agents import (
+    character_turn_agent,
+    director_agent,
+    intent_agent,
+    narrator_agent,
+    planner_agent,
+)
 from app.agents._common import resolve_llm
 from app.agents.reflection_agent import LlmConn
+from app.core.config import get_settings
 from app.core.errors import APIError
 from app.core.ids import new_id
 from app.events.envelope import StoryEvent
@@ -46,11 +53,6 @@ from app.services import (
 )
 from app.services.assembler import CastMember, TurnContext
 from app.services.turn_writer import Consequence
-
-# A high-impact beat (Σ|stat delta| at/above this) moves the whole room: the cascade
-# refreshes every remaining speaker's disposition. A smaller shift only nudges the very
-# next speaker (§P10 — "width/strength scaled to impact").
-_CASCADE_WIDE_THRESHOLD = 10
 
 
 class _Emitter:
@@ -248,6 +250,16 @@ def run_turn(
     # a puppeted character performs the direction in its own voice; the addressed character
     # reacts, instead of a bystander answering the player's words.
     intent = intent_agent.interpret(db, ctx, text)
+    # A UI-set target (e.g. a branch selection) addresses that character explicitly.
+    if (
+        req.directed_at
+        and ctx.cast_by_id(req.directed_at) is not None
+        and req.directed_at not in intent.addressed
+        and req.directed_at not in intent.directed_actors
+    ):
+        intent.addressed.append(req.directed_at)
+        if intent.kind == "freeform":
+            intent.kind = "direct"
     yield from tracer.emit(
         "intent",
         f"Read your intent: {intent.kind}",
@@ -275,86 +287,63 @@ def run_turn(
             guard_conn=guard_conn, directive=intent.directive, tracer=tracer,
         )
 
-    # Reactors: an explicitly addressed character reacts; otherwise the Director picks.
-    addressed_members = [
-        m
-        for cid in intent.addressed
-        if (m := ctx.cast_by_id(cid)) is not None and cid not in intent.directed_actors
-    ]
-    if addressed_members:
-        decision = director_agent.DirectorDecision([m.id for m in addressed_members], False, "addressed")
-    else:
-        decision = director_agent.who_is_up(db, ctx)
-    speakers = [
-        m
-        for cid in decision.speakers
-        if (m := ctx.cast_by_id(cid)) is not None and m not in puppet_members
-    ]
-    yield from tracer.emit(
-        "director",
-        f"The Director chose {len(speakers)} responder(s)",
-        detail=_director_rationale(decision, speakers),
-        data={
-            "speakers": [m.name for m in speakers],
-            "beat": decision.beat,
-            "needsBranch": decision.needs_branch,
-        },
-    )
-    if not speakers and not puppet_members:
+    # ReAct loop (D3): after each beat, re-decide the next one from the transcript so
+    # far — which character acts (optionally addressing another), whether the narrator
+    # sets context, or the turn ends. Unbounded by design — a whole-group direction walks
+    # the entire cast (D2); TURN_MAX_BEATS is only a runaway backstop, and the ceiling
+    # floors above the cast size so a large cast is never clipped.
+    acted: list[str] = [m.id for m in puppet_members]
+    max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
+    needs_branch = False
+    beats = 0
+    while beats < max_beats:
+        decision = planner_agent.next_beat(db, ctx, intent, turn_beats, acted)
+        if decision.action == "end":
+            needs_branch = decision.needs_branch
+            yield from tracer.emit(
+                "plan", "The turn ends", detail=decision.reason or "The direction is satisfied."
+            )
+            break
+        if decision.action == "narrate":
+            yield from tracer.emit("plan", "The narrator sets the scene", detail=decision.reason)
+            yield from _narrator_interstitial(db, ctx, turn_beats, emitter)
+            beats += 1
+            continue
+        actor = ctx.cast_by_id(decision.actor_id) if decision.actor_id else None
+        if actor is None:
+            break
+        addressing = ctx.cast_by_id(decision.addressing_id) if decision.addressing_id else None
         yield from tracer.emit(
-            "director", "No one speaks", detail="No character was picked; the scene simply holds."
+            "plan",
+            f"{actor.name} is up next" + (f" (to {addressing.name})" if addressing else ""),
+            detail=decision.reason,
+            data={"actor": actor.name, "addressing": addressing.name if addressing else None},
         )
+        yield from tracer.emit(
+            "speaker", f"{actor.name} responds", data={"characterId": actor.id, "name": actor.name}
+        )
+        yield from _generate_speaker(
+            db, ctx, actor, emitter, turn_beats, consequences, guard_conn=guard_conn, tracer=tracer
+        )
+        acted.append(actor.id)
+        beats += 1
+    else:
+        yield from tracer.emit(
+            "plan",
+            "Reached the turn's beat limit",
+            detail=f"Stopped after {beats} beats (runaway backstop).",
+        )
+
+    # Nobody spoke at all (no puppet, no planned beat) → a quiet holding narration.
+    if not acted:
         yield from emitter.emit(
             "narration", {"text": "The scene waits, quiet.", "done": True}, buffer_role="narrator"
         )
-        return
 
-    index = 0
-    while index < len(speakers):
-        speaker = speakers[index]
-        yield from tracer.emit(
-            "speaker",
-            f"{speaker.name} responds",
-            detail=f"Speaker {index + 1} of {len(speakers)} this turn.",
-            data={"characterId": speaker.id, "name": speaker.name},
-        )
-        # Narrator Mode: a transition beat before the speaker (POV Mode: off — D1).
-        if req.mode == "narrator":
-            yield from _narrator_interstitial(db, ctx, turn_beats, emitter)
-        impact = yield from _generate_speaker(
-            db, ctx, speaker, emitter, turn_beats, consequences, guard_conn=guard_conn, tracer=tracer
-        )
-        remaining = speakers[index + 1 :]
-        if impact > 0 and remaining:
-            # Mid-turn re-consult: re-rank the not-yet-spoken speakers after the shift.
-            before = [m.name for m in remaining]
-            reordered_ids = director_agent.rerank(db, ctx, [m.id for m in remaining], turn_beats)
-            reordered = [m for cid in reordered_ids if (m := ctx.cast_by_id(cid)) is not None]
-            speakers[index + 1 :] = reordered
-            after = [m.name for m in reordered]
-            if after != before:
-                yield from tracer.emit(
-                    "rerank",
-                    "Re-ranked who speaks next",
-                    detail=f"A strong beat (impact {impact}) shifted the order.",
-                    data={"from": before, "to": after},
-                )
-            # Cascade the disposition refresh, width scaled to impact — a bigger shift
-            # moves more of the room; a small one only the very next speaker.
-            width = len(reordered) if impact >= _CASCADE_WIDE_THRESHOLD else 1
-            reflection.refresh_dispositions(db, ctx, reordered[:width], turn_beats, seq=seq0)
-            yield from tracer.emit(
-                "cascade",
-                f"Refreshed {min(width, len(reordered))} character(s)' stance",
-                detail="They re-evaluate their mood mid-turn before speaking.",
-                data={"targets": [m.name for m in reordered[:width]], "impact": impact},
-            )
-        index += 1
-
-    # A narrative fork (after the line-to-line consistency pass seam): stats inform
-    # which options surface, but never gate the choice mechanically (no dice — D11).
+    # A narrative fork: stats inform which options surface, but never gate the choice
+    # mechanically (no dice — D11).
     branches: list[dict] = []
-    if decision.needs_branch:
+    if needs_branch:
         branches = director_agent.propose_branches(db, ctx, turn_beats)
         if branches:
             yield from emitter.emit("branch_choices", {"choices": branches})
@@ -399,7 +388,8 @@ def run_turn(
     # a two-hander only reflects who actually spoke. Dispatched off the request thread
     # when TURN_ASYNC_FINALIZE is on (P11) so the stream closes without waiting on the N
     # reflection LLM calls; inline (deterministic) otherwise.
-    reflection_targets = ctx.cast if len(ctx.cast) > 2 else speakers
+    spoke = [m for cid in dict.fromkeys(acted) if (m := ctx.cast_by_id(cid)) is not None]
+    reflection_targets = ctx.cast if len(ctx.cast) > 2 else spoke
     reflection.dispatch_reflection(db, ctx, reflection_targets, turn_beats, branches=branches, seq=seq0)
     yield from tracer.emit(
         "reflection",
@@ -411,27 +401,6 @@ def run_turn(
             + "."
         ),
         data={"targets": [m.name for m in reflection_targets], "universal": len(ctx.cast) > 2},
-    )
-
-
-def _director_rationale(decision: "director_agent.DirectorDecision", speakers: list[CastMember]) -> str:
-    """A plain-language "why these speakers" line for the Inspector."""
-    names = ", ".join(m.name for m in speakers) or "no one"
-    beat = decision.beat
-    if beat == "addressed":
-        return f"You addressed {names} directly, so only they respond."
-    if beat == "solo":
-        return f"{names} is the only character present, so they respond."
-    if beat == "empty":
-        return "No characters are in the scene."
-    if beat == "fallback":
-        return (
-            "The Director couldn't reason a choice (the model was unavailable), so the first "
-            f"character ({names}) responds."
-        )
-    return (
-        f"The Director read the moment ('{beat}') and picked who is most provoked to react, "
-        f"in order: {names}."
     )
 
 

@@ -181,68 +181,106 @@ def test_internal_thought_persisted_hidden_and_withheld(client, db_session, stor
     assert "Let him sweat" in rows[0].data["text"]
 
 
-# ---- P5: Director (speaker queue) + Narrator interstitials --------------------
+# ---- ReAct planner: dynamic speaker order, uncapped, narrator beats -----------
 
 
-def _patch_routed(monkeypatch, *, director_speakers, narration="A hush falls over the room."):
-    """Route the mock by system prompt: director → JSON, narrator → prose, character →
-    an emission echoing the prompt's speaker number/name."""
+def _plan_routed(monkeypatch, decisions, *, narration="A hush falls over the room.", branches=None):
+    """Route the mock by system prompt: intent → freeform, planner → scripted decisions
+    (consumed in order; ``end`` once exhausted), branch → options, narrator → prose,
+    character → an emission echoing the prompt's speaker number/name."""
+    plan = iter(decisions)
 
     def handler(request: httpx.Request) -> httpx.Response:
         if not request.url.path.endswith("/chat/completions"):
             return httpx.Response(404)
         body = json.loads(request.content.decode())
-        system = body["messages"][0]["content"]
-        if "scene director" in system:
-            payload = json.dumps({"speakers": director_speakers, "needsBranch": False, "beat": "x"})
-            return httpx.Response(200, json={"choices": [{"message": {"content": payload}}]})
+        system, user = body["messages"][0]["content"], body["messages"][1]["content"]
+        if "You interpret" in system:  # intent
+            return _resp(json.dumps({"kind": "freeform", "directive": "go"}))
+        if "faces a fork" in system:  # branch options
+            return _resp(json.dumps({"choices": branches or []}))
+        if "step-by-step loop" in system:  # ReAct planner
+            try:
+                return _resp(json.dumps(next(plan)))
+            except StopIteration:
+                return _resp(json.dumps({"action": "end"}))
+        if "continuity auditor" in system:
+            return _resp(json.dumps({"consistent": True}))
+        if "private inner voice" in system:
+            return _resp("{}")
         if "narrator of an interactive scene" in system:
-            return httpx.Response(200, json={"choices": [{"message": {"content": narration}}]})
-        user = body["messages"][1]["content"]
+            return _resp(narration)
         m = re.search(r"You are \[(\d+)\] (\w+)", user)
         num, name = (m.group(1), m.group(2)) if m else ("1", "Someone")
-        emission = f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."'
-        return httpx.Response(200, json={"choices": [{"message": {"content": emission}}]})
+        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."')
 
     monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
 
 
-def test_two_speaker_turn_streams_in_director_order(client, storyline_id, monkeypatch):
+def test_planner_runs_speakers_in_order(client, storyline_id, monkeypatch):
     _configure_llm(client)
-    _patch_routed(monkeypatch, director_speakers=[1, 2])
+    _plan_routed(
+        monkeypatch,
+        [{"action": "speak", "actor": 1}, {"action": "speak", "actor": 2}, {"action": "end"}],
+    )
     mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
     kira = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Kira"}).json()["id"]
     sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
     scid = _scenario(client, storyline_id, [mei, kira], sid)
-    # No directedAt → the Director escalates and returns [1, 2] = [Mei, Kira].
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I address the room."}))
-    dialogue = [e for e in events if e["type"] == "character_dialogue" and e["data"]["done"]]
-    speakers_in_order = [e["data"]["characterId"] for e in dialogue]
-    assert speakers_in_order == [mei, kira]
+    assert [d["characterId"] for d in _reconstruct_dialogue(events)] == [mei, kira]
 
 
-def test_narrator_mode_inserts_an_interstitial_before_the_speaker(client, storyline_id, monkeypatch):
+def test_planner_can_insert_a_narrator_beat(client, storyline_id, monkeypatch):
     _configure_llm(client)
-    _patch_routed(monkeypatch, director_speakers=[1])
+    _plan_routed(monkeypatch, [{"action": "narrate"}, {"action": "speak", "actor": 1}, {"action": "end"}])
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
-    events = _stream(
-        client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid, "mode": "narrator"})
-    )
-    types = [e["type"] for e in events]
+    types = [e["type"] for e in _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi"}))]
     assert "narration" in types and "character_dialogue" in types
-    n_idx = types.index("narration")
-    d_idx = types.index("character_dialogue")
-    assert n_idx < d_idx  # the narrator beat leads
+    assert types.index("narration") < types.index("character_dialogue")  # the narrator leads
 
 
-def test_pov_mode_emits_no_narration(client, storyline_id, monkeypatch):
+def test_no_narration_when_planner_does_not_ask(client, storyline_id, monkeypatch):
     _configure_llm(client)
-    _patch_routed(monkeypatch, director_speakers=[1])
+    _plan_routed(monkeypatch, [{"action": "speak", "actor": 1}, {"action": "end"}])
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
-    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi"}))
     assert all(e["type"] != "narration" for e in events)
+
+
+def test_broadcast_runs_the_whole_cast_uncapped(client, storyline_id, monkeypatch):
+    # "Everyone introduces themselves" → four characters act in sequence (past the old
+    # 3-speaker cap), driven by the planner's broadcast walk.
+    _configure_llm(client)
+    ids = [
+        client.post(f"/api/storylines/{storyline_id}/characters", json={"name": n}).json()["id"]
+        for n in ("Ana", "Bo", "Cy", "Di")
+    ]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hall"}).json()["id"]
+    scid = _scenario(client, storyline_id, ids, sid)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        body = json.loads(request.content.decode())
+        system, user = body["messages"][0]["content"], body["messages"][1]["content"]
+        if "You interpret" in system:
+            return _resp(json.dumps({"kind": "broadcast", "scope": "all", "directive": "all introduce"}))
+        if "step-by-step loop" in system:
+            return _resp("not json")  # force the planner's broadcast heuristic (walk the cast)
+        if "continuity auditor" in system:
+            return _resp(json.dumps({"consistent": True}))
+        if "private inner voice" in system:
+            return _resp("{}")
+        m = re.search(r"You are \[(\d+)\] (\w+)", user)
+        num, name = (m.group(1), m.group(2)) if m else ("1", "X")
+        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."')
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "Everyone introduces themselves."}))
+    assert [d["characterId"] for d in _reconstruct_dialogue(events)] == ids  # all four, in order
 
 
 # ---- P8: stat changes (validated + clamped) + branch choices ------------------
@@ -289,29 +327,17 @@ def test_unknown_proposed_stat_is_dropped_no_event(client, storyline_id, monkeyp
     assert all(e["type"] != "state_update" for e in events)  # unknown stat dropped
 
 
-def test_branch_choices_emitted_when_director_flags_a_fork(client, storyline_id, monkeypatch):
+def test_branch_choices_emitted_when_planner_flags_a_fork(client, storyline_id, monkeypatch):
     _configure_llm(client)
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if not request.url.path.endswith("/chat/completions"):
-            return httpx.Response(404)
-        body = json.loads(request.content.decode())
-        system = body["messages"][0]["content"]
-        if "faces a fork" in system:
-            return _resp(json.dumps({"choices": [{"label": "Back off", "outcome": "de-escalate"}, {"label": "Press her", "outcome": "escalate"}]}))
-        if "scene director" in system:
-            return _resp(json.dumps({"speakers": [1], "needsBranch": True, "beat": "fork"}))
-        user = body["messages"][1]["content"]
-        m = re.search(r"You are \[(\d+)\] (\w+)", user)
-        num, name = (m.group(1), m.group(2)) if m else ("1", "X")
-        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."')
-
-    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    _plan_routed(
+        monkeypatch,
+        [{"action": "speak", "actor": 1}, {"action": "end", "needsBranch": True}],
+        branches=[{"label": "Back off", "outcome": "de-escalate"}, {"label": "Press her", "outcome": "escalate"}],
+    )
     mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
     kira = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Kira"}).json()["id"]
     sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
     scid = _scenario(client, storyline_id, [mei, kira], sid)
-    # No directedAt → the reasoned Director runs and flags needsBranch.
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I press the room."}))
     branch = next(e for e in events if e["type"] == "branch_choices")
     labels = [c["label"] for c in branch["data"]["choices"]]
@@ -428,15 +454,20 @@ def test_consistency_guard_regenerates_a_contradicting_later_line(client, storyl
     mei, kira, _jax, sid = _three(client, storyline_id)
     scid = _scenario(client, storyline_id, [mei, kira], sid)
 
+    plan = iter([{"action": "speak", "actor": 1}, {"action": "speak", "actor": 2}, {"action": "end"}])
+
     def handler(request: httpx.Request) -> httpx.Response:
         if not request.url.path.endswith("/chat/completions"):
             return httpx.Response(404)
         body = json.loads(request.content.decode())
         system, user = body["messages"][0]["content"], body["messages"][1]["content"]
-        if "mid-turn" in system:  # no stat change here → not expected, but answer safely
-            return _resp(json.dumps({"speakers": []}))
-        if "scene director" in system:
-            return _resp(json.dumps({"speakers": [1, 2], "needsBranch": False, "beat": "x"}))
+        if "You interpret" in system:
+            return _resp(json.dumps({"kind": "freeform", "directive": "go"}))
+        if "step-by-step loop" in system:
+            try:
+                return _resp(json.dumps(next(plan)))
+            except StopIteration:
+                return _resp(json.dumps({"action": "end"}))
         if "continuity auditor" in system:  # flag Kira's first attempt
             return _resp(json.dumps({"consistent": False, "reason": "the lantern was just lit"}))
         if "private inner voice" in system:
@@ -452,51 +483,10 @@ def test_consistency_guard_regenerates_a_contradicting_later_line(client, storyl
     monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I address the room."}))
 
-    lines = _reconstruct_dialogue(events)
-    texts = [line["text"] for line in lines]
+    texts = [line["text"] for line in _reconstruct_dialogue(events)]
     assert any(t == '"The lantern is lit."' for t in texts)  # Mei (first speaker, no guard)
     assert any("lit lantern" in t for t in texts)  # Kira's corrected line
     assert all("dark" not in t for t in texts)  # the contradiction was never emitted
-
-
-def test_high_impact_beat_reranks_the_remaining_speakers(client, storyline_id, monkeypatch):
-    _configure_llm(client)
-    client.post(
-        f"/api/storylines/{storyline_id}/stats",
-        json={"key": "suspicion", "displayName": "Suspicion", "min": 0, "max": 100, "default": 50},
-    )
-    mei, kira, jax, sid = _three(client, storyline_id)
-    scid = _scenario(client, storyline_id, [mei, kira, jax], sid)
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if not request.url.path.endswith("/chat/completions"):
-            return httpx.Response(404)
-        body = json.loads(request.content.decode())
-        system, user = body["messages"][0]["content"], body["messages"][1]["content"]
-        if "mid-turn" in system:  # re-rank remaining [kira(2), jax(3)] → [jax, kira]
-            return _resp(json.dumps({"speakers": [3, 2]}))
-        if "scene director" in system:
-            return _resp(json.dumps({"speakers": [1, 2, 3], "needsBranch": False, "beat": "x"}))
-        if "continuity auditor" in system:
-            return _resp(json.dumps({"consistent": True}))
-        if "private inner voice" in system:
-            return _resp("{}")
-        m = re.search(r"You are \[(\d+)\] (\w+)", user)
-        num, name = (m.group(1), m.group(2)) if m else ("1", "X")
-        if num == "1":  # Mei drops a big stat change → high impact → wide cascade + re-rank
-            return _resp(
-                '<speaker:1>\n<type:character_dialogue>\n"Mei speaks."\n'
-                '<type:state_update>\n{"key":"suspicion","delta":50,"reason":"a hard accusation"}'
-            )
-        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks."')
-
-    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
-    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I address the room."}))
-
-    order = [line["characterId"] for line in _reconstruct_dialogue(events)]
-    assert order == [mei, jax, kira]  # Mei first, then the re-ranked remainder [jax, kira]
-    # the big stat change still applied on the hot path
-    assert client.get(f"/api/characters/{mei}/stats").json()["suspicion"] == 100
 
 
 def test_universal_reflection_writes_interior_for_the_whole_cast(client, storyline_id, monkeypatch):
@@ -554,9 +544,9 @@ def test_trace_frames_when_requested_and_story_events_still_validate(client, sto
     traces = [e for e in events if e["type"] == "trace"]
     steps = [t["step"] for t in traces]
     assert steps[0] == "turn"  # each turn opens with a "turn" step
-    # The whole pipeline is visible: scene assembly, RAG look-up, Director, the speaker,
-    # the graph commit, and the reflection interlude.
-    assert {"assemble", "lore", "director", "speaker", "commit", "reflection"} <= set(steps)
+    # The whole pipeline is visible: intent, scene assembly, RAG look-up, the ReAct plan,
+    # the speaker, the graph commit, and the reflection interlude.
+    assert {"intent", "assemble", "lore", "plan", "speaker", "commit", "reflection"} <= set(steps)
     ns = [t["n"] for t in traces]
     assert ns == sorted(ns) and len(set(ns)) == len(ns)  # ordered, unique
     # Trace frames are transport-only; every real story event still validates.
@@ -565,9 +555,11 @@ def test_trace_frames_when_requested_and_story_events_still_validate(client, sto
             story_event_adapter.validate_python(e)
 
 
-def test_trace_director_step_explains_speaker_choice(client, storyline_id, monkeypatch):
+def test_trace_plan_step_names_the_next_actor(client, storyline_id, monkeypatch):
     _configure_llm(client)
-    _patch_routed(monkeypatch, director_speakers=[1, 2])
+    _plan_routed(
+        monkeypatch, [{"action": "speak", "actor": 1, "reason": "most provoked"}, {"action": "end"}]
+    )
     mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
     kira = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Kira"}).json()["id"]
     sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
@@ -575,9 +567,8 @@ def test_trace_director_step_explains_speaker_choice(client, storyline_id, monke
     events = _stream(
         client.post(f"/api/play/{scid}/turn", json={"text": "I address the room.", "trace": True})
     )
-    director = next(t for t in events if t["type"] == "trace" and t["step"] == "director")
-    assert director["data"]["speakers"] == ["Mei", "Kira"]
-    assert director["detail"]  # a plain-language rationale is present
+    plan = next(t for t in events if t["type"] == "trace" and t["step"] == "plan" and t["data"].get("actor"))
+    assert plan["data"]["actor"] == "Mei" and plan["detail"]  # names who's up + why
 
 
 def test_trace_commit_reports_graph_changes_on_a_stat_turn(client, storyline_id, monkeypatch):
