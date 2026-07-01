@@ -120,6 +120,10 @@ def _build_user_prompt(ctx: TurnContext, speaker: CastMember, turn_beats: list[d
     if speaker.stats:
         state = ", ".join(f"{k}={v}" for k, v in speaker.stats.items())
         head.append(f"Your current state: {state}")
+    if speaker.disposition:
+        # Carried in from the previous turn's reflection (§P9): the stance you already
+        # hold as you re-enter. It seeds this beat so <thinking> can stay very short.
+        head.append(f"Your current inner stance: {speaker.disposition}")
     if speaker.recent_lines:
         anchors = "  ".join(f"“{line}”" for line in speaker.recent_lines)
         head.append(f"Your recent lines (match this voice): {anchors}")
@@ -142,6 +146,9 @@ def _build_user_prompt(ctx: TurnContext, speaker: CastMember, turn_beats: list[d
     tail: list[str] = []
     if ctx.directed_at == speaker.id:
         tail.append("The player addressed you directly.")
+    if speaker.disposition:
+        # Disposition already computed (§P9) — keep the hidden reasoning to a beat.
+        tail.append("You already know your stance — keep <thinking> to a few words.")
     tail.append(
         f"Respond now, in {speaker.name}'s voice, to what was just said. Emit only the tagged format."
     )

@@ -44,9 +44,13 @@ class Settings(BaseSettings):
     # the turn still runs and persists to Postgres). Blank ``REDIS_URL`` disables it.
     # ``turn_buffer_size`` caps the recent-turn buffer; ``turn_max_concurrency``
     # bounds the off-hot-path / independent worker pool (sequential speech stays
-    # sequential regardless).
+    # sequential regardless). ``turn_reflection_enabled`` toggles the read-time
+    # reflection interlude (per-character interior state). ``turn_ttft_slo_ms`` is an
+    # informational time-to-first-token target the concurrency hardening logs against.
     turn_buffer_size: int = 12
     turn_max_concurrency: int = 4
+    turn_reflection_enabled: bool = True
+    turn_ttft_slo_ms: int = 1200
 
     # The Story Graph substrate (Neo4j). The container is owned by ``app.py`` like
     # Postgres/Redis; the driver connects lazily (on scenario load / character &

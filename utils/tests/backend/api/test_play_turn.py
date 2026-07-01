@@ -348,6 +348,53 @@ def test_closing_style_tags_do_not_leak_into_the_stream(client, storyline_id, mo
     assert su["data"]["stat"]["key"] == "sensation" and su["data"]["stat"]["value"] == 20
 
 
+# ---- P9: read-time reflection interlude ---------------------------------------
+
+
+class _FakeRedis:
+    """Minimal in-memory Redis for interior-state string ops."""
+
+    def __init__(self) -> None:
+        self.store: dict[str, str] = {}
+
+    def set(self, key: str, value: str, ex: int | None = None) -> None:
+        self.store[key] = value
+
+    def get(self, key: str) -> str | None:
+        return self.store.get(key)
+
+
+def test_turn_writes_interior_state_after_stream(client, storyline_id, monkeypatch):
+    from app.memory import interior
+
+    _configure_llm(client)
+    fake = _FakeRedis()
+    monkeypatch.setattr(interior, "_redis", lambda: fake)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        system = json.loads(request.content.decode())["messages"][0]["content"]
+        if "private inner voice" in system:  # the reflection agent
+            payload = json.dumps({"disposition": "Guarded now.", "retrospective": "He pushed."})
+            return httpx.Response(200, json={"choices": [{"message": {"content": payload}}]})
+        return httpx.Response(200, json={"choices": [{"message": {"content": _EMISSION}}]})
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+
+    # The visible stream is unaffected (reflection is off the hot path) …
+    assert any(e["type"] == "character_dialogue" for e in events)
+    assert all(e["type"] != "error" for e in events)
+    # … and the speaker's interior state was written for the next turn to read.
+    session_id = events[0]["sessionId"]
+    rec = interior.get_interior(session_id, cid)
+    assert rec is not None and rec.disposition == "Guarded now."
+
+
 def test_unknown_scenario_returns_404(client):
     assert client.post("/api/play/nope/turn", json={"text": "hi"}).status_code == 404
 

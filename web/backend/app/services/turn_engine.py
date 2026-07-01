@@ -31,7 +31,16 @@ from app.memory import buffer
 from app.models import Scenario
 from app.schemas.base import EventType, Visibility
 from app.schemas.play import TurnRequest
-from app.services import assembler, crud, emission, events_store, stats, turn_writer, validator
+from app.services import (
+    assembler,
+    crud,
+    emission,
+    events_store,
+    reflection,
+    stats,
+    turn_writer,
+    validator,
+)
 from app.services.assembler import CastMember, TurnContext
 from app.services.turn_writer import Consequence
 
@@ -173,6 +182,7 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
 
     # A narrative fork (after the line-to-line consistency pass seam): stats inform
     # which options surface, but never gate the choice mechanically (no dice — D11).
+    branches: list[dict] = []
     if decision.needs_branch:
         branches = director_agent.propose_branches(db, ctx, turn_beats)
         if branches:
@@ -188,6 +198,12 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
         summary=_turn_summary(turn_beats),
         consequences=consequences,
     )
+
+    # Read-time reflection interlude (Band 4 / §P9): each speaker reflects while the
+    # player reads, writing the interior state Band-1 reads back next turn. Best-effort
+    # and off the hot path — it never blocks the stream (branch-keyed when a fork was
+    # offered so the character pre-leans into whichever path the player takes).
+    reflection.run_reflection(db, ctx, speakers, turn_beats, branches=branches, seq=seq0)
 
 
 def _turn_summary(turn_beats: list[dict]) -> str:
