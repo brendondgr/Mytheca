@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+from pydantic import field_validator
+
 from app.schemas.base import CamelModel
+
+
+class VoiceSample(CamelModel):
+    """One situation → sample-response pair defining how a character speaks.
+
+    ``situation`` is a short description of a story event or interaction; ``sample``
+    is what the character would say/do in response, written to match their voice.
+    """
+
+    situation: str = ""
+    sample: str = ""
 
 
 class CharacterBase(CamelModel):
@@ -23,6 +36,8 @@ class CharacterBase(CamelModel):
     # The ComfyUI prompts that produced the portrait (persisted for re-edit).
     portrait_positive: str | None = None
     portrait_negative: str | None = None
+    # Voice & tone profile: situation → sample-response pairs (see ``VoiceSample``).
+    voice_samples: list[VoiceSample] | None = None
 
 
 class CharacterCreate(CharacterBase):
@@ -46,6 +61,7 @@ class CharacterUpdate(CamelModel):
     portrait: str | None = None
     portrait_positive: str | None = None
     portrait_negative: str | None = None
+    voice_samples: list[VoiceSample] | None = None
 
 
 class CharacterRead(CamelModel):
@@ -64,6 +80,14 @@ class CharacterRead(CamelModel):
     portrait: str | None = None
     portrait_positive: str | None = None
     portrait_negative: str | None = None
+    voice_samples: list[VoiceSample] = []
+
+    @field_validator("voice_samples", mode="before")
+    @classmethod
+    def _coerce_voice_samples(cls, value: object) -> object:
+        # Reconciled-but-unbackfilled rows (and the nullable column default) can be
+        # NULL; the profile reads as an empty list rather than failing validation.
+        return value if value is not None else []
 
 
 # ---- Authoring (the agentic Character Creator) ------------------------------

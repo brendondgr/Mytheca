@@ -33,6 +33,7 @@ def test_character_entry_maps_traits_and_prose():
         traits="brave, loyal · haunted", goal="protect the harbor",
         appearance="tall, weathered", background="orphaned at sea",
         personality="stoic", speech="clipped", secret="is a spy",
+        voice_samples=[{"situation": "questioned", "sample": "Ask again. Slower."}],
     )
     e = entry_from_character(ch)
     assert e.fm.type is EntryType.character
@@ -40,6 +41,8 @@ def test_character_entry_maps_traits_and_prose():
     assert "Warden" in e.fm.summary and "protect the harbor" in e.fm.summary
     assert "orphaned at sea" in e.body
     assert "Secret: is a spy" in e.body
+    # Voice samples are folded into the retrievable body.
+    assert "Ask again. Slower." in e.body
     assert e.entity_type == "character" and e.entity_id == "c1"
 
 
