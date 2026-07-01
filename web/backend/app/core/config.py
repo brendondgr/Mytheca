@@ -47,10 +47,15 @@ class Settings(BaseSettings):
     # sequential regardless). ``turn_reflection_enabled`` toggles the read-time
     # reflection interlude (per-character interior state). ``turn_ttft_slo_ms`` is an
     # informational time-to-first-token target the concurrency hardening logs against.
+    # ``turn_async_finalize`` runs the read-time reflection interlude off the request
+    # thread (P11) so the stream closes the instant the last visible event is yielded;
+    # it stays **off** by default (inline = deterministic for the offline test/dev path)
+    # and is never used on SQLite (no independent connection to hand a worker).
     turn_buffer_size: int = 12
     turn_max_concurrency: int = 4
     turn_reflection_enabled: bool = True
     turn_ttft_slo_ms: int = 1200
+    turn_async_finalize: bool = False
 
     # The Story Graph substrate (Neo4j). The container is owned by ``app.py`` like
     # Postgres/Redis; the driver connects lazily (on scenario load / character &

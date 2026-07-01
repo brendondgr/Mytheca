@@ -393,6 +393,22 @@ setting) so the moment is traversable + RAG-indexable. Best-effort: no consequen
 disabled/down → a clean no-op (Postgres stays canonical). **Deferred seams:** the vector
 entry-point (§7.1) and Text2Cypher (§7.3). See `docs/story-graph-neo4j.md`.
 
+The **read-time reflection interlude** (Band 4, `services/reflection.py` + `agents/reflection_agent.py`)
+runs after the same stream: each character reflects *while the player reads* and writes a short,
+overridable **interior state** (`disposition` + retrospective + branch-keyed stances) to Redis at
+`interior:{session}:{character}` (`memory/interior.py`, volatile — never written to the graph).
+Band-1 assembly reads it back next turn (`CastMember.disposition` → the generation prompt's HEAD),
+so a character re-enters already carrying the shift. In a crowd (N>2) reflection is **universal**
+(silent watchers update too); a two-hander reflects only who spoke. It is off the hot path, runs the
+cast **concurrently** (`services/concurrency.run_all`, capped by `TURN_MAX_CONCURRENCY`), and — with
+`TURN_ASYNC_FINALIZE` on — is dispatched to a background worker so the stream closes immediately
+(`concurrency.submit_background`; inline + deterministic by default / on SQLite). Multi-party turns
+also add a **live speaker queue**: a high-impact beat (Σ|stat delta|) re-consults the Director
+mid-turn (`director_agent.rerank`) and **cascades** a disposition refresh to the not-yet-spoken
+(`reflection.refresh_dispositions`, width scaled to impact), and a **consistency guard**
+(`services/consistency.py`) checks each later line against the established beats before it streams,
+regenerating once on a clear contradiction. All best-effort (Redis/LLM down → the turn still runs).
+
 ## Hybrid RAG Flow
 
 ### Ingest-on-save

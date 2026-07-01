@@ -14,6 +14,8 @@ sampler tuning are layered on in the think→speak phase; this module is where t
 
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.agents._common import gen_params, resolve_llm
@@ -21,6 +23,8 @@ from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmParams
 from app.services import llm
 from app.services.assembler import CastMember, TurnContext
+
+logger = logging.getLogger("velora.turn")
 
 # A spoken line wants minimal *hidden* reasoning (voice comes from the prompt + the
 # short visible thinking block, not a long internal monologue); keep the hidden
@@ -91,6 +95,9 @@ def generate_line(
     """
     base_url, api_key, model, params = resolve_llm(db)
     system = f"{_OUTPUT_CONTRACT}\n\n{ctx.stable_prefix}".strip()
+    # The system message is byte-identical for every speaker this turn — log its
+    # prefix-cache id so warm-prefix reuse across the turn's calls is observable (§P11).
+    logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(ctx, speaker, turn_beats, correction=correction)
     return llm.chat_complete(
         base_url,

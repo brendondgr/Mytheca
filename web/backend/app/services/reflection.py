@@ -61,6 +61,43 @@ def run_reflection(
     )
 
 
+def dispatch_reflection(
+    db: Session,
+    ctx: TurnContext,
+    characters: list[CastMember],
+    turn_beats: list[dict],
+    *,
+    branches: list[dict] | None = None,
+    seq: int = 0,
+) -> None:
+    """Reflect off the request path (§P11 async finalize).
+
+    Pre-resolves everything the reflection needs on the request thread (the LLM
+    connection, the rendered transcript, plain target tuples) and hands the
+    self-contained :func:`reflect_and_store` to :func:`concurrency.submit_background`,
+    so the HTTP stream can close the instant the last visible event is yielded. When
+    ``TURN_ASYNC_FINALIZE`` is off (default) or on SQLite it runs inline — deterministic
+    for the offline test/dev path.
+    """
+    if not characters or not get_settings().turn_reflection_enabled:
+        return
+    try:
+        conn = resolve_llm(db)
+    except APIError:
+        return
+    job = partial(
+        reflect_and_store,
+        conn,
+        session_id=ctx.session_id,
+        stable_prefix=ctx.stable_prefix,
+        transcript=render_transcript(ctx, turn_beats),
+        targets=[(c.id, c.name, c.role) for c in characters],
+        branches=branches,
+        seq=seq,
+    )
+    concurrency.submit_background(job)
+
+
 def reflect_and_store(
     conn: LlmConn,
     *,

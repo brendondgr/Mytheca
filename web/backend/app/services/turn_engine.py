@@ -233,9 +233,11 @@ def run_turn(db: Session, scenario: Scenario, req: TurnRequest) -> Iterator[Stor
     # the hot path (branch-keyed when a fork was offered so a character pre-leans into
     # whichever path the player takes). In a crowded scene (N>2) reflection is
     # **universal** — the silent watchers also update their interior from the beat (§P10);
-    # a two-hander only reflects who actually spoke.
+    # a two-hander only reflects who actually spoke. Dispatched off the request thread
+    # when TURN_ASYNC_FINALIZE is on (P11) so the stream closes without waiting on the N
+    # reflection LLM calls; inline (deterministic) otherwise.
     reflection_targets = ctx.cast if len(ctx.cast) > 2 else speakers
-    reflection.run_reflection(db, ctx, reflection_targets, turn_beats, branches=branches, seq=seq0)
+    reflection.dispatch_reflection(db, ctx, reflection_targets, turn_beats, branches=branches, seq=seq0)
 
 
 def _turn_summary(turn_beats: list[dict]) -> str:

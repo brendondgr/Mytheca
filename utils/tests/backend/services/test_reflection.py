@@ -179,3 +179,26 @@ def test_refresh_dispositions_unconfigured_llm_is_noop(db_session, monkeypatch):
     kira = _member("c_kira", "Kira")
     reflection.refresh_dispositions(db_session, _ctx([kira]), [kira], [])
     assert kira.disposition == "" and fake.store == {}
+
+
+# ---- P11: dispatch_reflection (off-request; inline by default) ----------------
+
+
+def test_dispatch_reflection_runs_inline_by_default(client, db_session, monkeypatch):
+    _configure_llm(client)
+    fake = _FakeRedis()
+    monkeypatch.setattr(interior, "_redis", lambda: fake)
+    _patch_reflection(monkeypatch, {"Mei": {"disposition": "Settled."}})
+    cast = [_member("c_mei", "Mei")]
+    # TURN_ASYNC_FINALIZE off (default) → interior is written synchronously.
+    reflection.dispatch_reflection(db_session, _ctx(cast), cast, [], seq=5)
+    rec = interior.get_interior("ps1", "c_mei")
+    assert rec is not None and rec.disposition == "Settled." and rec.seq == 5
+
+
+def test_dispatch_reflection_unconfigured_llm_is_noop(db_session, monkeypatch):
+    fake = _FakeRedis()
+    monkeypatch.setattr(interior, "_redis", lambda: fake)
+    cast = [_member("c_mei", "Mei")]
+    reflection.dispatch_reflection(db_session, _ctx(cast), cast, [])
+    assert fake.store == {}

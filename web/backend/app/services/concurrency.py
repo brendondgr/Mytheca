@@ -66,17 +66,18 @@ def run_all(
 def submit_background(job: Callable[[], None]) -> None:
     """Run ``job`` off the request path (fire-and-forget), best-effort.
 
-    Used for the read-time finalize work (cold-path turn-writer + reflection) so the
-    HTTP stream can close the instant the last visible event is yielded — the player
-    never waits on durable writes or the next-turn interior refresh (turn-loop plan
-    §P11). When the backend runs on SQLite (the offline test/dev path) the job runs
-    **inline** for determinism (and because an in-memory SQLite has no independent
-    connection to hand a worker thread); otherwise it runs on a daemon thread.
+    Used for the read-time finalize work (reflection interlude) so the HTTP stream can
+    close the instant the last visible event is yielded — the player never waits on the
+    next-turn interior refresh (turn-loop plan §P11). It runs on a daemon thread **only**
+    when ``TURN_ASYNC_FINALIZE`` is on and the backend is not on SQLite; otherwise it
+    runs **inline** (the default — deterministic for the offline test/dev path, and an
+    in-memory SQLite has no independent connection to hand a worker thread).
 
     The job must be self-contained (no request Session, no request-bound ORM objects);
     turn-loop callers pre-resolve every input on the calling thread.
     """
-    if get_settings().is_sqlite:
+    settings = get_settings()
+    if not settings.turn_async_finalize or settings.is_sqlite:
         _safe(job)
         return
     threading.Thread(target=lambda: _safe(job), name="velora-finalize", daemon=True).start()
