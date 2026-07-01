@@ -183,3 +183,25 @@ class StartingStatsResponse(CamelModel):
     """Proposed starting values, keyed to the storyline's stat definitions."""
 
     proposals: list[StartingStatProposal] = []
+
+
+class VoiceSamplesRequest(CamelModel):
+    """The character description a voice/tone profile should be derived from.
+
+    Grounded in the drafted background/personality (and optionally the world) so the
+    samples match tone and voice. Runs *before* starting stats — voice comes first.
+    """
+
+    name: str = ""
+    role: str | None = None
+    traits: str | None = None
+    speech: str | None = None
+    background: str | None = None
+    personality: str | None = None
+    storyline_id: str | None = None
+
+
+class VoiceSamplesResponse(CamelModel):
+    """Proposed situation → sample-response pairs (proposal only; caller applies)."""
+
+    samples: list[VoiceSample] = []

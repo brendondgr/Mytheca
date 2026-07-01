@@ -199,6 +199,63 @@ def test_portrait_prompts_require_a_description(client):
     assert res.json()["error"]["code"] == "bad_request"
 
 
+_VOICE_JSON = json.dumps(
+    {
+        "samples": [
+            {"situation": "greeted warmly", "sample": "State your business."},
+            {"situation": "offered a bribe", "sample": "Coin talks. I decide what it says."},
+            {"situation": "cornered", "sample": "Back off. Now."},
+            {"situation": "praised", "sample": "Flattery's cheap."},
+            {"situation": "extra pair over the cap", "sample": "dropped by the cap"},
+        ]
+    }
+)
+
+
+def test_voice_samples_parses_and_caps(client, monkeypatch, storyline_id):
+    _configure_llm(client)
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = request.content.decode()
+        return _completion(_VOICE_JSON)
+
+    _patch_upstream(monkeypatch, handler)
+    res = client.post(
+        "/api/characters/voice-samples",
+        json={
+            "name": "Fenwick",
+            "speech": "clipped, wary",
+            "personality": "guarded and transactional",
+            "storylineId": storyline_id,
+        },
+    )
+    assert res.status_code == 200
+    samples = res.json()["samples"]
+    assert len(samples) == 4  # capped at _VOICE_SAMPLES_CAP, the 5th pair dropped
+    assert samples[0]["situation"] == "greeted warmly"
+    assert samples[0]["sample"] == "State your business."
+    # The character's voice fields are handed to the model.
+    assert "clipped, wary" in seen["body"]
+
+
+def test_voice_samples_empty_without_description(client):
+    # No character fields at all → no LLM call, empty proposal.
+    _configure_llm(client)
+    res = client.post("/api/characters/voice-samples", json={})
+    assert res.status_code == 200
+    assert res.json()["samples"] == []
+
+
+def test_voice_samples_best_effort_on_malformed(client, monkeypatch):
+    # A non-JSON / malformed completion degrades to an empty list, never a 500.
+    _configure_llm(client)
+    _patch_upstream(monkeypatch, lambda req: _completion("not json at all"))
+    res = client.post("/api/characters/voice-samples", json={"name": "Fenwick"})
+    assert res.status_code == 200
+    assert res.json()["samples"] == []
+
+
 def test_starting_stats_empty_without_definitions(client, storyline_id):
     # No stats defined on this world and no LLM configured: returns [] with no call.
     res = client.post(

@@ -8,6 +8,9 @@ settings-store resolution as ``storyline_agent``, via ``agents._common``):
   fields plus the base-identity prose (appearance / background / personality).
 * ``generate_portrait_prompts`` — turn a character description into the
   positive/negative prompts for the watercolor ComfyUI portrait pipeline.
+* ``propose_voice_samples`` — derive a voice & tone profile (situation →
+  sample-response pairs) from a character's background/personality (proposal only;
+  runs *before* starting stats so voice/tone is defined first).
 * ``propose_starting_stats`` — propose starting values for the storyline's stat
   definitions (proposal only; the caller decides whether to apply them).
 
@@ -35,6 +38,8 @@ from app.schemas.character import (
     PortraitPromptResponse,
     StartingStatProposal,
     StartingStatsResponse,
+    VoiceSample,
+    VoiceSamplesResponse,
 )
 from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
@@ -93,6 +98,25 @@ _STATS_SYSTEM = (
     'object — no prose, no fences — of the form {"proposals": [{"key": "<stat key>", '
     '"value": <int>, "rationale": "<one short line>"}]}. Only use the provided stat '
     "keys. Include every stat."
+)
+
+
+# How many situation → sample-response pairs to keep (accept 2-4, target 3).
+_VOICE_SAMPLES_CAP = 4
+
+_VOICE_SYSTEM = (
+    "You are Velora's character-voice assistant. Given a character's background, "
+    "personality, and speech style, write a small set of example speech samples that "
+    "show HOW this character talks and reacts — so their voice stays consistent in "
+    "roleplay. Produce 3 (2-4) distinct situation → response pairs. Each situation is "
+    "a SHORT description of a story event or an interaction with another character; "
+    "each sample is exactly what THIS character would say (and optionally briefly do) "
+    "in response, written fully in their voice — matching their diction, cadence, "
+    "attitude, and speech style. Vary the situations (calm, pressured, challenged, "
+    "pleased). Keep each sample to one or two sentences. Respond with ONLY a JSON "
+    'object — no prose, no markdown, no code fences — of the form {"samples": '
+    '[{"situation": "<short situation>", "sample": "<what they say>"}]}. Include no '
+    "other keys."
 )
 
 
@@ -308,3 +332,65 @@ def propose_starting_stats(
                 )
             )
     return StartingStatsResponse(proposals=proposals)
+
+
+def propose_voice_samples(
+    db: Session,
+    *,
+    name: str = "",
+    role: str | None = None,
+    traits: str | None = None,
+    speech: str | None = None,
+    background: str | None = None,
+    personality: str | None = None,
+    storyline_id: str | None = None,
+    reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
+) -> VoiceSamplesResponse:
+    """Derive a voice & tone profile (situation → sample-response pairs) for a character.
+
+    Grounded in the drafted background/personality/speech (and the active world) so
+    the samples match the character's tone. Best-effort: returns an empty list rather
+    than raising when there's nothing to describe or the LLM misbehaves — the caller
+    decides whether to apply the proposal. Kept to at most ``_VOICE_SAMPLES_CAP`` pairs.
+    """
+    char_fields = {
+        "Name": name,
+        "Role": role,
+        "Traits": traits,
+        "Speech style": speech,
+        "Background": background,
+        "Personality": personality,
+    }
+    described = "\n".join(f"{k}: {v}" for k, v in char_fields.items() if (v or "").strip())
+    if not described:
+        return VoiceSamplesResponse(samples=[])
+
+    base_url, api_key, model, params = resolve_llm(db)
+    user = f"Character:\n{described}{world_context(db, storyline_id)}"
+    messages = [
+        {"role": "system", "content": _VOICE_SYSTEM},
+        {"role": "user", "content": user},
+    ]
+    try:
+        data = extract_json(
+            llm.chat_complete(
+                base_url, api_key, model, messages, gen_params(params), reasoning=reasoning
+            )
+        )
+    except Exception:  # best-effort — a bad/absent generation yields no samples
+        return VoiceSamplesResponse(samples=[])
+
+    raw = data.get("samples")
+    rows = raw if isinstance(raw, list) else []
+    samples: list[VoiceSample] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        sample = str(row.get("sample") or "").strip()
+        if not sample:
+            continue
+        situation = str(row.get("situation") or "").strip()
+        samples.append(VoiceSample(situation=situation, sample=sample))
+        if len(samples) >= _VOICE_SAMPLES_CAP:
+            break
+    return VoiceSamplesResponse(samples=samples)
