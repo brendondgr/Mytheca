@@ -196,14 +196,14 @@
  * `animation` but not the box-shadow — leaves a static glow instead of none. */
 @keyframes veloraGlowPulse {
   0%, 100% {
-    box-shadow: 0 0 0 2px var(--glow-color), 0 0 10px 2px var(--glow-color);
+    box-shadow: 0 0 0 2px var(--glow-color), 0 0 5px 1px var(--glow-color);
   }
   50% {
-    box-shadow: 0 0 0 3px var(--glow-color), 0 0 22px 6px var(--glow-color);
+    box-shadow: 0 0 0 3px var(--glow-color), 0 0 11px 3px var(--glow-color);
   }
 }
 .velora-glow {
-  box-shadow: 0 0 0 3px var(--glow-color), 0 0 22px 6px var(--glow-color);
+  box-shadow: 0 0 0 3px var(--glow-color), 0 0 11px 3px var(--glow-color);
   animation: veloraGlowPulse 2.2s ease-in-out infinite;
 }
 
