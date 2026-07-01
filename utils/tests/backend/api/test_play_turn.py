@@ -318,6 +318,36 @@ def test_branch_choices_emitted_when_director_flags_a_fork(client, storyline_id,
     assert all("check" not in c for c in branch["data"]["choices"])  # no dice
 
 
+def test_closing_style_tags_do_not_leak_into_the_stream(client, storyline_id, monkeypatch):
+    # Regression: a model that emits </type:…> delimiters + a trailing stat JSON must
+    # still stream a clean dialogue bubble + a real state_update event — no leaked tags.
+    _configure_llm(client)
+    client.post(
+        f"/api/storylines/{storyline_id}/stats",
+        json={"key": "sensation", "displayName": "Sensation", "min": 0, "max": 100, "default": 10},
+    )
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    emission = (
+        "<speaker:1>\n"
+        "<type:character_action> Sylvarra glides forward, tracing a slow line. "
+        "</type:character_dialogue> Then bloom for me, my precious thing. "
+        '</type:state_update> {"key": "sensation", "delta": 10, "reason": "the grove"}'
+    )
+    _patch_llm(monkeypatch, emission)
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+
+    # No visible event carries a raw emission tag or the raw stat JSON.
+    for e in events:
+        text = e.get("data", {}).get("text", "")
+        assert "type:" not in text and "{" not in text
+    # A proper dialogue bubble + a real state_update (not prose) both arrived.
+    dialogue = "".join(e["data"]["text"] for e in events if e["type"] == "character_dialogue")
+    assert "Then bloom for me, my precious thing." in dialogue
+    su = next(e for e in events if e["type"] == "state_update")
+    assert su["data"]["stat"]["key"] == "sensation" and su["data"]["stat"]["value"] == 20
+
+
 def test_unknown_scenario_returns_404(client):
     assert client.post("/api/play/nope/turn", json={"text": "hi"}).status_code == 404
 

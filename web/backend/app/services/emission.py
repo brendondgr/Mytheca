@@ -17,15 +17,27 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-_SPEAKER_RE = re.compile(r"<speaker:\s*(\d+)\s*>", re.IGNORECASE)
-_TYPE_RE = re.compile(r"<type:\s*([a-z_]+)\s*>", re.IGNORECASE)
+# Tags are matched with an OPTIONAL leading slash: some models emit XML-style
+# closing tags (``</type:character_dialogue>``) or even use ``</type:next>`` as the
+# delimiter between blocks. Treating ``<type:X>`` and ``</type:X>`` identically (both
+# as "a block of type X starts here") makes every style parse cleanly instead of
+# leaking raw tags into the rendered prose.
+_SPEAKER_RE = re.compile(r"</?speaker:\s*(\d+)\s*>", re.IGNORECASE)
+_TYPE_RE = re.compile(r"</?type:\s*([a-z_]+)\s*>", re.IGNORECASE)
 _THINKING_RE = re.compile(r"<thinking>(.*?)</thinking>", re.IGNORECASE | re.DOTALL)
+# Belt-and-suspenders scrub for any residual emission tag left inside a body.
+_TAG_CLEAN = re.compile(r"</?(?:type:[a-z_]+|thinking|speaker:\s*\d+)\s*>", re.IGNORECASE)
 
 # Prose types a character may emit (internal_thought is hidden conditioning).
 _PROSE_TYPES = {"character_action", "character_dialogue"}
 # A character may also propose a stat change as a JSON body (validated + clamped
 # downstream); its ``text`` is the raw JSON block.
 _STAT_TYPE = "state_update"
+
+
+def _clean(body: str) -> str:
+    """Strip any residual emission tags from a body and trim."""
+    return _TAG_CLEAN.sub("", body).strip()
 
 
 @dataclass
@@ -55,7 +67,7 @@ def parse_emission(
 
     thinking = _THINKING_RE.search(text)
     if thinking:
-        body = thinking.group(1).strip()
+        body = _clean(thinking.group(1))
         if body:
             segments.append(Segment("internal_thought", body, speaker_id))
         text = text[: thinking.start()] + text[thinking.end() :]
@@ -63,7 +75,7 @@ def parse_emission(
     type_marks = list(_TYPE_RE.finditer(text))
     if not type_marks:
         # Model ignored the tag format — treat the remaining prose as one spoken line.
-        body = _SPEAKER_RE.sub("", text).strip()
+        body = _clean(text)
         if body:
             segments.append(Segment("character_dialogue", body, speaker_id))
         return segments
@@ -71,7 +83,9 @@ def parse_emission(
     for i, mark in enumerate(type_marks):
         kind = mark.group(1).lower()
         body_end = type_marks[i + 1].start() if i + 1 < len(type_marks) else len(text)
-        body = text[mark.end() : body_end].strip()
+        # state_update carries a JSON body; prose is scrubbed of any residual tags.
+        raw_body = text[mark.end() : body_end].strip()
+        body = raw_body if kind == _STAT_TYPE else _clean(raw_body)
         if not body:
             continue
         if kind in _PROSE_TYPES or kind == _STAT_TYPE:
