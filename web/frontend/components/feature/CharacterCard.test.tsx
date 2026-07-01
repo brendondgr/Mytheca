@@ -44,6 +44,17 @@ describe("CharacterCard", () => {
     expect(screen.getByText(/in this scene/i)).toBeInTheDocument();
   });
 
+  it("glows in the character's own color only when highlighted", () => {
+    const { container, rerender } = render(<CharacterCard character={base} onPreview={() => {}} />);
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className).not.toContain("velora-glow");
+    expect(card.style.getPropertyValue("--glow-color")).toBe("");
+
+    rerender(<CharacterCard character={base} onPreview={() => {}} highlighted />);
+    expect(card.className).toContain("velora-glow");
+    expect(card.style.getPropertyValue("--glow-color")).toBe(base.color);
+  });
+
   it("calls onPreview on card click and onEdit on the pencil", async () => {
     const user = userEvent.setup();
     const onPreview = vi.fn();

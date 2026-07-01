@@ -13,7 +13,8 @@ import type { Character } from "@/lib/types";
  * large centered monogram on a solid surface. Clicking the card opens the profile
  * modal (a single stretched button); the edit pencil is a sibling above it (no
  * nested interactives). Cast members of the selected scenario are lit with an
- * accent ring + "◆ In this scene" label (never color alone).
+ * animated glow in the character's own color + "◆ In this scene" label
+ * (never color alone).
  */
 export function CharacterCard({
   character,
@@ -35,10 +36,11 @@ export function CharacterCard({
       className={cn(
         "velora-card group relative aspect-[2/3] overflow-hidden rounded-[4px] hover:-translate-y-[2px] hover:shadow-[0_8px_20px_rgba(20,14,6,.22)]",
         !hasPortrait && "bg-card2",
+        highlighted && "velora-glow",
       )}
       style={{
         border: `2px solid ${c.color}`,
-        boxShadow: highlighted ? "0 0 0 2px var(--accent), 0 6px 16px rgba(142,43,28,.20)" : undefined,
+        ...(highlighted ? { "--glow-color": c.color } : {}),
       }}
     >
       {hasPortrait ? (
