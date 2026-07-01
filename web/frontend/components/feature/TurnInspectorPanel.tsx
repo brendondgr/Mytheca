@@ -8,18 +8,23 @@ import type { TurnTraceFrame } from "@/lib/events";
 // gold; everything else reads as muted so the eye lands on the "why" first.
 const STEP_META: Record<string, { tag: string; accent: boolean }> = {
   turn: { tag: "You", accent: false },
+  intent: { tag: "Intent", accent: true },
   assemble: { tag: "Scene", accent: false },
   lore: { tag: "Lore", accent: true },
+  plan: { tag: "Plan", accent: true },
   director: { tag: "Director", accent: true },
   speaker: { tag: "Speaker", accent: false },
   thinking: { tag: "Thinks", accent: true },
   consistency: { tag: "Check", accent: false },
+  relationship: { tag: "Ties", accent: true },
   action: { tag: "Acts", accent: false },
   dialogue: { tag: "Says", accent: false },
   stat: { tag: "Stat", accent: false },
+  relationship_change: { tag: "Bond", accent: true },
   rerank: { tag: "Re-rank", accent: true },
   cascade: { tag: "Cascade", accent: true },
   branch: { tag: "Branch", accent: true },
+  relationships: { tag: "Graph", accent: true },
   commit: { tag: "Graph", accent: true },
   reflection: { tag: "Reflect", accent: false },
 };

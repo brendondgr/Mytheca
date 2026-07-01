@@ -409,6 +409,20 @@ mid-turn (`director_agent.rerank`) and **cascades** a disposition refresh to the
 (`services/consistency.py`) checks each later line against the established beats before it streams,
 regenerating once on a clear contradiction. All best-effort (Redis/LLM down → the turn still runs).
 
+**Reactive Turn Director (Produce band overhaul).** The player's line is first **interpreted**
+(`agents/intent_agent`) into narrate / address / **puppet** / whole-group intent; a puppeted
+character then *performs* the direction in its own voice (not a bystander answering the player).
+A **ReAct planner** (`agents/planner_agent.next_beat`) drives the turn beat-by-beat — after each
+beat it re-decides the next (a character speaks/acts, the narrator sets context, or the turn ends),
+so speakers are **unbounded** (a whole-group direction walks the entire cast; `TURN_MAX_BEATS` is a
+runaway backstop) — replacing the old capped one-shot Director + rerank/cascade. Each character
+reply is grounded in its **graph relationships** to whom it addresses (`graph_reader.relationship_context`
+— direct edges + 2-hop shared links, folded into the prompt). Relationships are **seeded from the
+cast bios** into the graph on a session's first turn (`services/relationships.ensure_seeded` +
+`agents/relationship_agent`) and **evolve in play** via a `relationship_update` block →
+`validator.validate_relationship` → a relational consequence the cold path writes as a directed edge.
+`GET /play/{id}/relationships` exposes the live edges for the story player's Relationships panel.
+
 ## Hybrid RAG Flow
 
 ### Ingest-on-save

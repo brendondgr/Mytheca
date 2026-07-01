@@ -39,7 +39,8 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Scenario authoring | `POST /scenarios/draft`, `POST /scenarios/scene-art-prompts`, `POST /scenarios/scene-art` | **Implemented.** The agentic Scenario Creator: draft a scenario (title/genre/tone/goal/opening) from a seed, plus a **valid cast + setting chosen from the active world's real roster**. The model returns names from a numbered roster; the agent resolves names→ids server-side, **dropping** unknown cast and falling back to `""` for an unmatched setting — so the draft never invents or dangles a reference. Scene-art prompts and image generation follow the same watercolor pipeline as Setting authoring. Declared above `/scenarios/{id}`. See Scenario Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation), read-only inference-engine detection (`/llm/backend`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
-| Play | `POST /play/{scenarioId}/turn` | **Implemented.** Submit a player turn; the response body **is** the NDJSON event stream (`application/x-ndjson`, one event per line) — the turn engine runs the per-character POV loop and streams the resulting story events directly (reusing the build/triage streaming pattern), so there is no separate stream connection for the single-player case. Body: `{ text, directedAt?, sessionId?, mode? }` (omit `sessionId` to start a session; `mode` ∈ `pov` (default) \| `narrator`). The reasoned **Director** picks who reacts + order (a directed addressee / solo cast is the no-LLM fast path); **Narrator Mode** inserts a narration interstitial before each speaker, **POV Mode** omits it (one engine — D1). Pre-flight failures (unknown scenario → 404, empty text → 400, bad session → 404/400) return a normal error envelope before the 200 stream opens; a mid-stream failure is the terminal `{ "type": "error", "message": "…" }` frame. See Turn Stream below. |
+| Play | `POST /play/{scenarioId}/turn` | **Implemented.** Submit a player turn; the response body **is** the NDJSON event stream (`application/x-ndjson`, one event per line). Body: `{ text, directedAt?, sessionId?, mode?, trace? }` (omit `sessionId` to start a session). The engine **interprets the line** (narrate / address / **puppet** a character / whole-group), then runs a **ReAct planner** that decides the next beat after each one — a character speaks/acts (in their own voice; a puppeted character *performs* the direction), the narrator sets context, or the turn ends — so speakers are unbounded (a whole-group direction runs the entire cast) and order is dynamic. Character replies are grounded in their **graph relationships** to whom they address (direct + 2-hop). Pre-flight failures (unknown scenario → 404, empty text → 400, bad session → 404/400) return a normal error envelope before the 200 stream opens; a mid-stream failure is the terminal `{ "type": "error", "message": "…" }` frame. See Turn Stream below. |
+| Relationships | `GET /play/{scenarioId}/relationships` | **Implemented.** The scenario's live character↔character relationships from the story graph — `{ relationships: [{ source, sourceName, type, target, targetName, reason }] }`. Best-effort: an empty list when the graph is off/unreachable (the story player keeps its seed placeholder). 404 only when the scenario is unknown. |
 | Stream (seam) | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | **Deferred seam.** A separate fan-out connection (Redis pub/sub, reconnect/replay-from-`seq`, multi-watcher) for cases the single-response stream above doesn't cover. Not built. |
 | Admin (future) | `GET /admin/*` | High-permission only. |
 
@@ -567,7 +568,10 @@ events carry the resolved `sessionId`; `mode` defaults to `pov`). Multiple speak
 hidden `internal_thought` of each is withheld from the stream and from later speakers). A
 speaker may propose a stat change (a thin `state_update` block): the validator confirms the
 stat exists, applies the **delta/value clamped to `[min,max]`** on the hot path (keeping the
-`reason`), and emits a `state_update` event — an unknown stat is dropped. When the Director
+`reason`), and emits a `state_update` event — an unknown stat is dropped. A speaker may also
+propose a **`relationship_update`** block (`{target, type, reason}`): validated against the
+cast + the registry's character↔character edge types, it becomes a cold-path graph edge
+(`source -[type]-> target`) rather than a wire event — so relationships evolve in play. When the Director
 flags a fork, a `branch_choices` event offers `label` + `outcome` options (no dice — D11);
 stats inform which surface, never gate them. The player's input is persisted as a
 `user_turn` event at `seq` 0 of the turn (not streamed back — the client already shows it
@@ -578,9 +582,10 @@ envelope before the 200 opens.
 **Diagnostic trace (opt-in).** Set `"trace": true` in the request body to interleave
 `{ "type": "trace", "n", "step", "title", "detail", "data" }` frames that narrate, **in
 order**, what the turn loop did and why — the story player's **Inspector** panel renders
-these. `step` is a stable key (`turn` opens each turn, then `assemble` / `director` /
-`speaker` / `thinking` / `consistency` / `action` / `dialogue` / `stat` / `rerank` /
-`cascade` / `branch` / `reflection`); `n` orders within one turn. Trace frames are
+these. `step` is a stable key (`turn` opens each turn, then `intent` / `assemble` / `lore` /
+`plan` / `speaker` / `thinking` / `consistency` / `relationship` / `action` / `dialogue` /
+`stat` / `relationship_change` / `branch` / `commit` / `reflection`); `n` orders within one
+turn. Trace frames are
 **transport-only** (not persisted story events, not in `story_event_adapter`), and the flag
 defaults **off** so the default stream and the story-event contract are unchanged. Notably,
 a character's hidden `internal_thought` is surfaced here as a `thinking` trace step (it is

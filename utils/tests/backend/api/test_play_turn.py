@@ -691,6 +691,21 @@ def test_relationship_update_records_a_relational_consequence(client, storyline_
     assert "know what you did" in dialogue and "{" not in dialogue
 
 
+# ---- Reactive Turn Director P6: live relationships route ----------------------
+
+
+def test_relationships_route_empty_when_graph_off(client, storyline_id):
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    resp = client.get(f"/api/play/{scid}/relationships")
+    assert resp.status_code == 200
+    assert resp.json()["relationships"] == []  # Neo4j disabled in tests → seed fallback
+
+
+def test_relationships_route_unknown_scenario_404(client):
+    assert client.get("/api/play/nope/relationships").status_code == 404
+
+
 def test_unknown_scenario_returns_404(client):
     assert client.post("/api/play/nope/turn", json={"text": "hi"}).status_code == 404
 

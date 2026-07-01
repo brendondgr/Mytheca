@@ -31,6 +31,12 @@ logger = logging.getLogger("velora.graph")
 
 _STRUCTURAL_KEYS = {"id", "type", "label", "storyline"}
 
+# Character↔character edge types surfaced as "relationships" (mirrors the registry /
+# relationship_agent; kept local to avoid an agents→services import cycle).
+_RELATIONSHIP_TYPES = frozenset(
+    {"loves", "trusts", "fears", "resents", "allied_with", "at_war_with", "knows", "suspects"}
+)
+
 # Default metadata for the derived live-casting edge (§4.3 present_at).
 _PRESENT_AT_META = {"weight": 1.0, "visibility": "public", "status": "active"}
 
@@ -188,6 +194,37 @@ def ensure_scenario_materialized(db: Session, scenario: Scenario) -> list[str]:
 
 
 # ---- orchestrator (what the route calls) ----------------------------------
+
+
+def scenario_relationships(db: Session, scenario_id: str) -> list[dict]:
+    """The scenario's character↔character relationships, resolved to names (best-effort).
+
+    Returns ``[{source, sourceName, type, target, targetName, reason}]`` — empty when the
+    graph is off/unreachable. Powers the story player's live Relationships panel (P6),
+    replacing the seed placeholder when the graph actually has edges.
+    """
+    graph = scenario_graph(db, scenario_id)
+    if not graph.get("available"):
+        return []
+    names = {n["id"]: n["label"] for n in graph.get("nodes", [])}
+    out: list[dict] = []
+    for edge in graph.get("edges", []):
+        if edge.get("type") not in _RELATIONSHIP_TYPES:
+            continue
+        source, target = edge.get("source"), edge.get("target")
+        if source not in names or target not in names:
+            continue
+        out.append(
+            {
+                "source": source,
+                "sourceName": names[source],
+                "type": edge["type"],
+                "target": target,
+                "targetName": names[target],
+                "reason": (edge.get("metadata") or {}).get("reason", ""),
+            }
+        )
+    return out
 
 
 def scenario_graph(db: Session, scenario_id: str) -> dict:
