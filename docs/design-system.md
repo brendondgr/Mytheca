@@ -147,9 +147,14 @@ The columns sit on a **solid `--page-bg`** that spans the full container width �
 radial glow (`--page-img`) is never allowed to show through behind the scrolling cards.
 
 Selecting a scenario in the Scenarios column drives the rest: the hero reflects it, its
-**cast lights up** in the Characters column (accent border on `--card-bg2`), and its
-**active setting is brought forward** in the Settings column (2px accent border + raised
-surface) **and scrolled into view** within that column. Per the not-color-alone rule, both
+**cast lights up** in the Characters column (an **animated pulsing glow** keyed to each
+character's own color — `.velora-glow` / `veloraGlowPulse` in `styles/themes.css`, driven by
+a `--glow-color` custom property set inline per card), and its **active setting is brought
+forward** in the Settings column (2px accent border + the same animated glow keyed to
+`var(--accent)`) **and scrolled into view** within that column. The glow's own box-shadow
+(outside the keyframes) is the animation's brighter frame, so the existing app-wide
+`prefers-reduced-motion` rule — which strips `animation` under `.velora-themed *` — leaves a
+static glow rather than none. Per the not-color-alone rule, both
 highlights also carry a mono **"◆ In this scene"** label, and the active setting sets
 `aria-current`. A storyline with no scenarios
 shows empty-state columns and an empty hero ("No scenarios yet"). This is deliberately a
@@ -186,7 +191,7 @@ Near the top of key pages show **real artifacts**: a live/sample scene transcrip
 
 **Character dossier (read-only profile).** The expanded character view (`CharacterProfileModal`) is styled as a **bold, structured dossier** with a **two-column hero** (`md+`, stacking below): the **left** is a tall **2:3 framed portrait** (a 2px character-color frame + inner hairline; `object-cover` image, monogram fallback — no seal medallion); the **right** carries the large uppercase Cinzel name, a character-color role eyebrow set off by a hairline rule, a row of `◆`-led trait pills (the free-text traits string split into one pill per token), and **only the Background** box. The other four fields — **Appearance, Personality, Voice, Goal** — sit below in a **2×2 grid** (one column below `sm`), each in its own bordered manuscript box (`--card-bg2` surface, `--card-bd` border, ~4px radius, a circular gold glyph badge + small-caps header on a rule). **Secret is not surfaced** in the profile (it remains on the data model). Section identity is carried by the badge + header + border, never color alone. All surfaces use theme tokens, so the treatment holds across Parchment / Ember / Slate.
 
-**Generated-image orientation.** Character **portraits** render **vertical — 832×1216 (2:3 portrait)** (`services/portraits.py`), to suit the portrait-dominant character cards and the profile hero; the display frames use `aspect-[2/3]` + `object-cover`. **Scene art** (scenarios + settings) stays **landscape 1024×576 (16:9)**. Both dimensions are divisible by 8 for the latent grid. Character cards in the Library Characters column are **portrait-dominant 2:3 tiles** framed in the character's color: the portrait fills the card behind the vertical **`PORTRAIT_SCRIM`** with name/role in a bottom footer (large monogram fallback on a solid surface), cast members lit by an accent ring + `◆ In this scene`.
+**Generated-image orientation.** Character **portraits** render **vertical — 832×1216 (2:3 portrait)** (`services/portraits.py`), to suit the portrait-dominant character cards and the profile hero; the display frames use `aspect-[2/3]` + `object-cover`. **Scene art** (scenarios + settings) stays **landscape 1024×576 (16:9)**. Both dimensions are divisible by 8 for the latent grid. Character cards in the Library Characters column are **portrait-dominant 2:3 tiles** framed in the character's color: the portrait fills the card behind the vertical **`PORTRAIT_SCRIM`** with name/role in a bottom footer (large monogram fallback on a solid surface), cast members lit by an animated glow in their own color + `◆ In this scene`.
 
 ## Required UI States (design all)
 
