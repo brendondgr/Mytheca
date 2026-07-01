@@ -159,7 +159,10 @@ then a terminal `done` event:
 
 `skipped` counts entries whose content hash is unchanged (idempotent — no re-embed
 for unchanged entries). `available: false` in the `done` event when Qdrant is
-unreachable.
+unreachable. Entries embed **concurrently** (bounded by the operator's
+`authoringConcurrency`; Qdrant writes are serialized), so `embedding` events arrive
+as each entry *completes* — `index` is a 1..N completion counter, not a fixed
+position, and its order is arbitrary.
 
 **`POST /api/storylines/{id}/rag/query`** — debug retrieval for a query string:
 
@@ -199,7 +202,8 @@ key is **write-only**: it is stored server-side and never returned in clear.
     "provider": "openai-compatible",
     "params": { "temperature": 0.7, "maxTokens": 512, "topP": 1.0, "frequencyPenalty": 0.0, "presencePenalty": 0.0 },
     "hasApiKey": true,
-    "apiKeyHint": "…AB12"
+    "apiKeyHint": "…AB12",
+    "authoringConcurrency": 3
   },
   "library": { "defaultStorylineId": "embergate", "openLastStoryline": true },
   "comfy": {
@@ -211,9 +215,13 @@ key is **write-only**: it is stored server-side and never returned in clear.
 ```
 
 - `PATCH /options/llm` — body may include `baseUrl`, `model`, `provider`, `params`,
-  and `apiKey`. **`apiKey` semantics:** omitted = keep the stored key; `""` =
-  clear it; any other value = replace it. The base URL is normalized (trailing
-  slash trimmed). Returns the masked `LlmConfigRead`.
+  `apiKey`, and `authoringConcurrency`. **`apiKey` semantics:** omitted = keep the
+  stored key; `""` = clear it; any other value = replace it. The base URL is
+  normalized (trailing slash trimmed). **`authoringConcurrency`** (default from
+  `BUILD_MAX_CONCURRENCY`, clamped ≥1) bounds how many characters/settings the world
+  build drafts concurrently **and** how many entities a RAG re-index embeds
+  concurrently (single-slot llama.cpp → 1, vLLM → higher; image generation stays
+  sequential). Returns the masked `LlmConfigRead`.
 - `PATCH /options/library` — body may include `defaultStorylineId`,
   `openLastStoryline`. Returns `LibraryDefaultsRead`.
 - `POST /options/llm/models` — `{ baseUrl?, apiKey? }` (fall back to stored).
