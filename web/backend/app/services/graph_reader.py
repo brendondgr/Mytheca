@@ -31,6 +31,12 @@ logger = logging.getLogger("velora.graph")
 
 _STRUCTURAL_KEYS = {"id", "type", "label", "storyline"}
 
+# Character↔character edge types surfaced as "relationships" (mirrors the registry /
+# relationship_agent; kept local to avoid an agents→services import cycle).
+_RELATIONSHIP_TYPES = frozenset(
+    {"loves", "trusts", "fears", "resents", "allied_with", "at_war_with", "knows", "suspects"}
+)
+
 # Default metadata for the derived live-casting edge (§4.3 present_at).
 _PRESENT_AT_META = {"weight": 1.0, "visibility": "public", "status": "active"}
 
@@ -52,6 +58,19 @@ _PRESENCE_CASTING = (
 _SECRET_REACHABILITY = (
     "MATCH (c:Character {id: $character_id})-[:knows|suspects]->(sec:Secret) "
     "RETURN sec.id AS id, sec.label AS label"
+)
+# A speaker's relationships to the others in scene: direct edges (either direction) and
+# 2-hop shared connections through a third character. Used to ground a response in how
+# the speaker actually relates to whoever they are addressing (Reactive Turn Director D4).
+_REL_DIRECT = (
+    "MATCH (a:Character {id: $id})-[r]-(b:Character) WHERE b.id IN $others "
+    "RETURN b.id AS target, b.label AS name, type(r) AS type, "
+    "startNode(r).id AS src, properties(r) AS props"
+)
+_REL_INDIRECT = (
+    "MATCH (a:Character {id: $id})-[]-(mid:Character)-[]-(b:Character) "
+    "WHERE b.id IN $others AND mid.id <> $id AND NOT mid.id IN $others AND a.id <> b.id "
+    "RETURN DISTINCT b.id AS target, b.label AS name, mid.label AS via LIMIT 25"
 )
 
 
@@ -91,6 +110,41 @@ def presence_casting(session: Any, setting_id: str) -> list[dict]:
 def secret_reachability(session: Any, character_id: str) -> list[dict]:
     """Secrets a character knows/suspects — one-hop reachability (§5.4/§9)."""
     return [{"id": r["id"], "label": r["label"]} for r in session.run(_SECRET_REACHABILITY, character_id=character_id)]
+
+
+def relationship_context(character_id: str, other_ids: list[str]) -> dict:
+    """A speaker's relationships to ``other_ids``: direct edges + 2-hop shared links.
+
+    Best-effort (Reactive Turn Director D4): returns ``{"direct": [...], "indirect": [...]}``,
+    empty when the graph is disabled/unreachable or there is no one to relate to. ``direct``
+    entries carry ``outgoing`` (True = the speaker feels toward the other; False = the other
+    feels toward the speaker); ``indirect`` entries are shared connections through a third
+    character (undirected — a "you both know X" signal).
+    """
+    empty: dict = {"direct": [], "indirect": []}
+    others = [cid for cid in other_ids if cid and cid != character_id]
+    if not others or not neo4j.is_enabled():
+        return empty
+    try:
+        with neo4j.read_session() as session:
+            direct = [
+                {
+                    "target": r["target"],
+                    "name": r["name"],
+                    "type": r["type"],
+                    "outgoing": r["src"] == character_id,
+                    "reason": (dict(r["props"] or {})).get("reason", ""),
+                }
+                for r in session.run(_REL_DIRECT, id=character_id, others=others)
+            ]
+            indirect = [
+                {"target": r["target"], "name": r["name"], "via": r["via"]}
+                for r in session.run(_REL_INDIRECT, id=character_id, others=others)
+            ]
+        return {"direct": direct, "indirect": indirect}
+    except Exception as exc:  # pragma: no cover - defensive; never blocks a turn
+        logger.debug("relationship_context (%s) unavailable: %s", character_id, exc)
+        return empty
 
 
 # ---- materialize-on-load (idempotent upsert from Postgres) ----------------
@@ -140,6 +194,37 @@ def ensure_scenario_materialized(db: Session, scenario: Scenario) -> list[str]:
 
 
 # ---- orchestrator (what the route calls) ----------------------------------
+
+
+def scenario_relationships(db: Session, scenario_id: str) -> list[dict]:
+    """The scenario's character↔character relationships, resolved to names (best-effort).
+
+    Returns ``[{source, sourceName, type, target, targetName, reason}]`` — empty when the
+    graph is off/unreachable. Powers the story player's live Relationships panel (P6),
+    replacing the seed placeholder when the graph actually has edges.
+    """
+    graph = scenario_graph(db, scenario_id)
+    if not graph.get("available"):
+        return []
+    names = {n["id"]: n["label"] for n in graph.get("nodes", [])}
+    out: list[dict] = []
+    for edge in graph.get("edges", []):
+        if edge.get("type") not in _RELATIONSHIP_TYPES:
+            continue
+        source, target = edge.get("source"), edge.get("target")
+        if source not in names or target not in names:
+            continue
+        out.append(
+            {
+                "source": source,
+                "sourceName": names[source],
+                "type": edge["type"],
+                "target": target,
+                "targetName": names[target],
+                "reason": (edge.get("metadata") or {}).get("reason", ""),
+            }
+        )
+    return out
 
 
 def scenario_graph(db: Session, scenario_id: str) -> dict:

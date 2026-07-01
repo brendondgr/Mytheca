@@ -19,7 +19,7 @@ from app.core.db import get_db
 from app.core.errors import APIError
 from app.events.stream import TurnErrorFrame, to_ndjson_line
 from app.schemas.play import TurnRequest
-from app.services import turn_engine
+from app.services import crud, graph_reader, turn_engine
 
 router = APIRouter(prefix="/play", tags=["play"])
 
@@ -42,3 +42,14 @@ def play_turn(scenario_id: str, data: TurnRequest, db: Session = Depends(get_db)
             yield to_ndjson_line(TurnErrorFrame(message="The turn failed unexpectedly."))
 
     return StreamingResponse(_lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS)
+
+
+@router.get("/{scenario_id}/relationships")
+def scenario_relationships(scenario_id: str, db: Session = Depends(get_db)):
+    """The scenario's live character↔character relationships from the story graph.
+
+    Best-effort: an empty list when the graph is off/unreachable (the story player then
+    keeps its seed placeholder). 404 only when the scenario itself is unknown.
+    """
+    crud.get_scenario(db, scenario_id)  # 404 when the scenario is unknown
+    return {"relationships": graph_reader.scenario_relationships(db, scenario_id)}

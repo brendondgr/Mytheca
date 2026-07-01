@@ -41,6 +41,22 @@ describe("TurnInspectorPanel", () => {
     expect(screen.queryByText("You submitted a message")).not.toBeInTheDocument();
   });
 
+  it("tags the Reactive Turn Director steps (plan, relationship change)", () => {
+    const t: TraceTurn = {
+      id: "0",
+      label: "go",
+      steps: [
+        { type: "trace", n: 1, step: "turn", title: "You", detail: "go", data: {} },
+        { type: "trace", n: 2, step: "plan", title: "Mei is up next", detail: "provoked", data: {} },
+        { type: "trace", n: 3, step: "relationship_change", title: "Mei now resents Beth", detail: "betrayal", data: {} },
+      ],
+    };
+    render(<TurnInspectorPanel open onClose={() => {}} turns={[t]} />);
+    expect(screen.getByText("Plan")).toBeInTheDocument();
+    expect(screen.getByText("Bond")).toBeInTheDocument();
+    expect(screen.getByText("Mei is up next")).toBeInTheDocument();
+  });
+
   it("closes via the close button", async () => {
     const onClose = vi.fn();
     render(<TurnInspectorPanel open onClose={onClose} turns={[turn()]} />);

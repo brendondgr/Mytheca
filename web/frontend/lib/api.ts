@@ -173,6 +173,20 @@ export function postTurn(
   return postNdjson<TurnStreamFrame>(`/play/${scenarioId}/turn`, body, signal);
 }
 
+/** One character↔character relationship from the story graph (P6 live Relationships). */
+export interface GraphRelationship {
+  source: string;
+  sourceName: string;
+  type: string;
+  target: string;
+  targetName: string;
+  reason: string;
+}
+
+/** The scenario's live relationships (empty when the graph is off — caller keeps its seed). */
+export const getScenarioRelationships = (scenarioId: string) =>
+  request<{ relationships: GraphRelationship[] }>(`/play/${scenarioId}/relationships`);
+
 /** Resolve a relative `/media/...` URL (portraits) against the API origin. */
 export function mediaUrl(path: string): string {
   if (!path) return path;

@@ -22,9 +22,16 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.agents import character_turn_agent, director_agent, narrator_agent
+from app.agents import (
+    character_turn_agent,
+    director_agent,
+    intent_agent,
+    narrator_agent,
+    planner_agent,
+)
 from app.agents._common import resolve_llm
 from app.agents.reflection_agent import LlmConn
+from app.core.config import get_settings
 from app.core.errors import APIError
 from app.core.ids import new_id
 from app.events.envelope import StoryEvent
@@ -39,18 +46,15 @@ from app.services import (
     crud,
     emission,
     events_store,
+    graph_reader,
     reflection,
+    relationships,
     stats,
     turn_writer,
     validator,
 )
 from app.services.assembler import CastMember, TurnContext
 from app.services.turn_writer import Consequence
-
-# A high-impact beat (Σ|stat delta| at/above this) moves the whole room: the cascade
-# refreshes every remaining speaker's disposition. A smaller shift only nudges the very
-# next speaker (§P10 — "width/strength scaled to impact").
-_CASCADE_WIDE_THRESHOLD = 10
 
 
 class _Emitter:
@@ -239,79 +243,122 @@ def run_turn(
     # the branch/stat phase); routed off the hot path by the cold-path turn-writer.
     consequences: list[Consequence] = []
 
-    decision = director_agent.who_is_up(db, ctx)
-    speakers = [m for cid in decision.speakers if (m := ctx.cast_by_id(cid)) is not None]
+    # The continuity guard connection (resolved once; the LLM is already configured or
+    # generation would have failed first). Also used by the puppet beats below.
+    guard_conn = _resolve_conn(db) if len(ctx.cast) > 1 else None
+
+    # Interpret the player's line: narrating, addressing someone, or DIRECTING a character
+    # to act/speak (puppet)? This is what fixes attribution (Reactive Turn Director D1) —
+    # a puppeted character performs the direction in its own voice; the addressed character
+    # reacts, instead of a bystander answering the player's words.
+    intent = intent_agent.interpret(db, ctx, text)
+    # A UI-set target (e.g. a branch selection) addresses that character explicitly.
+    if (
+        req.directed_at
+        and ctx.cast_by_id(req.directed_at) is not None
+        and req.directed_at not in intent.addressed
+        and req.directed_at not in intent.directed_actors
+    ):
+        intent.addressed.append(req.directed_at)
+        if intent.kind == "freeform":
+            intent.kind = "direct"
     yield from tracer.emit(
-        "director",
-        f"The Director chose {len(speakers)} speaker(s)",
-        detail=_director_rationale(decision, speakers),
+        "intent",
+        f"Read your intent: {intent.kind}",
+        detail=intent.directive,
         data={
-            "speakers": [m.name for m in speakers],
-            "beat": decision.beat,
-            "needsBranch": decision.needs_branch,
+            "kind": intent.kind,
+            "actors": [m.name for cid in intent.directed_actors if (m := ctx.cast_by_id(cid))],
+            "addressed": [m.name for cid in intent.addressed if (m := ctx.cast_by_id(cid))],
+            "scope": intent.scope,
         },
     )
-    if not speakers:
+
+    # Puppet beats first: each directed character performs the player's direction in its
+    # OWN voice (not a reply to the player's words).
+    puppet_members = [m for cid in intent.directed_actors if (m := ctx.cast_by_id(cid)) is not None]
+    for speaker in puppet_members:
         yield from tracer.emit(
-            "director", "No one speaks", detail="No character was picked; the scene simply holds."
+            "speaker",
+            f"{speaker.name} performs your direction",
+            detail=intent.directive,
+            data={"characterId": speaker.id, "name": speaker.name, "puppet": True},
         )
+        note = _relationship_note(
+            ctx, speaker.id, intent.addressed or [m.id for m in ctx.cast if m.id != speaker.id]
+        )
+        if note:
+            yield from tracer.emit("relationship", f"{speaker.name}'s ties", detail=note, data={"characterId": speaker.id})
+        yield from _generate_speaker(
+            db, ctx, speaker, emitter, turn_beats, consequences,
+            guard_conn=guard_conn, directive=intent.directive, relationship_note=note, tracer=tracer,
+        )
+
+    # ReAct loop (D3): after each beat, re-decide the next one from the transcript so
+    # far — which character acts (optionally addressing another), whether the narrator
+    # sets context, or the turn ends. Unbounded by design — a whole-group direction walks
+    # the entire cast (D2); TURN_MAX_BEATS is only a runaway backstop, and the ceiling
+    # floors above the cast size so a large cast is never clipped.
+    acted: list[str] = [m.id for m in puppet_members]
+    max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
+    needs_branch = False
+    beats = 0
+    while beats < max_beats:
+        decision = planner_agent.next_beat(db, ctx, intent, turn_beats, acted)
+        if decision.action == "end":
+            needs_branch = decision.needs_branch
+            yield from tracer.emit(
+                "plan", "The turn ends", detail=decision.reason or "The direction is satisfied."
+            )
+            break
+        if decision.action == "narrate":
+            yield from tracer.emit("plan", "The narrator sets the scene", detail=decision.reason)
+            yield from _narrator_interstitial(db, ctx, turn_beats, emitter)
+            beats += 1
+            continue
+        actor = ctx.cast_by_id(decision.actor_id) if decision.actor_id else None
+        if actor is None:
+            break
+        addressing = ctx.cast_by_id(decision.addressing_id) if decision.addressing_id else None
+        yield from tracer.emit(
+            "plan",
+            f"{actor.name} is up next" + (f" (to {addressing.name})" if addressing else ""),
+            detail=decision.reason,
+            data={"actor": actor.name, "addressing": addressing.name if addressing else None},
+        )
+        yield from tracer.emit(
+            "speaker", f"{actor.name} responds", data={"characterId": actor.id, "name": actor.name}
+        )
+        note = _relationship_note(
+            ctx,
+            actor.id,
+            [addressing.id] if addressing else [m.id for m in ctx.cast if m.id != actor.id],
+        )
+        if note:
+            yield from tracer.emit("relationship", f"{actor.name}'s ties", detail=note, data={"characterId": actor.id})
+        yield from _generate_speaker(
+            db, ctx, actor, emitter, turn_beats, consequences,
+            guard_conn=guard_conn, relationship_note=note, tracer=tracer,
+        )
+        acted.append(actor.id)
+        beats += 1
+    else:
+        yield from tracer.emit(
+            "plan",
+            "Reached the turn's beat limit",
+            detail=f"Stopped after {beats} beats (runaway backstop).",
+        )
+
+    # Nobody spoke at all (no puppet, no planned beat) → a quiet holding narration.
+    if not acted:
         yield from emitter.emit(
             "narration", {"text": "The scene waits, quiet.", "done": True}, buffer_role="narrator"
         )
-        return
 
-    # Multi-party turns get a continuity guard (a later line can't contradict an
-    # established beat) and a live queue (a high-impact beat re-ranks who is up next and
-    # cascades a disposition refresh). Solo turns skip both. The guard connection is
-    # resolved once — the LLM is already configured (generation would have failed first).
-    guard_conn = _resolve_conn(db) if len(ctx.cast) > 1 else None
-
-    index = 0
-    while index < len(speakers):
-        speaker = speakers[index]
-        yield from tracer.emit(
-            "speaker",
-            f"{speaker.name} responds",
-            detail=f"Speaker {index + 1} of {len(speakers)} this turn.",
-            data={"characterId": speaker.id, "name": speaker.name},
-        )
-        # Narrator Mode: a transition beat before the speaker (POV Mode: off — D1).
-        if req.mode == "narrator":
-            yield from _narrator_interstitial(db, ctx, turn_beats, emitter)
-        impact = yield from _generate_speaker(
-            db, ctx, speaker, emitter, turn_beats, consequences, guard_conn=guard_conn, tracer=tracer
-        )
-        remaining = speakers[index + 1 :]
-        if impact > 0 and remaining:
-            # Mid-turn re-consult: re-rank the not-yet-spoken speakers after the shift.
-            before = [m.name for m in remaining]
-            reordered_ids = director_agent.rerank(db, ctx, [m.id for m in remaining], turn_beats)
-            reordered = [m for cid in reordered_ids if (m := ctx.cast_by_id(cid)) is not None]
-            speakers[index + 1 :] = reordered
-            after = [m.name for m in reordered]
-            if after != before:
-                yield from tracer.emit(
-                    "rerank",
-                    "Re-ranked who speaks next",
-                    detail=f"A strong beat (impact {impact}) shifted the order.",
-                    data={"from": before, "to": after},
-                )
-            # Cascade the disposition refresh, width scaled to impact — a bigger shift
-            # moves more of the room; a small one only the very next speaker.
-            width = len(reordered) if impact >= _CASCADE_WIDE_THRESHOLD else 1
-            reflection.refresh_dispositions(db, ctx, reordered[:width], turn_beats, seq=seq0)
-            yield from tracer.emit(
-                "cascade",
-                f"Refreshed {min(width, len(reordered))} character(s)' stance",
-                detail="They re-evaluate their mood mid-turn before speaking.",
-                data={"targets": [m.name for m in reordered[:width]], "impact": impact},
-            )
-        index += 1
-
-    # A narrative fork (after the line-to-line consistency pass seam): stats inform
-    # which options surface, but never gate the choice mechanically (no dice — D11).
+    # A narrative fork: stats inform which options surface, but never gate the choice
+    # mechanically (no dice — D11).
     branches: list[dict] = []
-    if decision.needs_branch:
+    if needs_branch:
         branches = director_agent.propose_branches(db, ctx, turn_beats)
         if branches:
             yield from emitter.emit("branch_choices", {"choices": branches})
@@ -356,8 +403,26 @@ def run_turn(
     # a two-hander only reflects who actually spoke. Dispatched off the request thread
     # when TURN_ASYNC_FINALIZE is on (P11) so the stream closes without waiting on the N
     # reflection LLM calls; inline (deterministic) otherwise.
-    reflection_targets = ctx.cast if len(ctx.cast) > 2 else speakers
+    spoke = [m for cid in dict.fromkeys(acted) if (m := ctx.cast_by_id(cid)) is not None]
+    reflection_targets = ctx.cast if len(ctx.cast) > 2 else spoke
     reflection.dispatch_reflection(db, ctx, reflection_targets, turn_beats, branches=branches, seq=seq0)
+
+    # First turn of a new session (D4 / P3): seed initial character↔character relationships
+    # from the authored bios into the story graph (best-effort, idempotent, off the hot
+    # path — a graph/LLM outage is a clean no-op). The cold path evolves them thereafter.
+    if req.session_id is None:
+        seeded = relationships.ensure_seeded(db, scenario)
+        yield from tracer.emit(
+            "relationships",
+            f"Seeded {seeded} relationship(s) from bios" if seeded else "Relationships not seeded",
+            detail=(
+                "Initial character-to-character edges extracted from the cast's backgrounds "
+                "into the story graph."
+                if seeded
+                else "Already seeded, the graph is off, or the bios implied none."
+            ),
+            data={"seeded": seeded},
+        )
     yield from tracer.emit(
         "reflection",
         f"{len(reflection_targets)} character(s) reflect",
@@ -368,27 +433,6 @@ def run_turn(
             + "."
         ),
         data={"targets": [m.name for m in reflection_targets], "universal": len(ctx.cast) > 2},
-    )
-
-
-def _director_rationale(decision: "director_agent.DirectorDecision", speakers: list[CastMember]) -> str:
-    """A plain-language "why these speakers" line for the Inspector."""
-    names = ", ".join(m.name for m in speakers) or "no one"
-    beat = decision.beat
-    if beat == "addressed":
-        return f"You addressed {names} directly, so only they respond."
-    if beat == "solo":
-        return f"{names} is the only character present, so they respond."
-    if beat == "empty":
-        return "No characters are in the scene."
-    if beat == "fallback":
-        return (
-            "The Director couldn't reason a choice (the model was unavailable), so the first "
-            f"character ({names}) responds."
-        )
-    return (
-        f"The Director read the moment ('{beat}') and picked who is most provoked to react, "
-        f"in order: {names}."
     )
 
 
@@ -425,6 +469,29 @@ def _has_prior_character_beat(turn_beats: list[dict]) -> bool:
     return any(b.get("role") == "character" for b in turn_beats)
 
 
+def _relationship_note(ctx: TurnContext, speaker_id: str, other_ids: list[str]) -> str:
+    """A plain-language summary of how ``speaker`` relates to the others (graph, 2-hop).
+
+    Best-effort → "" when the graph is off / empty (Reactive Turn Director D4)."""
+    ctxrel = graph_reader.relationship_context(speaker_id, other_ids)
+    lines: list[str] = []
+    for d in ctxrel.get("direct", []):
+        verb = str(d.get("type", "")).replace("_", " ")
+        reason = f" ({d['reason']})" if d.get("reason") else ""
+        if d.get("outgoing"):
+            lines.append(f"You {verb} {d['name']}{reason}.")
+        else:
+            lines.append(f"{d['name']} {verb} you{reason}.")
+    seen: set[tuple[str, str]] = set()
+    for i in ctxrel.get("indirect", []):
+        key = (str(i.get("name")), str(i.get("via")))
+        if key in seen:
+            continue
+        seen.add(key)
+        lines.append(f"You and {i['name']} are both connected to {i['via']}.")
+    return " ".join(lines[:8])
+
+
 def _prior_transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
     """Render the beats established so far THIS turn (the continuity guard's context)."""
     names = {m.id: m.name for m in ctx.cast}
@@ -454,19 +521,28 @@ def _generate_speaker(
     consequences: list[Consequence],
     *,
     guard_conn: LlmConn | None = None,
+    directive: str | None = None,
+    relationship_note: str | None = None,
     tracer: _Tracer | None = None,
 ) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
     """Generate one speaker's beat, guard it for continuity, emit its events, append them
-    to ``turn_beats``, and return the beat's impact (Σ|stat delta|) for the live queue."""
+    to ``turn_beats``, and return the beat's impact (Σ|stat delta|) for the live queue.
+
+    ``directive`` marks a **puppet** beat (the player directed this character): the
+    character performs it in-voice and the continuity guard is skipped (there is nothing
+    to contradict — the player asked for it). ``relationship_note`` folds the speaker's
+    graph relationships (to whom they address, + 2-hop) into the prompt (D4)."""
     tr = tracer or _Tracer(False)
     roster = {i + 1: m.id for i, m in enumerate(ctx.cast)}
-    raw = character_turn_agent.generate_line(db, ctx, speaker, turn_beats=turn_beats)
+    raw = character_turn_agent.generate_line(
+        db, ctx, speaker, turn_beats=turn_beats, directive=directive, relationship_note=relationship_note
+    )
     segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
 
     # Consistency guard (§P10): once a character has already spoken this turn, a later
     # line must not contradict the established beats. Regenerate once with the reason if
     # it does; best-effort (an unconfigured/failed guard leaves the line as-is).
-    if guard_conn is not None and _has_prior_character_beat(turn_beats):
+    if guard_conn is not None and not directive and _has_prior_character_beat(turn_beats):
         candidate = " ".join(
             s.text for s in segments if s.type in ("character_action", "character_dialogue")
         )
@@ -484,7 +560,8 @@ def _generate_speaker(
         )
         if not verdict.consistent:
             raw = character_turn_agent.generate_line(
-                db, ctx, speaker, turn_beats=turn_beats, correction=verdict.reason
+                db, ctx, speaker, turn_beats=turn_beats, correction=verdict.reason,
+                relationship_note=relationship_note,
             )
             segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
 
@@ -530,7 +607,55 @@ def _generate_speaker(
             impact += yield from _apply_stat_change(
                 db, ctx, seg.character_id, seg.text, emitter, consequences, tracer=tr
             )
+        elif seg.type == "relationship_update":
+            yield from _apply_relationship_change(ctx, seg.character_id, seg.text, consequences, tr)
     return impact
+
+
+def _apply_relationship_change(
+    ctx: TurnContext,
+    source_id: str,
+    raw: str,
+    consequences: list[Consequence],
+    tracer: _Tracer,
+) -> Iterator[TurnTraceFrame]:
+    """Validate a proposed relationship change and record it as a relational Consequence.
+
+    A valid change becomes a ``Consequence`` carrying ``target_id`` + ``edge_type``, which
+    the cold-path turn-writer reifies as the directed graph edge (evolve in play — D4/P5).
+    Unknown/malformed → dropped. Emits no story event (relationships surface via the
+    graph, not the transcript)."""
+    names = {m.id: m.name for m in ctx.cast}
+    src_name = names.get(source_id, "Someone")
+    patch = validator.validate_relationship(
+        source_id, raw, cast=[(m.id, m.name) for m in ctx.cast]
+    )
+    if patch is None:
+        yield from tracer.emit(
+            "relationship_change",
+            "Proposed relationship dropped",
+            detail="Unknown target or type — ignored.",
+        )
+        return
+    tgt_name = names.get(patch.target_id, patch.target_id)
+    consequences.append(
+        Consequence(
+            id=new_id("cons"),
+            summary=f"{src_name} {patch.type} {tgt_name}: {patch.reason}".strip(),
+            source_id=patch.source_id,
+            reason=patch.reason,
+            target_id=patch.target_id,
+            edge_type=patch.type,
+            weight=1.0,
+            origin={"kind": "relationship"},
+        )
+    )
+    yield from tracer.emit(
+        "relationship_change",
+        f"{src_name} now {patch.type.replace('_', ' ')} {tgt_name}",
+        detail=patch.reason,
+        data={"source": src_name, "type": patch.type, "target": tgt_name},
+    )
 
 
 def _apply_stat_change(

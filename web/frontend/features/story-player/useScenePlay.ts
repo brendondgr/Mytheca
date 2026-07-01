@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { postTurn } from "@/lib/api";
+import { getScenarioRelationships, postTurn } from "@/lib/api";
 import type { TurnStreamFrame } from "@/lib/events";
 import type { ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
 import {
   buildScene,
+  type Relationship,
   type SceneChoice,
   type SceneMessage,
   type StatChip,
@@ -15,6 +16,7 @@ import {
   applyStatUpdate,
   branchOptionsToChoices,
   foldTrace,
+  graphRelationshipsToRel,
   mergeFrame,
   sessionIdOf,
   type TraceTurn,
@@ -35,6 +37,9 @@ export function useScenePlay(scenario: ResolvedScenario) {
   // Ordered per-turn diagnostic trace (the Inspector panel). Populated only from the
   // opt-in `trace` frames the backend interleaves when we request them.
   const [traceTurns, setTraceTurns] = useState<TraceTurn[]>([]);
+  // Live character↔character relationships from the story graph (P6). Falls back to the
+  // seed placeholder while empty / when the graph is off.
+  const [graphRels, setGraphRels] = useState<Relationship[]>([]);
   // The play session id is captured from the first streamed event and reused so
   // subsequent turns continue the same session.
   const sessionRef = useRef<string | null>(null);
@@ -47,6 +52,21 @@ export function useScenePlay(scenario: ResolvedScenario) {
     }, 2200);
     return () => clearTimeout(timer);
   }, []);
+
+  // Pull live relationships from the story graph once (best-effort — empty keeps the seed).
+  useEffect(() => {
+    let alive = true;
+    getScenarioRelationships(scenario.id)
+      .then((r) => {
+        if (alive && r.relationships.length) {
+          setGraphRels(graphRelationshipsToRel(r.relationships, scenario.cast));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [scenario.id, scenario.cast]);
 
   const onFrame = useCallback((frame: TurnStreamFrame) => {
     const sid = sessionIdOf(frame);
@@ -108,7 +128,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
     choices,
     tension,
     stats,
-    relationships: seed.relationships,
+    relationships: graphRels.length ? graphRels : seed.relationships,
     turnOrder: seed.turnOrder,
     speakingId: lastSpeaker?.who ?? null,
     composer,

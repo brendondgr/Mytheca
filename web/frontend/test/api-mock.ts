@@ -288,6 +288,8 @@ export function makeApiMock() {
     })),
     mediaUrl: (path: string) => (path ? `http://test${path}` : path),
 
+    getScenarioRelationships: vi.fn(async () => ({ relationships: [] })),
+
     createSetting: vi.fn(async (storylineId: string, body: Omit<Setting, "id">) => ({
       id: nid("s"),
       timeline: [],

@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
+import type { GraphRelationship } from "@/lib/api";
 import type { StatPatch, TurnStreamFrame, TurnTraceFrame } from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
   applyStatUpdate,
   branchOptionsToChoices,
   foldTrace,
+  graphRelationshipsToRel,
   mergeFrame,
   sessionIdOf,
   type TraceTurn,
@@ -124,6 +126,23 @@ describe("applyStatUpdate", () => {
   it("appends a new chip for an unseen stat", () => {
     const next = applyStatUpdate([], stat("trust", 38));
     expect(next).toEqual([{ label: "Trust", value: 38, reason: "" }]);
+  });
+});
+
+describe("graphRelationshipsToRel", () => {
+  const rel = (over: Partial<GraphRelationship>): GraphRelationship => ({
+    source: "mei", sourceName: "Mei", type: "resents", target: "beth", targetName: "Beth", reason: "", ...over,
+  });
+
+  it("maps graph edges to rail rows with the speaker's cast color", () => {
+    const out = graphRelationshipsToRel([rel({ reason: "a debt" })], [{ name: "Mei", color: "#111" }]);
+    expect(out[0]).toEqual({ who: "Mei", color: "#111", text: "resents Beth — a debt" });
+  });
+
+  it("falls back to a default color and omits an empty reason", () => {
+    const out = graphRelationshipsToRel([rel({ type: "allied_with", reason: "" })], []);
+    expect(out[0].color).toBe("#8E2B1C");
+    expect(out[0].text).toBe("allied with Beth");
   });
 });
 

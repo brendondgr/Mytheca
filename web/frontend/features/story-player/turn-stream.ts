@@ -4,8 +4,22 @@
 // one beat (name once, action italic + bubble), matching the seeded look.
 // state_update / branch_choices are wired into the side panels in a later phase.
 
+import type { GraphRelationship } from "@/lib/api";
 import type { PlayEvent, StatPatch, TurnStreamFrame, TurnTraceFrame } from "@/lib/events";
-import type { SceneChoice, SceneMessage, StatChip } from "./scene-data";
+import type { Relationship, SceneChoice, SceneMessage, StatChip } from "./scene-data";
+
+/** Map live graph relationships → the rail's `Relationship` rows (color from the cast). */
+export function graphRelationshipsToRel(
+  rels: GraphRelationship[],
+  cast: { name: string; color: string }[],
+): Relationship[] {
+  const colorByName = new Map(cast.map((c) => [c.name, c.color]));
+  return rels.map((r) => ({
+    who: r.sourceName,
+    color: colorByName.get(r.sourceName) ?? "#8E2B1C",
+    text: `${r.type.replace(/_/g, " ")} ${r.targetName}${r.reason ? ` — ${r.reason}` : ""}`,
+  }));
+}
 
 /** One turn's worth of ordered trace steps (the Inspector groups by turn). */
 export interface TraceTurn {

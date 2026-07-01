@@ -55,12 +55,17 @@ You MAY, only when this beat genuinely moves a tracked stat, add a state_update 
 <type:state_update>
 {"key": "<stat key>", "delta": <signed integer>, "reason": "<short why>"}
 
+You MAY, only when this beat genuinely changes how you regard another character, add a relationship_update block:
+<type:relationship_update>
+{"target": "<the other character's name>", "type": "<trusts|fears|resents|loves|allied_with|at_war_with|knows|suspects>", "reason": "<short why>"}
+
 Rules:
 - N is your character's roster number (given below).
 - Write each block's OPENING tag only (e.g. `<type:character_dialogue>`); do NOT write closing tags like `</type:character_dialogue>`.
 - Lead with <thinking>: a brief, in-*your*-voice thought that sets up your line (e.g. "Coin first, favor later — let him sweat."). Condition it on concrete priorities, never on a trait label; keep it clipped, never a formal narrator's analysis.
 - Always include character_dialogue. Include character_action only when your character does something physical.
 - Use state_update only for a real shift in a stat listed in "Your current state", with a short reason — never invent a stat key. Most turns move nothing; omit it then.
+- Use relationship_update only for a real shift in how you regard a specific other character (name them exactly). Most turns change nothing; omit it then.
 - Never narrate or speak for any other character; react only as your character.
 - Keep it tight and in-voice — the thought, one beat, the spoken line, an optional stat shift, nothing more."""
 
@@ -84,6 +89,8 @@ def generate_line(
     turn_beats: list[dict],
     reasoning: ReasoningEffort = TURN_EFFORT,
     correction: str | None = None,
+    directive: str | None = None,
+    relationship_note: str | None = None,
 ) -> str:
     """Generate one character's raw emission for this beat (thin-tag format).
 
@@ -91,14 +98,20 @@ def generate_line(
     line, then any earlier speakers' lines) — so a later speaker genuinely reacts to
     its predecessor (the immediate predecessor sits last, where recency attention is
     strongest). ``correction`` re-runs the beat after the consistency guard (§P10)
-    flagged a continuity break, folding the reason into the act-now tail.
+    flagged a continuity break, folding the reason into the act-now tail. ``directive``
+    is a **puppet** performance (Reactive Turn Director D1): the player directed this
+    character to do/say something, so the character performs it **in their own voice**
+    rather than reacting to the player's words as if spoken to them.
     """
     base_url, api_key, model, params = resolve_llm(db)
     system = f"{_OUTPUT_CONTRACT}\n\n{ctx.stable_prefix}".strip()
     # The system message is byte-identical for every speaker this turn — log its
     # prefix-cache id so warm-prefix reuse across the turn's calls is observable (§P11).
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
-    user = _build_user_prompt(ctx, speaker, turn_beats, correction=correction)
+    user = _build_user_prompt(
+        ctx, speaker, turn_beats, correction=correction, directive=directive,
+        relationship_note=relationship_note,
+    )
     return llm.chat_complete(
         base_url,
         api_key,
@@ -122,6 +135,8 @@ def _build_user_prompt(
     turn_beats: list[dict],
     *,
     correction: str | None = None,
+    directive: str | None = None,
+    relationship_note: str | None = None,
 ) -> str:
     """Bookended volatile suffix: identity/state (front) · scene+transcript (middle) · act-now (tail)."""
     number = _speaker_number(ctx, speaker)
@@ -153,6 +168,10 @@ def _build_user_prompt(
     middle.append(f"Cast in the scene: {roster}.")
     if ctx.retrieved_lore:
         middle.append(ctx.retrieved_lore.strip())  # fenced reference lore (gated)
+    if relationship_note:
+        # How this character actually relates to whom they're addressing (from the graph,
+        # incl. 2-hop shared ties) so the reply is relationship-appropriate (D4).
+        middle.append(f"Your ties in this scene: {relationship_note}")
     transcript = _transcript(ctx, turn_beats)
     if transcript:
         middle.append(f"Recent beats:\n{transcript}")
@@ -170,9 +189,18 @@ def _build_user_prompt(
             f"Your previous line broke continuity ({correction}). Redo it consistently "
             "with the established beats above."
         )
-    tail.append(
-        f"Respond now, in {speaker.name}'s voice, to what was just said. Emit only the tagged format."
-    )
+    if directive:
+        # Puppet performance (D1): the player directed you — perform it in your own voice.
+        tail.append(
+            f"The player is directing you to: {directive}. Do it now in {speaker.name}'s own "
+            "voice and personality — make it yours, don't quote the player. "
+            "Emit only the tagged format."
+        )
+    else:
+        tail.append(
+            f"Respond now, in {speaker.name}'s voice, to what was just said. "
+            "Emit only the tagged format."
+        )
 
     return "\n".join(["\n".join(head), "", "\n".join(middle), "", "\n".join(tail)])
 

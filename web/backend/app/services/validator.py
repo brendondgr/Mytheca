@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from app.agents.relationship_agent import RELATIONSHIP_TYPES
 from app.events.envelope import StatPatch
 from app.models.stat import StatDefinition
 from app.services import stats
@@ -86,3 +88,45 @@ def validate_stat(
         value=clamped,
         reason=str(data.get("reason", "")),
     )
+
+
+@dataclass
+class RelationshipPatch:
+    """A validated directed relationship change (speaker → type → target)."""
+
+    source_id: str
+    type: str
+    target_id: str
+    reason: str = ""
+
+
+def validate_relationship(
+    source_id: str,
+    raw: str,
+    *,
+    cast: list[tuple[str, str]],
+) -> RelationshipPatch | None:
+    """Validate a proposed ``<type:relationship_update>`` block (Reactive Turn Director P5).
+
+    Confirms the type is a known character↔character edge and the ``target`` names a real
+    cast member (exact, else fuzzy); ``None`` when unknown/malformed/self-directed so the
+    model can never write an invalid edge. ``cast`` is ``[(id, name), …]``.
+    """
+    data = _loads(raw)
+    if not data:
+        return None
+    etype = str(data.get("type", "")).strip().lower()
+    if etype not in RELATIONSHIP_TYPES:
+        return None
+    target_name = str(data.get("target", "")).strip().lower()
+    if not target_name:
+        return None
+    target_id = next((cid for cid, name in cast if name.lower() == target_name), None)
+    if target_id is None:  # fuzzy fallback — the model may give a partial/qualified name
+        target_id = next(
+            (cid for cid, name in cast if target_name in name.lower() or name.lower() in target_name),
+            None,
+        )
+    if target_id is None or target_id == source_id:
+        return None
+    return RelationshipPatch(source_id, etype, target_id, str(data.get("reason", "")))
