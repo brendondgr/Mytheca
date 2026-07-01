@@ -55,3 +55,37 @@ def test_malformed_or_no_change_dropped(db_session):
     _world(db_session)
     assert validator.validate_stat(db_session, "w1", "c_kira", "not json at all") is None
     assert validator.validate_stat(db_session, "w1", "c_kira", '{"key":"suspicion"}') is None
+
+
+# ---- relationship changes (Reactive Turn Director P5) -------------------------
+
+_CAST = [("mei", "Mei"), ("beth", "Beth")]
+
+
+def test_validate_relationship_ok():
+    p = validator.validate_relationship(
+        "mei", '{"target":"Beth","type":"fears","reason":"an old debt"}', cast=_CAST
+    )
+    assert p is not None
+    assert (p.source_id, p.type, p.target_id, p.reason) == ("mei", "fears", "beth", "an old debt")
+
+
+def test_validate_relationship_fuzzy_target():
+    p = validator.validate_relationship("mei", '{"target":"beth the smuggler","type":"trusts"}', cast=_CAST)
+    assert p is not None and p.target_id == "beth"
+
+
+def test_validate_relationship_unknown_type_dropped():
+    assert validator.validate_relationship("mei", '{"target":"Beth","type":"despises"}', cast=_CAST) is None
+
+
+def test_validate_relationship_unknown_target_dropped():
+    assert validator.validate_relationship("mei", '{"target":"Nobody","type":"fears"}', cast=_CAST) is None
+
+
+def test_validate_relationship_self_directed_dropped():
+    assert validator.validate_relationship("mei", '{"target":"Mei","type":"loves"}', cast=_CAST) is None
+
+
+def test_validate_relationship_malformed_dropped():
+    assert validator.validate_relationship("mei", "not json at all", cast=_CAST) is None

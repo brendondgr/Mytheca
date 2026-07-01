@@ -55,12 +55,17 @@ You MAY, only when this beat genuinely moves a tracked stat, add a state_update 
 <type:state_update>
 {"key": "<stat key>", "delta": <signed integer>, "reason": "<short why>"}
 
+You MAY, only when this beat genuinely changes how you regard another character, add a relationship_update block:
+<type:relationship_update>
+{"target": "<the other character's name>", "type": "<trusts|fears|resents|loves|allied_with|at_war_with|knows|suspects>", "reason": "<short why>"}
+
 Rules:
 - N is your character's roster number (given below).
 - Write each block's OPENING tag only (e.g. `<type:character_dialogue>`); do NOT write closing tags like `</type:character_dialogue>`.
 - Lead with <thinking>: a brief, in-*your*-voice thought that sets up your line (e.g. "Coin first, favor later — let him sweat."). Condition it on concrete priorities, never on a trait label; keep it clipped, never a formal narrator's analysis.
 - Always include character_dialogue. Include character_action only when your character does something physical.
 - Use state_update only for a real shift in a stat listed in "Your current state", with a short reason — never invent a stat key. Most turns move nothing; omit it then.
+- Use relationship_update only for a real shift in how you regard a specific other character (name them exactly). Most turns change nothing; omit it then.
 - Never narrate or speak for any other character; react only as your character.
 - Keep it tight and in-voice — the thought, one beat, the spoken line, an optional stat shift, nothing more."""
 

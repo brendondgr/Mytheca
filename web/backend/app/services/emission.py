@@ -30,9 +30,11 @@ _TAG_CLEAN = re.compile(r"</?(?:type:[a-z_]+|thinking|speaker:\s*\d+)\s*>", re.I
 
 # Prose types a character may emit (internal_thought is hidden conditioning).
 _PROSE_TYPES = {"character_action", "character_dialogue"}
-# A character may also propose a stat change as a JSON body (validated + clamped
-# downstream); its ``text`` is the raw JSON block.
+# A character may also propose a stat change or a relationship change as a JSON body
+# (validated downstream); their ``text`` is the raw JSON block, kept verbatim.
 _STAT_TYPE = "state_update"
+_REL_TYPE = "relationship_update"
+_JSON_TYPES = {_STAT_TYPE, _REL_TYPE}
 
 
 def _clean(body: str) -> str:
@@ -83,11 +85,11 @@ def parse_emission(
     for i, mark in enumerate(type_marks):
         kind = mark.group(1).lower()
         body_end = type_marks[i + 1].start() if i + 1 < len(type_marks) else len(text)
-        # state_update carries a JSON body; prose is scrubbed of any residual tags.
+        # state_update / relationship_update carry a JSON body; prose is scrubbed.
         raw_body = text[mark.end() : body_end].strip()
-        body = raw_body if kind == _STAT_TYPE else _clean(raw_body)
+        body = raw_body if kind in _JSON_TYPES else _clean(raw_body)
         if not body:
             continue
-        if kind in _PROSE_TYPES or kind == _STAT_TYPE:
+        if kind in _PROSE_TYPES or kind in _JSON_TYPES:
             segments.append(Segment(kind, body, speaker_id))
     return segments

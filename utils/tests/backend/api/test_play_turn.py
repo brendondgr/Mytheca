@@ -661,6 +661,36 @@ def test_puppeted_character_performs_then_target_reacts(client, storyline_id, mo
     assert perf["data"]["characterId"] == beth  # Beth's beat is flagged a puppet performance
 
 
+# ---- Reactive Turn Director P5: relationship changes during play --------------
+
+
+def test_relationship_update_records_a_relational_consequence(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    beth = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Beth"}).json()["id"]
+    mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
+    scid = _scenario(client, storyline_id, [beth, mei], sid)
+    # Mei (addressed) speaks and declares a relationship shift toward Beth.
+    emission = (
+        "<speaker:2>\n"
+        '<type:character_dialogue>\n"I know what you did, Beth."\n'
+        '<type:relationship_update>\n{"target": "Beth", "type": "resents", "reason": "the betrayal"}'
+    )
+    _patch_llm(monkeypatch, emission)
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": mei, "trace": True})
+    )
+    # A relationship_change trace fires with the resolved source/target/type …
+    change = next(t for t in events if t["type"] == "trace" and t["step"] == "relationship_change")
+    assert change["data"]["type"] == "resents" and change["data"]["target"] == "Beth"
+    # … and it is recorded as a durable consequence (which the cold path writes as a graph edge).
+    commit = next(t for t in events if t["type"] == "trace" and t["step"] == "commit")
+    assert commit["data"]["consequences"] >= 1
+    # No leaked JSON in the visible dialogue.
+    dialogue = "".join(e["data"]["text"] for e in events if e["type"] == "character_dialogue")
+    assert "know what you did" in dialogue and "{" not in dialogue
+
+
 def test_unknown_scenario_returns_404(client):
     assert client.post("/api/play/nope/turn", json={"text": "hi"}).status_code == 404
 

@@ -90,6 +90,17 @@ def test_state_update_via_closing_delimiter_parses_json_no_leak():
     assert "sensation" in segs[1].text and segs[1].text.strip().startswith("{")  # raw JSON kept
 
 
+def test_relationship_update_block_kept_as_json():
+    raw = (
+        "<speaker:1>\n"
+        '<type:character_dialogue>\n"Fine."\n'
+        '<type:relationship_update>\n{"target": "Beth", "type": "resents", "reason": "she lied"}'
+    )
+    segs = parse_emission(raw, roster={1: "mei"}, fallback_speaker_id="mei")
+    assert [s.type for s in segs] == ["character_dialogue", "relationship_update"]
+    assert segs[1].text.strip().startswith("{") and "resents" in segs[1].text  # raw JSON kept
+
+
 def test_reported_sylvarra_beat_parses_clean():
     raw = (
         "<speaker:2>\n"

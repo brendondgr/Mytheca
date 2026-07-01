@@ -607,7 +607,55 @@ def _generate_speaker(
             impact += yield from _apply_stat_change(
                 db, ctx, seg.character_id, seg.text, emitter, consequences, tracer=tr
             )
+        elif seg.type == "relationship_update":
+            yield from _apply_relationship_change(ctx, seg.character_id, seg.text, consequences, tr)
     return impact
+
+
+def _apply_relationship_change(
+    ctx: TurnContext,
+    source_id: str,
+    raw: str,
+    consequences: list[Consequence],
+    tracer: _Tracer,
+) -> Iterator[TurnTraceFrame]:
+    """Validate a proposed relationship change and record it as a relational Consequence.
+
+    A valid change becomes a ``Consequence`` carrying ``target_id`` + ``edge_type``, which
+    the cold-path turn-writer reifies as the directed graph edge (evolve in play — D4/P5).
+    Unknown/malformed → dropped. Emits no story event (relationships surface via the
+    graph, not the transcript)."""
+    names = {m.id: m.name for m in ctx.cast}
+    src_name = names.get(source_id, "Someone")
+    patch = validator.validate_relationship(
+        source_id, raw, cast=[(m.id, m.name) for m in ctx.cast]
+    )
+    if patch is None:
+        yield from tracer.emit(
+            "relationship_change",
+            "Proposed relationship dropped",
+            detail="Unknown target or type — ignored.",
+        )
+        return
+    tgt_name = names.get(patch.target_id, patch.target_id)
+    consequences.append(
+        Consequence(
+            id=new_id("cons"),
+            summary=f"{src_name} {patch.type} {tgt_name}: {patch.reason}".strip(),
+            source_id=patch.source_id,
+            reason=patch.reason,
+            target_id=patch.target_id,
+            edge_type=patch.type,
+            weight=1.0,
+            origin={"kind": "relationship"},
+        )
+    )
+    yield from tracer.emit(
+        "relationship_change",
+        f"{src_name} now {patch.type.replace('_', ' ')} {tgt_name}",
+        detail=patch.reason,
+        data={"source": src_name, "type": patch.type, "target": tgt_name},
+    )
 
 
 def _apply_stat_change(
