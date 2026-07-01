@@ -188,6 +188,25 @@
   100% { opacity: 0.2; }
 }
 
+/* Selection glow — pulses an outer ring in `--glow-color` (set inline per
+ * card to the entity's own outline color: a character's `color`, or the
+ * theme accent for a setting) so the "in this scene" cards draw the eye.
+ * The base box-shadow (outside the keyframes) is the brighter frame, so the
+ * global `.velora-themed *` reduced-motion rule below — which kills the
+ * `animation` but not the box-shadow — leaves a static glow instead of none. */
+@keyframes veloraGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px var(--glow-color), 0 0 10px 2px var(--glow-color);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--glow-color), 0 0 22px 6px var(--glow-color);
+  }
+}
+.velora-glow {
+  box-shadow: 0 0 0 3px var(--glow-color), 0 0 22px 6px var(--glow-color);
+  animation: veloraGlowPulse 2.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .velora-themed,
   .velora-themed *,
