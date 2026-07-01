@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
 import { mediaUrl } from "@/lib/api";
@@ -12,7 +13,9 @@ const PLATE_STRIPES =
  * Setting card. When the setting has an establishing image it fills the whole
  * card behind a left-dark→right-bright gradient "filter" (name / type /
  * description on the dark left, art reading on the right); otherwise it falls
- * back to the striped "setting plate" over a solid, theme-aware body.
+ * back to the striped "setting plate" over a solid, theme-aware body. The
+ * selected scenario's setting is brought forward with an animated glow in the
+ * theme accent color (its existing outline color).
  */
 export function SettingCard({
   setting,
@@ -32,11 +35,10 @@ export function SettingCard({
       className={cn(
         "velora-card relative overflow-hidden rounded-[3px] border hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
         hasImage && "min-h-[118px]",
-        active
-          ? "-translate-y-[2px] border-2 border-accent shadow-[0_6px_18px_rgba(142,43,28,.18)]"
-          : "border-cardbd",
+        active ? "-translate-y-[2px] border-2 border-accent velora-glow" : "border-cardbd",
         !hasImage && (active ? "bg-card2" : "bg-card"),
       )}
+      style={active ? ({ "--glow-color": "var(--accent)" } as CSSProperties) : undefined}
     >
       {hasImage ? (
         <>
