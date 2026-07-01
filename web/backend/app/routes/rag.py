@@ -28,7 +28,7 @@ from app.schemas.rag import (
     RagResultItem,
     RagStatusResponse,
 )
-from app.services import crud
+from app.services import crud, settings_store
 
 router = APIRouter(tags=["rag"])
 
@@ -61,10 +61,13 @@ def rag_query(storyline_id: str, data: RagQueryRequest, db: Session = Depends(ge
 @router.post("/storylines/{storyline_id}/rag/reindex/stream")
 def rag_reindex_stream(storyline_id: str, db: Session = Depends(get_db)) -> StreamingResponse:
     crud.get_storyline(db, storyline_id)  # 404 before the stream opens
+    workers = settings_store.get_llm(db).authoring_concurrency  # parallel embedding
 
     def _lines() -> Iterator[str]:
         try:
-            for stage, data in indexer.iter_reindex_storyline(db, storyline_id):
+            for stage, data in indexer.iter_reindex_storyline(
+                db, storyline_id, max_workers=workers
+            ):
                 event = RagDoneEvent(**data) if stage == "done" else RagProgressEvent(**data)
                 yield event.model_dump_json(by_alias=True) + "\n"
         except Exception:  # never leak a stack trace into the stream

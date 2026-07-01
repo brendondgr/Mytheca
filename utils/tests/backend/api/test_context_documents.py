@@ -71,6 +71,31 @@ def test_context_document_bulk_create_and_ordering(client, storyline_id):
     assert listed[0]["includeDraft"] is True
 
 
+def test_context_document_bulk_create_indexes_rag_in_parallel(client, storyline_id, monkeypatch):
+    # With a vector store available, the bulk commit embeds the RAG-eligible docs
+    # concurrently (bounded by authoringConcurrency); each lands as a point.
+    from qdrant_client import QdrantClient
+
+    from app.rag import store
+
+    mem = QdrantClient(":memory:")
+    store.ensure_collection(mem)
+    monkeypatch.setattr("app.core.qdrant.get_client", lambda: mem)
+    client.patch("/api/options/llm", json={"authoringConcurrency": 4})
+
+    res = client.post(
+        f"/api/storylines/{storyline_id}/context-docs/bulk",
+        json={
+            "docs": [
+                {"name": f"{i}.md", "category": "other", "content": f"lore {i}", "includeRag": True}
+                for i in range(5)
+            ]
+        },
+    )
+    assert res.status_code == 201
+    assert store.count(mem) == 5  # all embedded, serialized writes → none lost
+
+
 def test_context_document_rejects_unknown_category(client, storyline_id):
     res = client.post(
         f"/api/storylines/{storyline_id}/context-docs",
