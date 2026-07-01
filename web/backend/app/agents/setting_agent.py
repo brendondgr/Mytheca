@@ -22,11 +22,13 @@ from sqlalchemy.orm import Session
 
 from app.agents._common import (
     DEFAULT_AUTHORING_EFFORT,
+    LlmConn,
     docs_block,
     extract_json,
     gen_params,
     rag_block,
     resolve_llm,
+    resolve_llm_or,
     world_context,
 )
 from app.core.errors import APIError
@@ -79,9 +81,13 @@ def draft_setting(
     storyline_id: str | None = None,
     *,
     reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
+    conn: LlmConn | None = None,
 ) -> SettingDraftResponse:
     """Draft a full setting (by-hand fields + §4.1 node metadata) from a seed
-    and/or dropped reference docs. At least one of the two must be present."""
+    and/or dropped reference docs. At least one of the two must be present.
+
+    Pass ``conn`` (a pre-resolved LLM connection) to run on a worker thread without
+    touching the request Session — used by the parallel world build."""
     seed = (seed or "").strip()
     has_docs = bool((docs_overview or "").strip())
     if not seed and not has_docs:
@@ -90,7 +96,7 @@ def draft_setting(
             "bad_request",
             "Describe the place in a sentence or add a Draft reference file.",
         )
-    base_url, api_key, model, params = resolve_llm(db)
+    base_url, api_key, model, params = resolve_llm_or(db, conn)
     opener = (
         f"Setting seed: {seed}"
         if seed

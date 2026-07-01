@@ -54,7 +54,7 @@ from app.schemas.build import (
     ProposedWorld,
 )
 from app.schemas.stat import StatBand
-from app.services import llm
+from app.services import concurrency, llm, settings_store
 
 _DEFAULT_CHARACTERS = 4
 _DEFAULT_SETTINGS = 3
@@ -395,16 +395,20 @@ def iter_build_world(
 
     default_stats = [ProposedStartingStat(key=s.key, value=s.default) for s in stats]
 
-    # 5) One full character per extracted subject (+ schema-default starting stats).
-    characters: list[ProposedCharacter] = []
-    for i, entity in enumerate(char_entities):
-        yield BuildStatusEvent(
-            stage="characters",
-            message=f"Drafting character {i + 1} of {len(char_entities)}…",
-        )
-        draft = character_agent.draft_character(db, entity.source, grounding, None)
-        # Voice & tone comes first — derive it from the drafted prose before stats
-        # (best-effort: an empty list on any hiccup, never blocking the build).
+    # Concurrency for the per-entity drafts. Pre-resolve the LLM connection ONCE on
+    # this (request) thread and hand it to each draft via ``llm=`` so the worker
+    # threads never touch the request Session (world_context/rag_block are no-ops for
+    # a None storyline_id — see agents/_common). ``authoringConcurrency`` (Options)
+    # bounds the pool; 1 keeps it fully sequential for single-slot backends. Image
+    # generation is unaffected (it stays sequential on the frontend).
+    conn = resolve_llm(db)
+    workers = settings_store.get_llm(db).authoring_concurrency
+
+    # 5) One full character per extracted subject, drafted concurrently (voice samples
+    #    included, before the schema-default starting stats). Events stream out of
+    #    order as each completes — the New Storyline page places them by ``index``.
+    def _draft_character(entity: ExtractedEntity) -> ProposedCharacter:
+        draft = character_agent.draft_character(db, entity.source, grounding, None, conn=conn)
         voice = character_agent.propose_voice_samples(
             db,
             name=draft.name,
@@ -413,26 +417,46 @@ def iter_build_world(
             speech=draft.speech,
             background=draft.background,
             personality=draft.personality,
+            conn=conn,
         )
-        character = ProposedCharacter(
+        return ProposedCharacter(
             **draft.model_dump(),
             voice_samples=voice.samples,
             starting_stats=list(default_stats),
         )
-        characters.append(character)
-        yield BuildCharacterEvent(index=i, total=len(char_entities), character=character)
 
-    # 6) One full setting per extracted subject.
-    settings: list[ProposedSetting] = []
-    for i, entity in enumerate(setting_entities):
+    char_slots: list[ProposedCharacter | None] = [None] * len(char_entities)
+    if char_entities:
         yield BuildStatusEvent(
-            stage="settings",
-            message=f"Drafting setting {i + 1} of {len(setting_entities)}…",
+            stage="characters", message=f"Drafting {len(char_entities)} character(s)…"
         )
-        setting_draft = setting_agent.draft_setting(db, entity.source, grounding, None)
-        setting = ProposedSetting(**setting_draft.model_dump())
-        settings.append(setting)
+    char_thunks = [(lambda e=e: _draft_character(e)) for e in char_entities]
+    for i, character in concurrency.imap_unordered(char_thunks, max_workers=workers):
+        # Best-effort per entity: a single failed draft is skipped, never fatal (the
+        # metadata/primer/blueprint drafts already ran, so the LLM is known-reachable).
+        if character is None:
+            continue
+        char_slots[i] = character
+        yield BuildCharacterEvent(index=i, total=len(char_entities), character=character)
+    characters = [c for c in char_slots if c is not None]
+
+    # 6) One full setting per extracted subject, drafted concurrently.
+    def _draft_setting(entity: ExtractedEntity) -> ProposedSetting:
+        setting_draft = setting_agent.draft_setting(db, entity.source, grounding, None, conn=conn)
+        return ProposedSetting(**setting_draft.model_dump())
+
+    setting_slots: list[ProposedSetting | None] = [None] * len(setting_entities)
+    if setting_entities:
+        yield BuildStatusEvent(
+            stage="settings", message=f"Drafting {len(setting_entities)} setting(s)…"
+        )
+    setting_thunks = [(lambda e=e: _draft_setting(e)) for e in setting_entities]
+    for i, setting in concurrency.imap_unordered(setting_thunks, max_workers=workers):
+        if setting is None:
+            continue
+        setting_slots[i] = setting
         yield BuildSettingEvent(index=i, total=len(setting_entities), setting=setting)
+    settings = [s for s in setting_slots if s is not None]
 
     yield BuildDoneEvent(
         world=ProposedWorld(

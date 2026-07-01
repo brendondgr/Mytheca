@@ -45,7 +45,13 @@ def gen_params(params: LlmParams) -> LlmParams:
     return params.model_copy(update={"max_tokens": GEN_MIN_TOKENS})
 
 
-def resolve_llm(db: Session) -> tuple[str, str, str, LlmParams]:
+# The resolved LLM connection: (base_url, api_key, model, params). Pre-resolve once
+# on the request thread and pass it into agent calls that run on worker threads — the
+# workers must not touch the request Session (see resolve_llm_or + services.concurrency).
+LlmConn = tuple[str, str, str, LlmParams]
+
+
+def resolve_llm(db: Session) -> LlmConn:
     """Pull the configured endpoint, raw key, model, and params from settings.
 
     Raises a clear 400 when the operator has not configured a model, so the UI can
@@ -58,6 +64,15 @@ def resolve_llm(db: Session) -> tuple[str, str, str, LlmParams]:
     if not cfg.model:
         raise APIError(400, "bad_request", "Choose a model in Options first.")
     return base_url, api_key, cfg.model, cfg.params
+
+
+def resolve_llm_or(db: Session, llm: LlmConn | None) -> LlmConn:
+    """Return a pre-resolved connection when given one, else resolve from ``db``.
+
+    Lets an authoring function run on a worker thread with a connection resolved on
+    the calling thread (``llm=…``, no Session access), while staying backward
+    compatible when called normally (``llm=None`` → resolve here)."""
+    return llm if llm is not None else resolve_llm(db)
 
 
 def world_context(db: Session, storyline_id: str | None) -> str:
