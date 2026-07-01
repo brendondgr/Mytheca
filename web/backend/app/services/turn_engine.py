@@ -47,6 +47,7 @@ from app.services import (
     emission,
     events_store,
     reflection,
+    relationships,
     stats,
     turn_writer,
     validator,
@@ -391,6 +392,23 @@ def run_turn(
     spoke = [m for cid in dict.fromkeys(acted) if (m := ctx.cast_by_id(cid)) is not None]
     reflection_targets = ctx.cast if len(ctx.cast) > 2 else spoke
     reflection.dispatch_reflection(db, ctx, reflection_targets, turn_beats, branches=branches, seq=seq0)
+
+    # First turn of a new session (D4 / P3): seed initial character↔character relationships
+    # from the authored bios into the story graph (best-effort, idempotent, off the hot
+    # path — a graph/LLM outage is a clean no-op). The cold path evolves them thereafter.
+    if req.session_id is None:
+        seeded = relationships.ensure_seeded(db, scenario)
+        yield from tracer.emit(
+            "relationships",
+            f"Seeded {seeded} relationship(s) from bios" if seeded else "Relationships not seeded",
+            detail=(
+                "Initial character-to-character edges extracted from the cast's backgrounds "
+                "into the story graph."
+                if seeded
+                else "Already seeded, the graph is off, or the bios implied none."
+            ),
+            data={"seeded": seeded},
+        )
     yield from tracer.emit(
         "reflection",
         f"{len(reflection_targets)} character(s) reflect",
