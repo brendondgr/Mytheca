@@ -311,7 +311,10 @@ New Storyline page → "Build the whole world" → POST /storylines/build/stream
   → for-await over the response body (lib/api.postNdjson):
       status → meta  → left fields fill (Title/Genre/Tagline/Premise)
       status → primer→ World Primer fills
-      status → extract→ every attached doc is mined for its distinct subjects
+      status → extract→ every attached doc is mined for its distinct subjects,
+                        CONCURRENTLY (bounded by authoringConcurrency) + per-doc
+                        progress ("Read k/N: <name>"); a doc that won't parse is
+                        retried once then SKIPPED (named), never fatal
       status → plan  → stat schema + skeleton labels (the EXTRACTED subject names)
       character × N  → one per extracted character, fills its skeleton card
       setting   × M  → one per extracted setting, fills its skeleton card
@@ -334,6 +337,18 @@ still grounds the world). Subjects are de-duped across docs (uncapped). It never
 a cast from thin air: no docs → no characters/settings. `useStorylineCreator.build()`
 sends **every** kept doc — `characterDocs`/`settingDocs` (their triage bucket) plus
 `otherDocs` (everything else, mined for both) — and the backend extracts the roster.
+
+The **extract stage is parallel + fault-tolerant** (matching the drafting phase): the
+per-doc extraction calls run through `concurrency.imap_unordered` bounded by
+`authoringConcurrency` (connection pre-resolved once so worker threads never touch the
+request `Session`), each at **LOW** reasoning effort (segmentation — faster, far less
+JSON truncation); a doc whose reply won't parse is **retried once then skipped** (the
+build continues and names it in a status line) instead of aborting the whole build with
+`"The model did not return valid JSON."`; and a `BuildStatusEvent(stage="extract")`
+streams **per doc** so the UI shows movement rather than freezing on "Reading docs…".
+Cross-doc de-dup runs in **document order** (index slots) so the roster is stable
+regardless of which extraction finished first. (The larger RAG-first ingestion + on-
+demand ReAct redesign is the follow-up plan `docs/plans/rag-first-ingestion.md`.)
 
 The page consumes the stream in `useStorylineCreator.build()`, accumulating into
 `proposed` + `planConcepts`; the right pane (`WorldBuildPanel`) renders the cast/settings

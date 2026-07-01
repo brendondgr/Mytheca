@@ -22,13 +22,14 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.agents._common import (
-    DEFAULT_AUTHORING_EFFORT,
     DOCS_CAP,
+    LlmConn,
     extract_json,
     gen_params,
-    resolve_llm,
+    resolve_llm_or,
 )
 from app.schemas.build import ExtractedEntities, ExtractedEntity
+from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
 
 # Per-subject source brief is bounded so a multi-entity doc can't blow the prompt
@@ -86,18 +87,26 @@ def extract_entities(
     grounding: str | None = None,
     *,
     doc_name: str = "",
+    conn: LlmConn | None = None,
 ) -> ExtractedEntities:
     """Extract the distinct characters + settings described in one document.
 
-    Best-effort by design at the orchestration layer (the build wraps the call), but
-    a malformed JSON reply still raises through ``extract_json`` so a flat failure is
-    visible. Blank input short-circuits to empty lists (no LLM call).
+    Best-effort by design at the orchestration layer (the build wraps the call, skips
+    a doc whose extraction fails), but a malformed JSON reply still raises through
+    ``extract_json`` so the caller can retry/skip a single doc. Blank input
+    short-circuits to empty lists (no LLM call).
+
+    ``conn`` — pass a pre-resolved LLM connection (``_common.resolve_llm_or``) so this
+    can run on a worker thread without touching the request ``Session`` (the build
+    extracts every doc concurrently). Extraction is identify-the-subjects segmentation,
+    so it runs at **LOW** reasoning effort (like triage) — faster and far less likely
+    to truncate the JSON reply mid-object than a MEDIUM authoring draft would.
     """
     text = (doc_text or "").strip()
     if not text:
         return ExtractedEntities()
 
-    base_url, api_key, model, params = resolve_llm(db)
+    base_url, api_key, model, params = resolve_llm_or(db, conn)
     header = f"Document name: {doc_name}\n\n" if doc_name else ""
     ground = f"\n\nWorld context (for consistency only):\n{grounding.strip()}" if grounding else ""
     user = f"{header}Document content:\n{text[:DOCS_CAP]}{ground}"
@@ -108,7 +117,7 @@ def extract_entities(
     data = extract_json(
         llm.chat_complete(
             base_url, api_key, model, messages, gen_params(params),
-            reasoning=DEFAULT_AUTHORING_EFFORT,
+            reasoning=ReasoningEffort.LOW,
         )
     )
     return ExtractedEntities(

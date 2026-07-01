@@ -26,6 +26,7 @@ from app.agents import character_agent, extract_agent, setting_agent, storyline_
 from app.agents._common import (
     DEFAULT_AUTHORING_EFFORT,
     DOCS_CAP,
+    LlmConn,
     docs_block,
     extract_json,
     gen_params,
@@ -45,6 +46,7 @@ from app.schemas.build import (
     BuildPrimerEvent,
     BuildSettingEvent,
     BuildStatusEvent,
+    ExtractedEntities,
     ExtractedEntity,
     ProposedCharacter,
     ProposedSetting,
@@ -249,28 +251,41 @@ def _dedup(entities: list[ExtractedEntity], seen: set[str]) -> list[ExtractedEnt
     return out
 
 
-def _extract_roster(
-    db: Session,
-    doc_sources: list[tuple[str, str]],
-    grounding: str,
-) -> tuple[list[ExtractedEntity], list[ExtractedEntity]]:
-    """Mine every attached doc for its distinct characters + settings.
+def _extract_one(
+    db: Session, conn: LlmConn, name: str, text: str, grounding: str
+) -> ExtractedEntities:
+    """Extract one doc's entities with a single retry (for the concurrent build loop).
 
-    One extraction call per doc; results are de-duped across docs by folded name
-    (first occurrence wins). Deliberately **uncapped** — the author attached exactly
-    these documents, so every distinct subject they named becomes a card (mirroring
-    the prior one-entity-per-doc build, now per-subject); capping here would re-create
-    the very loss this change exists to fix. A doc that yields no profile-worthy
-    subject contributes nothing (it still grounds the world via ``docs_overview``).
-    Errors propagate — a malformed extraction surfaces as a visible build error
-    rather than silently dropping the author's characters.
+    Runs on a worker thread with the pre-resolved ``conn`` (``extract_entities`` uses
+    it via ``resolve_llm_or`` and never touches ``db`` — same Session-safety contract
+    as the per-entity draft closures). A malformed-JSON reply (or a transient upstream
+    error) is retried **once**, since LOW-effort extraction usually succeeds on the
+    retry; a second failure raises, and ``imap_unordered`` isolates it so that single
+    doc is skipped instead of aborting the whole build.
+    """
+    try:
+        return extract_agent.extract_entities(db, text, grounding, doc_name=name, conn=conn)
+    except APIError:
+        return extract_agent.extract_entities(db, text, grounding, doc_name=name, conn=conn)
+
+
+def _dedup_roster(
+    found_slots: list[ExtractedEntities | None],
+) -> tuple[list[ExtractedEntity], list[ExtractedEntity]]:
+    """De-dup across per-doc results **in document order** (first occurrence wins).
+
+    Concurrency yields results out of order, so we collect them into position slots and
+    fold in original order here — the roster stays deterministic regardless of which
+    doc's extraction finished first. Deliberately **uncapped**: the author attached
+    exactly these documents, so every distinct subject they named becomes a card.
     """
     characters: list[ExtractedEntity] = []
     settings: list[ExtractedEntity] = []
     seen_chars: set[str] = set()
     seen_settings: set[str] = set()
-    for name, text in doc_sources:
-        found = extract_agent.extract_entities(db, text, grounding, doc_name=name)
+    for found in found_slots:
+        if found is None:  # a doc whose extraction was skipped (see _extract_one)
+            continue
         characters.extend(_dedup(found.characters, seen_chars))
         settings.extend(_dedup(found.settings, seen_settings))
     return characters, settings
@@ -377,16 +392,62 @@ def iter_build_world(
     grounding = brief if not docs_overview else f"{brief}\n\n{docs_overview}"
     grounding = grounding[:DOCS_CAP]
 
+    # Concurrency for extraction + the per-entity drafts. Pre-resolve the LLM
+    # connection ONCE on this (request) thread and hand it to each worker via ``conn=``
+    # so the worker threads never touch the request Session (world_context/rag_block
+    # are no-ops for a None storyline_id — see agents/_common). ``authoringConcurrency``
+    # (Options) bounds the pool; 1 keeps it fully sequential for single-slot backends.
+    # Image generation is unaffected (it stays sequential on the frontend).
+    conn = resolve_llm(db)
+    workers = settings_store.get_llm(db).authoring_concurrency
+
     # 4) Extract the roster: mine EVERY attached doc (character/setting/other bucket)
-    #    for its distinct characters + settings. One file with several characters now
-    #    yields several cards instead of being lost. Bound by the affordability caps.
-    yield BuildStatusEvent(
-        stage="extract", message="Reading your documents for characters and settings…"
-    )
+    #    for its distinct characters + settings, **concurrently** (bounded by
+    #    ``workers``). One file with several characters yields several cards. Each doc's
+    #    extraction is **failure-isolated** (``imap_unordered`` → skip on a second
+    #    parse/upstream failure) so one malformed reply out of many can't abort the
+    #    whole build (the previous serial loop did — the "stuck then 'invalid JSON'"
+    #    report), and a **per-doc status** streams so the UI shows movement (and names
+    #    any skipped docs) instead of freezing on a single "Reading docs…" line.
     doc_sources = (
         _doc_sources(character_docs) + _doc_sources(setting_docs) + _doc_sources(other_docs)
     )
-    char_entities, setting_entities = _extract_roster(db, doc_sources, grounding)
+    total_docs = len(doc_sources)
+    yield BuildStatusEvent(
+        stage="extract",
+        message=(
+            f"Reading {total_docs} document(s) for characters and settings…"
+            if total_docs
+            else "Reading your documents for characters and settings…"
+        ),
+    )
+    found_slots: list[ExtractedEntities | None] = [None] * total_docs
+    skipped: list[str] = []
+    read = 0
+    extract_thunks = [
+        (lambda name=name, text=text: _extract_one(db, conn, name, text, grounding))
+        for name, text in doc_sources
+    ]
+    for i, found in concurrency.imap_unordered(extract_thunks, max_workers=workers):
+        read += 1
+        name = doc_sources[i][0]
+        if found is None:
+            skipped.append(name)
+        else:
+            found_slots[i] = found
+        note = f" · {len(skipped)} skipped" if skipped else ""
+        yield BuildStatusEvent(stage="extract", message=f"Read {read}/{total_docs}: {name}{note}")
+    if skipped:
+        # Explain the skips (instead of the old opaque abort) — name a few.
+        shown = ", ".join(skipped[:5]) + ("…" if len(skipped) > 5 else "")
+        yield BuildStatusEvent(
+            stage="extract",
+            message=(
+                f"Read {total_docs - len(skipped)} of {total_docs} document(s); "
+                f"skipped {len(skipped)} that couldn't be parsed ({shown})."
+            ),
+        )
+    char_entities, setting_entities = _dedup_roster(found_slots)
     yield BuildPlanEvent(
         stats=stats,
         characters=[e.name for e in char_entities],
@@ -394,15 +455,6 @@ def iter_build_world(
     )
 
     default_stats = [ProposedStartingStat(key=s.key, value=s.default) for s in stats]
-
-    # Concurrency for the per-entity drafts. Pre-resolve the LLM connection ONCE on
-    # this (request) thread and hand it to each draft via ``llm=`` so the worker
-    # threads never touch the request Session (world_context/rag_block are no-ops for
-    # a None storyline_id — see agents/_common). ``authoringConcurrency`` (Options)
-    # bounds the pool; 1 keeps it fully sequential for single-slot backends. Image
-    # generation is unaffected (it stays sequential on the frontend).
-    conn = resolve_llm(db)
-    workers = settings_store.get_llm(db).authoring_concurrency
 
     # 5) One full character per extracted subject, drafted concurrently (voice samples
     #    included, before the schema-default starting stats). Events stream out of
