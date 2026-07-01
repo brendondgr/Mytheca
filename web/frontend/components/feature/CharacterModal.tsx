@@ -9,6 +9,7 @@ import { TextArea } from "@/components/ui/TextArea";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { Monogram } from "@/components/ui/Monogram";
 import { ContextFilesPanel } from "@/components/feature/ContextFilesPanel";
+import { VoiceSamplesEditor } from "@/components/feature/VoiceSamplesEditor";
 import { docsForDraft } from "@/lib/readDocs";
 import { PortraitModal } from "@/components/feature/PortraitModal";
 import { mediaUrl } from "@/lib/api";
@@ -53,6 +54,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
     (d.name || d.appearance || d.traits || d.personality || "").toString().trim(),
   );
   const canRenderPortrait = Boolean((d._portraitPositive ?? "").trim());
+  const voiceSamples = d._voiceSamples ?? [];
   const stats = d._startingStats ?? [];
 
   function setStatValue(key: string, raw: string) {
@@ -306,6 +308,39 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 </p>
               ) : null}
             </aside>
+          </div>
+
+          {/* Voice & Tone — sits ABOVE Starting stats: voice is defined first. */}
+          <div
+            className={cn(
+              "mt-[20px] border-t border-hair-strong pt-[18px]",
+              agentic && "hidden md:block",
+            )}
+          >
+            <div className="flex items-end justify-between gap-[10px]">
+              <FieldLabel>Voice &amp; tone</FieldLabel>
+              <button
+                type="button"
+                onClick={lib.proposeVoiceSamples}
+                disabled={lib.generatingVoice}
+                className={cn(LINK, "mb-[6px]")}
+              >
+                {lib.generatingVoice
+                  ? "Proposing…"
+                  : voiceSamples.length
+                    ? "❖ Redo"
+                    : "❖ Propose"}
+              </button>
+            </div>
+            <p className="mb-[10px] font-body text-[12.5px] text-ink-soft">
+              Example lines showing how this character sounds — a situation and what
+              they&apos;d say. Derived from their background &amp; personality, saved
+              with the character, and used to keep their voice consistent in play.
+            </p>
+            <VoiceSamplesEditor
+              samples={voiceSamples}
+              onChange={(next) => lib.setDraft("_voiceSamples", next)}
+            />
           </div>
 
           {/* Starting stats — full-width row: propose → review → save with character. */}

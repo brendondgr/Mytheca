@@ -47,6 +47,20 @@ def _join(*chunks: str | None) -> str:
     return "\n\n".join(c.strip() for c in chunks if c and c.strip())
 
 
+def _voice_samples_text(samples: list[dict] | None) -> str:
+    """Render a character's situation → sample-response pairs as retrievable prose."""
+    if not samples:
+        return ""
+    lines: list[str] = []
+    for s in samples:
+        situation = str((s or {}).get("situation", "")).strip()
+        sample = str((s or {}).get("sample", "")).strip()
+        if not sample:
+            continue
+        lines.append(f"When {situation}: “{sample}”" if situation else f"“{sample}”")
+    return ("Voice samples:\n" + "\n".join(lines)) if lines else ""
+
+
 def entry_from_storyline(sl: Storyline) -> LoreEntry:
     summary = (sl.tagline or "").strip() or (sl.premise or "")[:_SUMMARY_CHARS]
     fm = Frontmatter(
@@ -79,6 +93,7 @@ def entry_from_character(ch: Character) -> LoreEntry:
         ch.background,
         ch.personality,
         ch.speech and f"Speech: {ch.speech}",
+        _voice_samples_text(ch.voice_samples),
         ch.secret and f"Secret: {ch.secret}",
     )
     return LoreEntry(

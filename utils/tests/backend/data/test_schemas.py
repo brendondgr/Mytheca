@@ -46,6 +46,7 @@ def test_character_read_matches_frontend_shape():
         traits = speech = goal = secret = "—"
         appearance = background = personality = portrait = None
         portrait_positive = portrait_negative = None
+        voice_samples = None  # NULL column reads back as an empty list
 
     dumped = CharacterRead.model_validate(Obj()).model_dump(by_alias=True)
     assert set(dumped) == {
@@ -54,4 +55,7 @@ def test_character_read_matches_frontend_shape():
         "appearance", "background", "personality", "portrait",
         # Persisted ComfyUI prompts that produced the portrait.
         "portraitPositive", "portraitNegative",
+        # Voice & tone profile (situation → sample-response pairs).
+        "voiceSamples",
     }
+    assert dumped["voiceSamples"] == []  # None coerced to []

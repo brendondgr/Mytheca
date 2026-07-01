@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+from pydantic import field_validator
+
 from app.schemas.base import CamelModel
+
+
+class VoiceSample(CamelModel):
+    """One situation → sample-response pair defining how a character speaks.
+
+    ``situation`` is a short description of a story event or interaction; ``sample``
+    is what the character would say/do in response, written to match their voice.
+    """
+
+    situation: str = ""
+    sample: str = ""
 
 
 class CharacterBase(CamelModel):
@@ -23,6 +36,8 @@ class CharacterBase(CamelModel):
     # The ComfyUI prompts that produced the portrait (persisted for re-edit).
     portrait_positive: str | None = None
     portrait_negative: str | None = None
+    # Voice & tone profile: situation → sample-response pairs (see ``VoiceSample``).
+    voice_samples: list[VoiceSample] | None = None
 
 
 class CharacterCreate(CharacterBase):
@@ -46,6 +61,7 @@ class CharacterUpdate(CamelModel):
     portrait: str | None = None
     portrait_positive: str | None = None
     portrait_negative: str | None = None
+    voice_samples: list[VoiceSample] | None = None
 
 
 class CharacterRead(CamelModel):
@@ -64,6 +80,14 @@ class CharacterRead(CamelModel):
     portrait: str | None = None
     portrait_positive: str | None = None
     portrait_negative: str | None = None
+    voice_samples: list[VoiceSample] = []
+
+    @field_validator("voice_samples", mode="before")
+    @classmethod
+    def _coerce_voice_samples(cls, value: object) -> object:
+        # Reconciled-but-unbackfilled rows (and the nullable column default) can be
+        # NULL; the profile reads as an empty list rather than failing validation.
+        return value if value is not None else []
 
 
 # ---- Authoring (the agentic Character Creator) ------------------------------
@@ -159,3 +183,25 @@ class StartingStatsResponse(CamelModel):
     """Proposed starting values, keyed to the storyline's stat definitions."""
 
     proposals: list[StartingStatProposal] = []
+
+
+class VoiceSamplesRequest(CamelModel):
+    """The character description a voice/tone profile should be derived from.
+
+    Grounded in the drafted background/personality (and optionally the world) so the
+    samples match tone and voice. Runs *before* starting stats — voice comes first.
+    """
+
+    name: str = ""
+    role: str | None = None
+    traits: str | None = None
+    speech: str | None = None
+    background: str | None = None
+    personality: str | None = None
+    storyline_id: str | None = None
+
+
+class VoiceSamplesResponse(CamelModel):
+    """Proposed situation → sample-response pairs (proposal only; caller applies)."""
+
+    samples: list[VoiceSample] = []

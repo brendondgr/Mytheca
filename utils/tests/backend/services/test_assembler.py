@@ -93,6 +93,37 @@ def test_dangling_cast_id_is_skipped(db_session):
     assert [m.id for m in ctx.cast] == ["c_mei"]
 
 
+def test_voice_samples_rendered_into_cast(db_session):
+    _world(db_session)
+    db_session.add(
+        Character(
+            id="c_mei",
+            storyline_id="embergate",
+            name="Mei",
+            voice_samples=[
+                {"situation": "haggling", "sample": "Coin first, favor later."},
+                {"situation": "threatened", "sample": "Try it."},
+            ],
+        )
+    )
+    db_session.commit()
+    sc = _scenario(db_session, ["c_mei"])
+    session = events_store.create_session(db_session, sc.id)
+    ctx = assembler.assemble_context(db_session, sc, session.id)
+    block = ctx.cast[0].voice_samples
+    assert "Coin first, favor later." in block
+    assert "When haggling:" in block and "When threatened:" in block
+
+
+def test_voice_samples_empty_when_unauthored(db_session):
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")  # no voice_samples
+    sc = _scenario(db_session, ["c_mei"])
+    session = events_store.create_session(db_session, sc.id)
+    ctx = assembler.assemble_context(db_session, sc, session.id)
+    assert ctx.cast[0].voice_samples == ""
+
+
 def test_in_voice_anchors_pulled_per_character(db_session, monkeypatch):
     _world(db_session)
     _char(db_session, "c_mei", "Mei")

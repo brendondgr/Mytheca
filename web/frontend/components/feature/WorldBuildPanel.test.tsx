@@ -15,6 +15,7 @@ function character(over: Partial<ProposedCharacter> = {}): ProposedCharacter {
     background: "Dockborn.",
     personality: "Guarded.",
     color: "#3A5A78",
+    voiceSamples: [],
     startingStats: [],
     ...over,
   };
@@ -111,5 +112,28 @@ describe("WorldBuildPanel", () => {
     );
     expect(screen.getByAltText("Maerin portrait")).toBeInTheDocument();
     expect(screen.getByAltText("The Quay scene art")).toBeInTheDocument();
+  });
+
+  it("shows a voice-samples indicator on a proposed character that has them", () => {
+    render(
+      <WorldBuildPanel
+        {...baseProps}
+        building={false}
+        buildStage={null}
+        planConcepts={null}
+        proposed={world({
+          characters: [
+            character({
+              name: "Maerin",
+              voiceSamples: [
+                { situation: "questioned", sample: "Ask again." },
+                { situation: "threatened", sample: "Try it." },
+              ],
+            }),
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByText(/2 voice samples/i)).toBeInTheDocument();
   });
 });

@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Literal
 
 from app.schemas.base import CamelModel
-from app.schemas.character import CharacterDraftResponse
+from app.schemas.character import CharacterDraftResponse, VoiceSample
 from app.schemas.setting import SettingDraftResponse
 from app.schemas.stat import StatDefinitionBase
 
@@ -96,8 +96,14 @@ class ProposedStartingStat(CamelModel):
 
 
 class ProposedCharacter(CharacterDraftResponse):
-    """A drafted character + its proposed starting stat values (schema defaults)."""
+    """A drafted character + its voice profile and proposed starting stat values.
 
+    Voice & tone samples are derived from the drafted background/personality *before*
+    the (schema-default) starting stats, so voice comes first. Both map straight onto
+    ``CharacterCreate`` at commit time.
+    """
+
+    voice_samples: list[VoiceSample] = []
     starting_stats: list[ProposedStartingStat] = []
 
 

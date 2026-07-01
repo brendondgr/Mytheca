@@ -183,6 +183,8 @@ export function proposedToCharacterInput(c: ProposedCharacter): api.CharacterInp
     appearance: c.appearance,
     background: c.background,
     personality: c.personality,
+    // Voice & tone samples generated during the build ride into the create body.
+    voiceSamples: c.voiceSamples ?? [],
   };
 }
 

@@ -74,6 +74,14 @@ _SETTING = json.dumps(
         "currentState": "Tide rising.",
     }
 )
+_VOICE = json.dumps(
+    {
+        "samples": [
+            {"situation": "questioned", "sample": "Ask again. Slower."},
+            {"situation": "threatened", "sample": "Try it."},
+        ]
+    }
+)
 
 
 # Attached character/setting docs — the build creates exactly one entity per doc.
@@ -143,6 +151,8 @@ def _route(request: httpx.Request) -> httpx.Response:
         return _completion(_BLUEPRINT)
     if "entity-extraction assistant" in body:
         return _completion(_extract_payload(body))
+    if "character-voice assistant" in body:
+        return _completion(_VOICE)
     if "character-creation assistant" in body:
         return _completion(_CHARACTER)
     if "setting-creation assistant" in body:
@@ -221,6 +231,11 @@ def test_build_world_assembles_full_proposal(client, monkeypatch):
     # Each character carries schema-default starting stats.
     starting = {s["key"]: s["value"] for s in world["characters"][0]["startingStats"]}
     assert starting == {"health": 100, "suspicion": 0}
+
+    # Voice & tone samples are generated (before stats) and ride the proposal.
+    samples = world["characters"][0]["voiceSamples"]
+    assert [s["situation"] for s in samples] == ["questioned", "threatened"]
+    assert samples[0]["sample"] == "Ask again. Slower."
 
 
 def test_build_no_entity_docs_creates_no_cast(client, monkeypatch):

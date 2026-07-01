@@ -124,6 +124,48 @@ def test_character_portrait_prompts_roundtrip(client, storyline_id):
     assert fetched["portraitNegative"] == "lowres, watermark"
 
 
+def test_character_voice_samples_roundtrip(client, storyline_id):
+    """Create + PATCH persist the voice/tone samples; GET reflects them."""
+    created = client.post(
+        f"/api/storylines/{storyline_id}/characters",
+        json={
+            "name": "Fenwick",
+            "voiceSamples": [
+                {"situation": "greeted by a stranger", "sample": "State your business. I've no time for pleasantries."},
+                {"situation": "offered a bribe", "sample": "Coin talks, but I decide what it says."},
+            ],
+        },
+    )
+    assert created.status_code == 201
+    body = created.json()
+    assert [s["situation"] for s in body["voiceSamples"]] == [
+        "greeted by a stranger",
+        "offered a bribe",
+    ]
+    assert body["voiceSamples"][0]["sample"].startswith("State your business")
+    cid = body["id"]
+
+    patched = client.patch(
+        f"/api/characters/{cid}",
+        json={"voiceSamples": [{"situation": "cornered", "sample": "Back off. Now."}]},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["voiceSamples"] == [
+        {"situation": "cornered", "sample": "Back off. Now."}
+    ]
+
+    fetched = client.get(f"/api/characters/{cid}").json()
+    assert fetched["voiceSamples"][0]["sample"] == "Back off. Now."
+
+
+def test_character_voice_samples_default_empty(client, storyline_id):
+    """A character created without voice samples reads back an empty list, not null."""
+    body = client.post(
+        f"/api/storylines/{storyline_id}/characters", json={"name": "Grimm"}
+    ).json()
+    assert body["voiceSamples"] == []
+
+
 def test_list_for_unknown_storyline_is_404(client):
     assert client.get("/api/storylines/ghost/characters").status_code == 404
 

@@ -21,6 +21,8 @@ from app.schemas.character import (
     PortraitPromptResponse,
     StartingStatsRequest,
     StartingStatsResponse,
+    VoiceSamplesRequest,
+    VoiceSamplesResponse,
 )
 from app.services import crud, portraits
 
@@ -76,6 +78,21 @@ def character_starting_stats(data: StartingStatsRequest, db: Session = Depends(g
         traits=data.traits,
         personality=data.personality,
         background=data.background,
+    )
+
+
+@router.post("/characters/voice-samples", response_model=VoiceSamplesResponse)
+def character_voice_samples(data: VoiceSamplesRequest, db: Session = Depends(get_db)):
+    """Derive a voice & tone profile (situation → sample-response pairs) — before stats."""
+    return character_agent.propose_voice_samples(
+        db,
+        name=data.name,
+        role=data.role,
+        traits=data.traits,
+        speech=data.speech,
+        background=data.background,
+        personality=data.personality,
+        storyline_id=data.storyline_id,
     )
 
 

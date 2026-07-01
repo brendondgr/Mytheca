@@ -171,6 +171,49 @@ def test_relationship_note_injected_into_prompt(client, db_session, monkeypatch)
     assert "Your ties in this scene: You fear Beth (old debt)." in user
 
 
+def test_voice_samples_injected_into_head(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    ctx.cast[0].voice_samples = '- When haggling: "Coin first, favor later."'
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    # Voice samples sit in the HEAD (primacy), anchoring both speech and thought.
+    assert "Voice samples — how you sound" in user
+    assert 'When haggling: "Coin first, favor later."' in user
+
+
+def test_no_voice_samples_omits_the_block(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()  # no voice_samples set (default "")
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "Voice samples" not in user
+
+
+def test_thinking_contract_anchors_to_voice(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    system = json.loads(capture["body"])["messages"][0]["content"]
+    # The (character-agnostic) thinking rule steers the hidden thought into voice too.
+    assert "SAME voice as your speech style and voice samples" in system
+
+
 def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}

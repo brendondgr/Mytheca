@@ -6,6 +6,7 @@ import {
   type CommitEntityPatch,
   draftDocTexts,
   persistStatsDiff,
+  proposedToCharacterInput,
   renderProposalImages,
   toCreatorDoc,
 } from "./storylineCreator";
@@ -100,6 +101,17 @@ describe("storylineCreator helpers", () => {
     ];
     expect(draftDocTexts(docs)).toEqual(["AAA"]);
   });
+
+  it("proposedToCharacterInput carries the generated voice samples into the create body", () => {
+    const input = proposedToCharacterInput({
+      name: "Maerin", role: "Smuggler", traits: "Wary", speech: "Clipped.",
+      goal: "Out.", secret: "Informant.", appearance: "", background: "", personality: "",
+      color: "#3A5A78",
+      voiceSamples: [{ situation: "questioned", sample: "Ask again." }],
+      startingStats: [],
+    });
+    expect(input.voiceSamples).toEqual([{ situation: "questioned", sample: "Ask again." }]);
+  });
 });
 
 describe("storylineCreator.commitWorld image previews", () => {
@@ -118,6 +130,7 @@ describe("storylineCreator.commitWorld image previews", () => {
         background: "",
         personality: "",
         color: "#000",
+        voiceSamples: [],
         startingStats: [],
       },
     ],

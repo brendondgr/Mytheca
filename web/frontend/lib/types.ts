@@ -3,6 +3,14 @@
 // frontend pass the data is in-memory seed data; the shapes mirror the
 // eventual backend contracts.
 
+/** One situation → sample-response pair defining how a character speaks. */
+export interface VoiceSample {
+  /** A short description of a story event or an interaction with another character. */
+  situation: string;
+  /** What the character would say/do in response, in their own voice. */
+  sample: string;
+}
+
 /** The five story-event types the renderer maps 1:1 (docs/design-system.md). */
 export type EventTag =
   | "check_request"
@@ -40,6 +48,12 @@ export interface Character {
   portraitPositive?: string | null;
   /** Persisted negative ComfyUI prompt that produced the portrait. */
   portraitNegative?: string | null;
+  /**
+   * Voice & tone profile — situation → sample-response pairs derived from the
+   * character's background/personality (before starting stats), editable in the
+   * character menu and injected into the turn loop. Empty list when unauthored.
+   */
+  voiceSamples?: VoiceSample[];
 }
 
 /**
@@ -251,6 +265,8 @@ export interface ProposedCharacter {
   background: string;
   personality: string;
   color: string;
+  /** Voice & tone samples generated before stats (situation → sample-response pairs). */
+  voiceSamples: VoiceSample[];
   startingStats: ProposedStartingStat[];
   /** Client-side only: the portrait URL once it renders during commit (live preview). */
   portrait?: string | null;

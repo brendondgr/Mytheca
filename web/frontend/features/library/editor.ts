@@ -1,5 +1,5 @@
 import type { StartingStatProposal } from "@/lib/api";
-import type { Branch, SettingTimelineEntry, StatDefinition } from "@/lib/types";
+import type { Branch, SettingTimelineEntry, StatDefinition, VoiceSample } from "@/lib/types";
 import type { ReadDoc } from "@/lib/readDocs";
 
 // Editor model shared by the create/edit modal. A single loose Draft covers all
@@ -60,6 +60,10 @@ export interface Draft {
   _portraitPositive?: string;
   _portraitNegative?: string;
   _startingStats?: StartingStatProposal[];
+  // Editor working copy of the character's voice & tone samples (situation →
+  // sample-response pairs). Persisted with the character (`voiceSamples`), edited
+  // above the Starting Stats section, and (re)generated via proposeVoiceSamples.
+  _voiceSamples?: VoiceSample[];
   // Editor-internal scene-art prompts for the Setting Creator (editable before
   // rendering the establishing image).
   _sceneArtPositive?: string;
@@ -102,7 +106,7 @@ export function blankStat(): StatDefinition {
 }
 
 export const DEFAULT_DRAFTS: Record<EntityType, Draft> = {
-  character: { name: "", role: "", color: "#8E2B1C", traits: "", speech: "", goal: "", secret: "", appearance: "", background: "", personality: "", _portraitPositive: "", _portraitNegative: "" },
+  character: { name: "", role: "", color: "#8E2B1C", traits: "", speech: "", goal: "", secret: "", appearance: "", background: "", personality: "", _portraitPositive: "", _portraitNegative: "", _voiceSamples: [] },
   setting: { name: "", type: "Social Hub", desc: "", atmosphere: "", features: "", currentState: "", _sceneArtPositive: "", _sceneArtNegative: "" },
   scenario: { title: "", genre: "Intrigue", tone: "Tension · rising", goal: "", cast: [], settingId: "", branches: [], image: null, _sceneArtPositive: "", _sceneArtNegative: "" },
 };

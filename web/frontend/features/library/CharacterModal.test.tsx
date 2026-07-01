@@ -64,11 +64,34 @@ describe("CharacterModal — agentic creator", () => {
     );
   });
 
+  it("shows the Voice & tone section above Starting stats", async () => {
+    const user = userEvent.setup();
+    const dialog = await openCharacterCreator(user);
+    const voice = within(dialog).getByText(/voice & tone/i);
+    const stats = within(dialog).getByText(/starting stats/i);
+    // Voice comes first — it's defined before stats.
+    expect(voice.compareDocumentPosition(stats) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("proposes voice samples on demand into editable rows", async () => {
+    const user = userEvent.setup();
+    const dialog = await openCharacterCreator(user);
+
+    // The Voice & tone "Propose" is the first ❖ Propose (it sits above stats).
+    await user.click(within(dialog).getAllByRole("button", { name: /❖ propose/i })[0]);
+    expect(vi.mocked(api.proposeVoiceSamples)).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(within(dialog).getByLabelText(/sample 1 situation/i)).toHaveValue("greeted warmly"),
+    );
+    expect(within(dialog).getByLabelText(/sample 1 response/i)).toHaveValue("State your business.");
+  });
+
   it("proposes starting stats keyed to the world's schema", async () => {
     const user = userEvent.setup();
     const dialog = await openCharacterCreator(user);
 
-    await user.click(within(dialog).getByRole("button", { name: /❖ propose/i }));
+    // The Starting-stats "Propose" is the second ❖ Propose (Voice & tone sits above).
+    await user.click(within(dialog).getAllByRole("button", { name: /❖ propose/i })[1]);
     await waitFor(() =>
       expect(within(dialog).getByLabelText(/health starting value/i)).toHaveValue(90),
     );

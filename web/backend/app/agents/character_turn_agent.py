@@ -62,7 +62,7 @@ You MAY, only when this beat genuinely changes how you regard another character,
 Rules:
 - N is your character's roster number (given below).
 - Write each block's OPENING tag only (e.g. `<type:character_dialogue>`); do NOT write closing tags like `</type:character_dialogue>`.
-- Lead with <thinking>: a brief, in-*your*-voice thought that sets up your line (e.g. "Coin first, favor later — let him sweat."). Condition it on concrete priorities, never on a trait label; keep it clipped, never a formal narrator's analysis.
+- Lead with <thinking>: a brief, in-*your*-voice thought that sets up your line (e.g. "Coin first, favor later — let him sweat."). Think in the SAME voice as your speech style and voice samples — the private thought should sound like you, not like a narrator. Condition it on concrete priorities, never on a trait label; keep it clipped, never a formal narrator's analysis.
 - Always include character_dialogue. Include character_action only when your character does something physical — keep it to a SHORT label of 5-10 words (it renders as a brief tag beside your name, e.g. "leans in, low"), never a full sentence.
 - Use state_update only for a real shift in a stat listed in "Your current state", with a short reason — never invent a stat key. Most turns move nothing; omit it then.
 - Use relationship_update only for a real shift in how you regard a specific other character (name them exactly). Most turns change nothing; omit it then.
@@ -147,6 +147,14 @@ def _build_user_prompt(
         head.append(f"Speech style: {speaker.speech}")
     if speaker.traits:
         head.append(f"Traits: {speaker.traits}")
+    if speaker.voice_samples:
+        # Concrete situation → sample-response pairs authored for this character:
+        # the ground truth for *how* they sound. Anchors both the spoken line and
+        # the in-voice <thinking> step (Character Voice & Tone).
+        head.append(
+            "Voice samples — how you sound (match this cadence, diction, and attitude "
+            f"in both speech and thought):\n{speaker.voice_samples}"
+        )
     if speaker.stats:
         state = ", ".join(f"{k}={v}" for k, v in speaker.stats.items())
         head.append(f"Your current state: {state}")

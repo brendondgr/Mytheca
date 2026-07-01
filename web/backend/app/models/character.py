@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db import Base
+from app.core.db import Base, JSONColumn
 from app.core.ids import new_id
 
 if TYPE_CHECKING:
@@ -44,6 +44,15 @@ class Character(Base):
     # so they self-heal on the persistent dev DB (see bootstrap reconcile).
     portrait_positive: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     portrait_negative: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    # Voice & tone profile — a small set of situation → sample-response pairs that
+    # show *how* this character speaks, derived from their background/personality at
+    # creation (before starting stats) and editable in the character menu. Injected
+    # into the turn loop so both spoken lines and the hidden thinking step stay in
+    # voice. Nullable so it self-heals on the persistent dev DB (bootstrap reconcile);
+    # authored §1 node property, never graph structure. Each entry: {situation, sample}
+    voice_samples: Mapped[list[dict] | None] = mapped_column(
+        JSONColumn, nullable=True, default=list
+    )
     position: Mapped[int] = mapped_column(default=0)
 
     storyline: Mapped[Storyline] = relationship(back_populates="characters")

@@ -403,7 +403,22 @@ def iter_build_world(
             message=f"Drafting character {i + 1} of {len(char_entities)}…",
         )
         draft = character_agent.draft_character(db, entity.source, grounding, None)
-        character = ProposedCharacter(**draft.model_dump(), starting_stats=list(default_stats))
+        # Voice & tone comes first — derive it from the drafted prose before stats
+        # (best-effort: an empty list on any hiccup, never blocking the build).
+        voice = character_agent.propose_voice_samples(
+            db,
+            name=draft.name,
+            role=draft.role,
+            traits=draft.traits,
+            speech=draft.speech,
+            background=draft.background,
+            personality=draft.personality,
+        )
+        character = ProposedCharacter(
+            **draft.model_dump(),
+            voice_samples=voice.samples,
+            starting_stats=list(default_stats),
+        )
         characters.append(character)
         yield BuildCharacterEvent(index=i, total=len(char_entities), character=character)
 

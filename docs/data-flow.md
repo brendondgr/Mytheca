@@ -145,17 +145,25 @@ Character modal (CharacterModal) → lib/api.ts
         → {name, role, traits, speech, goal, secret, appearance, background, personality, color}
   → POST /api/characters/portrait-prompts {name, appearance, traits, species?, ...} → {positive, negative}
   → POST /api/characters/portrait         {positive, negative}  → {portrait: "/media/portraits/<id>.webp"}
-        → routes/characters → agents/character_agent (draft/prompts/stats; same
+        → routes/characters → agents/character_agent (draft/prompts/voice/stats; same
           settings_store + services/llm.chat_complete as the storyline agent)
         → routes/characters → services/portraits → services/comfyui.generate
           (watercolor pipeline) → PNG → Pillow → WebP saved under MEDIA_DIR, served at /media
+  → POST /api/characters/voice-samples    {name, background, personality, ...} → {samples:[{situation,sample}]}
+        (voice & tone comes FIRST — derived from the drafted prose before stats; best-effort → [])
   → POST /api/characters/starting-stats   {storylineId, ...} → {proposals:[…]}  (proposal only)
-  → drafted fields + portrait fill the form; author edits, then the normal
-    POST/PATCH /api/storylines/{id}/characters persists the fields + portrait URL
+  → drafted fields + portrait fill the form; author edits (incl. the Voice & tone
+    section, above Starting stats), then the normal POST/PATCH
+    /api/storylines/{id}/characters persists the fields + portrait URL
     + portraitPositive/portraitNegative (the prompts that produced it, so the
-    portrait editor re-hydrates them on re-edit); accepted starting stats are
-    applied via PUT /api/characters/{id}/stats
+    portrait editor re-hydrates them on re-edit) + voiceSamples (the voice/tone
+    profile); accepted starting stats are applied via PUT /api/characters/{id}/stats
 ```
+
+The `voiceSamples` then feed the runtime turn loop: `assembler._build_cast` renders
+each character's pairs into a `CastMember.voice_samples` block, and
+`character_turn_agent` injects it into the generation prompt HEAD — anchoring both
+the spoken line and the hidden `<thinking>` step to the character's authored voice.
 
 Same **creation-time, no-RAG** rules as storyline authoring. Everything produced
 is a character's **own base identity** (§1 node properties) — no graph structure
