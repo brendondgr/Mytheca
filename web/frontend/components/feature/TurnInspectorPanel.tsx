@@ -1,93 +1,140 @@
 "use client";
 
+import { useState } from "react";
 import { CloseButton } from "@/components/ui/CloseButton";
 import type { TraceTurn } from "@/features/story-player/turn-stream";
 import type { TurnTraceFrame } from "@/lib/events";
 
-// Per-step display: a short tag + accent color. Key beats (Director, thinking) are
-// gold; everything else reads as muted so the eye lands on the "why" first.
-const STEP_META: Record<string, { tag: string; accent: boolean }> = {
-  turn: { tag: "You", accent: false },
-  intent: { tag: "Intent", accent: true },
-  assemble: { tag: "Scene", accent: false },
-  lore: { tag: "Lore", accent: true },
-  plan: { tag: "Plan", accent: true },
-  director: { tag: "Director", accent: true },
-  speaker: { tag: "Speaker", accent: false },
-  thinking: { tag: "Thinks", accent: true },
-  consistency: { tag: "Check", accent: false },
-  relationship: { tag: "Ties", accent: true },
-  action: { tag: "Acts", accent: false },
-  dialogue: { tag: "Says", accent: false },
-  stat: { tag: "Stat", accent: false },
-  relationship_change: { tag: "Bond", accent: true },
-  rerank: { tag: "Re-rank", accent: true },
-  cascade: { tag: "Cascade", accent: true },
-  branch: { tag: "Branch", accent: true },
-  relationships: { tag: "Graph", accent: true },
-  commit: { tag: "Graph", accent: true },
-  reflection: { tag: "Reflect", accent: false },
+// Per-step display: a short tag + a category color for the dot on the left. Colour is
+// redundant with the tag text (never colour-alone), so the WHAT of each row reads at a
+// glance — Stat / Plan / Speaker / Thinks / Speaks … — and stays legible without colour.
+const STEP_META: Record<string, { tag: string; color: string }> = {
+  turn: { tag: "You", color: "var(--accent)" },
+  intent: { tag: "Intent", color: "#8b5cf6" },
+  assemble: { tag: "Scene", color: "#64748b" },
+  lore: { tag: "Lore", color: "#0ea5e9" },
+  plan: { tag: "Plan", color: "#d97706" },
+  director: { tag: "Director", color: "#d97706" },
+  speaker: { tag: "Speaker", color: "#2563eb" },
+  thinking: { tag: "Thinks", color: "#7c3aed" },
+  consistency: { tag: "Check", color: "#64748b" },
+  relationship: { tag: "Ties", color: "#db2777" },
+  action: { tag: "Acts", color: "#0891b2" },
+  dialogue: { tag: "Speaks", color: "#059669" },
+  stat: { tag: "Stat", color: "#ca8a04" },
+  relationship_change: { tag: "Bond", color: "#db2777" },
+  branch: { tag: "Branch", color: "#d97706" },
+  relationships: { tag: "Graph", color: "#16a34a" },
+  commit: { tag: "Graph", color: "#16a34a" },
+  reflection: { tag: "Reflect", color: "#64748b" },
 };
 
-function tagFor(step: string): { tag: string; accent: boolean } {
-  return STEP_META[step] ?? { tag: step, accent: false };
+function tagFor(step: string): { tag: string; color: string } {
+  return STEP_META[step] ?? { tag: step, color: "#64748b" };
 }
 
-/** One trace step: a colored tag, its title, and the plain-language detail below. */
+/**
+ * One trace step: a colored dot + tag + title on the left; a click expands a dropdown
+ * to reveal the plain-language detail (feedback #5). Rows with no detail are inert.
+ */
 function StepRow({ step }: { step: TurnTraceFrame }) {
+  const [open, setOpen] = useState(false);
   const meta = tagFor(step.step);
+  const hasDetail = Boolean(step.detail);
   return (
-    <li className="flex gap-[10px] py-[7px]">
-      <span
-        className={`mt-[1px] flex-none rounded-[3px] border px-[6px] py-[2px] font-mono text-[8.5px] tracking-[0.1em] uppercase ${
-          meta.accent
-            ? "border-accent/40 text-accent"
-            : "border-cardbd text-mute2"
-        }`}
+    <li>
+      <button
+        type="button"
+        onClick={() => hasDetail && setOpen((o) => !o)}
+        aria-expanded={hasDetail ? open : undefined}
+        disabled={!hasDetail}
+        className="flex w-full items-start gap-[9px] py-[8px] text-left disabled:cursor-default"
       >
-        {meta.tag}
-      </span>
-      <div className="min-w-0">
-        <div className="font-body text-[13px] leading-[1.35] text-ink">{step.title}</div>
-        {step.detail ? (
-          <div className="mt-[2px] font-body text-[12.5px] leading-[1.45] text-ink-soft">
-            {step.detail}
-          </div>
-        ) : null}
-      </div>
+        <span
+          aria-hidden
+          className="mt-[6px] h-[9px] w-[9px] flex-none rounded-full"
+          style={{ backgroundColor: meta.color }}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline gap-[8px]">
+            <span
+              className="flex-none font-mono text-[10px] tracking-[0.08em] uppercase"
+              style={{ color: meta.color }}
+            >
+              {meta.tag}
+            </span>
+            <span className="min-w-0 flex-1 font-body text-[14px] leading-[1.4] text-ink">
+              {step.title}
+            </span>
+            {hasDetail ? (
+              <span aria-hidden className="flex-none font-mono text-[11px] text-mute2">
+                {open ? "▾" : "▸"}
+              </span>
+            ) : null}
+          </span>
+          {open && step.detail ? (
+            <span className="mt-[5px] block font-body text-[13px] leading-[1.5] text-ink-soft">
+              {step.detail}
+            </span>
+          ) : null}
+        </span>
+      </button>
     </li>
   );
 }
 
-/** One turn: the player's message as a header, then its steps in the order they ran. */
-function TurnBlock({ turn, index }: { turn: TraceTurn; index: number }) {
+/** One turn: a clickable header (collapses when a newer turn opens), then its steps. */
+function TurnBlock({
+  turn,
+  index,
+  open,
+  onToggle,
+}: {
+  turn: TraceTurn;
+  index: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const steps = turn.steps.filter((s) => s.step !== "turn");
   return (
     <section className="rounded-[4px] border border-cardbd bg-card2">
-      <header className="flex items-baseline gap-[8px] border-b border-cardbd p-[9px_12px]">
-        <span className="flex-none font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className={`flex w-full items-baseline gap-[8px] p-[10px_12px] text-left ${
+          open ? "border-b border-cardbd" : ""
+        }`}
+      >
+        <span className="flex-none font-mono text-[10px] tracking-[0.1em] text-mute2 uppercase">
           Turn {index}
         </span>
-        <span className="min-w-0 flex-1 truncate font-body text-[12.5px] text-ink-soft italic">
+        <span className="min-w-0 flex-1 truncate font-body text-[13px] text-ink-soft">
           {turn.label || "(turn)"}
         </span>
-      </header>
-      <ol className="divide-y divide-cardbd/60 p-[4px_12px_8px]">
-        {turn.steps
-          .filter((s) => s.step !== "turn")
-          .map((s) => (
+        <span className="flex-none font-mono text-[10px] text-mute2">{steps.length}</span>
+        <span aria-hidden className="flex-none font-mono text-[11px] text-mute2">
+          {open ? "▾" : "▸"}
+        </span>
+      </button>
+      {open ? (
+        <ol className="divide-y divide-cardbd/60 p-[2px_12px_8px]">
+          {steps.map((s) => (
             <StepRow key={s.n} step={s} />
           ))}
-      </ol>
+        </ol>
+      ) : null}
     </section>
   );
 }
 
 /**
  * A docked right-side column that explains the turn loop, in order, after each message:
- * which characters the Director picked and why, their private thinking, stat changes,
- * mid-turn re-ranks, the graph commit, and the reflection step. It sits to the right of
- * the Director rail (the chat stays visible), newest turn first. Read-only diagnostics —
- * the panel never changes the scene, it only reveals the reasoning behind it.
+ * the intent read from your input, which characters the planner picked and why, their
+ * private thinking, stat + relationship changes, the graph commit, and the reflection
+ * step. It sits to the right of the current rail (the chat stays visible), newest turn
+ * first. The active (newest) turn is expanded; completed turns collapse to a header you
+ * can click open. Read-only diagnostics — the panel never changes the scene.
  */
 export function TurnInspectorPanel({
   open,
@@ -98,6 +145,18 @@ export function TurnInspectorPanel({
   onClose: () => void;
   turns: TraceTurn[];
 }) {
+  const latestId = turns.length ? turns[turns.length - 1].id : null;
+  // Accordion: the active (newest) turn is open; older turns auto-collapse once a newer
+  // one begins. Clicking a header opens that turn (and closes the others). When a newer
+  // turn arrives we re-open it by adjusting state during render (the documented pattern
+  // for deriving from a changed value — no effect, no extra commit).
+  const [openId, setOpenId] = useState<string | null>(latestId);
+  const [seenLatest, setSeenLatest] = useState<string | null>(latestId);
+  if (latestId !== seenLatest) {
+    setSeenLatest(latestId);
+    setOpenId(latestId);
+  }
+
   if (!open) return null;
   const ordered = [...turns].reverse(); // newest turn at the top
 
@@ -120,16 +179,22 @@ export function TurnInspectorPanel({
 
       <div className="min-h-0 flex-1 overflow-auto p-[12px_14px]">
         {ordered.length === 0 ? (
-          <p className="mt-[8px] font-body text-[13px] leading-[1.5] text-ink-soft">
-            Send a message in the scene and the flow will appear here — the Director&apos;s
-            choice of who speaks and why, each character&apos;s private thinking, any lore
-            look-up, stat changes, the story-graph commit, and the reflection step that sets
-            up the next turn.
+          <p className="mt-[8px] font-body text-[14px] leading-[1.5] text-ink-soft">
+            Send a message in the scene and the flow will appear here — the intent read from
+            your input, the planner&apos;s choice of who speaks and why, each character&apos;s
+            private thinking, any lore look-up, stat + relationship changes, the story-graph
+            commit, and the reflection step that sets up the next turn. Tap a step to expand it.
           </p>
         ) : (
           <div className="flex flex-col gap-[12px]">
             {ordered.map((turn, i) => (
-              <TurnBlock key={turn.id} turn={turn} index={ordered.length - i} />
+              <TurnBlock
+                key={turn.id}
+                turn={turn}
+                index={ordered.length - i}
+                open={openId === turn.id}
+                onToggle={() => setOpenId((cur) => (cur === turn.id ? null : turn.id))}
+              />
             ))}
           </div>
         )}
