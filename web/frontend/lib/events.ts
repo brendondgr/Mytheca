@@ -83,12 +83,29 @@ export interface TurnErrorFrame {
   message: string;
 }
 
+/**
+ * Diagnostic trace frame (opt-in via `trace: true`) — the ordered, plain-language
+ * record of what the turn loop did and why (Director choice, hidden thinking, stat
+ * clamps, re-ranks, reflection). Rendered by the Inspector panel; ignored by the
+ * transcript. `step` is a stable key (`turn` opens each turn); `n` orders within a turn.
+ */
+export interface TurnTraceFrame {
+  type: "trace";
+  n: number;
+  step: string;
+  title: string;
+  detail: string;
+  data: Record<string, unknown>;
+}
+
 /** One line of the turn stream. */
-export type TurnStreamFrame = PlayEvent | TurnErrorFrame;
+export type TurnStreamFrame = PlayEvent | TurnErrorFrame | TurnTraceFrame;
 
 /** The body for `POST /play/{scenarioId}/turn`. */
 export interface TurnRequestBody {
   text: string;
   directedAt?: string | null;
   sessionId?: string | null;
+  /** Request interleaved diagnostic `trace` frames (the Inspector panel). */
+  trace?: boolean;
 }

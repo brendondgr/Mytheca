@@ -575,6 +575,17 @@ optimistically); the bot's events follow at the next seqs. A mid-stream failure 
 frame; pre-flight failures (unknown scenario, empty text, bad session) are a normal error
 envelope before the 200 opens.
 
+**Diagnostic trace (opt-in).** Set `"trace": true` in the request body to interleave
+`{ "type": "trace", "n", "step", "title", "detail", "data" }` frames that narrate, **in
+order**, what the turn loop did and why — the story player's **Inspector** panel renders
+these. `step` is a stable key (`turn` opens each turn, then `assemble` / `director` /
+`speaker` / `thinking` / `consistency` / `action` / `dialogue` / `stat` / `rerank` /
+`cascade` / `branch` / `reflection`); `n` orders within one turn. Trace frames are
+**transport-only** (not persisted story events, not in `story_event_adapter`), and the flag
+defaults **off** so the default stream and the story-event contract are unchanged. Notably,
+a character's hidden `internal_thought` is surfaced here as a `thinking` trace step (it is
+still withheld as a story event). Clients ignore `trace` frames for the transcript.
+
 ### Rules
 
 - `seq` is monotonic per session (DB-authoritative: `max(seq)+1`, guarded by a

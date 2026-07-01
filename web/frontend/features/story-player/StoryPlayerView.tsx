@@ -14,6 +14,7 @@ import { SceneIntro } from "@/components/feature/SceneIntro";
 import { TranscriptBeat } from "@/components/feature/TranscriptBeat";
 import { CharacterDossier } from "@/components/feature/CharacterDossier";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
+import { TurnInspectorPanel } from "@/components/feature/TurnInspectorPanel";
 
 /** The signature surface: a three-zone "open book" live scene. */
 export function StoryPlayerView({
@@ -30,6 +31,7 @@ export function StoryPlayerView({
   const scene = useScenePlay(scenario);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [modalId, setModalId] = useState<string | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const byId = (id: string): Character | undefined =>
     scenario.cast.find((c) => c.id === id);
 
@@ -51,6 +53,8 @@ export function StoryPlayerView({
         genre={scenario.genre}
         tone={scenario.tone}
         backHref={backHref}
+        onToggleInspector={() => setInspectorOpen((o) => !o)}
+        inspectorOpen={inspectorOpen}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -129,6 +133,11 @@ export function StoryPlayerView({
         )}
       </div>
 
+      <TurnInspectorPanel
+        open={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
+        turns={scene.traceTurns}
+      />
       <SceneLoader scenario={scenario} storylineName={storylineName} visible={scene.loading} />
       <CharacterProfileModal character={modalChar} onClose={() => setModalId(null)} />
     </div>

@@ -4,8 +4,32 @@
 // one beat (name once, action italic + bubble), matching the seeded look.
 // state_update / branch_choices are wired into the side panels in a later phase.
 
-import type { PlayEvent, StatPatch, TurnStreamFrame } from "@/lib/events";
+import type { PlayEvent, StatPatch, TurnStreamFrame, TurnTraceFrame } from "@/lib/events";
 import type { SceneChoice, SceneMessage, StatChip } from "./scene-data";
+
+/** One turn's worth of ordered trace steps (the Inspector groups by turn). */
+export interface TraceTurn {
+  id: string;
+  label: string;
+  steps: TurnTraceFrame[];
+}
+
+/**
+ * Fold one trace frame into the turn-grouped list. A `turn` step opens a new group
+ * (its `detail` = the player's message, used as the group label); every other step
+ * appends to the current (latest) group. A stray step before any `turn` marker starts
+ * its own group so nothing is dropped.
+ */
+export function foldTrace(prev: TraceTurn[], frame: TurnTraceFrame): TraceTurn[] {
+  if (frame.step === "turn" || prev.length === 0) {
+    const label = frame.step === "turn" ? frame.detail || frame.title : frame.title;
+    return [...prev, { id: `${prev.length}-${frame.n}`, label, steps: [frame] }];
+  }
+  const next = prev.slice();
+  const last = next[next.length - 1];
+  next[next.length - 1] = { ...last, steps: [...last.steps, frame] };
+  return next;
+}
 
 /** Append/extend the message that owns `id`, or push a new one (delta accumulation). */
 function mergeDelta(
@@ -24,6 +48,7 @@ function mergeDelta(
 /** Fold one story event into the transcript. Non-visible/unknown frames pass through. */
 export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneMessage[] {
   if (frame.type === "error") return prev; // surfaced separately by the hook
+  if (frame.type === "trace") return prev; // routed to the Inspector, not the transcript
   const event = frame as PlayEvent;
 
   switch (event.type) {
@@ -67,7 +92,7 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
 
 /** Capture the resolved session id from any envelope frame (for turn resume). */
 export function sessionIdOf(frame: TurnStreamFrame): string | null {
-  if (frame.type === "error") return null;
+  if (frame.type === "error" || frame.type === "trace") return null;
   return frame.sessionId || null;
 }
 
