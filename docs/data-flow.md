@@ -338,7 +338,20 @@ sends **every** kept doc — `characterDocs`/`settingDocs` (their triage bucket)
 The page consumes the stream in `useStorylineCreator.build()`, accumulating into
 `proposed` + `planConcepts`; the right pane (`WorldBuildPanel`) renders the cast/settings
 as they arrive (a "drafting…" skeleton per not-yet-drafted concept), then becomes the
-editable review. **Images render as part of the build** (`renderProposalImages`, best-effort,
+editable review.
+
+**Real-time field feedback (presentational — no new backend events).** As those
+events arrive, the page also surfaces *where it is*: `meta`/`primer` drive a
+left-pane **active-field highlight** (`.velora-field-active`, via `useFieldReveal`),
+each `character`/`setting` event marks the **active card** in `WorldBuildPanel`
+(`activeEntity`), the `status` `stage` feeds a **`ProcessProgress`** stepper
+(metadata → primer → stats → docs → cast → settings), and an in-band `error` (or a
+thrown stream) raises a **top-right error toast** (`useToast`). This is a frontend
+presentation layer over the existing stream — the NDJSON contract is unchanged.
+The all-at-once draft endpoints (character/setting/scenario drafts, voice/stats,
+portrait/scene-art prompts) reuse the same primitives via a **choreographed reveal**
+in `useLibraryState` (fields filled one at a time after the JSON lands; reduced-motion
+fills at once) plus per-surface progress + error toasts. **Images render as part of the build** (`renderProposalImages`, best-effort,
 skipping entities that already have one) — but only after a ComfyUI **status preflight**
 confirms the server is actually reachable (`imagesAvailable` just means a URL is
 configured), and a **circuit breaker** stops on the first failed render so a stopped

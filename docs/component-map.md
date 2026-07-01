@@ -18,7 +18,10 @@ Defines where frontend components live and who owns them. Ownership rules come f
 
 | Component / module | Layer | Location |
 | --- | --- | --- |
-| `AppShell` | layout | `components/layout/AppShell.tsx` — themed page background/glow wrapper (server component). |
+| `AppShell` | layout | `components/layout/AppShell.tsx` — themed page background/glow wrapper (server component); mounts `MotionProvider` + `ToastProvider` around the app. |
+| `ToastProvider` / `Toast` / `useToast` | layout + ui | `components/layout/ToastProvider.tsx` + `components/ui/Toast.tsx` — app-global **top-right, stacking notifications** (portal). `useToast().notify({message, variant, title, durationMs})` raises a toast; errors are `role="alert"`, info/success `role="status"`; `embMsg` entrance (`motion-reduce:animate-none`); auto-dismiss + manual close. Agentic-authoring errors across every surface raise an error toast. A no-op default context keeps isolated components safe without a provider. |
+| `ProcessProgress` | feature | `components/feature/ProcessProgress.tsx` — compact **done/active/pending** stepper for an agentic run with a live `aria-live` "Now … · Next …" line. Used by `StorylineCreatorView` (build stages), `CharacterModal` (Identity → Voice & tone → Starting stats), and `SettingModal` (fields as steps). |
+| `useFieldReveal` | hook | `hooks/use-field-reveal.ts` — choreographs a **field-by-field reveal** of an already-final result: `start(fields)` fills one field per ~150 ms tick, exposing `values`/`activeKey`/`done`; reduced-motion (or empty) reveals at once. Drives the world-build left-pane highlight; `useLibraryState` uses the same pattern inline for the character/setting/scenario drafts. Paired with the `.velora-field-active` highlight utility in `styles/themes.css`. |
 | `ThemeSwitcher` | layout | `components/layout/ThemeSwitcher.tsx` — three-dot Parchment/Ember/Slate picker. |
 | `useTheme` / `setTheme` | hook | `hooks/use-theme.tsx` — `useSyncExternalStore` over the `<html>` theme class + `localStorage`. |
 | Theme tokens | styles | `styles/themes.css` (token sets) + `app/globals.css` (`@theme inline` Tailwind mapping). |

@@ -37,6 +37,7 @@ export function PortraitModal({
   generatingPortrait,
   onGeneratePortrait,
   error,
+  activeField = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -55,6 +56,8 @@ export function PortraitModal({
   generatingPortrait: boolean;
   onGeneratePortrait: () => void;
   error: string | null;
+  /** The prompt field being written right now (live highlight). */
+  activeField?: string | null;
 }) {
   if (!open) return null;
   return (
@@ -97,6 +100,7 @@ export function PortraitModal({
               placeholder="Short comma-separated phrases — subject & species first, then features, attire, expression, then watercolor style."
               value={positive}
               onChange={(e) => onPositiveChange(e.target.value)}
+              className={activeField === "_portraitPositive" ? "velora-field-active" : undefined}
             />
             <TextArea
               label="Negative prompt"
@@ -105,7 +109,10 @@ export function PortraitModal({
               placeholder="What to avoid — e.g. blurry, extra limbs, text, watermark."
               value={negative}
               onChange={(e) => onNegativeChange(e.target.value)}
-              className="mt-[12px]"
+              className={cn(
+                "mt-[12px]",
+                activeField === "_portraitNegative" && "velora-field-active",
+              )}
             />
             <Button
               onClick={onGeneratePortrait}

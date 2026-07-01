@@ -10,6 +10,10 @@ import { FieldLabel } from "@/components/ui/FieldLabel";
 import { Monogram } from "@/components/ui/Monogram";
 import { ContextFilesPanel } from "@/components/feature/ContextFilesPanel";
 import { VoiceSamplesEditor } from "@/components/feature/VoiceSamplesEditor";
+import {
+  ProcessProgress,
+  type ProcessStep,
+} from "@/components/feature/ProcessProgress";
 import { docsForDraft } from "@/lib/readDocs";
 import { PortraitModal } from "@/components/feature/PortraitModal";
 import { mediaUrl } from "@/lib/api";
@@ -21,6 +25,13 @@ import type { useLibraryState } from "@/features/library/useLibraryState";
 const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
 const LINK =
   "cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40";
+
+/** The major stages of an agentic character draft (keys = lib.draftStage). */
+const CHARACTER_DRAFT_STEPS: ProcessStep[] = [
+  { key: "identity", label: "Identity" },
+  { key: "voice", label: "Voice & tone" },
+  { key: "stats", label: "Starting stats" },
+];
 
 /**
  * Agentic Character Creator modal — the character counterpart to the storyline creator.
@@ -56,6 +67,11 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
   const canRenderPortrait = Boolean((d._portraitPositive ?? "").trim());
   const voiceSamples = d._voiceSamples ?? [];
   const stats = d._startingStats ?? [];
+  // Live highlight for the field Velora is writing right now, and whether an
+  // agentic draft flow is currently running (drives the progress stepper).
+  const fieldClass = (key: string) =>
+    lib.activeField === key ? "velora-field-active" : undefined;
+  const drafting = lib.generating || lib.generatingVoice || lib.generatingStats;
 
   function setStatValue(key: string, raw: string) {
     const value = Number(raw);
@@ -145,6 +161,16 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
           </div>
           <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
+          {/* Live draft progress — which stage Velora is on right now. */}
+          {drafting ? (
+            <ProcessProgress
+              className="mb-[16px]"
+              label="Character draft progress"
+              steps={CHARACTER_DRAFT_STEPS}
+              activeKey={lib.draftStage}
+            />
+          ) : null}
+
           {/* By-hand form (left) + agentic Draft with Velora (right). */}
           <div className="md:flex md:items-stretch">
             <div className={cn("md:min-w-0 md:flex-1 md:pr-[26px]", agentic && "hidden md:block")}>
@@ -165,12 +191,14 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                   placeholder="e.g. Captain Doran Hale"
                   value={d.name || ""}
                   onChange={(e) => lib.setDraft("name", e.target.value)}
+                  className={fieldClass("name")}
                 />
                 <TextField
                   label="Role / archetype"
                   placeholder="e.g. Lawful Blocker"
                   value={d.role || ""}
                   onChange={(e) => lib.setDraft("role", e.target.value)}
+                  className={fieldClass("role")}
                 />
               </div>
               <TextField
@@ -178,7 +206,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 placeholder="Dutiful · Rigid · Honourable"
                 value={d.traits || ""}
                 onChange={(e) => lib.setDraft("traits", e.target.value)}
-                className="mt-[14px]"
+                className={cn("mt-[14px]", fieldClass("traits"))}
               />
               {/* Voice — speech style + a (non-functional) voice-sample upload that
                   will feed text-to-speech later. */}
@@ -188,7 +216,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                   placeholder="Formal and terse, by the book."
                   value={d.speech || ""}
                   onChange={(e) => lib.setDraft("speech", e.target.value)}
-                  className="sm:flex-1"
+                  className={cn("sm:flex-1", fieldClass("speech"))}
                 />
                 <div className="sm:w-[160px] sm:flex-none">
                   <FieldLabel>Voice sample</FieldLabel>
@@ -214,7 +242,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 rows={3}
                 value={d.appearance || ""}
                 onChange={(e) => lib.setDraft("appearance", e.target.value)}
-                className="mt-[14px]"
+                className={cn("mt-[14px]", fieldClass("appearance"))}
               />
               <TextArea
                 label="Background"
@@ -222,7 +250,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 rows={4}
                 value={d.background || ""}
                 onChange={(e) => lib.setDraft("background", e.target.value)}
-                className="mt-[14px]"
+                className={cn("mt-[14px]", fieldClass("background"))}
               />
               <TextArea
                 label="Personality"
@@ -230,7 +258,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 rows={4}
                 value={d.personality || ""}
                 onChange={(e) => lib.setDraft("personality", e.target.value)}
-                className="mt-[14px]"
+                className={cn("mt-[14px]", fieldClass("personality"))}
               />
             </div>
 
@@ -480,6 +508,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
         generatingPortrait={lib.generatingPortrait}
         onGeneratePortrait={lib.generatePortrait}
         error={lib.error}
+        activeField={lib.activeField}
       />
     </Modal>
   );

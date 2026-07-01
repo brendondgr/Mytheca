@@ -14,6 +14,26 @@ describe("useLibraryState — setting authoring", () => {
     return hook;
   }
 
+  it("lights the active field during a setting draft, then clears it", async () => {
+    const { result } = await mountReady();
+    act(() => result.current.openCreate("setting"));
+    act(() => result.current.setDraft("_prompt", "A flooded smugglers' market."));
+
+    let pending: Promise<void>;
+    act(() => {
+      pending = result.current.draftSetting();
+    });
+    await waitFor(() => expect(result.current.activeField).not.toBeNull());
+    expect(result.current.draftStage).toBe("details");
+
+    await act(async () => {
+      await pending!;
+    });
+    expect(result.current.activeField).toBeNull();
+    expect(result.current.draftStage).toBeNull();
+    expect(result.current.draft.currentState).toBe("A drafted current state.");
+  });
+
   it("generates scene-art prompts, then renders an image into the draft", async () => {
     const { result } = await mountReady();
     act(() => result.current.openCreate("setting"));

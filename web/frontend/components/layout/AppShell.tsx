@@ -1,4 +1,5 @@
 import { MotionProvider } from "@/components/layout/MotionProvider";
+import { ToastProvider } from "@/components/layout/ToastProvider";
 
 /**
  * App chrome wrapper: paints the themed page background + glow and sets the
@@ -9,7 +10,9 @@ import { MotionProvider } from "@/components/layout/MotionProvider";
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="velora-themed velora-page flex min-h-dvh flex-col text-ink">
-      <MotionProvider>{children}</MotionProvider>
+      <MotionProvider>
+        <ToastProvider>{children}</ToastProvider>
+      </MotionProvider>
     </div>
   );
 }

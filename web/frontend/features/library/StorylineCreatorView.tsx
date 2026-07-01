@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/Button";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { TextField } from "@/components/ui/TextField";
@@ -12,7 +13,21 @@ import { StatsEditor } from "@/components/feature/StatsEditor";
 import { SealModal } from "@/components/feature/SealModal";
 import { TriagePanel } from "@/components/feature/TriagePanel";
 import { WorldBuildPanel } from "@/components/feature/WorldBuildPanel";
+import {
+  ProcessProgress,
+  type ProcessStep,
+} from "@/components/feature/ProcessProgress";
 import { useStorylineCreator } from "@/features/library/useStorylineCreator";
+
+/** The ordered major steps of a whole-world build (keys = backend stage keys). */
+const BUILD_STEPS: ProcessStep[] = [
+  { key: "metadata", label: "Metadata" },
+  { key: "primer", label: "World Primer" },
+  { key: "blueprint", label: "Stats" },
+  { key: "extract", label: "Reading docs" },
+  { key: "characters", label: "Cast" },
+  { key: "settings", label: "Settings" },
+];
 
 /**
  * The dedicated New / Edit Storyline page (routes `/storylines/new` +
@@ -33,6 +48,9 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
   const seedText = c.seed.trim();
   const hasDraftDocs = c.docs.some((d) => d.useDraft && d.text);
   const canBuild = Boolean(seedText || hasDraftDocs);
+  // Class for a left-pane field the build is writing right now (live highlight).
+  const fieldClass = (key: string) =>
+    c.activeField === key ? "velora-field-active" : undefined;
   const canGeneratePrimer = Boolean(seedText || c.fields.premise.trim());
   // While building (or once a proposal exists) the right column shows the live
   // world being built; otherwise it's the Triage / Context-files column.
@@ -118,6 +136,15 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
                   </span>
                 ) : null}
               </div>
+              {c.building || c.buildingImages ? (
+                <ProcessProgress
+                  className="mt-[14px]"
+                  label="World build progress"
+                  steps={BUILD_STEPS}
+                  activeKey={c.buildStageKey}
+                  done={!c.building}
+                />
+              ) : null}
             </section>
           ) : null}
 
@@ -132,12 +159,14 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
                 placeholder="e.g. Embergate"
                 value={c.fields.title}
                 onChange={(e) => c.setField("title", e.target.value)}
+                className={fieldClass("title")}
               />
               <TextField
                 label="Genre"
                 placeholder="e.g. Maritime Intrigue"
                 value={c.fields.genre}
                 onChange={(e) => c.setField("genre", e.target.value)}
+                className={fieldClass("genre")}
               />
             </div>
             <TextField
@@ -145,7 +174,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
               placeholder="One line for the switcher — what the world is, in a breath."
               value={c.fields.tagline}
               onChange={(e) => c.setField("tagline", e.target.value)}
-              className="mt-[14px]"
+              className={cn("mt-[14px]", fieldClass("tagline"))}
             />
             <TextArea
               label="Premise"
@@ -153,7 +182,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
               rows={6}
               value={c.fields.premise}
               onChange={(e) => c.setField("premise", e.target.value)}
-              className="mt-[14px]"
+              className={cn("mt-[14px]", fieldClass("premise"))}
             />
 
             {/* World Primer */}
@@ -178,6 +207,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
                 placeholder="Front-load the always-true facts: tone, the constant proper nouns, the load-bearing rules."
                 value={c.fields.worldPrimer}
                 onChange={(e) => c.setField("worldPrimer", e.target.value)}
+                className={fieldClass("worldPrimer")}
               />
             </div>
 
@@ -264,6 +294,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
           planConcepts={c.planConcepts}
           building={c.building}
           buildStage={c.buildStage}
+          activeEntity={c.activeEntity}
           renderingImages={c.committing || c.buildingImages}
           onUpdateCharacter={c.updateProposedCharacter}
           onRemoveCharacter={c.removeProposedCharacter}

@@ -86,6 +86,31 @@ describe("useStorylineCreator", () => {
     expect(result.current.planConcepts?.characters).toHaveLength(1);
   });
 
+  it("tracks the build stage and clears the live highlights when done", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    act(() => result.current.setSeed("A drowned harbor town."));
+    await act(async () => {
+      await result.current.build();
+    });
+    // The last stage key is 'done'; the field/entity highlights are cleared.
+    expect(result.current.buildStageKey).toBe("done");
+    expect(result.current.activeField).toBeNull();
+    expect(result.current.activeEntity).toBeNull();
+  });
+
+  it("surfaces an in-band build error in the error state", async () => {
+    vi.mocked(api.buildWorldStream).mockImplementationOnce(async function* () {
+      yield { type: "status" as const, stage: "metadata", message: "Drafting…" };
+      yield { type: "error" as const, message: "The model timed out." };
+    });
+    const { result } = renderHook(() => useStorylineCreator());
+    act(() => result.current.setSeed("A drowned harbor town."));
+    await act(async () => {
+      await result.current.build();
+    });
+    expect(result.current.error).toBe("The model timed out.");
+  });
+
   it("sends the categorized character/setting docs as the cast source", async () => {
     const { result } = renderHook(() => useStorylineCreator());
     await act(async () => {
