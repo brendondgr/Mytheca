@@ -4,13 +4,13 @@ import { describe, it, expect, vi } from "vitest";
 import { TurnInspectorPanel } from "./TurnInspectorPanel";
 import type { TraceTurn } from "@/features/story-player/turn-stream";
 
-function turn(): TraceTurn {
+function turn(id = "0", label = "I slide the coin pouch over."): TraceTurn {
   return {
-    id: "0",
-    label: "I slide the coin pouch over.",
+    id,
+    label,
     steps: [
-      { type: "trace", n: 1, step: "turn", title: "You submitted a message", detail: "I slide the coin pouch over.", data: {} },
-      { type: "trace", n: 2, step: "director", title: "The Director chose 1 speaker(s)", detail: "You addressed Mei directly, so only they respond.", data: {} },
+      { type: "trace", n: 1, step: "turn", title: "You submitted a message", detail: label, data: {} },
+      { type: "trace", n: 2, step: "plan", title: "Mei is up next", detail: "You addressed Mei directly.", data: {} },
       { type: "trace", n: 3, step: "thinking", title: "Mei thinks (private)", detail: "Coin first, favor later.", data: {} },
       { type: "trace", n: 4, step: "dialogue", title: "Mei speaks", detail: '"Coin is easy."', data: {} },
     ],
@@ -30,18 +30,29 @@ describe("TurnInspectorPanel", () => {
     expect(screen.getByText(/Send a message in the scene/i)).toBeInTheDocument();
   });
 
-  it("renders the turn's steps in order with the Director rationale and hidden thinking", () => {
+  it("renders step titles in order (the active turn is expanded)", () => {
     render(<TurnInspectorPanel open onClose={() => {}} turns={[turn()]} />);
     // Docked column (complementary landmark, not a modal dialog) so the chat stays visible.
     expect(screen.getByRole("complementary", { name: /turn inspector/i })).toBeInTheDocument();
-    expect(screen.getByText(/You addressed Mei directly/)).toBeInTheDocument();
-    expect(screen.getByText("Coin first, favor later.")).toBeInTheDocument(); // surfaced thinking
-    expect(screen.getByText('"Coin is easy."')).toBeInTheDocument();
+    expect(screen.getByText("Mei is up next")).toBeInTheDocument();
+    expect(screen.getByText("Mei speaks")).toBeInTheDocument();
     // The opening "turn" step is not repeated as a row (it labels the group instead).
     expect(screen.queryByText("You submitted a message")).not.toBeInTheDocument();
   });
 
-  it("tags the Reactive Turn Director steps (plan, relationship change)", () => {
+  it("hides a step's detail until its row is expanded (per-entry dropdown)", async () => {
+    render(<TurnInspectorPanel open onClose={() => {}} turns={[turn()]} />);
+    // Detail is collapsed by default …
+    expect(screen.queryByText("Coin first, favor later.")).not.toBeInTheDocument();
+    const row = screen.getByRole("button", { name: /Mei thinks/ });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    // … and revealed when the row is activated (keyboard-operable button).
+    await userEvent.click(row);
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Coin first, favor later.")).toBeInTheDocument();
+  });
+
+  it("color-codes each step type with a distinct tag", () => {
     const t: TraceTurn = {
       id: "0",
       label: "go",
@@ -49,12 +60,33 @@ describe("TurnInspectorPanel", () => {
         { type: "trace", n: 1, step: "turn", title: "You", detail: "go", data: {} },
         { type: "trace", n: 2, step: "plan", title: "Mei is up next", detail: "provoked", data: {} },
         { type: "trace", n: 3, step: "relationship_change", title: "Mei now resents Beth", detail: "betrayal", data: {} },
+        { type: "trace", n: 4, step: "stat", title: "suspicion +2", detail: "guard raised", data: {} },
       ],
     };
     render(<TurnInspectorPanel open onClose={() => {}} turns={[t]} />);
     expect(screen.getByText("Plan")).toBeInTheDocument();
     expect(screen.getByText("Bond")).toBeInTheDocument();
-    expect(screen.getByText("Mei is up next")).toBeInTheDocument();
+    expect(screen.getByText("Stat")).toBeInTheDocument();
+  });
+
+  it("keeps only the newest turn expanded; older turns collapse (accordion)", async () => {
+    render(
+      <TurnInspectorPanel
+        open
+        onClose={() => {}}
+        turns={[turn("0", "first"), turn("1", "second")]}
+      />,
+    );
+    const older = screen.getByRole("button", { name: /Turn 1/ });
+    const newer = screen.getByRole("button", { name: /Turn 2/ });
+    expect(newer).toHaveAttribute("aria-expanded", "true"); // newest turn is active/open
+    expect(older).toHaveAttribute("aria-expanded", "false"); // completed turn collapsed
+    // Only the newest turn's steps are rendered while it is the sole open one.
+    expect(screen.getAllByText("Mei is up next")).toHaveLength(1);
+    // Clicking a completed turn opens it and collapses the newer one.
+    await userEvent.click(older);
+    expect(older).toHaveAttribute("aria-expanded", "true");
+    expect(newer).toHaveAttribute("aria-expanded", "false");
   });
 
   it("closes via the close button", async () => {

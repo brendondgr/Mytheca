@@ -24,7 +24,10 @@ class TurnRequest(CamelModel):
     selects POV (default) or Narrator rendering — the *same* loop, narrator
     interstitials on or off. ``trace`` opts into diagnostic ``trace`` frames
     interleaved on the stream (the story player's Inspector panel) — off by default so
-    the default stream + the story-event contract are unchanged.
+    the default stream + the story-event contract are unchanged. ``outcome`` is the
+    narrative-direction tag of a branch/path the player selected (the story player sends
+    it when a choice is picked): the engine opens with a fuller "progression" narration
+    and plays the chosen direction out over several beats rather than stopping short.
     """
 
     session_id: str | None = None
@@ -32,3 +35,4 @@ class TurnRequest(CamelModel):
     directed_at: str | None = None
     mode: TurnMode = "pov"
     trace: bool = False
+    outcome: str | None = None

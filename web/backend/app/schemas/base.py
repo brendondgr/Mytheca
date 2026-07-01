@@ -27,8 +27,9 @@ BranchTag = Literal[
 ]
 
 # The live story-event types carried on the NDJSON stream (see app/events).
-# ``internal_thought`` is conditioning-only (``visibility: hidden``) — persisted but
-# withheld from the client stream.
+# ``internal_thought`` defaults to ``visibility: hidden``, but the turn engine emits it
+# ``private_to_user`` so it streams to the player as a distinct "thinking" bubble while
+# staying out of other characters' context (it is never pushed to ``turn_beats``).
 EventType = Literal[
     "narration",
     "character_dialogue",

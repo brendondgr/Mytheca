@@ -19,7 +19,7 @@ Three families, each with a fixed role. Load via Google Fonts (or self-host equi
 | Role | Family | Usage |
 | --- | --- | --- |
 | Display / headings | **Cinzel** (500/600/700) | Wordmark, storyline/scenario titles, character names, section headers. Letterspaced (`.16em`–`.2em`) for the wordmark and small caps headers. |
-| Body / reading | **EB Garamond** (400/500/600 + italic) | All story prose, descriptions, card body, inputs. Narrator prose is **italic**. Line height 1.45–1.55. |
+| Body / reading | **EB Garamond** (400/500/600 + italic) | All story prose, descriptions, card body, inputs. Narrator prose and the character action label are **upright** (not italic) — kept muted, not slanted, for legibility. Line height 1.45–1.55. |
 | Labels / metadata | **IBM Plex Mono** (400/500) | Eyebrow labels, role tags, counts, stat values, check labels — uppercase, letterspaced (`.1em`–`.22em`). |
 
 Rules: body story text ≥ 16px on mobile; reading measure capped (~720px transcript column). Distinguish narrator beats, character turns, and player turns by **typography + layout + a left-accent**, never by color alone.
@@ -91,12 +91,23 @@ A three-zone "open book": a **left cast rail** (At the table · turn order, port
 
 | Event | Rendering |
 | --- | --- |
-| `narration` | Teal left-border card (`#1F8A82`), faint teal tint, **italic** EB Garamond, mono "Narrator" eyebrow. |
+| `narration` | Teal left-border card (`#1F8A82`), faint teal tint, **upright** EB Garamond (not italic), mono "Narrator" eyebrow. |
 | `character_dialogue` | Monogram avatar (character color) + Cinzel name in that color + chat bubble (`--card-bg`, asymmetric radius). |
-| `character_action` | Inline italic emote next to the name (e.g. *leans in, low*), in `--mute2`. |
+| `character_action` | Short **upright** label (5–10 words, not italic) next to the name, in `--mute2` (e.g. "leans in, low"). |
+| `internal_thought` | Distinct "thinking" bubble: dimmed monogram + name + a mono "thinking" tag + a **dashed** muted bubble (`bg-card2`, `--ink-soft` text, upright). Separate from the speech bubble so speak/think alternate naturally. |
 | player turn | Right-aligned bubble in `--accent` with `#F6ECDA` text, mono "You" eyebrow. |
 | `state_update` (stats) | Updates the right-rail **scenario state chips** (label + signed value, colored by direction; the change `reason` rides as the chip's title); no chat message. |
 | `branch_choices` | Centered "Your move — choose a path" block of ◆ choice rows (**label + outcome only** — no dice/check, D11). Selecting a row submits a real turn. |
+
+### Turn Inspector (diagnostic panel)
+
+A docked right-side column (opt-in `trace` frames) that shows, per message, what the turn
+loop did and why. Turns are an **accordion** — the active (newest) turn is expanded, completed
+turns collapse to a clickable header. Each step is a **colored dot on the left + a short tag +
+title**, and clicking a step expands a dropdown to reveal its plain-language detail. The dot
+colour categorises the step (Intent / Plan / Speaker / Thinks / Speaks / Stat / Bond / …) but
+is always **paired with the text tag**, so meaning never rests on colour alone (WCAG 1.4.1).
+Read-only — the panel never changes the scene.
 
 ### Stats & tension display
 
