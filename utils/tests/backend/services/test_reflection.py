@@ -151,3 +151,31 @@ def test_no_targets_is_noop(client, db_session, monkeypatch):
     monkeypatch.setattr(interior, "_redis", lambda: fake)
     reflection.run_reflection(db_session, _ctx([]), [], [])
     assert fake.store == {}
+
+
+# ---- P10: mid-turn cascade disposition refresh --------------------------------
+
+
+def test_refresh_dispositions_mutates_members_in_place_and_persists(client, db_session, monkeypatch):
+    _configure_llm(client)
+    fake = _FakeRedis()
+    monkeypatch.setattr(interior, "_redis", lambda: fake)
+    _patch_reflection(monkeypatch, {"Kira": {"disposition": "On edge now."}})
+    kira = _member("c_kira", "Kira")
+    ctx = _ctx([_member("c_mei", "Mei"), kira])
+
+    reflection.refresh_dispositions(db_session, ctx, [kira], [], seq=1)
+
+    # Mutated in place so THIS turn's later beat sees the new stance …
+    assert kira.disposition == "On edge now."
+    # … and persisted so it also carries into the next turn.
+    rec = interior.get_interior("ps1", "c_kira")
+    assert rec is not None and rec.disposition == "On edge now."
+
+
+def test_refresh_dispositions_unconfigured_llm_is_noop(db_session, monkeypatch):
+    fake = _FakeRedis()
+    monkeypatch.setattr(interior, "_redis", lambda: fake)
+    kira = _member("c_kira", "Kira")
+    reflection.refresh_dispositions(db_session, _ctx([kira]), [kira], [])
+    assert kira.disposition == "" and fake.store == {}

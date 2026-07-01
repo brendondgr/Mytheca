@@ -24,6 +24,7 @@ from app.agents.reflection_agent import LlmConn
 from app.core.config import get_settings
 from app.core.errors import APIError
 from app.memory import interior
+from app.memory.interior import InteriorRecord
 from app.services import concurrency
 from app.services.assembler import CastMember, TurnContext
 
@@ -94,6 +95,52 @@ def reflect_and_store(
             interior.set_interior(session_id, character_id, record)
 
     concurrency.run_all([partial(_one, target) for target in targets])
+
+
+def refresh_dispositions(
+    db: Session,
+    ctx: TurnContext,
+    members: list[CastMember],
+    turn_beats: list[dict],
+    *,
+    seq: int = 0,
+) -> None:
+    """Cascade refresh: recompute the given (not-yet-spoken) members' dispositions mid-turn.
+
+    Called by the live speaker queue (§P10) after a high-impact beat: the affected
+    members reflect on the shift *now* so their upcoming line reacts to it, instead of
+    waiting for the next turn. Each fresh disposition is written **in place** onto its
+    ``CastMember`` (so ``character_turn_agent`` picks it up this turn) and persisted to
+    interior state (so it also carries forward). Best-effort; concurrent; the reflect
+    calls touch no request Session (the mutation happens after they join).
+    """
+    if not members or not get_settings().turn_reflection_enabled:
+        return
+    try:
+        conn = resolve_llm(db)
+    except APIError:
+        return
+    transcript = render_transcript(ctx, turn_beats)
+
+    def _one(member: CastMember) -> tuple[CastMember, object]:
+        record = reflection_agent.reflect(
+            conn,
+            name=member.name,
+            role=member.role,
+            character_id=member.id,
+            stable_prefix=ctx.stable_prefix,
+            transcript=transcript,
+            seq=seq,
+        )
+        return member, record
+
+    for result in concurrency.run_all([partial(_one, m) for m in members]):
+        if result is None:
+            continue
+        member, record = result
+        if isinstance(record, InteriorRecord) and record.disposition:
+            member.disposition = record.disposition  # live: this turn's later beat sees it
+            interior.set_interior(ctx.session_id, member.id, record)
 
 
 def render_transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:

@@ -79,17 +79,19 @@ def generate_line(
     *,
     turn_beats: list[dict],
     reasoning: ReasoningEffort = TURN_EFFORT,
+    correction: str | None = None,
 ) -> str:
     """Generate one character's raw emission for this beat (thin-tag format).
 
     ``turn_beats`` is the chronological this-turn transcript so far (the player's
     line, then any earlier speakers' lines) — so a later speaker genuinely reacts to
     its predecessor (the immediate predecessor sits last, where recency attention is
-    strongest).
+    strongest). ``correction`` re-runs the beat after the consistency guard (§P10)
+    flagged a continuity break, folding the reason into the act-now tail.
     """
     base_url, api_key, model, params = resolve_llm(db)
     system = f"{_OUTPUT_CONTRACT}\n\n{ctx.stable_prefix}".strip()
-    user = _build_user_prompt(ctx, speaker, turn_beats)
+    user = _build_user_prompt(ctx, speaker, turn_beats, correction=correction)
     return llm.chat_complete(
         base_url,
         api_key,
@@ -107,7 +109,13 @@ def _speaker_number(ctx: TurnContext, speaker: CastMember) -> int:
     return 1
 
 
-def _build_user_prompt(ctx: TurnContext, speaker: CastMember, turn_beats: list[dict]) -> str:
+def _build_user_prompt(
+    ctx: TurnContext,
+    speaker: CastMember,
+    turn_beats: list[dict],
+    *,
+    correction: str | None = None,
+) -> str:
     """Bookended volatile suffix: identity/state (front) · scene+transcript (middle) · act-now (tail)."""
     number = _speaker_number(ctx, speaker)
 
@@ -149,6 +157,12 @@ def _build_user_prompt(ctx: TurnContext, speaker: CastMember, turn_beats: list[d
     if speaker.disposition:
         # Disposition already computed (§P9) — keep the hidden reasoning to a beat.
         tail.append("You already know your stance — keep <thinking> to a few words.")
+    if correction:
+        # Consistency guard flagged the prior attempt (§P10) — steer the redo.
+        tail.append(
+            f"Your previous line broke continuity ({correction}). Redo it consistently "
+            "with the established beats above."
+        )
     tail.append(
         f"Respond now, in {speaker.name}'s voice, to what was just said. Emit only the tagged format."
     )
@@ -156,11 +170,17 @@ def _build_user_prompt(ctx: TurnContext, speaker: CastMember, turn_beats: list[d
     return "\n".join(["\n".join(head), "", "\n".join(middle), "", "\n".join(tail)])
 
 
+# Cap the rendered transcript so a crowded, many-speaker turn keeps the bookended
+# prompt bounded (§P10 — "bookended prompt under scale"). The most recent beats matter
+# most for recency; older context lives in the buffer/graph, not this window.
+_TRANSCRIPT_MAX_BEATS = 14
+
+
 def _transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
     """Render prior history + this-turn beats as a short transcript (chronological)."""
     names = {m.id: m.name for m in ctx.cast}
     lines: list[str] = []
-    for beat in [*ctx.recent_beats, *turn_beats]:
+    for beat in [*ctx.recent_beats, *turn_beats][-_TRANSCRIPT_MAX_BEATS:]:
         text = str(beat.get("text", "")).strip()
         if not text:
             continue

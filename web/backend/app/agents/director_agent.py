@@ -108,6 +108,66 @@ def _reasoned_decision(db: Session, ctx: TurnContext) -> DirectorDecision:
     return DirectorDecision(speakers, bool(data.get("needsBranch", False)), str(data.get("beat", "")))
 
 
+_RERANK_SYSTEM = """You are the scene director mid-turn. A beat just shifted the room, and some characters have not yet spoken this turn. RE-RANK only those remaining speakers by who is now most provoked to react next — STRUCTURE ONLY, never prose.
+
+Return ONLY a JSON object: {"speakers": [remaining roster numbers, most-provoked first]}
+
+Rules:
+- Use ONLY the remaining roster numbers given (never add a character who already spoke or is absent).
+- You may drop a remaining speaker who no longer has anything to add; keep the order meaningful.
+- No prose, no commentary — just the JSON object."""
+
+
+def rerank(db: Session, ctx: TurnContext, remaining_ids: list[str], turn_beats: list[dict]) -> list[str]:
+    """Re-rank the not-yet-spoken speakers after a shift (best-effort → unchanged order).
+
+    A mid-turn re-consult (§P10 live queue): the whole cast is numbered so the model
+    speaks the same roster language as ``who_is_up``; the result is filtered back to the
+    still-remaining ids, preserving any the model omits at the tail so no one is lost.
+    """
+    if len(remaining_ids) <= 1:
+        return remaining_ids
+    try:
+        base_url, api_key, model, params = resolve_llm(db)
+    except APIError:
+        return remaining_ids
+
+    roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(ctx.cast))
+    roster_ids = {i + 1: m.id for i, m in enumerate(ctx.cast)}
+    remaining_set = set(remaining_ids)
+    numbers = ", ".join(str(n) for n, cid in roster_ids.items() if cid in remaining_set)
+    transcript = "\n".join(f"{b.get('role')}: {b.get('text', '')}" for b in turn_beats if b.get("text"))
+    user = (
+        f"Full roster:\n{roster}\n\nRemaining (not yet spoken) numbers: {numbers}\n\n"
+        f"This turn so far:\n{transcript}\n\nRe-rank the remaining speakers now."
+    )
+    try:
+        raw = llm.chat_complete(
+            base_url,
+            api_key,
+            model,
+            [{"role": "system", "content": _RERANK_SYSTEM}, {"role": "user", "content": user}],
+            params,
+            reasoning=DIRECTOR_EFFORT,
+        )
+        data = extract_json(raw)
+    except APIError:
+        return remaining_ids
+
+    ordered: list[str] = []
+    raw_speakers = data.get("speakers", [])
+    for num in raw_speakers if isinstance(raw_speakers, list) else []:
+        number = _as_int(num)
+        if number is None:
+            continue
+        cid = roster_ids.get(number)
+        if cid in remaining_set and cid not in ordered:
+            ordered.append(cid)
+    # Preserve any remaining speaker the model omitted (never silently drop someone).
+    ordered.extend(cid for cid in remaining_ids if cid not in ordered)
+    return ordered
+
+
 _BRANCH_SYSTEM = """You are the scene director. The player faces a fork. Offer 2-4 distinct branch options — STRUCTURE ONLY, no prose narration.
 
 Return ONLY a JSON object:

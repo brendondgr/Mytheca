@@ -395,6 +395,141 @@ def test_turn_writes_interior_state_after_stream(client, storyline_id, monkeypat
     assert rec is not None and rec.disposition == "Guarded now."
 
 
+# ---- P10: multi-party (consistency guard · live queue re-rank · universal reflection) --
+
+
+def _three(client, storyline_id):
+    mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    kira = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Kira"}).json()["id"]
+    jax = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Jax"}).json()["id"]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
+    return mei, kira, jax, sid
+
+
+def _reconstruct_dialogue(events: list[dict]) -> list[dict]:
+    """Collapse delta chunks → one {characterId, text, seq} per dialogue event, seq-ordered."""
+    out: list[dict] = []
+    for eid, evs in _by_id(events).items():
+        if evs[0]["type"] != "character_dialogue":
+            continue
+        out.append(
+            {
+                "characterId": evs[-1]["data"].get("characterId"),
+                "text": "".join(e["data"]["text"] for e in evs),
+                "seq": evs[0]["seq"],
+            }
+        )
+    return sorted(out, key=lambda d: d["seq"])
+
+
+def test_consistency_guard_regenerates_a_contradicting_later_line(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    mei, kira, _jax, sid = _three(client, storyline_id)
+    scid = _scenario(client, storyline_id, [mei, kira], sid)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        body = json.loads(request.content.decode())
+        system, user = body["messages"][0]["content"], body["messages"][1]["content"]
+        if "mid-turn" in system:  # no stat change here → not expected, but answer safely
+            return _resp(json.dumps({"speakers": []}))
+        if "scene director" in system:
+            return _resp(json.dumps({"speakers": [1, 2], "needsBranch": False, "beat": "x"}))
+        if "continuity auditor" in system:  # flag Kira's first attempt
+            return _resp(json.dumps({"consistent": False, "reason": "the lantern was just lit"}))
+        if "private inner voice" in system:
+            return _resp("{}")
+        m = re.search(r"You are \[(\d+)\] (\w+)", user)
+        num = m.group(1) if m else "1"
+        if num == "1":
+            return _resp('<speaker:1>\n<type:character_dialogue>\n"The lantern is lit."')
+        if "broke continuity" in user:  # Kira's redo
+            return _resp('<speaker:2>\n<type:character_dialogue>\n"I step toward the lit lantern."')
+        return _resp('<speaker:2>\n<type:character_dialogue>\n"The lantern is dark."')  # contradiction
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I address the room."}))
+
+    lines = _reconstruct_dialogue(events)
+    texts = [line["text"] for line in lines]
+    assert any(t == '"The lantern is lit."' for t in texts)  # Mei (first speaker, no guard)
+    assert any("lit lantern" in t for t in texts)  # Kira's corrected line
+    assert all("dark" not in t for t in texts)  # the contradiction was never emitted
+
+
+def test_high_impact_beat_reranks_the_remaining_speakers(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    client.post(
+        f"/api/storylines/{storyline_id}/stats",
+        json={"key": "suspicion", "displayName": "Suspicion", "min": 0, "max": 100, "default": 50},
+    )
+    mei, kira, jax, sid = _three(client, storyline_id)
+    scid = _scenario(client, storyline_id, [mei, kira, jax], sid)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        body = json.loads(request.content.decode())
+        system, user = body["messages"][0]["content"], body["messages"][1]["content"]
+        if "mid-turn" in system:  # re-rank remaining [kira(2), jax(3)] → [jax, kira]
+            return _resp(json.dumps({"speakers": [3, 2]}))
+        if "scene director" in system:
+            return _resp(json.dumps({"speakers": [1, 2, 3], "needsBranch": False, "beat": "x"}))
+        if "continuity auditor" in system:
+            return _resp(json.dumps({"consistent": True}))
+        if "private inner voice" in system:
+            return _resp("{}")
+        m = re.search(r"You are \[(\d+)\] (\w+)", user)
+        num, name = (m.group(1), m.group(2)) if m else ("1", "X")
+        if num == "1":  # Mei drops a big stat change → high impact → wide cascade + re-rank
+            return _resp(
+                '<speaker:1>\n<type:character_dialogue>\n"Mei speaks."\n'
+                '<type:state_update>\n{"key":"suspicion","delta":50,"reason":"a hard accusation"}'
+            )
+        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks."')
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I address the room."}))
+
+    order = [line["characterId"] for line in _reconstruct_dialogue(events)]
+    assert order == [mei, jax, kira]  # Mei first, then the re-ranked remainder [jax, kira]
+    # the big stat change still applied on the hot path
+    assert client.get(f"/api/characters/{mei}/stats").json()["suspicion"] == 100
+
+
+def test_universal_reflection_writes_interior_for_the_whole_cast(client, storyline_id, monkeypatch):
+    from app.memory import interior
+
+    _configure_llm(client)
+    fake = _FakeRedis()
+    monkeypatch.setattr(interior, "_redis", lambda: fake)
+    mei, kira, jax, sid = _three(client, storyline_id)
+    scid = _scenario(client, storyline_id, [mei, kira, jax], sid)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        body = json.loads(request.content.decode())
+        system, user = body["messages"][0]["content"], body["messages"][1]["content"]
+        if "private inner voice" in system:  # every character reflects, even the silent ones
+            name = re.search(r"You are (\w+)", user)
+            who = name.group(1) if name else "?"
+            return _resp(json.dumps({"disposition": f"{who} took it in."}))
+        if "continuity auditor" in system:
+            return _resp(json.dumps({"consistent": True}))
+        return _resp(_EMISSION)  # only Mei is addressed → the sole speaker
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": mei}))
+
+    # Only Mei spoke, but in a crowd (N>2) all three updated their interior state.
+    session_id = events[0]["sessionId"]
+    for cid in (mei, kira, jax):
+        rec = interior.get_interior(session_id, cid)
+        assert rec is not None and rec.disposition.endswith("took it in.")
+
+
 def test_unknown_scenario_returns_404(client):
     assert client.post("/api/play/nope/turn", json={"text": "hi"}).status_code == 404
 
