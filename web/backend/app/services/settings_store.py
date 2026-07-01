@@ -62,6 +62,7 @@ def _llm_defaults() -> dict:
         "provider": s.llm_provider or "openai-compatible",
         "params": LlmParams().model_dump(by_alias=True),
         "_apiKey": s.openai_api_key or "",
+        "authoringConcurrency": s.build_max_concurrency,
     }
 
 
@@ -79,6 +80,7 @@ def get_llm(db: Session) -> LlmConfigRead:
         params=LlmParams.model_validate(doc.get("params") or {}),
         has_api_key=bool(api_key),
         api_key_hint=_mask(api_key),
+        authoring_concurrency=max(1, int(doc.get("authoringConcurrency") or 1)),
     )
 
 
@@ -96,6 +98,8 @@ def update_llm(db: Session, data: LlmConfigUpdate) -> LlmConfigRead:
     # api_key: None = keep; "" = clear; otherwise replace.
     if data.api_key is not None:
         doc["_apiKey"] = data.api_key
+    if data.authoring_concurrency is not None:
+        doc["authoringConcurrency"] = max(1, int(data.authoring_concurrency))
     _set_row(db, LLM_KEY, doc)
     return get_llm(db)
 

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { LanguageModelsTab } from "./LanguageModelsTab";
@@ -17,6 +17,7 @@ function makeOpts(overrides: Partial<OptionsState["settings"]> = {}): OptionsSta
         params: { temperature: 0.7, maxTokens: 512, topP: 1, frequencyPenalty: 0, presencePenalty: 0 },
         hasApiKey: false,
         apiKeyHint: null,
+        authoringConcurrency: 3,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
       comfy: {
@@ -56,6 +57,20 @@ describe("LanguageModelsTab", () => {
     expect(await screen.findByText(/saved/i)).toBeInTheDocument();
   });
 
+  it("hydrates and saves the authoring concurrency", async () => {
+    const user = userEvent.setup();
+    const opts = makeOpts();
+    render(<LanguageModelsTab opts={opts} />);
+
+    const field = screen.getByLabelText(/max parallel authoring requests/i) as HTMLInputElement;
+    expect(field.value).toBe("3");
+    fireEvent.change(field, { target: { value: "6" } });
+    await user.click(screen.getByRole("button", { name: /save/i }));
+    expect(opts.saveLlm).toHaveBeenCalledWith(
+      expect.objectContaining({ authoringConcurrency: 6 }),
+    );
+  });
+
   it("omits the apiKey when the field is left blank (keeps the stored key)", async () => {
     const user = userEvent.setup();
     const opts = makeOpts({
@@ -66,6 +81,7 @@ describe("LanguageModelsTab", () => {
         params: { temperature: 0.7, maxTokens: 512, topP: 1, frequencyPenalty: 0, presencePenalty: 0 },
         hasApiKey: true,
         apiKeyHint: "…AB12",
+        authoringConcurrency: 3,
       },
     });
     render(<LanguageModelsTab opts={opts} />);
@@ -101,6 +117,7 @@ describe("LanguageModelsTab", () => {
         params: { temperature: 0.7, maxTokens: 512, topP: 1, frequencyPenalty: 0, presencePenalty: 0 },
         hasApiKey: false,
         apiKeyHint: null,
+        authoringConcurrency: 3,
       },
     });
     render(<LanguageModelsTab opts={opts} />);

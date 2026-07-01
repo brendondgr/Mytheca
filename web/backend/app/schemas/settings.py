@@ -28,6 +28,11 @@ class LlmConfigRead(CamelModel):
     params: LlmParams = LlmParams()
     has_api_key: bool = False
     api_key_hint: str | None = None
+    # How many characters/settings are drafted concurrently in the world build (and
+    # how many entities are embedded concurrently during a RAG re-index). Bounded by
+    # what the configured backend can serve: single-slot llama.cpp → 1, vLLM → higher.
+    # Image generation is always sequential (single-GPU ComfyUI) regardless.
+    authoring_concurrency: int = 3
 
 
 class LlmConfigUpdate(CamelModel):
@@ -37,6 +42,7 @@ class LlmConfigUpdate(CamelModel):
     params: LlmParams | None = None
     # Omitted = keep the stored key; "" = clear it; any other value = replace it.
     api_key: str | None = None
+    authoring_concurrency: int | None = None
 
 
 class LibraryDefaultsRead(CamelModel):

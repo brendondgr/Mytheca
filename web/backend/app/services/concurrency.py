@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Callable, Sequence
-from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable, Iterator, Sequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TypeVar
 
 from app.core.config import get_settings
@@ -61,6 +61,37 @@ def run_all(
         for future, index in futures.items():
             results[index] = future.result()  # _safe never raises
     return results
+
+
+def imap_unordered(
+    thunks: Sequence[Callable[[], T]],
+    *,
+    max_workers: int | None = None,
+) -> Iterator[tuple[int, T | None]]:
+    """Run each thunk concurrently (bounded), yielding ``(original_index, result)``
+    **as each completes** — so a streaming generator can emit an event per result
+    the instant it's ready, in whatever order they finish.
+
+    Empty input yields nothing. A single unit (or ``max_workers <= 1``) runs **inline
+    in order** (no pool — deterministic for the offline test/dev path). A unit that
+    raises yields ``(i, None)`` (failure-isolated; one flaky unit never aborts the
+    batch). Same ``Session``-safety contract as ``run_all``: thunks must be
+    self-contained and must not touch the request's SQLAlchemy ``Session``.
+    """
+    items = list(thunks)
+    if not items:
+        return
+    cap = max_workers if max_workers is not None else get_settings().turn_max_concurrency
+    workers = max(1, min(cap, len(items)))
+    if workers == 1:
+        for i, thunk in enumerate(items):
+            yield i, _safe(thunk)
+        return
+
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="velora-authoring") as pool:
+        futures = {pool.submit(_safe, thunk): i for i, thunk in enumerate(items)}
+        for future in as_completed(futures):
+            yield futures[future], future.result()  # _safe never raises
 
 
 def submit_background(job: Callable[[], None]) -> None:
