@@ -131,13 +131,15 @@ export function StoryPlayerView({
             relationships={scene.relationships}
           />
         )}
+
+        {/* Docked to the far right of the Director rail — the chat stays visible. */}
+        <TurnInspectorPanel
+          open={inspectorOpen}
+          onClose={() => setInspectorOpen(false)}
+          turns={scene.traceTurns}
+        />
       </div>
 
-      <TurnInspectorPanel
-        open={inspectorOpen}
-        onClose={() => setInspectorOpen(false)}
-        turns={scene.traceTurns}
-      />
       <SceneLoader scenario={scenario} storylineName={storylineName} visible={scene.loading} />
       <CharacterProfileModal character={modalChar} onClose={() => setModalId(null)} />
     </div>

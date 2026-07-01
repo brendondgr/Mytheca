@@ -553,7 +553,9 @@ def test_trace_frames_when_requested_and_story_events_still_validate(client, sto
     traces = [e for e in events if e["type"] == "trace"]
     steps = [t["step"] for t in traces]
     assert steps[0] == "turn"  # each turn opens with a "turn" step
-    assert {"assemble", "director", "speaker", "reflection"} <= set(steps)
+    # The whole pipeline is visible: scene assembly, RAG look-up, Director, the speaker,
+    # the graph commit, and the reflection interlude.
+    assert {"assemble", "lore", "director", "speaker", "commit", "reflection"} <= set(steps)
     ns = [t["n"] for t in traces]
     assert ns == sorted(ns) and len(set(ns)) == len(ns)  # ordered, unique
     # Trace frames are transport-only; every real story event still validates.
@@ -575,6 +577,30 @@ def test_trace_director_step_explains_speaker_choice(client, storyline_id, monke
     director = next(t for t in events if t["type"] == "trace" and t["step"] == "director")
     assert director["data"]["speakers"] == ["Mei", "Kira"]
     assert director["detail"]  # a plain-language rationale is present
+
+
+def test_trace_commit_reports_graph_changes_on_a_stat_turn(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    client.post(
+        f"/api/storylines/{storyline_id}/stats",
+        json={"key": "suspicion", "displayName": "Suspicion", "min": 0, "max": 100, "default": 50},
+    )
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    emission = (
+        "<speaker:1>\n"
+        '<type:character_dialogue>\n"Don\'t pretend you forgot."\n'
+        '<type:state_update>\n{"key":"suspicion","delta":12,"reason":"old guilt"}'
+    )
+    _patch_llm(monkeypatch, emission)
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid, "trace": True})
+    )
+    commit = next(t for t in events if t["type"] == "trace" and t["step"] == "commit")
+    assert commit["data"]["consequences"] == 1  # the stat change is a durable consequence
+    # …and the change itself is a "stat" step with the clamped value + reason.
+    stat = next(t for t in events if t["type"] == "trace" and t["step"] == "stat")
+    assert stat["data"]["value"] == 62 and "old guilt" in stat["detail"]
 
 
 def test_trace_surfaces_hidden_thinking(client, storyline_id, monkeypatch):
