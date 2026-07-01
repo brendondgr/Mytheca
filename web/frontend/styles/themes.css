@@ -207,6 +207,27 @@
   animation: veloraGlowPulse 2.2s ease-in-out infinite;
 }
 
+/* Active-field highlight — marks the field an agent is authoring *right now*
+ * (the real-time editing feedback). Same `--glow-color` idiom as `.velora-glow`
+ * (defaults to the theme accent), tighter + quicker so it reads as "writing
+ * here". The base box-shadow lives outside the keyframes, so the global
+ * `.velora-themed *` reduced-motion rule below — which strips `animation` but
+ * not `box-shadow` — leaves a static ring instead of nothing. */
+@keyframes veloraFieldPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px var(--glow-color), 0 0 4px 0 var(--glow-color);
+  }
+  50% {
+    box-shadow: 0 0 0 2px var(--glow-color), 0 0 10px 2px var(--glow-color);
+  }
+}
+.velora-field-active {
+  --glow-color: var(--accent);
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px var(--glow-color), 0 0 10px 2px var(--glow-color);
+  animation: veloraFieldPulse 1.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .velora-themed,
   .velora-themed *,
