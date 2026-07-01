@@ -47,16 +47,20 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
         → services.llm.chat_complete (configured endpoint; reasoning budget; guided-decoding seam)
       emission.parse_emission: thin <speaker:N>/<type:…> tags → typed segments (name→id; out-of-roster drop)
       _Emitter: assign per-session seq · validate (build_event) · persist (Postgres) · push buffer
-        · WITHHOLD internal_thought (hidden) · yield visible events
+        · internal_thought → private_to_user (streams as the thought bubble; NOT pushed to
+          turn_beats, so later speakers never see it) · yield visible events
   → StreamingResponse NDJSON ──▶ client
 ```
 
 On the client, `useScenePlay` (via the generic `useEventStream` hook + `postTurn`) consumes
 the stream: **delta-streamed prose** (`narration`, `character_dialogue`) accumulates by event
 `id` (incremental `text` chunks, `done` flips true last; a `character_action` immediately
-followed by that speaker's dialogue merges into one beat); `state_update` / `branch_choices`
-drive the side panels (wired in the branch/stat phase). The composer is locked while a turn
-streams (in-flight guard); a mid-stream failure surfaces the terminal `error` frame.
+followed by that speaker's dialogue merges into one beat); an `internal_thought` renders as
+its own distinct "thinking" bubble (never merged into a speech beat); `state_update` /
+`branch_choices` drive the side panels. A scene seeds **narrator-only** (no character speaks
+before the player acts), and selecting a branch forwards its `outcome` so the backend plays
+the chosen path out. The composer is locked while a turn streams (in-flight guard); a
+mid-stream failure surfaces the terminal `error` frame.
 
 The hot path is **read-only** — all mutation (durable consequences, edges) defers to the
 cold-path turn-writer (a later phase); stat changes are clamped during validation.
@@ -415,9 +419,13 @@ character then *performs* the direction in its own voice (not a bystander answer
 A **ReAct planner** (`agents/planner_agent.next_beat`) drives the turn beat-by-beat — after each
 beat it re-decides the next (a character speaks/acts, the narrator sets context, or the turn ends),
 so speakers are **unbounded** (a whole-group direction walks the entire cast; `TURN_MAX_BEATS` is a
-runaway backstop) — replacing the old capped one-shot Director + rerank/cascade. Each character
-reply is grounded in its **graph relationships** to whom it addresses (`graph_reader.relationship_context`
-— direct edges + 2-hop shared links, folded into the prompt). Relationships are **seeded from the
+runaway backstop) — replacing the old capped one-shot Director + rerank/cascade. The planner is
+biased toward **narration** between speakers, and a **cold scene open** with no directed character
+is narrator-led (the engine emits an opening narration first; no character speaks unprompted).
+Selecting a branch sends its `outcome`, which opens the turn with a fuller **progression**
+narration (`narrator_agent.interstitial(long=True, lead=…)`) that plays the choice out before the
+cast reacts. Each character reply is grounded in its **graph relationships** to whom it addresses
+(`graph_reader.relationship_context` — direct edges + 2-hop shared links, folded into the prompt). Relationships are **seeded from the
 cast bios** into the graph on a session's first turn (`services/relationships.ensure_seeded` +
 `agents/relationship_agent`) and **evolve in play** via a `relationship_update` block →
 `validator.validate_relationship` → a relational consequence the cold path writes as a directed edge.

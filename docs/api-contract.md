@@ -39,7 +39,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Scenario authoring | `POST /scenarios/draft`, `POST /scenarios/scene-art-prompts`, `POST /scenarios/scene-art` | **Implemented.** The agentic Scenario Creator: draft a scenario (title/genre/tone/goal/opening) from a seed, plus a **valid cast + setting chosen from the active world's real roster**. The model returns names from a numbered roster; the agent resolves names→ids server-side, **dropping** unknown cast and falling back to `""` for an unmatched setting — so the draft never invents or dangles a reference. Scene-art prompts and image generation follow the same watercolor pipeline as Setting authoring. Declared above `/scenarios/{id}`. See Scenario Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation), read-only inference-engine detection (`/llm/backend`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
-| Play | `POST /play/{scenarioId}/turn` | **Implemented.** Submit a player turn; the response body **is** the NDJSON event stream (`application/x-ndjson`, one event per line). Body: `{ text, directedAt?, sessionId?, mode?, trace? }` (omit `sessionId` to start a session). The engine **interprets the line** (narrate / address / **puppet** a character / whole-group), then runs a **ReAct planner** that decides the next beat after each one — a character speaks/acts (in their own voice; a puppeted character *performs* the direction), the narrator sets context, or the turn ends — so speakers are unbounded (a whole-group direction runs the entire cast) and order is dynamic. Character replies are grounded in their **graph relationships** to whom they address (direct + 2-hop). Pre-flight failures (unknown scenario → 404, empty text → 400, bad session → 404/400) return a normal error envelope before the 200 stream opens; a mid-stream failure is the terminal `{ "type": "error", "message": "…" }` frame. See Turn Stream below. |
+| Play | `POST /play/{scenarioId}/turn` | **Implemented.** Submit a player turn; the response body **is** the NDJSON event stream (`application/x-ndjson`, one event per line). Body: `{ text, directedAt?, sessionId?, mode?, trace?, outcome? }` (omit `sessionId` to start a session). The engine **interprets the line** (narrate / address / **puppet** a character / whole-group), then runs a **ReAct planner** that decides the next beat after each one — a character speaks/acts (in their own voice; a puppeted character *performs* the direction), the narrator sets context, or the turn ends — so speakers are unbounded (a whole-group direction runs the entire cast) and order is dynamic. A **cold scene open** with no directed character is **narrator-led** (the narrator sets the moment first; no character talks unprompted). `outcome` carries a selected branch's narrative-direction tag: the turn opens with a fuller "progression" narration and plays the choice out over several beats. Character replies are grounded in their **graph relationships** to whom they address (direct + 2-hop). Pre-flight failures (unknown scenario → 404, empty text → 400, bad session → 404/400) return a normal error envelope before the 200 stream opens; a mid-stream failure is the terminal `{ "type": "error", "message": "…" }` frame. See Turn Stream below. |
 | Relationships | `GET /play/{scenarioId}/relationships` | **Implemented.** The scenario's live character↔character relationships from the story graph — `{ relationships: [{ source, sourceName, type, target, targetName, reason }] }`. Best-effort: an empty list when the graph is off/unreachable (the story player keeps its seed placeholder). 404 only when the scenario is unknown. |
 | Stream (seam) | `GET /stream/{sessionId}` (SSE) or WS `/ws/{sessionId}` | **Deferred seam.** A separate fan-out connection (Redis pub/sub, reconnect/replay-from-`seq`, multi-watcher) for cases the single-response stream above doesn't cover. Not built. |
 | Admin (future) | `GET /admin/*` | High-permission only. |
@@ -528,7 +528,7 @@ Each maps to one frontend component.
 | `narration` | Teal narrator card | `text` (may delta-stream), `done` |
 | `character_dialogue` | Character chat bubble (speaker's avatar/color) | `characterId`, `text` (may delta-stream), `done` |
 | `character_action` | Action / emote card | `characterId`, `text` |
-| `internal_thought` | **Not rendered** — `visibility: hidden`, conditioning only | `characterId`, `text` (persisted, withheld from the stream) |
+| `internal_thought` | **Thought bubble** — a distinct "thinking" bubble (`visibility: private_to_user`) | `characterId`, `text` (streams to the player; kept out of other characters' context) |
 | `state_update` | Updates side panels (no chat message) | `patch` — partial scenario state; **stat changes ride here** |
 | `branch_choices` | Branch-choices panel | `choices[]` (`label`, `outcome`) |
 
@@ -536,9 +536,12 @@ Each maps to one frontend component.
 tag) only — there is no `check` field. A branch is a narrative fork resolved by the player's
 selection + the characters' in-character response, never a stat test.
 
-**`internal_thought`** is the hidden think→speak conditioning block (the turn-loop plan
-Step 5 / §7): persisted with `visibility: hidden` and **withheld from the client stream**
-(it conditions the spoken line in the same context window; it is never shown).
+**`internal_thought`** is the character's private think→speak block (the turn-loop plan
+Step 5 / §7). It streams to the **player** with `visibility: private_to_user` and renders as
+its own "thinking" bubble (distinct from what the character says out loud), but it is **kept
+out of other characters' context** — never appended to the shared transcript later speakers
+condition on. (The type's default visibility is `hidden`; the engine overrides it to
+`private_to_user` so the player sees the thought while the other characters do not.)
 
 **Stat changes** are carried on `state_update`:
 
@@ -562,10 +565,13 @@ Additional types to layer in later: `relationship_update`, `goal_update`, `turn_
 The response **is** the stream — `application/x-ndjson`, one event per line, in `seq`
 order — for the same `postNdjson`/`StreamingResponse` reasons as the build/triage streams.
 Request body: `{ "text": "…", "directedAt": "ch_id" | null, "sessionId": "ps_…" | null,
-"mode": "pov" | "narrator" }` (omit `sessionId` to open a new play session; the streamed
-events carry the resolved `sessionId`; `mode` defaults to `pov`). Multiple speakers stream
-**sequentially** in the Director's order — a later speaker reacts to its predecessor (the
-hidden `internal_thought` of each is withheld from the stream and from later speakers). A
+"mode": "pov" | "narrator", "outcome": "…" | null }` (omit `sessionId` to open a new play
+session; the streamed events carry the resolved `sessionId`; `mode` defaults to `pov`;
+`outcome` is a selected branch's direction — when set the turn opens with a fuller
+progression narration). A cold scene open with no directed character opens narrator-first.
+Multiple speakers stream **sequentially** in the planner's order — a later speaker reacts to
+its predecessor (each character's `internal_thought` streams to the player but is withheld
+from later speakers). A
 speaker may propose a stat change (a thin `state_update` block): the validator confirms the
 stat exists, applies the **delta/value clamped to `[min,max]`** on the hot path (keeping the
 `reason`), and emits a `state_update` event — an unknown stat is dropped. A speaker may also
@@ -587,16 +593,17 @@ these. `step` is a stable key (`turn` opens each turn, then `intent` / `assemble
 `stat` / `relationship_change` / `branch` / `commit` / `reflection`); `n` orders within one
 turn. Trace frames are
 **transport-only** (not persisted story events, not in `story_event_adapter`), and the flag
-defaults **off** so the default stream and the story-event contract are unchanged. Notably,
-a character's hidden `internal_thought` is surfaced here as a `thinking` trace step (it is
-still withheld as a story event). Clients ignore `trace` frames for the transcript.
+defaults **off** so the default stream and the story-event contract are unchanged. A
+character's `internal_thought` is surfaced here as a `thinking` trace step **and** streams as
+a `private_to_user` story event (the thought bubble). Clients ignore `trace` frames for the
+transcript.
 
 ### Rules
 
 - `seq` is monotonic per session (DB-authoritative: `max(seq)+1`, guarded by a
   `(session_id, seq)` unique constraint) so the client can detect gaps and reorder.
 - Chunked/delta text sets `done: false` until the final chunk sets `done: true`.
-- `internal_thought` (`visibility: hidden`) is persisted but never placed on the wire.
+- `internal_thought` streams with `visibility: private_to_user` (the thought bubble) but is kept out of other characters' context.
 - The validator runs `parse → validate (incl. stat clamping) → repair/retry` before anything reaches the stream.
 
 ## Shared Contracts Location
