@@ -91,11 +91,11 @@ A three-zone "open book": a **left cast rail** (At the table · turn order, port
 
 | Event | Rendering |
 | --- | --- |
-| `narration` | Teal left-border card (`#1F8A82`), faint teal tint, **upright** EB Garamond (not italic), mono "Narrator" eyebrow. |
-| `character_dialogue` | Monogram avatar (character color) + Cinzel name in that color + chat bubble (`--card-bg`, asymmetric radius). |
+| `narration` | Teal left-border card (`#1F8A82`), faint teal tint, **upright** EB Garamond (not italic), mono "Narrator" eyebrow. Quoted runs render **bold** (`QuotedText`). |
+| `character_dialogue` | Monogram avatar (character color) + Cinzel name in that color + chat bubble (`--card-bg`, asymmetric radius). Any text wrapped in double quotes (straight or curly) renders **bold** while keeping the quotes, via the `QuotedText` primitive. |
 | `character_action` | Short **upright** label (5–10 words, not italic) next to the name, in `--mute2` (e.g. "leans in, low"). |
-| `internal_thought` | **Folded into the speaker's beat**, not a separate bubble: a muted "thinking" line (mono `thinks` tag + `--ink-soft`, ~13px — slightly smaller than the 15.5px speech) sits between the character's name and their spoken bubble, so one message shows what they think, then what they say. |
-| player turn | Right-aligned bubble in `--accent` with `#F6ECDA` text, mono "You" eyebrow. |
+| `internal_thought` | **Folded into the speaker's beat inside ONE bubble** (not a separate block): the thought sits at the top of the spoken bubble as a muted, **italic** line (mono `thinks` tag + `--ink-soft`) at the **same 15.5px size as the speech** below it, separated by a `--hair` rule — so one message shows what they think, then what they say, without a size jump. |
+| player turn | Right-aligned bubble in `--accent` with `#F6ECDA` text, mono "You" eyebrow. Quoted runs render **bold** (`QuotedText`). |
 | `state_update` (stats) | Updates the Director rail's **Scene-state chips** (label + signed value, colored by direction; the change `reason` rides as the chip's title) AND the open **character dossier's** stat sliders, which are value-aware: the thumb, floating readout, and band title track that character's live per-`characterId` value (falling back to the schema default until it first moves). No chat message. |
 | `branch_choices` | Centered "Your move — choose a path" block of ◆ choice rows (**label + outcome only** — no dice/check, D11). 1–2 choices stack in a column; **3–4 lay out in a 2-column grid** (4 → a 2×2 grid). Selecting a row submits a real turn steered **open-endedly** by `guidance` (not a scripted play-out). |
 
