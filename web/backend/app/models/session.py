@@ -1,7 +1,9 @@
-"""PlaySession — a single play-through of a scenario (chat scaffold).
+"""PlaySession — a single play-through of a scenario.
 
-Data-structure scaffold only: no turn engine or streaming yet. Events
-(``app/models/event.py``) belong to a session.
+Events (``app/models/event.py``) and diagnostic trace steps
+(``app/models/turn_trace.py``) belong to a session. ``updated_at`` tracks recency so
+the story player can resume a scenario's most recent play-through with its full
+history; ``closed_at`` records an explicit close (the save-on-close signal).
 """
 
 from __future__ import annotations
@@ -25,3 +27,9 @@ class PlaySession(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+    # Bumped on every turn (and on an explicit close) so the story player can resume the
+    # most recent play-through of a scenario. ``closed_at`` records an explicit close.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

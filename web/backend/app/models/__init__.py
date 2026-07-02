@@ -13,6 +13,7 @@ from app.models.session import PlaySession
 from app.models.setting import Setting
 from app.models.stat import CharacterStat, StatDefinition
 from app.models.storyline import Storyline
+from app.models.turn_trace import TurnTrace
 
 __all__ = [
     "Base",
@@ -26,5 +27,6 @@ __all__ = [
     "CharacterStat",
     "PlaySession",
     "Event",
+    "TurnTrace",
     "GraphTypeDefinition",
 ]

@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
 from app.events.envelope import StoryEvent
-from app.models import Event, PlaySession
+from app.events.stream import TurnTraceFrame
+from app.models import Event, PlaySession, TurnTrace
 
 
 def next_seq(db: Session, session_id: str) -> int:
@@ -94,3 +95,43 @@ def persist_story_event(db: Session, event: StoryEvent) -> Event:
     db.add(row)
     db.commit()
     return row
+
+
+def persist_trace(
+    db: Session,
+    *,
+    session_id: str,
+    scenario_id: str,
+    turn: int,
+    frame: TurnTraceFrame,
+) -> None:
+    """Persist one diagnostic trace step so a scene's graph/RAG activity survives review.
+
+    Best-effort: a trace write must never break the turn stream, so a failure is rolled
+    back and swallowed (the frame still streamed to the player). Ordered by ``(turn, n)``.
+    """
+    try:
+        db.add(
+            TurnTrace(
+                session_id=session_id,
+                scenario_id=scenario_id,
+                turn=turn,
+                n=frame.n,
+                step=frame.step,
+                title=frame.title,
+                detail=frame.detail,
+                data=frame.data,
+            )
+        )
+        db.commit()
+    except Exception:  # pragma: no cover - defensive; diagnostics are non-critical
+        db.rollback()
+
+
+def touch_session(db: Session, session_id: str) -> None:
+    """Bump a session's ``updated_at`` so resume can pick the most recent play-through."""
+    session = db.get(PlaySession, session_id)
+    if session is None:  # pragma: no cover - defensive
+        return
+    session.updated_at = datetime.now(UTC)
+    db.commit()

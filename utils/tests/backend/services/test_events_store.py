@@ -6,8 +6,8 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.core.errors import APIError
-from app.events.stream import build_event
-from app.models import Event, PlaySession, Scenario, Storyline
+from app.events.stream import TurnTraceFrame, build_event
+from app.models import Event, PlaySession, Scenario, Storyline, TurnTrace
 from app.services import events_store
 
 
@@ -96,3 +96,31 @@ def test_session_seq_unique_constraint(db_session):
     db_session.add(Event(type="character_action", seq=0, scenario_id=scenario.id, session_id=session.id, data={}))
     with pytest.raises(IntegrityError):
         db_session.commit()
+
+
+def test_persist_trace_stores_step_ordered_by_turn_and_n(db_session):
+    scenario = _world(db_session)
+    session = events_store.create_session(db_session, scenario.id)
+    events_store.persist_trace(
+        db_session,
+        session_id=session.id,
+        scenario_id=scenario.id,
+        turn=0,
+        frame=TurnTraceFrame(n=2, step="lore", title="RAG look-up", detail="matched", data={"fetched": True}),
+    )
+    rows = db_session.query(TurnTrace).all()
+    assert len(rows) == 1
+    row = rows[0]
+    assert (row.turn, row.n, row.step) == (0, 2, "lore")
+    assert row.data == {"fetched": True}  # graph/RAG payload round-trips
+
+
+def test_touch_session_bumps_updated_at(db_session):
+    scenario = _world(db_session)
+    session = events_store.create_session(db_session, scenario.id)
+    original = session.updated_at
+    session.updated_at = original.replace(year=2000)
+    db_session.commit()
+    events_store.touch_session(db_session, session.id)
+    refreshed = db_session.get(PlaySession, session.id)
+    assert refreshed.updated_at.year != 2000
