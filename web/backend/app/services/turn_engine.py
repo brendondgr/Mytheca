@@ -401,6 +401,7 @@ def run_turn(
 
     # Cold path (Band 3): runs after the last event is yielded — never blocks the
     # player, best-effort, no-op when there are no consequences or the graph is down.
+    cons_summaries = [c.summary for c in consequences if c.summary]
     yield from tracer.emit(
         "commit",
         (
@@ -409,12 +410,11 @@ def run_turn(
             else "Nothing durable to commit to the story graph"
         ),
         detail=(
-            "Stat consequences + an :Event node are written to the knowledge graph (Neo4j) "
-            "after the turn."
-            if consequences
+            "Written to the story graph (Neo4j) after the turn: " + " · ".join(cons_summaries)
+            if cons_summaries
             else "This turn moved no stat/relationship, so the knowledge graph is unchanged."
         ),
-        data={"consequences": len(consequences)},
+        data={"consequences": len(consequences), "changes": cons_summaries},
     )
     turn_writer.write_turn(
         db,
@@ -444,14 +444,14 @@ def run_turn(
         seeded = relationships.ensure_seeded(db, scenario)
         yield from tracer.emit(
             "relationships",
-            f"Seeded {seeded} relationship(s) from bios" if seeded else "Relationships not seeded",
+            f"Seeded {len(seeded)} relationship(s) from bios" if seeded else "Relationships not seeded",
             detail=(
-                "Initial character-to-character edges extracted from the cast's backgrounds "
-                "into the story graph."
+                "Initial character-to-character edges from the cast's backgrounds: "
+                + " · ".join(seeded)
                 if seeded
                 else "Already seeded, the graph is off, or the bios implied none."
             ),
-            data={"seeded": seeded},
+            data={"seeded": len(seeded), "edges": seeded},
         )
     yield from tracer.emit(
         "reflection",
