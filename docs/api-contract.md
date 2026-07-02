@@ -324,12 +324,11 @@ on-page context-budget meter).
   classified docs are persisted on commit via the **Context documents** bulk endpoint.
 - `POST /storylines/build` — `{ seed?, docsOverview?, storylineId?, maxCharacters?,
   maxSettings?, characterDocs?: [{ name, text }], settingDocs?: [{ name, text }],
-  otherDocs?: [{ name, text }] }`
+  uncategorizedDocs?: [{ name, text }], otherDocs?: [{ name, text }] }`
   (at least one of `seed` / `docsOverview` / any attached doc is required). Orchestrates
   several LLM calls (storyline draft → World Primer → one **blueprint** call for the
-  stat schema → **one extraction call per attached doc** that lists the distinct
-  characters/settings it contains → one draft per extracted character → one draft per
-  extracted setting) and returns a reviewable `ProposedWorld`:
+  stat schema → **one strict extraction call per entity doc** → one draft per extracted
+  character → one draft per extracted setting) and returns a reviewable `ProposedWorld`:
 
   ```json
   {
@@ -340,14 +339,17 @@ on-page context-budget meter).
   }
   ```
 
-  **The cast/settings come ONLY from the attached docs, but each doc is *mined*** —
-  every attached doc (`characterDocs` + `settingDocs` + `otherDocs`) is scanned for the
-  **distinct characters and settings it contains**, and one card is drafted per subject
-  found. A single file describing several characters yields several character cards; a
-  mixed/`other` doc yields both kinds; a pure-lore doc yields none (it still grounds the
-  world). Subjects are de-duped across docs by folded name. The build never **invents** a
-  character/setting the author didn't attach: with no docs, `characters`/`settings` are
-  `[]`. The storyline metadata, World Primer, and the universal **stat schema** are
+  **The cast/settings come ONLY from the attached docs, and extraction RESPECTS the
+  author's classification** (it never invents a subject by expanding lore):
+  `characterDocs` are mined for explicitly **NAMED characters** only (usually one — the
+  doc *is* that character; split only if it clearly names several; a doc with no explicit
+  name still becomes **one** character); `settingDocs` the same for named settings;
+  `uncategorizedDocs` produce an entity **only if a genuinely NAMED** character/setting
+  is present (lore → nothing, no fallback); `otherDocs` are **lore/grounding only** and
+  never become entities (they fold into the drafting grounding). Subjects are de-duped
+  across docs by folded name in document order. The build never **invents** a
+  character/setting the author didn't attach: with no entity docs, `characters`/`settings`
+  are `[]`. The storyline metadata, World Primer, and the universal **stat schema** are
   always produced. Nothing is persisted by this call — the page reviews the proposal and
   commits it via the normal CRUD endpoints (rendering portraits/scene-art then, only if
   ComfyUI is reachable). The cast/settings are **uncapped** (every distinct subject the

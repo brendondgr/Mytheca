@@ -311,10 +311,12 @@ New Storyline page → "Build the whole world" → POST /storylines/build/stream
   → for-await over the response body (lib/api.postNdjson):
       status → meta  → left fields fill (Title/Genre/Tagline/Premise)
       status → primer→ World Primer fills
-      status → extract→ every attached doc is mined for its distinct subjects,
-                        CONCURRENTLY (bounded by authoringConcurrency) + per-doc
-                        progress ("Read k/N: <name>"); a doc that won't parse is
-                        retried once then SKIPPED (named), never fatal
+      status → extract→ docs mined for NAMED subjects, RESPECTING the triage bucket
+                        (character→named chars, setting→named settings, uncategorized→
+                        either strictly, other→lore-only-never-extracted), CONCURRENTLY
+                        (bounded by authoringConcurrency) + per-doc progress
+                        ("Read k/N: <name>"); an unreadable uncategorized doc is retried
+                        once then SKIPPED (named), never fatal
       status → plan  → stat schema + skeleton labels (the EXTRACTED subject names)
       character × N  → one per extracted character, fills its skeleton card
       setting   × M  → one per extracted setting, fills its skeleton card
@@ -329,22 +331,33 @@ New Storyline page → "Build the whole world" → POST /storylines/build/stream
 ```
 
 The build creates the storyline, the stat schema, and **only the characters/settings
-found in the attached context docs** — but each doc is **mined** for *every* distinct
-subject it names (an extraction pass per doc), so a single markdown file describing
-several characters yields several cards instead of being lost or collapsed into one. A
-mixed/`other` doc yields both characters and settings; a pure-lore doc yields none (it
-still grounds the world). Subjects are de-duped across docs (uncapped). It never invents
-a cast from thin air: no docs → no characters/settings. `useStorylineCreator.build()`
-sends **every** kept doc — `characterDocs`/`settingDocs` (their triage bucket) plus
-`otherDocs` (everything else, mined for both) — and the backend extracts the roster.
+found in the attached context docs**, and extraction **respects the author's triage
+bucket** — it never invents an entity by expanding lore:
+
+- **`characterDocs`** → mined for explicitly NAMED characters only (usually exactly
+  one — the doc *is* that character; split into several only if it clearly names
+  several). A classified doc with no explicit name still becomes **one** character (the
+  classification asserts it is one) — never lost, never invented.
+- **`settingDocs`** → the same, for named settings.
+- **`uncategorizedDocs`** (the `select` bucket) → read strictly; produce an entity
+  **only if a genuinely NAMED** character/setting is present. Lore/history/rules/
+  atmosphere → **nothing** (0 is valid — no fallback).
+- **`otherDocs`** → **LORE/GROUNDING ONLY**; never turned into entities (their text
+  folds into the drafting grounding so drafts stay consistent with them).
+
+Subjects are de-duped across docs in document order (uncapped). It never invents a cast
+from thin air: no entity docs → no characters/settings. `useStorylineCreator.build()`
+routes each kept doc to its bucket's list and the backend applies the policy above.
 
 The **extract stage is parallel + fault-tolerant** (matching the drafting phase): the
 per-doc extraction calls run through `concurrency.imap_unordered` bounded by
 `authoringConcurrency` (connection pre-resolved once so worker threads never touch the
 request `Session`), each at **LOW** reasoning effort (segmentation — faster, far less
-JSON truncation); a doc whose reply won't parse is **retried once then skipped** (the
-build continues and names it in a status line) instead of aborting the whole build with
-`"The model did not return valid JSON."`; and a `BuildStatusEvent(stage="extract")`
+JSON truncation) with a **strict, named-only** prompt (no inventing/expanding from
+lore); an **unreadable uncategorized** doc is **retried once then skipped** (the build
+continues and names it in a status line) instead of aborting the whole build with
+`"The model did not return valid JSON."` — a classified character/setting doc instead
+**falls back to one entity** so it is never lost; and a `BuildStatusEvent(stage="extract")`
 streams **per doc** so the UI shows movement rather than freezing on "Reading docs…".
 Cross-doc de-dup runs in **document order** (index slots) so the roster is stable
 regardless of which extraction finished first. (The larger RAG-first ingestion + on-
