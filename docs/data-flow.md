@@ -57,11 +57,12 @@ the stream: **delta-streamed prose** (`narration`, `character_dialogue`) accumul
 `id` (incremental `text` chunks, `done` flips true last). A speaker's `internal_thought`,
 `character_action`, and `character_dialogue` **all fold into one `char` beat** (the thought
 opens it, action + dialogue merge in as they arrive — `mergeFrame`/`isOpenCharBeat`), so a
-message reads as one moment: the character's name, their muted **thinking** line, then the
-spoken bubble. `state_update` / `branch_choices` drive the side panels. A scene seeds
+message reads as one moment: the character's name, then **one bubble** holding their muted
+**thinking** line and the spoken line at the **same text size** (`QuotedText` bolds any quoted
+run, keeping the quotes). `state_update` / `branch_choices` drive the side panels. A scene seeds
 **narrator-only** (no character speaks before the player acts); selecting a follow-up suggestion
-puts its text into the chat as the player's input **and** sends `guidance` so the backend steers
-the scene open-endedly (not a scripted play-out). Two composer dropdowns to the **left of the input**
+**writes its text into the composer** (focused, for review/editing) rather than auto-sending —
+the player edits and sends it as an ordinary turn. Two composer dropdowns to the **left of the input**
 (`SceneControlSelect`) set the per-scene turn limit + follow-up count and persist them on the
 scenario (`updateScenario` PATCH); four suggestions render as a **2×2 grid**. The composer is locked
 while a turn streams (in-flight guard); a mid-stream failure surfaces the terminal `error` frame.
@@ -537,20 +538,23 @@ regenerating once on a clear contradiction. All best-effort (Redis/LLM down → 
 character then *performs* the direction in its own voice (not a bystander answering the player).
 A **ReAct planner** (`agents/planner_agent.next_beat`) drives the turn beat-by-beat — after each
 beat it re-decides the next (a character speaks/acts, the narrator sets context, or the turn ends).
-The character back-and-forth is bounded by the scenario's **`max_turns`** (a hard per-scene ceiling
-on character replies to one player message, default **5** — the loop ends there even if the planner
-would continue; `TURN_MAX_BEATS`/`2*cast+6` remains a secondary runaway backstop). The planner is
-biased toward **narration** between speakers, and a **cold scene open** with no directed character
-is narrator-led. Each character's **`<thinking>`** step is a real, in-voice deliberation — a short
-paragraph reasoning through the moment in the character's own terminology (turn effort **MEDIUM**),
-streamed privately (`private_to_user`) and kept out of `turn_beats`. At the **end of every turn**,
-up to the scenario's **`suggestions_count`** (0–4; `0` disables) follow-up suggestions are generated
-from the **most recent line** (`director_agent.propose_branches(count=…)`) and emitted as
-`branch_choices` — count-driven, no longer gated on the planner's rarely-set `needsBranch` flag.
-**Selecting a suggestion** sends `guidance` (not the legacy `outcome` play-out): the direction is
-threaded into the planner + character prompts as an **open-ended steer** (`ctx.guidance`) so the
-scene bends that way while the AI still produces original, unscripted dialogue — it does not dictate
-a script. Each character reply is grounded in its **graph relationships** to whom it addresses
+The back-and-forth is bounded by the scenario's **`max_turns`** (a hard per-scene ceiling on
+**every emitted beat — character replies AND narrator beats** — for one player message, default
+**5** — the loop ends there even if the planner would continue; the narrated open and puppet
+performances count too; `TURN_MAX_BEATS`/`2*cast+6` remains a secondary runaway backstop). The
+planner is biased toward **narration** between speakers, and a **cold scene open** with no directed
+character is narrator-led. Each character's **`<thinking>`** step is a real, in-voice deliberation —
+a short paragraph reasoning through the moment in the character's own terminology (turn effort
+**MEDIUM**), streamed privately (`private_to_user`) and kept out of `turn_beats`. At the **end of
+every turn**, up to the scenario's **`suggestions_count`** (0–4; `0` disables) follow-up suggestions
+are generated from the **most recent line** (`director_agent.propose_branches(count=…)`) and emitted
+as `branch_choices` — count-driven, no longer gated on the planner's rarely-set `needsBranch` flag.
+Suggestions are **situation-based** (what happens next from a general, story-wide perspective, not a
+character's spoken line) and written to **match the player's own recent tone/pace**
+(`director_agent._player_voice`). **Selecting a suggestion** no longer submits a turn: the story
+player **writes its text into the composer** for the player to review, edit, and send as an ordinary
+`text` turn — so the chosen text itself carries the intent (the earlier open-ended `guidance` steer
+is retired). Each character reply is grounded in its **graph relationships** to whom it addresses
 (`graph_reader.relationship_context` — direct edges + 2-hop shared links, folded into the prompt). Relationships are **seeded from the
 cast bios** into the graph on a session's first turn (`services/relationships.ensure_seeded` +
 `agents/relationship_agent`) and **evolve in play** via a `relationship_update` block →

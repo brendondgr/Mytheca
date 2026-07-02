@@ -80,17 +80,26 @@ describe("StoryPlayerView", () => {
     );
   });
 
-  it("selecting a branch submits a real turn; a streamed state_update moves the stat panel", async () => {
+  it("selecting a suggestion writes it into the composer for review — no auto-send", async () => {
+    vi.mocked(postTurn).mockClear(); // mocks persist across tests; count from a clean slate
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.click(
+      screen.getByRole("button", { name: /confront maerin about the captain/i }),
+    );
+    // The suggested player text lands in the composer (focused for editing), not sent.
+    const box = screen.getByRole("textbox", { name: /your message/i }) as HTMLInputElement;
+    expect(box.value).toMatch(/afraid of him/i);
+    expect(box).toHaveFocus();
+    expect(vi.mocked(postTurn)).not.toHaveBeenCalled();
+  });
+
+  it("a streamed state_update moves the stat panel", async () => {
     const speaker = embergate.cast[0];
     vi.mocked(postTurn).mockImplementation(
       streamOf(
         {
-          type: "character_dialogue", id: "d1", seq: 1, scenarioId: embergate.id,
-          sessionId: "ps", ts: "t", visibility: "public",
-          data: { characterId: speaker.id, text: "Afraid is a strong word.", done: true },
-        } as TurnStreamFrame,
-        {
-          type: "state_update", id: "s1", seq: 2, scenarioId: embergate.id,
+          type: "state_update", id: "s1", seq: 1, scenarioId: embergate.id,
           sessionId: "ps", ts: "t", visibility: "public",
           data: { patch: {}, stat: { characterId: speaker.id, key: "suspicion", delta: 65, value: 67, reason: "pressed hard" } },
         } as TurnStreamFrame,
@@ -99,17 +108,9 @@ describe("StoryPlayerView", () => {
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
     expect(screen.getByText("+2")).toBeInTheDocument(); // Suspicion starts at +2
-    await user.click(
-      screen.getByRole("button", { name: /confront maerin about the captain/i }),
-    );
-    expect(await screen.findByText(/Afraid is a strong word/i)).toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: /your message/i }), "I press her.");
+    await user.click(screen.getByRole("button", { name: /send/i }));
     expect(await screen.findByText("+67")).toBeInTheDocument(); // clamped value from the stream
-    // Selecting sends the suggestion as OPEN-ENDED guidance (steer), not a dictated script.
-    expect(vi.mocked(postTurn)).toHaveBeenCalledWith(
-      embergate.id,
-      expect.objectContaining({ guidance: expect.stringMatching(/confront maerin/i) }),
-      expect.anything(),
-    );
   });
 
   it("persists the suggestion-count control to the scenario when changed", async () => {

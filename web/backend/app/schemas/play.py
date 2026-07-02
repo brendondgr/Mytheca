@@ -30,10 +30,11 @@ class TurnRequest(CamelModel):
     interleaved on the stream (the story player's Inspector panel) — off by default so
     the default stream + the story-event contract are unchanged. ``outcome`` is the
     narrative-direction tag of a branch/path the player selected (legacy; the engine
-    opened with a fuller "progression" narration). ``guidance`` (Scene Dialogue Updates)
-    is the open-ended steer sent when the player selects a follow-up suggestion: it nudges
-    the scene toward that general direction while the AI still produces original, unscripted
-    dialogue — it does NOT dictate a beat-by-beat script the way ``outcome`` did.
+    opened with a fuller "progression" narration).
+
+    A selected follow-up suggestion no longer submits a turn on its own: the story player
+    writes the suggested text into the composer for the player to review/edit and send as
+    an ordinary ``text`` turn (request #2), so there is no separate open-ended steer field.
     """
 
     session_id: str | None = None
@@ -42,7 +43,6 @@ class TurnRequest(CamelModel):
     mode: TurnMode = "pov"
     trace: bool = False
     outcome: str | None = None
-    guidance: str | None = None
 
 
 class SessionSummary(CamelModel):

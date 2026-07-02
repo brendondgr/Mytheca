@@ -191,36 +191,6 @@ def test_relationship_note_injected_into_prompt(client, db_session, monkeypatch)
     assert "Your ties in this scene: You fear Beth (old debt)." in user
 
 
-def test_guidance_injected_as_open_ended_steer(client, db_session, monkeypatch):
-    # A selected follow-up suggestion steers the character OPEN-ENDEDLY: the direction
-    # reaches the prompt, framed as a nudge with original/unscripted dialogue (not a script).
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()
-    ctx.guidance = "confront her about the missing cargo"
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    user = json.loads(capture["body"])["messages"][1]["content"]
-    assert "gently steered toward: confront her about the missing cargo" in user
-    assert "original, unscripted" in user
-
-
-def test_no_guidance_omits_the_steer(client, db_session, monkeypatch):
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()  # guidance defaults to ""
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    user = json.loads(capture["body"])["messages"][1]["content"]
-    assert "steered toward" not in user
-
-
 def test_voice_samples_injected_into_head(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}

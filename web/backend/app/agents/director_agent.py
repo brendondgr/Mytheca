@@ -168,16 +168,17 @@ def rerank(db: Session, ctx: TurnContext, remaining_ids: list[str], turn_beats: 
     return ordered
 
 
-_BRANCH_SYSTEM = """You are the scene director. The scene just paused. Offer the player a set of DIRECT follow-up options that continue from the MOST RECENT line — STRUCTURE ONLY, no prose narration.
+_BRANCH_SYSTEM = """You are the scene director. The scene just paused. Offer the player a set of SITUATION-BASED follow-up moves that continue the scene from a GENERAL, story-wide perspective — STRUCTURE ONLY, no prose narration.
 
 Return ONLY a JSON object:
-{"choices": [{"label": "what the player does/says next (short)", "outcome": "direction tag: de-escalate | escalate | bribe | probe | retreat | …"}]}
+{"choices": [{"label": "what happens next in the scene — a short move written from a general narrator's perspective", "outcome": "direction tag: de-escalate | escalate | probe | retreat | …"}]}
 
 Rules:
 - Offer EXACTLY the number of options requested — no more, no fewer.
-- Each option is a distinct, in-character way to respond to the most recent line specifically (a real follow-up, not a generic move).
+- Each option is SITUATION-BASED: describe what happens next in the scenario — an action taken, a turn of events, a direction the story goes — NOT a specific character's spoken line, and NOT written in any single character's voice. The player is a general narrator/director of the scene, not one character with a point of view.
+- Match the TONE, LENGTH, and PACE of the player's own recent moves (given below) so each option reads like something the player themself would write.
 - "outcome" is a short narrative-direction tag, never a dice check or stat test.
-- Surface only options that fit the current stats/tone (e.g. don't offer a calm option to a furious character).
+- Keep the options distinct and fitted to the current tone and stakes.
 - No prose, no commentary — just the JSON object."""
 
 # Hard cap on branch options offered per fork (the configurable count is clamped to this).
@@ -187,12 +188,13 @@ _MAX_BRANCHES = 4
 def propose_branches(
     db: Session, ctx: TurnContext, turn_beats: list[dict], count: int = _MAX_BRANCHES
 ) -> list[dict]:
-    """Generate ``count`` follow-up options anchored to the most recent dialogue line.
+    """Generate ``count`` situation-based follow-up moves for the general player.
 
     ``count`` (0–4) is the configured number of follow-up suggestions; ``0`` disables the
-    feature (returns ``[]`` with no LLM call). Options are direct follow-ups to the most
-    recent character line (fallback: the last non-empty beat), not the whole turn — so
-    they read as continuations of what was just said. Best-effort → ``[]``.
+    feature (returns ``[]`` with no LLM call). Options are SITUATION-BASED — what happens
+    next in the scenario from a general, story-wide perspective, not any one character's
+    next spoken line — and are written to match the tone/pace of the player's own recent
+    moves (request #1), anchored to what just happened. Best-effort → ``[]``.
     """
     want = max(0, min(count, _MAX_BRANCHES))
     if want == 0:
@@ -204,9 +206,19 @@ def propose_branches(
 
     roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(ctx.cast))
     latest = _latest_line(turn_beats)
+    voice = _player_voice(ctx, turn_beats)
+    voice_block = (
+        "The player writes their moves like this — match this voice, length, and pace:\n"
+        f"{voice}\n\n"
+        if voice
+        else ""
+    )
     user = (
-        f"Roster:\n{roster}\n\nThe most recent line:\n{latest}\n\n"
-        f"Offer EXACTLY {want} distinct follow-up option(s) that continue directly from that line."
+        f"Roster (scene context only — do not write in any of their voices):\n{roster}\n\n"
+        f"What just happened (most recent):\n{latest}\n\n"
+        f"{voice_block}"
+        f"Offer EXACTLY {want} distinct situation-based follow-up move(s) that continue the "
+        "scene from a general perspective, matching the player's tone and pace."
     )
     try:
         raw = llm.chat_complete(
@@ -245,6 +257,28 @@ def _latest_line(turn_beats: list[dict]) -> str:
         return "(scene opening)"
     latest = next((b for b in reversed(spoken) if b.get("role") == "character"), spoken[-1])
     return f"{latest.get('role')}: {str(latest.get('text', '')).strip()}"
+
+
+def _player_voice(ctx: TurnContext, turn_beats: list[dict], limit: int = 3) -> str:
+    """The player's own recent authored lines (oldest→newest) — the tone/pace to match.
+
+    Suggestions should read like something the player would write (request #1), so we hand
+    the model the player's established voice: their most recent ``player`` beats drawn from
+    the committed history and this turn (deduped, newest first, capped at ``limit``). Only
+    the player's writing is sampled — never a character's line — so the model matches the
+    general narrator's register, not any character's voice. Empty when the player has not
+    written anything yet.
+    """
+    lines: list[str] = []
+    for beat in reversed([*ctx.recent_beats, *turn_beats]):
+        if beat.get("role") != "player":
+            continue
+        text = str(beat.get("text", "")).strip()
+        if text and text not in lines:
+            lines.append(text)
+        if len(lines) >= limit:
+            break
+    return "\n".join(f"- {t}" for t in reversed(lines))
 
 
 def _as_int(value: object) -> int | None:

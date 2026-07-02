@@ -62,4 +62,23 @@ describe("TranscriptBeat", () => {
     renderBeat({ kind: "char", who: "mei", text: "Fine." });
     expect(screen.queryByText("thinks")).toBeNull();
   });
+
+  it("combines thought and speech into one box at the same text size (request #4)", () => {
+    renderBeat({ kind: "char", who: "mei", thought: "Coin first.", text: "Fine." });
+    const thought = screen.getByText("Coin first.");
+    const speech = screen.getByText("Fine.");
+    // Same font size for both — the thought is no longer a smaller, separate block.
+    expect(thought.className).toContain("text-[15.5px]");
+    expect(speech.className).toContain("text-[15.5px]");
+    // Both live inside the SAME bubble container.
+    const box = thought.closest("div");
+    expect(box).not.toBeNull();
+    expect(box?.contains(speech)).toBe(true);
+  });
+
+  it("bolds quoted dialogue inside the character bubble, keeping the quotes", () => {
+    renderBeat({ kind: "char", who: "mei", text: 'I said "leave now" firmly.' });
+    const strong = screen.getByText('"leave now"');
+    expect(strong.tagName).toBe("STRONG"); // emphasized, quotes preserved
+  });
 });

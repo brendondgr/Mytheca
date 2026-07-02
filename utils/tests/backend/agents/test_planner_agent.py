@@ -70,24 +70,6 @@ def test_speak_resolves_actor_and_addressing(client, db_session, monkeypatch):
     assert d.reason == "provoked"
 
 
-def test_guidance_reaches_the_planner_prompt(client, db_session, monkeypatch):
-    # A selected follow-up suggestion nudges the planner's next-beat decision.
-    seen: dict = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if not request.url.path.endswith("/chat/completions"):
-            return httpx.Response(404)
-        seen["user"] = json.loads(request.content.decode())["messages"][1]["content"]
-        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"action": "end"})}}]})
-
-    _configure_llm(client)
-    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
-    ctx = _ctx(_cast("mei", "kira"))
-    ctx.guidance = "reveal the hidden letter"
-    planner_agent.next_beat(db_session, ctx, TurnIntent(), [], [])
-    assert "steer the scene toward: reveal the hidden letter" in seen["user"]
-
-
 def test_narrate_action(client, db_session, monkeypatch):
     _configure_llm(client)
     _patch(monkeypatch, json.dumps({"action": "narrate", "reason": "set the scene"}))

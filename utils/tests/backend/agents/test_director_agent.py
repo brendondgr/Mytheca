@@ -161,18 +161,24 @@ def test_propose_branches_count_caps_the_list(client, db_session, monkeypatch):
     assert [b["label"] for b in branches] == ["A", "B"]  # capped to the requested count
 
 
-def test_propose_branches_anchors_on_most_recent_dialogue_line(client, db_session, monkeypatch):
-    # Suggestions are built from the LATEST character line, not the whole transcript.
-    seen = {"user": ""}
+def _capture_user(monkeypatch, seen, *, reply=None):
+    reply = reply or {"choices": [{"label": "X"}]}
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/chat/completions"):
             seen["user"] = json.loads(request.content.decode())["messages"][1]["content"]
-            return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"choices": [{"label": "X"}]})}}]})
+            return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(reply)}}]})
         return httpx.Response(404)
 
-    _configure_llm(client)
     monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+
+
+def test_propose_branches_anchors_on_most_recent_dialogue_line(client, db_session, monkeypatch):
+    # Suggestions anchor on the LATEST character line, not the whole transcript: a
+    # non-latest character beat is not dumped in.
+    seen = {"user": ""}
+    _configure_llm(client)
+    _capture_user(monkeypatch, seen)
     beats = [
         {"role": "player", "text": "OLD player line", "characterId": None},
         {"role": "character", "text": "an earlier reply", "characterId": "mei"},
@@ -181,7 +187,54 @@ def test_propose_branches_anchors_on_most_recent_dialogue_line(client, db_sessio
     director_agent.propose_branches(db_session, _ctx(_cast("mei")), beats, count=3)
     assert "the freshest reply" in seen["user"]
     assert "Offer EXACTLY 3" in seen["user"]
-    assert "OLD player line" not in seen["user"]  # the whole transcript is not dumped in
+    assert "an earlier reply" not in seen["user"]  # non-latest character beat not dumped in
+
+
+def test_propose_branches_are_situation_based_not_character_voiced(client, db_session, monkeypatch):
+    # The system prompt frames options as situation-based, general-perspective moves —
+    # never a specific character's spoken line.
+    seen = {"system": ""}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/chat/completions"):
+            seen["system"] = json.loads(request.content.decode())["messages"][0]["content"]
+            return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"choices": [{"label": "X"}]})}}]})
+        return httpx.Response(404)
+
+    _configure_llm(client)
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    director_agent.propose_branches(db_session, _ctx(_cast("mei")), [], count=2)
+    assert "SITUATION-BASED" in seen["system"]
+    assert "general" in seen["system"].lower()
+    assert "not a specific character" in seen["system"].lower() or "not written in any single character" in seen["system"].lower()
+
+
+def test_player_voice_samples_player_lines_only():
+    # The tone/pace signal is the player's OWN recent lines (committed history + this turn),
+    # newest last, deduped — never a character's line.
+    ctx = _ctx(_cast("mei"))
+    ctx.recent_beats = [{"role": "player", "text": "my prior wry aside", "characterId": None}]
+    beats = [
+        {"role": "player", "text": "my latest terse move", "characterId": None},
+        {"role": "character", "text": "a character retort", "characterId": "mei"},
+    ]
+    voice = director_agent._player_voice(ctx, beats)
+    assert "my prior wry aside" in voice  # committed player line sampled
+    assert "my latest terse move" in voice  # this-turn player line sampled
+    assert "a character retort" not in voice  # character lines are never voice samples
+    # Oldest → newest order so the freshest move reads last.
+    assert voice.index("my prior wry aside") < voice.index("my latest terse move")
+
+
+def test_propose_branches_includes_player_voice_block(client, db_session, monkeypatch):
+    # The player's voice samples are threaded into the suggestion prompt to match tone.
+    seen = {"user": ""}
+    _configure_llm(client)
+    _capture_user(monkeypatch, seen)
+    beats = [{"role": "player", "text": "my terse move", "characterId": None}]
+    director_agent.propose_branches(db_session, _ctx(_cast("mei")), beats, count=2)
+    assert "match this voice" in seen["user"]
+    assert "my terse move" in seen["user"]
 
 
 # ---- P10: mid-turn re-rank of the not-yet-spoken speakers ---------------------

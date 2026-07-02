@@ -231,17 +231,6 @@ def run_turn(
     # history for the next turn (the current line also seeds this turn's transcript,
     # so it is present even when the buffer is disabled).
     ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at, player_text=text)
-    # A selected follow-up suggestion steers the turn OPEN-ENDEDLY (Scene Dialogue Updates):
-    # the direction is threaded into the planner + character prompts as a soft nudge, not a
-    # dictated script. Empty on an ordinary turn.
-    ctx.guidance = (req.guidance or "").strip()
-    if ctx.guidance:
-        yield from tracer.emit(
-            "plan",
-            "Steering toward your choice",
-            detail=f"Guiding the scene toward: {ctx.guidance} (open-ended — the dialogue stays original).",
-            data={"guidance": ctx.guidance},
-        )
     buffer.push_turn(session.id, "player", text)
     graph_available = bool(ctx.subgraph.get("available"))
     yield from tracer.emit(
@@ -366,19 +355,22 @@ def run_turn(
     # floors above the cast size so a large cast is never clipped.
     acted: list[str] = [m.id for m in puppet_members]
     max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
-    # Per-scene hard ceiling on character replies to a single player message (Scene
-    # Dialogue Updates). The planner may still end the turn earlier; this only caps a
-    # drawn-out back-and-forth. Puppet performances above already count as replies.
+    # Per-scene hard ceiling on the beats a single player message produces (Scene Dialogue
+    # Updates). The planner may still end the turn earlier; this only caps a drawn-out
+    # exchange. The ceiling counts EVERY emitted beat — character replies AND narrator beats
+    # (request #3) — so a hard cap of N is never exceeded: the scene-setting narrated open
+    # and any puppet performances already emitted above count toward it, as does each
+    # mid-turn narrator interstitial below.
     max_turns = max(1, scenario.max_turns)
-    char_beats = len(puppet_members)
+    scene_beats = len(puppet_members) + (1 if narrated_open else 0)
     needs_branch = False
     beats = 0
     while beats < max_beats:
-        if char_beats >= max_turns:
+        if scene_beats >= max_turns:
             yield from tracer.emit(
                 "plan",
                 "Reached the scene's turn limit",
-                detail=f"Stopped after {char_beats} character repl(ies) (scene cap of {max_turns}).",
+                detail=f"Stopped after {scene_beats} beat(s) (scene cap of {max_turns}).",
             )
             break
         decision = planner_agent.next_beat(
@@ -394,6 +386,7 @@ def run_turn(
             yield from tracer.emit("plan", "The narrator sets the scene", detail=decision.reason)
             yield from _narrator_interstitial(db, ctx, turn_beats, emitter)
             beats += 1
+            scene_beats += 1
             continue
         actor = ctx.cast_by_id(decision.actor_id) if decision.actor_id else None
         if actor is None:
@@ -421,7 +414,7 @@ def run_turn(
         )
         acted.append(actor.id)
         beats += 1
-        char_beats += 1
+        scene_beats += 1
     if beats >= max_beats:  # loop exhausted without an explicit end (runaway backstop)
         yield from tracer.emit(
             "plan",

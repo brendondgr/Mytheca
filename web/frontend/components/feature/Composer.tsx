@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { SceneControlSelect } from "@/components/ui/SceneControlSelect";
 
 // Selectable ranges for the two per-scene controls.
@@ -14,6 +15,7 @@ export function Composer({
   onMaxTurnsChange,
   suggestionsCount = 4,
   onSuggestionsCountChange,
+  inputRef,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -26,6 +28,8 @@ export function Composer({
   /** How many follow-up suggestions to offer after a turn (0–4; persisted per scene). */
   suggestionsCount?: number;
   onSuggestionsCountChange?: (value: number) => void;
+  /** Lets the parent move focus here after a suggestion is written into the box (request #2). */
+  inputRef?: RefObject<HTMLInputElement | null>;
 }) {
   return (
     <div className="velora-header flex-none border-t border-hair-strong p-[13px_16px] sm:p-[13px_30px]">
@@ -45,6 +49,7 @@ export function Composer({
           disabled={!onSuggestionsCountChange}
         />
         <input
+          ref={inputRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {

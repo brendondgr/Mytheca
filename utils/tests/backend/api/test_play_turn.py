@@ -226,7 +226,7 @@ def _plan_routed(monkeypatch, decisions, *, narration="A hush falls over the roo
         system, user = body["messages"][0]["content"], body["messages"][1]["content"]
         if "You interpret" in system:  # intent
             return _resp(json.dumps({"kind": "freeform", "directive": "go"}))
-        if "DIRECT follow-up options" in system:  # branch / follow-up suggestions
+        if "SITUATION-BASED follow-up" in system:  # branch / follow-up suggestions
             return _resp(json.dumps({"choices": branches or []}))
         if "step-by-step loop" in system:  # ReAct planner
             try:
@@ -318,9 +318,10 @@ def test_branch_outcome_opens_with_progression_narration(client, storyline_id, m
     assert plan["data"]["outcome"] == "escalate the confrontation"
 
 
-def test_scene_max_turns_caps_character_replies(client, storyline_id, monkeypatch):
-    # A scene with max_turns=2 stops after exactly 2 character replies even though the
-    # planner would keep going (Scene Dialogue Updates — the hard per-scene ceiling).
+def test_scene_max_turns_counts_the_narrated_open(client, storyline_id, monkeypatch):
+    # The per-scene ceiling counts EVERY beat, narration included (request #3). A freeform
+    # opening turn narrates the scene first (beat 1), so with max_turns=2 exactly ONE
+    # character reply runs even though the planner would keep going.
     _configure_llm(client)
     _plan_routed(
         monkeypatch,
@@ -344,8 +345,9 @@ def test_scene_max_turns_caps_character_replies(client, storyline_id, monkeypatc
     events = _stream(
         client.post(f"/api/play/{scid}/turn", json={"text": "I address the room.", "trace": True})
     )
-    # Only the first two planned speakers ran; the cap ended the turn.
-    assert [d["characterId"] for d in _reconstruct_dialogue(events)] == ids[:2]
+    # The narrated open consumed a beat, so only the FIRST planned speaker ran before the cap.
+    assert any(e.get("type") == "narration" for e in events)  # the scene-setting open
+    assert [d["characterId"] for d in _reconstruct_dialogue(events)] == ids[:1]
     limit = next(
         t for t in events if t["type"] == "trace" and t["step"] == "plan"
         and "turn limit" in (t.get("title") or "").lower()
@@ -353,56 +355,39 @@ def test_scene_max_turns_caps_character_replies(client, storyline_id, monkeypatc
     assert "scene cap of 2" in (limit.get("detail") or "")
 
 
-def test_selected_suggestion_guides_open_endedly_not_dictated(client, storyline_id, monkeypatch):
-    # Selecting a follow-up sends ``guidance`` (not the old ``outcome`` play-out): the steer
-    # reaches the character prompt as an OPEN-ENDED nudge, a trace announces it, and the
-    # guidance text is never reproduced verbatim as a dictated narration/dialogue beat.
+def test_scene_max_turns_counts_midturn_narration(client, storyline_id, monkeypatch):
+    # A narrator beat inserted BETWEEN speakers also counts toward the cap: addressing a
+    # character suppresses the cold open, so the only narration is the mid-turn one — with
+    # max_turns=2 that leaves room for a single reply before the cap.
     _configure_llm(client)
-    seen = {"char_user": ""}
-    plan = iter([{"action": "speak", "actor": 1}, {"action": "end"}])
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if not request.url.path.endswith("/chat/completions"):
-            return httpx.Response(404)
-        body = json.loads(request.content.decode())
-        system, user = body["messages"][0]["content"], body["messages"][1]["content"]
-        if "You interpret" in system:
-            return _resp(json.dumps({"kind": "freeform", "directive": "go"}))
-        if "step-by-step loop" in system:
-            try:
-                return _resp(json.dumps(next(plan)))
-            except StopIteration:
-                return _resp(json.dumps({"action": "end"}))
-        if "continuity auditor" in system:
-            return _resp(json.dumps({"consistent": True}))
-        if "private inner voice" in system:
-            return _resp("{}")
-        if "DIRECT follow-up options" in system:
-            return _resp(json.dumps({"choices": []}))
-        # character emission — record the prompt it received
-        seen["char_user"] = user
-        return _resp('<speaker:1>\n<type:character_dialogue>\n"I keep my own counsel."')
-
-    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    _plan_routed(
+        monkeypatch,
+        [
+            {"action": "speak", "actor": 1},
+            {"action": "narrate"},
+            {"action": "speak", "actor": 1},
+            {"action": "end"},
+        ],
+    )
     cid, sid = _refs(client, storyline_id)
-    scid = _scenario(client, storyline_id, [cid], sid)
-    guidance = "press her about the missing manifest"
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Mid", "castIds": [cid], "settingId": sid, "maxTurns": 2},
+    ).json()["id"]
     events = _stream(
         client.post(
             f"/api/play/{scid}/turn",
-            json={"text": "Press her", "guidance": guidance, "directedAt": cid, "trace": True},
+            json={"text": "Speak to me.", "directedAt": cid, "trace": True},
         )
     )
-    # A trace announces the open-ended steer …
-    steer = next(t for t in events if t["type"] == "trace" and t["step"] == "plan" and t["data"].get("guidance"))
-    assert steer["data"]["guidance"] == guidance
-    # … the steer reached the character prompt as a nudge (with an original-dialogue instruction) …
-    assert f"gently steered toward: {guidance}" in seen["char_user"]
-    assert "original, unscripted" in seen["char_user"]
-    # … and nothing reproduced the guidance verbatim as a visible beat (no dictation).
-    for e in events:
-        if e["type"] in ("narration", "character_dialogue"):
-            assert guidance not in e.get("data", {}).get("text", "")
+    # reply (beat 1) + mid-turn narration (beat 2) → cap; the second scripted reply is cut.
+    assert len(_reconstruct_dialogue(events)) == 1
+    assert any(e.get("type") == "narration" for e in events)  # the mid-turn interstitial
+    limit = next(
+        t for t in events if t["type"] == "trace" and t["step"] == "plan"
+        and "turn limit" in (t.get("title") or "").lower()
+    )
+    assert "scene cap of 2" in (limit.get("detail") or "")
 
 
 def test_broadcast_runs_the_whole_cast_uncapped(client, storyline_id, monkeypatch):

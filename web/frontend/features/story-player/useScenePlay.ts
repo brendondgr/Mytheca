@@ -163,7 +163,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const sending = stream.status === "streaming";
 
   const submit = useCallback(
-    (text: string, opts?: { guidance?: string }) => {
+    (text: string) => {
       const t = text.trim();
       if (!t || sending) return; // in-flight guard
       setStreamError(null);
@@ -173,12 +173,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
         .run((signal) =>
           postTurn(
             scenario.id,
-            {
-              text: t,
-              sessionId: sessionRef.current,
-              trace: true,
-              guidance: opts?.guidance || null,
-            },
+            { text: t, sessionId: sessionRef.current, trace: true },
             signal,
           ),
         )
@@ -211,13 +206,11 @@ export function useScenePlay(scenario: ResolvedScenario) {
     submit(text);
   }, [composer, sending, submit]);
 
-  // Selecting a follow-up submits a real turn: the suggestion text goes into the chat as
-  // the player's input (consistent with typing it), while `guidance` steers the scene
-  // toward that direction OPEN-ENDEDLY — the AI improvises original dialogue, not a script.
-  const choose = useCallback(
-    (c: SceneChoice) => submit(c.player || c.label, { guidance: c.label || c.outcome }),
-    [submit],
-  );
+  // Selecting a follow-up no longer submits: it writes the suggested (situation-based, tone-
+  // matched) text into the composer so the player can review and edit it before sending
+  // (request #2), keeping their writing style consistent. The choices stay visible until the
+  // player actually sends, so they can reconsider or pick a different one.
+  const choose = useCallback((c: SceneChoice) => setComposer(c.player || c.label), []);
 
   const lastSpeaker = [...messages].reverse().find((m) => m.kind === "char");
 
