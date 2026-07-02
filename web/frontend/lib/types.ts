@@ -114,6 +114,10 @@ export interface Scenario {
   /** Narrator opening line, shown in the begin-scene preview. */
   opening: string;
   branches: Branch[];
+  /** Hard ceiling on character replies per player message (≥1; default 5). */
+  maxTurns?: number;
+  /** How many follow-up suggestions to offer at the end of a turn (0–4; 0 disables; default 4). */
+  suggestionsCount?: number;
   /** Relative `/media/...` URL of an optional scene-art image; plate fallback. */
   image?: string | null;
   /** Persisted positive ComfyUI prompt for the scene-art image. */

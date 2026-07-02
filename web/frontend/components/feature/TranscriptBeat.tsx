@@ -107,6 +107,8 @@ export function BranchChoices({
   choices: SceneChoice[];
   onChoose: (choice: SceneChoice) => void;
 }) {
+  // 3–4 follow-ups lay out in a 2-column grid (4 → a 2×2 grid); 1–2 stack in a column.
+  const layout = choices.length >= 3 ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2";
   return (
     <div className="w-full max-w-[600px] self-center">
       <div className="mb-[10px] text-center">
@@ -114,7 +116,7 @@ export function BranchChoices({
           Your move — choose a path
         </Eyebrow>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className={layout}>
         {choices.map((ch) => (
           <button
             key={ch.id}
