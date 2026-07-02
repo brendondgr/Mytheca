@@ -226,7 +226,7 @@ def _plan_routed(monkeypatch, decisions, *, narration="A hush falls over the roo
         system, user = body["messages"][0]["content"], body["messages"][1]["content"]
         if "You interpret" in system:  # intent
             return _resp(json.dumps({"kind": "freeform", "directive": "go"}))
-        if "faces a fork" in system:  # branch options
+        if "DIRECT follow-up options" in system:  # branch / follow-up suggestions
             return _resp(json.dumps({"choices": branches or []}))
         if "step-by-step loop" in system:  # ReAct planner
             try:
@@ -430,11 +430,13 @@ def test_unknown_proposed_stat_is_dropped_no_event(client, storyline_id, monkeyp
     assert all(e["type"] != "state_update" for e in events)  # unknown stat dropped
 
 
-def test_branch_choices_emitted_when_planner_flags_a_fork(client, storyline_id, monkeypatch):
+def test_branch_choices_emitted_at_end_of_turn_regardless_of_needs_branch(client, storyline_id, monkeypatch):
+    # Suggestions are now count-driven (default suggestions_count=4): they appear at the
+    # end of the turn even though the planner never sets needsBranch (Scene Dialogue Updates).
     _configure_llm(client)
     _plan_routed(
         monkeypatch,
-        [{"action": "speak", "actor": 1}, {"action": "end", "needsBranch": True}],
+        [{"action": "speak", "actor": 1}, {"action": "end"}],  # note: NO needsBranch
         branches=[{"label": "Back off", "outcome": "de-escalate"}, {"label": "Press her", "outcome": "escalate"}],
     )
     mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
@@ -446,6 +448,24 @@ def test_branch_choices_emitted_when_planner_flags_a_fork(client, storyline_id, 
     labels = [c["label"] for c in branch["data"]["choices"]]
     assert labels == ["Back off", "Press her"]
     assert all("check" not in c for c in branch["data"]["choices"])  # no dice
+
+
+def test_no_suggestions_when_scene_count_is_zero(client, storyline_id, monkeypatch):
+    # suggestions_count=0 disables follow-ups entirely — no branch_choices event.
+    _configure_llm(client)
+    _plan_routed(
+        monkeypatch,
+        [{"action": "speak", "actor": 1}, {"action": "end"}],
+        branches=[{"label": "Back off", "outcome": "de-escalate"}],
+    )
+    mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Quiet", "castIds": [mei], "settingId": sid, "suggestionsCount": 0},
+    ).json()["id"]
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I press her.", "directedAt": mei}))
+    assert all(e["type"] != "branch_choices" for e in events)
 
 
 def test_closing_style_tags_do_not_leak_into_the_stream(client, storyline_id, monkeypatch):

@@ -398,17 +398,25 @@ def run_turn(
             "narration", {"text": "The scene waits, quiet.", "done": True}, buffer_role="narrator"
         )
 
-    # A narrative fork: stats inform which options surface, but never gate the choice
-    # mechanically (no dice — D11).
+    # Follow-up suggestions: offer up to ``scenario.suggestions_count`` (0 disables) direct
+    # follow-ups to the most recent line at the end of every turn — count-driven, no longer
+    # gated on the planner's rarely-set ``needsBranch`` flag (which left the feature dead).
+    # ``needs_branch`` now only colors the trace copy. Stats inform which options surface,
+    # but never gate the choice mechanically (no dice — D11).
     branches: list[dict] = []
-    if needs_branch:
-        branches = director_agent.propose_branches(db, ctx, turn_beats)
+    suggestions_count = max(0, min(scenario.suggestions_count, 4))
+    if suggestions_count > 0:
+        branches = director_agent.propose_branches(db, ctx, turn_beats, count=suggestions_count)
         if branches:
             yield from emitter.emit("branch_choices", {"choices": branches})
             yield from tracer.emit(
                 "branch",
-                f"Offered {len(branches)} branch choice(s)",
-                detail="A fork — pick one to steer where the scene goes next.",
+                f"Offered {len(branches)} follow-up suggestion(s)",
+                detail=(
+                    "A fork — pick one to steer where the scene goes next."
+                    if needs_branch
+                    else "Follow-ups to the latest line — pick one to steer where the scene goes next."
+                ),
                 data={"choices": [b.get("label", "") for b in branches]},
             )
 
