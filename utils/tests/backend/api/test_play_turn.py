@@ -318,6 +318,41 @@ def test_branch_outcome_opens_with_progression_narration(client, storyline_id, m
     assert plan["data"]["outcome"] == "escalate the confrontation"
 
 
+def test_scene_max_turns_caps_character_replies(client, storyline_id, monkeypatch):
+    # A scene with max_turns=2 stops after exactly 2 character replies even though the
+    # planner would keep going (Scene Dialogue Updates — the hard per-scene ceiling).
+    _configure_llm(client)
+    _plan_routed(
+        monkeypatch,
+        [
+            {"action": "speak", "actor": 1},
+            {"action": "speak", "actor": 2},
+            {"action": "speak", "actor": 3},
+            {"action": "speak", "actor": 4},
+            {"action": "end"},
+        ],
+    )
+    ids = [
+        client.post(f"/api/storylines/{storyline_id}/characters", json={"name": n}).json()["id"]
+        for n in ("Ana", "Bo", "Cy", "Di")
+    ]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hall"}).json()["id"]
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Cap", "castIds": ids, "settingId": sid, "maxTurns": 2},
+    ).json()["id"]
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "I address the room.", "trace": True})
+    )
+    # Only the first two planned speakers ran; the cap ended the turn.
+    assert [d["characterId"] for d in _reconstruct_dialogue(events)] == ids[:2]
+    limit = next(
+        t for t in events if t["type"] == "trace" and t["step"] == "plan"
+        and "turn limit" in (t.get("title") or "").lower()
+    )
+    assert "scene cap of 2" in (limit.get("detail") or "")
+
+
 def test_broadcast_runs_the_whole_cast_uncapped(client, storyline_id, monkeypatch):
     # "Everyone introduces themselves" → four characters act in sequence (past the old
     # 3-speaker cap), driven by the planner's broadcast walk.

@@ -46,6 +46,36 @@ def test_scenario_crud_and_camel(client, storyline_id):
     assert client.get(f"/api/scenarios/{scid}").status_code == 404
 
 
+def test_scenario_scene_controls_defaults(client, storyline_id):
+    """New scenario defaults to max_turns=5, suggestions_count=4."""
+    cid, sid = _make_refs(client, storyline_id)
+    body = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Scene", "castIds": [cid], "settingId": sid},
+    ).json()
+    assert body["maxTurns"] == 5
+    assert body["suggestionsCount"] == 4
+
+
+def test_scenario_scene_controls_roundtrip_and_clamp(client, storyline_id):
+    """maxTurns/suggestionsCount persist via create + PATCH; out-of-range is rejected."""
+    cid, sid = _make_refs(client, storyline_id)
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Scene", "castIds": [cid], "settingId": sid, "maxTurns": 3, "suggestionsCount": 0},
+    ).json()["id"]
+
+    fetched = client.get(f"/api/scenarios/{scid}").json()
+    assert fetched["maxTurns"] == 3 and fetched["suggestionsCount"] == 0
+
+    patched = client.patch(f"/api/scenarios/{scid}", json={"maxTurns": 8, "suggestionsCount": 2}).json()
+    assert patched["maxTurns"] == 8 and patched["suggestionsCount"] == 2
+
+    # Out-of-range values are rejected by the schema.
+    assert client.patch(f"/api/scenarios/{scid}", json={"suggestionsCount": 5}).status_code == 422
+    assert client.patch(f"/api/scenarios/{scid}", json={"maxTurns": 0}).status_code == 422
+
+
 def test_scenario_image_default_null(client, storyline_id):
     """Newly created scenario has null image/prompt fields."""
     cid, sid = _make_refs(client, storyline_id)

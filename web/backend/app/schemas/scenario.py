@@ -23,6 +23,10 @@ class ScenarioBase(CamelModel):
     setting_id: str = ""
     opening: str = ""
     branches: list[Branch] = Field(default_factory=list)
+    # Per-scene play controls: ``max_turns`` caps character replies per player message
+    # (≥1); ``suggestions_count`` is how many follow-up suggestions to offer (0–4).
+    max_turns: int = Field(default=5, ge=1)
+    suggestions_count: int = Field(default=4, ge=0, le=4)
     # Optional scene art — persisted when the author renders an image via ComfyUI.
     image: str | None = None
     scene_art_positive: str | None = None
@@ -42,6 +46,8 @@ class ScenarioUpdate(CamelModel):
     setting_id: str | None = None
     opening: str | None = None
     branches: list[Branch] | None = None
+    max_turns: int | None = Field(default=None, ge=1)
+    suggestions_count: int | None = Field(default=None, ge=0, le=4)
     image: str | None = None
     scene_art_positive: str | None = None
     scene_art_negative: str | None = None
@@ -57,6 +63,8 @@ class ScenarioRead(CamelModel):
     setting_id: str
     opening: str
     branches: list[Branch]
+    max_turns: int = 5
+    suggestions_count: int = 4
     image: str | None = None
     scene_art_positive: str | None = None
     scene_art_negative: str | None = None

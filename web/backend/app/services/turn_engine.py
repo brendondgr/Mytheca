@@ -328,9 +328,21 @@ def run_turn(
     # floors above the cast size so a large cast is never clipped.
     acted: list[str] = [m.id for m in puppet_members]
     max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
+    # Per-scene hard ceiling on character replies to a single player message (Scene
+    # Dialogue Updates). The planner may still end the turn earlier; this only caps a
+    # drawn-out back-and-forth. Puppet performances above already count as replies.
+    max_turns = max(1, scenario.max_turns)
+    char_beats = len(puppet_members)
     needs_branch = False
     beats = 0
     while beats < max_beats:
+        if char_beats >= max_turns:
+            yield from tracer.emit(
+                "plan",
+                "Reached the scene's turn limit",
+                detail=f"Stopped after {char_beats} character repl(ies) (scene cap of {max_turns}).",
+            )
+            break
         decision = planner_agent.next_beat(
             db, ctx, intent, turn_beats, acted, scene_opening=scene_opening and not narrated_open
         )
@@ -371,6 +383,7 @@ def run_turn(
         )
         acted.append(actor.id)
         beats += 1
+        char_beats += 1
     if beats >= max_beats:  # loop exhausted without an explicit end (runaway backstop)
         yield from tracer.emit(
             "plan",

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base, JSONColumn
@@ -36,6 +36,12 @@ class Scenario(Base):
     cast_ids: Mapped[list[str]] = mapped_column(JSONColumn, default=list)
     branches: Mapped[list[dict]] = mapped_column(JSONColumn, default=list)
     position: Mapped[int] = mapped_column(default=0)
+    # Per-scene play controls (Scene Dialogue Updates). ``max_turns`` is the hard
+    # ceiling on character replies per player message (the turn loop may still end
+    # earlier); ``suggestions_count`` is how many follow-up suggestions to offer at
+    # the end of a turn (0 disables; max 4, rendered as a 2×2 grid).
+    max_turns: Mapped[int] = mapped_column(Integer, default=5, server_default="5")
+    suggestions_count: Mapped[int] = mapped_column(Integer, default=4, server_default="4")
     # Scene art generated for this scenario (opt-in, requires ComfyUI).
     image: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     scene_art_positive: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
