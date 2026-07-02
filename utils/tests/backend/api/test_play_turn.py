@@ -318,9 +318,10 @@ def test_branch_outcome_opens_with_progression_narration(client, storyline_id, m
     assert plan["data"]["outcome"] == "escalate the confrontation"
 
 
-def test_scene_max_turns_caps_character_replies(client, storyline_id, monkeypatch):
-    # A scene with max_turns=2 stops after exactly 2 character replies even though the
-    # planner would keep going (Scene Dialogue Updates — the hard per-scene ceiling).
+def test_scene_max_turns_counts_the_narrated_open(client, storyline_id, monkeypatch):
+    # The per-scene ceiling counts EVERY beat, narration included (request #3). A freeform
+    # opening turn narrates the scene first (beat 1), so with max_turns=2 exactly ONE
+    # character reply runs even though the planner would keep going.
     _configure_llm(client)
     _plan_routed(
         monkeypatch,
@@ -344,8 +345,44 @@ def test_scene_max_turns_caps_character_replies(client, storyline_id, monkeypatc
     events = _stream(
         client.post(f"/api/play/{scid}/turn", json={"text": "I address the room.", "trace": True})
     )
-    # Only the first two planned speakers ran; the cap ended the turn.
-    assert [d["characterId"] for d in _reconstruct_dialogue(events)] == ids[:2]
+    # The narrated open consumed a beat, so only the FIRST planned speaker ran before the cap.
+    assert any(e.get("type") == "narration" for e in events)  # the scene-setting open
+    assert [d["characterId"] for d in _reconstruct_dialogue(events)] == ids[:1]
+    limit = next(
+        t for t in events if t["type"] == "trace" and t["step"] == "plan"
+        and "turn limit" in (t.get("title") or "").lower()
+    )
+    assert "scene cap of 2" in (limit.get("detail") or "")
+
+
+def test_scene_max_turns_counts_midturn_narration(client, storyline_id, monkeypatch):
+    # A narrator beat inserted BETWEEN speakers also counts toward the cap: addressing a
+    # character suppresses the cold open, so the only narration is the mid-turn one — with
+    # max_turns=2 that leaves room for a single reply before the cap.
+    _configure_llm(client)
+    _plan_routed(
+        monkeypatch,
+        [
+            {"action": "speak", "actor": 1},
+            {"action": "narrate"},
+            {"action": "speak", "actor": 1},
+            {"action": "end"},
+        ],
+    )
+    cid, sid = _refs(client, storyline_id)
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Mid", "castIds": [cid], "settingId": sid, "maxTurns": 2},
+    ).json()["id"]
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "Speak to me.", "directedAt": cid, "trace": True},
+        )
+    )
+    # reply (beat 1) + mid-turn narration (beat 2) → cap; the second scripted reply is cut.
+    assert len(_reconstruct_dialogue(events)) == 1
+    assert any(e.get("type") == "narration" for e in events)  # the mid-turn interstitial
     limit = next(
         t for t in events if t["type"] == "trace" and t["step"] == "plan"
         and "turn limit" in (t.get("title") or "").lower()
