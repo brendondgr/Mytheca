@@ -9,8 +9,8 @@ settings-store resolution as ``storyline_agent``, via ``agents._common``):
 * ``generate_portrait_prompts`` — turn a character description into the
   positive/negative prompts for the watercolor ComfyUI portrait pipeline.
 * ``propose_voice_samples`` — derive a voice & tone profile (situation →
-  sample-response pairs) from a character's background/personality (proposal only;
-  runs *before* starting stats so voice/tone is defined first).
+  in-voice dialogue-exchange pairs) from a character's background/personality
+  (proposal only; runs *before* starting stats so voice/tone is defined first).
 * ``propose_starting_stats`` — propose starting values for the storyline's stat
   definitions (proposal only; the caller decides whether to apply them).
 
@@ -107,22 +107,34 @@ _STATS_SYSTEM = (
 )
 
 
-# How many situation → sample-response pairs to keep (accept 2-4, target 3).
+# How many situation → dialogue-exchange pairs to keep (accept 2-4, target 2-3 —
+# each pair is now a multi-line exchange, not a single sentence).
 _VOICE_SAMPLES_CAP = 4
 
 _VOICE_SYSTEM = (
-    "You are Velora's character-voice assistant. Given a character's background, "
-    "personality, and speech style, write a small set of example speech samples that "
-    "show HOW this character talks and reacts — so their voice stays consistent in "
-    "roleplay. Produce 3 (2-4) distinct situation → response pairs. Each situation is "
-    "a SHORT description of a story event or an interaction with another character; "
-    "each sample is exactly what THIS character would say (and optionally briefly do) "
-    "in response, written fully in their voice — matching their diction, cadence, "
-    "attitude, and speech style. Vary the situations (calm, pressured, challenged, "
-    "pleased). Keep each sample to one or two sentences. Respond with ONLY a JSON "
-    'object — no prose, no markdown, no code fences — of the form {"samples": '
-    '[{"situation": "<short situation>", "sample": "<what they say>"}]}. Include no '
-    "other keys."
+    "You are Velora's character-voice assistant. Your job is to PROVE, not "
+    "describe, how a character talks.\n"
+    "First, think through this specific character's actual voice — grounded in "
+    "the background, personality, traits, and speech style given below: their "
+    "diction (blunt? ornate? clinical?), sentence rhythm (clipped bursts? long "
+    "winding clauses?), verbal tics or turns of phrase they lean on, their "
+    "default formality, and anything they characteristically avoid saying. Never "
+    "default to a generic, textbook-neutral voice — commit to something specific "
+    "and a little uneven, the way real speech is.\n"
+    "Then write 2-3 distinct situation → exchange pairs that demonstrate this "
+    "voice in action. Each \"situation\" is what prompts the character — usually "
+    "another character's line of dialogue, or a short vivid beat aimed at them "
+    "— written as if it just happened. Each \"sample\" is a FULL back-and-forth "
+    "dialogue exchange, not a single line: this character's reply, a brief beat "
+    "from the other party, and this character's follow-up — three to five lines "
+    "total, alternating speakers, so the reader hears the cadence hold up across "
+    "a real conversation. Every line spoken by this character must be "
+    "unmistakably theirs (their diction, rhythm, attitude, speech style), and the "
+    "register should vary across the pairs (calm, pressured, challenged, warm). "
+    "Respond with ONLY a JSON object — no prose, no markdown, no code fences — of "
+    'the form {"samples": [{"situation": "<the line or beat that prompts them>", '
+    '"sample": "<the full back-and-forth exchange, in their voice>"}]}. Include '
+    "no other keys."
 )
 
 
@@ -357,7 +369,7 @@ def propose_voice_samples(
     reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
     conn: LlmConn | None = None,
 ) -> VoiceSamplesResponse:
-    """Derive a voice & tone profile (situation → sample-response pairs) for a character.
+    """Derive a voice & tone profile (situation → dialogue-exchange pairs) for a character.
 
     Grounded in the drafted background/personality/speech (and the active world) so
     the samples match the character's tone. Best-effort: returns an empty list rather
