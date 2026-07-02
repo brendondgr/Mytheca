@@ -164,10 +164,4 @@ export interface TurnRequestBody {
    * opened with a fuller "progression" narration and played the choice out over several beats.
    */
   outcome?: string | null;
-  /**
-   * Open-ended steer from a selected follow-up suggestion: nudges the scene toward this
-   * general direction while the AI still produces original, unscripted dialogue — it does
-   * NOT dictate a beat-by-beat script the way `outcome` did.
-   */
-  guidance?: string | null;
 }

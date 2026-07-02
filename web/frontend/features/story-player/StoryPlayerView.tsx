@@ -32,6 +32,16 @@ export function StoryPlayerView({
 }) {
   const scene = useScenePlay(scenario);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLInputElement>(null);
+  // Picking a suggestion writes it into the composer for review/editing; move focus there so
+  // the player can immediately edit before sending (request #2).
+  const onChoose = useCallback(
+    (choice: Parameters<typeof scene.choose>[0]) => {
+      scene.choose(choice);
+      composerRef.current?.focus();
+    },
+    [scene],
+  );
   const [modalId, setModalId] = useState<string | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const byId = (id: string): Character | undefined =>
@@ -111,7 +121,7 @@ export function StoryPlayerView({
                     charById={byId}
                     onProfile={scene.openProfile}
                     choices={scene.choices}
-                    onChoose={scene.choose}
+                    onChoose={onChoose}
                   />
                 </motion.div>
               ))}
@@ -127,6 +137,7 @@ export function StoryPlayerView({
             onChange={scene.setComposer}
             onSend={scene.send}
             disabled={scene.sending}
+            inputRef={composerRef}
             maxTurns={scene.maxTurns}
             onMaxTurnsChange={scene.setMaxTurns}
             suggestionsCount={scene.suggestionsCount}
