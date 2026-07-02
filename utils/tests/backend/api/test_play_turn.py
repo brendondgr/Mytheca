@@ -226,7 +226,7 @@ def _plan_routed(monkeypatch, decisions, *, narration="A hush falls over the roo
         system, user = body["messages"][0]["content"], body["messages"][1]["content"]
         if "You interpret" in system:  # intent
             return _resp(json.dumps({"kind": "freeform", "directive": "go"}))
-        if "DIRECT follow-up options" in system:  # branch / follow-up suggestions
+        if "SITUATION-BASED follow-up" in system:  # branch / follow-up suggestions
             return _resp(json.dumps({"choices": branches or []}))
         if "step-by-step loop" in system:  # ReAct planner
             try:
@@ -377,7 +377,7 @@ def test_selected_suggestion_guides_open_endedly_not_dictated(client, storyline_
             return _resp(json.dumps({"consistent": True}))
         if "private inner voice" in system:
             return _resp("{}")
-        if "DIRECT follow-up options" in system:
+        if "SITUATION-BASED follow-up" in system:
             return _resp(json.dumps({"choices": []}))
         # character emission — record the prompt it received
         seen["char_user"] = user
