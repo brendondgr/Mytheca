@@ -25,9 +25,11 @@ class TurnRequest(CamelModel):
     interstitials on or off. ``trace`` opts into diagnostic ``trace`` frames
     interleaved on the stream (the story player's Inspector panel) — off by default so
     the default stream + the story-event contract are unchanged. ``outcome`` is the
-    narrative-direction tag of a branch/path the player selected (the story player sends
-    it when a choice is picked): the engine opens with a fuller "progression" narration
-    and plays the chosen direction out over several beats rather than stopping short.
+    narrative-direction tag of a branch/path the player selected (legacy; the engine
+    opened with a fuller "progression" narration). ``guidance`` (Scene Dialogue Updates)
+    is the open-ended steer sent when the player selects a follow-up suggestion: it nudges
+    the scene toward that general direction while the AI still produces original, unscripted
+    dialogue — it does NOT dictate a beat-by-beat script the way ``outcome`` did.
     """
 
     session_id: str | None = None
@@ -36,3 +38,4 @@ class TurnRequest(CamelModel):
     mode: TurnMode = "pov"
     trace: bool = False
     outcome: str | None = None
+    guidance: str | None = None

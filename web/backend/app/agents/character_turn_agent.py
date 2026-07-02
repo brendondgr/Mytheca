@@ -209,6 +209,14 @@ def _build_user_prompt(
             f"Respond now, in {speaker.name}'s voice, to what was just said. "
             "Emit only the tagged format."
         )
+    if ctx.guidance:
+        # Open-ended steer from a selected follow-up suggestion (Scene Dialogue Updates):
+        # lean the scene this way, but improvise your OWN line — never a script to recite.
+        tail.append(
+            f"The scene is being gently steered toward: {ctx.guidance}. Honor that general "
+            "direction, but respond naturally in your own voice with original, unscripted "
+            "dialogue — do not quote or restate the steer."
+        )
 
     return "\n".join(["\n".join(head), "", "\n".join(middle), "", "\n".join(tail)])
 

@@ -75,6 +75,10 @@ class TurnContext:
     # Gated durable lore (a fenced RETRIEVED LORE block) — empty on a skip turn.
     retrieved_lore: str = ""
     gate_reason: str = ""
+    # Open-ended steer from a selected follow-up suggestion (Scene Dialogue Updates).
+    # A general direction the scene should move toward — NOT a script to reproduce.
+    # Empty on an ordinary turn. Set by the turn engine from ``TurnRequest.guidance``.
+    guidance: str = ""
 
     def cast_by_id(self, character_id: str) -> CastMember | None:
         return next((c for c in self.cast if c.id == character_id), None)

@@ -89,9 +89,15 @@ def next_beat(
         if scene_opening
         else ""
     )
+    guidance_note = (
+        f"\nThe player chose to steer the scene toward: {ctx.guidance}. Bend the beats in that "
+        "general direction over this turn while letting it unfold naturally — do not force it."
+        if ctx.guidance
+        else ""
+    )
     user = (
         f"Roster:\n{roster}\n\n"
-        f"Player's direction: {intent.directive or '(freeform)'}.{scope_note}{opening_note}\n"
+        f"Player's direction: {intent.directive or '(freeform)'}.{scope_note}{opening_note}{guidance_note}\n"
         f"Characters who have ALREADY taken a beat this turn (roster numbers): "
         f"{', '.join(acted_nums) or 'none'}\n\n"
         f"This turn so far:\n{_recent(ctx, turn_beats)}\n\n"

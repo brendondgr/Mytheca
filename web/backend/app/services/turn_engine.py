@@ -204,6 +204,17 @@ def run_turn(
     # history for the next turn (the current line also seeds this turn's transcript,
     # so it is present even when the buffer is disabled).
     ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at, player_text=text)
+    # A selected follow-up suggestion steers the turn OPEN-ENDEDLY (Scene Dialogue Updates):
+    # the direction is threaded into the planner + character prompts as a soft nudge, not a
+    # dictated script. Empty on an ordinary turn.
+    ctx.guidance = (req.guidance or "").strip()
+    if ctx.guidance:
+        yield from tracer.emit(
+            "plan",
+            "Steering toward your choice",
+            detail=f"Guiding the scene toward: {ctx.guidance} (open-ended — the dialogue stays original).",
+            data={"guidance": ctx.guidance},
+        )
     buffer.push_turn(session.id, "player", text)
     graph_available = bool(ctx.subgraph.get("available"))
     yield from tracer.emit(

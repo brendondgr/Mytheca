@@ -353,6 +353,58 @@ def test_scene_max_turns_caps_character_replies(client, storyline_id, monkeypatc
     assert "scene cap of 2" in (limit.get("detail") or "")
 
 
+def test_selected_suggestion_guides_open_endedly_not_dictated(client, storyline_id, monkeypatch):
+    # Selecting a follow-up sends ``guidance`` (not the old ``outcome`` play-out): the steer
+    # reaches the character prompt as an OPEN-ENDED nudge, a trace announces it, and the
+    # guidance text is never reproduced verbatim as a dictated narration/dialogue beat.
+    _configure_llm(client)
+    seen = {"char_user": ""}
+    plan = iter([{"action": "speak", "actor": 1}, {"action": "end"}])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        body = json.loads(request.content.decode())
+        system, user = body["messages"][0]["content"], body["messages"][1]["content"]
+        if "You interpret" in system:
+            return _resp(json.dumps({"kind": "freeform", "directive": "go"}))
+        if "step-by-step loop" in system:
+            try:
+                return _resp(json.dumps(next(plan)))
+            except StopIteration:
+                return _resp(json.dumps({"action": "end"}))
+        if "continuity auditor" in system:
+            return _resp(json.dumps({"consistent": True}))
+        if "private inner voice" in system:
+            return _resp("{}")
+        if "DIRECT follow-up options" in system:
+            return _resp(json.dumps({"choices": []}))
+        # character emission — record the prompt it received
+        seen["char_user"] = user
+        return _resp('<speaker:1>\n<type:character_dialogue>\n"I keep my own counsel."')
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    guidance = "press her about the missing manifest"
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "Press her", "guidance": guidance, "directedAt": cid, "trace": True},
+        )
+    )
+    # A trace announces the open-ended steer …
+    steer = next(t for t in events if t["type"] == "trace" and t["step"] == "plan" and t["data"].get("guidance"))
+    assert steer["data"]["guidance"] == guidance
+    # … the steer reached the character prompt as a nudge (with an original-dialogue instruction) …
+    assert f"gently steered toward: {guidance}" in seen["char_user"]
+    assert "original, unscripted" in seen["char_user"]
+    # … and nothing reproduced the guidance verbatim as a visible beat (no dictation).
+    for e in events:
+        if e["type"] in ("narration", "character_dialogue"):
+            assert guidance not in e.get("data", {}).get("text", "")
+
+
 def test_broadcast_runs_the_whole_cast_uncapped(client, storyline_id, monkeypatch):
     # "Everyone introduces themselves" → four characters act in sequence (past the old
     # 3-speaker cap), driven by the planner's broadcast walk.
