@@ -7,16 +7,15 @@ const TXT =
 
 /**
  * Editor for a character's **voice & tone** profile — a small list of
- * situation → dialogue-exchange pairs that show *how* the character speaks.
+ * situation → single-response pairs that show *how* the character speaks.
  *
- * Each row pairs a situation (what's said or happening to them — often another
- * character's line) with a full back-and-forth exchange showing how THIS
- * character actually replies, in their own voice, across a few lines — not a
- * one-sentence summary. These samples are persisted with the character and
- * injected into the turn loop so both spoken lines and the hidden thinking step
- * stay in voice. The parent holds the list on the draft; a "Propose / Redo"
- * control (in the modal) can (re)generate it from the character's
- * background/personality.
+ * Each row pairs a previous situation the character was confronted with (often
+ * another character's line) with the character's SINGLE response to it, in
+ * their own voice — not a back-and-forth exchange. These samples are persisted
+ * with the character and injected into the turn loop so both spoken lines and
+ * the hidden thinking step stay in voice. The parent holds the list on the
+ * draft; a "Propose / Redo" control (in the modal) can (re)generate it from the
+ * character's background/personality.
  */
 export function VoiceSamplesEditor({
   samples,
@@ -39,8 +38,8 @@ export function VoiceSamplesEditor({
     <div>
       {samples.length === 0 ? (
         <p className="font-body text-[12.5px] text-mute">
-          No samples yet — add one (or Propose) to show a real exchange: what&apos;s
-          said to them, and how they answer back in their own voice.
+          No samples yet — add one (or Propose) to show a past situation and how
+          THIS character responded to it, in their own voice.
         </p>
       ) : (
         <ul className="flex flex-col gap-[10px]">
@@ -74,7 +73,7 @@ export function VoiceSamplesEditor({
               </div>
               <textarea
                 aria-label={`Sample ${i + 1} response`}
-                placeholder="The full back-and-forth — how they reply, and how the exchange continues, in their own voice."
+                placeholder="Their single response to the situation above — in their own voice, not a back-and-forth."
                 value={s.sample}
                 onChange={(e) => patch(i, { sample: e.target.value })}
                 rows={4}

@@ -361,10 +361,10 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
               </button>
             </div>
             <p className="mb-[10px] font-body text-[12.5px] text-ink-soft">
-              Real back-and-forth exchanges showing how this character actually
-              talks — what&apos;s said to them, and how they answer in their own
-              voice. Derived from their background &amp; personality, saved with
-              the character, and used to keep their voice consistent in play.
+              A past situation and this character&apos;s single response to it, in
+              their own voice — not a back-and-forth. Derived from their
+              background &amp; personality, saved with the character, and used to
+              keep their voice consistent in play.
             </p>
             <VoiceSamplesEditor
               samples={voiceSamples}
