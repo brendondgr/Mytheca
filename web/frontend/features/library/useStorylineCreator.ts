@@ -317,19 +317,19 @@ export function useStorylineCreator(editId?: string) {
   const build = useCallback(async () => {
     const s = seed.trim();
     const docsOverview = draftGrounding(docs);
-    // Every kept document is sent to the build, which mines EACH for its distinct
-    // characters + settings (so a single file with several characters becomes several
-    // cards). The triage bucket only sorts which list a doc rides in; character /
-    // setting buckets carry their kind, and everything else (other + uncategorized)
-    // rides `otherDocs` and is mined for both. Nothing is invented from thin air.
+    // Each kept doc rides its OWN triage bucket, and the build extracts by bucket
+    // (respecting the author's classification — it never invents entities from lore):
+    //   character/setting → mined for NAMED characters/settings (usually one);
+    //   uncategorized ('select') → mined strictly, only for a genuinely NAMED subject;
+    //   other → LORE/GROUNDING ONLY, never turned into an entity.
     const toBuildDoc = (d: CreatorDoc) => ({ name: d.name, text: d.text });
     const withText = docs.filter((d) => d.text);
     const characterDocs = withText.filter((d) => d.category === "character").map(toBuildDoc);
     const settingDocs = withText.filter((d) => d.category === "setting").map(toBuildDoc);
-    const otherDocs = withText
-      .filter((d) => d.category !== "character" && d.category !== "setting")
-      .map(toBuildDoc);
-    const anyDoc = characterDocs.length || settingDocs.length || otherDocs.length;
+    const uncategorizedDocs = withText.filter((d) => d.category === "select").map(toBuildDoc);
+    const otherDocs = withText.filter((d) => d.category === "other").map(toBuildDoc);
+    const anyDoc =
+      characterDocs.length || settingDocs.length || uncategorizedDocs.length || otherDocs.length;
     if (!s && !docsOverview && !anyDoc) {
       setError(
         "Add a one-sentence seed, drop context files, or attach characters/settings to build from.",
@@ -359,6 +359,7 @@ export function useStorylineCreator(editId?: string) {
           storylineId: editId,
           characterDocs,
           settingDocs,
+          uncategorizedDocs,
           otherDocs,
         },
         ac.signal,
