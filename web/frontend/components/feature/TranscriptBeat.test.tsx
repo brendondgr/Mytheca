@@ -39,27 +39,27 @@ describe("TranscriptBeat", () => {
     expect(label.className).not.toContain("italic");
   });
 
-  it("renders an internal thought as a distinct, keyboard-reachable thought bubble", () => {
-    renderBeat({ kind: "thought", who: "mei", text: "Coin first, favor later." });
-    // The private thought text and a "thinking" tag both show …
-    expect(screen.getByText("Coin first, favor later.")).toBeTruthy();
-    expect(screen.getByText("thinking")).toBeTruthy();
-    // … attributed to a named, focusable character button (profile affordance).
-    expect(screen.getByRole("button", { name: "Mei" })).toBeTruthy();
+  it("renders a character's thought and speech in one beat, thought before the bubble", () => {
+    renderBeat({ kind: "char", who: "mei", thought: "Coin first, favor later.", text: "Fine." });
+    // One message under a single named, focusable character button …
+    expect(screen.getAllByRole("button", { name: "Mei" })).toHaveLength(1);
+    // … the muted "thinks" prelude sits above the spoken bubble.
+    const thought = screen.getByText("Coin first, favor later.");
+    const speech = screen.getByText("Fine.");
+    expect(screen.getByText("thinks")).toBeTruthy();
+    expect(thought.className).toContain("text-ink-soft"); // muted, distinct from speech
+    // Thought comes before the spoken bubble in document order.
+    expect(thought.compareDocumentPosition(speech) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("routes speech and thought to different renderers for the same speaker", () => {
-    const { rerender } = renderBeat({ kind: "char", who: "mei", text: "Fine." });
-    expect(screen.queryByText("thinking")).toBeNull(); // speech has no thinking tag
-    rerender(
-      <TranscriptBeat
-        message={{ kind: "thought", who: "mei", text: "He'll fold." }}
-        charById={(id) => (id === "mei" ? MEI : undefined)}
-        onProfile={vi.fn()}
-        choices={[]}
-        onChoose={vi.fn()}
-      />,
-    );
-    expect(screen.getByText("thinking")).toBeTruthy();
+  it("shows a thought-only beat (no spoken bubble) when the character does not speak", () => {
+    renderBeat({ kind: "char", who: "mei", thought: "He'll fold." });
+    expect(screen.getByText("He'll fold.")).toBeTruthy();
+    expect(screen.getByText("thinks")).toBeTruthy();
+  });
+
+  it("omits the thinks prelude when a beat carries only speech", () => {
+    renderBeat({ kind: "char", who: "mei", text: "Fine." });
+    expect(screen.queryByText("thinks")).toBeNull();
   });
 });

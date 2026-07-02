@@ -59,6 +59,12 @@ function mergeDelta(
   return next;
 }
 
+/** A `char` beat for `who` still awaiting its spoken line — the merge target for that
+ * speaker's thought → action → dialogue (all fold into one message). */
+function isOpenCharBeat(m: SceneMessage | undefined, who: string): m is SceneMessage {
+  return Boolean(m && m.kind === "char" && m.who === who && m.text === undefined);
+}
+
 /** Fold one story event into the transcript. Non-visible/unknown frames pass through. */
 export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneMessage[] {
   if (frame.type === "error") return prev; // surfaced separately by the hook
@@ -69,33 +75,44 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
     case "narration":
       return mergeDelta(prev, event.id, { kind: "narrator" }, event.data.text);
 
-    case "internal_thought":
-      // A character's private thought — its own "thinking" bubble, distinct from what
-      // they say out loud (feedback #4). Never merged into a speech beat.
+    case "internal_thought": {
+      // A character's private thinking — folded into the SAME beat as their speech, so it
+      // reads as one message (thought muted, between name + dialogue). The thought is
+      // emitted before the speaker's action/dialogue, so it opens the beat.
+      const last = prev[prev.length - 1];
+      if (isOpenCharBeat(last, event.data.characterId) && last.thought === undefined) {
+        const next = prev.slice();
+        next[next.length - 1] = { ...last, thought: event.data.text };
+        return next;
+      }
       return [
         ...prev,
-        { kind: "thought", id: event.id, who: event.data.characterId, text: event.data.text },
+        { kind: "char", id: event.id, who: event.data.characterId, thought: event.data.text },
       ];
+    }
 
-    case "character_action":
+    case "character_action": {
+      // Merge into the speaker's still-open beat (e.g. one opened by their thought).
+      const last = prev[prev.length - 1];
+      if (isOpenCharBeat(last, event.data.characterId) && last.action === undefined) {
+        const next = prev.slice();
+        next[next.length - 1] = { ...last, action: event.data.text };
+        return next;
+      }
       return [
         ...prev,
         { kind: "char", id: event.id, who: event.data.characterId, action: event.data.text },
       ];
+    }
 
     case "character_dialogue": {
       // Already accumulating this dialogue? extend it.
       if (prev.some((m) => m.id === event.id)) {
         return mergeDelta(prev, event.id, { kind: "char", who: event.data.characterId }, event.data.text);
       }
-      // First chunk: merge into a just-emitted action beat from the same speaker.
+      // First chunk: merge into the speaker's still-open beat (their thought/action).
       const last = prev[prev.length - 1];
-      if (
-        last &&
-        last.kind === "char" &&
-        last.who === event.data.characterId &&
-        last.text === undefined
-      ) {
+      if (isOpenCharBeat(last, event.data.characterId)) {
         const next = prev.slice();
         next[next.length - 1] = { ...last, id: event.id, text: event.data.text };
         return next;

@@ -65,23 +65,45 @@ describe("mergeFrame", () => {
     expect(msgs[0].text).toBe("Hello.");
   });
 
-  it("renders an internal_thought as its own thought bubble (not merged)", () => {
+  it("opens a char beat carrying the internal_thought (no separate bubble)", () => {
     let msgs: SceneMessage[] = [];
     msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Coin first." }));
     expect(msgs).toHaveLength(1);
-    expect(msgs[0].kind).toBe("thought");
+    expect(msgs[0].kind).toBe("char");
     expect(msgs[0].who).toBe("mei");
-    expect(msgs[0].text).toBe("Coin first.");
+    expect(msgs[0].thought).toBe("Coin first.");
+    expect(msgs[0].text).toBeUndefined();
   });
 
-  it("keeps a thought and the following dialogue as two separate beats", () => {
+  it("folds a thought and the following dialogue into ONE beat (think then speak)", () => {
     let msgs: SceneMessage[] = [];
     msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Let him sweat." }));
     msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "Fine.", done: true }));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].kind).toBe("char");
+    expect(msgs[0].thought).toBe("Let him sweat.");
+    expect(msgs[0].text).toBe("Fine.");
+  });
+
+  it("folds thought → action → dialogue for one speaker into a single beat", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Stay calm." }));
+    msgs = mergeFrame(msgs, ev("character_action", "a1", { characterId: "mei", text: "Mei leans back." }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "As you wish.", done: true }));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].thought).toBe("Stay calm.");
+    expect(msgs[0].action).toBe("Mei leans back.");
+    expect(msgs[0].text).toBe("As you wish.");
+  });
+
+  it("keeps a different speaker's thought as its own beat", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Mine." }));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t2", { characterId: "kira", text: "Hers." }));
     expect(msgs).toHaveLength(2);
-    expect(msgs[0].kind).toBe("thought");
-    expect(msgs[1].kind).toBe("char");
-    expect(msgs[1].text).toBe("Fine.");
+    expect(msgs[0].who).toBe("mei");
+    expect(msgs[1].who).toBe("kira");
+    expect(msgs[1].thought).toBe("Hers.");
   });
 
   it("ignores error frames and unknown event types", () => {
