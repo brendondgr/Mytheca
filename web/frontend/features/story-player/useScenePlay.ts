@@ -13,6 +13,7 @@ import {
   type StatChip,
 } from "./scene-data";
 import {
+  applyStatByChar,
   applyStatUpdate,
   branchOptionsToChoices,
   foldTrace,
@@ -28,6 +29,10 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const [messages, setMessages] = useState<SceneMessage[]>(seed.messages);
   const [tension] = useState(seed.tension);
   const [stats, setStats] = useState<StatChip[]>(seed.stats);
+  // Per-character live stats (keyed by characterId) — feeds the character dossier so its
+  // stat sliders reflect the values that stream in as `state_update` events. Kept separate
+  // from the flat `stats` list, which drives the Director rail's global Scene-state chips.
+  const [statsByChar, setStatsByChar] = useState<Record<string, StatChip[]>>({});
   const [choices, setChoices] = useState<SceneChoice[]>(seed.choices);
   const [composer, setComposer] = useState("");
   const [loading, setLoading] = useState(true);
@@ -80,7 +85,11 @@ export function useScenePlay(scenario: ResolvedScenario) {
       return;
     }
     if (frame.type === "state_update") {
-      if (frame.data.stat) setStats((s) => applyStatUpdate(s, frame.data.stat!));
+      if (frame.data.stat) {
+        const stat = frame.data.stat;
+        setStats((s) => applyStatUpdate(s, stat));
+        setStatsByChar((m) => applyStatByChar(m, stat));
+      }
       return;
     }
     if (frame.type === "branch_choices") {
@@ -136,6 +145,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
     choices,
     tension,
     stats,
+    statsByChar,
     relationships: graphRels.length ? graphRels : seed.relationships,
     turnOrder: seed.turnOrder,
     speakingId: lastSpeaker?.who ?? null,

@@ -3,6 +3,7 @@ import type { GraphRelationship } from "@/lib/api";
 import type { StatPatch, TurnStreamFrame, TurnTraceFrame } from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
+  applyStatByChar,
   applyStatUpdate,
   branchOptionsToChoices,
   foldTrace,
@@ -167,6 +168,27 @@ describe("applyStatUpdate", () => {
   it("appends a new chip for an unseen stat", () => {
     const next = applyStatUpdate([], stat("trust", 38));
     expect(next).toEqual([{ label: "Trust", value: 38, reason: "" }]);
+  });
+});
+
+describe("applyStatByChar", () => {
+  const stat = (characterId: string, key: string, value: number): StatPatch => ({
+    characterId, key, value, reason: "",
+  });
+
+  it("buckets each stat under its own character (no cross-character collision)", () => {
+    let m: Record<string, StatChip[]> = {};
+    m = applyStatByChar(m, stat("maerin", "trust", 3));
+    m = applyStatByChar(m, stat("aldous", "trust", -2));
+    expect(m.maerin).toEqual([{ label: "Trust", value: 3, reason: "" }]);
+    expect(m.aldous).toEqual([{ label: "Trust", value: -2, reason: "" }]);
+  });
+
+  it("updates a character's existing stat in place", () => {
+    let m: Record<string, StatChip[]> = {};
+    m = applyStatByChar(m, stat("maerin", "suspicion", 2));
+    m = applyStatByChar(m, stat("maerin", "suspicion", 7));
+    expect(m.maerin).toEqual([{ label: "Suspicion", value: 7, reason: "" }]);
   });
 });
 

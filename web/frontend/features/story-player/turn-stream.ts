@@ -149,6 +149,20 @@ export function applyStatUpdate(stats: StatChip[], stat: StatPatch): StatChip[] 
   return next;
 }
 
+/**
+ * Upsert a stat change into per-character stat state, keyed by the event's `characterId`.
+ * The character dossier reads its own character's chips from this map so its stat sliders
+ * reflect live values (the flat `applyStatUpdate` list drives the Director rail's global
+ * Scene-state chips instead). Unknown character → a new bucket.
+ */
+export function applyStatByChar(
+  byChar: Record<string, StatChip[]>,
+  stat: StatPatch,
+): Record<string, StatChip[]> {
+  const cid = stat.characterId;
+  return { ...byChar, [cid]: applyStatUpdate(byChar[cid] ?? [], stat) };
+}
+
 /** Map streamed branch options to renderable choices (no dice — D11). */
 export function branchOptionsToChoices(
   options: { label: string; outcome: string }[],
