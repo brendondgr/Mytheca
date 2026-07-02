@@ -9,7 +9,7 @@ settings-store resolution as ``storyline_agent``, via ``agents._common``):
 * ``generate_portrait_prompts`` — turn a character description into the
   positive/negative prompts for the watercolor ComfyUI portrait pipeline.
 * ``propose_voice_samples`` — derive a voice & tone profile (situation →
-  in-voice dialogue-exchange pairs) from a character's background/personality
+  single in-voice response pairs) from a character's background/personality
   (proposal only; runs *before* starting stats so voice/tone is defined first).
 * ``propose_starting_stats`` — propose starting values for the storyline's stat
   definitions (proposal only; the caller decides whether to apply them).
@@ -107,8 +107,7 @@ _STATS_SYSTEM = (
 )
 
 
-# How many situation → dialogue-exchange pairs to keep (accept 2-4, target 2-3 —
-# each pair is now a multi-line exchange, not a single sentence).
+# How many situation → response pairs to keep (accept 2-4, target 2-3).
 _VOICE_SAMPLES_CAP = 4
 
 _VOICE_SYSTEM = (
@@ -121,20 +120,27 @@ _VOICE_SYSTEM = (
     "default formality, and anything they characteristically avoid saying. Never "
     "default to a generic, textbook-neutral voice — commit to something specific "
     "and a little uneven, the way real speech is.\n"
-    "Then write 2-3 distinct situation → exchange pairs that demonstrate this "
-    "voice in action. Each \"situation\" is what prompts the character — usually "
-    "another character's line of dialogue, or a short vivid beat aimed at them "
-    "— written as if it just happened. Each \"sample\" is a FULL back-and-forth "
-    "dialogue exchange, not a single line: this character's reply, a brief beat "
-    "from the other party, and this character's follow-up — three to five lines "
-    "total, alternating speakers, so the reader hears the cadence hold up across "
-    "a real conversation. Every line spoken by this character must be "
-    "unmistakably theirs (their diction, rhythm, attitude, speech style), and the "
-    "register should vary across the pairs (calm, pressured, challenged, warm). "
-    "Respond with ONLY a JSON object — no prose, no markdown, no code fences — of "
-    'the form {"samples": [{"situation": "<the line or beat that prompts them>", '
-    '"sample": "<the full back-and-forth exchange, in their voice>"}]}. Include '
-    "no other keys."
+    "Then write 2-3 distinct situation → response pairs that demonstrate this "
+    "voice in action. Each \"situation\" is a PREVIOUS situation the character "
+    "was confronted with — a short, vivid beat, usually including another "
+    "character's line of dialogue, written as if it just happened. Each "
+    "\"sample\" is this character's SINGLE response to that situation — one "
+    "reply, not a conversation. Never write a back-and-forth exchange, a reply "
+    "from the other party, or multiple alternating speakers in \"sample\" — it "
+    "is this character's voice ONLY. The response's length should fit how much "
+    "this character would actually say (anywhere from a clipped line to a few "
+    "sentences) but it is always ONE turn.\n"
+    "Each response must be unmistakably driven by its own situation — react to "
+    "the specific thing that was just said or done, don't restate a generic "
+    "summary of the character's personality that could be dropped into any "
+    "situation unchanged. The 2-3 situations must be meaningfully different "
+    "(different stakes, different person, different pressure) so the character's "
+    "tone visibly shifts across pairs — e.g. calm here, guarded there, cornered "
+    "elsewhere — while the underlying voice (diction, rhythm, attitude) stays "
+    "recognizably theirs throughout. Respond with ONLY a JSON object — no prose, "
+    'no markdown, no code fences — of the form {"samples": '
+    '[{"situation": "<the previous situation they were confronted with>", '
+    '"sample": "<their single in-voice response>"}]}. Include no other keys.'
 )
 
 
@@ -369,7 +375,7 @@ def propose_voice_samples(
     reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
     conn: LlmConn | None = None,
 ) -> VoiceSamplesResponse:
-    """Derive a voice & tone profile (situation → dialogue-exchange pairs) for a character.
+    """Derive a voice & tone profile (situation → single in-voice response pairs) for a character.
 
     Grounded in the drafted background/personality/speech (and the active world) so
     the samples match the character's tone. Best-effort: returns an empty list rather

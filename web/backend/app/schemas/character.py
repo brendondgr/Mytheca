@@ -8,12 +8,13 @@ from app.schemas.base import CamelModel
 
 
 class VoiceSample(CamelModel):
-    """One situation → dialogue-exchange pair defining how a character speaks.
+    """One situation → single-response pair defining how a character speaks.
 
-    ``situation`` is what's said or happening to prompt the character — often
-    another character's line of dialogue; ``sample`` is the character's full,
-    in-voice back-and-forth exchange (several alternating lines, not one sentence)
-    demonstrating their actual cadence rather than summarizing it.
+    ``situation`` is a previous situation the character was confronted with —
+    often another character's line of dialogue; ``sample`` is the character's
+    single in-voice response to that situation (one turn, never a back-and-forth
+    exchange), reacting to what specifically happened rather than restating a
+    generic description of their voice.
     """
 
     situation: str = ""

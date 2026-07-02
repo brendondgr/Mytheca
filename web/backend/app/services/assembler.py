@@ -170,11 +170,11 @@ def _build_cast(
 
 
 def _format_voice_samples(samples: list[dict] | None) -> str:
-    """Render a character's situation → dialogue-exchange pairs as a compact block.
+    """Render a character's situation → single-response pairs as a compact block.
 
     Each pair gets a two-line bullet — the prompting situation, then the character's
-    full in-voice exchange — since a sample is now several lines, not one sentence.
-    Empty when unauthored so the generation prompt simply omits the section.
+    single in-voice response to it. Empty when unauthored so the generation prompt
+    simply omits the section.
     """
     if not samples:
         return ""

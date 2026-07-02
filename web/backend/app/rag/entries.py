@@ -48,7 +48,7 @@ def _join(*chunks: str | None) -> str:
 
 
 def _voice_samples_text(samples: list[dict] | None) -> str:
-    """Render a character's situation → dialogue-exchange pairs as retrievable prose."""
+    """Render a character's situation → single-response pairs as retrievable prose."""
     if not samples:
         return ""
     lines: list[str] = []
