@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getScenarioRelationships, postTurn } from "@/lib/api";
+import { getScenarioRelationships, postTurn, updateScenario } from "@/lib/api";
 import type { TurnStreamFrame } from "@/lib/events";
 import type { ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
@@ -35,6 +35,12 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const [statsByChar, setStatsByChar] = useState<Record<string, StatChip[]>>({});
   const [choices, setChoices] = useState<SceneChoice[]>(seed.choices);
   const [composer, setComposer] = useState("");
+  // Per-scene play controls (persisted on the scenario). Local state drives the composer
+  // dropdowns; each change is written back so the backend reads it on the next turn.
+  const [maxTurns, setMaxTurnsState] = useState<number>(scenario.maxTurns ?? 5);
+  const [suggestionsCount, setSuggestionsCountState] = useState<number>(
+    scenario.suggestionsCount ?? 4,
+  );
   const [loading, setLoading] = useState(true);
   const [reveal, setReveal] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -104,7 +110,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const sending = stream.status === "streaming";
 
   const submit = useCallback(
-    (text: string, outcome?: string) => {
+    (text: string, opts?: { guidance?: string }) => {
       const t = text.trim();
       if (!t || sending) return; // in-flight guard
       setStreamError(null);
@@ -114,13 +120,34 @@ export function useScenePlay(scenario: ResolvedScenario) {
         .run((signal) =>
           postTurn(
             scenario.id,
-            { text: t, sessionId: sessionRef.current, trace: true, outcome: outcome || null },
+            {
+              text: t,
+              sessionId: sessionRef.current,
+              trace: true,
+              guidance: opts?.guidance || null,
+            },
             signal,
           ),
         )
         .catch(() => setStreamError((e) => e ?? "The turn could not be completed."));
     },
     [sending, scenario.id, stream],
+  );
+
+  // Persist a per-scene control change (optimistic; best-effort write-back to the scenario).
+  const setMaxTurns = useCallback(
+    (n: number) => {
+      setMaxTurnsState(n);
+      void updateScenario(scenario.id, { maxTurns: n }).catch(() => {});
+    },
+    [scenario.id],
+  );
+  const setSuggestionsCount = useCallback(
+    (n: number) => {
+      setSuggestionsCountState(n);
+      void updateScenario(scenario.id, { suggestionsCount: n }).catch(() => {});
+    },
+    [scenario.id],
   );
 
   const send = useCallback(() => {
@@ -131,10 +158,11 @@ export function useScenePlay(scenario: ResolvedScenario) {
     submit(text);
   }, [composer, sending, submit]);
 
-  // Selecting a branch submits a real turn (no scripted check/follow — D11); its
-  // `outcome` tells the backend to play the chosen direction out over several beats.
+  // Selecting a follow-up submits a real turn: the suggestion text goes into the chat as
+  // the player's input (consistent with typing it), while `guidance` steers the scene
+  // toward that direction OPEN-ENDEDLY — the AI improvises original dialogue, not a script.
   const choose = useCallback(
-    (c: SceneChoice) => submit(c.player || c.label, c.outcome),
+    (c: SceneChoice) => submit(c.player || c.label, { guidance: c.label || c.outcome }),
     [submit],
   );
 
@@ -151,6 +179,10 @@ export function useScenePlay(scenario: ResolvedScenario) {
     speakingId: lastSpeaker?.who ?? null,
     composer,
     setComposer,
+    maxTurns,
+    setMaxTurns,
+    suggestionsCount,
+    setSuggestionsCount,
     loading,
     reveal,
     sending,

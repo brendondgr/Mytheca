@@ -137,6 +137,53 @@ def test_propose_branches_empty_when_unconfigured(db_session):
     assert director_agent.propose_branches(db_session, _ctx(_cast("mei")), []) == []
 
 
+def test_propose_branches_count_zero_disables_no_llm_call(client, db_session, monkeypatch):
+    # count=0 disables the feature entirely — return [] without ever calling the LLM.
+    called = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        called["n"] += 1
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+    _configure_llm(client)
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    assert director_agent.propose_branches(db_session, _ctx(_cast("mei")), [], count=0) == []
+    assert called["n"] == 0
+
+
+def test_propose_branches_count_caps_the_list(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch(
+        monkeypatch,
+        json.dumps({"choices": [{"label": "A"}, {"label": "B"}, {"label": "C"}, {"label": "D"}]}),
+    )
+    branches = director_agent.propose_branches(db_session, _ctx(_cast("mei")), [], count=2)
+    assert [b["label"] for b in branches] == ["A", "B"]  # capped to the requested count
+
+
+def test_propose_branches_anchors_on_most_recent_dialogue_line(client, db_session, monkeypatch):
+    # Suggestions are built from the LATEST character line, not the whole transcript.
+    seen = {"user": ""}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/chat/completions"):
+            seen["user"] = json.loads(request.content.decode())["messages"][1]["content"]
+            return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"choices": [{"label": "X"}]})}}]})
+        return httpx.Response(404)
+
+    _configure_llm(client)
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    beats = [
+        {"role": "player", "text": "OLD player line", "characterId": None},
+        {"role": "character", "text": "an earlier reply", "characterId": "mei"},
+        {"role": "character", "text": "the freshest reply", "characterId": "mei"},
+    ]
+    director_agent.propose_branches(db_session, _ctx(_cast("mei")), beats, count=3)
+    assert "the freshest reply" in seen["user"]
+    assert "Offer EXACTLY 3" in seen["user"]
+    assert "OLD player line" not in seen["user"]  # the whole transcript is not dumped in
+
+
 # ---- P10: mid-turn re-rank of the not-yet-spoken speakers ---------------------
 
 

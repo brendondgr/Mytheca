@@ -127,7 +127,7 @@ def test_prompt_requests_a_hidden_thinking_block(client, db_session, monkeypatch
     assert "<thinking>" in system and "never shown" in system
 
 
-def test_interior_disposition_injected_and_shortens_thinking(client, db_session, monkeypatch):
+def test_interior_disposition_injected_and_builds_thinking(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
@@ -138,9 +138,10 @@ def test_interior_disposition_injected_and_shortens_thinking(client, db_session,
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
     user = json.loads(capture["body"])["messages"][1]["content"]
-    # HEAD carries the carried-in stance; TAIL nudges a shorter hidden thinking block.
+    # HEAD carries the carried-in stance; TAIL has the thought BUILD on it (not clip it).
     assert "Your current inner stance: Guarded — I want the coin without the strings." in user
-    assert "keep <thinking> to a few words" in user
+    assert "let <thinking> build on it in your own voice" in user
+    assert "few words" not in user  # no longer clipped to a few words
 
 
 def test_no_disposition_omits_inner_stance(client, db_session, monkeypatch):
@@ -154,7 +155,26 @@ def test_no_disposition_omits_inner_stance(client, db_session, monkeypatch):
     )
     user = json.loads(capture["body"])["messages"][1]["content"]
     assert "current inner stance" not in user
-    assert "keep <thinking> to a few words" not in user
+    assert "let <thinking> build on it" not in user
+
+
+def test_thinking_contract_asks_for_a_fuller_in_voice_paragraph(client, db_session, monkeypatch):
+    # The <thinking> step is now a real in-voice deliberation (a short paragraph), and the
+    # turn runs at MEDIUM effort so the model has room to reason before speaking.
+    from app.schemas.reasoning import ReasoningEffort
+
+    assert character_turn_agent.TURN_EFFORT == ReasoningEffort.MEDIUM
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    system = json.loads(capture["body"])["messages"][0]["content"]
+    assert "short paragraph" in system
+    assert "one or two clipped sentences" not in system.lower()
 
 
 def test_relationship_note_injected_into_prompt(client, db_session, monkeypatch):
@@ -169,6 +189,36 @@ def test_relationship_note_injected_into_prompt(client, db_session, monkeypatch)
     )
     user = json.loads(capture["body"])["messages"][1]["content"]
     assert "Your ties in this scene: You fear Beth (old debt)." in user
+
+
+def test_guidance_injected_as_open_ended_steer(client, db_session, monkeypatch):
+    # A selected follow-up suggestion steers the character OPEN-ENDEDLY: the direction
+    # reaches the prompt, framed as a nudge with original/unscripted dialogue (not a script).
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    ctx.guidance = "confront her about the missing cargo"
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "gently steered toward: confront her about the missing cargo" in user
+    assert "original, unscripted" in user
+
+
+def test_no_guidance_omits_the_steer(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()  # guidance defaults to ""
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "steered toward" not in user
 
 
 def test_voice_samples_injected_into_head(client, db_session, monkeypatch):

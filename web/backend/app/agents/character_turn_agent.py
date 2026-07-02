@@ -26,10 +26,10 @@ from app.services.assembler import CastMember, TurnContext
 
 logger = logging.getLogger("velora.turn")
 
-# A spoken line wants minimal *hidden* reasoning (voice comes from the prompt + the
-# short visible thinking block, not a long internal monologue); keep the hidden
-# thinking budget low so the turn stays snappy.
-TURN_EFFORT = ReasoningEffort.LOW
+# The visible <thinking> block is a real, in-voice deliberation (a short paragraph — a
+# person thinks through a situation before speaking), so the character needs room to
+# reason before emitting. MEDIUM gives that headroom without making the turn sluggish.
+TURN_EFFORT = ReasoningEffort.MEDIUM
 
 # Sampler tuning for in-character voice on small models (the turn-loop plan §7):
 # repetition/frequency penalties + a lower top_p rein in drift more reliably than
@@ -44,7 +44,7 @@ _OUTPUT_CONTRACT = """You voice exactly ONE character in a living, in-progress s
 Emit ONLY this format and nothing else — no preamble, no markdown, no commentary:
 <speaker:N>
 <thinking>
-{a SHORT thought in your character's own voice — your standpoint and what you want right now, not analysis. One or two clipped sentences. This is private and is never shown to anyone.}
+{a full thought in your character's own voice — reason through the moment as YOU would: what you notice, what you want, what you are weighing, how you feel about what was just said, and what you are about to do about it. Think it through in your own terminology and cadence, the way a real person deliberates before they speak — a short paragraph (roughly 3-5 sentences), not a single clipped line, and never a clinical narrator's analysis. This is private and is never shown to anyone.}
 </thinking>
 <type:character_action>
 {a SHORT third-person beat of what your character physically does, present tense — 5-10 words MAX, optional}
@@ -62,7 +62,7 @@ You MAY, only when this beat genuinely changes how you regard another character,
 Rules:
 - N is your character's roster number (given below).
 - Write each block's OPENING tag only (e.g. `<type:character_dialogue>`); do NOT write closing tags like `</type:character_dialogue>`.
-- Lead with <thinking>: a brief, in-*your*-voice thought that sets up your line (e.g. "Coin first, favor later — let him sweat."). Think in the SAME voice as your speech style and voice samples — the private thought should sound like you, not like a narrator. Condition it on concrete priorities, never on a trait label; keep it clipped, never a formal narrator's analysis.
+- Lead with <thinking>: work through your ACTUAL reasoning in your own voice before you speak — several sentences that weigh the situation, your priorities, and your read on the others (e.g. "Coin first, favor later. He's already sweating, so I let the silence sit a beat. Push now and he bolts — better to look bored, let him talk himself up to my price."). Think in the SAME voice as your speech style and voice samples — it should sound like YOU thinking, not a narrator analyzing you. Condition it on concrete priorities, never on a trait label.
 - Always include character_dialogue. Include character_action only when your character does something physical — keep it to a SHORT label of 5-10 words (it renders as a brief tag beside your name, e.g. "leans in, low"), never a full sentence.
 - Use state_update only for a real shift in a stat listed in "Your current state", with a short reason — never invent a stat key. Most turns move nothing; omit it then.
 - Use relationship_update only for a real shift in how you regard a specific other character (name them exactly). Most turns change nothing; omit it then.
@@ -189,8 +189,9 @@ def _build_user_prompt(
     if ctx.directed_at == speaker.id:
         tail.append("The player addressed you directly.")
     if speaker.disposition:
-        # Disposition already computed (§P9) — keep the hidden reasoning to a beat.
-        tail.append("You already know your stance — keep <thinking> to a few words.")
+        # Disposition already computed (§P9) — it seeds the stance, but the character still
+        # thinks the moment through in-voice rather than clipping it to a few words.
+        tail.append("You already hold a stance — let <thinking> build on it in your own voice, don't just restate it.")
     if correction:
         # Consistency guard flagged the prior attempt (§P10) — steer the redo.
         tail.append(
@@ -208,6 +209,14 @@ def _build_user_prompt(
         tail.append(
             f"Respond now, in {speaker.name}'s voice, to what was just said. "
             "Emit only the tagged format."
+        )
+    if ctx.guidance:
+        # Open-ended steer from a selected follow-up suggestion (Scene Dialogue Updates):
+        # lean the scene this way, but improvise your OWN line — never a script to recite.
+        tail.append(
+            f"The scene is being gently steered toward: {ctx.guidance}. Honor that general "
+            "direction, but respond naturally in your own voice with original, unscripted "
+            "dialogue — do not quote or restate the steer."
         )
 
     return "\n".join(["\n".join(head), "", "\n".join(middle), "", "\n".join(tail)])

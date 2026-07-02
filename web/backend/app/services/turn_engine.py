@@ -204,6 +204,17 @@ def run_turn(
     # history for the next turn (the current line also seeds this turn's transcript,
     # so it is present even when the buffer is disabled).
     ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at, player_text=text)
+    # A selected follow-up suggestion steers the turn OPEN-ENDEDLY (Scene Dialogue Updates):
+    # the direction is threaded into the planner + character prompts as a soft nudge, not a
+    # dictated script. Empty on an ordinary turn.
+    ctx.guidance = (req.guidance or "").strip()
+    if ctx.guidance:
+        yield from tracer.emit(
+            "plan",
+            "Steering toward your choice",
+            detail=f"Guiding the scene toward: {ctx.guidance} (open-ended — the dialogue stays original).",
+            data={"guidance": ctx.guidance},
+        )
     buffer.push_turn(session.id, "player", text)
     graph_available = bool(ctx.subgraph.get("available"))
     yield from tracer.emit(
@@ -328,9 +339,21 @@ def run_turn(
     # floors above the cast size so a large cast is never clipped.
     acted: list[str] = [m.id for m in puppet_members]
     max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
+    # Per-scene hard ceiling on character replies to a single player message (Scene
+    # Dialogue Updates). The planner may still end the turn earlier; this only caps a
+    # drawn-out back-and-forth. Puppet performances above already count as replies.
+    max_turns = max(1, scenario.max_turns)
+    char_beats = len(puppet_members)
     needs_branch = False
     beats = 0
     while beats < max_beats:
+        if char_beats >= max_turns:
+            yield from tracer.emit(
+                "plan",
+                "Reached the scene's turn limit",
+                detail=f"Stopped after {char_beats} character repl(ies) (scene cap of {max_turns}).",
+            )
+            break
         decision = planner_agent.next_beat(
             db, ctx, intent, turn_beats, acted, scene_opening=scene_opening and not narrated_open
         )
@@ -371,6 +394,7 @@ def run_turn(
         )
         acted.append(actor.id)
         beats += 1
+        char_beats += 1
     if beats >= max_beats:  # loop exhausted without an explicit end (runaway backstop)
         yield from tracer.emit(
             "plan",
@@ -385,17 +409,25 @@ def run_turn(
             "narration", {"text": "The scene waits, quiet.", "done": True}, buffer_role="narrator"
         )
 
-    # A narrative fork: stats inform which options surface, but never gate the choice
-    # mechanically (no dice — D11).
+    # Follow-up suggestions: offer up to ``scenario.suggestions_count`` (0 disables) direct
+    # follow-ups to the most recent line at the end of every turn — count-driven, no longer
+    # gated on the planner's rarely-set ``needsBranch`` flag (which left the feature dead).
+    # ``needs_branch`` now only colors the trace copy. Stats inform which options surface,
+    # but never gate the choice mechanically (no dice — D11).
     branches: list[dict] = []
-    if needs_branch:
-        branches = director_agent.propose_branches(db, ctx, turn_beats)
+    suggestions_count = max(0, min(scenario.suggestions_count, 4))
+    if suggestions_count > 0:
+        branches = director_agent.propose_branches(db, ctx, turn_beats, count=suggestions_count)
         if branches:
             yield from emitter.emit("branch_choices", {"choices": branches})
             yield from tracer.emit(
                 "branch",
-                f"Offered {len(branches)} branch choice(s)",
-                detail="A fork — pick one to steer where the scene goes next.",
+                f"Offered {len(branches)} follow-up suggestion(s)",
+                detail=(
+                    "A fork — pick one to steer where the scene goes next."
+                    if needs_branch
+                    else "Follow-ups to the latest line — pick one to steer where the scene goes next."
+                ),
                 data={"choices": [b.get("label", "") for b in branches]},
             )
 

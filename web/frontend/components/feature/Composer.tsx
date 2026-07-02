@@ -1,19 +1,49 @@
-/** Bottom composer: the message input and send. */
+import { SceneControlSelect } from "@/components/ui/SceneControlSelect";
+
+// Selectable ranges for the two per-scene controls.
+const MAX_TURN_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const SUGGESTION_OPTIONS = [0, 1, 2, 3, 4];
+
+/** Bottom composer: per-scene controls (turn limit + suggestion count), message input, send. */
 export function Composer({
   value,
   onChange,
   onSend,
   disabled = false,
+  maxTurns = 5,
+  onMaxTurnsChange,
+  suggestionsCount = 4,
+  onSuggestionsCountChange,
 }: {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
   /** While a turn is streaming, lock input + send. */
   disabled?: boolean;
+  /** Hard ceiling on character replies per player message (persisted per scene). */
+  maxTurns?: number;
+  onMaxTurnsChange?: (value: number) => void;
+  /** How many follow-up suggestions to offer after a turn (0–4; persisted per scene). */
+  suggestionsCount?: number;
+  onSuggestionsCountChange?: (value: number) => void;
 }) {
   return (
     <div className="velora-header flex-none border-t border-hair-strong p-[13px_16px] sm:p-[13px_30px]">
-      <div className="mx-auto flex max-w-[720px] items-center gap-[10px]">
+      <div className="mx-auto flex max-w-[720px] flex-wrap items-end gap-[10px]">
+        <SceneControlSelect
+          label="Max turns"
+          value={maxTurns}
+          options={MAX_TURN_OPTIONS}
+          onChange={(v) => onMaxTurnsChange?.(v)}
+          disabled={!onMaxTurnsChange}
+        />
+        <SceneControlSelect
+          label="Suggestions"
+          value={suggestionsCount}
+          options={SUGGESTION_OPTIONS}
+          onChange={(v) => onSuggestionsCountChange?.(v)}
+          disabled={!onSuggestionsCountChange}
+        />
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -23,7 +53,7 @@ export function Composer({
           disabled={disabled}
           aria-label="Your message"
           placeholder={disabled ? "The scene responds…" : "Speak, or describe what you do…"}
-          className="flex-1 rounded-[3px] border border-field-bd bg-field p-[10px_14px] font-body text-[15px] text-ink focus:border-accent focus:outline-none disabled:opacity-60"
+          className="min-w-[160px] flex-1 basis-[200px] rounded-[3px] border border-field-bd bg-field p-[10px_14px] font-body text-[15px] text-ink focus:border-accent focus:outline-none disabled:opacity-60"
         />
         <button
           type="button"

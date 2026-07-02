@@ -226,7 +226,7 @@ def _plan_routed(monkeypatch, decisions, *, narration="A hush falls over the roo
         system, user = body["messages"][0]["content"], body["messages"][1]["content"]
         if "You interpret" in system:  # intent
             return _resp(json.dumps({"kind": "freeform", "directive": "go"}))
-        if "faces a fork" in system:  # branch options
+        if "DIRECT follow-up options" in system:  # branch / follow-up suggestions
             return _resp(json.dumps({"choices": branches or []}))
         if "step-by-step loop" in system:  # ReAct planner
             try:
@@ -318,6 +318,93 @@ def test_branch_outcome_opens_with_progression_narration(client, storyline_id, m
     assert plan["data"]["outcome"] == "escalate the confrontation"
 
 
+def test_scene_max_turns_caps_character_replies(client, storyline_id, monkeypatch):
+    # A scene with max_turns=2 stops after exactly 2 character replies even though the
+    # planner would keep going (Scene Dialogue Updates — the hard per-scene ceiling).
+    _configure_llm(client)
+    _plan_routed(
+        monkeypatch,
+        [
+            {"action": "speak", "actor": 1},
+            {"action": "speak", "actor": 2},
+            {"action": "speak", "actor": 3},
+            {"action": "speak", "actor": 4},
+            {"action": "end"},
+        ],
+    )
+    ids = [
+        client.post(f"/api/storylines/{storyline_id}/characters", json={"name": n}).json()["id"]
+        for n in ("Ana", "Bo", "Cy", "Di")
+    ]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hall"}).json()["id"]
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Cap", "castIds": ids, "settingId": sid, "maxTurns": 2},
+    ).json()["id"]
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "I address the room.", "trace": True})
+    )
+    # Only the first two planned speakers ran; the cap ended the turn.
+    assert [d["characterId"] for d in _reconstruct_dialogue(events)] == ids[:2]
+    limit = next(
+        t for t in events if t["type"] == "trace" and t["step"] == "plan"
+        and "turn limit" in (t.get("title") or "").lower()
+    )
+    assert "scene cap of 2" in (limit.get("detail") or "")
+
+
+def test_selected_suggestion_guides_open_endedly_not_dictated(client, storyline_id, monkeypatch):
+    # Selecting a follow-up sends ``guidance`` (not the old ``outcome`` play-out): the steer
+    # reaches the character prompt as an OPEN-ENDED nudge, a trace announces it, and the
+    # guidance text is never reproduced verbatim as a dictated narration/dialogue beat.
+    _configure_llm(client)
+    seen = {"char_user": ""}
+    plan = iter([{"action": "speak", "actor": 1}, {"action": "end"}])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        body = json.loads(request.content.decode())
+        system, user = body["messages"][0]["content"], body["messages"][1]["content"]
+        if "You interpret" in system:
+            return _resp(json.dumps({"kind": "freeform", "directive": "go"}))
+        if "step-by-step loop" in system:
+            try:
+                return _resp(json.dumps(next(plan)))
+            except StopIteration:
+                return _resp(json.dumps({"action": "end"}))
+        if "continuity auditor" in system:
+            return _resp(json.dumps({"consistent": True}))
+        if "private inner voice" in system:
+            return _resp("{}")
+        if "DIRECT follow-up options" in system:
+            return _resp(json.dumps({"choices": []}))
+        # character emission — record the prompt it received
+        seen["char_user"] = user
+        return _resp('<speaker:1>\n<type:character_dialogue>\n"I keep my own counsel."')
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    guidance = "press her about the missing manifest"
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "Press her", "guidance": guidance, "directedAt": cid, "trace": True},
+        )
+    )
+    # A trace announces the open-ended steer …
+    steer = next(t for t in events if t["type"] == "trace" and t["step"] == "plan" and t["data"].get("guidance"))
+    assert steer["data"]["guidance"] == guidance
+    # … the steer reached the character prompt as a nudge (with an original-dialogue instruction) …
+    assert f"gently steered toward: {guidance}" in seen["char_user"]
+    assert "original, unscripted" in seen["char_user"]
+    # … and nothing reproduced the guidance verbatim as a visible beat (no dictation).
+    for e in events:
+        if e["type"] in ("narration", "character_dialogue"):
+            assert guidance not in e.get("data", {}).get("text", "")
+
+
 def test_broadcast_runs_the_whole_cast_uncapped(client, storyline_id, monkeypatch):
     # "Everyone introduces themselves" → four characters act in sequence (past the old
     # 3-speaker cap), driven by the planner's broadcast walk.
@@ -395,11 +482,13 @@ def test_unknown_proposed_stat_is_dropped_no_event(client, storyline_id, monkeyp
     assert all(e["type"] != "state_update" for e in events)  # unknown stat dropped
 
 
-def test_branch_choices_emitted_when_planner_flags_a_fork(client, storyline_id, monkeypatch):
+def test_branch_choices_emitted_at_end_of_turn_regardless_of_needs_branch(client, storyline_id, monkeypatch):
+    # Suggestions are now count-driven (default suggestions_count=4): they appear at the
+    # end of the turn even though the planner never sets needsBranch (Scene Dialogue Updates).
     _configure_llm(client)
     _plan_routed(
         monkeypatch,
-        [{"action": "speak", "actor": 1}, {"action": "end", "needsBranch": True}],
+        [{"action": "speak", "actor": 1}, {"action": "end"}],  # note: NO needsBranch
         branches=[{"label": "Back off", "outcome": "de-escalate"}, {"label": "Press her", "outcome": "escalate"}],
     )
     mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
@@ -411,6 +500,24 @@ def test_branch_choices_emitted_when_planner_flags_a_fork(client, storyline_id, 
     labels = [c["label"] for c in branch["data"]["choices"]]
     assert labels == ["Back off", "Press her"]
     assert all("check" not in c for c in branch["data"]["choices"])  # no dice
+
+
+def test_no_suggestions_when_scene_count_is_zero(client, storyline_id, monkeypatch):
+    # suggestions_count=0 disables follow-ups entirely — no branch_choices event.
+    _configure_llm(client)
+    _plan_routed(
+        monkeypatch,
+        [{"action": "speak", "actor": 1}, {"action": "end"}],
+        branches=[{"label": "Back off", "outcome": "de-escalate"}],
+    )
+    mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Quiet", "castIds": [mei], "settingId": sid, "suggestionsCount": 0},
+    ).json()["id"]
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I press her.", "directedAt": mei}))
+    assert all(e["type"] != "branch_choices" for e in events)
 
 
 def test_closing_style_tags_do_not_leak_into_the_stream(client, storyline_id, monkeypatch):

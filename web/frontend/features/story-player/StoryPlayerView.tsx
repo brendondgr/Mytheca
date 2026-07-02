@@ -110,6 +110,10 @@ export function StoryPlayerView({
             onChange={scene.setComposer}
             onSend={scene.send}
             disabled={scene.sending}
+            maxTurns={scene.maxTurns}
+            onMaxTurnsChange={scene.setMaxTurns}
+            suggestionsCount={scene.suggestionsCount}
+            onSuggestionsCountChange={scene.setSuggestionsCount}
           />
         </div>
 

@@ -112,8 +112,14 @@ export interface TurnRequestBody {
   /** Request interleaved diagnostic `trace` frames (the Inspector panel). */
   trace?: boolean;
   /**
-   * The narrative-direction tag of a selected branch/path. When set, the turn opens
-   * with a fuller "progression" narration and plays the choice out over several beats.
+   * The narrative-direction tag of a selected branch/path (legacy). When set, the turn
+   * opened with a fuller "progression" narration and played the choice out over several beats.
    */
   outcome?: string | null;
+  /**
+   * Open-ended steer from a selected follow-up suggestion: nudges the scene toward this
+   * general direction while the AI still produces original, unscripted dialogue — it does
+   * NOT dictate a beat-by-beat script the way `outcome` did.
+   */
+  guidance?: string | null;
 }

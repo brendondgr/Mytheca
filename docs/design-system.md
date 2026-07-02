@@ -85,7 +85,7 @@ All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every 
 
 ## Story-Player Layout (the signature surface)
 
-A three-zone "open book": a **left cast rail** (At the table · turn order, portrait avatars), a **reading-first center column** (a `SceneIntro` "scene is set" band — setting, genre/tone, the player's aim, dramatis personae — then the transcript of beats + a bottom composer), and a **right director rail** (scenario goal · tone/tension meter · the storyline's **stat schema** with labeled bands · live scene-state stats · relationships). The transcript is the primary surface and stays centered at ≤720px; the `SceneIntro` band ensures the reading column carries the full scene context even on mobile, where the rails collapse to drawers. This is deliberately **not** a generic three-pane SaaS shell or a card grid.
+A three-zone "open book": a **left cast rail** (At the table · turn order, portrait avatars), a **reading-first center column** (a `SceneIntro` "scene is set" band — setting, genre/tone, the player's aim, dramatis personae — then the transcript of beats + a bottom composer — whose input is flanked on the **left** by two compact labeled dropdowns (`SceneControlSelect`: "Max turns" 1–10, "Suggestions" 0–4) that set + persist the per-scene turn limit and follow-up count), and a **right director rail** (scenario goal · tone/tension meter · the storyline's **stat schema** with labeled bands · live scene-state stats · relationships). The transcript is the primary surface and stays centered at ≤720px; the `SceneIntro` band ensures the reading column carries the full scene context even on mobile, where the rails collapse to drawers. This is deliberately **not** a generic three-pane SaaS shell or a card grid.
 
 ### Event → component mapping (visual contract)
 
@@ -97,7 +97,7 @@ A three-zone "open book": a **left cast rail** (At the table · turn order, port
 | `internal_thought` | **Folded into the speaker's beat**, not a separate bubble: a muted "thinking" line (mono `thinks` tag + `--ink-soft`, ~13px — slightly smaller than the 15.5px speech) sits between the character's name and their spoken bubble, so one message shows what they think, then what they say. |
 | player turn | Right-aligned bubble in `--accent` with `#F6ECDA` text, mono "You" eyebrow. |
 | `state_update` (stats) | Updates the Director rail's **Scene-state chips** (label + signed value, colored by direction; the change `reason` rides as the chip's title) AND the open **character dossier's** stat sliders, which are value-aware: the thumb, floating readout, and band title track that character's live per-`characterId` value (falling back to the schema default until it first moves). No chat message. |
-| `branch_choices` | Centered "Your move — choose a path" block of ◆ choice rows (**label + outcome only** — no dice/check, D11). Selecting a row submits a real turn. |
+| `branch_choices` | Centered "Your move — choose a path" block of ◆ choice rows (**label + outcome only** — no dice/check, D11). 1–2 choices stack in a column; **3–4 lay out in a 2-column grid** (4 → a 2×2 grid). Selecting a row submits a real turn steered **open-endedly** by `guidance` (not a scripted play-out). |
 
 ### Turn Inspector (diagnostic panel)
 

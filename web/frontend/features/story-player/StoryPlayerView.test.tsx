@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { StoryPlayerView } from "./StoryPlayerView";
-import { postTurn } from "@/lib/api";
+import { postTurn, updateScenario } from "@/lib/api";
 import type { TurnStreamFrame } from "@/lib/events";
 import {
   resolveScenario,
@@ -12,10 +12,11 @@ import {
   SEED_STAT_DEFS,
 } from "@/lib/seed-data";
 
-// Keep the real api (mediaUrl etc.) but stub the streaming turn.
+// Keep the real api (mediaUrl etc.) but stub the streaming turn + the scenario write-back.
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   postTurn: vi.fn(),
+  updateScenario: vi.fn().mockResolvedValue({}),
 }));
 
 function streamOf(...frames: TurnStreamFrame[]) {
@@ -103,6 +104,46 @@ describe("StoryPlayerView", () => {
     );
     expect(await screen.findByText(/Afraid is a strong word/i)).toBeInTheDocument();
     expect(await screen.findByText("+67")).toBeInTheDocument(); // clamped value from the stream
-    expect(vi.mocked(postTurn)).toHaveBeenCalled();
+    // Selecting sends the suggestion as OPEN-ENDED guidance (steer), not a dictated script.
+    expect(vi.mocked(postTurn)).toHaveBeenCalledWith(
+      embergate.id,
+      expect.objectContaining({ guidance: expect.stringMatching(/confront maerin/i) }),
+      expect.anything(),
+    );
+  });
+
+  it("persists the suggestion-count control to the scenario when changed", async () => {
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.selectOptions(screen.getByRole("combobox", { name: /suggestions/i }), "2");
+    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(
+      embergate.id,
+      expect.objectContaining({ suggestionsCount: 2 }),
+    );
+  });
+
+  it("lays four follow-up suggestions out in a 2×2 grid", async () => {
+    vi.mocked(postTurn).mockImplementation(
+      streamOf({
+        type: "branch_choices", id: "b1", seq: 1, scenarioId: embergate.id,
+        sessionId: "ps", ts: "t", visibility: "public",
+        data: {
+          choices: [
+            { label: "Alpha", outcome: "a" },
+            { label: "Bravo", outcome: "b" },
+            { label: "Charlie", outcome: "c" },
+            { label: "Delta", outcome: "d" },
+          ],
+        },
+      } as TurnStreamFrame),
+    );
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.type(screen.getByRole("textbox", { name: /your message/i }), "go");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+    const choice = await screen.findByRole("button", { name: /Alpha/i });
+    // The four choices share a 2-column grid container (a 2×2 layout).
+    expect(choice.parentElement?.className).toMatch(/grid-cols-2/);
+    expect(screen.getByRole("button", { name: /Delta/i })).toBeInTheDocument();
   });
 });

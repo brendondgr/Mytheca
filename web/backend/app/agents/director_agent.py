@@ -168,31 +168,46 @@ def rerank(db: Session, ctx: TurnContext, remaining_ids: list[str], turn_beats: 
     return ordered
 
 
-_BRANCH_SYSTEM = """You are the scene director. The player faces a fork. Offer 2-4 distinct branch options — STRUCTURE ONLY, no prose narration.
+_BRANCH_SYSTEM = """You are the scene director. The scene just paused. Offer the player a set of DIRECT follow-up options that continue from the MOST RECENT line — STRUCTURE ONLY, no prose narration.
 
 Return ONLY a JSON object:
-{"choices": [{"label": "what the player does/says (short)", "outcome": "direction tag: de-escalate | escalate | bribe | probe | retreat | …"}]}
+{"choices": [{"label": "what the player does/says next (short)", "outcome": "direction tag: de-escalate | escalate | bribe | probe | retreat | …"}]}
 
 Rules:
-- Each option is a real, in-character direction the scene could take next.
+- Offer EXACTLY the number of options requested — no more, no fewer.
+- Each option is a distinct, in-character way to respond to the most recent line specifically (a real follow-up, not a generic move).
 - "outcome" is a short narrative-direction tag, never a dice check or stat test.
 - Surface only options that fit the current stats/tone (e.g. don't offer a calm option to a furious character).
 - No prose, no commentary — just the JSON object."""
 
-# Cap branch options offered per fork.
+# Hard cap on branch options offered per fork (the configurable count is clamped to this).
 _MAX_BRANCHES = 4
 
 
-def propose_branches(db: Session, ctx: TurnContext, turn_beats: list[dict]) -> list[dict]:
-    """Generate branch options (label + outcome) for a fork; best-effort → ``[]``."""
+def propose_branches(
+    db: Session, ctx: TurnContext, turn_beats: list[dict], count: int = _MAX_BRANCHES
+) -> list[dict]:
+    """Generate ``count`` follow-up options anchored to the most recent dialogue line.
+
+    ``count`` (0–4) is the configured number of follow-up suggestions; ``0`` disables the
+    feature (returns ``[]`` with no LLM call). Options are direct follow-ups to the most
+    recent character line (fallback: the last non-empty beat), not the whole turn — so
+    they read as continuations of what was just said. Best-effort → ``[]``.
+    """
+    want = max(0, min(count, _MAX_BRANCHES))
+    if want == 0:
+        return []
     try:
         base_url, api_key, model, params = resolve_llm(db)
     except APIError:
         return []
 
     roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(ctx.cast))
-    recent = "\n".join(f"{b.get('role')}: {b.get('text', '')}" for b in turn_beats if b.get("text"))
-    user = f"Roster:\n{roster}\n\nThis turn so far:\n{recent}\n\nOffer the player's branch options now."
+    latest = _latest_line(turn_beats)
+    user = (
+        f"Roster:\n{roster}\n\nThe most recent line:\n{latest}\n\n"
+        f"Offer EXACTLY {want} distinct follow-up option(s) that continue directly from that line."
+    )
     try:
         raw = llm.chat_complete(
             base_url,
@@ -215,9 +230,21 @@ def propose_branches(db: Session, ctx: TurnContext, turn_beats: list[dict]) -> l
         if not label:
             continue
         choices.append({"label": label, "outcome": str(item.get("outcome", "")).strip()})
-        if len(choices) >= _MAX_BRANCHES:
+        if len(choices) >= want:
             break
     return choices
+
+
+def _latest_line(turn_beats: list[dict]) -> str:
+    """The most recent character dialogue line (fallback: the last non-empty beat).
+
+    Anchors follow-up suggestions to what was JUST said rather than the whole turn.
+    """
+    spoken = [b for b in turn_beats if str(b.get("text", "")).strip()]
+    if not spoken:
+        return "(scene opening)"
+    latest = next((b for b in reversed(spoken) if b.get("role") == "character"), spoken[-1])
+    return f"{latest.get('role')}: {str(latest.get('text', '')).strip()}"
 
 
 def _as_int(value: object) -> int | None:
