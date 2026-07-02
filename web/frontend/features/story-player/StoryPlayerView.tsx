@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { exportSessionUrl } from "@/lib/api";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
+import type { ExportFormat } from "@/components/feature/ExportMenu";
 import { useScenePlay } from "./useScenePlay";
 import { tensionLabel } from "./scene-data";
 import { SceneHeader } from "@/components/layout/SceneHeader";
@@ -41,6 +43,19 @@ export function StoryPlayerView({
     if (el) el.scrollTop = el.scrollHeight;
   }, [scene.messages.length, scene.reveal]);
 
+  // Download the full conversation record (server-rendered) as an attachment.
+  const onExport = useCallback(
+    (format: ExportFormat) => {
+      if (!scene.sessionId) return;
+      const url = exportSessionUrl(scenario.id, scene.sessionId, format);
+      const a = document.createElement("a");
+      a.href = url;
+      a.rel = "noopener";
+      a.click();
+    },
+    [scenario.id, scene.sessionId],
+  );
+
   const profileChar = scene.profileId ? (byId(scene.profileId) ?? null) : null;
   const modalChar = modalId ? (byId(modalId) ?? null) : null;
 
@@ -53,6 +68,8 @@ export function StoryPlayerView({
         genre={scenario.genre}
         tone={scenario.tone}
         backHref={backHref}
+        onExport={onExport}
+        canExport={Boolean(scene.sessionId)}
         onToggleInspector={() => setInspectorOpen((o) => !o)}
         inspectorOpen={inspectorOpen}
       />
