@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
 from app.events.envelope import StoryEvent
-from app.models import Event, PlaySession
+from app.events.stream import TurnTraceFrame
+from app.models import Event, PlaySession, TurnTrace
 
 
 def next_seq(db: Session, session_id: str) -> int:
@@ -94,3 +95,116 @@ def persist_story_event(db: Session, event: StoryEvent) -> Event:
     db.add(row)
     db.commit()
     return row
+
+
+def persist_trace(
+    db: Session,
+    *,
+    session_id: str,
+    scenario_id: str,
+    turn: int,
+    frame: TurnTraceFrame,
+) -> None:
+    """Persist one diagnostic trace step so a scene's graph/RAG activity survives review.
+
+    Best-effort: a trace write must never break the turn stream, so a failure is rolled
+    back and swallowed (the frame still streamed to the player). Ordered by ``(turn, n)``.
+    """
+    try:
+        db.add(
+            TurnTrace(
+                session_id=session_id,
+                scenario_id=scenario_id,
+                turn=turn,
+                n=frame.n,
+                step=frame.step,
+                title=frame.title,
+                detail=frame.detail,
+                data=frame.data,
+            )
+        )
+        db.commit()
+    except Exception:  # pragma: no cover - defensive; diagnostics are non-critical
+        db.rollback()
+
+
+def touch_session(db: Session, session_id: str) -> None:
+    """Bump a session's ``updated_at`` so resume can pick the most recent play-through."""
+    session = db.get(PlaySession, session_id)
+    if session is None:  # pragma: no cover - defensive
+        return
+    session.updated_at = datetime.now(UTC)
+    db.commit()
+
+
+def get_session(db: Session, scenario_id: str, session_id: str) -> PlaySession:
+    """Return the session (validated against the scenario) or raise 404/400."""
+    session = db.get(PlaySession, session_id)
+    if session is None:
+        raise APIError(404, "invalid_reference", "Unknown play session.")
+    if session.scenario_id != scenario_id:
+        raise APIError(400, "bad_request", "Session does not belong to this scenario.")
+    return session
+
+
+def list_sessions(db: Session, scenario_id: str) -> list[PlaySession]:
+    """All play sessions for a scenario, most-recently-played first (resume order)."""
+    return list(
+        db.scalars(
+            select(PlaySession)
+            .where(PlaySession.scenario_id == scenario_id)
+            .order_by(PlaySession.updated_at.desc(), PlaySession.created_at.desc())
+        )
+    )
+
+
+def latest_session(db: Session, scenario_id: str) -> PlaySession | None:
+    """The most-recently-played session for a scenario, or ``None`` if never played."""
+    return next(iter(list_sessions(db, scenario_id)), None)
+
+
+def session_events(db: Session, session_id: str) -> list[Event]:
+    """Every persisted event for a session, in ``seq`` order (incl. hidden thoughts +
+    the ``user_turn`` rows) — the source for both reload and export."""
+    return list(
+        db.scalars(
+            select(Event).where(Event.session_id == session_id).order_by(Event.seq)
+        )
+    )
+
+
+def session_traces(db: Session, session_id: str) -> list[TurnTrace]:
+    """Every persisted diagnostic trace step for a session, ordered by ``(turn, n)``."""
+    return list(
+        db.scalars(
+            select(TurnTrace)
+            .where(TurnTrace.session_id == session_id)
+            .order_by(TurnTrace.turn, TurnTrace.n)
+        )
+    )
+
+
+def user_turn_stats(db: Session, session_id: str) -> tuple[int, str]:
+    """``(turn_count, preview)`` for a session — the number of player turns and the
+    first player line (a human label for the play-through in the resume list)."""
+    rows = list(
+        db.scalars(
+            select(Event)
+            .where(Event.session_id == session_id, Event.type == "user_turn")
+            .order_by(Event.seq)
+        )
+    )
+    preview = str(rows[0].data.get("text", "")) if rows else ""
+    return len(rows), preview
+
+
+def close_session(db: Session, session_id: str) -> PlaySession:
+    """Mark a session closed (the save-on-close signal); idempotent, bumps recency."""
+    session = db.get(PlaySession, session_id)
+    if session is None:  # pragma: no cover - guarded by the route
+        raise APIError(404, "invalid_reference", "Unknown play session.")
+    now = datetime.now(UTC)
+    session.closed_at = now
+    session.updated_at = now
+    db.commit()
+    return session

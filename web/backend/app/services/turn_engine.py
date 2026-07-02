@@ -140,16 +140,31 @@ class _Emitter:
 
 
 class _Tracer:
-    """Interleaves diagnostic :class:`TurnTraceFrame`s when the caller opts in.
+    """Interleaves diagnostic :class:`TurnTraceFrame`s and **persists** every step.
 
-    Off by default: when disabled, :meth:`emit` yields nothing, so the stream and the
-    story-event contract are unchanged. When enabled it stamps a per-turn ordinal ``n``
-    so the Inspector can render the steps in the exact order they happened.
+    Two independent concerns: the ``enabled`` flag governs whether a frame is *streamed*
+    to the client (off by default, so the default stream and the story-event contract are
+    unchanged); persistence happens **regardless** (best-effort, when a db context is
+    given) so a scene's graph/RAG activity survives for later review and export. It stamps
+    a per-turn ordinal ``n`` so the Inspector — and the reload/export — can render the
+    steps in the exact order they happened.
     """
 
-    def __init__(self, enabled: bool) -> None:
+    def __init__(
+        self,
+        enabled: bool,
+        *,
+        db: Session | None = None,
+        session_id: str | None = None,
+        scenario_id: str | None = None,
+        turn: int = 0,
+    ) -> None:
         self._enabled = enabled
         self._n = 0
+        self._db = db
+        self._session_id = session_id
+        self._scenario_id = scenario_id
+        self._turn = turn
 
     def emit(
         self,
@@ -159,10 +174,18 @@ class _Tracer:
         detail: str = "",
         data: dict[str, Any] | None = None,
     ) -> Iterator[TurnTraceFrame]:
-        if not self._enabled:
-            return
         self._n += 1
-        yield TurnTraceFrame(n=self._n, step=step, title=title, detail=detail, data=data or {})
+        frame = TurnTraceFrame(n=self._n, step=step, title=title, detail=detail, data=data or {})
+        if self._db is not None and self._session_id and self._scenario_id:
+            events_store.persist_trace(
+                self._db,
+                session_id=self._session_id,
+                scenario_id=self._scenario_id,
+                turn=self._turn,
+                frame=frame,
+            )
+        if self._enabled:
+            yield frame
 
 
 def validate_turn_inputs(db: Session, scenario_id: str, req: TurnRequest) -> Scenario:
@@ -182,9 +205,13 @@ def run_turn(
     interleaved diagnostic trace frames the Inspector renders) in order."""
     session = events_store.resolve_session(db, scenario.id, req.session_id)
     text = (req.text or "").strip()
-    tracer = _Tracer(req.trace)
 
     seq0 = events_store.next_seq(db, session.id)
+    # The tracer persists every diagnostic step (keyed by this turn's opening seq) so the
+    # scene's graph/RAG activity is reviewable later; it still only *streams* when opted in.
+    tracer = _Tracer(
+        req.trace, db=db, session_id=session.id, scenario_id=scenario.id, turn=seq0
+    )
     events_store.record_user_turn(
         db,
         scenario_id=scenario.id,
@@ -496,6 +523,9 @@ def run_turn(
         ),
         data={"targets": [m.name for m in reflection_targets], "universal": len(ctx.cast) > 2},
     )
+
+    # Mark the session freshly played so resume can pick the most recent play-through.
+    events_store.touch_session(db, session.id)
 
 
 def _turn_summary(turn_beats: list[dict]) -> str:

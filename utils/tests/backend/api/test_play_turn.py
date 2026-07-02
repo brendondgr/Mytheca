@@ -708,6 +708,31 @@ def test_no_trace_frames_by_default(client, storyline_id, monkeypatch):
     assert all(e["type"] != "trace" for e in events)  # off unless requested
 
 
+def test_trace_is_persisted_even_when_not_streamed(client, db_session, storyline_id, monkeypatch):
+    # The diagnostic trace is ALWAYS saved (so a reopened scene's graph/RAG activity survives
+    # for review/export), independent of whether the caller streamed it (`trace` off here).
+    from app.models import TurnTrace
+
+    _configure_llm(client)
+    _patch_llm(monkeypatch)
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+    assert all(e["type"] != "trace" for e in events)  # nothing streamed …
+
+    rows = db_session.query(TurnTrace).order_by(TurnTrace.turn, TurnTrace.n).all()
+    steps = [r.step for r in rows]
+    assert steps and steps[0] == "turn"  # … but the full trace is persisted, opening with `turn`
+    assert {"lore", "commit"} <= set(steps)  # incl. the RAG look-up + graph commit
+    assert [r.n for r in rows] == sorted(r.n for r in rows)  # ordered
+
+    # The session was touched so resume can pick the most recent play-through.
+    from app.models import PlaySession
+
+    session = db_session.get(PlaySession, events[0]["sessionId"])
+    assert session.updated_at is not None
+
+
 def test_trace_frames_when_requested_and_story_events_still_validate(client, storyline_id, monkeypatch):
     _configure_llm(client)
     _patch_llm(monkeypatch)

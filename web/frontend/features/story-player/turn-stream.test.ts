@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import type { GraphRelationship } from "@/lib/api";
-import type { StatPatch, TurnStreamFrame, TurnTraceFrame } from "@/lib/events";
+import type {
+  PersistedEvent,
+  PersistedTrace,
+  StatPatch,
+  TurnStreamFrame,
+  TurnTraceFrame,
+} from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
   applyStatByChar,
@@ -9,6 +15,7 @@ import {
   foldTrace,
   graphRelationshipsToRel,
   mergeFrame,
+  rehydrateFromHistory,
   sessionIdOf,
   type TraceTurn,
 } from "./turn-stream";
@@ -216,5 +223,57 @@ describe("branchOptionsToChoices", () => {
     expect(choices[0].outcome).toBe("de-escalate");
     expect(choices[0].player).toBe("Back off");
     expect("check" in choices[0]).toBe(false);
+  });
+});
+
+describe("rehydrateFromHistory", () => {
+  function pe(type: string, seq: number, data: unknown, id = `ev${seq}`): PersistedEvent {
+    return {
+      type, id, seq, scenarioId: "sc", sessionId: "ps1", ts: "t",
+      visibility: "public", data: data as Record<string, unknown>,
+    };
+  }
+  function pt(step: string, turn: number, n: number, extra: Partial<PersistedTrace> = {}): PersistedTrace {
+    return { turn, n, step, title: `${step}`, detail: "", data: {}, ...extra };
+  }
+
+  it("replays persisted rows into transcript, stats, and grouped trace", () => {
+    const events: PersistedEvent[] = [
+      pe("user_turn", 0, { text: "I slide the coin toward Mei.", directedAt: "mei" }),
+      pe("internal_thought", 1, { characterId: "mei", text: "Coin first." }),
+      pe("character_action", 2, { characterId: "mei", text: "doesn't touch it" }),
+      pe("character_dialogue", 3, { characterId: "mei", text: '"Coin\'s easy."', done: true }),
+      pe("state_update", 4, { patch: {}, stat: { characterId: "mei", key: "suspicion", value: 62, reason: "old guilt" } }),
+    ];
+    const traces: PersistedTrace[] = [
+      pt("turn", 0, 1, { detail: "I slide the coin toward Mei." }),
+      pt("lore", 0, 2),
+      pt("commit", 0, 3),
+    ];
+    const scene = rehydrateFromHistory(events, traces);
+
+    // The player line + the speaker's thought/action/dialogue fold into one char beat.
+    expect(scene.messages[0]).toEqual({ kind: "player", text: "I slide the coin toward Mei." });
+    const beat = scene.messages[1];
+    expect(beat.kind).toBe("char");
+    expect(beat.thought).toBe("Coin first.");
+    expect(beat.action).toBe("doesn't touch it");
+    expect(beat.text).toBe('"Coin\'s easy."');
+    // Live stats + per-character stats rebuilt from the state_update.
+    expect(scene.stats).toEqual([{ label: "Suspicion", value: 62, reason: "old guilt" }]);
+    expect(scene.statsByChar.mei[0].value).toBe(62);
+    // The graph/RAG trace is grouped under the turn (its player line labels the group).
+    expect(scene.traceTurns).toHaveLength(1);
+    expect(scene.traceTurns[0].label).toBe("I slide the coin toward Mei.");
+    expect(scene.traceTurns[0].steps.map((s) => s.step)).toEqual(["turn", "lore", "commit"]);
+  });
+
+  it("skips a past branch_choices instead of resurrecting it as active", () => {
+    const events: PersistedEvent[] = [
+      pe("user_turn", 0, { text: "hi", directedAt: null }),
+      pe("branch_choices", 1, { choices: [{ label: "Back off", outcome: "x" }] }),
+    ];
+    const scene = rehydrateFromHistory(events, []);
+    expect(scene.messages.every((m) => m.kind !== "choices")).toBe(true);
   });
 });

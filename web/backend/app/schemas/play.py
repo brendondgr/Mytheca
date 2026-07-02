@@ -1,16 +1,20 @@
-"""Play (turn-loop) request schemas.
+"""Play (turn-loop) request + session-review schemas.
 
 ``POST /api/play/{scenarioId}/turn`` submits one player turn and streams the
 resulting story events back as NDJSON (the response is the stream itself — there is
 no JSON response body). The terminal in-band error frame is
-``app.events.stream.TurnErrorFrame``.
+``app.events.stream.TurnErrorFrame``. The session-review schemas below back the
+persistent-scene endpoints (``GET …/sessions``, ``GET …/sessions/{id}`` history, and
+``POST …/sessions/{id}/close``) so a scenario's play-through can be reopened and
+continued with its full history — turns, thoughts, and the graph/RAG trace — intact.
 """
 
 from __future__ import annotations
 
-from typing import Literal
+from datetime import datetime
+from typing import Any, Literal
 
-from app.schemas.base import CamelModel
+from app.schemas.base import CamelModel, Visibility
 
 # One engine, two render styles (D1): POV (interstitials off) or Narrator (on).
 TurnMode = Literal["pov", "narrator"]
@@ -39,3 +43,58 @@ class TurnRequest(CamelModel):
     trace: bool = False
     outcome: str | None = None
     guidance: str | None = None
+
+
+class SessionSummary(CamelModel):
+    """One play-through's metadata for the resume list (newest ``updatedAt`` first).
+
+    ``turnCount`` is the number of player turns taken; ``preview`` is the first
+    player line (a human-readable label for the play-through).
+    """
+
+    id: str
+    scenario_id: str
+    created_at: datetime
+    updated_at: datetime
+    closed_at: datetime | None = None
+    turn_count: int = 0
+    preview: str = ""
+
+
+class SessionListResponse(CamelModel):
+    sessions: list[SessionSummary]
+
+
+class PersistedEvent(CamelModel):
+    """A stored story event in the wire-envelope shape, so the story player can replay
+    it through the exact same reducers it uses for the live stream (reload = replay)."""
+
+    type: str
+    id: str
+    seq: int
+    scenario_id: str
+    session_id: str
+    ts: datetime
+    visibility: Visibility
+    data: dict[str, Any]
+
+
+class PersistedTrace(CamelModel):
+    """A stored diagnostic trace step (graph/RAG/thinking) for one turn, ordered by
+    ``(turn, n)`` — folds back into the Inspector exactly like a live ``trace`` frame."""
+
+    turn: int
+    n: int
+    step: str
+    title: str
+    detail: str
+    data: dict[str, Any]
+
+
+class SessionHistoryResponse(CamelModel):
+    """The full record of one play-through: metadata + every event (incl. hidden
+    thoughts + the ``user_turn`` rows) + every diagnostic trace step."""
+
+    session: SessionSummary
+    events: list[PersistedEvent]
+    traces: list[PersistedTrace]

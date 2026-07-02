@@ -2,7 +2,7 @@
 
 How data originates and moves through Velora. The streaming/event path is first-class.
 
-> **Current implementation.** The **Library** is now backend-backed: it reads from and writes to the FastAPI CRUD API via `web/frontend/lib/api.ts` (hand-rolled fetch, await-then-apply), so storylines/characters/settings/scenarios **persist** in Postgres. The backend is seeded with the Embergate world (`web/backend/app/core/seed.py`) so the app looks the same. The **Story player** still runs on in-memory seed data (`web/frontend/features/story-player/scene-data.ts`) — the streaming path below is the planned design. (TanStack Query is still deferred; the hand-rolled client suffices for this CRUD surface.)
+> **Current implementation.** The **Library** is now backend-backed: it reads from and writes to the FastAPI CRUD API via `web/frontend/lib/api.ts` (hand-rolled fetch, await-then-apply), so storylines/characters/settings/scenarios **persist** in Postgres. The backend is seeded with the Embergate world (`web/backend/app/core/seed.py`) so the app looks the same. The **Story player** streams live turns over the backend and **persists every play-through**: each turn's events (incl. hidden thoughts) and the diagnostic trace are saved, so reopening a scenario **resumes its most recent session** with the full history and continues forward (see *Scene Persistence, Resume & Export* below). The seed data (`web/frontend/features/story-player/scene-data.ts`) is now only the fallback opening for a never-played scene. (TanStack Query is still deferred; the hand-rolled client suffices for this CRUD surface.)
 
 ## Sources
 
@@ -77,6 +77,40 @@ the app's own `<speaker:>`/`<type:>`/`<thinking>` markers intact.
 
 The hot path is **read-only** — all mutation (durable consequences, edges) defers to the
 cold-path turn-writer (a later phase); stat changes are clamped during validation.
+
+## Scene Persistence, Resume & Export
+
+Every turn already persists its story events to Postgres (`events`), including the hidden
+`internal_thought` rows and the `user_turn` player line. Two additions make a scenario's
+play-through **fully reviewable and continuable**:
+
+- **The diagnostic trace is persisted.** `turn_engine._Tracer` writes each step to
+  `turn_traces` (keyed by `(session_id, turn, n)`, where `turn` is the turn's opening
+  `user_turn` seq) on **every** turn — independent of the opt-in *streaming* flag — so the
+  knowledge-graph writes (`commit` / `relationships`) and the RAG/lore look-up (`lore`) that
+  were previously transport-only survive for later review. `PlaySession` gains `updated_at`
+  (bumped each turn) and `closed_at`.
+
+```
+Open a scenario (useScenePlay)
+  → GET /play/{id}/sessions → resume the most-recent play-through
+  → GET /play/{id}/sessions/{sessionId} → { session, events, traces }
+      → turn-stream.rehydrateFromHistory REPLAYS the persisted rows through the SAME
+        reducers used live (mergeFrame / applyStatUpdate / applyStatByChar / foldTrace;
+        a persisted user_turn → a player beat; a stale branch_choices is skipped)
+      → transcript + thoughts + live stats + Inspector trace restored; sessionRef continues it
+Leave the scene (unmount / beforeunload)
+  → POST /play/{id}/sessions/{sessionId}/close (navigator.sendBeacon) — the save-on-close
+    signal (every turn already persisted; this stamps closed_at + recency)
+Export (header control, left of the theme switcher)
+  → GET /play/{id}/sessions/{sessionId}/export?format=json|md → attachment download
+      → services/session_export renders ONE turn grouping into JSON (structured) or Markdown
+        (readable): player line → beats (thought/action/dialogue/stat) → the turn's trace
+        steps (graph + RAG). Server-side, so a live OR long-closed scene exports identically.
+```
+
+Because reload is **replay through the live reducers**, a reopened scene reads
+byte-identically to how it was played — there is no second rendering path to keep in sync.
 
 ## Stat Change Flow
 

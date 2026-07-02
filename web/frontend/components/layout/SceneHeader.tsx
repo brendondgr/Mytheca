@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
+import { ExportMenu, type ExportFormat } from "@/components/feature/ExportMenu";
 
-/** Story-player header: back to the Library, scene title/setting, theme, status. */
+/** Story-player header: back to the Library, scene title/setting, export, theme, status. */
 export function SceneHeader({
   title,
   settingName,
   genre,
   tone,
   backHref = "/",
+  onExport,
+  canExport = false,
   onToggleInspector,
   inspectorOpen = false,
 }: {
@@ -16,6 +19,10 @@ export function SceneHeader({
   genre?: string;
   tone?: string;
   backHref?: string;
+  /** Download the full conversation record (omit to hide the Export control). */
+  onExport?: (format: ExportFormat) => void;
+  /** Whether there is a saved session to export yet (disables the control until then). */
+  canExport?: boolean;
   /** Toggle the Turn Inspector drawer (omit to hide the control). */
   onToggleInspector?: () => void;
   inspectorOpen?: boolean;
@@ -41,6 +48,7 @@ export function SceneHeader({
         </div>
       </div>
       <div className="flex flex-none items-center gap-[14px]">
+        {onExport ? <ExportMenu onExport={onExport} disabled={!canExport} /> : null}
         <ThemeSwitcher />
         <div className="hidden items-center gap-2 font-mono text-[9px] tracking-[0.12em] text-mute uppercase sm:flex">
           <span className="h-[7px] w-[7px] rounded-full bg-success" aria-hidden /> Narrator

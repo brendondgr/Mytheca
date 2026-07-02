@@ -11,20 +11,41 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.errors import APIError
 from app.events.stream import TurnErrorFrame, to_ndjson_line
-from app.schemas.play import TurnRequest
-from app.services import crud, graph_reader, turn_engine
+from app.models import PlaySession
+from app.schemas.play import (
+    PersistedEvent,
+    PersistedTrace,
+    SessionHistoryResponse,
+    SessionListResponse,
+    SessionSummary,
+    TurnRequest,
+)
+from app.services import crud, events_store, graph_reader, session_export, turn_engine
 
 router = APIRouter(prefix="/play", tags=["play"])
 
 # Keep proxies (nginx) from buffering the live stream (mirrors the build/triage routes).
 _STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+
+
+def _summary(db: Session, session: PlaySession) -> SessionSummary:
+    turn_count, preview = events_store.user_turn_stats(db, session.id)
+    return SessionSummary(
+        id=session.id,
+        scenario_id=session.scenario_id,
+        created_at=session.created_at,
+        updated_at=session.updated_at,
+        closed_at=session.closed_at,
+        turn_count=turn_count,
+        preview=preview,
+    )
 
 
 @router.post("/{scenario_id}/turn")
@@ -53,3 +74,87 @@ def scenario_relationships(scenario_id: str, db: Session = Depends(get_db)):
     """
     crud.get_scenario(db, scenario_id)  # 404 when the scenario is unknown
     return {"relationships": graph_reader.scenario_relationships(db, scenario_id)}
+
+
+@router.get("/{scenario_id}/sessions", response_model=SessionListResponse)
+def list_sessions(scenario_id: str, db: Session = Depends(get_db)):
+    """Every saved play-through of a scenario, most-recently-played first (resume list)."""
+    crud.get_scenario(db, scenario_id)  # 404 when the scenario is unknown
+    sessions = events_store.list_sessions(db, scenario_id)
+    return SessionListResponse(sessions=[_summary(db, s) for s in sessions])
+
+
+@router.get("/{scenario_id}/sessions/{session_id}", response_model=SessionHistoryResponse)
+def session_history(scenario_id: str, session_id: str, db: Session = Depends(get_db)):
+    """The full record of one play-through — metadata + every event (incl. hidden
+    thoughts + the ``user_turn`` rows) + every diagnostic trace step — so the story
+    player can rehydrate the transcript, thoughts, stats, and graph/RAG activity."""
+    crud.get_scenario(db, scenario_id)
+    session = events_store.get_session(db, scenario_id, session_id)  # 404/400
+    events = events_store.session_events(db, session_id)
+    traces = events_store.session_traces(db, session_id)
+    return SessionHistoryResponse(
+        session=_summary(db, session),
+        events=[
+            PersistedEvent(
+                type=e.type,
+                id=e.id,
+                seq=e.seq,
+                scenario_id=e.scenario_id,
+                session_id=e.session_id,
+                ts=e.ts,
+                visibility=e.visibility,  # type: ignore[arg-type]
+                data=e.data,
+            )
+            for e in events
+        ],
+        traces=[
+            PersistedTrace(
+                turn=t.turn, n=t.n, step=t.step, title=t.title, detail=t.detail, data=t.data
+            )
+            for t in traces
+        ],
+    )
+
+
+@router.post("/{scenario_id}/sessions/{session_id}/close", response_model=SessionSummary)
+def close_session(scenario_id: str, session_id: str, db: Session = Depends(get_db)):
+    """Mark a play-through closed (the save-on-close signal). Idempotent; every turn is
+    already persisted, so this only stamps ``closed_at`` / bumps recency."""
+    crud.get_scenario(db, scenario_id)
+    events_store.get_session(db, scenario_id, session_id)  # 404/400
+    session = events_store.close_session(db, session_id)
+    return _summary(db, session)
+
+
+@router.get("/{scenario_id}/sessions/{session_id}/export")
+def export_session(
+    scenario_id: str,
+    session_id: str,
+    format: str = Query("json", pattern="^(json|md)$"),
+    db: Session = Depends(get_db),
+):
+    """Download the full conversation record as JSON or Markdown (attachment).
+
+    Server-generated from the persisted rows so it works identically for a live or a
+    long-closed scene, and includes the graph/RAG diagnostics that only live in the trace.
+    """
+    scenario = crud.get_scenario(db, scenario_id)
+    session = events_store.get_session(db, scenario_id, session_id)  # 404/400
+    events = events_store.session_events(db, session_id)
+    traces = events_store.session_traces(db, session_id)
+    names = {c.id: c.name for c in crud.list_characters(db, scenario.storyline_id)}
+
+    if format == "md":
+        body = session_export.render_markdown(scenario, session, events, traces, names)
+        media_type, ext = "text/markdown; charset=utf-8", "md"
+    else:
+        body = session_export.render_json(scenario, session, events, traces, names)
+        media_type, ext = "application/json; charset=utf-8", "json"
+
+    filename = f"velora-{scenario_id}-{session_id}.{ext}"
+    return Response(
+        content=body,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
