@@ -54,13 +54,21 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
 
 On the client, `useScenePlay` (via the generic `useEventStream` hook + `postTurn`) consumes
 the stream: **delta-streamed prose** (`narration`, `character_dialogue`) accumulates by event
-`id` (incremental `text` chunks, `done` flips true last; a `character_action` immediately
-followed by that speaker's dialogue merges into one beat); an `internal_thought` renders as
-its own distinct "thinking" bubble (never merged into a speech beat); `state_update` /
-`branch_choices` drive the side panels. A scene seeds **narrator-only** (no character speaks
-before the player acts), and selecting a branch forwards its `outcome` so the backend plays
-the chosen path out. The composer is locked while a turn streams (in-flight guard); a
-mid-stream failure surfaces the terminal `error` frame.
+`id` (incremental `text` chunks, `done` flips true last). A speaker's `internal_thought`,
+`character_action`, and `character_dialogue` **all fold into one `char` beat** (the thought
+opens it, action + dialogue merge in as they arrive — `mergeFrame`/`isOpenCharBeat`), so a
+message reads as one moment: the character's name, their muted **thinking** line, then the
+spoken bubble. `state_update` / `branch_choices` drive the side panels. A scene seeds
+**narrator-only** (no character speaks before the player acts), and selecting a branch
+forwards its `outcome` so the backend plays the chosen path out. The composer is locked while
+a turn streams (in-flight guard); a mid-stream failure surfaces the terminal `error` frame.
+
+**Narrator output is sanitized** before display: the narrator is the one freeform-prose
+agent (no `<type:>`/`<thinking>` markers), so a reasoning model's chain-of-thought and
+harmony-style channel tokens (`<|channel|>…`, `*Check:*`/`*Revised:*`) would otherwise leak
+into the beat. `narrator_agent.interstitial` runs the reply through `_common.strip_reasoning`
+(drop `<think>` blocks, keep only the text after the last channel marker, scrub residual
+control tokens) so only the final narration reaches the transcript.
 
 The hot path is **read-only** — all mutation (durable consequences, edges) defers to the
 cold-path turn-writer (a later phase); stat changes are clamped during validation.
@@ -71,11 +79,24 @@ cold-path turn-writer (a later phase); stat changes are clamped during validatio
 Director/character agent proposes a change (stat key, delta or value, reason)
   → emitted as a state_update event
   → Validator confirms the stat exists and clamps the result to [min, max]
-  → event streamed to the UI
-  → Stats panel updates; narrator may reference the new state next turn
+  → event streamed to the UI (carries the change's characterId, key, clamped value, reason)
+  → Director rail's Scene-state chips update (flat, global) AND the per-character store
+    (`statsByChar`, keyed by characterId) updates
+  → narrator may reference the new state next turn
 ```
 
 The change carries a **reason**, giving a free audit trail ("Health −25: struck by the falling beam") useful for debugging the model and for showing the player *why* a number moved. Current stat values plus their guidance files feed back into agent context each turn, so a near-dead character fights weakly and a high-strength character can plausibly force a door.
+
+The client keeps stats **two ways** so both right-rail surfaces stay live: a flat `StatChip[]`
+(`applyStatUpdate`) drives the Director rail's global Scene-state chips, and a per-character
+map (`applyStatByChar`, keyed by the event's `characterId`) drives the **character dossier** —
+its stat sliders (`StatSchema`/`StatSlider`, now value-aware) render that character's live
+value + band, falling back to the schema default until a stat first moves.
+
+The cold-path **graph trace** (Inspector's green *Graph* steps) reports *what* was written,
+not just a count: the `commit` step lists each durable `Consequence.summary` (e.g. "suspicion
++12: old guilt"), and the first-turn `relationships` step lists the seeded edges
+(`ensure_seeded` returns one `"A <type> B — reason"` summary per edge).
 
 The event schema is shared via `web/shared/contracts/` and documented in `docs/api-contract.md`. Keep all three in sync.
 

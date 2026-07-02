@@ -94,9 +94,9 @@ A three-zone "open book": a **left cast rail** (At the table · turn order, port
 | `narration` | Teal left-border card (`#1F8A82`), faint teal tint, **upright** EB Garamond (not italic), mono "Narrator" eyebrow. |
 | `character_dialogue` | Monogram avatar (character color) + Cinzel name in that color + chat bubble (`--card-bg`, asymmetric radius). |
 | `character_action` | Short **upright** label (5–10 words, not italic) next to the name, in `--mute2` (e.g. "leans in, low"). |
-| `internal_thought` | Distinct "thinking" bubble: dimmed monogram + name + a mono "thinking" tag + a **dashed** muted bubble (`bg-card2`, `--ink-soft` text, upright). Separate from the speech bubble so speak/think alternate naturally. |
+| `internal_thought` | **Folded into the speaker's beat**, not a separate bubble: a muted "thinking" line (mono `thinks` tag + `--ink-soft`, ~13px — slightly smaller than the 15.5px speech) sits between the character's name and their spoken bubble, so one message shows what they think, then what they say. |
 | player turn | Right-aligned bubble in `--accent` with `#F6ECDA` text, mono "You" eyebrow. |
-| `state_update` (stats) | Updates the right-rail **scenario state chips** (label + signed value, colored by direction; the change `reason` rides as the chip's title); no chat message. |
+| `state_update` (stats) | Updates the Director rail's **Scene-state chips** (label + signed value, colored by direction; the change `reason` rides as the chip's title) AND the open **character dossier's** stat sliders, which are value-aware: the thumb, floating readout, and band title track that character's live per-`characterId` value (falling back to the schema default until it first moves). No chat message. |
 | `branch_choices` | Centered "Your move — choose a path" block of ◆ choice rows (**label + outcome only** — no dice/check, D11). Selecting a row submits a real turn. |
 
 ### Turn Inspector (diagnostic panel)
