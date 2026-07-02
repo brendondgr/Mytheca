@@ -121,3 +121,39 @@ def test_extract_entities_requires_configured_llm(db_session, monkeypatch):
     with pytest.raises(APIError) as exc:
         extract_agent.extract_entities(db_session, "Some characters.")
     assert exc.value.status_code == 400
+
+
+def test_extract_kind_character_drops_any_settings(client, db_session, monkeypatch):
+    """A character-bucket doc yields only characters — a phantom setting is cleared."""
+    _configure_llm(client)
+    _patch_upstream(monkeypatch, lambda req: _completion(_ROSTER))  # _ROSTER has a setting
+    result = extract_agent.extract_entities(db_session, "Cast notes.", kind="character")
+    assert [c.name for c in result.characters] == ["Maerin Voss", "Inquisitor Kestrel"]
+    assert result.settings == []  # the model's setting is scoped out
+
+
+def test_extract_kind_setting_drops_any_characters(client, db_session, monkeypatch):
+    """A setting-bucket doc yields only settings — phantom characters are cleared."""
+    _configure_llm(client)
+    _patch_upstream(monkeypatch, lambda req: _completion(_ROSTER))
+    result = extract_agent.extract_entities(db_session, "Place notes.", kind="setting")
+    assert result.characters == []
+    assert [s.name for s in result.settings] == ["The Drowned Chapel"]
+
+
+def test_extract_kind_injects_the_bucket_instruction(client, db_session, monkeypatch):
+    """Each bucket's instruction reaches the prompt so extraction is scoped + strict."""
+    _configure_llm(client)
+    seen: dict = {}
+
+    def handler(req):
+        seen["user"] = json.loads(req.content.decode())["messages"][1]["content"]
+        seen["system"] = json.loads(req.content.decode())["messages"][0]["content"]
+        return _completion(_ROSTER)
+
+    _patch_upstream(monkeypatch, handler)
+    extract_agent.extract_entities(db_session, "A doc.", kind="character")
+    assert "classified as a CHARACTER" in seen["user"]
+    # The system prompt forbids inventing subjects out of lore.
+    assert "Do NOT invent" in seen["system"]
+    assert "explicitly NAMED" in seen["system"]

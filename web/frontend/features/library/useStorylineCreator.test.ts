@@ -124,24 +124,42 @@ describe("useStorylineCreator", () => {
     const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
     expect(body.characterDocs).toEqual([{ name: "hero.md", text: "A hero." }]);
     expect(body.settingDocs).toEqual([{ name: "keep.md", text: "A place." }]);
+    expect(body.uncategorizedDocs).toEqual([]);
     expect(body.otherDocs).toEqual([]);
   });
 
-  it("sends 'other'-bucket (multi-subject) docs to the build for mining", async () => {
+  it("routes an 'other'-bucket doc to otherDocs (lore/grounding only)", async () => {
     const { result } = renderHook(() => useStorylineCreator());
     await act(async () => {
-      await result.current.addFiles([file("cast.md", "Three sailors and a captain.")]);
+      await result.current.addFiles([file("lore.md", "A history of the founding wars.")]);
     });
-    act(() => result.current.setDocCategory("cast.md", "other"));
+    act(() => result.current.setDocCategory("lore.md", "other"));
     await act(async () => {
       await result.current.build();
     });
     const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
-    // The multi-subject doc rides otherDocs (so the backend can extract every entity)
-    // instead of being dropped from the build entirely.
-    expect(body.otherDocs).toEqual([{ name: "cast.md", text: "Three sailors and a captain." }]);
+    // 'Other' docs ride otherDocs — the backend uses them for grounding only, never
+    // extracting entities from them.
+    expect(body.otherDocs).toEqual([{ name: "lore.md", text: "A history of the founding wars." }]);
     expect(body.characterDocs).toEqual([]);
     expect(body.settingDocs).toEqual([]);
+    expect(body.uncategorizedDocs).toEqual([]);
+  });
+
+  it("routes an Uncategorized ('select') doc to uncategorizedDocs (strict extraction)", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    await act(async () => {
+      await result.current.addFiles([file("mystery.md", "Some notes.")]);
+    });
+    // Left Uncategorized (default 'select') — no setDocCategory call.
+    await act(async () => {
+      await result.current.build();
+    });
+    const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
+    expect(body.uncategorizedDocs).toEqual([{ name: "mystery.md", text: "Some notes." }]);
+    expect(body.characterDocs).toEqual([]);
+    expect(body.settingDocs).toEqual([]);
+    expect(body.otherDocs).toEqual([]);
   });
 
   it("skips image rendering when ComfyUI is configured but unreachable", async () => {

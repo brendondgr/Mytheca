@@ -252,42 +252,67 @@ def _dedup(entities: list[ExtractedEntity], seen: set[str]) -> list[ExtractedEnt
 
 
 def _extract_one(
-    db: Session, conn: LlmConn, name: str, text: str, grounding: str
+    db: Session, conn: LlmConn, name: str, text: str, grounding: str, *, kind: str
 ) -> ExtractedEntities:
     """Extract one doc's entities with a single retry (for the concurrent build loop).
 
     Runs on a worker thread with the pre-resolved ``conn`` (``extract_entities`` uses
     it via ``resolve_llm_or`` and never touches ``db`` — same Session-safety contract
-    as the per-entity draft closures). A malformed-JSON reply (or a transient upstream
-    error) is retried **once**, since LOW-effort extraction usually succeeds on the
-    retry; a second failure raises, and ``imap_unordered`` isolates it so that single
-    doc is skipped instead of aborting the whole build.
+    as the per-entity draft closures). ``kind`` scopes the extraction to the doc's
+    triage bucket. A malformed-JSON reply (or a transient upstream error) is retried
+    **once**, since LOW-effort extraction usually succeeds on the retry; a second
+    failure raises, and ``imap_unordered`` isolates it.
     """
     try:
-        return extract_agent.extract_entities(db, text, grounding, doc_name=name, conn=conn)
+        return extract_agent.extract_entities(db, text, grounding, doc_name=name, conn=conn, kind=kind)
     except APIError:
-        return extract_agent.extract_entities(db, text, grounding, doc_name=name, conn=conn)
+        return extract_agent.extract_entities(db, text, grounding, doc_name=name, conn=conn, kind=kind)
 
 
-def _dedup_roster(
+def _fallback_entity(name: str, text: str) -> ExtractedEntity:
+    """The whole document as ONE entity — used when a doc the author *classified* as a
+    character/setting yields no explicitly named subject (its classification asserts it
+    is one, so it is never lost). The draft agent overrides the provisional name."""
+    label = re.sub(r"\.(md|markdown|txt|text)$", "", name.strip(), flags=re.IGNORECASE)
+    return ExtractedEntity(name=label or "Unnamed", source=text[:DOCS_CAP])
+
+
+def _collect_roster(
+    jobs: list[tuple[str, str, str]],
     found_slots: list[ExtractedEntities | None],
 ) -> tuple[list[ExtractedEntity], list[ExtractedEntity]]:
-    """De-dup across per-doc results **in document order** (first occurrence wins).
+    """Fold per-doc extraction results into the roster **in document order**, honoring
+    each doc's kind and the classified fallback.
 
-    Concurrency yields results out of order, so we collect them into position slots and
-    fold in original order here — the roster stays deterministic regardless of which
-    doc's extraction finished first. Deliberately **uncapped**: the author attached
-    exactly these documents, so every distinct subject they named becomes a card.
+    * ``character`` / ``setting`` job → take only that kind; if the doc produced no
+      named subject (extraction empty *or* unreadable), fall back to **one** entity from
+      the whole doc (the author classified it, so it is guaranteed ≥1).
+    * ``both`` (uncategorized) job → take whatever named subjects were found, and
+      **nothing** if none (0 is a valid, expected result — no invention).
+
+    De-dup is by folded name in document order (first occurrence wins), uncapped.
     """
     characters: list[ExtractedEntity] = []
     settings: list[ExtractedEntity] = []
     seen_chars: set[str] = set()
     seen_settings: set[str] = set()
-    for found in found_slots:
-        if found is None:  # a doc whose extraction was skipped (see _extract_one)
-            continue
-        characters.extend(_dedup(found.characters, seen_chars))
-        settings.extend(_dedup(found.settings, seen_settings))
+    for (name, text, kind), found in zip(jobs, found_slots):
+        found_chars = found.characters if found else []
+        found_settings = found.settings if found else []
+        if kind == "character":
+            # Fall back to one entity ONLY when the doc named NOTHING (empty extraction
+            # or unreadable) — not when its subject was already counted from another doc
+            # (that would spuriously invent a filename-named duplicate).
+            if not found_chars:
+                found_chars = [_fallback_entity(name, text)]
+            characters.extend(_dedup(found_chars, seen_chars))
+        elif kind == "setting":
+            if not found_settings:
+                found_settings = [_fallback_entity(name, text)]
+            settings.extend(_dedup(found_settings, seen_settings))
+        else:  # uncategorized — strict, may contribute nothing (no fallback)
+            characters.extend(_dedup(found_chars, seen_chars))
+            settings.extend(_dedup(found_settings, seen_settings))
     return characters, settings
 
 
@@ -328,22 +353,32 @@ def iter_build_world(
     max_settings: int | None = None,
     character_docs: list[BuildDoc] | None = None,
     setting_docs: list[BuildDoc] | None = None,
+    uncategorized_docs: list[BuildDoc] | None = None,
     other_docs: list[BuildDoc] | None = None,
 ) -> Iterator[BuildEvent]:
     """Draft a whole world, yielding a progress event at each stage.
 
     The live backbone for the New Storyline page: storyline metadata → World Primer
-    → blueprint (stat schema) → **extract every entity from every attached doc** →
-    one full character per extracted subject → one full setting per extracted subject
-    → a terminal ``done`` carrying the assembled ``ProposedWorld``.
+    → blueprint (stat schema) → **extract entities, respecting the author's triage
+    bucket** → one full character/setting per extracted subject → a terminal ``done``
+    carrying the assembled ``ProposedWorld``.
 
-    **Cast/settings come ONLY from the attached, triaged docs** (``character_docs`` /
-    ``setting_docs`` / ``other_docs``), but each doc is *mined*: a file describing
-    several characters yields several cards, a mixed file yields both characters and
-    settings, and a pure-lore file yields none (it still grounds the world). Subjects
-    are de-duped across docs (uncapped — every distinct subject the author attached
-    becomes a card). The build never invents an entity the author didn't attach: no
-    docs → no cast/settings.
+    **Cast/settings come ONLY from the attached, triaged docs, and extraction respects
+    the author's classification** — it never invents a subject by expanding lore:
+
+    * ``character_docs`` → mine for explicitly NAMED characters only; usually exactly
+      one (the doc *is* that character), split into several only when it clearly names
+      several. A doc that yields no explicit name still becomes **one** character (the
+      classification asserts it is one).
+    * ``setting_docs`` → the same, for named settings.
+    * ``uncategorized_docs`` → read carefully; produce an entity **only if a genuinely
+      NAMED** character/setting is present. A lore/history/rules/atmosphere doc yields
+      **nothing**.
+    * ``other_docs`` → **lore/grounding only**; never become entities (their text folds
+      into the drafting grounding so drafts stay consistent with them).
+
+    Subjects are de-duped across docs in document order (uncapped). The build never
+    invents an entity the author didn't attach: no entity docs → no cast/settings.
     (The storyline metadata, World Primer, and the universal stat schema are always
     produced.) Errors propagate (the route wraps them into an in-band ``error`` event
     once the stream is open).
@@ -352,7 +387,9 @@ def iter_build_world(
         db,
         seed,
         docs_overview,
-        has_entity_docs=has_buildable_docs(character_docs, setting_docs, other_docs),
+        has_entity_docs=has_buildable_docs(
+            character_docs, setting_docs, uncategorized_docs, other_docs
+        ),
     )
     effective_seed = seed or _DOCS_ONLY_SEED
 
@@ -388,9 +425,11 @@ def iter_build_world(
     )
 
     # Ground each draft in the just-drafted world (it has no DB row yet, so the brief
-    # travels inline as reference text alongside any author-provided docs).
-    grounding = brief if not docs_overview else f"{brief}\n\n{docs_overview}"
-    grounding = grounding[:DOCS_CAP]
+    # travels inline as reference text alongside any author-provided docs). **Other**-
+    # bucket docs are lore/grounding only — they never become entities, but they DO fold
+    # into the grounding here so drafts stay consistent with them.
+    other_lore = "\n\n".join(text for _, text in _doc_sources(other_docs))
+    grounding = "\n\n".join(p for p in (brief, docs_overview, other_lore) if p)[:DOCS_CAP]
 
     # Concurrency for extraction + the per-entity drafts. Pre-resolve the LLM
     # connection ONCE on this (request) thread and hand it to each worker via ``conn=``
@@ -401,53 +440,57 @@ def iter_build_world(
     conn = resolve_llm(db)
     workers = settings_store.get_llm(db).authoring_concurrency
 
-    # 4) Extract the roster: mine EVERY attached doc (character/setting/other bucket)
-    #    for its distinct characters + settings, **concurrently** (bounded by
-    #    ``workers``). One file with several characters yields several cards. Each doc's
-    #    extraction is **failure-isolated** (``imap_unordered`` → skip on a second
-    #    parse/upstream failure) so one malformed reply out of many can't abort the
-    #    whole build (the previous serial loop did — the "stuck then 'invalid JSON'"
-    #    report), and a **per-doc status** streams so the UI shows movement (and names
-    #    any skipped docs) instead of freezing on a single "Reading docs…" line.
-    doc_sources = (
-        _doc_sources(character_docs) + _doc_sources(setting_docs) + _doc_sources(other_docs)
+    # 4) Extract the roster, **respecting the author's classification**. Each doc is
+    #    mined only for the kind its bucket asserts — character docs for named
+    #    characters, setting docs for named settings, uncategorized docs for either;
+    #    Other docs are lore only (already folded into ``grounding`` above, never
+    #    extracted). Runs **concurrently** (bounded by ``workers``), **failure-isolated**
+    #    (``imap_unordered`` → skip on a second parse/upstream failure so one malformed
+    #    reply can't abort the whole build), with a **per-doc status** so the UI shows
+    #    movement instead of freezing on a single "Reading docs…" line.
+    extract_jobs: list[tuple[str, str, str]] = (  # (name, text, kind)
+        [(n, t, "character") for n, t in _doc_sources(character_docs)]
+        + [(n, t, "setting") for n, t in _doc_sources(setting_docs)]
+        + [(n, t, "both") for n, t in _doc_sources(uncategorized_docs)]
     )
-    total_docs = len(doc_sources)
+    total_docs = len(extract_jobs)
     yield BuildStatusEvent(
         stage="extract",
         message=(
-            f"Reading {total_docs} document(s) for characters and settings…"
+            f"Reading {total_docs} document(s) for named characters and settings…"
             if total_docs
-            else "Reading your documents for characters and settings…"
+            else "Reading your documents for named characters and settings…"
         ),
     )
     found_slots: list[ExtractedEntities | None] = [None] * total_docs
-    skipped: list[str] = []
+    unparsed: list[str] = []
     read = 0
     extract_thunks = [
-        (lambda name=name, text=text: _extract_one(db, conn, name, text, grounding))
-        for name, text in doc_sources
+        (lambda n=n, t=t, k=k: _extract_one(db, conn, n, t, grounding, kind=k))
+        for n, t, k in extract_jobs
     ]
     for i, found in concurrency.imap_unordered(extract_thunks, max_workers=workers):
         read += 1
-        name = doc_sources[i][0]
+        name, _, kind = extract_jobs[i]
         if found is None:
-            skipped.append(name)
+            # A classified (character/setting) doc still becomes one entity via the
+            # fallback in _collect_roster; only an uncategorized doc is truly dropped.
+            if kind == "both":
+                unparsed.append(name)
         else:
             found_slots[i] = found
-        note = f" · {len(skipped)} skipped" if skipped else ""
+        note = f" · {len(unparsed)} unreadable" if unparsed else ""
         yield BuildStatusEvent(stage="extract", message=f"Read {read}/{total_docs}: {name}{note}")
-    if skipped:
-        # Explain the skips (instead of the old opaque abort) — name a few.
-        shown = ", ".join(skipped[:5]) + ("…" if len(skipped) > 5 else "")
+    if unparsed:
+        shown = ", ".join(unparsed[:5]) + ("…" if len(unparsed) > 5 else "")
         yield BuildStatusEvent(
             stage="extract",
             message=(
-                f"Read {total_docs - len(skipped)} of {total_docs} document(s); "
-                f"skipped {len(skipped)} that couldn't be parsed ({shown})."
+                f"{len(unparsed)} uncategorized document(s) couldn't be read and were "
+                f"skipped ({shown})."
             ),
         )
-    char_entities, setting_entities = _dedup_roster(found_slots)
+    char_entities, setting_entities = _collect_roster(extract_jobs, found_slots)
     yield BuildPlanEvent(
         stats=stats,
         characters=[e.name for e in char_entities],
@@ -527,6 +570,7 @@ def build_world(
     max_settings: int | None = None,
     character_docs: list[BuildDoc] | None = None,
     setting_docs: list[BuildDoc] | None = None,
+    uncategorized_docs: list[BuildDoc] | None = None,
     other_docs: list[BuildDoc] | None = None,
 ) -> ProposedWorld:
     """Draft an entire world for review — the non-streaming collector.
@@ -545,6 +589,7 @@ def build_world(
         max_settings=max_settings,
         character_docs=character_docs,
         setting_docs=setting_docs,
+        uncategorized_docs=uncategorized_docs,
         other_docs=other_docs,
     ):
         if isinstance(event, BuildDoneEvent):

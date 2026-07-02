@@ -65,15 +65,22 @@ class BuildWorldRequest(CamelModel):
     storyline_id: str | None = None
     max_characters: int | None = None
     max_settings: int | None = None
-    # Attached, triaged reference docs to mine for the cast / places. The build runs
-    # an extraction pass over EVERY attached doc (character + setting + other bucket)
-    # and drafts one card per distinct character and per distinct setting it finds —
-    # so a single file describing several characters yields several cards instead of
-    # being lost. The three lists carry the author's triage bucket; extraction
-    # surfaces whatever subjects each doc actually contains. The build never invents
-    # an entity from thin air — with no docs, no cast/settings are created.
+    # Attached, triaged reference docs, split by the author's classification. Extraction
+    # RESPECTS the bucket (it never invents a subject by expanding lore):
+    #   - character_docs     → mine for explicitly NAMED characters only (usually one;
+    #                          split only if it clearly names several; a doc with no
+    #                          named subject still becomes ONE character — the
+    #                          classification asserts it is one).
+    #   - setting_docs       → the same, for named settings.
+    #   - uncategorized_docs → produce an entity ONLY if a genuinely NAMED character /
+    #                          setting is present; lore/history/rules/atmosphere →
+    #                          nothing.
+    #   - other_docs         → LORE/GROUNDING ONLY — never become entities (they fold
+    #                          into the drafting grounding so drafts stay consistent).
+    # The build never invents an entity from thin air — with no entity docs, no cast.
     character_docs: list[BuildDoc] = []
     setting_docs: list[BuildDoc] = []
+    uncategorized_docs: list[BuildDoc] = []
     other_docs: list[BuildDoc] = []
 
 

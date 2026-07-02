@@ -256,11 +256,13 @@ export interface BuildWorldBody {
   storylineId?: string;
   maxCharacters?: number;
   maxSettings?: number;
-  /** Attached docs triaged as characters — mined for every distinct character. */
+  /** Docs classified as characters — mined for NAMED characters (usually one). */
   characterDocs?: { name: string; text: string }[];
-  /** Attached docs triaged as settings — mined for every distinct place. */
+  /** Docs classified as settings — mined for NAMED settings (usually one). */
   settingDocs?: { name: string; text: string }[];
-  /** Attached docs triaged as 'other' (multi-subject / mixed) — mined for both. */
+  /** Uncategorized docs — mined strictly, only for a genuinely NAMED character/setting. */
+  uncategorizedDocs?: { name: string; text: string }[];
+  /** Docs classified as 'other' — LORE/GROUNDING ONLY; never turned into entities. */
   otherDocs?: { name: string; text: string }[];
 }
 
