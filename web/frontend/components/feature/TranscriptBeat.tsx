@@ -1,5 +1,6 @@
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { QuotedText } from "@/components/ui/QuotedText";
 import { mediaUrl } from "@/lib/api";
 import type { Character } from "@/lib/types";
 import type { SceneChoice, SceneMessage } from "@/features/story-player/scene-data";
@@ -11,7 +12,9 @@ export function NarratorCard({ text }: { text: string }) {
       <Eyebrow size={8} tracking="0.18em" color="#1F8A82" className="mb-[6px] block">
         Narrator
       </Eyebrow>
-      <p className="font-body text-[15.5px] leading-[1.55] text-ink">{text}</p>
+      <p className="font-body text-[15.5px] leading-[1.55] text-ink">
+        <QuotedText text={text} />
+      </p>
     </div>
   );
 }
@@ -27,7 +30,7 @@ export function PlayerMessage({ text }: { text: string }) {
           </Eyebrow>
         </div>
         <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-[#F6ECDA]">
-          {text}
+          <QuotedText text={text} />
         </div>
       </div>
     </div>
@@ -36,9 +39,10 @@ export function PlayerMessage({ text }: { text: string }) {
 
 /**
  * `character_dialogue` (+ inline `character_action` + private `thought`) — monogram +
- * name + bubble. A character's private thinking (feedback: combine think+speak) renders
- * muted and slightly smaller BETWEEN the name and the spoken bubble, so one beat carries
- * the whole moment: what they think, then what they say.
+ * name + one bubble. A character's private thinking and their speech share a SINGLE box at
+ * the SAME text size (request #4): the thought reads muted + italic at the top, the spoken
+ * line upright below it, so one beat carries the whole moment — what they think, then what
+ * they say. Quoted dialogue is bolded within the bubble via {@link QuotedText}.
  */
 export function CharacterMessage({
   character,
@@ -81,17 +85,25 @@ export function CharacterMessage({
             <span className="font-body text-[13px] text-mute2">{action}</span>
           ) : null}
         </div>
-        {thought ? (
-          <p className="mt-[4px] font-body text-[13px] leading-[1.45] text-ink-soft">
-            <span className="mr-[6px] font-mono text-[9px] uppercase tracking-[0.14em] text-mute2">
-              thinks
-            </span>
-            {thought}
-          </p>
-        ) : null}
-        {text ? (
-          <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-ink shadow-[0_1px_2px_rgba(20,14,6,.06)]">
-            {text}
+        {thought || text ? (
+          <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px] shadow-[0_1px_2px_rgba(20,14,6,.06)]">
+            {thought ? (
+              <p className="font-body text-[15.5px] leading-[1.5] text-ink-soft italic">
+                <span className="mr-[6px] align-baseline font-mono text-[9px] not-italic uppercase tracking-[0.14em] text-mute2">
+                  thinks
+                </span>
+                <QuotedText text={thought} />
+              </p>
+            ) : null}
+            {text ? (
+              <p
+                className={`font-body text-[15.5px] leading-[1.5] text-ink${
+                  thought ? " mt-[8px] border-t border-hair pt-[8px]" : ""
+                }`}
+              >
+                <QuotedText text={text} />
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>
