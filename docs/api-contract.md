@@ -567,10 +567,12 @@ context** — never appended to the shared transcript later speakers condition o
 default visibility is `hidden`; the engine overrides it to `private_to_user` so the player
 sees the thought while the other characters do not.)
 
-**Narration is sanitized:** because the narrator returns freeform prose (no
-`<type:>`/`<thinking>` markers to parse against), a reasoning model's chain-of-thought and
-harmony-style channel tokens are stripped from `narration.text` server-side
-(`_common.strip_reasoning`) before the event is emitted, so only the final beat is shown.
+**Model output is sanitized centrally:** a reasoning model's chain-of-thought and
+harmony-style channel tokens (`<|channel|>…`, `<think>…</think>`) are stripped in
+`services.llm.chat_complete` (`_common.strip_reasoning`) — the one call every agent shares —
+before the text is returned. This covers narrator prose, the character emission (parsed by
+`emission.parse_emission`), and authoring JSON alike; the app's own
+`<speaker:>`/`<type:>`/`<thinking>` markers are preserved.
 
 **Stat changes** are carried on `state_update`:
 

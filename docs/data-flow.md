@@ -63,12 +63,14 @@ spoken bubble. `state_update` / `branch_choices` drive the side panels. A scene 
 forwards its `outcome` so the backend plays the chosen path out. The composer is locked while
 a turn streams (in-flight guard); a mid-stream failure surfaces the terminal `error` frame.
 
-**Narrator output is sanitized** before display: the narrator is the one freeform-prose
-agent (no `<type:>`/`<thinking>` markers), so a reasoning model's chain-of-thought and
-harmony-style channel tokens (`<|channel|>…`, `*Check:*`/`*Revised:*`) would otherwise leak
-into the beat. `narrator_agent.interstitial` runs the reply through `_common.strip_reasoning`
-(drop `<think>` blocks, keep only the text after the last channel marker, scrub residual
-control tokens) so only the final narration reaches the transcript.
+**Model output is sanitized centrally.** Reasoning models inline their chain-of-thought and
+harmony-style channel tokens (`<|channel|>…`, `<think>…</think>`, `*Check:*`/`*Revised:*`) in
+`message.content`. `services.llm.chat_complete` — the one generation call every agent shares —
+runs each reply through `_common.strip_reasoning` (drop `<think>` blocks, keep only the text
+after the last channel marker, scrub residual control tokens) before returning it. So the
+**narrator** prose, the **character emission** (parsed downstream by `emission.parse_emission`),
+and the **authoring JSON** agents all receive only the model's final answer; the scrub keeps
+the app's own `<speaker:>`/`<type:>`/`<thinking>` markers intact.
 
 The hot path is **read-only** — all mutation (durable consequences, edges) defers to the
 cold-path turn-writer (a later phase); stat changes are clamped during validation.

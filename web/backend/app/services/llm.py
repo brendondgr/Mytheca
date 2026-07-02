@@ -148,6 +148,15 @@ def chat_complete(
         raise APIError(
             502, "upstream_error", "The model endpoint returned an unexpected response."
         ) from exc
+    # Reasoning models inline their chain-of-thought + harmony channel tokens
+    # (``<|channel|>…``, ``<think>…</think>``) in ``content``; strip them here at the one
+    # choke point every agent shares, so the narrator, the character emission parser, and
+    # the authoring JSON agents all receive only the model's final answer. The scrub keeps
+    # the app's own ``<speaker:>``/``<type:>``/``<thinking>`` markers intact. Local import
+    # avoids a circular import (``_common`` imports ``services``).
+    from app.agents._common import strip_reasoning
+
+    content = strip_reasoning(content)
     if not content:
         # Reasoning models spend the budget on hidden reasoning tokens and can hit
         # the cap before emitting any visible reply (finish_reason == "length").

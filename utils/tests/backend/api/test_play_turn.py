@@ -100,6 +100,33 @@ def test_dialogue_delta_chunks_accumulate_to_full_line(client, storyline_id, mon
     assert reconstructed == '"Coin\'s easy. It\'s what comes after the coin I don\'t trust."'
 
 
+def test_reasoning_leak_stripped_from_character_emission(client, storyline_id, monkeypatch):
+    # A reasoning model dumps its chain-of-thought + a harmony <channel|> marker before the
+    # real markered emission. chat_complete sanitizes centrally, so only the final answer
+    # reaches parse_emission — no reasoning, no channel token in the rendered dialogue.
+    leaked = (
+        "* Constraint check: 5-10 words for action, 1-3 sentences for dialogue.\n"
+        '* Dialogue: "A storm is a chaotic thing."\n'
+        "<channel|>\n"
+        "<speaker:1>\n"
+        "<type:character_action>\nslowly circles them, scent intensifying\n"
+        '<type:character_dialogue>\n"A storm is a chaotic thing—loud, frantic."'
+    )
+    _configure_llm(client)
+    _patch_llm(monkeypatch, leaked)
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+    dialogue = "".join(e["data"]["text"] for e in events if e["type"] == "character_dialogue")
+    action = " ".join(e["data"]["text"] for e in events if e["type"] == "character_action")
+    assert dialogue == '"A storm is a chaotic thing—loud, frantic."'
+    assert "slowly circles them" in action
+    # None of the reasoning scaffolding or the channel token leaks into the beat.
+    for blob in (dialogue, action):
+        assert "Constraint check" not in blob
+        assert "channel" not in blob.lower()
+
+
 def test_every_streamed_line_validates(client, storyline_id, monkeypatch):
     _configure_llm(client)
     _patch_llm(monkeypatch)

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.agents._common import gen_params, resolve_llm, strip_reasoning
+from app.agents._common import gen_params, resolve_llm
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
@@ -74,10 +74,9 @@ def interstitial(
         )
     except APIError:
         return None
-    # Reasoning models leak their chain-of-thought + harmony channel tokens into the
-    # freeform reply; keep only the final narration (the character path is immune — it
-    # parses by marker). See _common.strip_reasoning.
-    text = strip_reasoning(text)
+    # `chat_complete` already sanitizes reasoning/channel leakage centrally (see
+    # `_common.strip_reasoning`), so the freeform narration arrives clean.
+    text = text.strip()
     return text or None
 
 
