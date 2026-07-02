@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -29,7 +29,9 @@ class PlaySession(Base):
     )
     # Bumped on every turn (and on an explicit close) so the story player can resume the
     # most recent play-through of a scenario. ``closed_at`` records an explicit close.
+    # ``server_default=now()`` lets the additive reconciler self-heal this non-null column
+    # on a drifted dev DB (see core/bootstrap._reconcile_additive_columns).
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

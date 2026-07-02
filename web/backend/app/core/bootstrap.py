@@ -86,11 +86,17 @@ def _reconcile_additive_columns(engine: Engine, report: PreflightReport) -> None
 
     ``create_all`` creates missing *tables* but never ALTERs existing ones, so a
     persistent dev DB drifts behind the models on every new column. This self-heals
-    the safe case — **nullable** columns — with a plain ``ADD COLUMN`` (each guarded
-    by an inspector check, so it's idempotent). Non-nullable additions on a
-    populated table can't be done safely without a default/backfill, so those are
-    *reported* for a real migration rather than attempted. Full migrations (Alembic)
-    remain the standing follow-up; this just keeps day-to-day dev from breaking.
+    two safe cases with a guarded (idempotent) ``ADD COLUMN``:
+
+    - **nullable** columns → plain ``ADD COLUMN``.
+    - **non-nullable columns that carry a ``server_default``** → ``ADD COLUMN … NOT
+      NULL DEFAULT <server_default>``, which Postgres backfills existing rows with.
+
+    A non-nullable column with **no** server default can't be added to a populated
+    table without a manual backfill, so those are still *reported* for a real
+    migration rather than attempted. Full migrations (Alembic) remain authoritative;
+    this just keeps a drifted dev DB from breaking at runtime when a migration
+    hasn't been applied yet.
     """
     inspector = sa_inspect(engine)
     existing_tables = set(inspector.get_table_names())
@@ -103,12 +109,19 @@ def _reconcile_additive_columns(engine: Engine, report: PreflightReport) -> None
         for column in table.columns:
             if column.name in db_columns:
                 continue
-            if not column.nullable:
-                manual.append(f"{table.name}.{column.name}")
-                continue
             col_type = column.type.compile(engine.dialect)
+            ddl = f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {col_type}'
+            if not column.nullable:
+                server_default = getattr(column.server_default, "arg", None)
+                if server_default is None:
+                    manual.append(f"{table.name}.{column.name}")
+                    continue
+                # ``server_default.arg`` is a SQL text/clause; render it for the DDL so
+                # existing rows are backfilled and the NOT NULL constraint holds.
+                default_sql = str(getattr(server_default, "text", server_default))
+                ddl += f" NOT NULL DEFAULT {default_sql}"
             with engine.begin() as conn:
-                conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {col_type}'))
+                conn.execute(text(ddl))
             added.append(f"{table.name}.{column.name}")
     if added:
         report.add("migrate", True, "added columns: " + ", ".join(added), required=False)

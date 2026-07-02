@@ -61,19 +61,18 @@ def upgrade() -> None:
 
     with op.batch_alter_table('play_sessions', schema=None) as batch_op:
         batch_op.add_column(
-            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True)
+            sa.Column(
+                'updated_at',
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            )
         )
         batch_op.add_column(
             sa.Column('closed_at', sa.DateTime(timezone=True), nullable=True)
         )
-    # Backfill existing sessions so ``updated_at`` is never null, then enforce NOT NULL.
-    op.execute(
-        sa.text('UPDATE play_sessions SET updated_at = created_at WHERE updated_at IS NULL')
-    )
-    with op.batch_alter_table('play_sessions', schema=None) as batch_op:
-        batch_op.alter_column(
-            'updated_at', existing_type=sa.DateTime(timezone=True), nullable=False
-        )
+    # Backfill existing sessions from their creation time (more accurate than now()).
+    op.execute(sa.text('UPDATE play_sessions SET updated_at = created_at'))
 
 
 def downgrade() -> None:

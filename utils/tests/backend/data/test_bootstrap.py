@@ -29,6 +29,36 @@ def test_reconcile_adds_missing_nullable_column():
     engine.dispose()
 
 
+def test_reconcile_adds_nonnullable_column_with_server_default():
+    # A drifted `scenarios` table predating the NOT NULL max_turns/suggestions_count
+    # columns. Both carry a server_default, so the reconciler can add them safely
+    # (backfilling existing rows) instead of punting to a manual migration.
+    from sqlalchemy import MetaData, Table
+
+    from app.models import Scenario
+
+    engine = create_engine("sqlite://")
+    drifted = MetaData()
+    kept = [
+        col._copy()
+        for col in Scenario.__table__.columns
+        if col.name not in ("max_turns", "suggestions_count")
+    ]
+    Table("scenarios", drifted, *kept).create(engine)
+
+    report = bootstrap.PreflightReport()
+    bootstrap._reconcile_additive_columns(engine, report)
+
+    cols = {c["name"]: c for c in inspect(engine).get_columns("scenarios")}
+    assert {"max_turns", "suggestions_count"} <= cols.keys()  # auto-added
+    # Added WITH their server defaults so existing rows backfill and NOT NULL holds.
+    assert "5" in str(cols["max_turns"]["default"])
+    assert "4" in str(cols["suggestions_count"]["default"])
+    migrate = next(c for c in report.checks if c.name == "migrate" and c.ok)
+    assert "scenarios.max_turns" in migrate.detail
+    engine.dispose()
+
+
 def test_reconcile_flags_nonnullable_column_for_manual_migration():
     # Missing the NOT NULL `symbol` column — can't be auto-added on a populated
     # table without a default, so it must be reported, not attempted.
