@@ -59,9 +59,12 @@ the stream: **delta-streamed prose** (`narration`, `character_dialogue`) accumul
 opens it, action + dialogue merge in as they arrive — `mergeFrame`/`isOpenCharBeat`), so a
 message reads as one moment: the character's name, their muted **thinking** line, then the
 spoken bubble. `state_update` / `branch_choices` drive the side panels. A scene seeds
-**narrator-only** (no character speaks before the player acts), and selecting a branch
-forwards its `outcome` so the backend plays the chosen path out. The composer is locked while
-a turn streams (in-flight guard); a mid-stream failure surfaces the terminal `error` frame.
+**narrator-only** (no character speaks before the player acts); selecting a follow-up suggestion
+puts its text into the chat as the player's input **and** sends `guidance` so the backend steers
+the scene open-endedly (not a scripted play-out). Two composer dropdowns to the **left of the input**
+(`SceneControlSelect`) set the per-scene turn limit + follow-up count and persist them on the
+scenario (`updateScenario` PATCH); four suggestions render as a **2×2 grid**. The composer is locked
+while a turn streams (in-flight guard); a mid-stream failure surfaces the terminal `error` frame.
 
 **Model output is sanitized centrally.** Reasoning models inline their chain-of-thought and
 harmony-style channel tokens (`<|channel|>…`, `<think>…</think>`, `*Check:*`/`*Revised:*`) in
@@ -499,14 +502,21 @@ regenerating once on a clear contradiction. All best-effort (Redis/LLM down → 
 (`agents/intent_agent`) into narrate / address / **puppet** / whole-group intent; a puppeted
 character then *performs* the direction in its own voice (not a bystander answering the player).
 A **ReAct planner** (`agents/planner_agent.next_beat`) drives the turn beat-by-beat — after each
-beat it re-decides the next (a character speaks/acts, the narrator sets context, or the turn ends),
-so speakers are **unbounded** (a whole-group direction walks the entire cast; `TURN_MAX_BEATS` is a
-runaway backstop) — replacing the old capped one-shot Director + rerank/cascade. The planner is
+beat it re-decides the next (a character speaks/acts, the narrator sets context, or the turn ends).
+The character back-and-forth is bounded by the scenario's **`max_turns`** (a hard per-scene ceiling
+on character replies to one player message, default **5** — the loop ends there even if the planner
+would continue; `TURN_MAX_BEATS`/`2*cast+6` remains a secondary runaway backstop). The planner is
 biased toward **narration** between speakers, and a **cold scene open** with no directed character
-is narrator-led (the engine emits an opening narration first; no character speaks unprompted).
-Selecting a branch sends its `outcome`, which opens the turn with a fuller **progression**
-narration (`narrator_agent.interstitial(long=True, lead=…)`) that plays the choice out before the
-cast reacts. Each character reply is grounded in its **graph relationships** to whom it addresses
+is narrator-led. Each character's **`<thinking>`** step is a real, in-voice deliberation — a short
+paragraph reasoning through the moment in the character's own terminology (turn effort **MEDIUM**),
+streamed privately (`private_to_user`) and kept out of `turn_beats`. At the **end of every turn**,
+up to the scenario's **`suggestions_count`** (0–4; `0` disables) follow-up suggestions are generated
+from the **most recent line** (`director_agent.propose_branches(count=…)`) and emitted as
+`branch_choices` — count-driven, no longer gated on the planner's rarely-set `needsBranch` flag.
+**Selecting a suggestion** sends `guidance` (not the legacy `outcome` play-out): the direction is
+threaded into the planner + character prompts as an **open-ended steer** (`ctx.guidance`) so the
+scene bends that way while the AI still produces original, unscripted dialogue — it does not dictate
+a script. Each character reply is grounded in its **graph relationships** to whom it addresses
 (`graph_reader.relationship_context` — direct edges + 2-hop shared links, folded into the prompt). Relationships are **seeded from the
 cast bios** into the graph on a session's first turn (`services/relationships.ensure_seeded` +
 `agents/relationship_agent`) and **evolve in play** via a `relationship_update` block →
