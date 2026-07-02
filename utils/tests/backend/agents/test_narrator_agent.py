@@ -66,6 +66,22 @@ def test_interstitial_none_when_unconfigured(db_session):
     assert narrator_agent.interstitial(db_session, _ctx(), []) is None
 
 
+def test_interstitial_strips_reasoning_and_channel_leak(client, db_session, monkeypatch):
+    # A reasoning model leaks its self-check + a stray channel marker before the real
+    # narration; only the final prose should survive to the transcript.
+    leaked = (
+        "The air thickens with sulfur.\n\n"
+        "*Check:* 3 sentences? Yes. Third person? Yes.\n\n"
+        "<channel|> The musky pheromones intensify, swirling around the girls."
+    )
+    _configure_llm(client)
+    _patch(monkeypatch, leaked)
+    text = narrator_agent.interstitial(db_session, _ctx(), [])
+    assert text == "The musky pheromones intensify, swirling around the girls."
+    assert "*Check:*" not in text
+    assert "channel" not in text.lower()
+
+
 def test_long_progression_uses_the_paragraph_system_prompt(client, db_session, monkeypatch):
     # The long variant (scene opening / branch progression) asks for a fuller paragraph
     # and folds the ``lead`` direction into the prompt.

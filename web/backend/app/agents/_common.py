@@ -137,6 +137,44 @@ def rag_block(db: Session, storyline_id: str | None, query: str) -> str:
     )
 
 
+# Reasoning-model leakage scrub for FREEFORM prose replies (the narrator). Reasoning
+# models emit their chain-of-thought and harmony-style channel control tokens inline in
+# ``message.content`` (e.g. ``<|channel|>final<|message|>…``, or a stray ``<channel|>``
+# before the real answer, plus ``*Check:*``/``*Revised:*`` self-checks). The marker-parsed
+# agents (character emission) are immune because they extract by ``<type:>``/``<thinking>``
+# tags; the narrator returns raw prose, so it needs an explicit scrub.
+#
+# NB: intentionally does NOT touch the app's own ``<thinking>``/``<type:>`` tags — apply
+# this ONLY to freeform prose, never to marker-parsed character output.
+_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)
+_CHANNEL_RE = re.compile(r"<\|?channel\|?>", re.IGNORECASE)
+_HARMONY_LABEL_RE = re.compile(r"^\s*(?:final|analysis|commentary)\b[:\s]*", re.IGNORECASE)
+_HARMONY_TOKEN_RE = re.compile(
+    r"<\|?(?:channel|message|start|end|return|constrain|assistant|analysis|commentary|final)\|?>",
+    re.IGNORECASE,
+)
+
+
+def strip_reasoning(text: str) -> str:
+    """Strip reasoning-model chain-of-thought + channel tokens from a freeform reply.
+
+    Keeps only the model's final answer: drop any paired ``<think>…</think>`` block,
+    then — since the visible final answer always follows the last channel marker in the
+    harmony format — take the text after the last ``<|channel|>``/``<channel|>`` marker
+    (dropping a leading ``final``/``analysis`` label), and scrub any residual harmony
+    control tokens. A clean reply with no markers is returned trimmed and unchanged.
+    """
+    if not text:
+        return ""
+    text = _THINK_BLOCK_RE.sub("", text)
+    matches = list(_CHANNEL_RE.finditer(text))
+    if matches:
+        text = text[matches[-1].end() :]
+        text = _HARMONY_LABEL_RE.sub("", text, count=1)
+    text = _HARMONY_TOKEN_RE.sub("", text)
+    return text.strip()
+
+
 def extract_json(raw: str) -> dict:
     """Best-effort parse of a model's JSON reply (tolerant of fences/surrounds)."""
     text = raw.strip()
