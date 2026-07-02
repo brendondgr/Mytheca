@@ -3,6 +3,7 @@ import type { GraphRelationship } from "@/lib/api";
 import type { StatPatch, TurnStreamFrame, TurnTraceFrame } from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
+  applyStatByChar,
   applyStatUpdate,
   branchOptionsToChoices,
   foldTrace,
@@ -65,23 +66,45 @@ describe("mergeFrame", () => {
     expect(msgs[0].text).toBe("Hello.");
   });
 
-  it("renders an internal_thought as its own thought bubble (not merged)", () => {
+  it("opens a char beat carrying the internal_thought (no separate bubble)", () => {
     let msgs: SceneMessage[] = [];
     msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Coin first." }));
     expect(msgs).toHaveLength(1);
-    expect(msgs[0].kind).toBe("thought");
+    expect(msgs[0].kind).toBe("char");
     expect(msgs[0].who).toBe("mei");
-    expect(msgs[0].text).toBe("Coin first.");
+    expect(msgs[0].thought).toBe("Coin first.");
+    expect(msgs[0].text).toBeUndefined();
   });
 
-  it("keeps a thought and the following dialogue as two separate beats", () => {
+  it("folds a thought and the following dialogue into ONE beat (think then speak)", () => {
     let msgs: SceneMessage[] = [];
     msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Let him sweat." }));
     msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "Fine.", done: true }));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].kind).toBe("char");
+    expect(msgs[0].thought).toBe("Let him sweat.");
+    expect(msgs[0].text).toBe("Fine.");
+  });
+
+  it("folds thought → action → dialogue for one speaker into a single beat", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Stay calm." }));
+    msgs = mergeFrame(msgs, ev("character_action", "a1", { characterId: "mei", text: "Mei leans back." }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "As you wish.", done: true }));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].thought).toBe("Stay calm.");
+    expect(msgs[0].action).toBe("Mei leans back.");
+    expect(msgs[0].text).toBe("As you wish.");
+  });
+
+  it("keeps a different speaker's thought as its own beat", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Mine." }));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t2", { characterId: "kira", text: "Hers." }));
     expect(msgs).toHaveLength(2);
-    expect(msgs[0].kind).toBe("thought");
-    expect(msgs[1].kind).toBe("char");
-    expect(msgs[1].text).toBe("Fine.");
+    expect(msgs[0].who).toBe("mei");
+    expect(msgs[1].who).toBe("kira");
+    expect(msgs[1].thought).toBe("Hers.");
   });
 
   it("ignores error frames and unknown event types", () => {
@@ -145,6 +168,27 @@ describe("applyStatUpdate", () => {
   it("appends a new chip for an unseen stat", () => {
     const next = applyStatUpdate([], stat("trust", 38));
     expect(next).toEqual([{ label: "Trust", value: 38, reason: "" }]);
+  });
+});
+
+describe("applyStatByChar", () => {
+  const stat = (characterId: string, key: string, value: number): StatPatch => ({
+    characterId, key, value, reason: "",
+  });
+
+  it("buckets each stat under its own character (no cross-character collision)", () => {
+    let m: Record<string, StatChip[]> = {};
+    m = applyStatByChar(m, stat("maerin", "trust", 3));
+    m = applyStatByChar(m, stat("aldous", "trust", -2));
+    expect(m.maerin).toEqual([{ label: "Trust", value: 3, reason: "" }]);
+    expect(m.aldous).toEqual([{ label: "Trust", value: -2, reason: "" }]);
+  });
+
+  it("updates a character's existing stat in place", () => {
+    let m: Record<string, StatChip[]> = {};
+    m = applyStatByChar(m, stat("maerin", "suspicion", 2));
+    m = applyStatByChar(m, stat("maerin", "suspicion", 7));
+    expect(m.maerin).toEqual([{ label: "Suspicion", value: 7, reason: "" }]);
   });
 });
 

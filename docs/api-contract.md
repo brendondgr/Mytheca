@@ -547,10 +547,10 @@ Each maps to one frontend component.
 
 | `type` | UI rendering | `data` highlights |
 | --- | --- | --- |
-| `narration` | Teal narrator card | `text` (may delta-stream), `done` |
+| `narration` | Teal narrator card (prose **sanitized** — reasoning/channel tokens stripped) | `text` (may delta-stream), `done` |
 | `character_dialogue` | Character chat bubble (speaker's avatar/color) | `characterId`, `text` (may delta-stream), `done` |
-| `character_action` | Action / emote card | `characterId`, `text` |
-| `internal_thought` | **Thought bubble** — a distinct "thinking" bubble (`visibility: private_to_user`) | `characterId`, `text` (streams to the player; kept out of other characters' context) |
+| `character_action` | Action label on the speaker's beat | `characterId`, `text` |
+| `internal_thought` | **Inline thinking** — a muted line folded into the speaker's beat, between the name and the spoken bubble (`visibility: private_to_user`) | `characterId`, `text` (streams to the player; kept out of other characters' context) |
 | `state_update` | Updates side panels (no chat message) | `patch` — partial scenario state; **stat changes ride here** |
 | `branch_choices` | Branch-choices panel | `choices[]` (`label`, `outcome`) |
 
@@ -559,11 +559,18 @@ tag) only — there is no `check` field. A branch is a narrative fork resolved b
 selection + the characters' in-character response, never a stat test.
 
 **`internal_thought`** is the character's private think→speak block (the turn-loop plan
-Step 5 / §7). It streams to the **player** with `visibility: private_to_user` and renders as
-its own "thinking" bubble (distinct from what the character says out loud), but it is **kept
-out of other characters' context** — never appended to the shared transcript later speakers
-condition on. (The type's default visibility is `hidden`; the engine overrides it to
-`private_to_user` so the player sees the thought while the other characters do not.)
+Step 5 / §7). It streams to the **player** with `visibility: private_to_user` and, on the
+client, is **folded into the same beat as the character's speech** — rendered as a muted
+"thinking" line between the name and the spoken bubble (the thought event precedes the
+speaker's action/dialogue, which merge into that beat). It is **kept out of other characters'
+context** — never appended to the shared transcript later speakers condition on. (The type's
+default visibility is `hidden`; the engine overrides it to `private_to_user` so the player
+sees the thought while the other characters do not.)
+
+**Narration is sanitized:** because the narrator returns freeform prose (no
+`<type:>`/`<thinking>` markers to parse against), a reasoning model's chain-of-thought and
+harmony-style channel tokens are stripped from `narration.text` server-side
+(`_common.strip_reasoning`) before the event is emitted, so only the final beat is shown.
 
 **Stat changes** are carried on `state_update`:
 
@@ -617,15 +624,17 @@ turn. Trace frames are
 **transport-only** (not persisted story events, not in `story_event_adapter`), and the flag
 defaults **off** so the default stream and the story-event contract are unchanged. A
 character's `internal_thought` is surfaced here as a `thinking` trace step **and** streams as
-a `private_to_user` story event (the thought bubble). Clients ignore `trace` frames for the
-transcript.
+a `private_to_user` story event (the inline thinking line). Clients ignore `trace` frames for
+the transcript. The green **Graph** steps name what was written: `commit`'s `detail` lists
+each durable change (`data.changes[]` — the `Consequence` summaries), and the first-turn
+`relationships` seed step's `detail` lists the seeded edges (`data.edges[]`).
 
 ### Rules
 
 - `seq` is monotonic per session (DB-authoritative: `max(seq)+1`, guarded by a
   `(session_id, seq)` unique constraint) so the client can detect gaps and reorder.
 - Chunked/delta text sets `done: false` until the final chunk sets `done: true`.
-- `internal_thought` streams with `visibility: private_to_user` (the thought bubble) but is kept out of other characters' context.
+- `internal_thought` streams with `visibility: private_to_user` (the inline thinking line, folded into the speaker's beat) but is kept out of other characters' context.
 - The validator runs `parse → validate (incl. stat clamping) → repair/retry` before anything reaches the stream.
 
 ## Shared Contracts Location

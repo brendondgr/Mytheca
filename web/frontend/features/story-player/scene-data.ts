@@ -4,13 +4,19 @@ import type { ResolvedScenario } from "@/lib/types";
 // match the reference; any other scenario gets a believable generic opening
 // built from its cast + branches. No model calls — interactions are local.
 
-export type SceneMessageKind = "narrator" | "char" | "thought" | "player" | "choices";
+export type SceneMessageKind = "narrator" | "char" | "player" | "choices";
 
 export interface SceneMessage {
   kind: SceneMessageKind;
   who?: string;
   action?: string;
   text?: string;
+  /**
+   * A character's private thinking, folded into the SAME beat as their speech: it renders
+   * muted, between the name and the spoken bubble. Populated from an `internal_thought`
+   * event that precedes the speaker's action/dialogue.
+   */
+  thought?: string;
   /** Streamed-event id — used to accumulate delta chunks of narration/dialogue. */
   id?: string;
 }

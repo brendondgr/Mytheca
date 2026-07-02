@@ -34,15 +34,22 @@ export function PlayerMessage({ text }: { text: string }) {
   );
 }
 
-/** `character_dialogue` (+ inline `character_action`) — monogram + name + bubble. */
+/**
+ * `character_dialogue` (+ inline `character_action` + private `thought`) — monogram +
+ * name + bubble. A character's private thinking (feedback: combine think+speak) renders
+ * muted and slightly smaller BETWEEN the name and the spoken bubble, so one beat carries
+ * the whole moment: what they think, then what they say.
+ */
 export function CharacterMessage({
   character,
   action,
+  thought,
   text,
   onProfile,
 }: {
   character: Character;
   action?: string;
+  thought?: string;
   text: string;
   onProfile?: () => void;
 }) {
@@ -74,58 +81,16 @@ export function CharacterMessage({
             <span className="font-body text-[13px] text-mute2">{action}</span>
           ) : null}
         </div>
+        {thought ? (
+          <p className="mt-[4px] font-body text-[13px] leading-[1.45] text-ink-soft">
+            <span className="mr-[6px] font-mono text-[9px] uppercase tracking-[0.14em] text-mute2">
+              thinks
+            </span>
+            {thought}
+          </p>
+        ) : null}
         {text ? (
           <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-ink shadow-[0_1px_2px_rgba(20,14,6,.06)]">
-            {text}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-
-/** `internal_thought` — a character's private thought, distinct from what they say out
- * loud (feedback #4): a quiet, dashed bubble with a "thinking" tag. Not italic. */
-export function ThoughtBubble({
-  character,
-  text,
-  onProfile,
-}: {
-  character: Character;
-  text: string;
-  onProfile?: () => void;
-}) {
-  const c = character;
-  return (
-    <div className="flex items-start gap-3">
-      <button
-        type="button"
-        onClick={onProfile}
-        disabled={!onProfile}
-        aria-label={`View ${c.name}`}
-        title={c.name}
-        className="flex-none rounded-full opacity-70 transition-transform hover:scale-105 disabled:hover:scale-100"
-      >
-        <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={40} fontSize={14} />
-      </button>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-[9px]">
-          <button
-            type="button"
-            onClick={onProfile}
-            disabled={!onProfile}
-            className="font-display text-[15px] font-semibold hover:underline disabled:no-underline"
-            style={{ color: c.color }}
-          >
-            {c.name}
-          </button>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-mute2">
-            thinking
-          </span>
-        </div>
-        {text ? (
-          <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-dashed border-cardbd bg-card2 p-[11px_15px] font-body text-[15px] leading-[1.5] text-ink-soft">
             {text}
           </div>
         ) : null}
@@ -194,18 +159,11 @@ export function TranscriptBeat({
     return <BranchChoices choices={choices} onChoose={onChoose} />;
   const c = charById(m.who ?? "");
   if (!c) return null;
-  if (m.kind === "thought")
-    return (
-      <ThoughtBubble
-        character={c}
-        text={m.text ?? ""}
-        onProfile={onProfile ? () => onProfile(c.id) : undefined}
-      />
-    );
   return (
     <CharacterMessage
       character={c}
       action={m.action}
+      thought={m.thought}
       text={m.text ?? ""}
       onProfile={onProfile ? () => onProfile(c.id) : undefined}
     />

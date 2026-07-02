@@ -92,8 +92,9 @@ def test_seeds_edges_from_bios(client, db_session, storyline_id, monkeypatch):
     monkeypatch.setattr(neo4j_mod, "write_session", _cm(rec))
     _patch_extract(monkeypatch, [{"source": 1, "type": "fears", "target": 2, "reason": "distrust"}])
 
-    n = relationships.ensure_seeded(db_session, _scenario(storyline_id, [mei, beth]))
-    assert n == 1
+    summaries = relationships.ensure_seeded(db_session, _scenario(storyline_id, [mei, beth]))
+    # The return is now one human summary per edge (drives the Inspector's Graph trace).
+    assert summaries == ["Mei fears Beth — distrust"]
     edges = [p for c, p in rec.calls if "MERGE (a)-[r:$($type)]->(b)" in c]
     assert edges and edges[0]["type"] == "fears"
     assert edges[0]["src"] == mei and edges[0]["tgt"] == beth
@@ -114,23 +115,23 @@ def test_skips_when_already_seeded(client, db_session, storyline_id, monkeypatch
     # If it tried to extract, this would raise — proving idempotency short-circuits first.
     monkeypatch.setattr(llm, "get_http_client", lambda: (_ for _ in ()).throw(AssertionError("no LLM")))
 
-    assert relationships.ensure_seeded(db_session, _scenario(storyline_id, [mei, beth])) == 0
+    assert relationships.ensure_seeded(db_session, _scenario(storyline_id, [mei, beth])) == []
     assert rec.calls == []
 
 
 def test_noop_when_graph_disabled(db_session, storyline_id):
     # Neo4j is disabled by the conftest fixture → a clean no-op.
-    assert relationships.ensure_seeded(db_session, _scenario(storyline_id, ["a", "b"])) == 0
+    assert relationships.ensure_seeded(db_session, _scenario(storyline_id, ["a", "b"])) == []
 
 
 def test_noop_for_single_character(client, db_session, storyline_id, monkeypatch):
     monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
     mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
-    assert relationships.ensure_seeded(db_session, _scenario(storyline_id, [mei])) == 0
+    assert relationships.ensure_seeded(db_session, _scenario(storyline_id, [mei])) == []
 
 
 def test_noop_when_llm_unconfigured(client, db_session, storyline_id, monkeypatch):
     mei, beth = _cast(client, storyline_id)  # created, but no LLM configured
     monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
     monkeypatch.setattr(neo4j_mod, "read_session", _cm(_ReadStub()))
-    assert relationships.ensure_seeded(db_session, _scenario(storyline_id, [mei, beth])) == 0
+    assert relationships.ensure_seeded(db_session, _scenario(storyline_id, [mei, beth])) == []

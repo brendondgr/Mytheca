@@ -40,34 +40,44 @@ def _already_seeded(ids: list[str]) -> bool:
     return any(e.get("type") in RELATIONSHIP_TYPES for e in edges)
 
 
-def ensure_seeded(db: Session, scenario: Scenario) -> int:
-    """Seed initial relationship edges from the cast bios; return how many were written.
+def _edge_summary(names: dict[str, str], edge) -> str:
+    """A human line for one seeded edge: ``"A <type> B — reason"`` (Graph trace detail)."""
+    src = names.get(edge.source_id, edge.source_id)
+    tgt = names.get(edge.target_id, edge.target_id)
+    line = f"{src} {edge.type.replace('_', ' ')} {tgt}"
+    return f"{line} — {edge.reason}" if edge.reason else line
 
-    Best-effort + idempotent: ``0`` when the graph is off, the cast is too small, the
-    edges already exist, the LLM is unconfigured, or the extractor found nothing.
+
+def ensure_seeded(db: Session, scenario: Scenario) -> list[str]:
+    """Seed initial relationship edges from the cast bios; return one summary per edge.
+
+    Best-effort + idempotent: an empty list when the graph is off, the cast is too small,
+    the edges already exist, the LLM is unconfigured, or the extractor found nothing. Each
+    summary reads ``"A <type> B — reason"`` so the Inspector's Graph trace can show what
+    was actually written, not just a count.
     """
     if not neo4j.is_enabled():
-        return 0
+        return []
     cast = [c for cid in (scenario.cast_ids or []) if (c := db.get(Character, cid)) is not None]
     if len(cast) < 2:
-        return 0
+        return []
     ids = [c.id for c in cast]
     try:
         if _already_seeded(ids):
-            return 0
+            return []
     except Exception as exc:  # pragma: no cover - defensive; never blocks a turn
         logger.debug("relationship seed idempotency check skipped: %s", exc)
-        return 0
+        return []
 
     try:
         conn = resolve_llm(db)
     except APIError:
-        return 0
+        return []
     edges = relationship_agent.extract(
         conn, [{"id": c.id, "name": c.name, "bio": _bio(c)} for c in cast]
     )
     if not edges:
-        return 0
+        return []
 
     try:
         with neo4j.write_session() as session:
@@ -91,5 +101,6 @@ def ensure_seeded(db: Session, scenario: Scenario) -> int:
                 )
     except Exception as exc:  # never surfaces to the player — the graph is best-effort
         logger.warning("relationship seed skipped (scenario %s): %s", scenario.id, exc)
-        return 0
-    return len(edges)
+        return []
+    names = {c.id: c.name for c in cast}
+    return [_edge_summary(names, edge) for edge in edges]

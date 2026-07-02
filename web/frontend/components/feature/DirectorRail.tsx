@@ -61,8 +61,8 @@ export function StateChips({ stats }: { stats: StatChip[] }) {
 }
 
 /** The labeled band whose range contains `value` (e.g. 50 → "Charged"). */
-function bandLabelFor(def: StatDefinition): string | null {
-  const b = def.bands.find((x) => def.default >= x.min && def.default <= x.max);
+function bandLabelFor(def: StatDefinition, value: number): string | null {
+  const b = def.bands.find((x) => value >= x.min && value <= x.max);
   return b?.label ?? null;
 }
 
@@ -70,17 +70,19 @@ function bandLabelFor(def: StatDefinition): string | null {
  * One stat as a min→max slider: the stat name with its current band title beside
  * it (e.g. "Essence: Charged"), a numeric readout floating above the value's
  * position on the track, a filled track with a thumb, and the min/max end ticks.
- * The band legend below opens only when the "?" is hovered or clicked. Read-only
- * (the value sits at the schema default) — it visualizes the stat, not edits it.
+ * The band legend below opens only when the "?" is hovered or clicked. Read-only —
+ * it visualizes the stat, not edits it. `value` is the live per-character value when
+ * given (the dossier), falling back to the schema default (the rail's legend).
  */
-function StatSlider({ def }: { def: StatDefinition }) {
-  const { min, max, default: value, displayName, bands } = def;
+function StatSlider({ def, value: live }: { def: StatDefinition; value?: number }) {
+  const { min, max, displayName, bands } = def;
+  const value = live ?? def.default;
   const span = max - min;
   const pct = span > 0 ? ((value - min) / span) * 100 : 0;
   // Keep the floating readout from clipping at the track ends.
   const labelPct = Math.max(7, Math.min(93, pct));
   const hasBands = bands.length > 0;
-  const currentBand = bandLabelFor(def);
+  const currentBand = bandLabelFor(def, value);
   const [pinned, setPinned] = useState(false);
   const [hovered, setHovered] = useState(false);
   const open = pinned || hovered;
@@ -166,19 +168,28 @@ function StatSlider({ def }: { def: StatDefinition }) {
   );
 }
 
+/** Live value for a stat def from a per-character chip list (match on key/label). */
+function liveValueFor(def: StatDefinition, values?: StatChip[]): number | undefined {
+  if (!values) return undefined;
+  const key = def.key.toLowerCase();
+  const chip = values.find((c) => c.label.toLowerCase() === key);
+  return chip?.value;
+}
+
 /**
  * The storyline's universal stat schema (definitions + labeled bands) — the same
- * stats the Library/world editor define. Each renders as a min→max slider at its
- * default value with a hover "?" that explains its band ranges; live deltas live
- * in the Scene-state chips below. Hidden/non-public stats are omitted.
+ * stats the Library/world editor define. Each renders as a min→max slider with a hover
+ * "?" that explains its band ranges. When `values` is given (the character dossier), each
+ * slider shows that character's LIVE stat value; without it (the Director rail) sliders
+ * sit at the schema default as a legend. Hidden/non-public stats are omitted.
  */
-export function StatSchema({ defs }: { defs: StatDefinition[] }) {
+export function StatSchema({ defs, values }: { defs: StatDefinition[]; values?: StatChip[] }) {
   const visible = defs.filter((d) => d.visibility === "public");
   if (visible.length === 0) return null;
   return (
     <div className="flex flex-col gap-[16px]">
       {visible.map((d) => (
-        <StatSlider key={d.key} def={d} />
+        <StatSlider key={d.key} def={d} value={liveValueFor(d, values)} />
       ))}
     </div>
   );

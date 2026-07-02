@@ -117,6 +117,7 @@ export function StoryPlayerView({
           <CharacterDossier
             character={profileChar}
             statDefs={statDefs}
+            stats={scene.statsByChar[profileChar.id]}
             relationships={scene.relationships}
             onClose={scene.closeProfile}
             onOpenProfile={setModalId}

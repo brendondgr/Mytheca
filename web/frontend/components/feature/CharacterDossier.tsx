@@ -3,7 +3,7 @@ import { Eyebrow } from "@/components/ui/Eyebrow";
 import { StatSchema, Relationships } from "@/components/feature/DirectorRail";
 import { mediaUrl } from "@/lib/api";
 import type { Character, StatDefinition } from "@/lib/types";
-import type { Relationship } from "@/features/story-player/scene-data";
+import type { Relationship, StatChip } from "@/features/story-player/scene-data";
 
 /**
  * Right-rail character dossier — takes over the Director rail when a cast member
@@ -15,12 +15,15 @@ import type { Relationship } from "@/features/story-player/scene-data";
 export function CharacterDossier({
   character,
   statDefs,
+  stats,
   relationships,
   onClose,
   onOpenProfile,
 }: {
   character: Character;
   statDefs: StatDefinition[];
+  /** This character's live stat values (from `state_update` events) — drives the sliders. */
+  stats?: StatChip[];
   relationships: Relationship[];
   onClose: () => void;
   /** Clicking the portrait opens the full profile modal for this character. */
@@ -93,7 +96,7 @@ export function CharacterDossier({
       <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
         Stats
       </Eyebrow>
-      <StatSchema defs={statDefs} />
+      <StatSchema defs={statDefs} values={stats} />
 
       {/* Relationships */}
       <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">

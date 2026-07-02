@@ -631,6 +631,9 @@ def test_trace_commit_reports_graph_changes_on_a_stat_turn(client, storyline_id,
     )
     commit = next(t for t in events if t["type"] == "trace" and t["step"] == "commit")
     assert commit["data"]["consequences"] == 1  # the stat change is a durable consequence
+    # …and the Graph trace now names WHAT changed, not just a count.
+    assert commit["data"]["changes"] and "suspicion" in commit["detail"]
+    assert "old guilt" in commit["detail"]
     # …and the change itself is a "stat" step with the clamped value + reason.
     stat = next(t for t in events if t["type"] == "trace" and t["step"] == "stat")
     assert stat["data"]["value"] == 62 and "old guilt" in stat["detail"]
