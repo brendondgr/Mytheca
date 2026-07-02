@@ -296,6 +296,25 @@ export function makeApiMock() {
 
     getScenarioRelationships: vi.fn(async () => ({ relationships: [] })),
 
+    // ---- persisted scenes (resume + save-on-close + export) ----
+    listPlaySessions: vi.fn(async () => ({ sessions: [] })),
+    getSessionHistory: vi.fn(async (_scenarioId: string, sessionId: string) => ({
+      session: {
+        id: sessionId,
+        scenarioId: "sc",
+        createdAt: "t",
+        updatedAt: "t",
+        closedAt: null,
+        turnCount: 0,
+        preview: "",
+      },
+      events: [],
+      traces: [],
+    })),
+    closePlaySession: vi.fn(() => {}),
+    exportSessionUrl: (scenarioId: string, sessionId: string, format: string) =>
+      `http://test/api/play/${scenarioId}/sessions/${sessionId}/export?format=${format}`,
+
     createSetting: vi.fn(async (storylineId: string, body: Omit<Setting, "id">) => ({
       id: nid("s"),
       timeline: [],

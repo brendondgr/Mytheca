@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getScenarioRelationships, postTurn } from "@/lib/api";
+import {
+  closePlaySession,
+  getScenarioRelationships,
+  getSessionHistory,
+  listPlaySessions,
+  postTurn,
+} from "@/lib/api";
 import type { TurnStreamFrame } from "@/lib/events";
 import type { ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
@@ -19,6 +25,7 @@ import {
   foldTrace,
   graphRelationshipsToRel,
   mergeFrame,
+  rehydrateFromHistory,
   sessionIdOf,
   type TraceTurn,
 } from "./turn-stream";
@@ -45,9 +52,15 @@ export function useScenePlay(scenario: ResolvedScenario) {
   // Live character↔character relationships from the story graph (P6). Falls back to the
   // seed placeholder while empty / when the graph is off.
   const [graphRels, setGraphRels] = useState<Relationship[]>([]);
-  // The play session id is captured from the first streamed event and reused so
-  // subsequent turns continue the same session.
+  // The play session id is captured from the first streamed event (or a resumed
+  // session) and reused so subsequent turns continue the same session. Mirrored into
+  // state so the Export control can react to whether there is anything to export yet.
   const sessionRef = useRef<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const rememberSession = useCallback((id: string) => {
+    sessionRef.current = id;
+    setSessionId(id);
+  }, []);
 
   // Loader → content reveal.
   useEffect(() => {
@@ -57,6 +70,45 @@ export function useScenePlay(scenario: ResolvedScenario) {
     }, 2200);
     return () => clearTimeout(timer);
   }, []);
+
+  // Resume the scenario's most recent play-through: reload its full history (turns,
+  // thoughts, live stats, and the graph/RAG trace) so nothing is ever lost and play
+  // continues on the same session. Best-effort — no saved session keeps the seed scene.
+  useEffect(() => {
+    let alive = true;
+    listPlaySessions(scenario.id)
+      .then(({ sessions }) => {
+        if (!alive || !sessions.length) return undefined;
+        return getSessionHistory(scenario.id, sessions[0].id).then((history) => {
+          if (!alive) return;
+          const scene = rehydrateFromHistory(history.events, history.traces);
+          rememberSession(history.session.id);
+          if (scene.messages.length) setMessages(scene.messages);
+          if (scene.stats.length) setStats(scene.stats);
+          setStatsByChar(scene.statsByChar);
+          setTraceTurns(scene.traceTurns);
+          setChoices([]);
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [scenario.id, rememberSession]);
+
+  // Save-on-close: mark the session closed when the player leaves (in-app unmount or a
+  // real browser unload). Every turn already persists; this stamps the close + recency.
+  useEffect(() => {
+    const close = () => {
+      const sid = sessionRef.current;
+      if (sid) closePlaySession(scenario.id, sid);
+    };
+    window.addEventListener("beforeunload", close);
+    return () => {
+      window.removeEventListener("beforeunload", close);
+      close();
+    };
+  }, [scenario.id]);
 
   // Pull live relationships from the story graph once (best-effort — empty keeps the seed).
   useEffect(() => {
@@ -75,7 +127,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
 
   const onFrame = useCallback((frame: TurnStreamFrame) => {
     const sid = sessionIdOf(frame);
-    if (sid) sessionRef.current = sid;
+    if (sid && sid !== sessionRef.current) rememberSession(sid);
     if (frame.type === "trace") {
       setTraceTurns((t) => foldTrace(t, frame));
       return;
@@ -98,7 +150,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
       return;
     }
     setMessages((prev) => mergeFrame(prev, frame));
-  }, []);
+  }, [rememberSession]);
 
   const stream = useEventStream<TurnStreamFrame>(onFrame);
   const sending = stream.status === "streaming";
@@ -156,6 +208,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
     sending,
     streamError,
     traceTurns,
+    sessionId,
     send,
     choose,
     profileId,

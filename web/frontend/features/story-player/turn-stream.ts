@@ -5,7 +5,14 @@
 // state_update / branch_choices are wired into the side panels in a later phase.
 
 import type { GraphRelationship } from "@/lib/api";
-import type { PlayEvent, StatPatch, TurnStreamFrame, TurnTraceFrame } from "@/lib/events";
+import type {
+  PersistedEvent,
+  PersistedTrace,
+  PlayEvent,
+  StatPatch,
+  TurnStreamFrame,
+  TurnTraceFrame,
+} from "@/lib/events";
 import type { Relationship, SceneChoice, SceneMessage, StatChip } from "./scene-data";
 
 /** Map live graph relationships → the rail's `Relationship` rows (color from the cast). */
@@ -161,6 +168,56 @@ export function applyStatByChar(
 ): Record<string, StatChip[]> {
   const cid = stat.characterId;
   return { ...byChar, [cid]: applyStatUpdate(byChar[cid] ?? [], stat) };
+}
+
+/** The client state rebuilt from a saved play-through's persisted rows. */
+export interface RehydratedScene {
+  messages: SceneMessage[];
+  stats: StatChip[];
+  statsByChar: Record<string, StatChip[]>;
+  traceTurns: TraceTurn[];
+}
+
+/**
+ * Rebuild the transcript, live stats, and Inspector trace from a saved session's
+ * persisted rows by **replaying them through the very reducers the live stream uses** —
+ * so a reopened scene reads byte-identically to how it was played. The only extra case is
+ * the persisted `user_turn` row (never on the live wire — the client shows the player line
+ * optimistically), which becomes a `player` beat here. Stale `branch_choices` are skipped:
+ * on resume the player simply takes the next turn.
+ */
+export function rehydrateFromHistory(
+  events: PersistedEvent[],
+  traces: PersistedTrace[],
+): RehydratedScene {
+  let messages: SceneMessage[] = [];
+  let stats: StatChip[] = [];
+  let statsByChar: Record<string, StatChip[]> = {};
+
+  for (const e of events) {
+    if (e.type === "user_turn") {
+      messages = [...messages, { kind: "player", text: String(e.data.text ?? "") }];
+      continue;
+    }
+    if (e.type === "state_update") {
+      const stat = (e.data as { stat?: StatPatch | null }).stat;
+      if (stat) {
+        stats = applyStatUpdate(stats, stat);
+        statsByChar = applyStatByChar(statsByChar, stat);
+      }
+      continue;
+    }
+    if (e.type === "branch_choices") continue; // don't resurrect a past fork as active
+    // narration / internal_thought / character_action / character_dialogue fold exactly as live.
+    messages = mergeFrame(messages, e as unknown as TurnStreamFrame);
+  }
+
+  let traceTurns: TraceTurn[] = [];
+  for (const t of traces) {
+    traceTurns = foldTrace(traceTurns, { type: "trace", ...t } as TurnTraceFrame);
+  }
+
+  return { messages, stats, statsByChar, traceTurns };
 }
 
 /** Map streamed branch options to renderable choices (no dice — D11). */

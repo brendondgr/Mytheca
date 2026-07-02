@@ -5,7 +5,12 @@
 // should re-export from there. Errors surface as `ApiError` carrying the backend
 // envelope `{ error: { code, message, details } }`.
 
-import type { TurnRequestBody, TurnStreamFrame } from "@/lib/events";
+import type {
+  SessionHistory,
+  SessionSummary,
+  TurnRequestBody,
+  TurnStreamFrame,
+} from "@/lib/events";
 import type {
   BuildEvent,
   Character,
@@ -187,6 +192,37 @@ export interface GraphRelationship {
 /** The scenario's live relationships (empty when the graph is off — caller keeps its seed). */
 export const getScenarioRelationships = (scenarioId: string) =>
   request<{ relationships: GraphRelationship[] }>(`/play/${scenarioId}/relationships`);
+
+// ---- persisted scenes (resume + save-on-close + export) ----
+
+/** Every saved play-through of a scenario, most-recently-played first (resume list). */
+export const listPlaySessions = (scenarioId: string) =>
+  request<{ sessions: SessionSummary[] }>(`/play/${scenarioId}/sessions`);
+
+/** The full record of one play-through (events + traces) — replayed to rehydrate the player. */
+export const getSessionHistory = (scenarioId: string, sessionId: string) =>
+  request<SessionHistory>(`/play/${scenarioId}/sessions/${sessionId}`);
+
+/**
+ * The save-on-close signal: mark a play-through closed. Fire-and-forget, and safe to call
+ * during page unload — uses `navigator.sendBeacon` when available so the request survives
+ * the navigation (every turn is already persisted; this only stamps recency/close).
+ */
+export function closePlaySession(scenarioId: string, sessionId: string): void {
+  const url = `${API_BASE}/play/${scenarioId}/sessions/${sessionId}/close`;
+  if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+    navigator.sendBeacon(url);
+    return;
+  }
+  void fetch(url, { method: "POST", keepalive: true }).catch(() => {});
+}
+
+/** URL to download a session's full conversation record (JSON or Markdown). */
+export const exportSessionUrl = (
+  scenarioId: string,
+  sessionId: string,
+  format: "json" | "md",
+) => `${API_BASE}/play/${scenarioId}/sessions/${sessionId}/export?format=${format}`;
 
 /** Resolve a relative `/media/...` URL (portraits) against the API origin. */
 export function mediaUrl(path: string): string {

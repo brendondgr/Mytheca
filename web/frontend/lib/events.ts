@@ -104,6 +104,54 @@ export interface TurnTraceFrame {
 /** One line of the turn stream. */
 export type TurnStreamFrame = PlayEvent | TurnErrorFrame | TurnTraceFrame;
 
+// ---- persisted session review (GET /play/{scenarioId}/sessions[/{id}]) ----
+
+/** One saved play-through's metadata (the resume list, newest `updatedAt` first). */
+export interface SessionSummary {
+  id: string;
+  scenarioId: string;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  /** Number of player turns taken. */
+  turnCount: number;
+  /** The first player line — a human label for the play-through. */
+  preview: string;
+}
+
+/**
+ * A persisted story event in the wire-envelope shape, so the story player can replay it
+ * through the exact reducers it uses live (reload = replay). `type` widens to include
+ * `user_turn` (the player line, persisted but never streamed live).
+ */
+export interface PersistedEvent {
+  type: string;
+  id: string;
+  seq: number;
+  scenarioId: string;
+  sessionId: string;
+  ts: string;
+  visibility: PlayVisibility;
+  data: Record<string, unknown>;
+}
+
+/** A persisted diagnostic trace step (graph/RAG/thinking) for one turn. */
+export interface PersistedTrace {
+  turn: number;
+  n: number;
+  step: string;
+  title: string;
+  detail: string;
+  data: Record<string, unknown>;
+}
+
+/** The full record of one play-through — used to rehydrate the player on resume. */
+export interface SessionHistory {
+  session: SessionSummary;
+  events: PersistedEvent[];
+  traces: PersistedTrace[];
+}
+
 /** The body for `POST /play/{scenarioId}/turn`. */
 export interface TurnRequestBody {
   text: string;
