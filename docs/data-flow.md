@@ -174,8 +174,9 @@ Character modal (CharacterModal) → lib/api.ts
           (watercolor pipeline) → PNG → Pillow → WebP saved under MEDIA_DIR, served at /media
   → POST /api/characters/voice-samples    {name, background, personality, ...} → {samples:[{situation,sample}]}
         (voice & tone comes FIRST — derived from the drafted prose before stats; best-effort → [];
-         the model plans the character's distinctive voice first, then each pair is a full
-         back-and-forth dialogue exchange — several alternating lines — not a one-line summary)
+         the model plans the character's distinctive voice first, then each pair is a previous
+         situation paired with the character's SINGLE in-voice response to it — one turn, never
+         a back-and-forth exchange — reacting to that situation's specifics, not a generic blurb)
   → POST /api/characters/starting-stats   {storylineId, ...} → {proposals:[…]}  (proposal only)
   → drafted fields + portrait fill the form; author edits (incl. the Voice & tone
     section, above Starting stats), then the normal POST/PATCH
