@@ -48,7 +48,7 @@ def _join(*chunks: str | None) -> str:
 
 
 def _voice_samples_text(samples: list[dict] | None) -> str:
-    """Render a character's situation → sample-response pairs as retrievable prose."""
+    """Render a character's situation → dialogue-exchange pairs as retrievable prose."""
     if not samples:
         return ""
     lines: list[str] = []
@@ -57,7 +57,7 @@ def _voice_samples_text(samples: list[dict] | None) -> str:
         sample = str((s or {}).get("sample", "")).strip()
         if not sample:
             continue
-        lines.append(f"When {situation}: “{sample}”" if situation else f"“{sample}”")
+        lines.append(f'Prompt: “{situation}” → {sample}' if situation else sample)
     return ("Voice samples:\n" + "\n".join(lines)) if lines else ""
 
 

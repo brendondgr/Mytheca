@@ -7,14 +7,16 @@ const TXT =
 
 /**
  * Editor for a character's **voice & tone** profile — a small list of
- * situation → sample-response pairs that show *how* the character speaks.
+ * situation → dialogue-exchange pairs that show *how* the character speaks.
  *
- * Each row pairs a short situation ("greeted by a stranger", "offered a bribe")
- * with the line the character would actually say in response, written in their
- * voice. These samples are persisted with the character and injected into the
- * turn loop so both spoken lines and the hidden thinking step stay in voice.
- * The parent holds the list on the draft; a "Propose / Redo" control (in the
- * modal) can (re)generate it from the character's background/personality.
+ * Each row pairs a situation (what's said or happening to them — often another
+ * character's line) with a full back-and-forth exchange showing how THIS
+ * character actually replies, in their own voice, across a few lines — not a
+ * one-sentence summary. These samples are persisted with the character and
+ * injected into the turn loop so both spoken lines and the hidden thinking step
+ * stay in voice. The parent holds the list on the draft; a "Propose / Redo"
+ * control (in the modal) can (re)generate it from the character's
+ * background/personality.
  */
 export function VoiceSamplesEditor({
   samples,
@@ -37,8 +39,8 @@ export function VoiceSamplesEditor({
     <div>
       {samples.length === 0 ? (
         <p className="font-body text-[12.5px] text-mute">
-          No samples yet — add one (or Propose) to show how this character sounds
-          when something happens.
+          No samples yet — add one (or Propose) to show a real exchange: what&apos;s
+          said to them, and how they answer back in their own voice.
         </p>
       ) : (
         <ul className="flex flex-col gap-[10px]">
@@ -53,7 +55,9 @@ export function VoiceSamplesEditor({
                 <div className="min-w-0 flex-1">
                   <input
                     aria-label={`Sample ${i + 1} situation`}
-                    placeholder="Situation — e.g. offered a bribe"
+                    placeholder={
+                      'What’s said to them — e.g. "For the right price, I could forget I saw you here."'
+                    }
                     value={s.situation}
                     onChange={(e) => patch(i, { situation: e.target.value })}
                     className={TXT}
@@ -70,10 +74,10 @@ export function VoiceSamplesEditor({
               </div>
               <textarea
                 aria-label={`Sample ${i + 1} response`}
-                placeholder="What they'd say — in their own voice."
+                placeholder="The full back-and-forth — how they reply, and how the exchange continues, in their own voice."
                 value={s.sample}
                 onChange={(e) => patch(i, { sample: e.target.value })}
-                rows={2}
+                rows={4}
                 className={`${TXT} mt-[8px] resize-y`}
               />
             </li>

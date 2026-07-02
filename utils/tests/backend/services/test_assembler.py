@@ -112,7 +112,7 @@ def test_voice_samples_rendered_into_cast(db_session):
     ctx = assembler.assemble_context(db_session, sc, session.id)
     block = ctx.cast[0].voice_samples
     assert "Coin first, favor later." in block
-    assert "When haggling:" in block and "When threatened:" in block
+    assert 'Prompt: "haggling"' in block and 'Prompt: "threatened"' in block
 
 
 def test_voice_samples_empty_when_unauthored(db_session):
