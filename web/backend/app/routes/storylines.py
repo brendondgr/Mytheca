@@ -99,6 +99,7 @@ def build_world(data: BuildWorldRequest, db: Session = Depends(get_db)):
         max_settings=data.max_settings,
         character_docs=data.character_docs,
         setting_docs=data.setting_docs,
+        uncategorized_docs=data.uncategorized_docs,
         other_docs=data.other_docs,
     )
 
@@ -122,7 +123,7 @@ def build_world_stream(data: BuildWorldRequest, db: Session = Depends(get_db)):
         data.seed,
         data.docs_overview,
         has_entity_docs=build_agent.has_buildable_docs(
-            data.character_docs, data.setting_docs, data.other_docs
+            data.character_docs, data.setting_docs, data.uncategorized_docs, data.other_docs
         ),
     )
 
@@ -137,6 +138,7 @@ def build_world_stream(data: BuildWorldRequest, db: Session = Depends(get_db)):
                 max_settings=data.max_settings,
                 character_docs=data.character_docs,
                 setting_docs=data.setting_docs,
+                uncategorized_docs=data.uncategorized_docs,
                 other_docs=data.other_docs,
             ):
                 yield event.model_dump_json(by_alias=True) + "\n"

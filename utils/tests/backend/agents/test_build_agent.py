@@ -340,23 +340,69 @@ def test_build_splits_a_multi_character_doc(client, monkeypatch):
     assert starting == {"health": 100, "suspicion": 0}
 
 
-def test_build_mines_other_bucket_doc_for_characters_and_settings(client, monkeypatch):
+def test_build_other_bucket_doc_grounds_but_creates_no_entities(client, monkeypatch):
     _configure_llm(client)
     _patch_upstream(monkeypatch)
-    # An 'other'-bucket doc (multi-subject / mixed) is now mined too — it yields both
-    # a character and a setting instead of vanishing into lore.
+    # An 'other'-bucket doc is LORE/GROUNDING ONLY — it must NOT be turned into
+    # characters/settings (even though its text mentions a mixed scene). The build
+    # still completes; it just invents no cast from the lore.
     events = _stream_events(
         client.post(
             "/api/storylines/build/stream",
-            json={"otherDocs": [{"name": "scene.md", "text": "A mixed scene at a crossing."}]},
+            json={
+                "seed": "A harbor.",
+                "otherDocs": [{"name": "scene.md", "text": "A mixed scene at a crossing."}],
+            },
+        )
+    )
+    plan = next(e for e in events if e["type"] == "plan")
+    assert plan["characters"] == []
+    assert plan["settings"] == []
+    done = next(e for e in events if e["type"] == "done")
+    assert done["world"]["characters"] == []
+    assert done["world"]["settings"] == []
+    # The 'other' doc was never sent to the extractor (lore only, not mined).
+    assert not any("scene.md" in m for m in _extract_msgs(events) if m.startswith("Read "))
+
+
+def test_build_uncategorized_doc_is_mined_for_named_entities(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    # An UNCATEGORIZED doc IS read for genuinely-named subjects — a mixed doc yields
+    # its named character and named setting.
+    events = _stream_events(
+        client.post(
+            "/api/storylines/build/stream",
+            json={
+                "seed": "A harbor.",
+                "uncategorizedDocs": [{"name": "scene.md", "text": "A mixed scene at a crossing."}],
+            },
         )
     )
     plan = next(e for e in events if e["type"] == "plan")
     assert plan["characters"] == ["Bram Hollow"]
     assert plan["settings"] == ["The Reed Crossing"]
-    done = next(e for e in events if e["type"] == "done")
-    assert len(done["world"]["characters"]) == 1
-    assert len(done["world"]["settings"]) == 1
+
+
+def test_build_uncategorized_lore_doc_creates_nothing(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    # An uncategorized doc with no named, profile-worthy subject → NOTHING (no
+    # invention). The mock returns empty lists for a generic lore doc.
+    events = _stream_events(
+        client.post(
+            "/api/storylines/build/stream",
+            json={
+                "seed": "A harbor.",
+                "uncategorizedDocs": [
+                    {"name": "lore.md", "text": "A general history of the founding wars."}
+                ],
+            },
+        )
+    )
+    plan = next(e for e in events if e["type"] == "plan")
+    assert plan["characters"] == []  # strict: not invented from lore
+    assert plan["settings"] == []
 
 
 def test_build_dedups_subjects_across_docs(client, monkeypatch):
@@ -596,13 +642,11 @@ def test_build_extract_emits_per_doc_progress(client, monkeypatch):
         assert name in joined
 
 
-def test_build_skips_a_doc_whose_extraction_fails(client, monkeypatch):
-    """A doc whose extraction never parses is skipped (+ explained), not fatal.
-
-    This is the reported bug: one bad reply out of many aborted the whole build with
-    'The model did not return valid JSON.' Now the build reaches `done` and keeps the
-    other docs' entities.
-    """
+def test_build_skips_an_unreadable_uncategorized_doc(client, monkeypatch):
+    """An UNCATEGORIZED doc whose extraction never parses is skipped (+ explained),
+    not fatal (the reported bug aborted the whole build). A good doc's entity survives.
+    (Classified character/setting docs fall back to one entity instead — covered
+    separately — so only uncategorized docs are truly skipped.)"""
     _configure_llm(client)
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -621,7 +665,7 @@ def test_build_skips_a_doc_whose_extraction_fails(client, monkeypatch):
             "/api/storylines/build/stream",
             json={
                 "seed": "A harbor.",
-                "characterDocs": [
+                "uncategorizedDocs": [
                     {"name": "good.md", "text": "Maerin Voss, a wary harbor smuggler."},
                     {"name": "bad.md", "text": "A badjson document that will not parse."},
                 ],
@@ -631,11 +675,42 @@ def test_build_skips_a_doc_whose_extraction_fails(client, monkeypatch):
     types = [e["type"] for e in events]
     assert types[-1] == "done"  # did NOT abort (old behavior raised an error)
     assert "error" not in types
-    # The good doc's character survived; the bad doc contributed nothing.
+    # The good doc's character survived; the bad uncategorized doc contributed nothing.
     plan = next(e for e in events if e["type"] == "plan")
     assert plan["characters"] == ["Maerin Voss"]
     # The skip is explained in a status line (names the doc) instead of an opaque abort.
     assert any("skipped" in m.lower() and "bad.md" in m for m in _extract_msgs(events))
+
+
+def test_build_classified_char_doc_falls_back_to_one_when_unnamed(client, monkeypatch):
+    """A doc the author classified as a CHARACTER always yields at least one character —
+    even if extraction finds no explicit name (or fails) — since the classification
+    asserts it is one. It is NOT dropped, and NOT invented from lore."""
+    _configure_llm(client)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path in ("/version", "/props"):
+            return httpx.Response(404)
+        body = request.content.decode()
+        if "entity-extraction assistant" in body:
+            # Model finds no explicitly named subject in this classified doc.
+            return _completion(json.dumps({"characters": [], "settings": []}))
+        return _route(request)
+
+    _patch_upstream(monkeypatch, handler)
+    events = _stream_events(
+        client.post(
+            "/api/storylines/build/stream",
+            json={
+                "seed": "A harbor.",
+                "characterDocs": [{"name": "warden.md", "text": "A grim nameless jailer."}],
+            },
+        )
+    )
+    # Falls back to one character, labelled from the file name (the draft renames it).
+    plan = next(e for e in events if e["type"] == "plan")
+    assert plan["characters"] == ["warden"]
+    assert sum(1 for e in events if e["type"] == "character") == 1
 
 
 def test_build_extraction_retries_a_transient_failure(client, monkeypatch):
