@@ -4,6 +4,7 @@
 
 ```text
 velora/
+├── CLAUDE.md                # Claude Code entry point — routing tables to docs/ and web/ files, avoids blind search
 ├── app.py                  # Root launcher — `python app.py` → backend + frontend together; `python app.py frontend|backend` → one side
 ├── pyproject.toml          # uv-managed Python project (backend + tooling)
 ├── .python-version         # 3.13
@@ -67,6 +68,7 @@ velora/
 
 | Path | Why it exists |
 | --- | --- |
+| `CLAUDE.md` | Auto-loaded by Claude Code at session start. Not a source of truth (`docs/` is) — a condensed routing index into it: which skill for which task, and concrete file paths per backend/frontend layer, so agents route directly instead of grepping. Keep in sync with this file and `docs/skills/global-project-rules/SKILL.md` when top-level layout changes. |
 | `app.py` | Single root launcher: `python app.py` starts **both** the backend (preflight + uvicorn, `web/backend`) and the frontend dev server (`npm run dev` in `web/frontend`), waiting for backend health before the frontend and stopping both on Ctrl+C; `python app.py frontend` / `python app.py backend` run a single side; `python app.py stop` forcibly ends any running frontend/backend processes and exits. **Forcibly frees its ports** — every launch terminates whatever still holds 3345/3346 (a leftover `next dev` / uvicorn) via SIGTERM→SIGKILL before starting, so a fresh run never hits `EADDRINUSE` (`_free_port`/`_pids_on_port`/`_kill_pid`). **Owns Docker** — `ensure_docker_services()` verifies Docker + daemon, pulls the Postgres/Redis images when missing, **builds the custom Neo4j image** (`docker/neo4j/Dockerfile`), and starts all four containers (Postgres · Redis · Neo4j · **Qdrant**) before the backend (`up -d --build --wait`; you never run `docker compose` yourself). |
 | `docs/` | All durable documentation and canonical skills — the source of truth. |
 | `web/frontend/` | The Next.js UI: story player, narrator cards, character bubbles, stats/branch side panels. |
