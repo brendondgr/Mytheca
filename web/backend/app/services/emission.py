@@ -25,8 +25,12 @@ from dataclasses import dataclass
 _SPEAKER_RE = re.compile(r"</?speaker:\s*(\d+)\s*>", re.IGNORECASE)
 _TYPE_RE = re.compile(r"</?type:\s*([a-z_]+)\s*>", re.IGNORECASE)
 _THINKING_RE = re.compile(r"<thinking>(.*?)</thinking>", re.IGNORECASE | re.DOTALL)
-# Belt-and-suspenders scrub for any residual emission tag left inside a body.
-_TAG_CLEAN = re.compile(r"</?(?:type:[a-z_]+|thinking|speaker:\s*\d+)\s*>", re.IGNORECASE)
+# Belt-and-suspenders scrub for any residual emission tag left inside a body. The type/
+# speaker name is OPTIONAL so a **bare** closing tag the model sometimes appends
+# (``</type>``, ``</speaker>``) is scrubbed too, not just the named form (``</type:…>``).
+_TAG_CLEAN = re.compile(
+    r"</?(?:type(?::\s*[a-z_]+)?|thinking|speaker(?::\s*\d+)?)\s*>", re.IGNORECASE
+)
 
 # Prose types a character may emit (internal_thought is hidden conditioning).
 _PROSE_TYPES = {"character_action", "character_dialogue"}

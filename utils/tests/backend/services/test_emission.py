@@ -101,6 +101,32 @@ def test_relationship_update_block_kept_as_json():
     assert segs[1].text.strip().startswith("{") and "resents" in segs[1].text  # raw JSON kept
 
 
+def test_bare_closing_type_tag_is_scrubbed_not_leaked():
+    # Some models append a bare </type> (no name) at the end of each block; it must be
+    # scrubbed from the visible prose, not rendered (the reported "</type>" leak).
+    raw = (
+        "<speaker:1>\n"
+        "<type:character_action>\nsteps forward, chest heaving </type>\n"
+        '<type:character_dialogue>\n"I don\'t break, I get more dangerous." </type>'
+    )
+    segs = parse_emission(raw, roster={1: "kaia"}, fallback_speaker_id="kaia")
+    assert [s.type for s in segs] == ["character_action", "character_dialogue"]
+    assert segs[0].text == "steps forward, chest heaving"
+    assert segs[1].text == '"I don\'t break, I get more dangerous."'
+    assert all("</type>" not in s.text and "<" not in s.text for s in segs)
+
+
+def test_bare_closing_tag_inside_thinking_is_scrubbed():
+    raw = (
+        "<speaker:1>\n<thinking>Let's see if he can handle the heat. </type></thinking>\n"
+        '<type:character_dialogue>\n"Do something about it."'
+    )
+    segs = parse_emission(raw, roster={1: "kaia"}, fallback_speaker_id="kaia")
+    assert segs[0].type == "internal_thought"
+    assert segs[0].text == "Let's see if he can handle the heat."
+    assert "</type>" not in segs[0].text
+
+
 def test_reported_sylvarra_beat_parses_clean():
     raw = (
         "<speaker:2>\n"
