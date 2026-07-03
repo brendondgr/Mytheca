@@ -62,9 +62,11 @@ message reads as one moment: the character's name, then **one bubble** holding t
 run, keeping the quotes). `state_update` / `branch_choices` drive the side panels. A scene seeds
 **narrator-only** (no character speaks before the player acts); selecting a follow-up suggestion
 **writes its text into the composer** (focused, for review/editing) rather than auto-sending —
-the player edits and sends it as an ordinary turn. Two composer dropdowns to the **left of the input**
-(`SceneControlSelect`) set the per-scene turn limit + follow-up count and persist them on the
-scenario (`updateScenario` PATCH); four suggestions render as a **2×2 grid**. The composer is locked
+the player edits and sends it as an ordinary turn. A **scene-config menu** (`SceneConfigMenu`, a
+popover to the **left of the input**) sets three per-scene controls — Max turns, Suggestions, and
+**Number of beats** (the context-window depth, 5–100, with a live approximate token readout via
+`lib/contextBudget.estimateBeatsTokens`) — persisted on the scenario (`updateScenario` PATCH); four
+suggestions render as a **2×2 grid**. The composer is locked
 while a turn streams (in-flight guard); a mid-stream failure surfaces the terminal `error` frame.
 
 **Model output is sanitized centrally.** Reasoning models inline their chain-of-thought and
@@ -542,10 +544,15 @@ The back-and-forth is bounded by the scenario's **`max_turns`** (a hard per-scen
 **every emitted beat — character replies AND narrator beats** — for one player message, default
 **5** — the loop ends there even if the planner would continue; the narrated open and puppet
 performances count too; `TURN_MAX_BEATS`/`2*cast+6` remains a secondary runaway backstop). The
-planner is biased toward **narration** between speakers, and a **cold scene open** with no directed
-character is narrator-led. Each character's **`<thinking>`** step is a real, in-voice deliberation —
-a short paragraph reasoning through the moment in the character's own terminology (turn effort
-**MEDIUM**), streamed privately (`private_to_user`) and kept out of `turn_beats`. At the **end of
+planner leans on **narration to PROGRESS the scene** to the next beat (especially in action) —
+narrating what the characters are *doing* and carrying an action through to its consequence — and a
+character **speaks only after** the scene has moved and has a genuine point-of-view reaction, so
+characters stop over-talking; a **cold scene open** with no directed character is narrator-led. Each
+character always **`<thinking>`**s (a real in-voice deliberation — a short paragraph in their own
+terminology at turn effort **MEDIUM**, streamed `private_to_user` and kept out of `turn_beats`), but a
+spoken line is **optional** — in an action moment they act or simply think with no forced dialogue. The
+character conditions on the scene's **`context_beats`** most-recent beats (5–100; `assembler` fetches
+that depth from the Redis buffer, which retains up to `turn_buffer_size` = 100). At the **end of
 every turn**, up to the scenario's **`suggestions_count`** (0–4; `0` disables) follow-up suggestions
 are generated from the **most recent line** (`director_agent.propose_branches(count=…)`) and emitted
 as `branch_choices` — count-driven, no longer gated on the planner's rarely-set `needsBranch` flag.
