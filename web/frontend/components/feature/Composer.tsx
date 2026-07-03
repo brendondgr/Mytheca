@@ -1,11 +1,7 @@
 import type { RefObject } from "react";
-import { SceneControlSelect } from "@/components/ui/SceneControlSelect";
+import { SceneConfigMenu } from "@/components/feature/SceneConfigMenu";
 
-// Selectable ranges for the two per-scene controls.
-const MAX_TURN_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const SUGGESTION_OPTIONS = [0, 1, 2, 3, 4];
-
-/** Bottom composer: per-scene controls (turn limit + suggestion count), message input, send. */
+/** Bottom composer: the scene-config menu (left), message input, send. */
 export function Composer({
   value,
   onChange,
@@ -15,6 +11,8 @@ export function Composer({
   onMaxTurnsChange,
   suggestionsCount = 4,
   onSuggestionsCountChange,
+  contextBeats = 14,
+  onContextBeatsChange,
   inputRef,
 }: {
   value: string;
@@ -28,25 +26,22 @@ export function Composer({
   /** How many follow-up suggestions to offer after a turn (0–4; persisted per scene). */
   suggestionsCount?: number;
   onSuggestionsCountChange?: (value: number) => void;
-  /** Lets the parent move focus here after a suggestion is written into the box (request #2). */
+  /** Context-window depth the character conditions on (5–100; persisted per scene). */
+  contextBeats?: number;
+  onContextBeatsChange?: (value: number) => void;
+  /** Lets the parent move focus here after a suggestion is written into the box. */
   inputRef?: RefObject<HTMLInputElement | null>;
 }) {
   return (
     <div className="velora-header flex-none border-t border-hair-strong p-[13px_16px] sm:p-[13px_30px]">
       <div className="mx-auto flex max-w-[720px] flex-wrap items-end gap-[10px]">
-        <SceneControlSelect
-          label="Max turns"
-          value={maxTurns}
-          options={MAX_TURN_OPTIONS}
-          onChange={(v) => onMaxTurnsChange?.(v)}
-          disabled={!onMaxTurnsChange}
-        />
-        <SceneControlSelect
-          label="Suggestions"
-          value={suggestionsCount}
-          options={SUGGESTION_OPTIONS}
-          onChange={(v) => onSuggestionsCountChange?.(v)}
-          disabled={!onSuggestionsCountChange}
+        <SceneConfigMenu
+          maxTurns={maxTurns}
+          onMaxTurnsChange={onMaxTurnsChange}
+          suggestionsCount={suggestionsCount}
+          onSuggestionsCountChange={onSuggestionsCountChange}
+          contextBeats={contextBeats}
+          onContextBeatsChange={onContextBeatsChange}
         />
         <input
           ref={inputRef}
