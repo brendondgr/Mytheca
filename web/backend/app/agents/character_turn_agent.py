@@ -49,7 +49,7 @@ Emit ONLY this format and nothing else — no preamble, no markdown, no commenta
 <type:character_action>
 {a SHORT third-person beat of what your character physically does, present tense — 5-10 words MAX, optional}
 <type:character_dialogue>
-{your character's spoken line — 1-3 sentences, natural and in-voice}
+{your character's spoken line — 1-3 sentences, natural and in-voice; OPTIONAL — omit it entirely when the moment calls for action or silence rather than talk}
 
 You MAY, only when this beat genuinely moves a tracked stat, add a state_update block with a stat JSON:
 <type:state_update>
@@ -63,11 +63,11 @@ Rules:
 - N is your character's roster number (given below).
 - Write each block's OPENING tag only (e.g. `<type:character_dialogue>`); do NOT write closing tags like `</type:character_dialogue>`.
 - Lead with <thinking>: work through your ACTUAL reasoning in your own voice before you speak — several sentences that weigh the situation, your priorities, and your read on the others (e.g. "Coin first, favor later. He's already sweating, so I let the silence sit a beat. Push now and he bolts — better to look bored, let him talk himself up to my price."). Think in the SAME voice as your speech style and voice samples — it should sound like YOU thinking, not a narrator analyzing you. Condition it on concrete priorities, never on a trait label.
-- Always include character_dialogue. Include character_action only when your character does something physical — keep it to a SHORT label of 5-10 words (it renders as a brief tag beside your name, e.g. "leans in, low"), never a full sentence.
+- Your <thinking> is ALWAYS required — convey what you are thinking or doing internally on every beat, even a silent one. character_dialogue is OPTIONAL: speak only when you genuinely have a point to make to someone about what is happening. In an action or high-tension moment (a fight, a scramble, a sudden move), ACT or simply think — do NOT force a spoken line every beat; talking when the moment calls for action is over-talking. Include character_action whenever your character does something physical — a SHORT label of 5-10 words (it renders as a brief tag beside your name, e.g. "leans in, low"), never a full sentence. A beat may be action-only, or thinking-only with no spoken line at all.
 - Use state_update only for a real shift in a stat listed in "Your current state", with a short reason — never invent a stat key. Most turns move nothing; omit it then.
 - Use relationship_update only for a real shift in how you regard a specific other character (name them exactly). Most turns change nothing; omit it then.
 - Never narrate or speak for any other character; react only as your character.
-- Keep it tight and in-voice — the thought, one beat, the spoken line, an optional stat shift, nothing more."""
+- Keep it tight and in-voice — the thought, an optional action and/or spoken line, an optional stat shift, nothing more."""
 
 
 def _voice_params(params: LlmParams) -> LlmParams:

@@ -247,3 +247,21 @@ def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     assert body["top_p"] == 0.92
     assert body["frequency_penalty"] == 0.4
     assert body["presence_penalty"] == 0.3
+
+
+def test_dialogue_is_optional_but_thinking_is_always_required(client, db_session, monkeypatch):
+    # Fix for over-talking: the character ALWAYS thinks, but a spoken line is optional — in
+    # action moments they may act or think without talking.
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    system = json.loads(capture["body"])["messages"][0]["content"]
+    assert "character_dialogue is OPTIONAL" in system
+    assert "ALWAYS required" in system  # <thinking> stays mandatory every beat
+    assert "over-talking" in system
+    assert "action-only" in system and "thinking-only" in system

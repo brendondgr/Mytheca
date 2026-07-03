@@ -38,10 +38,10 @@ Return ONLY a JSON object:
 {"action": "speak"|"narrate"|"end", "actor": <roster number or null>, "addressing": <roster number or null>, "reason": "<short why>", "needsBranch": true|false}
 
 Rules:
-- "speak": character <actor> acts/speaks next, optionally directed at <addressing>. Pick whoever should naturally go next given the player's direction and the beats so far.
-- "narrate": insert a narrator beat to set the scene, describe what is happening / how the room reacts, or bridge between speakers. Narration carries the scene — lean on it: prefer a narrator beat between speakers and whenever the moment needs describing, not only rarely.
+- "narrate" is the DEFAULT for carrying the scene: use the narrator to PROGRESS the story to the next beat — narrate what the characters are DOING and push the action forward, especially in an action or tense moment (a fight, a chase, a standoff), following moves through to their consequence. Narration moves the story; lean on it to advance the scene to the point where a character actually has something to react to.
+- "speak": character <actor> acts/speaks next, optionally directed at <addressing>. Choose this ONLY once the scene has MOVED FORWARD and this character has a genuine point-of-view reaction, thought, or decision to voice about what is now happening. Do NOT have a character talk when the moment calls for action, or when nothing has changed since they last spoke — that is over-talking. Prefer narrating the action forward, then let a character respond to where it landed.
 - "end": the player's direction is satisfied and the exchange is at a natural stopping point.
-- SCENE OPENING: if nothing has happened yet this turn AND the player did not direct or address a specific character (and did not address the whole group), OPEN WITH "narrate" to set the scene — do NOT have a character speak first. A character speaks unprompted at a cold open is wrong.
+- SCENE OPENING: if nothing has happened yet this turn AND the player did not direct or address a specific character (and did not address the whole group), OPEN WITH "narrate" to set the scene in motion — do NOT have a character speak first. A character speaks unprompted at a cold open is wrong.
 - HONOR THE PLAYER'S DIRECTION. If they told the WHOLE GROUP to do something ("everyone introduces themselves"), keep choosing the next character who has NOT yet taken a beat until every one of them has, THEN end — never stop early.
 - Do not repeat a character who already had their beat unless there is a real reason.
 - Use ONLY the roster numbers given. "needsBranch" is true only when you end at a genuine fork for the player.

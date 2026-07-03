@@ -28,6 +28,25 @@ def test_thinking_block_becomes_hidden_internal_thought_first():
     assert segs[1].type == "character_dialogue" and segs[1].text == '"Coin\'s easy."'
 
 
+def test_action_only_beat_has_no_forced_dialogue():
+    # An action moment: the character acts (and thinks) with NO spoken line — the parser
+    # emits exactly those segments, never a synthesized dialogue line.
+    raw = (
+        "<speaker:1>\n<thinking>No time to talk — move.</thinking>\n"
+        "<type:character_action>\nducks the swing, grabs the bat"
+    )
+    segs = parse_emission(raw, roster={1: "mei"}, fallback_speaker_id="mei")
+    assert [s.type for s in segs] == ["internal_thought", "character_action"]
+    assert not any(s.type == "character_dialogue" for s in segs)
+
+
+def test_thinking_only_beat_emits_only_the_hidden_thought():
+    # A silent beat: only interiority, no visible action or dialogue.
+    raw = "<speaker:1>\n<thinking>She's lying. I hold my tongue and watch.</thinking>"
+    segs = parse_emission(raw, roster={1: "mei"}, fallback_speaker_id="mei")
+    assert [s.type for s in segs] == ["internal_thought"]
+
+
 def test_out_of_roster_speaker_falls_back_to_intended():
     segs = parse_emission(
         "<speaker:9>\n<type:character_dialogue>\nHi.", roster={1: "mei"}, fallback_speaker_id="mei"
