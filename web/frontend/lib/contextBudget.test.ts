@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  AVG_CHARS_PER_BEAT,
   budgetFor,
+  CHARS_PER_TOKEN,
   DRAFT_DOCS_CAP_TOKENS,
+  estimateBeatsTokens,
   estimateTokens,
   PRIMER_SOFT_CAP_TOKENS,
 } from "@/lib/contextBudget";
@@ -33,5 +36,15 @@ describe("contextBudget", () => {
   it("flags over when draft docs exceed the grounding cap", () => {
     const docs = ["x".repeat((DRAFT_DOCS_CAP_TOKENS + 100) * 4)];
     expect(budgetFor({ draftDocs: docs }).level).toBe("over");
+  });
+
+  it("estimates beat-window tokens from beats × avg-chars ÷ chars-per-token", () => {
+    // 14 beats × 180 chars ÷ 4 = 630.
+    expect(estimateBeatsTokens(14)).toBe(
+      Math.ceil((14 * AVG_CHARS_PER_BEAT) / CHARS_PER_TOKEN),
+    );
+    expect(estimateBeatsTokens(0)).toBe(0);
+    // Monotonic: more beats → more tokens.
+    expect(estimateBeatsTokens(100)).toBeGreaterThan(estimateBeatsTokens(5));
   });
 });

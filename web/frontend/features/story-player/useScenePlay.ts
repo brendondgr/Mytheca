@@ -49,6 +49,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const [suggestionsCount, setSuggestionsCountState] = useState<number>(
     scenario.suggestionsCount ?? 4,
   );
+  const [contextBeats, setContextBeatsState] = useState<number>(scenario.contextBeats ?? 14);
   const [loading, setLoading] = useState(true);
   const [reveal, setReveal] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -197,6 +198,13 @@ export function useScenePlay(scenario: ResolvedScenario) {
     },
     [scenario.id],
   );
+  const setContextBeats = useCallback(
+    (n: number) => {
+      setContextBeatsState(n);
+      void updateScenario(scenario.id, { contextBeats: n }).catch(() => {});
+    },
+    [scenario.id],
+  );
 
   const send = useCallback(() => {
     if (sending) return;
@@ -229,6 +237,8 @@ export function useScenePlay(scenario: ResolvedScenario) {
     setMaxTurns,
     suggestionsCount,
     setSuggestionsCount,
+    contextBeats,
+    setContextBeats,
     loading,
     reveal,
     sending,

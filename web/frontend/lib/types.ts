@@ -118,6 +118,8 @@ export interface Scenario {
   maxTurns?: number;
   /** How many follow-up suggestions to offer at the end of a turn (0–4; 0 disables; default 4). */
   suggestionsCount?: number;
+  /** Depth of the recent-transcript context window the character conditions on (5–100; default 14). */
+  contextBeats?: number;
   /** Relative `/media/...` URL of an optional scene-art image; plate fallback. */
   image?: string | null;
   /** Persisted positive ComfyUI prompt for the scene-art image. */

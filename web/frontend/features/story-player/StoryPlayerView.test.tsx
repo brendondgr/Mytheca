@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { StoryPlayerView } from "./StoryPlayerView";
@@ -113,13 +113,23 @@ describe("StoryPlayerView", () => {
     expect(await screen.findByText("+67")).toBeInTheDocument(); // clamped value from the stream
   });
 
-  it("persists the suggestion-count control to the scenario when changed", async () => {
+  it("persists scene-config controls (suggestions + beats) to the scenario when changed", async () => {
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
+    // The controls live in the scene-config popover — open it first.
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
     await user.selectOptions(screen.getByRole("combobox", { name: /suggestions/i }), "2");
     expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(
       embergate.id,
       expect.objectContaining({ suggestionsCount: 2 }),
+    );
+    // The new "Number of beats" slider persists context_beats.
+    fireEvent.change(screen.getByRole("slider", { name: /number of beats/i }), {
+      target: { value: "40" },
+    });
+    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(
+      embergate.id,
+      expect.objectContaining({ contextBeats: 40 }),
     );
   });
 

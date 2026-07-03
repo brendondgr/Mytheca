@@ -42,7 +42,10 @@ class Settings(BaseSettings):
     # The recent-turn buffer + per-character interior state live in Redis; like the
     # Neo4j/Qdrant seams the engine is best-effort (Redis down → no buffer/interior,
     # the turn still runs and persists to Postgres). Blank ``REDIS_URL`` disables it.
-    # ``turn_buffer_size`` caps the recent-turn buffer; ``turn_max_concurrency``
+    # ``turn_buffer_size`` caps the recent-turn buffer. It is the *retention* ceiling —
+    # how many recent beats stay available to draw from — and must be ≥ the largest
+    # per-scene ``context_beats`` (max 100) so a high context setting is never clipped;
+    # the assembler fetches only the scene's ``context_beats`` from it. ``turn_max_concurrency``
     # bounds the off-hot-path / independent worker pool (sequential speech stays
     # sequential regardless). ``turn_reflection_enabled`` toggles the read-time
     # reflection interlude (per-character interior state). ``turn_ttft_slo_ms`` is an
@@ -51,7 +54,7 @@ class Settings(BaseSettings):
     # thread (P11) so the stream closes the instant the last visible event is yielded;
     # it stays **off** by default (inline = deterministic for the offline test/dev path)
     # and is never used on SQLite (no independent connection to hand a worker).
-    turn_buffer_size: int = 12
+    turn_buffer_size: int = 100
     turn_max_concurrency: int = 4
     turn_reflection_enabled: bool = True
     turn_ttft_slo_ms: int = 1200

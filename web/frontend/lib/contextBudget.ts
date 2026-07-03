@@ -22,6 +22,21 @@ export function estimateTokens(text: string | null | undefined): number {
   return Math.ceil((text?.length ?? 0) / CHARS_PER_TOKEN);
 }
 
+/**
+ * Rough average characters in one transcript beat (a short line of dialogue, action, or
+ * narration). Used only to give the scene-config menu a live, ballpark token estimate for a
+ * chosen context-window depth — not an exact count.
+ */
+export const AVG_CHARS_PER_BEAT = 180;
+
+/**
+ * Estimate the tokens a context window of `beats` recent beats costs, from an average
+ * beat length and the char/4 heuristic. Approximate, for the UI readout as the slider moves.
+ */
+export function estimateBeatsTokens(beats: number): number {
+  return Math.ceil((Math.max(0, beats) * AVG_CHARS_PER_BEAT) / CHARS_PER_TOKEN);
+}
+
 export interface ContextBudget {
   /** Per-scene cost: the World Primer is injected into every scene. */
   primerTokens: number;

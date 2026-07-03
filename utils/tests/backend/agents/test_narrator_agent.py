@@ -107,3 +107,29 @@ def test_long_progression_uses_the_paragraph_system_prompt(client, db_session, m
     assert text == "The doors slam wide."
     assert "full paragraph" in seen["system"]  # the long system prompt
     assert "escalate the confrontation" in seen["user"]  # the lead direction folded in
+
+
+def test_system_prompts_drive_action_and_progression(client, db_session, monkeypatch):
+    # Both narrator prompts push the story to the NEXT BEAT — narrate what characters are
+    # DOING, don't linger on setting — and still never write dialogue.
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        import json
+
+        seen["system"] = json.loads(request.content.decode())["messages"][0]["content"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": "Kira lunges."}}]})
+
+    monkeypatch.setattr(
+        llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    _configure_llm(client)
+    narrator_agent.interstitial(db_session, _ctx(), [])
+    short = seen["system"]
+    assert "next beat" in short and "DOING" in short
+    assert "Never speak for a character or write dialogue" in short
+    narrator_agent.interstitial(db_session, _ctx(), [], long=True)
+    long = seen["system"]
+    assert "PROGRESSES the story forward" in long and "DOING" in long

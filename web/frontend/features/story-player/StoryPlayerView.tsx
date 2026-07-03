@@ -142,6 +142,8 @@ export function StoryPlayerView({
             onMaxTurnsChange={scene.setMaxTurns}
             suggestionsCount={scene.suggestionsCount}
             onSuggestionsCountChange={scene.setSuggestionsCount}
+            contextBeats={scene.contextBeats}
+            onContextBeatsChange={scene.setContextBeats}
           />
         </div>
 

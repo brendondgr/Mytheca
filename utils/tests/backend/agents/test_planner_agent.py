@@ -139,3 +139,27 @@ def test_malformed_reply_falls_back(client, db_session, monkeypatch):
     _patch(monkeypatch, "not json at all")
     d = planner_agent.next_beat(db_session, _ctx(_cast("mei")), TurnIntent(), [], [])
     assert d.action == "speak" and d.actor_id == "mei"  # opening fallback
+
+
+def test_system_biases_narration_to_progress(client, db_session, monkeypatch):
+    # The planner leans on narration to PROGRESS the scene; a character speaks only after
+    # the scene has moved and has a real POV reaction — not every beat (fix for over-talking).
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        seen["system"] = json.loads(request.content.decode())["messages"][0]["content"]
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps({"action": "end"})}}]}
+        )
+
+    monkeypatch.setattr(
+        llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    _configure_llm(client)
+    planner_agent.next_beat(db_session, _ctx(_cast("mei", "kira")), TurnIntent(), [], [])
+    system = seen["system"]
+    assert "DEFAULT for carrying the scene" in system  # narrate-to-progress is the default
+    assert "PROGRESS the story to the next beat" in system
+    assert "over-talking" in system  # dialogue only after movement, not every beat

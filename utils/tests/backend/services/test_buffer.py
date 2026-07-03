@@ -43,13 +43,26 @@ def test_push_and_recent_roundtrip_chronological(monkeypatch):
 
 
 def test_buffer_caps_at_turn_buffer_size(monkeypatch):
+    from app.core.config import get_settings
+
+    fake = _FakeRedis()
+    monkeypatch.setattr(buffer, "_redis", lambda: fake)
+    cap = get_settings().turn_buffer_size  # retention ceiling (must be ≥ max context_beats=100)
+    for i in range(cap + 30):
+        buffer.push_turn("ps1", "narrator", f"beat {i}")
+    beats = buffer.recent_turns("ps1", limit=cap + 100)
+    assert len(beats) == cap  # retention capped at Settings.turn_buffer_size
+    assert beats[-1]["text"] == f"beat {cap + 29}"  # newest retained
+
+
+def test_recent_turns_honors_an_explicit_fetch_limit(monkeypatch):
+    # The assembler fetches exactly the scene's context_beats — the newest N, chronological.
     fake = _FakeRedis()
     monkeypatch.setattr(buffer, "_redis", lambda: fake)
     for i in range(20):
         buffer.push_turn("ps1", "narrator", f"beat {i}")
-    beats = buffer.recent_turns("ps1", limit=100)
-    assert len(beats) == 12  # Settings.turn_buffer_size default
-    assert beats[-1]["text"] == "beat 19"  # newest retained
+    beats = buffer.recent_turns("ps1", limit=5)
+    assert [b["text"] for b in beats] == [f"beat {i}" for i in range(15, 20)]
 
 
 def test_clear_drops_session(monkeypatch):

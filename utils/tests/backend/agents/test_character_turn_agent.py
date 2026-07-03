@@ -247,3 +247,40 @@ def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     assert body["top_p"] == 0.92
     assert body["frequency_penalty"] == 0.4
     assert body["presence_penalty"] == 0.3
+
+
+def test_transcript_window_follows_context_beats(client, db_session, monkeypatch):
+    # The rendered transcript depth is the scene's context_beats (not a fixed 14): with
+    # context_beats=5 over 10 prior beats + the player line, only the newest 5 appear.
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    ctx.context_beats = 5
+    ctx.recent_beats = [{"role": "narrator", "text": f"beat{i}", "characterId": None} for i in range(10)]
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "myturn", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    # combined [beat0..beat9, myturn] sliced to the last 5 → beat6..beat9 + myturn.
+    assert "beat9" in user and "beat6" in user and "myturn" in user
+    assert "beat5" not in user and "beat0" not in user
+
+
+def test_dialogue_is_optional_but_thinking_is_always_required(client, db_session, monkeypatch):
+    # Fix for over-talking: the character ALWAYS thinks, but a spoken line is optional — in
+    # action moments they may act or think without talking.
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    system = json.loads(capture["body"])["messages"][0]["content"]
+    assert "character_dialogue is OPTIONAL" in system
+    assert "ALWAYS required" in system  # <thinking> stays mandatory every beat
+    assert "over-talking" in system
+    assert "action-only" in system and "thinking-only" in system

@@ -488,6 +488,7 @@ def create_scenario(db: Session, storyline_id: str, data: ScenarioCreate) -> Sce
         branches=[b.model_dump() for b in data.branches],
         max_turns=data.max_turns,
         suggestions_count=data.suggestions_count,
+        context_beats=data.context_beats,
         position=_next_position(db, Scenario, storyline_id),
         image=data.image,
         scene_art_positive=data.scene_art_positive,
