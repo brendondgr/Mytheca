@@ -132,7 +132,7 @@ def test_in_voice_anchors_pulled_per_character(db_session, monkeypatch):
     monkeypatch.setattr(
         buffer,
         "recent_turns",
-        lambda sid: [
+        lambda sid, limit=None: [
             {"role": "player", "text": "I slide the pouch.", "characterId": None},
             {"role": "character", "text": "Coin's easy.", "characterId": "c_mei"},
             {"role": "character", "text": "Quiet's cheaper.", "characterId": "c_mei"},
@@ -215,3 +215,35 @@ def test_no_stats_defined_is_clean(db_session):
     assert ctx.cast[0].stats == {}
     assert ctx.stat_guidance == {}
     assert ctx.setting is None
+
+
+def test_context_beats_is_the_buffer_fetch_depth(db_session, monkeypatch):
+    # The scene's context_beats drives how many recent beats are fetched and is exposed on
+    # the TurnContext (the character transcript window reads it).
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")
+    sc = _scenario(db_session, ["c_mei"])
+    sc.context_beats = 40
+    db_session.commit()
+    captured: dict = {}
+
+    def fake_recent(session_id, limit=None):
+        captured["limit"] = limit
+        return []
+
+    monkeypatch.setattr(assembler.buffer, "recent_turns", fake_recent)
+    ctx = assembler.assemble_context(db_session, sc, "ps1")
+    assert captured["limit"] == 40
+    assert ctx.context_beats == 40
+
+
+def test_context_beats_out_of_range_is_clamped(db_session, monkeypatch):
+    # A stored value beyond the 5–100 window is clamped defensively before use.
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")
+    sc = _scenario(db_session, ["c_mei"])
+    sc.context_beats = 500
+    db_session.commit()
+    monkeypatch.setattr(assembler.buffer, "recent_turns", lambda session_id, limit=None: [])
+    ctx = assembler.assemble_context(db_session, sc, "ps1")
+    assert ctx.context_beats == 100

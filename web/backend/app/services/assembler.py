@@ -75,6 +75,9 @@ class TurnContext:
     # Gated durable lore (a fenced RETRIEVED LORE block) — empty on a skip turn.
     retrieved_lore: str = ""
     gate_reason: str = ""
+    # Depth of the recent-transcript window the character conditions on — the per-scene
+    # ``context_beats`` (5–100), clamped by ``assemble_context``. Defaults to the legacy 14.
+    context_beats: int = 14
 
     def cast_by_id(self, character_id: str) -> CastMember | None:
         return next((c for c in self.cast if c.id == character_id), None)
@@ -95,7 +98,10 @@ def assemble_context(
     guidance = {
         sd.key: text for sd in stat_defs if (text := stat_guidance.guidance_for(sd))
     }
-    recent_beats = buffer.recent_turns(session_id)
+    # Per-scene context depth (5–100), clamped defensively; fetch exactly that many recent
+    # beats from the buffer (which retains up to ``turn_buffer_size``).
+    context_beats = max(5, min(int(scenario.context_beats or 14), 100))
+    recent_beats = buffer.recent_turns(session_id, limit=context_beats)
     cast = _build_cast(db, scenario, session_id, stat_defs, recent_beats)
     setting = db.get(Setting, scenario.setting_id) if scenario.setting_id else None
     subgraph = _safe_subgraph(db, scenario.id)
@@ -117,6 +123,7 @@ def assemble_context(
         stable_prefix=stable_prefix,
         retrieved_lore=retrieved_lore,
         gate_reason=gate_reason,
+        context_beats=context_beats,
     )
 
 

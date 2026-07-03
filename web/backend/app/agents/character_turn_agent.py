@@ -216,15 +216,21 @@ def _build_user_prompt(
 
 # Cap the rendered transcript so a crowded, many-speaker turn keeps the bookended
 # prompt bounded (§P10 — "bookended prompt under scale"). The most recent beats matter
-# most for recency; older context lives in the buffer/graph, not this window.
+# most for recency; older context lives in the buffer/graph, not this window. The depth is
+# the per-scene ``context_beats`` (5–100); this is only the fallback when it is unset.
 _TRANSCRIPT_MAX_BEATS = 14
 
 
 def _transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
-    """Render prior history + this-turn beats as a short transcript (chronological)."""
+    """Render prior history + this-turn beats as a short transcript (chronological).
+
+    The window depth is the scene's ``context_beats`` — the same "how much context the
+    character sees" the player configures — capped at the last N combined beats.
+    """
     names = {m.id: m.name for m in ctx.cast}
+    depth = max(1, ctx.context_beats or _TRANSCRIPT_MAX_BEATS)
     lines: list[str] = []
-    for beat in [*ctx.recent_beats, *turn_beats][-_TRANSCRIPT_MAX_BEATS:]:
+    for beat in [*ctx.recent_beats, *turn_beats][-depth:]:
         text = str(beat.get("text", "")).strip()
         if not text:
             continue
