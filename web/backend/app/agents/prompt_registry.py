@@ -116,6 +116,7 @@ Return ONLY a JSON object:
 
 Rules:
 - Offer EXACTLY the number of options requested — no more, no fewer.
+- CONTINUE THE STORY FORWARD from the LATEST beat you are given — what happens NEXT, building on the current moment. The beats are listed oldest→newest; anchor every option to the newest one. NEVER propose a move that repeats, undoes, reverses, or revisits something already shown in the beats — those events have already happened and the scene has moved past them (e.g. if a glass was just thrown and a slap has landed, do NOT offer "accepts the glass" or "asks if the wine is okay"; offer what comes AFTER the slap).
 - Each option is SITUATION-BASED: describe what happens next in the scenario — an action taken, a turn of events, a direction the story goes — NOT a specific character's spoken line, and NOT written in any single character's voice. The player is a general narrator/director of the scene, not one character with a point of view.
 - Match the TONE, LENGTH, and PACE of the player's own recent moves (given below) so each option reads like something the player themself would write.
 - "outcome" is a short narrative-direction tag, never a dice check or stat test.

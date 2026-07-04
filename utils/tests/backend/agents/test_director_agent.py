@@ -173,21 +173,30 @@ def _capture_user(monkeypatch, seen, *, reply=None):
     monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
 
 
-def test_propose_branches_anchors_on_most_recent_dialogue_line(client, db_session, monkeypatch):
-    # Suggestions anchor on the LATEST character line, not the whole transcript: a
-    # non-latest character beat is not dumped in.
+def test_propose_branches_provides_ordered_recent_sequence(client, db_session, monkeypatch):
+    # Suggestions must see the recent beats IN ORDER (oldest→newest) so the model reads the
+    # story's trajectory and continues FORWARD from the latest beat — not a single cherry-picked
+    # line that lets it rewind to earlier events.
     seen = {"user": ""}
     _configure_llm(client)
     _capture_user(monkeypatch, seen)
     beats = [
-        {"role": "player", "text": "OLD player line", "characterId": None},
-        {"role": "character", "text": "an earlier reply", "characterId": "mei"},
-        {"role": "character", "text": "the freshest reply", "characterId": "mei"},
+        {"role": "character", "text": "Mei offers Amy a glass of wine", "characterId": "mei"},
+        {"role": "narrator", "text": "Amy accepts, then hurls it against the wall", "characterId": None},
+        {"role": "character", "text": "Mei slaps Amy across the face", "characterId": "mei"},
     ]
     director_agent.propose_branches(db_session, _ctx(_cast("mei")), beats, count=3)
-    assert "the freshest reply" in seen["user"]
-    assert "Offer EXACTLY 3" in seen["user"]
-    assert "an earlier reply" not in seen["user"]  # non-latest character beat not dumped in
+    user = seen["user"]
+    # The whole recent sequence is present, in chronological order (recency last).
+    assert "Mei offers Amy a glass of wine" in user
+    assert "Amy accepts, then hurls it against the wall" in user
+    assert "Mei slaps Amy across the face" in user
+    assert user.index("offers Amy a glass") < user.index("hurls it against the wall") < user.index("slaps Amy")
+    # And the prompt steers the model to continue forward from the latest beat, not rewind.
+    assert "Offer EXACTLY 3" in user
+    assert "the LAST line is the current moment" in user
+    assert "FORWARD from the LAST line" in user
+    assert "undo, or rewind" in user
 
 
 def test_propose_branches_are_situation_based_not_character_voiced(client, db_session, monkeypatch):
@@ -207,6 +216,9 @@ def test_propose_branches_are_situation_based_not_character_voiced(client, db_se
     assert "SITUATION-BASED" in seen["system"]
     assert "general" in seen["system"].lower()
     assert "not a specific character" in seen["system"].lower() or "not written in any single character" in seen["system"].lower()
+    # The contract also forbids rewinding: options must continue forward, not revisit past beats.
+    assert "CONTINUE THE STORY FORWARD" in seen["system"]
+    assert "repeats, undoes, reverses, or revisits" in seen["system"]
 
 
 def test_player_voice_samples_player_lines_only():

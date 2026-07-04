@@ -634,11 +634,13 @@ back to the default next beat. The
 character conditions on the scene's **`context_beats`** most-recent beats (5–100; `assembler` fetches
 that depth from the Redis buffer, which retains up to `turn_buffer_size` = 100). At the **end of
 every turn**, up to the scenario's **`suggestions_count`** (0–4; `0` disables) follow-up suggestions
-are generated from the **most recent line** (`director_agent.propose_branches(count=…)`) and emitted
+are generated from the **recent beat sequence** (`director_agent.propose_branches(count=…)`, which
+feeds the last ~6 beats via `_recent_sequence` **in chronological order**, newest last) and emitted
 as `branch_choices` — count-driven, no longer gated on the planner's rarely-set `needsBranch` flag.
 Suggestions are **situation-based** (what happens next from a general, story-wide perspective, not a
-character's spoken line) and written to **match the player's own recent tone/pace**
-(`director_agent._player_voice`). **Selecting a suggestion** no longer submits a turn: the story
+character's spoken line), must **continue the story FORWARD from the latest beat** (never repeat,
+undo, or rewind events already shown — the fix for suggestions that latched onto earlier beats), and
+are written to **match the player's own recent tone/pace** (`director_agent._player_voice`). **Selecting a suggestion** no longer submits a turn: the story
 player **writes its text into the composer** for the player to review, edit, and send as an ordinary
 `text` turn — so the chosen text itself carries the intent (the earlier open-ended `guidance` steer
 is retired). Each character reply is grounded in its **graph relationships** to whom it addresses

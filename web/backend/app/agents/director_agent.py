@@ -187,7 +187,7 @@ def propose_branches(
         return []
 
     roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(ctx.cast))
-    latest = _latest_line(turn_beats)
+    sequence = _recent_sequence(ctx, turn_beats)
     voice = _player_voice(ctx, turn_beats)
     voice_block = (
         "The player writes their moves like this — match this voice, length, and pace:\n"
@@ -197,10 +197,14 @@ def propose_branches(
     )
     user = (
         f"Roster (scene context only — do not write in any of their voices):\n{roster}\n\n"
-        f"What just happened (most recent):\n{latest}\n\n"
+        # The recent beats IN ORDER (oldest→newest) so the model sees the scene's trajectory,
+        # not a single cherry-picked line — the last line is where the story now stands.
+        f"The scene so far (oldest to newest — the LAST line is the current moment):\n{sequence}\n\n"
         f"{voice_block}"
-        f"Offer EXACTLY {want} distinct situation-based follow-up move(s) that continue the "
-        "scene from a general perspective, matching the player's tone and pace."
+        f"Offer EXACTLY {want} distinct situation-based follow-up move(s) that continue the scene "
+        "FORWARD from the LAST line above — what happens NEXT, building on what just happened. Do "
+        "NOT repeat, undo, or rewind anything already shown above (those events have happened and "
+        "cannot be re-offered). Match the player's tone and pace."
     )
     try:
         raw = llm.chat_complete(
@@ -232,16 +236,31 @@ def propose_branches(
     return choices
 
 
-def _latest_line(turn_beats: list[dict]) -> str:
-    """The most recent character dialogue line (fallback: the last non-empty beat).
+def _recent_sequence(ctx: TurnContext, turn_beats: list[dict], limit: int = 6) -> str:
+    """Render the last ``limit`` beats (committed history + this turn) IN ORDER.
 
-    Anchors follow-up suggestions to what was JUST said rather than the whole turn.
+    Follow-up suggestions must CONTINUE from where the scene now stands, so the model needs
+    the recent *sequence* — not one cherry-picked line — to read the story's direction. The
+    beats are combined chronologically and the newest sits last (recency), with speakers
+    named (Player / Narrator / the character's name) so the trajectory is legible. Empty →
+    "(scene opening)" so a cold open still gets a sensible cue.
     """
-    spoken = [b for b in turn_beats if str(b.get("text", "")).strip()]
-    if not spoken:
-        return "(scene opening)"
-    latest = next((b for b in reversed(spoken) if b.get("role") == "character"), spoken[-1])
-    return f"{latest.get('role')}: {str(latest.get('text', '')).strip()}"
+    names = {m.id: m.name for m in ctx.cast}
+    lines: list[str] = []
+    for beat in [*ctx.recent_beats, *turn_beats][-limit:]:
+        text = str(beat.get("text", "")).strip()
+        if not text:
+            continue
+        role = beat.get("role")
+        if role == "player":
+            who = "Player"
+        elif role == "narrator":
+            who = "Narrator"
+        else:
+            cid = beat.get("characterId")
+            who = names.get(cid, "Someone") if cid else "Someone"
+        lines.append(f"{who}: {text}")
+    return "\n".join(lines) if lines else "(scene opening)"
 
 
 def _player_voice(ctx: TurnContext, turn_beats: list[dict], limit: int = 3) -> str:
