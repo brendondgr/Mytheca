@@ -680,10 +680,35 @@ export interface ComfyWorkflowsResult {
   workflows: string[];
 }
 
+/** One editable writing prompt's catalog entry (metadata + default text). */
+export interface PromptSpec {
+  key: string;
+  /** Agent group label ("Character" | "Narrator" | "Director" | "Planner"). */
+  agent: string;
+  label: string;
+  description: string;
+  default: string;
+}
+
+/**
+ * The writing-agent prompts payload: the full catalog + the stored global overrides.
+ * A prompt key absent from `overrides` uses its catalog `default`.
+ */
+export interface PromptsConfig {
+  catalog: PromptSpec[];
+  overrides: Record<string, string>;
+}
+
+/** PATCH payload: a blank value clears a key (reverts it to the registry default). */
+export interface PromptsConfigUpdate {
+  overrides: Record<string, string>;
+}
+
 export interface AppSettings {
   llm: LlmConfig;
   library: LibraryDefaults;
   comfy: ComfyConfig;
+  prompts: PromptsConfig;
 }
 
 export interface LlmModelsResult {
@@ -719,6 +744,8 @@ export const testLlmConnection = (body: {
   params?: LlmParams;
 }) => post<LlmTestResult>("/options/llm/test", body);
 export const getLlmBackend = () => request<LlmBackendInfo>("/options/llm/backend");
+export const updatePromptsConfig = (body: PromptsConfigUpdate) =>
+  patch<PromptsConfig>("/options/prompts", body);
 
 // ---- ComfyUI image generation ----
 export const updateComfyConfig = (body: ComfyConfigUpdate) =>

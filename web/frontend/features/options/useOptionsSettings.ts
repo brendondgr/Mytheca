@@ -6,10 +6,12 @@ import {
   updateComfyConfig,
   updateLibraryDefaults,
   updateLlmConfig,
+  updatePromptsConfig,
   type AppSettings,
   type ComfyConfigUpdate,
   type LibraryDefaultsUpdate,
   type LlmConfigUpdate,
+  type PromptsConfigUpdate,
 } from "@/lib/api";
 
 export interface OptionsState {
@@ -20,6 +22,7 @@ export interface OptionsState {
   saveLlm: (body: LlmConfigUpdate) => Promise<void>;
   saveLibrary: (body: LibraryDefaultsUpdate) => Promise<void>;
   saveComfy: (body: ComfyConfigUpdate) => Promise<void>;
+  savePrompts: (body: PromptsConfigUpdate) => Promise<void>;
 }
 
 /**
@@ -73,5 +76,10 @@ export function useOptionsSettings(): OptionsState {
     setSettings((prev) => (prev ? { ...prev, comfy } : prev));
   }, []);
 
-  return { settings, loading, error, retry, saveLlm, saveLibrary, saveComfy };
+  const savePrompts = useCallback(async (body: PromptsConfigUpdate) => {
+    const prompts = await updatePromptsConfig(body);
+    setSettings((prev) => (prev ? { ...prev, prompts } : prev));
+  }, []);
+
+  return { settings, loading, error, retry, saveLlm, saveLibrary, saveComfy, savePrompts };
 }

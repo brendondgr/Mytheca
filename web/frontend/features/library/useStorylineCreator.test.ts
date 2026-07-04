@@ -264,6 +264,7 @@ describe("useStorylineCreator", () => {
         workflow: "",
         params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
       },
+      prompts: { catalog: [], overrides: {} },
     });
     const { result } = renderHook(() => useStorylineCreator());
     await waitFor(() => expect(result.current.imagesAvailable).toBe(false));

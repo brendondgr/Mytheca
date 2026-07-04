@@ -378,6 +378,46 @@ export function makeApiMock() {
         workflow: "ZiT-Workflow.json",
         params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
       },
+      prompts: {
+        catalog: [
+          {
+            key: "narrator.system",
+            agent: "Narrator",
+            label: "Transition beat",
+            description: "Short narration between beats.",
+            default: "DEFAULT narrator system prompt.",
+          },
+          {
+            key: "planner.system",
+            agent: "Planner",
+            label: "Next-beat loop",
+            description: "Decides the next beat.",
+            default: "DEFAULT planner system prompt.",
+          },
+        ],
+        overrides: {},
+      },
+    })),
+    updatePromptsConfig: vi.fn(async (body: { overrides: Record<string, string> }) => ({
+      catalog: [
+        {
+          key: "narrator.system",
+          agent: "Narrator",
+          label: "Transition beat",
+          description: "Short narration between beats.",
+          default: "DEFAULT narrator system prompt.",
+        },
+        {
+          key: "planner.system",
+          agent: "Planner",
+          label: "Next-beat loop",
+          description: "Decides the next beat.",
+          default: "DEFAULT planner system prompt.",
+        },
+      ],
+      overrides: Object.fromEntries(
+        Object.entries(body.overrides).filter(([, v]) => v.trim()),
+      ),
     })),
     updateLlmConfig: vi.fn(async (body: Record<string, unknown>) => ({
       baseUrl: "",

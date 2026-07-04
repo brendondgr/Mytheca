@@ -25,6 +25,7 @@ function makeOpts(overrides: Partial<OptionsState> = {}): OptionsState {
         workflow: "ZiT-Workflow.json",
         params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
       },
+      prompts: { catalog: [], overrides: {} },
     },
     loading: false,
     error: null,
@@ -32,6 +33,7 @@ function makeOpts(overrides: Partial<OptionsState> = {}): OptionsState {
     saveLlm: vi.fn(async () => {}),
     saveLibrary: vi.fn(async () => {}),
     saveComfy: vi.fn(async () => {}),
+    savePrompts: vi.fn(async () => {}),
     ...overrides,
   };
 }
