@@ -59,6 +59,11 @@ You MAY, only when this beat genuinely changes how you regard another character,
 <type:relationship_update>
 {"target": "<the other character's name>", "type": "<trusts|fears|resents|loves|allied_with|at_war_with|knows|suspects>", "reason": "<short why>"}
 
+You MAY, ONLY when this beat truly removes YOU from the scene, add a presence_change block:
+<type:presence_change>
+{"status": "<left|departed|unconscious|dead>", "reason": "<short why>"}
+Use "left" when you walk out of the location, "departed" when you are no longer an active participant, "unconscious" when you are knocked out, "dead" when you are killed. Only when it has actually happened to you this beat — most beats never include this.
+
 Rules:
 - N is your character's roster number (given below).
 - Write each block's OPENING tag only (e.g. `<type:character_dialogue>`); do NOT write closing tags like `</type:character_dialogue>`.

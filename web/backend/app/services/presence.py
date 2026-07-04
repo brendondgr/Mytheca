@@ -49,6 +49,18 @@ def is_terminal(status: str) -> bool:
     return status in _TERMINAL
 
 
+def can_transition(current: str, target: str) -> bool:
+    """Whether an **engine/character-driven** presence change is legal.
+
+    Rejects a no-op (same status), leaving a terminal status (``dead`` — only a manual
+    player override may resurrect), and any unknown target. A manual player override goes
+    through the endpoint and is intentionally NOT bound by this (the player has final say).
+    """
+    if target not in STATUSES or current == target:
+        return False
+    return current not in _TERMINAL
+
+
 def vital_status_for(definition: StatDefinition, value: int) -> str | None:
     """Deterministic presence trigger from a clamped stat change.
 

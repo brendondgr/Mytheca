@@ -980,3 +980,56 @@ def test_status_change_persists_and_folds_into_presence(client, storyline_id, mo
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "Mei, get out."}))
     session_id = next(e["sessionId"] for e in events if e.get("type") == "character_status_change")
     assert presence.current_presence(db_session, session_id).get(cid_mei) == "left"
+
+
+_HEALTH_EMISSION = (
+    "<speaker:1>\n"
+    "<type:character_action>\nMei crumples to the floor\n"
+    '<type:state_update>\n{"key": "health", "delta": -100, "reason": "stabbed"}'
+)
+
+_LEAVE_EMISSION = (
+    "<speaker:1>\n"
+    "<type:character_action>\nturns and walks out\n"
+    '<type:presence_change>\n{"status": "left", "reason": "done here"}'
+)
+
+
+def test_health_floor_auto_knocks_unconscious(client, storyline_id, monkeypatch, db_session):
+    # A vital stat (health) clamped to its floor deterministically knocks the character out.
+    from app.models.stat import StatDefinition
+
+    db_session.add(
+        StatDefinition(storyline_id=storyline_id, key="health", display_name="Health", min=0, max=100, default=100)
+    )
+    db_session.commit()
+    _configure_llm(client)
+    _patch_llm(monkeypatch, _HEALTH_EMISSION)
+    cid = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Standoff", "castIds": [cid], "suggestionsCount": 0},
+    ).json()["id"]
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I stab Mei.", "directedAt": cid}))
+    status = [e for e in events if e["type"] == "character_status_change"]
+    assert len(status) == 1
+    assert status[0]["data"]["characterId"] == cid
+    assert status[0]["data"]["status"] == "unconscious" and status[0]["data"]["auto"] is True
+
+
+def test_self_declared_exit_removes_character(client, storyline_id, monkeypatch, db_session):
+    # A character declaring <type:presence_change> leaves the scene (folds into presence).
+    from app.services import presence
+
+    _configure_llm(client)
+    _patch_llm(monkeypatch, _LEAVE_EMISSION)
+    cid = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Standoff", "castIds": [cid], "suggestionsCount": 0},
+    ).json()["id"]
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "Mei, leave.", "directedAt": cid}))
+    status = [e for e in events if e["type"] == "character_status_change"]
+    assert len(status) == 1 and status[0]["data"]["status"] == "left"
+    session_id = status[0]["sessionId"]
+    assert presence.current_presence(db_session, session_id).get(cid) == "left"

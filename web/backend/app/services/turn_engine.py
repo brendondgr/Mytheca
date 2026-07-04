@@ -48,6 +48,7 @@ from app.services import (
     emission,
     events_store,
     graph_reader,
+    presence,
     reflection,
     relationships,
     stats,
@@ -725,7 +726,36 @@ def _generate_speaker(
             )
         elif seg.type == "relationship_update":
             yield from _apply_relationship_change(ctx, seg.character_id, seg.text, consequences, tr)
+        elif seg.type == "presence_change":
+            yield from _apply_declared_presence(ctx, seg.character_id, seg.text, emitter, tr)
     return impact
+
+
+def _apply_declared_presence(
+    ctx: TurnContext,
+    character_id: str,
+    raw: str,
+    emitter: _Emitter,
+    tracer: _Tracer,
+) -> Generator[StoryEvent | TurnTraceFrame, None, None]:
+    """Apply a character's self-declared ``<type:presence_change>`` (leaving/collapsing).
+
+    Validated against the declarer's current status (an illegal/no-op change is dropped);
+    a valid one removes them from the selectable pool for the rest of the turn."""
+    member = ctx.cast_by_id(character_id)
+    if member is None:
+        return
+    result = validator.validate_presence(raw, current=member.presence)
+    if result is None:
+        yield from tracer.emit(
+            "presence",
+            "Proposed presence change dropped",
+            detail="Illegal or no-op transition — ignored.",
+            data={"characterId": character_id},
+        )
+        return
+    status, reason = result
+    yield from _apply_presence_change(emitter, member, status, reason, auto=True, tracer=tracer)
 
 
 # Plain-language trace copy per presence transition (falls back to the free-text reason).
@@ -861,4 +891,18 @@ def _apply_stat_change(
             weight=float(delta),
         )
     )
+    # Deterministic presence trigger: a vital stat (health) hitting its floor knocks the
+    # character out (unconscious — the reversible lane; never auto-dead). Only fires once
+    # (a still-present character), so a lingering health=0 doesn't re-emit every turn.
+    definition = next(
+        (sd for sd in stats.list_stat_definitions(db, ctx.storyline_id) if sd.key == patch.key),
+        None,
+    )
+    member = ctx.cast_by_id(character_id)
+    if definition is not None and member is not None and member.is_present:
+        new_status = presence.vital_status_for(definition, value)
+        if new_status:
+            yield from _apply_presence_change(
+                emitter, member, new_status, f"{patch.key} reached {value}", auto=True, tracer=tr
+            )
     return abs(delta)

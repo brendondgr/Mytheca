@@ -34,11 +34,13 @@ _TAG_CLEAN = re.compile(
 
 # Prose types a character may emit (internal_thought is hidden conditioning).
 _PROSE_TYPES = {"character_action", "character_dialogue"}
-# A character may also propose a stat change or a relationship change as a JSON body
-# (validated downstream); their ``text`` is the raw JSON block, kept verbatim.
+# A character may also propose a stat change, a relationship change, or a presence change
+# (leaving/collapsing) as a JSON body (validated downstream); their ``text`` is the raw
+# JSON block, kept verbatim.
 _STAT_TYPE = "state_update"
 _REL_TYPE = "relationship_update"
-_JSON_TYPES = {_STAT_TYPE, _REL_TYPE}
+_PRESENCE_TYPE = "presence_change"
+_JSON_TYPES = {_STAT_TYPE, _REL_TYPE, _PRESENCE_TYPE}
 
 
 def _clean(body: str) -> str:

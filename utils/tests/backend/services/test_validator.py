@@ -89,3 +89,20 @@ def test_validate_relationship_self_directed_dropped():
 
 def test_validate_relationship_malformed_dropped():
     assert validator.validate_relationship("mei", "not json at all", cast=_CAST) is None
+
+
+def test_validate_presence_legal_transition():
+    assert validator.validate_presence('{"status": "left", "reason": "storms out"}', current="present") == (
+        "left",
+        "storms out",
+    )
+    assert validator.validate_presence('{"status": "dead"}', current="unconscious") == ("dead", "")
+
+
+def test_validate_presence_drops_noop_and_terminal_and_unknown():
+    # No-op (same status), leaving a terminal status, and an unknown status are all dropped.
+    assert validator.validate_presence('{"status": "present"}', current="present") is None
+    assert validator.validate_presence('{"status": "present"}', current="dead") is None
+    assert validator.validate_presence('{"status": "left"}', current="dead") is None
+    assert validator.validate_presence('{"status": "vaporized"}', current="present") is None
+    assert validator.validate_presence("not json", current="present") is None

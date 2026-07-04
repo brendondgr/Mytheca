@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from app.agents.relationship_agent import RELATIONSHIP_TYPES
 from app.events.envelope import StatPatch
 from app.models.stat import StatDefinition
-from app.services import stats
+from app.services import presence, stats
 
 
 def _loads(raw: str) -> dict | None:
@@ -130,3 +130,21 @@ def validate_relationship(
     if target_id is None or target_id == source_id:
         return None
     return RelationshipPatch(source_id, etype, target_id, str(data.get("reason", "")))
+
+
+def validate_presence(raw: str, *, current: str) -> tuple[str, str] | None:
+    """Validate a self-declared ``<type:presence_change>`` block (Scene Presence & Director
+    Actions).
+
+    A character may declare their own scene exit in-voice ("I'm done here", collapsing,
+    fleeing). Returns ``(status, reason)`` for a legal transition from ``current`` (see
+    :func:`app.services.presence.can_transition`), else ``None`` (drops a no-op, an illegal
+    move out of ``dead``, or an unknown status) so the model can never write an invalid one.
+    """
+    data = _loads(raw)
+    if not data:
+        return None
+    status = presence.normalize_status(data.get("status"))
+    if status is None or not presence.can_transition(current, status):
+        return None
+    return status, str(data.get("reason", ""))
