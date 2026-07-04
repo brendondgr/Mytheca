@@ -4,46 +4,7 @@ import { IconButton } from "@/components/ui/IconButton";
 import { mediaUrl } from "@/lib/api";
 import { PORTRAIT_SCRIM, OVER_ART } from "@/lib/cardArt";
 import { cn } from "@/lib/cn";
-import type { Character, StatDefinition } from "@/lib/types";
-
-/**
- * Compact "beneath the name/role" list of this character's public stat values —
- * the storyline's persisted value when known, else the schema default (matching
- * the backend's own "unset stat = default" semantics). The Library counterpart to
- * the in-scene cast rail's per-character stat rows.
- */
-function CardStats({
-  statDefs,
-  statValues,
-  overArt,
-}: {
-  statDefs: StatDefinition[];
-  statValues?: Record<string, number>;
-  overArt: boolean;
-}) {
-  const visible = statDefs.filter((d) => d.visibility === "public");
-  if (visible.length === 0) return null;
-  return (
-    <div className="mt-[6px] flex flex-col gap-[1px]">
-      {visible.map((d) => (
-        <div key={d.key} className="flex items-baseline justify-between gap-2">
-          <span
-            className="min-w-0 truncate font-mono text-[9px] tracking-[0.02em]"
-            style={{ color: overArt ? OVER_ART.body : "var(--ink-soft)" }}
-          >
-            {d.displayName}
-          </span>
-          <span
-            className="flex-none font-mono text-[9px]"
-            style={{ color: overArt ? OVER_ART.eyebrow : "var(--accent)" }}
-          >
-            {statValues?.[d.key] ?? d.default}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
+import type { Character } from "@/lib/types";
 
 /**
  * Character card — a tall, portrait-dominant tile (2:3) framed in the character's
@@ -60,8 +21,6 @@ export function CharacterCard({
   onPreview,
   onEdit,
   highlighted = false,
-  statDefs,
-  statValues,
 }: {
   character: Character;
   /** Opens the character profile modal. */
@@ -69,10 +28,6 @@ export function CharacterCard({
   onEdit?: () => void;
   /** Lit up when this character is in the selected scenario's cast. */
   highlighted?: boolean;
-  /** The storyline's stat schema — when given, shows this character's public stat
-   * values beneath their name/role (real persisted value, else the schema default). */
-  statDefs?: StatDefinition[];
-  statValues?: Record<string, number>;
 }) {
   const c = character;
   const hasPortrait = Boolean(c.portrait);
@@ -153,9 +108,6 @@ export function CharacterCard({
         >
           {c.role}
         </Eyebrow>
-        {statDefs ? (
-          <CardStats statDefs={statDefs} statValues={statValues} overArt={hasPortrait} />
-        ) : null}
       </div>
     </div>
   );

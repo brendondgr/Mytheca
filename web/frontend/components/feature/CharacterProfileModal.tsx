@@ -6,7 +6,7 @@ import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Button } from "@/components/ui/Button";
 import { CloseButton } from "@/components/ui/CloseButton";
 import { mediaUrl } from "@/lib/api";
-import type { Character, StatDefinition } from "@/lib/types";
+import type { Character } from "@/lib/types";
 
 const GOLD = "#A8762A";
 
@@ -61,55 +61,6 @@ function ProfileSection({
   );
 }
 
-/**
- * "Stats" profile section — public stat rows, persisted value when known else the
- * schema default (same fallback semantics as the Library card and cast rail).
- */
-function ProfileStats({
-  defs,
-  values,
-}: {
-  defs: StatDefinition[];
-  values?: Record<string, number>;
-}) {
-  const visible = defs.filter((d) => d.visibility === "public");
-  if (visible.length === 0) return null;
-  return (
-    <section
-      style={{
-        border: "1px solid var(--card-bd)",
-        background: "var(--card-bg2)",
-        borderRadius: 4,
-        boxShadow: "0 1px 2px rgba(20,14,6,.06)",
-      }}
-    >
-      <div className="flex items-center gap-[10px] px-[14px] pt-[12px]">
-        <span
-          aria-hidden
-          className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full text-[13px] leading-none"
-          style={{ color: GOLD, border: `1px solid ${GOLD}`, background: "var(--card-bg)" }}
-        >
-          ✦
-        </span>
-        <Eyebrow tracking="0.16em" color={GOLD} className="block">
-          Stats
-        </Eyebrow>
-        <span className="h-px flex-1" style={{ background: "var(--hair-strong)" }} />
-      </div>
-      <div className="flex flex-col gap-[6px] px-[14px] pb-[13px] pt-[9px]">
-        {visible.map((d) => (
-          <div key={d.key} className="flex items-baseline justify-between gap-2">
-            <span className="font-body text-body-sm text-ink">{d.displayName}</span>
-            <span className="font-mono text-[13px] text-accent">
-              {values?.[d.key] ?? d.default}
-            </span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 /** Split a free-text traits string ("Energetic · Observant") into tokens. */
 function splitTraits(traits: string | null | undefined): string[] {
   if (!traits) return [];
@@ -124,17 +75,11 @@ export function CharacterProfileModal({
   character,
   onClose,
   onEdit,
-  statDefs = [],
-  statValues,
 }: {
   character: Character | null;
   onClose: () => void;
   /** Omit in read-only contexts (e.g. the story player) to hide the Edit button. */
   onEdit?: (id: string) => void;
-  /** The storyline's stat schema — omit to render no Stats section. */
-  statDefs?: StatDefinition[];
-  /** This character's persisted stat values, keyed by stat key. */
-  statValues?: Record<string, number>;
 }) {
   if (!character) return null;
   const c = character;
@@ -221,7 +166,6 @@ export function CharacterProfileModal({
 
             <div className="mt-[16px] grid grid-cols-1 gap-[14px]">
               <ProfileSection label="Background" glyph="❖" value={c.background} />
-              <ProfileStats defs={statDefs} values={statValues} />
             </div>
           </div>
         </div>

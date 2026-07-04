@@ -133,8 +133,6 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
         character={lib.profileChar}
         onClose={lib.closeProfile}
         onEdit={lib.editCharacter}
-        statDefs={lib.statDefs}
-        statValues={lib.profileChar ? lib.statsByCharId[lib.profileChar.id] : undefined}
       />
       <BeginSceneModal
         scenario={beginScenario}

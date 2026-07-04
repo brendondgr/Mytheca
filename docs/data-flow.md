@@ -150,27 +150,24 @@ rail's own "Character stats" section — which rendered the schema **defaults on
 character context at all — was removed as redundant now that the cast rail and dossier both
 show correct, live, per-character values.
 
-**Library-side (no play session) stat display** mirrors the same "real value, defaulted
-fallback" rule: `useLibraryState` loads every active-storyline character's persisted stats
-(`statsByCharId`, keyed by character id, refreshed whenever the character list changes) so the
-Library `CharacterCard` and the `ScenarioCarousel` hero's `CastStats` flyout show each
-character's actual starting value beneath their name — the carousel's `CastStats` previously
-showed the schema default for every character regardless of who they were. The carousel's own
-click-to-open card — `CharacterProfileModal`, opened from cast monograms across `ScenarioCard`/
-`ScenarioCarousel`/`CharacterCard` — was initially missed by this fix (it took no stat props at
-all); it now also takes `statDefs`/`statValues` and renders a `ProfileStats` section from the
-same `statsByCharId` map, so opening a character from the Scenario hero shows the same real
-values as the card it was opened from.
+**Library-side (no play session) stat display is Scenario-hero-only, by design.** Several
+iterations passed through `useLibraryState`'s `statsByCharId` (loaded once, keyed by character
+id, refreshed whenever the character list changes) — first threading it into the Library's
+`CharacterCard`/"Characters" column and the `CharacterProfileModal` popup too, but the user
+settled on a narrower scope: real per-character stat values are shown **only** in the
+`ScenarioCarousel` hero's `CastStats` flyout (the per-card "Statistics" panel toggled by the
+`❯`/`❮` arrow). `CharacterCard` and `CharacterProfileModal` intentionally render no stats at all;
+`statDefs`/`statsByCharId` are threaded from `LibraryView` to `ScenarioCarousel` only.
 
 **`CastStats`'s "Statistics" flyout showed nothing at all for real-world stat schemas** —
-a separate, longer-standing bug: it filtered defs on `d.appliesTo.length === 0 ||
-d.appliesTo.includes(c.id)`, treating `appliesTo` as a per-character id allowlist. `appliesTo`
-is actually a **node-type tag** (`["character"]` vs. e.g. a future `["setting"]`) — the backend
-model's own default (`applies_to` on `StatDefinition`) — so a real character id like `"maerin"`
-never matched the literal string `"character"` and every stat with a non-empty `appliesTo` (i.e.
-every stat created through the normal editor) was silently dropped. Fixed by filtering on
-`visibility === "public"` alone, matching every other stat consumer (`CharacterCard`, `CastRail`,
-`DirectorRail`, `CharacterProfileModal`).
+a separate bug found once the flyout was the sole remaining stat surface: it filtered defs on
+`d.appliesTo.length === 0 || d.appliesTo.includes(c.id)`, treating `appliesTo` as a per-character
+id allowlist. `appliesTo` is actually a **node-type tag** (`["character"]` vs. e.g. a future
+`["setting"]`) — the backend model's own default (`applies_to` on `StatDefinition`) — so a real
+character id like `"maerin"` never matched the literal string `"character"` and every stat with
+a non-empty `appliesTo` (i.e. every stat created through the normal editor) was silently dropped.
+Fixed by filtering on `visibility === "public"` alone, matching every other stat consumer
+(`CastRail`, `DirectorRail`, `CharacterDossier`).
 
 The cold-path **graph trace** (Inspector's green *Graph* steps) reports *what* was written,
 not just a count: the `commit` step lists each durable `Consequence.summary` (e.g. "suspicion

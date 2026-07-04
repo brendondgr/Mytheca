@@ -92,8 +92,6 @@ export function LibraryColumns({
             onEdit={lib.editCharacter}
             onAdd={() => lib.openCreate("character")}
             padX="lg:px-[24px]"
-            statDefs={lib.statDefs}
-            statsByCharId={lib.statsByCharId}
           />
         </Column>
 

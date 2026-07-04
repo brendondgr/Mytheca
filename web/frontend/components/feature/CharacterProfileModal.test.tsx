@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { CharacterProfileModal } from "./CharacterProfileModal";
-import type { Character, StatDefinition } from "@/lib/types";
+import type { Character } from "@/lib/types";
 
 const base: Character = {
   id: "mei",
@@ -101,43 +101,9 @@ describe("CharacterProfileModal", () => {
     render(<CharacterProfileModal character={base} onClose={() => {}} />);
     expect(screen.queryByRole("button", { name: /edit character/i })).not.toBeInTheDocument();
   });
-});
 
-const STAT_DEFS: StatDefinition[] = [
-  { key: "trust", displayName: "Trust", description: "", min: -10, max: 10, default: 0, visibility: "public", guidance: null, appliesTo: [], bands: [] },
-  { key: "morale", displayName: "Morale", description: "", min: 0, max: 10, default: 5, visibility: "hidden", guidance: null, appliesTo: [], bands: [] },
-];
-
-describe("CharacterProfileModal stats", () => {
-  it("renders no Stats section when statDefs is omitted (back-compat)", () => {
+  it("renders no Stats section (removed from the profile popup)", () => {
     render(<CharacterProfileModal character={base} onClose={() => {}} />);
     expect(screen.queryByText("Stats")).not.toBeInTheDocument();
-  });
-
-  it("shows the real persisted value over the schema default, and omits non-public stats", () => {
-    render(
-      <CharacterProfileModal
-        character={base}
-        onClose={() => {}}
-        statDefs={STAT_DEFS}
-        statValues={{ trust: 7 }}
-      />,
-    );
-    expect(screen.getByText("Stats")).toBeInTheDocument();
-    expect(screen.getByText("Trust")).toBeInTheDocument();
-    expect(screen.getByText("7")).toBeInTheDocument();
-    expect(screen.queryByText("Morale")).not.toBeInTheDocument();
-  });
-
-  it("falls back to the schema default for a stat never explicitly set", () => {
-    render(
-      <CharacterProfileModal
-        character={base}
-        onClose={() => {}}
-        statDefs={STAT_DEFS}
-      />,
-    );
-    expect(screen.getByText("Trust")).toBeInTheDocument();
-    expect(screen.getByText("0")).toBeInTheDocument();
   });
 });
