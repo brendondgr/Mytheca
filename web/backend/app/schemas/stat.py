@@ -16,13 +16,20 @@ class StatBand(CamelModel):
     """A labeled value band ("ticker") — what a range of a stat *means*.
 
     e.g. ``{min: 0, max: 20, label: "Nearly dead"}``. Used for future
-    state-extraction: it lets the system name a character's condition from a
-    number. Bands need not tile the full range or be contiguous.
+    state-extraction and, at play time, to tell the acting character (by name)
+    what their current value *means* right now. Bands need not tile the full
+    range or be contiguous.
+
+    ``description`` is an optional 1–2 sentence explanation of the band, written
+    with a ``{Character}`` placeholder that the render helper substitutes with the
+    character's name (e.g. "{Character} is exhausted and cannot act at full
+    strength."). ``label`` stays required; ``description`` defaults to "".
     """
 
     min: int
     max: int
     label: str
+    description: str = ""
 
     @model_validator(mode="after")
     def _check(self) -> StatBand:

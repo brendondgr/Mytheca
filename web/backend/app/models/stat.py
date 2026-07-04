@@ -42,7 +42,9 @@ class StatDefinition(Base):
     guidance: Mapped[str | None] = mapped_column(String, nullable=True)
     applies_to: Mapped[list[str]] = mapped_column(JSONColumn, default=lambda: ["character"])
     # Labeled value bands ("tickers") describing what ranges mean — e.g. health
-    # 0-20 "nearly dead", 81-100 "very healthy". Ordered list of {min,max,label}.
+    # 0-20 "nearly dead", 81-100 "very healthy". Ordered list of
+    # {min,max,label,description?}; the optional per-band ``description`` (with a
+    # ``{Character}`` placeholder) is surfaced to the acting character at play time.
     # Nullable so the dev DB self-heals via the additive-column reconcile.
     bands: Mapped[list[dict] | None] = mapped_column(JSONColumn, nullable=True, default=list)
 
