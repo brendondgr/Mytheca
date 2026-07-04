@@ -141,6 +141,10 @@ export function useLibraryState(initialStorylineId?: string) {
   // Active storyline's universal stat definitions — loaded best-effort for the
   // hero cast-card statistics panel (player-facing preview of stat names/defaults).
   const [statDefs, setStatDefs] = useState<StatDefinition[]>([]);
+  // Active storyline's characters' persisted stat VALUES (distinct from statDefs, the
+  // shared schema) — best-effort per character, keyed by character id, for the Library
+  // CharacterCard + carousel CastStats to render real values instead of schema defaults.
+  const [statsByCharId, setStatsByCharId] = useState<Record<string, Record<string, number>>>({});
 
   // ---- data loading ----
   /** Fetch a storyline's children once and merge them in; returns its scenarios. */
@@ -236,6 +240,31 @@ export function useLibraryState(initialStorylineId?: string) {
       cancelled = true;
     };
   }, [activeStorylineId]);
+
+  // Load every current character's persisted stat values (best-effort per character).
+  // Keyed on `characters` (itself derived from `activeStoryline`), so a create/edit/
+  // delete — which always replaces that array — naturally refreshes this map too.
+  useEffect(() => {
+    if (characters.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStatsByCharId({});
+      return;
+    }
+    let cancelled = false;
+    Promise.all(
+      characters.map((c) =>
+        api
+          .getCharacterStats(c.id)
+          .then((values) => [c.id, values] as const)
+          .catch(() => [c.id, {}] as const),
+      ),
+    ).then((pairs) => {
+      if (!cancelled) setStatsByCharId(Object.fromEntries(pairs));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [characters]);
 
   // ---- derived ----
   const resolvedScenarios = useMemo(
@@ -1054,7 +1083,7 @@ export function useLibraryState(initialStorylineId?: string) {
     // per-storyline writing-prompt overrides
     promptsStorylineId, promptsStoryline,
     openStorylinePrompts, closeStorylinePrompts, applyStorylinePrompts,
-    characters, settings, scenarios, resolvedScenarios, statDefs,
+    characters, settings, scenarios, resolvedScenarios, statDefs, statsByCharId,
     filteredCharacters, filteredSettings, filteredScenarios,
     tab, setTab,
     featured, featuredId, setFeaturedId, featuredIndex,
