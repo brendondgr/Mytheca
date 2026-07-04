@@ -16,6 +16,14 @@ from pydantic.alias_generators import to_camel
 # Visibility controls what the player sees vs. what only affects agent reasoning.
 Visibility = Literal["public", "private_to_user", "private_to_character", "hidden"]
 
+# Runtime presence of a character within a scene (Scene Presence & Director Actions).
+# ``present`` is the only SELECTABLE status (the planner may pick them to speak); every
+# other status keeps the character in the cast but out of the speaking pool. ``dead`` is
+# terminal, ``departed``/``unconscious`` keep the body in the scene, ``left`` removes it —
+# all but ``dead`` are reversible. Presence is derived from the session's
+# ``character_status_change`` event log (default ``present``), never a column.
+PresenceStatus = Literal["present", "unconscious", "departed", "left", "dead"]
+
 # Branch tags come from the frontend `EventTag` set (note: `check_request` is
 # here, `character_dialogue` is not — this is deliberately NOT the EventType set).
 BranchTag = Literal[
@@ -37,6 +45,7 @@ EventType = Literal[
     "internal_thought",
     "state_update",
     "branch_choices",
+    "character_status_change",
 ]
 
 

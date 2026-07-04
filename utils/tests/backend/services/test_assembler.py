@@ -84,6 +84,38 @@ def test_graph_down_yields_empty_subgraph(db_session):
     assert ctx.subgraph["nodes"] == [] and ctx.subgraph["edges"] == []
 
 
+def test_presence_defaults_present_then_reflects_status_events(db_session):
+    from app.models import Event
+
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")
+    _char(db_session, "c_wren", "Wren")
+    sc = _scenario(db_session, ["c_mei", "c_wren"])
+    session = events_store.create_session(db_session, sc.id)
+
+    # No status events yet → everyone present + selectable.
+    ctx = assembler.assemble_context(db_session, sc, session.id)
+    assert [m.presence for m in ctx.cast] == ["present", "present"]
+    assert all(m.is_present for m in ctx.cast)
+
+    # A status-change event on the log marks Mei dead; the fold stamps the cast.
+    db_session.add(
+        Event(
+            type="character_status_change",
+            seq=1,
+            scenario_id=sc.id,
+            session_id=session.id,
+            data={"characterId": "c_mei", "status": "dead", "reason": "run through", "auto": True},
+        )
+    )
+    db_session.commit()
+    ctx = assembler.assemble_context(db_session, sc, session.id)
+    mei = ctx.cast_by_id("c_mei")
+    wren = ctx.cast_by_id("c_wren")
+    assert mei is not None and mei.presence == "dead" and not mei.is_present
+    assert wren is not None and wren.is_present
+
+
 def test_dangling_cast_id_is_skipped(db_session):
     _world(db_session)
     _char(db_session, "c_mei", "Mei")

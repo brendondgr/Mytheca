@@ -31,6 +31,38 @@ def test_parses_all_five_types():
         assert event.type == type_
 
 
+def test_parses_character_status_change():
+    event = story_event_adapter.validate_python(
+        _envelope(
+            "character_status_change",
+            {"characterId": "maerin", "status": "dead", "reason": "run through", "auto": True},
+        )
+    )
+    assert event.type == "character_status_change"
+    assert event.data.character_id == "maerin"
+    assert event.data.status == "dead"
+    assert event.data.auto is True
+    # camelCase round-trip for the client wire shape.
+    assert event.model_dump(by_alias=True)["data"]["characterId"] == "maerin"
+
+
+def test_character_status_change_defaults_auto_true():
+    event = story_event_adapter.validate_python(
+        _envelope("character_status_change", {"characterId": "wren", "status": "left"})
+    )
+    assert event.data.auto is True and event.data.reason == ""
+
+
+def test_character_status_change_rejects_unknown_status():
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        story_event_adapter.validate_python(
+            _envelope("character_status_change", {"characterId": "wren", "status": "vaporized"})
+        )
+
+
 def test_envelope_round_trips_camel_case():
     event = story_event_adapter.validate_python(_envelope("narration", {"text": "hi"}))
     dumped = event.model_dump(by_alias=True)
