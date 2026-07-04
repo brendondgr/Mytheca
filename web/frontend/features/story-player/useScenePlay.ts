@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   closePlaySession,
+  getCharacterStats,
   getScenarioRelationships,
   getSessionHistory,
   listPlaySessions,
@@ -25,6 +26,7 @@ import {
   applyPresence,
   applyStatByChar,
   applyStatUpdate,
+  baselineStatsByChar,
   branchOptionsToChoices,
   foldTrace,
   graphRelationshipsToRel,
@@ -99,31 +101,43 @@ export function useScenePlay(scenario: ResolvedScenario) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Resume the scenario's most recent play-through: reload its full history (turns,
-  // thoughts, live stats, and the graph/RAG trace) so nothing is ever lost and play
-  // continues on the same session. Best-effort — no saved session keeps the seed scene.
+  // Seed live per-character stats from each cast member's persisted starting values, then
+  // resume the scenario's most recent play-through on top of that baseline: reload its full
+  // history (turns, thoughts, live stats, and the graph/RAG trace) so nothing is ever lost
+  // and play continues on the same session. Both steps are best-effort — a failed baseline
+  // fetch (per character) degrades to no baseline for that character, and no saved session
+  // keeps the seed scene layered over the baseline instead of the schema defaults.
   useEffect(() => {
     let alive = true;
-    listPlaySessions(scenario.id)
-      .then(({ sessions }) => {
-        if (!alive || !sessions.length) return undefined;
-        return getSessionHistory(scenario.id, sessions[0].id).then((history) => {
-          if (!alive) return;
-          const scene = rehydrateFromHistory(history.events, history.traces);
-          rememberSession(history.session.id);
-          if (scene.messages.length) setMessages(scene.messages);
-          if (scene.stats.length) setStats(scene.stats);
-          setStatsByChar(scene.statsByChar);
-          setPresenceByChar(scene.presenceByChar);
-          setTraceTurns(scene.traceTurns);
-          setChoices([]);
-        });
-      })
-      .catch(() => {});
+    (async () => {
+      const pairs = await Promise.all(
+        scenario.cast.map((c) =>
+          getCharacterStats(c.id)
+            .then((values) => [c.id, values] as const)
+            .catch(() => [c.id, {}] as const),
+        ),
+      );
+      if (!alive) return;
+      const base = baselineStatsByChar(Object.fromEntries(pairs));
+      setStatsByChar(base);
+
+      const { sessions } = await listPlaySessions(scenario.id).catch(() => ({ sessions: [] }));
+      if (!alive || !sessions.length) return;
+      const history = await getSessionHistory(scenario.id, sessions[0].id);
+      if (!alive) return;
+      const scene = rehydrateFromHistory(history.events, history.traces, base);
+      rememberSession(history.session.id);
+      if (scene.messages.length) setMessages(scene.messages);
+      if (scene.stats.length) setStats(scene.stats);
+      setStatsByChar(scene.statsByChar);
+      setPresenceByChar(scene.presenceByChar);
+      setTraceTurns(scene.traceTurns);
+      setChoices([]);
+    })().catch(() => {});
     return () => {
       alive = false;
     };
-  }, [scenario.id, rememberSession]);
+  }, [scenario.id, scenario.cast, rememberSession]);
 
   // Save-on-close: mark the session closed when the player leaves (in-app unmount or a
   // real browser unload). Every turn already persists; this stamps the close + recency.

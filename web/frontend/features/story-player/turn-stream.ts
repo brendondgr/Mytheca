@@ -172,6 +172,24 @@ export function applyStatByChar(
   return { ...byChar, [cid]: applyStatUpdate(byChar[cid] ?? [], stat) };
 }
 
+/**
+ * Build the per-character baseline stats map from each cast member's persisted starting
+ * values (`GET /characters/{id}/stats`), fetched before any turn runs this session. Folds
+ * through the same `applyStatByChar` upsert live/resumed deltas use, so a stat that never
+ * changes still reads as the character's real starting value instead of the schema default.
+ */
+export function baselineStatsByChar(
+  perCharacter: Record<string, Record<string, number>>,
+): Record<string, StatChip[]> {
+  let byChar: Record<string, StatChip[]> = {};
+  for (const [characterId, values] of Object.entries(perCharacter)) {
+    for (const [key, value] of Object.entries(values)) {
+      byChar = applyStatByChar(byChar, { characterId, key, value, reason: "" });
+    }
+  }
+  return byChar;
+}
+
 /** Current scene presence, keyed by characterId (absent → `present`). */
 export type PresenceMap = Record<string, PresenceStatus>;
 
@@ -198,15 +216,18 @@ export interface RehydratedScene {
  * so a reopened scene reads byte-identically to how it was played. The only extra case is
  * the persisted `user_turn` row (never on the live wire — the client shows the player line
  * optimistically), which becomes a `player` beat here. Stale `branch_choices` are skipped:
- * on resume the player simply takes the next turn.
+ * on resume the player simply takes the next turn. `initialStatsByChar` seeds the
+ * per-character map (each cast member's persisted starting stats) so a stat never touched
+ * by a persisted event still reads as that real value, not the schema default.
  */
 export function rehydrateFromHistory(
   events: PersistedEvent[],
   traces: PersistedTrace[],
+  initialStatsByChar: Record<string, StatChip[]> = {},
 ): RehydratedScene {
   let messages: SceneMessage[] = [];
   let stats: StatChip[] = [];
-  let statsByChar: Record<string, StatChip[]> = {};
+  let statsByChar: Record<string, StatChip[]> = initialStatsByChar;
   let presenceByChar: PresenceMap = {};
 
   for (const e of events) {
