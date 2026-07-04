@@ -30,21 +30,25 @@ from app.services.assembler import TurnContext
 # Deciding one beat is a cheap structural call — keep the thinking budget low.
 PLANNER_EFFORT = ReasoningEffort.LOW
 
-_ACTIONS = {"speak", "narrate", "end"}
+_ACTIONS = {"speak", "narrate", "exit", "end"}
+# The presence transitions the planner may trigger via an "exit" beat (never "present" —
+# a re-entry is a player/manual action, not something the planner decides mid-scene).
+_EXIT_STATUSES = {"unconscious", "departed", "left", "dead"}
 
 _SYSTEM = """You are the scene director running one interactive-story turn as a step-by-step loop. Decide the SINGLE next beat given what has happened so far this turn — STRUCTURE ONLY, never prose.
 
 Return ONLY a JSON object:
-{"action": "speak"|"narrate"|"end", "actor": <roster number or null>, "addressing": <roster number or null>, "reason": "<short why>", "needsBranch": true|false}
+{"action": "speak"|"narrate"|"exit"|"end", "actor": <roster number or null>, "addressing": <roster number or null>, "status": "dead"|"departed"|"left"|"unconscious"|null, "reason": "<short why>", "needsBranch": true|false}
 
 Rules:
 - "narrate" is the DEFAULT for carrying the scene: use the narrator to PROGRESS the story to the next beat — narrate what the characters are DOING and push the action forward, especially in an action or tense moment (a fight, a chase, a standoff), following moves through to their consequence. Narration moves the story; lean on it to advance the scene to the point where a character actually has something to react to.
 - "speak": character <actor> acts/speaks next, optionally directed at <addressing>. Choose this ONLY once the scene has MOVED FORWARD and this character has a genuine point-of-view reaction, thought, or decision to voice about what is now happening. Do NOT have a character talk when the moment calls for action, or when nothing has changed since they last spoke — that is over-talking. Prefer narrating the action forward, then let a character respond to where it landed.
+- "exit": REMOVE character <actor> from the speaking scene because the story has already put them there — set "status" to how: "dead" (killed / permanently gone), "left" (walked out of the location), "departed" (present in body but no longer an active participant), or "unconscious" (knocked out / incapacitated). Choose this the beat AFTER the narration or dialogue establishes it (e.g. the narrator said the guard was cut down, or a character stormed out) — it stops that character from being picked to speak again. Do NOT invent a departure the story has not shown; only ratify what has already happened.
 - "end": the player's direction is satisfied and the exchange is at a natural stopping point.
 - SCENE OPENING: if nothing has happened yet this turn AND the player did not direct or address a specific character (and did not address the whole group), OPEN WITH "narrate" to set the scene in motion — do NOT have a character speak first. A character speaks unprompted at a cold open is wrong.
 - HONOR THE PLAYER'S DIRECTION. If they told the WHOLE GROUP to do something ("everyone introduces themselves"), keep choosing the next character who has NOT yet taken a beat until every one of them has, THEN end — never stop early.
 - Do not repeat a character who already had their beat unless there is a real reason.
-- Use ONLY the roster numbers given. "needsBranch" is true only when you end at a genuine fork for the player.
+- The roster lists ONLY the characters still present and able to act — a character who has died/left is already gone and will not appear. Use ONLY the roster numbers given. "needsBranch" is true only when you end at a genuine fork for the player.
 - No prose, no commentary — just the JSON object."""
 
 
@@ -52,11 +56,14 @@ Rules:
 class BeatDecision:
     """The next beat to run this turn (or ``end``)."""
 
-    action: str  # "speak" | "narrate" | "end"
+    action: str  # "speak" | "narrate" | "exit" | "end"
     actor_id: str | None = None
     addressing_id: str | None = None
     reason: str = ""
     needs_branch: bool = False
+    # For an "exit" beat: the presence status to transition <actor> into (Scene Presence
+    # & Director Actions). One of _EXIT_STATUSES; ``None`` for every other action.
+    status: str | None = None
 
 
 def next_beat(
@@ -75,13 +82,18 @@ def next_beat(
     """
     if not ctx.cast:
         return BeatDecision("end", reason="no cast")
+    # Only PRESENT characters are selectable; a dead/departed/unconscious one stays in the
+    # cast for context but never appears on the roster, so the planner can't pick them.
+    present = [m for m in ctx.cast if m.is_present]
+    if not present:
+        return BeatDecision("end", reason="no one present")
     try:
         base_url, api_key, model, params = resolve_llm(db)
     except APIError:
         return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
 
-    roster_ids = {i + 1: m.id for i, m in enumerate(ctx.cast)}
-    roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(ctx.cast))
+    roster_ids = {i + 1: m.id for i, m in enumerate(present)}
+    roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(present))
     acted_nums = [str(n) for n, cid in roster_ids.items() if cid in set(acted)]
     scope_note = " The player addressed the WHOLE GROUP." if intent.scope == "all" else ""
     opening_note = (
@@ -117,6 +129,13 @@ def next_beat(
         return BeatDecision("end", reason=str(data.get("reason", "")), needs_branch=bool(data.get("needsBranch", False)))
     if action == "narrate":
         return BeatDecision("narrate", reason=str(data.get("reason", "")))
+    if action == "exit":
+        actor_id = roster_ids.get(_as_int(data.get("actor")) or -1)
+        status = str(data.get("status", "")).strip().lower()
+        if actor_id is None or status not in _EXIT_STATUSES:
+            # Malformed exit (no valid target/status) → don't guess a removal; fall back.
+            return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
+        return BeatDecision("exit", actor_id=actor_id, status=status, reason=str(data.get("reason", "")))
     actor_id = roster_ids.get(_as_int(data.get("actor")) or -1)
     if actor_id is None:
         return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
@@ -142,16 +161,20 @@ def _fallback_beat(
     cold ``scene_opening`` with no direction, though, nobody is forced to speak — the
     narrator opens the scene (handled by the engine) and the turn ends."""
     acted_set = set(acted)
+    present = [m for m in ctx.cast if m.is_present]  # only selectable characters
+    if not present:
+        return BeatDecision("end", reason="no one present")
     if intent.scope == "all":
-        for m in ctx.cast:
+        for m in present:
             if m.id not in acted_set:
                 return BeatDecision("speak", actor_id=m.id, reason="next in the group")
         return BeatDecision("end", reason="everyone has spoken")
     for cid in intent.addressed:
-        if cid not in acted_set and ctx.cast_by_id(cid) is not None:
+        member = ctx.cast_by_id(cid)
+        if cid not in acted_set and member is not None and member.is_present:
             return BeatDecision("speak", actor_id=cid, reason="addressed")
     if not acted and not scene_opening:  # freeform mid-scene — one character responds
-        return BeatDecision("speak", actor_id=ctx.cast[0].id, reason="responds")
+        return BeatDecision("speak", actor_id=present[0].id, reason="responds")
     return BeatDecision("end", reason="direction satisfied")
 
 

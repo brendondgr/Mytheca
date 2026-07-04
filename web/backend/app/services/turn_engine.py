@@ -388,6 +388,24 @@ def run_turn(
             beats += 1
             scene_beats += 1
             continue
+        if decision.action == "exit":
+            # The director removes a character the story already wrote out (dead/left/…).
+            # Marks them non-present so no later beat picks them; a structural op that costs
+            # a runaway-backstop beat but not the player's scene-turn budget.
+            leaver = ctx.cast_by_id(decision.actor_id) if decision.actor_id else None
+            if leaver is None or decision.status is None:
+                break
+            yield from tracer.emit(
+                "plan",
+                f"{leaver.name} exits the scene ({decision.status})",
+                detail=decision.reason,
+                data={"characterId": leaver.id, "status": decision.status},
+            )
+            yield from _apply_presence_change(
+                emitter, leaver, decision.status, decision.reason, auto=True, tracer=tracer
+            )
+            beats += 1
+            continue
         actor = ctx.cast_by_id(decision.actor_id) if decision.actor_id else None
         if actor is None:
             break
@@ -486,7 +504,10 @@ def run_turn(
     # when TURN_ASYNC_FINALIZE is on (P11) so the stream closes without waiting on the N
     # reflection LLM calls; inline (deterministic) otherwise.
     spoke = [m for cid in dict.fromkeys(acted) if (m := ctx.cast_by_id(cid)) is not None]
-    reflection_targets = ctx.cast if len(ctx.cast) > 2 else spoke
+    # A crowd reflects universally, but only the characters still PRESENT — a dead/departed
+    # one won't re-enter the scene, so there's no interior state to carry forward.
+    present_cast = [m for m in ctx.cast if m.is_present]
+    reflection_targets = present_cast if len(present_cast) > 2 else spoke
     reflection.dispatch_reflection(db, ctx, reflection_targets, turn_beats, branches=branches, seq=seq0)
 
     # First turn of a new session (D4 / P3): seed initial character↔character relationships
@@ -511,10 +532,10 @@ def run_turn(
         detail=(
             "Each privately updates its stance for next turn"
             + (" (branch-keyed for the fork above)" if branches else "")
-            + ("; the whole cast reflects in a crowd" if len(ctx.cast) > 2 else "")
+            + ("; the whole cast reflects in a crowd" if len(present_cast) > 2 else "")
             + "."
         ),
-        data={"targets": [m.name for m in reflection_targets], "universal": len(ctx.cast) > 2},
+        data={"targets": [m.name for m in reflection_targets], "universal": len(present_cast) > 2},
     )
 
     # Mark the session freshly played so resume can pick the most recent play-through.
@@ -705,6 +726,46 @@ def _generate_speaker(
         elif seg.type == "relationship_update":
             yield from _apply_relationship_change(ctx, seg.character_id, seg.text, consequences, tr)
     return impact
+
+
+# Plain-language trace copy per presence transition (falls back to the free-text reason).
+_PRESENCE_DETAIL = {
+    "unconscious": "Knocked out — present but can't act until revived.",
+    "departed": "No longer an active participant (body remains).",
+    "left": "Walked out of the scene.",
+    "dead": "Removed from the scene — permanently.",
+    "present": "Back in the scene.",
+}
+
+
+def _apply_presence_change(
+    emitter: _Emitter,
+    member: CastMember,
+    status: str,
+    reason: str,
+    *,
+    auto: bool,
+    tracer: _Tracer,
+) -> Generator[StoryEvent | TurnTraceFrame, None, None]:
+    """Emit a ``character_status_change`` and mutate the in-memory cast member's presence.
+
+    Mutating ``member.presence`` in place is what makes the removal take effect *this* turn:
+    the planner reads ``ctx.cast`` each beat, so a non-``present`` member drops off the
+    selectable roster immediately. ``auto`` marks an engine-detected change (stat trigger,
+    planner ``exit``, or self-declaration) so the client can offer an undo; a manual player
+    override sets it false. Emits no ``turn_beats`` entry — presence surfaces in the cast
+    rail, not the transcript (the triggering narration/line already told the story)."""
+    member.presence = status
+    yield from emitter.emit(
+        "character_status_change",
+        {"characterId": member.id, "status": status, "reason": reason, "auto": auto},
+    )
+    yield from tracer.emit(
+        "presence",
+        f"{member.name} → {status}",
+        detail=reason or _PRESENCE_DETAIL.get(status, ""),
+        data={"characterId": member.id, "status": status, "auto": auto},
+    )
 
 
 def _apply_relationship_change(
