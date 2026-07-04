@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { useScenePlay } from "./useScenePlay";
 import {
   closePlaySession,
+  getCharacterStats,
   getSessionHistory,
   listPlaySessions,
   setPresence as apiSetPresence,
@@ -15,13 +16,14 @@ import {
   SEED_SETTINGS,
 } from "@/lib/seed-data";
 
-// Keep the real api (buildScene etc. don't need it) but stub the session endpoints.
+// Keep the real api (buildScene etc. don't need it) but stub the session + stat endpoints.
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   listPlaySessions: vi.fn(async () => ({ sessions: [] })),
   getSessionHistory: vi.fn(),
   closePlaySession: vi.fn(),
   setPresence: vi.fn(async () => ({}) as never),
+  getCharacterStats: vi.fn(async () => ({}) as Record<string, number>),
 }));
 
 const scenario = resolveScenario(SEED_SCENARIOS[0], SEED_CHARACTERS, SEED_SETTINGS);
@@ -117,5 +119,64 @@ describe("useScenePlay presence", () => {
       characterId: speaker.id,
       status: "left",
     });
+  });
+});
+
+describe("useScenePlay stats baseline", () => {
+  it("seeds statsByChar from each cast member's persisted starting stats", async () => {
+    vi.mocked(getCharacterStats).mockReset();
+    vi.mocked(getCharacterStats).mockImplementation(async (id: string): Promise<Record<string, number>> =>
+      id === speaker.id ? { trust: 70, suspicion: 5 } : {},
+    );
+    vi.mocked(listPlaySessions).mockResolvedValueOnce({ sessions: [] });
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+
+    await waitFor(() => expect(result.current.statsByChar[speaker.id]).toBeDefined());
+    expect(result.current.statsByChar[speaker.id]).toEqual(
+      expect.arrayContaining([
+        { label: "Trust", value: 70, reason: "" },
+        { label: "Suspicion", value: 5, reason: "" },
+      ]),
+    );
+  });
+
+  it("layers a resumed session's persisted stat deltas on top of the baseline", async () => {
+    vi.mocked(getCharacterStats).mockReset();
+    vi.mocked(getCharacterStats).mockImplementation(async (id: string): Promise<Record<string, number>> =>
+      id === speaker.id ? { trust: 40, suspicion: 5 } : {},
+    );
+    vi.mocked(listPlaySessions).mockResolvedValueOnce({
+      sessions: [{ id: "ps_b", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" }],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValueOnce({
+      session: { id: "ps_b", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" },
+      events: [
+        { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_b", ts: "t", visibility: "public", data: { text: "x", directedAt: null } },
+        { type: "state_update", id: "s", seq: 1, scenarioId: scenario.id, sessionId: "ps_b", ts: "t", visibility: "public", data: { patch: {}, stat: { characterId: speaker.id, key: "trust", value: 85, reason: "won them over" } } },
+      ],
+      traces: [],
+    });
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+
+    await waitFor(() => {
+      const chip = result.current.statsByChar[speaker.id]?.find((c) => c.label === "Trust");
+      expect(chip?.value).toBe(85);
+    });
+    // The untouched baseline stat (suspicion) survives the resume, not just the touched one.
+    const suspicion = result.current.statsByChar[speaker.id]?.find((c) => c.label === "Suspicion");
+    expect(suspicion?.value).toBe(5);
+  });
+
+  it("degrades to no baseline for a character whose stats fetch fails", async () => {
+    vi.mocked(getCharacterStats).mockReset();
+    vi.mocked(getCharacterStats).mockRejectedValue(new Error("network"));
+    vi.mocked(listPlaySessions).mockResolvedValueOnce({ sessions: [] });
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    expect(result.current.statsByChar[speaker.id]).toBeUndefined();
   });
 });

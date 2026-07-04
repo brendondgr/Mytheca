@@ -246,6 +246,7 @@ export function makeApiMock() {
     })),
     deleteCharacter: vi.fn(async () => {}),
     setCharacterStats: vi.fn(async (_id: string, values: Record<string, number>) => values),
+    getCharacterStats: vi.fn(async (_id: string) => ({}) as Record<string, number>),
 
     // ---- stat definitions (universal storyline stats) ----
     listStatDefinitions: vi.fn(async () => [] as unknown[]),

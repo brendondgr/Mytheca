@@ -12,6 +12,7 @@ import {
   applyPresence,
   applyStatByChar,
   applyStatUpdate,
+  baselineStatsByChar,
   branchOptionsToChoices,
   foldTrace,
   graphRelationshipsToRel,
@@ -202,6 +203,27 @@ describe("applyStatByChar", () => {
   });
 });
 
+describe("baselineStatsByChar", () => {
+  it("builds a per-character StatChip map from persisted starting values", () => {
+    const base = baselineStatsByChar({
+      maerin: { trust: 70, suspicion: 10 },
+      aldous: { trust: 20 },
+    });
+    expect(base.maerin).toEqual(
+      expect.arrayContaining([
+        { label: "Trust", value: 70, reason: "" },
+        { label: "Suspicion", value: 10, reason: "" },
+      ]),
+    );
+    expect(base.aldous).toEqual([{ label: "Trust", value: 20, reason: "" }]);
+  });
+
+  it("returns an empty map for no characters, and no bucket for a character with no values", () => {
+    expect(baselineStatsByChar({})).toEqual({});
+    expect(baselineStatsByChar({ maerin: {} })).toEqual({});
+  });
+});
+
 describe("graphRelationshipsToRel", () => {
   const rel = (over: Partial<GraphRelationship>): GraphRelationship => ({
     source: "mei", sourceName: "Mei", type: "resents", target: "beth", targetName: "Beth", reason: "", ...over,
@@ -269,6 +291,30 @@ describe("rehydrateFromHistory", () => {
     expect(scene.traceTurns).toHaveLength(1);
     expect(scene.traceTurns[0].label).toBe("I slide the coin toward Mei.");
     expect(scene.traceTurns[0].steps.map((s) => s.step)).toEqual(["turn", "lore", "commit"]);
+  });
+
+  it("layers persisted deltas on top of a supplied initial statsByChar baseline", () => {
+    const events: PersistedEvent[] = [
+      pe("user_turn", 0, { text: "hi", directedAt: null }),
+      pe("state_update", 1, { patch: {}, stat: { characterId: "mei", key: "trust", value: 55, reason: "warmed up" } }),
+    ];
+    const base = { mei: [{ label: "Trust", value: 40, reason: "" }, { label: "Suspicion", value: 5, reason: "" }] };
+    const scene = rehydrateFromHistory(events, [], base);
+    // The touched stat (trust) reflects the persisted delta...
+    expect(scene.statsByChar.mei).toEqual(
+      expect.arrayContaining([
+        { label: "Trust", value: 55, reason: "warmed up" },
+        { label: "Suspicion", value: 5, reason: "" },
+      ]),
+    );
+    // ...while the untouched baseline entry (suspicion) survives unchanged.
+    const suspicion = scene.statsByChar.mei.find((c) => c.label === "Suspicion");
+    expect(suspicion?.value).toBe(5);
+  });
+
+  it("defaults to an empty statsByChar baseline when none is supplied", () => {
+    const scene = rehydrateFromHistory([pe("user_turn", 0, { text: "hi", directedAt: null })], []);
+    expect(scene.statsByChar).toEqual({});
   });
 
   it("skips a past branch_choices instead of resurrecting it as active", () => {

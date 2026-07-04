@@ -133,6 +133,24 @@ describe("ScenarioCarousel", () => {
     expect(within(region).queryByText("Secrecy")).toBeNull();
   });
 
+  it("shows a character's real persisted stat value over the schema default", async () => {
+    const user = userEvent.setup();
+    renderCarousel({
+      statDefs: [
+        { key: "resolve", displayName: "Resolve", description: "", min: 0, max: 10, default: 7, visibility: "public", guidance: null, appliesTo: [], bands: [] },
+      ],
+      statsByCharId: { c1: { resolve: 3 } },
+    });
+    await user.click(screen.getByRole("button", { name: /show statistics for hunter krow/i }));
+    const krowRegion = screen.getByRole("region", { name: /hunter krow statistics/i });
+    expect(within(krowRegion).getByText("3")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /show statistics for ren/i }));
+    // Ren has no persisted value for this stat — falls back to the schema default.
+    const renRegion = screen.getByRole("region", { name: /ren statistics/i });
+    expect(within(renRegion).getByText("7")).toBeInTheDocument();
+  });
+
   it("shows a full-bleed portrait image when the character has one", () => {
     const { container } = renderWithContainer();
     const portrait = container.querySelector('img[src*="krow.webp"]');

@@ -264,3 +264,51 @@ describe("useLibraryState — character authoring", () => {
     });
   });
 });
+
+describe("useLibraryState — per-character stat values", () => {
+  async function mountReady() {
+    const hook = renderHook(() => useLibraryState());
+    await waitFor(() => expect(hook.result.current.activeStorylineId).toBeTruthy());
+    return hook;
+  }
+
+  it("loads each character's persisted stat values keyed by id", async () => {
+    vi.mocked(api.getCharacterStats).mockReset();
+    vi.mocked(api.getCharacterStats).mockImplementation(async (id: string): Promise<Record<string, number>> =>
+      id === SEED_CHARACTERS[0].id ? { health: 80, trust: 3 } : {},
+    );
+    const { result } = await mountReady();
+    await waitFor(() =>
+      expect(result.current.statsByCharId[SEED_CHARACTERS[0].id]).toEqual({ health: 80, trust: 3 }),
+    );
+  });
+
+  it("degrades to an empty entry for a character whose stats fetch fails", async () => {
+    vi.mocked(api.getCharacterStats).mockReset();
+    vi.mocked(api.getCharacterStats).mockRejectedValue(new Error("network"));
+    const { result } = await mountReady();
+    await waitFor(() => expect(result.current.characters.length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(result.current.statsByCharId[result.current.characters[0].id]).toEqual({}),
+    );
+  });
+
+  it("refreshes statsByCharId after a new character is saved with starting stats", async () => {
+    vi.mocked(api.getCharacterStats).mockReset();
+    vi.mocked(api.getCharacterStats).mockResolvedValue({});
+    const { result } = await mountReady();
+    act(() => result.current.openCreate("character"));
+    act(() => result.current.setDraft("name", "Grimm"));
+    await act(async () => {
+      await result.current.proposeStartingStats();
+    });
+    vi.mocked(api.getCharacterStats).mockResolvedValue({ health: 90, trust: 1 });
+    await act(async () => {
+      await result.current.submit();
+    });
+    const newId = result.current.characters[result.current.characters.length - 1].id;
+    await waitFor(() =>
+      expect(result.current.statsByCharId[newId]).toEqual({ health: 90, trust: 1 }),
+    );
+  });
+});

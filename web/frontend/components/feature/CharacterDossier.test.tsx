@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CharacterDossier } from "./CharacterDossier";
 import { SEED_STAT_DEFS } from "@/lib/seed-data";
-import type { Character } from "@/lib/types";
+import type { Character, StatDefinition } from "@/lib/types";
 import type { StatChip } from "@/features/story-player/scene-data";
 
 const MAERIN: Character = {
@@ -15,11 +15,11 @@ const MAERIN: Character = {
   speech: "",
 } as Character;
 
-function renderDossier(stats?: StatChip[]) {
+function renderDossier(stats?: StatChip[], statDefs: StatDefinition[] = SEED_STAT_DEFS) {
   return render(
     <CharacterDossier
       character={MAERIN}
-      statDefs={SEED_STAT_DEFS}
+      statDefs={statDefs}
       stats={stats}
       relationships={[]}
       onClose={vi.fn()}
@@ -43,5 +43,31 @@ describe("CharacterDossier stats", () => {
     expect(screen.getByText("30")).toBeInTheDocument();
     // The default band title is no longer shown for Health.
     expect(screen.queryByText(": Very healthy")).not.toBeInTheDocument();
+  });
+
+  it("opens the band legend showing each range beside its label", async () => {
+    renderDossier(undefined);
+    screen.getByRole("button", { name: "What Health ranges mean" }).click();
+    expect(await screen.findByText("81–100")).toBeInTheDocument();
+  });
+
+  it("omits non-public stats from the schema panel", () => {
+    const withHidden: StatDefinition[] = [
+      ...SEED_STAT_DEFS,
+      {
+        key: "morale",
+        displayName: "Morale",
+        description: "hidden",
+        min: 0,
+        max: 10,
+        default: 5,
+        visibility: "hidden",
+        guidance: null,
+        appliesTo: [],
+        bands: [],
+      },
+    ];
+    renderDossier(undefined, withHidden);
+    expect(screen.queryByText("Morale")).not.toBeInTheDocument();
   });
 });

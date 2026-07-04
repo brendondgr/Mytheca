@@ -2,8 +2,10 @@ import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { liveValueFor } from "@/components/feature/DirectorRail";
 import type { PresenceStatus } from "@/lib/events";
-import type { Character } from "@/lib/types";
+import type { Character, StatDefinition } from "@/lib/types";
+import type { StatChip } from "@/features/story-player/scene-data";
 
 export function TurnOrder({
   order,
@@ -85,18 +87,51 @@ function PresenceControl({
   );
 }
 
+/** Compact "beneath the name" list of this character's public stat values — live when a
+ * stat has streamed in this session (`values`, keyed by characterId in `statsByChar`),
+ * else falling back to the storyline's schema default. The always-visible in-scene
+ * counterpart to the Library `CharacterCard`'s stat list. */
+function CastMemberStats({
+  statDefs,
+  values,
+}: {
+  statDefs: StatDefinition[];
+  values?: StatChip[];
+}) {
+  const visible = statDefs.filter((d) => d.visibility === "public");
+  if (visible.length === 0) return null;
+  return (
+    <div className="mt-[6px] flex flex-col gap-[2px]">
+      {visible.map((d) => (
+        <div key={d.key} className="flex items-baseline justify-between gap-2">
+          <span className="min-w-0 truncate font-mono text-[9px] tracking-[0.02em] text-ink-soft">
+            {d.displayName}
+          </span>
+          <span className="flex-none font-mono text-[9px] text-accent">
+            {liveValueFor(d, values) ?? d.default}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CastMemberRow({
   c,
   status,
   speaking,
   onProfile,
   setPresence,
+  statDefs,
+  stats,
 }: {
   c: Character;
   status: PresenceStatus;
   speaking: boolean;
   onProfile: (id: string) => void;
   setPresence?: (id: string, status: PresenceStatus) => void;
+  statDefs?: StatDefinition[];
+  stats?: StatChip[];
 }) {
   const away = status !== "present";
   return (
@@ -139,6 +174,7 @@ function CastMemberRow({
           </span>
         ) : null}
       </div>
+      {statDefs ? <CastMemberStats statDefs={statDefs} values={stats} /> : null}
       {setPresence ? (
         <PresenceControl character={c} status={status} onChange={(s) => setPresence(c.id, s)} />
       ) : null}
@@ -157,6 +193,8 @@ export function CastRail({
   onProfile,
   presenceByChar = {},
   setPresence,
+  statDefs,
+  statsByChar = {},
 }: {
   cast: Character[];
   speakingId: string | null;
@@ -165,6 +203,10 @@ export function CastRail({
   onProfile: (id: string) => void;
   presenceByChar?: Record<string, PresenceStatus>;
   setPresence?: (id: string, status: PresenceStatus) => void;
+  /** The storyline's stat schema — when given, each cast member shows their public stat
+   * values (live via `statsByChar`, else the schema default) beneath their name/role. */
+  statDefs?: StatDefinition[];
+  statsByChar?: Record<string, StatChip[]>;
 }) {
   const statusOf = (id: string): PresenceStatus => presenceByChar[id] ?? "present";
   const present = cast.filter((c) => statusOf(c.id) === "present");
@@ -184,6 +226,8 @@ export function CastRail({
             speaking={c.id === speakingId}
             onProfile={onProfile}
             setPresence={setPresence}
+            statDefs={statDefs}
+            stats={statsByChar[c.id]}
           />
         ))}
       </div>
@@ -202,6 +246,8 @@ export function CastRail({
                 speaking={false}
                 onProfile={onProfile}
                 setPresence={setPresence}
+                statDefs={statDefs}
+                stats={statsByChar[c.id]}
               />
             ))}
           </div>

@@ -168,8 +168,9 @@ function StatSlider({ def, value: live }: { def: StatDefinition; value?: number 
   );
 }
 
-/** Live value for a stat def from a per-character chip list (match on key/label). */
-function liveValueFor(def: StatDefinition, values?: StatChip[]): number | undefined {
+/** Live value for a stat def from a per-character chip list (match on key/label). Exported
+ * so other per-character stat surfaces (e.g. the cast rail) share this exact matching. */
+export function liveValueFor(def: StatDefinition, values?: StatChip[]): number | undefined {
   if (!values) return undefined;
   const key = def.key.toLowerCase();
   const chip = values.find((c) => c.label.toLowerCase() === key);
@@ -210,19 +211,19 @@ export function Relationships({ items }: { items: Relationship[] }) {
   );
 }
 
-/** Right rail: scenario goal · tension meter · scene-state chips · relationships. */
+/** Right rail: scenario goal · tension meter · scene-state chips · relationships. Per-character
+ * stats live in the cast rail (beneath each name) and the character dossier — this rail has no
+ * single character to show a stat block for, so it no longer duplicates a generic legend. */
 export function DirectorRail({
   goal,
   tension,
   tensionText,
-  statDefs,
   stats,
   relationships,
 }: {
   goal: string;
   tension: number;
   tensionText: string;
-  statDefs: StatDefinition[];
   stats: StatChip[];
   relationships: Relationship[];
 }) {
@@ -237,11 +238,6 @@ export function DirectorRail({
         Tension
       </Eyebrow>
       <TensionMeter pct={tension} label={tensionText} />
-
-      <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
-        Character stats
-      </Eyebrow>
-      <StatSchema defs={statDefs} />
 
       <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
         Scene state

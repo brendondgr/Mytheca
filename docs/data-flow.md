@@ -131,9 +131,31 @@ The change carries a **reason**, giving a free audit trail ("Health −25: struc
 
 The client keeps stats **two ways** so both right-rail surfaces stay live: a flat `StatChip[]`
 (`applyStatUpdate`) drives the Director rail's global Scene-state chips, and a per-character
-map (`applyStatByChar`, keyed by the event's `characterId`) drives the **character dossier** —
-its stat sliders (`StatSchema`/`StatSlider`, now value-aware) render that character's live
-value + band, falling back to the schema default until a stat first moves.
+map (`applyStatByChar`, keyed by the event's `characterId`) drives the **character dossier**
+and the **cast rail** — their stat sliders/rows (`StatSchema`/`StatSlider`, `CastRail`'s
+`CastMemberStats`, sharing one `liveValueFor` matcher) render that character's live value +
+band, falling back to the schema default only for a stat never explicitly set.
+
+**`statsByChar` is baseline-seeded, not just event-driven.** Before P3 (Play-experience fixes)
+`statsByChar` started **empty** and only ever filled in from `state_update` events — so a
+character whose persisted starting stat differed from the schema default read as "never
+changing" until that exact stat happened to move in the current session (a user-reported bug:
+values shown didn't match what the Inspector traced). `useScenePlay` now fetches each cast
+member's **persisted starting stats** (`GET /characters/{id}/stats`, best-effort per character)
+on scene load and folds them into a baseline (`turn-stream.baselineStatsByChar`) *before* any
+turn runs; a resumed session's persisted deltas (`rehydrateFromHistory`'s optional
+`initialStatsByChar` param) layer on top of that baseline instead of replacing it, so an
+untouched stat still reads as the character's real value across reload too. The Director
+rail's own "Character stats" section — which rendered the schema **defaults only**, with no
+character context at all — was removed as redundant now that the cast rail and dossier both
+show correct, live, per-character values.
+
+**Library-side (no play session) stat display** mirrors the same "real value, defaulted
+fallback" rule: `useLibraryState` loads every active-storyline character's persisted stats
+(`statsByCharId`, keyed by character id, refreshed whenever the character list changes) so the
+Library `CharacterCard` and the `ScenarioCarousel` hero's `CastStats` flyout show each
+character's actual starting value beneath their name — the carousel's `CastStats` previously
+showed the schema default for every character regardless of who they were.
 
 The cold-path **graph trace** (Inspector's green *Graph* steps) reports *what* was written,
 not just a count: the `commit` step lists each durable `Consequence.summary` (e.g. "suspicion

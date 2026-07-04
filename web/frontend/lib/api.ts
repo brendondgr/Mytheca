@@ -387,6 +387,10 @@ export const deleteCharacter = (id: string) => del(`/characters/${id}`);
 export const setCharacterStats = (id: string, values: Record<string, number>) =>
   put<Record<string, number>>(`/characters/${id}/stats`, values);
 
+/** A character's currently persisted stat values (only keys ever explicitly set). */
+export const getCharacterStats = (id: string) =>
+  request<Record<string, number>>(`/characters/${id}/stats`);
+
 // ---- stat definitions (universal stats on a storyline) ----
 // Each definition is shared by every character; bands ("tickers") describe what
 // value ranges mean. The range/bands are freely editable; delete prunes values.
