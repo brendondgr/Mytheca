@@ -14,10 +14,26 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from app.schemas.base import CamelModel, Visibility
+from app.schemas.base import CamelModel, PresenceStatus, Visibility
 
 # One engine, two render styles (D1): POV (interstitials off) or Narrator (on).
 TurnMode = Literal["pov", "narrator"]
+
+
+class PresenceRequest(CamelModel):
+    """A manual player override of a character's scene presence (Scene Presence & Director
+    Actions).
+
+    Sets ``characterId`` to any :data:`~app.schemas.base.PresenceStatus` on the given
+    session — including a resurrection back to ``present`` (the player has final say; the
+    endpoint is intentionally not bound by the engine's ``can_transition`` guard). Persists a
+    ``character_status_change`` event with ``auto=False`` so the client does NOT show an
+    undo toast (a manual change is already the player's intent)."""
+
+    session_id: str
+    character_id: str
+    status: PresenceStatus
+    reason: str = ""
 
 
 class TurnRequest(CamelModel):
