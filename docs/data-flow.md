@@ -155,7 +155,12 @@ fallback" rule: `useLibraryState` loads every active-storyline character's persi
 (`statsByCharId`, keyed by character id, refreshed whenever the character list changes) so the
 Library `CharacterCard` and the `ScenarioCarousel` hero's `CastStats` flyout show each
 character's actual starting value beneath their name — the carousel's `CastStats` previously
-showed the schema default for every character regardless of who they were.
+showed the schema default for every character regardless of who they were. The carousel's own
+click-to-open card — `CharacterProfileModal`, opened from cast monograms across `ScenarioCard`/
+`ScenarioCarousel`/`CharacterCard` — was initially missed by this fix (it took no stat props at
+all); it now also takes `statDefs`/`statValues` and renders a `ProfileStats` section from the
+same `statsByCharId` map, so opening a character from the Scenario hero shows the same real
+values as the card it was opened from.
 
 The cold-path **graph trace** (Inspector's green *Graph* steps) reports *what* was written,
 not just a count: the `commit` step lists each durable `Consequence.summary` (e.g. "suspicion
