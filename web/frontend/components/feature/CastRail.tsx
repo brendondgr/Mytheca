@@ -2,6 +2,7 @@ import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import type { PresenceStatus } from "@/lib/events";
 import type { Character } from "@/lib/types";
 
 export function TurnOrder({
@@ -42,57 +43,171 @@ export function TurnOrder({
   );
 }
 
-/** Left rail: cast "at the table" (with a speaking marker) + turn order. */
+// Ordered options for the manual presence control + their short labels.
+const PRESENCE_OPTIONS: { value: PresenceStatus; label: string }[] = [
+  { value: "present", label: "In the scene" },
+  { value: "unconscious", label: "Unconscious" },
+  { value: "departed", label: "Departed" },
+  { value: "left", label: "Left" },
+  { value: "dead", label: "Dead" },
+];
+const PRESENCE_LABEL: Record<PresenceStatus, string> = {
+  present: "In the scene",
+  unconscious: "Unconscious",
+  departed: "Departed",
+  left: "Left",
+  dead: "Dead",
+};
+
+/** The manual presence control: a labeled native select (keyboard-operable, full control). */
+function PresenceControl({
+  character,
+  status,
+  onChange,
+}: {
+  character: Character;
+  status: PresenceStatus;
+  onChange: (status: PresenceStatus) => void;
+}) {
+  return (
+    <select
+      aria-label={`Presence for ${character.name}`}
+      value={status}
+      onChange={(e) => onChange(e.target.value as PresenceStatus)}
+      className="mt-[6px] w-full rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-[9px] tracking-[0.04em] text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      {PRESENCE_OPTIONS.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function CastMemberRow({
+  c,
+  status,
+  speaking,
+  onProfile,
+  setPresence,
+}: {
+  c: Character;
+  status: PresenceStatus;
+  speaking: boolean;
+  onProfile: (id: string) => void;
+  setPresence?: (id: string, status: PresenceStatus) => void;
+}) {
+  const away = status !== "present";
+  return (
+    <div
+      className={cn(
+        "rounded-[3px] border p-[8px_10px]",
+        speaking ? "border-accent bg-card2" : "border-cardbd bg-card",
+        away && "opacity-60",
+      )}
+    >
+      <div className="flex items-center gap-[10px]">
+        <button
+          type="button"
+          onClick={() => onProfile(c.id)}
+          title="View profile"
+          className="velora-row flex min-w-0 flex-1 items-center gap-[10px] text-left hover:translate-x-[2px]"
+        >
+          <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={34} fontSize={13} />
+          <span className="min-w-0 flex-1">
+            <span
+              className={cn(
+                "block font-display text-[14px] font-semibold leading-[1.05] text-ink",
+                status === "dead" && "line-through",
+              )}
+            >
+              {c.name}
+            </span>
+            <Eyebrow size={8} tracking="0.08em" color={c.color} className="mt-[3px] block">
+              {c.role}
+            </Eyebrow>
+          </span>
+        </button>
+        {speaking ? (
+          <span className="flex-none font-mono text-[7.5px] tracking-[0.1em] text-success uppercase">
+            • now
+          </span>
+        ) : away ? (
+          <span className="flex-none font-mono text-[7.5px] tracking-[0.1em] text-ink-soft uppercase">
+            {PRESENCE_LABEL[status]}
+          </span>
+        ) : null}
+      </div>
+      {setPresence ? (
+        <PresenceControl character={c} status={status} onChange={(s) => setPresence(c.id, s)} />
+      ) : null}
+    </div>
+  );
+}
+
+/** Left rail: cast "in the scene" (with a speaking marker + presence control), those out of
+ * the scene grouped below, and the turn order. Presence lets the player remove/restore any
+ * character; the engine also removes them automatically on death/departure. */
 export function CastRail({
   cast,
   speakingId,
   turnOrder,
   charById,
   onProfile,
+  presenceByChar = {},
+  setPresence,
 }: {
   cast: Character[];
   speakingId: string | null;
   turnOrder: string[];
   charById: (id: string) => Character | undefined;
   onProfile: (id: string) => void;
+  presenceByChar?: Record<string, PresenceStatus>;
+  setPresence?: (id: string, status: PresenceStatus) => void;
 }) {
+  const statusOf = (id: string): PresenceStatus => presenceByChar[id] ?? "present";
+  const present = cast.filter((c) => statusOf(c.id) === "present");
+  const away = cast.filter((c) => statusOf(c.id) !== "present");
+
   return (
     <aside className="velora-rail hidden w-[236px] flex-none overflow-auto border-r border-hair-strong p-[18px_16px] lg:block">
       <Eyebrow tracking="0.16em" className="mb-3 block">
         In the Scene
       </Eyebrow>
       <div className="flex flex-col gap-[7px]">
-        {cast.map((c) => {
-          const speaking = c.id === speakingId;
-          return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => onProfile(c.id)}
-              title="View profile"
-              className={cn(
-                "velora-row flex items-center gap-[10px] rounded-[3px] border p-[8px_10px] text-left hover:translate-x-[2px]",
-                speaking ? "border-accent bg-card2" : "border-cardbd bg-card",
-              )}
-            >
-              <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={34} fontSize={13} />
-              <span className="min-w-0 flex-1">
-                <span className="block font-display text-[14px] font-semibold leading-[1.05] text-ink">
-                  {c.name}
-                </span>
-                <Eyebrow size={8} tracking="0.08em" color={c.color} className="mt-[3px] block">
-                  {c.role}
-                </Eyebrow>
-              </span>
-              {speaking ? (
-                <span className="flex-none font-mono text-[7.5px] tracking-[0.1em] text-success uppercase">
-                  • now
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+        {present.map((c) => (
+          <CastMemberRow
+            key={c.id}
+            c={c}
+            status="present"
+            speaking={c.id === speakingId}
+            onProfile={onProfile}
+            setPresence={setPresence}
+          />
+        ))}
       </div>
+
+      {away.length > 0 ? (
+        <>
+          <Eyebrow tracking="0.16em" className="mb-2 mt-[18px] block">
+            Out of the Scene
+          </Eyebrow>
+          <div className="flex flex-col gap-[7px]">
+            {away.map((c) => (
+              <CastMemberRow
+                key={c.id}
+                c={c}
+                status={statusOf(c.id)}
+                speaking={false}
+                onProfile={onProfile}
+                setPresence={setPresence}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
+
       <TurnOrder order={turnOrder} charById={charById} />
     </aside>
   );

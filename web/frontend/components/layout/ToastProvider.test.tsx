@@ -52,6 +52,22 @@ describe("ToastProvider / Toast", () => {
     expect(screen.getAllByRole("alert")).toHaveLength(2);
   });
 
+  it("renders an action button that fires its handler and dismisses", async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    renderWith({
+      message: "Mei left the scene.",
+      variant: "info",
+      durationMs: 0,
+      action: { label: "Undo", onClick },
+    });
+
+    await user.click(screen.getByRole("button", { name: "raise" }));
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
   it("auto-dismisses after the duration elapses", async () => {
     vi.useFakeTimers();
     try {

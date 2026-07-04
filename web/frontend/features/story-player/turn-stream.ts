@@ -6,9 +6,11 @@
 
 import type { GraphRelationship } from "@/lib/api";
 import type {
+  CharacterStatusChangeEvent,
   PersistedEvent,
   PersistedTrace,
   PlayEvent,
+  PresenceStatus,
   StatPatch,
   TurnStreamFrame,
   TurnTraceFrame,
@@ -170,11 +172,23 @@ export function applyStatByChar(
   return { ...byChar, [cid]: applyStatUpdate(byChar[cid] ?? [], stat) };
 }
 
+/** Current scene presence, keyed by characterId (absent → `present`). */
+export type PresenceMap = Record<string, PresenceStatus>;
+
+/** Fold one `character_status_change` into the presence map (latest wins). */
+export function applyPresence(
+  map: PresenceMap,
+  event: CharacterStatusChangeEvent,
+): PresenceMap {
+  return { ...map, [event.data.characterId]: event.data.status };
+}
+
 /** The client state rebuilt from a saved play-through's persisted rows. */
 export interface RehydratedScene {
   messages: SceneMessage[];
   stats: StatChip[];
   statsByChar: Record<string, StatChip[]>;
+  presenceByChar: PresenceMap;
   traceTurns: TraceTurn[];
 }
 
@@ -193,6 +207,7 @@ export function rehydrateFromHistory(
   let messages: SceneMessage[] = [];
   let stats: StatChip[] = [];
   let statsByChar: Record<string, StatChip[]> = {};
+  let presenceByChar: PresenceMap = {};
 
   for (const e of events) {
     if (e.type === "user_turn") {
@@ -207,6 +222,10 @@ export function rehydrateFromHistory(
       }
       continue;
     }
+    if (e.type === "character_status_change") {
+      presenceByChar = applyPresence(presenceByChar, e as unknown as CharacterStatusChangeEvent);
+      continue;
+    }
     if (e.type === "branch_choices") continue; // don't resurrect a past fork as active
     // narration / internal_thought / character_action / character_dialogue fold exactly as live.
     messages = mergeFrame(messages, e as unknown as TurnStreamFrame);
@@ -217,7 +236,7 @@ export function rehydrateFromHistory(
     traceTurns = foldTrace(traceTurns, { type: "trace", ...t } as TurnTraceFrame);
   }
 
-  return { messages, stats, statsByChar, traceTurns };
+  return { messages, stats, statsByChar, presenceByChar, traceTurns };
 }
 
 /** Map streamed branch options to renderable choices (no dice — D11). */

@@ -91,6 +91,8 @@ export function StoryPlayerView({
           turnOrder={scene.turnOrder}
           charById={byId}
           onProfile={scene.openProfile}
+          presenceByChar={scene.presenceByChar}
+          setPresence={scene.setPresence}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">

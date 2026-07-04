@@ -6,6 +6,8 @@
 // envelope `{ error: { code, message, details } }`.
 
 import type {
+  PersistedEvent,
+  PresenceStatus,
   SessionHistory,
   SessionSummary,
   TurnRequestBody,
@@ -178,6 +180,13 @@ export function postTurn(
 ): AsyncGenerator<TurnStreamFrame> {
   return postNdjson<TurnStreamFrame>(`/play/${scenarioId}/turn`, body, signal);
 }
+
+/** Manually set a character's scene presence (the cast-rail control + its undo). Returns
+ * the persisted `character_status_change` in the wire-envelope shape. */
+export const setPresence = (
+  scenarioId: string,
+  body: { sessionId: string; characterId: string; status: PresenceStatus; reason?: string },
+) => post<PersistedEvent>(`/play/${scenarioId}/presence`, body);
 
 /** One character↔character relationship from the story graph (P6 live Relationships). */
 export interface GraphRelationship {
