@@ -149,6 +149,7 @@ def create_storyline(db: Session, data: StorylineCreate) -> Storyline:
         world_primer=data.world_primer,
         symbol=data.symbol,
         symbol_color=data.symbol_color,
+        prompt_overrides=dict(data.prompt_overrides or {}),
         position=int(db.scalar(select(func.count()).select_from(Storyline)) or 0),
     )
     db.add(sl)
@@ -489,6 +490,7 @@ def create_scenario(db: Session, storyline_id: str, data: ScenarioCreate) -> Sce
         max_turns=data.max_turns,
         suggestions_count=data.suggestions_count,
         context_beats=data.context_beats,
+        prompt_overrides=dict(data.prompt_overrides or {}),
         position=_next_position(db, Scenario, storyline_id),
         image=data.image,
         scene_art_positive=data.scene_art_positive,
