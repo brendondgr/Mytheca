@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CastRail } from "./CastRail";
-import type { Character } from "@/lib/types";
+import type { Character, StatDefinition } from "@/lib/types";
 
 function char(id: string, name: string): Character {
   return {
@@ -54,5 +54,35 @@ describe("CastRail presence", () => {
   it("omits the control when no setPresence handler is given (read-only)", () => {
     renderRail();
     expect(screen.queryByLabelText("Presence for Mei")).toBeNull();
+  });
+});
+
+const STAT_DEFS: StatDefinition[] = [
+  { key: "trust", displayName: "Trust", description: "", min: -10, max: 10, default: 0, visibility: "public", guidance: null, appliesTo: [], bands: [] },
+  { key: "morale", displayName: "Morale", description: "", min: 0, max: 10, default: 5, visibility: "hidden", guidance: null, appliesTo: [], bands: [] },
+];
+
+describe("CastRail stats", () => {
+  it("renders no stat rows when statDefs is omitted (back-compat)", () => {
+    renderRail();
+    expect(screen.queryByText("Trust")).toBeNull();
+  });
+
+  it("shows each public stat's schema default beneath a cast member's name", () => {
+    renderRail({ statDefs: STAT_DEFS });
+    expect(screen.getAllByText("Trust")).toHaveLength(2); // Mei + Kira
+    expect(screen.getAllByText("0")).toHaveLength(2); // schema default
+  });
+
+  it("prefers a live statsByChar value over the schema default", () => {
+    renderRail({ statDefs: STAT_DEFS, statsByChar: { mei: [{ label: "Trust", value: 7, reason: "" }] } });
+    expect(screen.getByText("7")).toBeInTheDocument();
+    // Kira has no live entry — still shows the schema default.
+    expect(screen.getByText("0")).toBeInTheDocument();
+  });
+
+  it("omits non-public stats from the cast rail", () => {
+    renderRail({ statDefs: STAT_DEFS });
+    expect(screen.queryByText("Morale")).toBeNull();
   });
 });

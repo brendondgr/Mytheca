@@ -93,6 +93,8 @@ export function StoryPlayerView({
           onProfile={scene.openProfile}
           presenceByChar={scene.presenceByChar}
           setPresence={scene.setPresence}
+          statDefs={statDefs}
+          statsByChar={scene.statsByChar}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -163,7 +165,6 @@ export function StoryPlayerView({
             goal={scenario.goal}
             tension={scene.tension}
             tensionText={tensionLabel(scene.tension)}
-            statDefs={statDefs}
             stats={scene.stats}
             relationships={scene.relationships}
           />

@@ -48,10 +48,12 @@ describe("StoryPlayerView", () => {
     expect(screen.queryByText("d20 check")).not.toBeInTheDocument(); // CheckCard retired (D11)
   });
 
-  it("surfaces the storyline stat schema in the director rail", () => {
+  it("surfaces the storyline stat schema in the cast rail (beneath each name)", () => {
     render(<StoryPlayerView scenario={embergate} statDefs={SEED_STAT_DEFS} />);
-    expect(screen.getByText("Character stats")).toBeInTheDocument();
-    expect(screen.getByText("Health")).toBeInTheDocument();
+    // The Director rail no longer carries its own unwired stat legend.
+    expect(screen.queryByText("Character stats")).not.toBeInTheDocument();
+    // Each public stat now renders beneath every cast member's name in the cast rail.
+    expect(screen.getAllByText("Health").length).toBeGreaterThan(0);
   });
 
   it("streams a turn on send: player bubble + the streamed reply", async () => {

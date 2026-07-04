@@ -125,7 +125,7 @@ describe("useScenePlay presence", () => {
 describe("useScenePlay stats baseline", () => {
   it("seeds statsByChar from each cast member's persisted starting stats", async () => {
     vi.mocked(getCharacterStats).mockReset();
-    vi.mocked(getCharacterStats).mockImplementation(async (id: string) =>
+    vi.mocked(getCharacterStats).mockImplementation(async (id: string): Promise<Record<string, number>> =>
       id === speaker.id ? { trust: 70, suspicion: 5 } : {},
     );
     vi.mocked(listPlaySessions).mockResolvedValueOnce({ sessions: [] });
@@ -143,7 +143,7 @@ describe("useScenePlay stats baseline", () => {
 
   it("layers a resumed session's persisted stat deltas on top of the baseline", async () => {
     vi.mocked(getCharacterStats).mockReset();
-    vi.mocked(getCharacterStats).mockImplementation(async (id: string) =>
+    vi.mocked(getCharacterStats).mockImplementation(async (id: string): Promise<Record<string, number>> =>
       id === speaker.id ? { trust: 40, suspicion: 5 } : {},
     );
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
