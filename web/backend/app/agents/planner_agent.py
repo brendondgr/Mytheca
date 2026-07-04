@@ -20,6 +20,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from app.agents import prompt_registry
 from app.agents._common import extract_json, resolve_llm
 from app.agents.intent_agent import TurnIntent
 from app.core.errors import APIError
@@ -35,21 +36,9 @@ _ACTIONS = {"speak", "narrate", "exit", "end"}
 # a re-entry is a player/manual action, not something the planner decides mid-scene).
 _EXIT_STATUSES = {"unconscious", "departed", "left", "dead"}
 
-_SYSTEM = """You are the scene director running one interactive-story turn as a step-by-step loop. Decide the SINGLE next beat given what has happened so far this turn — STRUCTURE ONLY, never prose.
-
-Return ONLY a JSON object:
-{"action": "speak"|"narrate"|"exit"|"end", "actor": <roster number or null>, "addressing": <roster number or null>, "status": "dead"|"departed"|"left"|"unconscious"|null, "reason": "<short why>", "needsBranch": true|false}
-
-Rules:
-- "narrate" is the DEFAULT for carrying the scene: use the narrator to PROGRESS the story to the next beat — narrate what the characters are DOING and push the action forward, especially in an action or tense moment (a fight, a chase, a standoff), following moves through to their consequence. Narration moves the story; lean on it to advance the scene to the point where a character actually has something to react to.
-- "speak": character <actor> acts/speaks next, optionally directed at <addressing>. Choose this ONLY once the scene has MOVED FORWARD and this character has a genuine point-of-view reaction, thought, or decision to voice about what is now happening. Do NOT have a character talk when the moment calls for action, or when nothing has changed since they last spoke — that is over-talking. Prefer narrating the action forward, then let a character respond to where it landed.
-- "exit": REMOVE character <actor> from the speaking scene because the story has already put them there — set "status" to how: "dead" (killed / permanently gone), "left" (walked out of the location), "departed" (present in body but no longer an active participant), or "unconscious" (knocked out / incapacitated). Choose this the beat AFTER the narration or dialogue establishes it (e.g. the narrator said the guard was cut down, or a character stormed out) — it stops that character from being picked to speak again. Do NOT invent a departure the story has not shown; only ratify what has already happened.
-- "end": the player's direction is satisfied and the exchange is at a natural stopping point.
-- SCENE OPENING: if nothing has happened yet this turn AND the player did not direct or address a specific character (and did not address the whole group), OPEN WITH "narrate" to set the scene in motion — do NOT have a character speak first. A character speaks unprompted at a cold open is wrong.
-- HONOR THE PLAYER'S DIRECTION. If they told the WHOLE GROUP to do something ("everyone introduces themselves"), keep choosing the next character who has NOT yet taken a beat until every one of them has, THEN end — never stop early.
-- Do not repeat a character who already had their beat unless there is a real reason.
-- The roster lists ONLY the characters still present and able to act — a character who has died/left is already gone and will not appear. Use ONLY the roster numbers given. "needsBranch" is true only when you end at a genuine fork for the player.
-- No prose, no commentary — just the JSON object."""
+# Default planner prompt text lives in ``prompt_registry`` (single source of truth for
+# editable writing prompts); resolved per-turn text rides on ``ctx.prompts``.
+_SYSTEM = prompt_registry.default(prompt_registry.PLANNER_SYSTEM)
 
 
 @dataclass

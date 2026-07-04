@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from app.agents import prompt_registry
 from app.agents._common import extract_json, resolve_llm
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
@@ -28,16 +29,9 @@ DIRECTOR_EFFORT = ReasoningEffort.LOW
 # live-queue + re-rank lifts coordination further; this is the per-call ceiling.
 _MAX_SPEAKERS = 3
 
-_SYSTEM = """You are the scene director for an interactive story. Decide which characters should react to the latest beat, and in what order — STRUCTURE ONLY, never prose.
-
-Return ONLY a JSON object:
-{"speakers": [roster numbers, most-provoked first], "needsBranch": true|false, "beat": "short label"}
-
-Rules:
-- Pick the few characters (1-3) with something real to add; the rest stay silent. Not everyone reacts.
-- Lead with whoever is most provoked (addressed, threatened, or whose stake just spiked).
-- Use only the roster numbers given. "needsBranch" is true only when the player faces a real fork.
-- No prose, no commentary — just the JSON object."""
+# Default director prompt text lives in ``prompt_registry`` (single source of truth for
+# editable writing prompts); resolved per-turn text rides on ``ctx.prompts``.
+_SYSTEM = prompt_registry.default(prompt_registry.DIRECTOR_WHO_IS_UP)
 
 
 @dataclass
@@ -108,14 +102,7 @@ def _reasoned_decision(db: Session, ctx: TurnContext) -> DirectorDecision:
     return DirectorDecision(speakers, bool(data.get("needsBranch", False)), str(data.get("beat", "")))
 
 
-_RERANK_SYSTEM = """You are the scene director mid-turn. A beat just shifted the room, and some characters have not yet spoken this turn. RE-RANK only those remaining speakers by who is now most provoked to react next — STRUCTURE ONLY, never prose.
-
-Return ONLY a JSON object: {"speakers": [remaining roster numbers, most-provoked first]}
-
-Rules:
-- Use ONLY the remaining roster numbers given (never add a character who already spoke or is absent).
-- You may drop a remaining speaker who no longer has anything to add; keep the order meaningful.
-- No prose, no commentary — just the JSON object."""
+_RERANK_SYSTEM = prompt_registry.default(prompt_registry.DIRECTOR_RERANK)
 
 
 def rerank(db: Session, ctx: TurnContext, remaining_ids: list[str], turn_beats: list[dict]) -> list[str]:
@@ -168,18 +155,7 @@ def rerank(db: Session, ctx: TurnContext, remaining_ids: list[str], turn_beats: 
     return ordered
 
 
-_BRANCH_SYSTEM = """You are the scene director. The scene just paused. Offer the player a set of SITUATION-BASED follow-up moves that continue the scene from a GENERAL, story-wide perspective — STRUCTURE ONLY, no prose narration.
-
-Return ONLY a JSON object:
-{"choices": [{"label": "what happens next in the scene — a short move written from a general narrator's perspective", "outcome": "direction tag: de-escalate | escalate | probe | retreat | …"}]}
-
-Rules:
-- Offer EXACTLY the number of options requested — no more, no fewer.
-- Each option is SITUATION-BASED: describe what happens next in the scenario — an action taken, a turn of events, a direction the story goes — NOT a specific character's spoken line, and NOT written in any single character's voice. The player is a general narrator/director of the scene, not one character with a point of view.
-- Match the TONE, LENGTH, and PACE of the player's own recent moves (given below) so each option reads like something the player themself would write.
-- "outcome" is a short narrative-direction tag, never a dice check or stat test.
-- Keep the options distinct and fitted to the current tone and stakes.
-- No prose, no commentary — just the JSON object."""
+_BRANCH_SYSTEM = prompt_registry.default(prompt_registry.DIRECTOR_BRANCH)
 
 # Hard cap on branch options offered per fork (the configurable count is clamped to this).
 _MAX_BRANCHES = 4

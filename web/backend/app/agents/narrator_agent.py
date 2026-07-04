@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from app.agents import prompt_registry
 from app.agents._common import gen_params, resolve_llm
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
@@ -19,12 +20,12 @@ from app.services.assembler import TurnContext
 
 NARRATOR_EFFORT = ReasoningEffort.LOW
 
-# Base beat: a couple of vivid sentences that PROGRESS the scene (narration's job is to
-# move the story to the next beat, not to linger on scenery). The ``long`` variant asks
-# for a full paragraph used to OPEN a scene or play out a selected branch.
-_SYSTEM = """You are the narrator of an interactive scene. Your job is to PROGRESS the story to the next beat — not to linger on scenery. In 2-3 vivid, third-person sentences, narrate what the characters are DOING and carry the moment forward in response to what just happened: follow an action through to its consequence (a swing lands or misses, someone dodges, grabs a weapon, strikes back), show each character's move, and hand the scene to the next beat where someone can react. Lead with action and what people do; touch the setting, light, or mood only as much as it takes to make the action land — never dwell on atmosphere. Never speak for a character or write dialogue. Reply with the prose only — no tags, no quotes, no preamble."""
-
-_SYSTEM_LONG = """You are the narrator of an interactive scene. Write a vivid, third-person passage (a full paragraph, 3-5 sentences) that PROGRESSES the story forward over the next beats in response to what just happened — narrate what each character is DOING and carry the action through to its next consequence (their moves, how they react, the shift set in motion), so the scene arrives somewhere new where a character can respond. Lead with action and what people do; use the setting and mood only enough to ground the action, never as the focus. Never speak for a character or write dialogue. Reply with the prose only — no tags, no quotes, no preamble."""
+# Default narration text now lives in ``prompt_registry`` (single source of truth for
+# editable writing prompts). Base beat = a couple of vivid sentences that PROGRESS the
+# scene; the ``long`` variant is a full paragraph used to OPEN a scene or play out a
+# branch. Resolved per-turn text rides on ``ctx.prompts``.
+_SYSTEM = prompt_registry.default(prompt_registry.NARRATOR_SYSTEM)
+_SYSTEM_LONG = prompt_registry.default(prompt_registry.NARRATOR_SYSTEM_LONG)
 
 
 def interstitial(

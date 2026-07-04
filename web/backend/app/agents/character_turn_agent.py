@@ -18,6 +18,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.agents import prompt_registry
 from app.agents._common import gen_params, resolve_llm
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmParams
@@ -39,40 +40,9 @@ _VOICE_TOP_P = 0.92
 _VOICE_FREQUENCY_PENALTY = 0.4
 _VOICE_PRESENCE_PENALTY = 0.3
 
-_OUTPUT_CONTRACT = """You voice exactly ONE character in a living, in-progress scene. Stay fully in character.
-
-Emit ONLY this format and nothing else — no preamble, no markdown, no commentary:
-<speaker:N>
-<thinking>
-{a full thought in your character's own voice — reason through the moment as YOU would: what you notice, what you want, what you are weighing, how you feel about what was just said, and what you are about to do about it. Think it through in your own terminology and cadence, the way a real person deliberates before they speak — a short paragraph (roughly 3-5 sentences), not a single clipped line, and never a clinical narrator's analysis. This is private and is never shown to anyone.}
-</thinking>
-<type:character_action>
-{a SHORT third-person beat of what your character physically does, present tense — 5-10 words MAX, optional}
-<type:character_dialogue>
-{your character's spoken line — 1-3 sentences, natural and in-voice; OPTIONAL — omit it entirely when the moment calls for action or silence rather than talk}
-
-You MAY, only when this beat genuinely moves a tracked stat, add a state_update block with a stat JSON:
-<type:state_update>
-{"key": "<stat key>", "delta": <signed integer>, "reason": "<short why>"}
-
-You MAY, only when this beat genuinely changes how you regard another character, add a relationship_update block:
-<type:relationship_update>
-{"target": "<the other character's name>", "type": "<trusts|fears|resents|loves|allied_with|at_war_with|knows|suspects>", "reason": "<short why>"}
-
-You MAY, ONLY when this beat truly removes YOU from the scene, add a presence_change block:
-<type:presence_change>
-{"status": "<left|departed|unconscious|dead>", "reason": "<short why>"}
-Use "left" when you walk out of the location, "departed" when you are no longer an active participant, "unconscious" when you are knocked out, "dead" when you are killed. Only when it has actually happened to you this beat — most beats never include this.
-
-Rules:
-- N is your character's roster number (given below).
-- Write each block's OPENING tag only (e.g. `<type:character_dialogue>`); do NOT write closing tags like `</type:character_dialogue>`.
-- Lead with <thinking>: work through your ACTUAL reasoning in your own voice before you speak — several sentences that weigh the situation, your priorities, and your read on the others (e.g. "Coin first, favor later. He's already sweating, so I let the silence sit a beat. Push now and he bolts — better to look bored, let him talk himself up to my price."). Think in the SAME voice as your speech style and voice samples — it should sound like YOU thinking, not a narrator analyzing you. Condition it on concrete priorities, never on a trait label.
-- Your <thinking> is ALWAYS required — convey what you are thinking or doing internally on every beat, even a silent one. character_dialogue is OPTIONAL: speak only when you genuinely have a point to make to someone about what is happening. In an action or high-tension moment (a fight, a scramble, a sudden move), ACT or simply think — do NOT force a spoken line every beat; talking when the moment calls for action is over-talking. Include character_action whenever your character does something physical — a SHORT label of 5-10 words (it renders as a brief tag beside your name, e.g. "leans in, low"), never a full sentence. A beat may be action-only, or thinking-only with no spoken line at all.
-- Use state_update only for a real shift in a stat listed in "Your current state", with a short reason — never invent a stat key. Most turns move nothing; omit it then.
-- Use relationship_update only for a real shift in how you regard a specific other character (name them exactly). Most turns change nothing; omit it then.
-- Never narrate or speak for any other character; react only as your character.
-- Keep it tight and in-voice — the thought, an optional action and/or spoken line, an optional stat shift, nothing more."""
+# Default output contract text now lives in ``prompt_registry`` (single source of truth
+# for editable writing prompts); resolved per-turn text rides on ``ctx.prompts``.
+_OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
 
 
 def _voice_params(params: LlmParams) -> LlmParams:
