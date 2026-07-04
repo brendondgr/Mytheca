@@ -9,16 +9,19 @@ import type {
 } from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
+  applyPresence,
   applyStatByChar,
   applyStatUpdate,
   branchOptionsToChoices,
   foldTrace,
   graphRelationshipsToRel,
   mergeFrame,
+  type PresenceMap,
   rehydrateFromHistory,
   sessionIdOf,
   type TraceTurn,
 } from "./turn-stream";
+import type { CharacterStatusChangeEvent } from "@/lib/events";
 
 function trace(step: string, n: number, extra: Partial<TurnTraceFrame> = {}): TurnTraceFrame {
   return { type: "trace", n, step, title: `${step} ${n}`, detail: "", data: {}, ...extra };
@@ -275,5 +278,36 @@ describe("rehydrateFromHistory", () => {
     ];
     const scene = rehydrateFromHistory(events, []);
     expect(scene.messages.every((m) => m.kind !== "choices")).toBe(true);
+  });
+
+  it("folds character_status_change into presence (latest wins)", () => {
+    const events: PersistedEvent[] = [
+      pe("user_turn", 0, { text: "I run Mei through.", directedAt: null }),
+      pe("character_status_change", 1, { characterId: "mei", status: "unconscious", reason: "", auto: true }),
+      pe("character_status_change", 2, { characterId: "mei", status: "dead", reason: "", auto: true }),
+      pe("character_status_change", 3, { characterId: "kira", status: "left", reason: "", auto: true }),
+    ];
+    const scene = rehydrateFromHistory(events, []);
+    expect(scene.presenceByChar).toEqual({ mei: "dead", kira: "left" });
+    // A status change is not a transcript message.
+    expect(scene.messages.some((m) => m.kind === "char")).toBe(false);
+  });
+});
+
+describe("applyPresence", () => {
+  function statusEvent(characterId: string, status: string): CharacterStatusChangeEvent {
+    return {
+      type: "character_status_change", id: "ev", seq: 1, scenarioId: "sc", sessionId: "ps1",
+      ts: "t", visibility: "public", data: { characterId, status: status as never, reason: "", auto: true },
+    };
+  }
+
+  it("sets and overrides a character's status", () => {
+    let map: PresenceMap = {};
+    map = applyPresence(map, statusEvent("mei", "left"));
+    expect(map).toEqual({ mei: "left" });
+    map = applyPresence(map, statusEvent("kira", "dead"));
+    map = applyPresence(map, statusEvent("mei", "present"));
+    expect(map).toEqual({ mei: "present", kira: "dead" });
   });
 });

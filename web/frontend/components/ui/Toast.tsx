@@ -5,11 +5,19 @@ import { cn } from "@/lib/cn";
 
 export type ToastVariant = "info" | "success" | "error";
 
+export interface ToastAction {
+  /** Button label, e.g. "Undo". */
+  label: string;
+  onClick: () => void;
+}
+
 export interface ToastItem {
   id: string;
   message: string;
   variant: ToastVariant;
   title?: string;
+  /** Optional single action button (e.g. Undo) rendered before the dismiss control. */
+  action?: ToastAction;
 }
 
 /** Errors assert (interrupt); info/success announce politely. */
@@ -66,6 +74,18 @@ export function Toast({
               {t.message}
             </p>
           </div>
+          {t.action ? (
+            <button
+              type="button"
+              onClick={() => {
+                t.action?.onClick();
+                onDismiss(t.id);
+              }}
+              className="flex-none rounded-[3px] border border-field-bd px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-soft hover:text-ink hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              {t.action.label}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => onDismiss(t.id)}

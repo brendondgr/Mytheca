@@ -568,6 +568,27 @@ cast bios** into the graph on a session's first turn (`services/relationships.en
 `validator.validate_relationship` → a relational consequence the cold path writes as a directed edge.
 `GET /play/{id}/relationships` exposes the live edges for the story player's Relationships panel.
 
+### Scene presence (who's still in the scene)
+
+A character who has died or left keeps being an active member of the static cast (`cast_ids`)
+unless the loop knows they're gone — so the engine tracks **runtime presence** per character.
+Presence is **derived from the session's event log** (`services/presence.current_presence` folds
+the session's `character_status_change` events, latest per character; default `present`) — no new
+column or Redis dependency, so it survives reload and rehydrates through the same reducers the
+transcript uses. The `assembler` stamps each `CastMember.presence`, and only **`present`** members
+are **selectable**: `planner_agent` builds its roster from present members only (a dead/departed/
+unconscious one never appears, so it can't be picked), and the fallback + reflection paths skip
+them too. Four detection paths feed one store (all `auto: true`): (1) a `health`-keyed stat clamped
+to its floor → `unconscious` (`presence.vital_status_for`, in `_apply_stat_change`); (2) the
+planner's **`exit`** beat ratifying a death/exit the story already showed; (3) a character's
+self-declared **`<type:presence_change>`** block (`validator.validate_presence`, gated by
+`presence.can_transition`); (4) the manual **`POST /play/{id}/presence`** override (`auto: false`).
+Each emits a `character_status_change` event; `turn_engine._apply_presence_change` also **mutates
+the in-memory cast member** so the removal takes effect the very next beat. The story player folds
+the event into `presenceByChar` (`turn-stream.applyPresence`), and `CastRail` groups present vs.
+out-of-scene members, strikes the dead, and offers a per-character presence `<select>` (manual
+control). An `auto` change raises an **Undo** toast that restores the character to `present`.
+
 ## Hybrid RAG Flow
 
 ### Ingest-on-save

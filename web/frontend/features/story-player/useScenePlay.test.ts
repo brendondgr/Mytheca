@@ -1,7 +1,12 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { useScenePlay } from "./useScenePlay";
-import { closePlaySession, getSessionHistory, listPlaySessions } from "@/lib/api";
+import {
+  closePlaySession,
+  getSessionHistory,
+  listPlaySessions,
+  setPresence as apiSetPresence,
+} from "@/lib/api";
 import type { SessionHistory } from "@/lib/events";
 import {
   resolveScenario,
@@ -16,6 +21,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   listPlaySessions: vi.fn(async () => ({ sessions: [] })),
   getSessionHistory: vi.fn(),
   closePlaySession: vi.fn(),
+  setPresence: vi.fn(async () => ({}) as never),
 }));
 
 const scenario = resolveScenario(SEED_SCENARIOS[0], SEED_CHARACTERS, SEED_SETTINGS);
@@ -73,5 +79,43 @@ describe("useScenePlay resume + save-on-close", () => {
     await waitFor(() => expect(result.current.sessionId).toBe("ps_prior"));
     unmount();
     expect(vi.mocked(closePlaySession)).toHaveBeenCalledWith(scenario.id, "ps_prior");
+  });
+});
+
+describe("useScenePlay presence", () => {
+  it("rehydrates presenceByChar from a persisted status change", async () => {
+    const history: SessionHistory = {
+      session: { id: "ps_p", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" },
+      events: [
+        { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_p", ts: "t", visibility: "public", data: { text: "x", directedAt: null } },
+        { type: "character_status_change", id: "s", seq: 1, scenarioId: scenario.id, sessionId: "ps_p", ts: "t", visibility: "public", data: { characterId: speaker.id, status: "dead", reason: "", auto: true } },
+      ],
+      traces: [],
+    };
+    vi.mocked(listPlaySessions).mockResolvedValueOnce({
+      sessions: [{ id: "ps_p", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" }],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValueOnce(history);
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.presenceByChar[speaker.id]).toBe("dead"));
+  });
+
+  it("setPresence updates state and persists to the session", async () => {
+    vi.mocked(apiSetPresence).mockClear();
+    vi.mocked(listPlaySessions).mockResolvedValueOnce({
+      sessions: [{ id: "ps_prior", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "Prior line" }],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValueOnce(historyOf("ps_prior"));
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_prior"));
+
+    act(() => result.current.setPresence(speaker.id, "left"));
+    expect(result.current.presenceByChar[speaker.id]).toBe("left");
+    expect(vi.mocked(apiSetPresence)).toHaveBeenCalledWith(scenario.id, {
+      sessionId: "ps_prior",
+      characterId: speaker.id,
+      status: "left",
+    });
   });
 });

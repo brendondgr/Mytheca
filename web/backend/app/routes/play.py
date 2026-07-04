@@ -17,17 +17,25 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.errors import APIError
-from app.events.stream import TurnErrorFrame, to_ndjson_line
+from app.events.stream import TurnErrorFrame, build_event, to_ndjson_line
 from app.models import PlaySession
 from app.schemas.play import (
     PersistedEvent,
     PersistedTrace,
+    PresenceRequest,
     SessionHistoryResponse,
     SessionListResponse,
     SessionSummary,
     TurnRequest,
 )
-from app.services import crud, events_store, graph_reader, session_export, turn_engine
+from app.services import (
+    crud,
+    events_store,
+    graph_reader,
+    presence,
+    session_export,
+    turn_engine,
+)
 
 router = APIRouter(prefix="/play", tags=["play"])
 
@@ -63,6 +71,41 @@ def play_turn(scenario_id: str, data: TurnRequest, db: Session = Depends(get_db)
             yield to_ndjson_line(TurnErrorFrame(message="The turn failed unexpectedly."))
 
     return StreamingResponse(_lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS)
+
+
+@router.post("/{scenario_id}/presence", response_model=PersistedEvent)
+def set_presence(scenario_id: str, data: PresenceRequest, db: Session = Depends(get_db)):
+    """Manually set a character's scene presence (the cast-rail control + its undo).
+
+    Persists a ``character_status_change`` event (``auto=False``) on the session, so the
+    change folds into ``presence.current_presence`` exactly like an engine-driven one and
+    survives reload. Undo is just the inverse call (the client posts the prior status)."""
+    scenario = crud.get_scenario(db, scenario_id)  # 404 when unknown
+    session = events_store.get_session(db, scenario_id, data.session_id)  # 404/400
+    status = presence.normalize_status(data.status)
+    if status is None:
+        raise APIError(400, "bad_request", "Unknown presence status.")
+    if data.character_id not in (scenario.cast_ids or []):
+        raise APIError(404, "invalid_reference", "Character is not in this scene.")
+    event = build_event(
+        "character_status_change",
+        {"characterId": data.character_id, "status": status, "reason": data.reason, "auto": False},
+        scenario_id=scenario_id,
+        session_id=session.id,
+        seq=events_store.next_seq(db, session.id),
+    )
+    events_store.persist_story_event(db, event)
+    events_store.touch_session(db, session.id)
+    return PersistedEvent(
+        type=event.type,
+        id=event.id,
+        seq=event.seq,
+        scenario_id=event.scenario_id,
+        session_id=event.session_id,
+        ts=event.ts,  # type: ignore[arg-type]  # ISO string coerced to datetime by pydantic
+        visibility=event.visibility,
+        data=event.data.model_dump(by_alias=True),
+    )
 
 
 @router.get("/{scenario_id}/relationships")

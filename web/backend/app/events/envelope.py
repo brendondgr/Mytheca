@@ -16,7 +16,7 @@ from typing import Annotated, Literal, Union
 
 from pydantic import Field, TypeAdapter
 
-from app.schemas.base import CamelModel, EventType, Visibility
+from app.schemas.base import CamelModel, EventType, PresenceStatus, Visibility
 
 # ---- payloads (the `data` of each event) -----------------------------------
 
@@ -76,6 +76,21 @@ class BranchChoicesData(CamelModel):
     choices: list[BranchChoiceOption] = Field(default_factory=list)
 
 
+class CharacterStatusChangeData(CamelModel):
+    """A character's scene-presence transition (Scene Presence & Director Actions).
+
+    Carries the new ``status`` (see :data:`~app.schemas.base.PresenceStatus`), a free-text
+    ``reason`` for the audit trail/UI, and ``auto`` — ``True`` when the engine detected it
+    (a stat trigger, the planner's ``exit`` action, or a self-declaration), ``False`` for a
+    manual player override. The client shows an undoable toast for ``auto`` transitions.
+    """
+
+    character_id: str
+    status: PresenceStatus
+    reason: str = ""
+    auto: bool = True
+
+
 # ---- envelope (shared base + one class per type) ---------------------------
 
 
@@ -121,6 +136,11 @@ class BranchChoicesEvent(EventEnvelope):
     data: BranchChoicesData
 
 
+class CharacterStatusChangeEvent(EventEnvelope):
+    type: Literal["character_status_change"] = "character_status_change"
+    data: CharacterStatusChangeData
+
+
 StoryEvent = Annotated[
     Union[
         NarrationEvent,
@@ -129,6 +149,7 @@ StoryEvent = Annotated[
         InternalThoughtEvent,
         StateUpdateEvent,
         BranchChoicesEvent,
+        CharacterStatusChangeEvent,
     ],
     Field(discriminator="type"),
 ]
@@ -146,6 +167,7 @@ __all__ = [
     "StateUpdateData",
     "BranchChoiceOption",
     "BranchChoicesData",
+    "CharacterStatusChangeData",
     "EventEnvelope",
     "NarrationEvent",
     "CharacterDialogueEvent",
@@ -153,6 +175,7 @@ __all__ = [
     "InternalThoughtEvent",
     "StateUpdateEvent",
     "BranchChoicesEvent",
+    "CharacterStatusChangeEvent",
     "StoryEvent",
     "story_event_adapter",
 ]

@@ -911,3 +911,125 @@ def test_unknown_session_returns_404(client, storyline_id):
         client.post(f"/api/play/{scid}/turn", json={"text": "hi", "sessionId": "ps_x"}).status_code
         == 404
     )
+
+
+def _route_llm(monkeypatch, *, planner_replies: list[str], other: str = _EMISSION):
+    """Route chat/completions by agent (system-prompt marker); planner replies in order."""
+    state = {"planner": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content.decode())
+        system = body["messages"][0]["content"]
+        if "scene director running one interactive-story turn" in system:
+            i = min(state["planner"], len(planner_replies) - 1)
+            state["planner"] += 1
+            content = planner_replies[i]
+        else:
+            content = other
+        return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+
+
+def test_planner_exit_emits_status_change_and_stops_selection(client, storyline_id, monkeypatch):
+    # The planner's first beat removes Mei (dead); after that only Kira remains present, so
+    # the exit both emits a character_status_change and prevents Mei being picked to speak.
+    _configure_llm(client)
+    cid_mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    cid_kira = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Kira"}).json()["id"]
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Standoff", "castIds": [cid_mei, cid_kira], "suggestionsCount": 0},
+    ).json()["id"]
+    _route_llm(
+        monkeypatch,
+        planner_replies=[
+            json.dumps({"action": "exit", "actor": 1, "status": "dead", "reason": "run through"}),
+            json.dumps({"action": "end", "reason": "done"}),
+        ],
+    )
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I run Mei through."}))
+    status_events = [e for e in events if e["type"] == "character_status_change"]
+    assert len(status_events) == 1
+    data = status_events[0]["data"]
+    assert data["characterId"] == cid_mei and data["status"] == "dead" and data["auto"] is True
+    # Mei never speaks after being removed (no dialogue attributed to her).
+    mei_lines = [e for e in events if e.get("data", {}).get("characterId") == cid_mei and e["type"] in ("character_dialogue", "character_action")]
+    assert mei_lines == []
+
+
+def test_status_change_persists_and_folds_into_presence(client, storyline_id, monkeypatch, db_session):
+    # The streamed status change is persisted, so presence.current_presence sees it on the
+    # session — the same durable fold the next turn's assembler reads.
+    from app.services import presence
+
+    _configure_llm(client)
+    cid_mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    cid_kira = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Kira"}).json()["id"]
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Standoff", "castIds": [cid_mei, cid_kira], "suggestionsCount": 0},
+    ).json()["id"]
+    _route_llm(
+        monkeypatch,
+        planner_replies=[
+            json.dumps({"action": "exit", "actor": 1, "status": "left", "reason": "storms out"}),
+            json.dumps({"action": "end"}),
+        ],
+    )
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "Mei, get out."}))
+    session_id = next(e["sessionId"] for e in events if e.get("type") == "character_status_change")
+    assert presence.current_presence(db_session, session_id).get(cid_mei) == "left"
+
+
+_HEALTH_EMISSION = (
+    "<speaker:1>\n"
+    "<type:character_action>\nMei crumples to the floor\n"
+    '<type:state_update>\n{"key": "health", "delta": -100, "reason": "stabbed"}'
+)
+
+_LEAVE_EMISSION = (
+    "<speaker:1>\n"
+    "<type:character_action>\nturns and walks out\n"
+    '<type:presence_change>\n{"status": "left", "reason": "done here"}'
+)
+
+
+def test_health_floor_auto_knocks_unconscious(client, storyline_id, monkeypatch, db_session):
+    # A vital stat (health) clamped to its floor deterministically knocks the character out.
+    from app.models.stat import StatDefinition
+
+    db_session.add(
+        StatDefinition(storyline_id=storyline_id, key="health", display_name="Health", min=0, max=100, default=100)
+    )
+    db_session.commit()
+    _configure_llm(client)
+    _patch_llm(monkeypatch, _HEALTH_EMISSION)
+    cid = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Standoff", "castIds": [cid], "suggestionsCount": 0},
+    ).json()["id"]
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I stab Mei.", "directedAt": cid}))
+    status = [e for e in events if e["type"] == "character_status_change"]
+    assert len(status) == 1
+    assert status[0]["data"]["characterId"] == cid
+    assert status[0]["data"]["status"] == "unconscious" and status[0]["data"]["auto"] is True
+
+
+def test_self_declared_exit_removes_character(client, storyline_id, monkeypatch, db_session):
+    # A character declaring <type:presence_change> leaves the scene (folds into presence).
+    from app.services import presence
+
+    _configure_llm(client)
+    _patch_llm(monkeypatch, _LEAVE_EMISSION)
+    cid = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Standoff", "castIds": [cid], "suggestionsCount": 0},
+    ).json()["id"]
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "Mei, leave.", "directedAt": cid}))
+    status = [e for e in events if e["type"] == "character_status_change"]
+    assert len(status) == 1 and status[0]["data"]["status"] == "left"
+    session_id = status[0]["sessionId"]
+    assert presence.current_presence(db_session, session_id).get(cid) == "left"

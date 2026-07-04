@@ -8,7 +8,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { Toast, type ToastItem, type ToastVariant } from "@/components/ui/Toast";
+import {
+  Toast,
+  type ToastAction,
+  type ToastItem,
+  type ToastVariant,
+} from "@/components/ui/Toast";
 
 export interface NotifyInput {
   message: string;
@@ -16,6 +21,8 @@ export interface NotifyInput {
   title?: string;
   /** Auto-dismiss delay; `0` keeps the toast until dismissed. */
   durationMs?: number;
+  /** Optional single action button (e.g. Undo). */
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
@@ -68,9 +75,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       variant = "info",
       title,
       durationMs = DEFAULT_DURATION,
+      action,
     }: NotifyInput) => {
       const id = nextId();
-      setItems((prev) => [...prev, { id, message, variant, title }]);
+      setItems((prev) => [...prev, { id, message, variant, title, action }]);
       if (durationMs > 0) {
         timers.current.set(
           id,

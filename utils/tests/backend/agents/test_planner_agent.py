@@ -163,3 +163,72 @@ def test_system_biases_narration_to_progress(client, db_session, monkeypatch):
     assert "DEFAULT for carrying the scene" in system  # narrate-to-progress is the default
     assert "PROGRESS the story to the next beat" in system
     assert "over-talking" in system  # dialogue only after movement, not every beat
+
+
+def _present(*ids: str, absent: dict[str, str] | None = None) -> list[assembler.CastMember]:
+    """Cast members, optionally with a non-``present`` status (id → status)."""
+    absent = absent or {}
+    return [
+        assembler.CastMember(
+            id=i, name=i.title(), role="X", traits="", speech="", color="#000",
+            stats={}, presence=absent.get(i, "present"),
+        )
+        for i in ids
+    ]
+
+
+def test_exit_resolves_actor_and_status(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch(monkeypatch, json.dumps({"action": "exit", "actor": 1, "status": "dead", "reason": "cut down"}))
+    d = planner_agent.next_beat(db_session, _ctx(_cast("mei", "kira")), TurnIntent(), [], [])
+    assert d.action == "exit" and d.actor_id == "mei" and d.status == "dead"
+
+
+def test_exit_with_bad_status_falls_back(client, db_session, monkeypatch):
+    # "exit" without a valid status must not guess a removal — it falls back instead.
+    _configure_llm(client)
+    _patch(monkeypatch, json.dumps({"action": "exit", "actor": 1, "status": "vaporized"}))
+    d = planner_agent.next_beat(
+        db_session, _ctx(_cast("mei")), TurnIntent(kind="direct", addressed=["mei"]), [], []
+    )
+    assert d.action != "exit"
+
+
+def test_non_present_member_never_selected(client, db_session, monkeypatch):
+    # Mei is dead → roster lists only Kira as [1]; the planner can't pick Mei.
+    _configure_llm(client)
+    _patch(monkeypatch, json.dumps({"action": "speak", "actor": 1, "reason": "reacts"}))
+    ctx = _ctx(_present("mei", "kira", absent={"mei": "dead"}))
+    d = planner_agent.next_beat(db_session, ctx, TurnIntent(), [], [])
+    assert d.action == "speak" and d.actor_id == "kira"
+
+
+def test_present_only_roster_in_prompt(client, db_session, monkeypatch):
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        seen["user"] = json.loads(request.content.decode())["messages"][1]["content"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"action": "end"})}}]})
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    _configure_llm(client)
+    ctx = _ctx(_present("mei", "kira", absent={"mei": "left"}))
+    planner_agent.next_beat(db_session, ctx, TurnIntent(), [], [])
+    assert "Kira" in seen["user"] and "Mei" not in seen["user"]  # departed member off the roster
+
+
+def test_all_absent_ends(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch(monkeypatch, json.dumps({"action": "speak", "actor": 1}))
+    ctx = _ctx(_present("mei", "kira", absent={"mei": "dead", "kira": "left"}))
+    d = planner_agent.next_beat(db_session, ctx, TurnIntent(scope="all"), [], [])
+    assert d.action == "end"
+
+
+def test_fallback_skips_non_present(db_session):
+    # No LLM configured → fallback path; a whole-group direction walks only present members.
+    ctx = _ctx(_present("mei", "kira", absent={"mei": "unconscious"}))
+    d = planner_agent.next_beat(db_session, ctx, TurnIntent(scope="all"), [], [])
+    assert d.action == "speak" and d.actor_id == "kira"

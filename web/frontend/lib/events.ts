@@ -71,6 +71,22 @@ export interface InternalThoughtEvent extends PlayEnvelope {
   data: { characterId: string; text: string };
 }
 
+/**
+ * A character's runtime scene presence. `present` is the only selectable status (they can
+ * be picked to speak); the others keep them in the cast but out of the speaking pool.
+ */
+export type PresenceStatus = "present" | "unconscious" | "departed" | "left" | "dead";
+
+/**
+ * A character's scene-presence transition (Scene Presence & Director Actions). `auto` is
+ * true when the engine detected it (a stat trigger, the director's exit, or a
+ * self-declaration) — the client offers an undo — and false for a manual player override.
+ */
+export interface CharacterStatusChangeEvent extends PlayEnvelope {
+  type: "character_status_change";
+  data: { characterId: string; status: PresenceStatus; reason: string; auto: boolean };
+}
+
 /** Any story event on the turn stream. */
 export type PlayEvent =
   | NarrationEvent
@@ -78,7 +94,8 @@ export type PlayEvent =
   | CharacterActionEvent
   | StateUpdateEvent
   | BranchChoicesEvent
-  | InternalThoughtEvent;
+  | InternalThoughtEvent
+  | CharacterStatusChangeEvent;
 
 /** Terminal in-band error frame (mid-stream failure). */
 export interface TurnErrorFrame {

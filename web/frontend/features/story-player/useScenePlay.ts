@@ -7,11 +7,13 @@ import {
   getSessionHistory,
   listPlaySessions,
   postTurn,
+  setPresence as apiSetPresence,
   updateScenario,
 } from "@/lib/api";
-import type { TurnStreamFrame } from "@/lib/events";
+import type { PresenceStatus, TurnStreamFrame } from "@/lib/events";
 import type { ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
+import { useToast } from "@/components/layout/ToastProvider";
 import {
   buildScene,
   type Relationship,
@@ -20,16 +22,27 @@ import {
   type StatChip,
 } from "./scene-data";
 import {
+  applyPresence,
   applyStatByChar,
   applyStatUpdate,
   branchOptionsToChoices,
   foldTrace,
   graphRelationshipsToRel,
   mergeFrame,
+  type PresenceMap,
   rehydrateFromHistory,
   sessionIdOf,
   type TraceTurn,
 } from "./turn-stream";
+
+/** Human phrase for a presence transition, used in the auto-change toast. */
+const PRESENCE_PHRASE: Record<PresenceStatus, string> = {
+  present: "is back in the scene",
+  unconscious: "was knocked unconscious",
+  departed: "is no longer active in the scene",
+  left: "left the scene",
+  dead: "died",
+};
 
 /** Client state + interactions for a live scene: a streamed turn loop over the backend. */
 export function useScenePlay(scenario: ResolvedScenario) {
@@ -41,7 +54,14 @@ export function useScenePlay(scenario: ResolvedScenario) {
   // stat sliders reflect the values that stream in as `state_update` events. Kept separate
   // from the flat `stats` list, which drives the Director rail's global Scene-state chips.
   const [statsByChar, setStatsByChar] = useState<Record<string, StatChip[]>>({});
+  // Live scene presence per character (Scene Presence & Director Actions). Absent → present.
+  const [presenceByChar, setPresenceByChar] = useState<PresenceMap>({});
   const [choices, setChoices] = useState<SceneChoice[]>(seed.choices);
+  const { notify } = useToast();
+  const nameOf = useCallback(
+    (id: string) => scenario.cast.find((c) => c.id === id)?.name ?? "A character",
+    [scenario.cast],
+  );
   const [composer, setComposer] = useState("");
   // Per-scene play controls (persisted on the scenario). Local state drives the composer
   // dropdowns; each change is written back so the backend reads it on the next turn.
@@ -94,6 +114,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
           if (scene.messages.length) setMessages(scene.messages);
           if (scene.stats.length) setStats(scene.stats);
           setStatsByChar(scene.statsByChar);
+          setPresenceByChar(scene.presenceByChar);
           setTraceTurns(scene.traceTurns);
           setChoices([]);
         });
@@ -133,6 +154,19 @@ export function useScenePlay(scenario: ResolvedScenario) {
     };
   }, [scenario.id, scenario.cast]);
 
+  // Manually set a character's scene presence (the cast-rail control + toast undo).
+  // Optimistic; persists best-effort so the change survives reload and folds like an
+  // engine-driven one. No-op without a session yet (nothing to attach it to).
+  const setPresence = useCallback(
+    (characterId: string, status: PresenceStatus) => {
+      setPresenceByChar((m) => ({ ...m, [characterId]: status }));
+      const sid = sessionRef.current;
+      if (!sid) return;
+      void apiSetPresence(scenario.id, { sessionId: sid, characterId, status }).catch(() => {});
+    },
+    [scenario.id],
+  );
+
   const onFrame = useCallback((frame: TurnStreamFrame) => {
     const sid = sessionIdOf(frame);
     if (sid && sid !== sessionRef.current) rememberSession(sid);
@@ -152,13 +186,28 @@ export function useScenePlay(scenario: ResolvedScenario) {
       }
       return;
     }
+    if (frame.type === "character_status_change") {
+      const { characterId, status, auto } = frame.data;
+      setPresenceByChar((m) => applyPresence(m, frame));
+      // Auto = the engine removed them (death/exit/collapse) → announce with an Undo that
+      // brings them back into the scene. A manual override (auto=false) is already intended.
+      if (auto) {
+        notify({
+          title: "Scene presence",
+          message: `${nameOf(characterId)} ${PRESENCE_PHRASE[status]}.`,
+          action: { label: "Undo", onClick: () => setPresence(characterId, "present") },
+          durationMs: 9000,
+        });
+      }
+      return;
+    }
     if (frame.type === "branch_choices") {
       setChoices(branchOptionsToChoices(frame.data.choices));
       setMessages((m) => [...m.filter((x) => x.kind !== "choices"), { kind: "choices" }]);
       return;
     }
     setMessages((prev) => mergeFrame(prev, frame));
-  }, [rememberSession]);
+  }, [rememberSession, notify, nameOf, setPresence]);
 
   const stream = useEventStream<TurnStreamFrame>(onFrame);
   const sending = stream.status === "streaming";
@@ -228,6 +277,8 @@ export function useScenePlay(scenario: ResolvedScenario) {
     tension,
     stats,
     statsByChar,
+    presenceByChar,
+    setPresence,
     relationships: graphRels.length ? graphRels : seed.relationships,
     turnOrder: seed.turnOrder,
     speakingId: lastSpeaker?.who ?? null,

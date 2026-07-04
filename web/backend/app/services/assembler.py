@@ -26,7 +26,14 @@ from app.agents import _common
 from app.memory import buffer, interior
 from app.models import Character, Scenario, Setting
 from app.models.stat import StatDefinition
-from app.services import crud, graph_reader, retrieval_gate, stat_guidance, stats
+from app.services import (
+    crud,
+    graph_reader,
+    presence,
+    retrieval_gate,
+    stat_guidance,
+    stats,
+)
 
 logger = logging.getLogger("velora.turn")
 
@@ -54,6 +61,16 @@ class CastMember:
     # → sample-response pairs). Injected into the generation HEAD so both spoken lines
     # and the hidden thinking step stay in voice. Empty string when unauthored.
     voice_samples: str = ""
+    # Runtime scene presence (Scene Presence & Director Actions): ``present`` (the default,
+    # and the ONLY selectable status) through ``dead``. Derived from the session's
+    # ``character_status_change`` event log; the turn loop skips non-``present`` members when
+    # choosing who speaks and mutates this in place when a status changes mid-turn.
+    presence: str = "present"
+
+    @property
+    def is_present(self) -> bool:
+        """True when this character may be chosen to take a beat (selectable)."""
+        return self.presence == "present"
 
 
 @dataclass
@@ -102,7 +119,9 @@ def assemble_context(
     # beats from the buffer (which retains up to ``turn_buffer_size``).
     context_beats = max(5, min(int(scenario.context_beats or 14), 100))
     recent_beats = buffer.recent_turns(session_id, limit=context_beats)
-    cast = _build_cast(db, scenario, session_id, stat_defs, recent_beats)
+    # Runtime scene presence, folded from this session's status-change event log.
+    presence_map = presence.current_presence(db, session_id)
+    cast = _build_cast(db, scenario, session_id, stat_defs, recent_beats, presence_map)
     setting = db.get(Setting, scenario.setting_id) if scenario.setting_id else None
     subgraph = _safe_subgraph(db, scenario.id)
     stable_prefix = _build_stable_prefix(storyline, stat_defs, guidance)
@@ -147,6 +166,7 @@ def _build_cast(
     session_id: str,
     stat_defs: list[StatDefinition],
     recent_beats: list[dict],
+    presence_map: dict[str, str],
 ) -> list[CastMember]:
     """Resolve the scenario's cast in order, skipping dangling soft-refs."""
     members: list[CastMember] = []
@@ -171,6 +191,7 @@ def _build_cast(
                 recent_lines=_anchors_for(char.id, recent_beats),
                 disposition=record.disposition if record is not None else "",
                 voice_samples=_format_voice_samples(char.voice_samples),
+                presence=presence.status_for(presence_map, char.id),
             )
         )
     return members

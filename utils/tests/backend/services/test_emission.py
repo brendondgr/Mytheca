@@ -120,6 +120,17 @@ def test_relationship_update_block_kept_as_json():
     assert segs[1].text.strip().startswith("{") and "resents" in segs[1].text  # raw JSON kept
 
 
+def test_presence_change_block_kept_as_json():
+    raw = (
+        "<speaker:1>\n"
+        '<type:character_action>\nturns and walks out\n'
+        '<type:presence_change>\n{"status": "left", "reason": "done arguing"}'
+    )
+    segs = parse_emission(raw, roster={1: "mei"}, fallback_speaker_id="mei")
+    assert [s.type for s in segs] == ["character_action", "presence_change"]
+    assert segs[1].text.strip().startswith("{") and "left" in segs[1].text  # raw JSON kept
+
+
 def test_bare_closing_type_tag_is_scrubbed_not_leaked():
     # Some models append a bare </type> (no name) at the end of each block; it must be
     # scrubbed from the visible prose, not rendered (the reported "</type>" leak).

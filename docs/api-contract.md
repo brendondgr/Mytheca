@@ -40,6 +40,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
 | Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation), read-only inference-engine detection (`/llm/backend`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | **Implemented.** Submit a player turn; the response body **is** the NDJSON event stream (`application/x-ndjson`, one event per line). Body: `{ text, directedAt?, sessionId?, mode?, trace?, outcome? }` (omit `sessionId` to start a session). The engine **interprets the line** (narrate / address / **puppet** a character / whole-group), then runs a **ReAct planner** that decides the next beat after each one — a character speaks/acts (in their own voice; a puppeted character *performs* the direction), the narrator sets context, or the turn ends. Speaker order is dynamic; the back-and-forth is bounded by the scenario's **`maxTurns`** (a hard ceiling on **every emitted beat — character replies and narrator beats** — so the loop ends there even if the planner would continue). A **cold scene open** with no directed character is **narrator-led**. At the end of the turn, up to **`suggestionsCount`** follow-up suggestions (0–4) are generated from the **most recent line**, written as **situation-based** moves from a general perspective matched to the player's own tone, and emitted as `branch_choices`; **selecting one writes its text into the composer** for the player to edit and send (it does not auto-submit). Character replies are grounded in their **graph relationships** (direct + 2-hop). Pre-flight failures (unknown scenario → 404, empty text → 400, bad session → 404/400) return a normal error envelope before the 200 stream opens; a mid-stream failure is the terminal `{ "type": "error", "message": "…" }` frame. See Turn Stream below. |
+| Presence | `POST /play/{scenarioId}/presence` | **Implemented.** Manually set a character's scene presence (the cast-rail control + its undo). Body: `{ sessionId, characterId, status }` (`status` ∈ `present`\|`unconscious`\|`departed`\|`left`\|`dead`). Persists a `character_status_change` event (`auto: false`) on the session and returns it in the wire-envelope shape; folds into presence like an engine-driven change and survives reload. A manual override is **not** bound by the engine's transition guard — the player may resurrect a `dead` character. 404 (unknown scenario/session/character), 422 (unknown status). Undo = the inverse call. |
 | Relationships | `GET /play/{scenarioId}/relationships` | **Implemented.** The scenario's live character↔character relationships from the story graph — `{ relationships: [{ source, sourceName, type, target, targetName, reason }] }`. Best-effort: an empty list when the graph is off/unreachable (the story player keeps its seed placeholder). 404 only when the scenario is unknown. |
 | Sessions | `GET /play/{scenarioId}/sessions` | **Implemented.** Every saved play-through of a scenario, most-recently-played first (the resume list) — `{ sessions: [{ id, scenarioId, createdAt, updatedAt, closedAt, turnCount, preview }] }` (`preview` = the first player line). 404 when the scenario is unknown. |
 | Session history | `GET /play/{scenarioId}/sessions/{sessionId}` | **Implemented.** The full record of one play-through so the story player can **resume** it: `{ session, events, traces }`. `events` are the persisted story events in `seq` order in the **wire-envelope shape** (incl. the hidden `internal_thought` rows and the `user_turn` player lines) so the client replays them through the same reducers it uses live; `traces` are the persisted diagnostic steps ordered by `(turn, n)` (`{ turn, n, step, title, detail, data }`) — the graph/RAG/thinking activity. 404/400 on unknown/mismatched session. |
@@ -559,10 +560,22 @@ Each maps to one frontend component.
 | `internal_thought` | **Inline thinking** — a muted line folded into the speaker's beat, between the name and the spoken bubble (`visibility: private_to_user`) | `characterId`, `text` (streams to the player; kept out of other characters' context) |
 | `state_update` | Updates side panels (no chat message) | `patch` — partial scenario state; **stat changes ride here** |
 | `branch_choices` | Branch-choices panel | `choices[]` (`label`, `outcome`) |
+| `character_status_change` | Updates the cast rail (no chat message); an `auto` change also raises an **Undo** toast | `characterId`, `status` (`present`\|`unconscious`\|`departed`\|`left`\|`dead`), `reason`, `auto` |
 
 **No dice (D11):** `branch_choices` options carry `label` + `outcome` (a narrative-direction
 tag) only — there is no `check` field. A branch is a narrative fork resolved by the player's
 selection + the characters' in-character response, never a stat test.
+
+**Scene presence (`character_status_change`):** a character's runtime status within the scene.
+`present` is the only **selectable** status (the planner may pick them to speak); the others
+keep them in the cast but out of the speaking pool — which is what stops a dead/departed
+character from continuing to chat. It is **derived from the session's event log** (the fold of
+these events, latest per character; default `present`) — no column, so it survives reload and
+rehydrates through the same reducers. Four detection paths, all `auto: true`: a `health`-keyed
+stat clamped to its floor → `unconscious`; the planner's `exit` beat (ratifying a death/exit
+the story already showed); a character's self-declared `<type:presence_change>` block; and the
+manual override endpoint (`auto: false`). Transitions: `present ⇄ {unconscious, departed,
+left}`, any → `dead` (terminal); the engine never auto-leaves `dead`, but a manual override may.
 
 **`internal_thought`** is the character's private think→speak block (the turn-loop plan
 Step 5 / §7). It streams to the **player** with `visibility: private_to_user` and, on the
@@ -616,7 +629,12 @@ stat exists, applies the **delta/value clamped to `[min,max]`** on the hot path 
 `reason`), and emits a `state_update` event — an unknown stat is dropped. A speaker may also
 propose a **`relationship_update`** block (`{target, type, reason}`): validated against the
 cast + the registry's character↔character edge types, it becomes a cold-path graph edge
-(`source -[type]-> target`) rather than a wire event — so relationships evolve in play. At the
+(`source -[type]-> target`) rather than a wire event — so relationships evolve in play. A
+speaker may also emit a **`presence_change`** block (`{status, reason}`) to remove *themselves*
+from the scene (leaving/collapsing); the planner may emit an **`exit`** beat to remove any
+present character the story already wrote out; and a `health`-keyed stat hitting its floor
+auto-knocks the character `unconscious` — each emits a `character_status_change` event and drops
+that character from the selectable roster for the rest of the scene (see Scene presence above). At the
 end of every turn, up to the scenario's `suggestionsCount` (0–4; `0` disables) `branch_choices`
 options are generated from the **most recent line** and offered as `label` + `outcome` (no dice —
 D11; count-driven — no longer gated on a rarely-set planner flag). Options are **situation-based**
