@@ -230,8 +230,28 @@ def test_thinking_contract_anchors_to_voice(client, db_session, monkeypatch):
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
     system = json.loads(capture["body"])["messages"][0]["content"]
-    # The (character-agnostic) thinking rule steers the hidden thought into voice too.
-    assert "SAME voice as your speech style and voice samples" in system
+    # The (character-agnostic) thinking rule steers the hidden thought into voice too — but
+    # the voice's register bends with the stakes rather than being locked to the samples.
+    assert "same underlying person as your speech style and voice samples" in system
+    assert "BEND WITH THE STAKES" in system
+
+
+def test_contract_grants_situational_manner_adaptation(client, db_session, monkeypatch):
+    # Personality is constant, manner adapts: the contract must tell the character to read the
+    # moment and drop the habitual act when the situation turns grave (the core fix).
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    system = json.loads(capture["body"])["messages"][0]["content"]
+    assert "personality is CONSTANT" in system and "MANNER adapts" in system
+    assert "on autopilot" in system
+    # The <thinking> step appraises the moment BEFORE reasoning toward a response.
+    assert "FIRST read the moment" in system
 
 
 def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
