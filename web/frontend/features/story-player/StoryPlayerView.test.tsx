@@ -13,9 +13,10 @@ import {
 } from "@/lib/seed-data";
 
 // Keep the real api (mediaUrl etc.) but stub the streaming turn + the scenario write-back,
-// AND the async play-session/relationship effects `useScenePlay` fires on mount — otherwise
-// they hit real `fetch` in jsdom and resolve/reject at nondeterministic times, racing the
-// click-driven state updates below (a flaky-composer source). Empty data keeps the seed scene.
+// AND the async play-session/relationship/stats-baseline effects `useScenePlay` fires on
+// mount — otherwise they hit real `fetch` in jsdom and resolve/reject at nondeterministic
+// times, racing the click-driven state updates below (a flaky-composer source). Empty data
+// keeps the seed scene.
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   postTurn: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   listPlaySessions: vi.fn(async () => ({ sessions: [] })),
   getScenarioRelationships: vi.fn(async () => ({ relationships: [] })),
   closePlaySession: vi.fn(() => {}),
+  getCharacterStats: vi.fn(async () => ({}) as Record<string, number>),
 }));
 
 function streamOf(...frames: TurnStreamFrame[]) {
