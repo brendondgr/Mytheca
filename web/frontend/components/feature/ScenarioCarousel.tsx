@@ -33,6 +33,7 @@ const LIGHT = {
 export function ScenarioCarousel({
   slides,
   statDefs = [],
+  statsByCharId = {},
   index,
   onPrev,
   onNext,
@@ -46,6 +47,9 @@ export function ScenarioCarousel({
   slides: ResolvedScenario[];
   /** Active storyline's stat definitions — shown in each cast card's stats panel. */
   statDefs?: StatDefinition[];
+  /** Each cast member's persisted stat values, keyed by character id — real values
+   * shown over the schema default when known. */
+  statsByCharId?: Record<string, Record<string, number>>;
   index: number;
   onPrev: () => void;
   onNext: () => void;
@@ -196,7 +200,7 @@ export function ScenarioCarousel({
             </div>
 
             {/* CHARACTER STRIP — an arrow-paged carousel of portrait cards */}
-            <CastStrip cast={s.cast} statDefs={statDefs} onProfile={onProfile} />
+            <CastStrip cast={s.cast} statDefs={statDefs} statsByCharId={statsByCharId} onProfile={onProfile} />
           </div>
         ))}
       </div>
@@ -248,10 +252,12 @@ export function ScenarioCarousel({
 function CastStrip({
   cast,
   statDefs,
+  statsByCharId,
   onProfile,
 }: {
   cast: Character[];
   statDefs: StatDefinition[];
+  statsByCharId: Record<string, Record<string, number>>;
   onProfile?: (id: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -315,6 +321,7 @@ function CastStrip({
               key={c.id}
               c={c}
               statDefs={statDefs}
+              statValues={statsByCharId[c.id]}
               expanded={openStatsId === c.id}
               onToggleStats={() =>
                 setOpenStatsId((id) => (id === c.id ? null : c.id))
@@ -366,12 +373,14 @@ const CAST_STATS_W = 208;
 function CastCard({
   c,
   statDefs,
+  statValues,
   expanded,
   onToggleStats,
   onProfile,
 }: {
   c: Character;
   statDefs: StatDefinition[];
+  statValues?: Record<string, number>;
   expanded: boolean;
   onToggleStats: () => void;
   onProfile?: (id: string) => void;
@@ -482,7 +491,13 @@ function CastCard({
         }}
       >
         {expanded ? (
-          <CastStats c={c} statDefs={statDefs} width={CAST_STATS_W} onClose={onToggleStats} />
+          <CastStats
+            c={c}
+            statDefs={statDefs}
+            statValues={statValues}
+            width={CAST_STATS_W}
+            onClose={onToggleStats}
+          />
         ) : null}
       </div>
     </div>
@@ -492,17 +507,21 @@ function CastCard({
 /**
  * The statistics content shown inside a cast card's slide-out extension. Lists
  * the storyline's player-visible (public) stat definitions that apply to this
- * character with their default values; falls back to an empty-state line. Fixed
- * width so it doesn't reflow while the extension animates open.
+ * character with their real persisted value (falling back to the schema default
+ * for a stat never explicitly set); falls back to an empty-state line when there
+ * are no public stats at all. Fixed width so it doesn't reflow while the
+ * extension animates open.
  */
 function CastStats({
   c,
   statDefs,
+  statValues,
   width,
   onClose,
 }: {
   c: Character;
   statDefs: StatDefinition[];
+  statValues?: Record<string, number>;
   width: number;
   onClose: () => void;
 }) {
@@ -553,7 +572,7 @@ function CastStats({
                   {d.displayName}
                 </span>
                 <span className="flex-none font-mono text-label" style={{ color: OVER_ART.title }}>
-                  {d.default}
+                  {statValues?.[d.key] ?? d.default}
                 </span>
               </li>
             ))}

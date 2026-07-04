@@ -1,6 +1,6 @@
 import { CharacterCard } from "@/components/feature/CharacterCard";
 import { ColumnEmpty, ColumnHeader } from "@/components/feature/ColumnChrome";
-import type { Character } from "@/lib/types";
+import type { Character, StatDefinition } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
 /**
@@ -16,6 +16,8 @@ export function CharacterColumn({
   onEdit,
   onAdd,
   padX,
+  statDefs,
+  statsByCharId,
 }: {
   characters: Character[];
   castIds: string[];
@@ -24,6 +26,10 @@ export function CharacterColumn({
   onEdit: (id: string) => void;
   onAdd?: () => void;
   padX?: string;
+  /** The storyline's stat schema — when given, each card shows its public stat
+   * values beneath the character's name/role. */
+  statDefs?: StatDefinition[];
+  statsByCharId?: Record<string, Record<string, number>>;
 }) {
   const cast = new Set(castIds);
   return (
@@ -41,6 +47,8 @@ export function CharacterColumn({
                 highlighted={cast.has(c.id)}
                 onPreview={() => onPreview(c.id)}
                 onEdit={() => onEdit(c.id)}
+                statDefs={statDefs}
+                statValues={statsByCharId?.[c.id]}
               />
             ))}
           </div>

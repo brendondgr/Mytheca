@@ -89,6 +89,7 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
       <ScenarioCarousel
         slides={lib.resolvedScenarios}
         statDefs={lib.statDefs}
+        statsByCharId={lib.statsByCharId}
         index={lib.featuredIndex}
         counterText={`${lib.featuredIndex + 1} / ${lib.scenarios.length}`}
         onPrev={() => lib.cycleFeatured(-1)}
