@@ -77,7 +77,10 @@ def _reasoned_decision(db: Session, ctx: TurnContext) -> DirectorDecision:
             base_url,
             api_key,
             model,
-            [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": user}],
+            [
+                {"role": "system", "content": ctx.prompts.get(prompt_registry.DIRECTOR_WHO_IS_UP, _SYSTEM)},
+                {"role": "user", "content": user},
+            ],
             params,
             reasoning=DIRECTOR_EFFORT,
         )
@@ -133,7 +136,10 @@ def rerank(db: Session, ctx: TurnContext, remaining_ids: list[str], turn_beats: 
             base_url,
             api_key,
             model,
-            [{"role": "system", "content": _RERANK_SYSTEM}, {"role": "user", "content": user}],
+            [
+                {"role": "system", "content": ctx.prompts.get(prompt_registry.DIRECTOR_RERANK, _RERANK_SYSTEM)},
+                {"role": "user", "content": user},
+            ],
             params,
             reasoning=DIRECTOR_EFFORT,
         )
@@ -201,7 +207,10 @@ def propose_branches(
             base_url,
             api_key,
             model,
-            [{"role": "system", "content": _BRANCH_SYSTEM}, {"role": "user", "content": user}],
+            [
+                {"role": "system", "content": ctx.prompts.get(prompt_registry.DIRECTOR_BRANCH, _BRANCH_SYSTEM)},
+                {"role": "user", "content": user},
+            ],
             params,
             reasoning=DIRECTOR_EFFORT,
         )

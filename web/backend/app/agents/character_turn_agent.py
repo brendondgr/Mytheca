@@ -79,7 +79,8 @@ def generate_line(
     rather than reacting to the player's words as if spoken to them.
     """
     base_url, api_key, model, params = resolve_llm(db)
-    system = f"{_OUTPUT_CONTRACT}\n\n{ctx.stable_prefix}".strip()
+    contract = ctx.prompts.get(prompt_registry.CHARACTER_OUTPUT_CONTRACT, _OUTPUT_CONTRACT)
+    system = f"{contract}\n\n{ctx.stable_prefix}".strip()
     # The system message is byte-identical for every speaker this turn — log its
     # prefix-cache id so warm-prefix reuse across the turn's calls is observable (§P11).
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))

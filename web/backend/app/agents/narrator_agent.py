@@ -61,7 +61,11 @@ def interstitial(
         else "Write the narrator's transition beat now."
     )
     user = f"{setting}{lead_line}Recent beats:\n{transcript}\n\n{ask}"
-    system = _SYSTEM_LONG if long else _SYSTEM
+    system = (
+        ctx.prompts.get(prompt_registry.NARRATOR_SYSTEM_LONG, _SYSTEM_LONG)
+        if long
+        else ctx.prompts.get(prompt_registry.NARRATOR_SYSTEM, _SYSTEM)
+    )
 
     try:
         text = llm.chat_complete(

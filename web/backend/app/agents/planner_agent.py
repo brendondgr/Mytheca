@@ -103,7 +103,10 @@ def next_beat(
             base_url,
             api_key,
             model,
-            [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": user}],
+            [
+                {"role": "system", "content": ctx.prompts.get(prompt_registry.PLANNER_SYSTEM, _SYSTEM)},
+                {"role": "user", "content": user},
+            ],
             params,
             reasoning=PLANNER_EFFORT,
         )
