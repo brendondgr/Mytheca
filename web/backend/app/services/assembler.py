@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
-from app.agents import _common
+from app.agents import _common, prompt_registry
 from app.memory import buffer, interior
 from app.models import Character, Scenario, Setting
 from app.models.stat import StatDefinition
@@ -31,6 +31,7 @@ from app.services import (
     graph_reader,
     presence,
     retrieval_gate,
+    settings_store,
     stat_guidance,
     stats,
 )
@@ -95,6 +96,11 @@ class TurnContext:
     # Depth of the recent-transcript window the character conditions on — the per-scene
     # ``context_beats`` (5–100), clamped by ``assemble_context``. Defaults to the legacy 14.
     context_beats: int = 14
+    # Resolved writing-agent system prompts ({registry key -> text}), folded
+    # default → global → storyline → scenario by ``prompt_registry.resolve_prompts``. Each
+    # writing agent reads its prompt from here, falling back to its registry default when a
+    # key is absent (e.g. a directly-constructed context in tests).
+    prompts: dict[str, str] = field(default_factory=dict)
 
     def cast_by_id(self, character_id: str) -> CastMember | None:
         return next((c for c in self.cast if c.id == character_id), None)
@@ -126,6 +132,12 @@ def assemble_context(
     subgraph = _safe_subgraph(db, scenario.id)
     stable_prefix = _build_stable_prefix(storyline, stat_defs, guidance)
     retrieved_lore, gate_reason = _gated_lore(db, storyline, cast, setting, player_text)
+    # Fold the writing-agent prompt overrides: global (settings) → storyline → scenario.
+    prompts = prompt_registry.resolve_prompts(
+        settings_store.get_prompts_overrides(db),
+        storyline.prompt_overrides or {},
+        scenario.prompt_overrides or {},
+    )
 
     return TurnContext(
         scenario=scenario,
@@ -143,6 +155,7 @@ def assemble_context(
         retrieved_lore=retrieved_lore,
         gate_reason=gate_reason,
         context_beats=context_beats,
+        prompts=prompts,
     )
 
 

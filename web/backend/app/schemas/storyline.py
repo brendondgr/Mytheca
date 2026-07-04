@@ -6,6 +6,8 @@ characters/settings/scenarios from their own per-storyline endpoints.
 
 from __future__ import annotations
 
+from pydantic import Field, field_validator
+
 from app.schemas.base import CamelModel
 
 
@@ -19,6 +21,8 @@ class StorylineBase(CamelModel):
     # Customizable seal (shape glyph + hex color) shown left of the name.
     symbol: str = "◆"
     symbol_color: str = "#C8862A"
+    # Per-storyline writing-prompt overrides ({registry key -> prompt text}).
+    prompt_overrides: dict[str, str] = Field(default_factory=dict)
 
 
 class StorylineCreate(StorylineBase):
@@ -33,6 +37,7 @@ class StorylineUpdate(CamelModel):
     world_primer: str | None = None
     symbol: str | None = None
     symbol_color: str | None = None
+    prompt_overrides: dict[str, str] | None = None
 
 
 class StorylineRead(CamelModel):
@@ -50,6 +55,12 @@ class StorylineRead(CamelModel):
     scenario_count: int = 0
     character_count: int = 0
     setting_count: int = 0
+    prompt_overrides: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("prompt_overrides", mode="before")
+    @classmethod
+    def _coerce_overrides(cls, v: object) -> object:
+        return v or {}
 
 
 # ---- Authoring (the agent process of building a storyline) ------------------

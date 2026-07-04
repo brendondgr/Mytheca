@@ -120,6 +120,11 @@ export interface Scenario {
   suggestionsCount?: number;
   /** Depth of the recent-transcript context window the character conditions on (5–100; default 14). */
   contextBeats?: number;
+  /**
+   * Per-scenario writing-prompt overrides ({registry key → prompt text}) — override the
+   * storyline's prompts for this scene only. Empty/absent inherits storyline/global/default.
+   */
+  promptOverrides?: Record<string, string>;
   /** Relative `/media/...` URL of an optional scene-art image; plate fallback. */
   image?: string | null;
   /** Persisted positive ComfyUI prompt for the scene-art image. */
@@ -157,6 +162,11 @@ export interface Storyline {
   symbol?: string;
   /** Seal color (hex) for the shape glyph. Defaults to the gold token. */
   symbolColor?: string;
+  /**
+   * Per-storyline writing-prompt overrides ({registry key → prompt text}) — the story's
+   * tone/phrasing + how the bot progresses the story. A scenario may override again.
+   */
+  promptOverrides?: Record<string, string>;
   characters: Character[];
   settings: Setting[];
   scenarios: Scenario[];

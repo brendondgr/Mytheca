@@ -716,6 +716,25 @@ export function useLibraryState(initialStorylineId?: string) {
     }
   }
 
+  // ---- per-storyline writing-prompt overrides (gear in the storyline switcher) ----
+  const [promptsStorylineId, setPromptsStorylineId] = useState<string | null>(null);
+  const promptsStoryline =
+    storylines.find((s) => s.id === promptsStorylineId) ?? null;
+
+  function openStorylinePrompts(id: string) {
+    setPromptsStorylineId(id);
+    setMenuOpen(false);
+  }
+  function closeStorylinePrompts() {
+    setPromptsStorylineId(null);
+  }
+  /** Mirror a saved storyline-prompt override map into local state (no refetch). */
+  function applyStorylinePrompts(id: string, promptOverrides: Record<string, string>) {
+    setStorylines((sls) =>
+      sls.map((sl) => (sl.id === id ? { ...sl, promptOverrides } : sl)),
+    );
+  }
+
   // ---- modal lifecycle ----
   function setDraft(key: keyof Draft, value: unknown) {
     setDraftState((prev) => ({ ...prev, [key]: value }));
@@ -800,6 +819,7 @@ export function useLibraryState(initialStorylineId?: string) {
       image: s.image ?? null,
       _sceneArtPositive: s.sceneArtPositive ?? "",
       _sceneArtNegative: s.sceneArtNegative ?? "",
+      _promptOverrides: s.promptOverrides ?? {},
     });
     setError(null);
     setModal({ type: "scenario", mode: "manual", editId: id });
@@ -962,6 +982,7 @@ export function useLibraryState(initialStorylineId?: string) {
           image: d.image || null,
           sceneArtPositive: d._sceneArtPositive?.trim() || null,
           sceneArtNegative: d._sceneArtNegative?.trim() || null,
+          promptOverrides: d._promptOverrides ?? {},
         };
         if (editId) {
           const updated = await api.updateScenario(editId, body);
@@ -1030,6 +1051,9 @@ export function useLibraryState(initialStorylineId?: string) {
     draftScenario, generateScenarioSceneArtPrompts, generateScenarioSceneArt,
     requestDeleteStoryline, confirmDeleteStoryline, cancelDeleteStoryline,
     storylineToDelete,
+    // per-storyline writing-prompt overrides
+    promptsStorylineId, promptsStoryline,
+    openStorylinePrompts, closeStorylinePrompts, applyStorylinePrompts,
     characters, settings, scenarios, resolvedScenarios, statDefs,
     filteredCharacters, filteredSettings, filteredScenarios,
     tab, setTab,

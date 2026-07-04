@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.schemas.base import BranchTag, CamelModel
 
@@ -29,6 +29,9 @@ class ScenarioBase(CamelModel):
     max_turns: int = Field(default=5, ge=1)
     suggestions_count: int = Field(default=4, ge=0, le=4)
     context_beats: int = Field(default=14, ge=5, le=100)
+    # Per-scenario writing-prompt overrides ({registry key -> prompt text}) — override the
+    # storyline's prompts for this scene only.
+    prompt_overrides: dict[str, str] = Field(default_factory=dict)
     # Optional scene art — persisted when the author renders an image via ComfyUI.
     image: str | None = None
     scene_art_positive: str | None = None
@@ -51,6 +54,7 @@ class ScenarioUpdate(CamelModel):
     max_turns: int | None = Field(default=None, ge=1)
     suggestions_count: int | None = Field(default=None, ge=0, le=4)
     context_beats: int | None = Field(default=None, ge=5, le=100)
+    prompt_overrides: dict[str, str] | None = None
     image: str | None = None
     scene_art_positive: str | None = None
     scene_art_negative: str | None = None
@@ -69,9 +73,15 @@ class ScenarioRead(CamelModel):
     max_turns: int = 5
     suggestions_count: int = 4
     context_beats: int = 14
+    prompt_overrides: dict[str, str] = Field(default_factory=dict)
     image: str | None = None
     scene_art_positive: str | None = None
     scene_art_negative: str | None = None
+
+    @field_validator("prompt_overrides", mode="before")
+    @classmethod
+    def _coerce_overrides(cls, v: object) -> object:
+        return v or {}
 
 
 # ---- Authoring (the agentic Scenario Creator) -------------------------------

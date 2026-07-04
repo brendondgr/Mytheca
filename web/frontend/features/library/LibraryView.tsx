@@ -13,8 +13,10 @@ import { EntityModal } from "@/components/feature/EntityModal";
 import { CharacterModal } from "@/components/feature/CharacterModal";
 import { SettingModal } from "@/components/feature/SettingModal";
 import { StorylineDeleteModal } from "@/components/feature/StorylineDeleteModal";
+import { PromptOverridesModal } from "@/components/feature/PromptOverridesModal";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { BeginSceneModal } from "@/components/feature/BeginSceneModal";
+import { updateStoryline } from "@/lib/api";
 
 /** The Library surface: header → recent-scenario carousel → open columns + editors. */
 export function LibraryView({ initialStorylineId }: { initialStorylineId?: string } = {}) {
@@ -47,6 +49,7 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
             onSwitch={lib.switchStoryline}
             onCreate={goCreateStoryline}
             onEdit={goEditStoryline}
+            onConfigurePrompts={lib.openStorylinePrompts}
             onDelete={lib.requestDeleteStoryline}
           />
         }
@@ -110,6 +113,21 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
         onConfirm={lib.confirmDeleteStoryline}
         onCancel={lib.cancelDeleteStoryline}
       />
+      {lib.promptsStoryline ? (
+        <PromptOverridesModal
+          open
+          onClose={lib.closeStorylinePrompts}
+          heading={`${lib.promptsStoryline.title} — writing prompts`}
+          subtitle="Tune this storyline's tone, phrasing, and how the story progresses. Overrides the global defaults for every scene in this world; a scenario can override again."
+          overrides={lib.promptsStoryline.promptOverrides ?? {}}
+          saveLabel="Save storyline prompts"
+          onSave={async (map) => {
+            const id = lib.promptsStoryline!.id;
+            await updateStoryline(id, { promptOverrides: map });
+            lib.applyStorylinePrompts(id, map);
+          }}
+        />
+      ) : null}
       <CharacterProfileModal
         character={lib.profileChar}
         onClose={lib.closeProfile}

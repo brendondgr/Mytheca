@@ -21,11 +21,15 @@ from app.schemas.settings import (
     LlmConfigRead,
     LlmConfigUpdate,
     LlmParams,
+    PromptsConfigRead,
+    PromptsConfigUpdate,
+    PromptSpecRead,
 )
 
 LLM_KEY = "llm"
 LIBRARY_KEY = "library"
 COMFY_KEY = "comfy"
+PROMPTS_KEY = "prompts"
 
 
 def _get_row(db: Session, key: str) -> dict:
@@ -174,3 +178,61 @@ def update_library(db: Session, data: LibraryDefaultsUpdate) -> LibraryDefaultsR
     doc.update(patch)
     _set_row(db, LIBRARY_KEY, doc)
     return get_library(db)
+
+
+# ---- Writing-prompt overrides (global defaults for the four writing agents) --
+
+
+def get_prompts_overrides(db: Session) -> dict[str, str]:
+    """The stored global prompt overrides ({registry key -> text}); {} when unset.
+
+    This is the raw override map the assembler folds under the storyline/scenario
+    layers via ``prompt_registry.resolve_prompts``. Only string values are kept.
+    """
+    row = _get_row(db, PROMPTS_KEY)
+    return {str(k): str(v) for k, v in row.items() if isinstance(v, str) and v.strip()}
+
+
+def get_prompts(db: Session) -> PromptsConfigRead:
+    """The prompts settings payload: the registry catalog + stored global overrides."""
+    from app.agents import prompt_registry
+
+    catalog = [
+        PromptSpecRead(
+            key=spec.key,
+            agent=spec.agent,
+            label=spec.label,
+            description=spec.description,
+            default=spec.default,
+        )
+        for spec in prompt_registry.PROMPT_REGISTRY
+    ]
+    return PromptsConfigRead(catalog=catalog, overrides=get_prompts_overrides(db))
+
+
+def update_prompts(db: Session, data: PromptsConfigUpdate) -> PromptsConfigRead:
+    """Apply a patch of global prompt overrides, then return the full payload."""
+    set_prompts_overrides(db, data.overrides)
+    return get_prompts(db)
+
+
+def set_prompts_overrides(db: Session, overrides: dict[str, str]) -> dict[str, str]:
+    """Merge a patch of global prompt overrides; a blank value clears that key.
+
+    Only registry-known keys are stored (unknown keys are ignored); an empty/blank
+    value deletes the override so the prompt reverts to its registry default.
+    """
+    from app.agents import prompt_registry
+
+    known = set(prompt_registry.keys())
+    doc = _get_row(db, PROMPTS_KEY)
+    for key, value in (overrides or {}).items():
+        if key not in known:
+            continue
+        text = str(value or "").strip()
+        if text:
+            doc[key] = text
+        else:
+            doc.pop(key, None)
+    _set_row(db, PROMPTS_KEY, doc)
+    return get_prompts_overrides(db)

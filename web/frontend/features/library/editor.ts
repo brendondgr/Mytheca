@@ -68,6 +68,9 @@ export interface Draft {
   // rendering the establishing image).
   _sceneArtPositive?: string;
   _sceneArtNegative?: string;
+  // Per-scenario writing-prompt overrides ({registry key → text}) staged in the
+  // scenario editor and persisted with the scenario (`promptOverrides`).
+  _promptOverrides?: Record<string, string>;
 }
 
 export interface ModalState {

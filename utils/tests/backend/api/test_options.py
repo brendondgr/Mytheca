@@ -166,3 +166,48 @@ def test_poll_backend_runs_one_iteration_and_stops():
     finally:
         main._refresh_backend_once = original
     assert calls["n"] == 1
+
+
+# ---- Writing-agent prompts -------------------------------------------------
+
+
+def test_get_returns_prompt_catalog_and_empty_overrides(client):
+    prompts = client.get("/api/options").json()["prompts"]
+    keys = {spec["key"] for spec in prompts["catalog"]}
+    assert keys == {
+        "character.output_contract",
+        "narrator.system",
+        "narrator.system_long",
+        "director.who_is_up",
+        "director.rerank",
+        "director.branch",
+        "planner.system",
+    }
+    # Each catalog entry carries display metadata + default text.
+    first = prompts["catalog"][0]
+    assert first["agent"] and first["label"] and first["description"] and first["default"].strip()
+    assert prompts["overrides"] == {}
+
+
+def test_patch_prompts_sets_and_clears_override(client):
+    patched = client.patch(
+        "/api/options/prompts",
+        json={"overrides": {"narrator.system": "Be terse and grim."}},
+    ).json()
+    assert patched["overrides"] == {"narrator.system": "Be terse and grim."}
+    # Persists across a fresh GET.
+    assert client.get("/api/options").json()["prompts"]["overrides"] == {
+        "narrator.system": "Be terse and grim."
+    }
+    # A blank value clears the key (reverts to default).
+    cleared = client.patch(
+        "/api/options/prompts", json={"overrides": {"narrator.system": "  "}}
+    ).json()
+    assert "narrator.system" not in cleared["overrides"]
+
+
+def test_patch_prompts_ignores_unknown_keys(client):
+    patched = client.patch(
+        "/api/options/prompts", json={"overrides": {"bogus.key": "x"}}
+    ).json()
+    assert patched["overrides"] == {}

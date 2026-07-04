@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db import Base
+from app.core.db import Base, JSONColumn
 from app.core.ids import new_hex_id
 
 if TYPE_CHECKING:
@@ -44,6 +44,11 @@ class Storyline(Base):
     symbol: Mapped[str] = mapped_column(String, default="◆")
     symbol_color: Mapped[str] = mapped_column(String, default="#C8862A")
     position: Mapped[int] = mapped_column(default=0)
+    # Per-storyline writing-prompt overrides ({registry key -> prompt text}) for the four
+    # core writing agents — the storyline's tone/phrasing + how the bot progresses the
+    # story. Empty {} means "use the global/default prompt"; a scenario may override again.
+    # Nullable (older rows read as {}); resolved by ``prompt_registry.resolve_prompts``.
+    prompt_overrides: Mapped[dict | None] = mapped_column(JSONColumn, nullable=True, default=dict)
 
     characters: Mapped[list[Character]] = relationship(
         back_populates="storyline",

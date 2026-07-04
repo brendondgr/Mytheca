@@ -44,6 +44,10 @@ class Scenario(Base):
     max_turns: Mapped[int] = mapped_column(Integer, default=5, server_default="5")
     suggestions_count: Mapped[int] = mapped_column(Integer, default=4, server_default="4")
     context_beats: Mapped[int] = mapped_column(Integer, default=14, server_default="14")
+    # Per-scenario writing-prompt overrides ({registry key -> prompt text}) — override the
+    # storyline's prompts for THIS scene only. Empty {} inherits storyline/global/default.
+    # Nullable (older rows read as {}); resolved by ``prompt_registry.resolve_prompts``.
+    prompt_overrides: Mapped[dict | None] = mapped_column(JSONColumn, nullable=True, default=dict)
     # Scene art generated for this scenario (opt-in, requires ComfyUI).
     image: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     scene_art_positive: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
