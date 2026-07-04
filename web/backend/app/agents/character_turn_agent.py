@@ -120,16 +120,17 @@ def _build_user_prompt(
     # HEAD — identity + interiority (primacy).
     head = [f"You are [{number}] {speaker.name} — {speaker.role}."]
     if speaker.speech:
-        head.append(f"Speech style: {speaker.speech}")
+        head.append(f"Speech style (your default voice): {speaker.speech}")
     if speaker.traits:
         head.append(f"Traits: {speaker.traits}")
     if speaker.voice_samples:
-        # Concrete situation → sample-response pairs authored for this character:
-        # the ground truth for *how* they sound. Anchors both the spoken line and
-        # the in-voice <thinking> step (Character Voice & Tone).
+        # Concrete situation → sample-response pairs authored for this character: the ground
+        # truth for *how* they sound AT REST. Framed as a baseline, not a script — the person
+        # stays constant, but their register bends with the stakes (see the output contract's
+        # manner-adaptation rule). Anchors both the spoken line and the in-voice <thinking>.
         head.append(
-            "Voice samples — how you sound (match this cadence, diction, and attitude "
-            f"in both speech and thought):\n{speaker.voice_samples}"
+            "Voice samples — your baseline voice (how you sound at rest; keep the person, but "
+            f"let the register flex with the moment):\n{speaker.voice_samples}"
         )
     if speaker.stats:
         state = ", ".join(f"{k}={v}" for k, v in speaker.stats.items())
@@ -140,7 +141,7 @@ def _build_user_prompt(
         head.append(f"Your current inner stance: {speaker.disposition}")
     if speaker.recent_lines:
         anchors = "  ".join(f"“{line}”" for line in speaker.recent_lines)
-        head.append(f"Your recent lines (match this voice): {anchors}")
+        head.append(f"Your recent lines (a reference for your voice, not a script): {anchors}")
 
     # MIDDLE — scene + roster + transcript (context, not driver). The transcript ends
     # with the most recent line (the player, or the predecessor who just spoke).
@@ -162,6 +163,19 @@ def _build_user_prompt(
 
     # TAIL — act-now (recency).
     tail: list[str] = []
+    # Situational adaptation cue (recency, strongest attention): read the moment before
+    # defaulting to habit. Restates the scene's mood here as a tonal constraint (not scenery)
+    # and points at the character's own condition so the manner-adaptation rule actually fires.
+    moment = "Before you respond, read the moment — the stakes, the mood, and your own condition"
+    if ctx.setting is not None:
+        mood = (ctx.setting.atmosphere or ctx.setting.current_state or "").strip()
+        if mood:
+            moment += f" (the scene right now: {mood})"
+    moment += (
+        " — and let it shape how you come across. Drop your usual manner if the moment calls "
+        "for it (grief, fear, urgency, tenderness); don't answer on autopilot."
+    )
+    tail.append(moment)
     if ctx.directed_at == speaker.id:
         tail.append("The player addressed you directly.")
     if speaker.disposition:

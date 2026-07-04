@@ -202,9 +202,32 @@ def test_voice_samples_injected_into_head(client, db_session, monkeypatch):
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
     user = json.loads(capture["body"])["messages"][1]["content"]
-    # Voice samples sit in the HEAD (primacy), anchoring both speech and thought.
-    assert "Voice samples — how you sound" in user
+    # Voice samples sit in the HEAD (primacy) as a baseline, not a script — the register is
+    # allowed to flex with the moment rather than being locked to the samples.
+    assert "Voice samples — your baseline voice" in user
+    assert "let the register flex with the moment" in user
     assert 'When haggling: "Coin first, favor later."' in user
+
+
+def test_tail_surfaces_read_the_moment_adaptation_cue(client, db_session, monkeypatch):
+    # The recency tail must carry the "read the moment" cue and surface the scene's mood as a
+    # tonal constraint, so the character adapts its manner instead of defaulting to habit.
+    from app.models import Setting
+
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    ctx.setting = Setting(name="Chapel", atmosphere="a hushed, grieving funeral")
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "read the moment" in user
+    assert "on autopilot" in user
+    # The mood is restated inside the tail cue (not just as middle scenery).
+    assert "the scene right now: a hushed, grieving funeral" in user
 
 
 def test_no_voice_samples_omits_the_block(client, db_session, monkeypatch):
