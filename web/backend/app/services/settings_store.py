@@ -21,6 +21,9 @@ from app.schemas.settings import (
     LlmConfigRead,
     LlmConfigUpdate,
     LlmParams,
+    PromptsConfigRead,
+    PromptsConfigUpdate,
+    PromptSpecRead,
 )
 
 LLM_KEY = "llm"
@@ -188,6 +191,29 @@ def get_prompts_overrides(db: Session) -> dict[str, str]:
     """
     row = _get_row(db, PROMPTS_KEY)
     return {str(k): str(v) for k, v in row.items() if isinstance(v, str) and v.strip()}
+
+
+def get_prompts(db: Session) -> PromptsConfigRead:
+    """The prompts settings payload: the registry catalog + stored global overrides."""
+    from app.agents import prompt_registry
+
+    catalog = [
+        PromptSpecRead(
+            key=spec.key,
+            agent=spec.agent,
+            label=spec.label,
+            description=spec.description,
+            default=spec.default,
+        )
+        for spec in prompt_registry.PROMPT_REGISTRY
+    ]
+    return PromptsConfigRead(catalog=catalog, overrides=get_prompts_overrides(db))
+
+
+def update_prompts(db: Session, data: PromptsConfigUpdate) -> PromptsConfigRead:
+    """Apply a patch of global prompt overrides, then return the full payload."""
+    set_prompts_overrides(db, data.overrides)
+    return get_prompts(db)
 
 
 def set_prompts_overrides(db: Session, overrides: dict[str, str]) -> dict[str, str]:

@@ -97,10 +97,42 @@ class ComfyWorkflowsResponse(CamelModel):
     workflows: list[str]
 
 
+# ---- Writing-agent prompts ------------------------------------------------
+
+
+class PromptSpecRead(CamelModel):
+    """One editable writing prompt's catalog entry (metadata + default text)."""
+
+    key: str
+    agent: str
+    label: str
+    description: str
+    default: str
+
+
+class PromptsConfigRead(CamelModel):
+    """The prompts settings payload: the full catalog + the stored global overrides.
+
+    ``catalog`` is derived from the backend prompt registry (all editable writing
+    prompts, in display order); ``overrides`` maps a prompt key to the operator's
+    global override text. A key absent from ``overrides`` uses its catalog default.
+    """
+
+    catalog: list[PromptSpecRead] = []
+    overrides: dict[str, str] = {}
+
+
+class PromptsConfigUpdate(CamelModel):
+    """Patch the global prompt overrides. A blank value clears a key (reverts to default)."""
+
+    overrides: dict[str, str] = {}
+
+
 class SettingsRead(CamelModel):
     llm: LlmConfigRead
     library: LibraryDefaultsRead
     comfy: ComfyConfigRead
+    prompts: PromptsConfigRead
 
 
 class LlmModelsRequest(CamelModel):

@@ -31,6 +31,8 @@ from app.schemas.settings import (
     MediaCleanupResponse,
     MediaDirOrphans,
     MediaOrphansResponse,
+    PromptsConfigRead,
+    PromptsConfigUpdate,
     SettingsRead,
 )
 from app.services import comfyui, llm, llm_backend, media_cleanup, settings_store
@@ -45,12 +47,19 @@ def get_options(db: Session = Depends(get_db)):
         llm=settings_store.get_llm(db),
         library=settings_store.get_library(db),
         comfy=settings_store.get_comfy(db),
+        prompts=settings_store.get_prompts(db),
     )
 
 
 @router.patch("/llm", response_model=LlmConfigRead)
 def update_llm(data: LlmConfigUpdate, db: Session = Depends(get_db)):
     return settings_store.update_llm(db, data)
+
+
+@router.patch("/prompts", response_model=PromptsConfigRead)
+def update_prompts(data: PromptsConfigUpdate, db: Session = Depends(get_db)):
+    """Patch the global writing-agent prompt overrides (blank value clears a key)."""
+    return settings_store.update_prompts(db, data)
 
 
 @router.patch("/library", response_model=LibraryDefaultsRead)
