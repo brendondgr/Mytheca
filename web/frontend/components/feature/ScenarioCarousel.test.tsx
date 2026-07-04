@@ -151,6 +151,22 @@ describe("ScenarioCarousel", () => {
     expect(within(renRegion).getByText("7")).toBeInTheDocument();
   });
 
+  it("shows a stat whose appliesTo is a node-type tag, not a per-character id list", async () => {
+    // Regression: `appliesTo` is a type tag (e.g. "character" vs "setting") — the
+    // backend's real default. It must not be mistaken for a list of character ids
+    // (which would falsely exclude every real-world stat def from this panel).
+    const user = userEvent.setup();
+    renderCarousel({
+      statDefs: [
+        { key: "health", displayName: "Health", description: "", min: 0, max: 100, default: 100, visibility: "public", guidance: null, appliesTo: ["character"], bands: [] },
+      ],
+    });
+    await user.click(screen.getByRole("button", { name: /show statistics for hunter krow/i }));
+    const region = screen.getByRole("region", { name: /hunter krow statistics/i });
+    expect(within(region).getByText("Health")).toBeInTheDocument();
+    expect(within(region).getByText("100")).toBeInTheDocument();
+  });
+
   it("shows a full-bleed portrait image when the character has one", () => {
     const { container } = renderWithContainer();
     const portrait = container.querySelector('img[src*="krow.webp"]');

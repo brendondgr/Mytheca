@@ -525,11 +525,10 @@ function CastStats({
   width: number;
   onClose: () => void;
 }) {
-  const stats = statDefs.filter(
-    (d) =>
-      d.visibility === "public" &&
-      (d.appliesTo.length === 0 || d.appliesTo.includes(c.id)),
-  );
+  // `appliesTo` is a node-TYPE tag (e.g. "character" vs "setting"), not a list of
+  // specific character ids — every other stat consumer (CharacterCard, CastRail,
+  // DirectorRail, CharacterProfileModal) filters on visibility alone; matching that.
+  const stats = statDefs.filter((d) => d.visibility === "public");
   return (
     <div
       role="region"

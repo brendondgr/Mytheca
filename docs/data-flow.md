@@ -162,6 +162,16 @@ all); it now also takes `statDefs`/`statValues` and renders a `ProfileStats` sec
 same `statsByCharId` map, so opening a character from the Scenario hero shows the same real
 values as the card it was opened from.
 
+**`CastStats`'s "Statistics" flyout showed nothing at all for real-world stat schemas** —
+a separate, longer-standing bug: it filtered defs on `d.appliesTo.length === 0 ||
+d.appliesTo.includes(c.id)`, treating `appliesTo` as a per-character id allowlist. `appliesTo`
+is actually a **node-type tag** (`["character"]` vs. e.g. a future `["setting"]`) — the backend
+model's own default (`applies_to` on `StatDefinition`) — so a real character id like `"maerin"`
+never matched the literal string `"character"` and every stat with a non-empty `appliesTo` (i.e.
+every stat created through the normal editor) was silently dropped. Fixed by filtering on
+`visibility === "public"` alone, matching every other stat consumer (`CharacterCard`, `CastRail`,
+`DirectorRail`, `CharacterProfileModal`).
+
 The cold-path **graph trace** (Inspector's green *Graph* steps) reports *what* was written,
 not just a count: the `commit` step lists each durable `Consequence.summary` (e.g. "suspicion
 +12: old guilt"), and the first-turn `relationships` step lists the seeded edges
