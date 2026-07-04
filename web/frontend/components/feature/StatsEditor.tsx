@@ -56,7 +56,7 @@ export function StatsEditor({
   }
   function addBand(si: number) {
     const s = stats[si];
-    patchStat(si, { bands: [...s.bands, { min: s.min, max: s.max, label: "" }] });
+    patchStat(si, { bands: [...s.bands, { min: s.min, max: s.max, label: "", description: "" }] });
   }
   function removeBand(si: number, bi: number) {
     patchStat(si, { bands: stats[si].bands.filter((_, idx) => idx !== bi) });
@@ -78,7 +78,10 @@ export function StatsEditor({
         Universal stats shared by every character in this world. Give each a range
         and labeled <span className="italic">bands</span> — what its values mean
         (e.g. Health 0–20 = “Nearly dead”) — so the story engine can read a
-        character&apos;s condition from a number.
+        character&apos;s condition from a number. In any description you can write{" "}
+        <span className="font-mono text-[11.5px] text-accent">{"{Character}"}</span>{" "}
+        — it&apos;s replaced with the character&apos;s name when the story engine
+        reads their current stat.
       </p>
 
       {stats.length === 0 ? (
@@ -116,12 +119,13 @@ export function StatsEditor({
               </div>
 
               {/* Description */}
-              <input
+              <textarea
                 aria-label={`${s.displayName || "Statistic"} description`}
-                placeholder="What it represents (optional)."
+                placeholder="What it represents — 1–2 sentences. e.g. “{Character}'s capacity for sustained exertion; lower means tired, higher means energetic.”"
                 value={s.description}
                 onChange={(e) => patchStat(si, { description: e.target.value })}
-                className={`${TXT} mt-[8px]`}
+                rows={2}
+                className={`${TXT} mt-[8px] resize-y`}
               />
 
               {/* Range */}
@@ -161,41 +165,50 @@ export function StatsEditor({
                     No bands — add one to label a range (e.g. 0–20 “Nearly dead”).
                   </p>
                 ) : (
-                  <ul className="mt-[8px] flex flex-col gap-[7px]">
+                  <ul className="mt-[8px] flex flex-col gap-[10px]">
                     {s.bands.map((b, bi) => (
-                      <li key={bi} className="flex flex-wrap items-center gap-[8px]">
+                      <li key={bi} className="flex flex-col gap-[6px]">
+                        <div className="flex flex-wrap items-center gap-[8px]">
+                          <input
+                            type="number"
+                            aria-label={`Band ${bi + 1} min`}
+                            value={b.min}
+                            onChange={(e) => patchBand(si, bi, { min: num(e.target.value, b.min) })}
+                            className={NUM}
+                          />
+                          <span aria-hidden className="text-mute2">
+                            –
+                          </span>
+                          <input
+                            type="number"
+                            aria-label={`Band ${bi + 1} max`}
+                            value={b.max}
+                            onChange={(e) => patchBand(si, bi, { max: num(e.target.value, b.max) })}
+                            className={NUM}
+                          />
+                          <input
+                            aria-label={`Band ${bi + 1} label`}
+                            placeholder="Label — e.g. Nearly dead"
+                            value={b.label}
+                            onChange={(e) => patchBand(si, bi, { label: e.target.value })}
+                            className={`${TXT} min-w-[120px] flex-1`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeBand(si, bi)}
+                            aria-label={`Remove band ${bi + 1}`}
+                            className="cursor-pointer px-[5px] font-mono text-[13px] text-accent hover:underline"
+                          >
+                            ✕
+                          </button>
+                        </div>
                         <input
-                          type="number"
-                          aria-label={`Band ${bi + 1} min`}
-                          value={b.min}
-                          onChange={(e) => patchBand(si, bi, { min: num(e.target.value, b.min) })}
-                          className={NUM}
+                          aria-label={`Band ${bi + 1} description`}
+                          placeholder="Description — e.g. “{Character} is exhausted and cannot act at full strength.”"
+                          value={b.description ?? ""}
+                          onChange={(e) => patchBand(si, bi, { description: e.target.value })}
+                          className={`${TXT} text-[12.5px]`}
                         />
-                        <span aria-hidden className="text-mute2">
-                          –
-                        </span>
-                        <input
-                          type="number"
-                          aria-label={`Band ${bi + 1} max`}
-                          value={b.max}
-                          onChange={(e) => patchBand(si, bi, { max: num(e.target.value, b.max) })}
-                          className={NUM}
-                        />
-                        <input
-                          aria-label={`Band ${bi + 1} label`}
-                          placeholder="Label — e.g. Nearly dead"
-                          value={b.label}
-                          onChange={(e) => patchBand(si, bi, { label: e.target.value })}
-                          className={`${TXT} min-w-[120px] flex-1`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeBand(si, bi)}
-                          aria-label={`Remove band ${bi + 1}`}
-                          className="cursor-pointer px-[5px] font-mono text-[13px] text-accent hover:underline"
-                        >
-                          ✕
-                        </button>
                       </li>
                     ))}
                   </ul>
