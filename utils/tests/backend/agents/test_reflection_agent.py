@@ -91,6 +91,19 @@ def test_branch_dispositions_dropped_when_no_branches(monkeypatch):
     assert rec is not None and rec.branch_dispositions == {}  # no branches offered → dropped
 
 
+def test_disposition_prompt_captures_emotional_situational_state(monkeypatch):
+    # Disposition must carry the character's emotional/situational state forward (shaken, afraid,
+    # …) so an adapted manner persists across turns instead of snapping back to the default.
+    capture: dict = {}
+    _patch(monkeypatch, json.dumps({"disposition": "Shaken."}), capture)
+    reflection_agent.reflect(
+        _CONN, name="Mei", role="X", character_id="c_mei", stable_prefix="", transcript="x"
+    )
+    system = json.loads(capture["body"])["messages"][0]["content"]
+    assert "FEELING" in system
+    assert "default manner" in system
+
+
 def test_malformed_reply_yields_none(monkeypatch):
     _patch(monkeypatch, "not json at all")
     assert (
