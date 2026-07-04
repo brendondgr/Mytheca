@@ -8,6 +8,7 @@ import { FieldLabel } from "@/components/ui/FieldLabel";
 import { TextArea } from "@/components/ui/TextArea";
 import { ScenarioForm } from "@/components/feature/ScenarioForm";
 import { SceneArtModal } from "@/components/feature/SceneArtModal";
+import { PromptOverridesModal } from "@/components/feature/PromptOverridesModal";
 import { ContextFilesPanel } from "@/components/feature/ContextFilesPanel";
 import { cn } from "@/lib/cn";
 import { mediaUrl } from "@/lib/api";
@@ -35,8 +36,9 @@ const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor
  * already exists in useLibraryState.
  */
 export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }) {
-  // Declare hook before the early-return guard to keep the hook order stable.
+  // Declare hooks before the early-return guard to keep the hook order stable.
   const [sceneArtOpen, setSceneArtOpen] = useState(false);
+  const [promptsOpen, setPromptsOpen] = useState(false);
 
   const m = lib.modal;
   if (!m || m.type !== "scenario") return null;
@@ -214,18 +216,25 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
               </p>
             ) : null}
             <div className="mt-[20px] flex items-center justify-between gap-[10px]">
-              {isEdit ? (
+              <div className="flex items-center gap-[14px]">
+                {isEdit ? (
+                  <button
+                    type="button"
+                    onClick={lib.deleteEntity}
+                    disabled={lib.pending}
+                    className="cursor-pointer p-[6px] font-mono text-[10.5px] tracking-[0.06em] text-accent uppercase hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {lib.pending ? "Deleting…" : "Delete"}
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                  onClick={lib.deleteEntity}
-                  disabled={lib.pending}
-                  className="cursor-pointer p-[6px] font-mono text-[10.5px] tracking-[0.06em] text-accent uppercase hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => setPromptsOpen(true)}
+                  className="cursor-pointer p-[6px] font-mono text-[10.5px] tracking-[0.06em] text-mute uppercase hover:text-accent hover:underline"
                 >
-                  {lib.pending ? "Deleting…" : "Delete"}
+                  ⚙ Writing prompts
                 </button>
-              ) : (
-                <span />
-              )}
+              </div>
               <div className="flex gap-[10px]">
                 <Button variant="ghost" onClick={lib.closeModal}>
                   Cancel
@@ -265,6 +274,18 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
         generatingImage={lib.generatingPortrait}
         onGenerate={lib.generateScenarioSceneArt}
         error={lib.error}
+      />
+
+      {/* Per-scenario writing-prompt overrides — staged into the draft, saved with the scene. */}
+      <PromptOverridesModal
+        open={promptsOpen}
+        onClose={() => setPromptsOpen(false)}
+        heading={`${d.title || "This scene"} — writing prompts`}
+        subtitle="Override this storyline's writing prompts for THIS scene only. Applied when you save the scenario; leave a prompt untouched to inherit the storyline/global default."
+        overrides={d._promptOverrides ?? {}}
+        baseline={lib.activeStoryline?.promptOverrides ?? {}}
+        saveLabel="Apply to scene"
+        onSave={(map) => lib.setDraft("_promptOverrides", map)}
       />
     </Modal>
   );

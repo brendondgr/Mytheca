@@ -14,6 +14,7 @@ function setup(storylines = STORYLINES) {
     onSwitch: vi.fn(),
     onCreate: vi.fn(),
     onEdit: vi.fn(),
+    onConfigurePrompts: vi.fn(),
     onDelete: vi.fn(),
   };
   render(<StorylineMenu storylines={storylines} activeId="embergate" {...handlers} />);
@@ -32,6 +33,15 @@ describe("StorylineMenu", () => {
     await user.click(screen.getByTitle(/switch storyline/i)); // reopen (closed on action)
     await user.click(screen.getByRole("button", { name: /delete embergate/i }));
     expect(onDelete).toHaveBeenCalledWith("embergate");
+  });
+
+  it("offers a per-storyline writing-prompts (gear) action", async () => {
+    const user = userEvent.setup();
+    const { onConfigurePrompts } = setup();
+
+    await user.click(screen.getByTitle(/switch storyline/i));
+    await user.click(screen.getByRole("button", { name: /writing prompts for tidefall/i }));
+    expect(onConfigurePrompts).toHaveBeenCalledWith("tidefall");
   });
 
   it("renders the active storyline's custom seal (symbol + color)", () => {
