@@ -67,15 +67,19 @@ def test_invalid_range_rejected_on_patch(client, storyline_id):
 
 def test_bands_roundtrip_and_validate(client, storyline_id):
     bands = [
-        {"min": 0, "max": 20, "label": "Nearly dead"},
+        {"min": 0, "max": 20, "label": "Nearly dead", "description": "{Character} can barely stand."},
         {"min": 81, "max": 100, "label": "Very healthy"},
     ]
     created = _define_health(client, storyline_id, bands=bands)
     assert created.status_code == 201
-    assert created.json()["bands"] == bands
+    # The read always carries an explicit per-band description (default "" when omitted).
+    assert created.json()["bands"] == [
+        {"min": 0, "max": 20, "label": "Nearly dead", "description": "{Character} can barely stand."},
+        {"min": 81, "max": 100, "label": "Very healthy", "description": ""},
+    ]
 
-    # Bands are editable via PATCH.
-    new_bands = [{"min": 0, "max": 100, "label": "Alive"}]
+    # Bands (incl. their descriptions) are editable via PATCH.
+    new_bands = [{"min": 0, "max": 100, "label": "Alive", "description": "{Character} lives."}]
     patched = client.patch(
         f"/api/storylines/{storyline_id}/stats/health", json={"bands": new_bands}
     )

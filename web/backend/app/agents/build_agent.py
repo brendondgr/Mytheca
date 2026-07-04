@@ -73,14 +73,24 @@ _BLUEPRINT_SYSTEM = (
     "shares (health, morale, suspicion, etc.); (2) a CAST of distinct character "
     "concepts; and (3) a set of SETTING concepts (places the story returns to). "
     "Respond with ONLY a JSON object — no prose, no markdown, no code fences — of "
-    'the form {"stats": [{"displayName": "Health", "description": "Physical '
-    'condition.", "min": 0, "max": 100, "default": 100, "bands": [{"min": 0, "max": '
-    '20, "label": "Nearly dead"}, {"min": 81, "max": 100, "label": "Very healthy"}]}], '
+    'the form {"stats": [{"displayName": "Stamina", "description": "{Character}\'s '
+    "capacity for sustained physical and magical exertion. Lower values mean "
+    "{Character} is tired and can do less; higher values mean they have the energy "
+    'to act.", "min": 0, "max": 100, "default": 100, "bands": [{"min": 0, "max": 20, '
+    '"label": "Exhausted", "description": "{Character} is exhausted and cannot act at '
+    'their former strength."}, {"min": 81, "max": 100, "label": "Vigorous", '
+    '"description": "{Character} is full of energy and has the drive to do whatever '
+    'they set their mind to."}]}], '
     '"characters": ["one vivid sentence describing a character", ...], "settings": '
     '["one vivid sentence describing a place", ...]}.\n'
-    "Each stat needs 2-4 labeled bands that name what value ranges MEAN. Each "
-    "concept is a single sentence a downstream agent will flesh out. Keep everything "
-    "consistent with the world brief."
+    "Every stat description MUST be 1-2 sentences that use the literal placeholder "
+    "{Character} (never a real name) and explain what LOW vs HIGH values mean. Each "
+    "stat needs 2-4 labeled bands; every band needs a 1-sentence description, also "
+    "using the {Character} placeholder, saying what the character is like in that "
+    "range. At play time {Character} is replaced with the acting character's name, so "
+    "write descriptions that read naturally with a name substituted in. Each cast/"
+    "setting concept is a single sentence a downstream agent will flesh out. Keep "
+    "everything consistent with the world brief."
 )
 
 
@@ -120,7 +130,8 @@ def _sanitize_bands(rows: object, lo: int, hi: int) -> list[StatBand]:
         bmax = max(lo, min(hi, _int(row.get("max"), hi)))
         if bmin > bmax:
             bmin, bmax = bmax, bmin
-        bands.append(StatBand(min=bmin, max=bmax, label=label))
+        description = str(row.get("description") or "").strip()
+        bands.append(StatBand(min=bmin, max=bmax, label=label, description=description))
     return bands
 
 

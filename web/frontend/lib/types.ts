@@ -184,6 +184,12 @@ export interface StatBand {
   max: number;
   /** e.g. "Nearly dead", "Very healthy". */
   label: string;
+  /**
+   * Optional 1-sentence explanation of the band, written with a `{Character}`
+   * placeholder that the backend substitutes with the character's name at play
+   * time (e.g. "{Character} is exhausted and cannot act at full strength.").
+   */
+  description?: string;
 }
 
 /** Visibility — public to the player, or hidden/agent-only (mirrors the backend). */

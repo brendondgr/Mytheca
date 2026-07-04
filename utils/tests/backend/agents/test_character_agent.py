@@ -309,7 +309,14 @@ def test_starting_stats_prompt_includes_band_meanings(client, monkeypatch, story
             "min": 0,
             "max": 100,
             "default": 100,
-            "bands": [{"min": 0, "max": 20, "label": "NEARLY_DEAD_MARKER"}],
+            "bands": [
+                {
+                    "min": 0,
+                    "max": 20,
+                    "label": "NEARLY_DEAD_MARKER",
+                    "description": "BAND_DESC_MARKER",
+                }
+            ],
         },
     )
     seen: dict = {}
@@ -324,8 +331,10 @@ def test_starting_stats_prompt_includes_band_meanings(client, monkeypatch, story
         json={"storylineId": storyline_id, "name": "Wretch"},
     )
     assert res.status_code == 200
-    # The band's meaning is in the prompt so the model can choose a coherent value.
+    # The band's label AND description are in the prompt so the model can choose a
+    # coherent value.
     assert "NEARLY_DEAD_MARKER" in seen["body"]
+    assert "BAND_DESC_MARKER" in seen["body"]
 
 
 def test_starting_stats_prompt_includes_guidance_text(client, monkeypatch, storyline_id):

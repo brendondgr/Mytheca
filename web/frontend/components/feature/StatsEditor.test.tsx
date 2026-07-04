@@ -41,12 +41,30 @@ describe("StatsEditor", () => {
     ]);
   });
 
-  it("adds a band ('ticker') seeded to the stat's range", () => {
+  it("adds a band ('ticker') seeded to the stat's range with an empty description", () => {
     const stat: StatDefinition = { ...blankStat(), key: "health", displayName: "Health", min: 0, max: 100 };
     const { onChange } = renderEditor([stat]);
     fireEvent.click(screen.getByRole("button", { name: "+ Add band" }));
     expect(onChange).toHaveBeenCalledWith([
-      expect.objectContaining({ bands: [{ min: 0, max: 100, label: "" }] }),
+      expect.objectContaining({ bands: [{ min: 0, max: 100, label: "", description: "" }] }),
+    ]);
+  });
+
+  it("edits a band description (the {Character} field)", () => {
+    const stat: StatDefinition = {
+      ...blankStat(),
+      key: "stamina",
+      displayName: "Stamina",
+      bands: [{ min: 0, max: 20, label: "Exhausted", description: "" }],
+    };
+    const { onChange } = renderEditor([stat]);
+    fireEvent.change(screen.getByLabelText("Band 1 description"), {
+      target: { value: "{Character} is exhausted." },
+    });
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({
+        bands: [{ min: 0, max: 20, label: "Exhausted", description: "{Character} is exhausted." }],
+      }),
     ]);
   });
 

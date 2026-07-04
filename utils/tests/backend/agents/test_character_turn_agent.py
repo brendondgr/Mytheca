@@ -8,6 +8,7 @@ import httpx
 
 from app.agents import character_turn_agent
 from app.models import Scenario
+from app.models.stat import StatDefinition
 from app.services import assembler, llm
 
 _EMISSION = '<speaker:1>\n<type:character_dialogue>\n"Coin\'s easy."'
@@ -98,6 +99,42 @@ def test_prompt_is_bookended_and_grounded(client, db_session, monkeypatch):
     # TAIL (recency): act-now is last.
     assert user.rstrip().endswith("Emit only the tagged format.")
     assert "Respond now, in Mei's voice" in user
+
+
+def test_stat_defs_inject_current_band_named_to_the_character(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()  # speaker Mei has stats={"trust": 38}
+    ctx.stat_defs = [
+        StatDefinition(
+            key="trust",
+            display_name="Trust",
+            min=0,
+            max=100,
+            default=50,
+            description="{Character}'s faith in the people around them.",
+            bands=[
+                {"min": 0, "max": 20, "label": "Wary", "description": "{Character} trusts no one."},
+                {"min": 21, "max": 60, "label": "Guarded", "description": "{Character} keeps their guard up."},
+            ],
+        )
+    ]
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "I slide the pouch over.", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+
+    # The value (38) falls in the Guarded band → its label + description, name-substituted.
+    assert "Trust 38/100 (Guarded)" in user
+    assert "Mei keeps their guard up." in user
+    assert "Mei's faith in the people around them." in user  # general description too
+    # The non-current band's text is NOT shown, and no placeholder leaks.
+    assert "trusts no one" not in user
+    assert "{Character}" not in user
+    # The old flat "trust=38" form is replaced by the enriched block.
+    assert "trust=38" not in user
 
 
 def test_retrieved_lore_is_injected_into_the_prompt(client, db_session, monkeypatch):

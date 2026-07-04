@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.schemas.character import CharacterRead
 from app.schemas.scenario import Branch, ScenarioCreate
-from app.schemas.stat import StatDefinitionCreate
+from app.schemas.stat import StatBand, StatDefinitionCreate
 
 
 def test_scenario_serializes_camel_case():
@@ -38,6 +38,19 @@ def test_stat_definition_camel_and_range_rules():
         StatDefinitionCreate(key="x", displayName="X", min=10, max=5, default=7)
     with pytest.raises(ValidationError):
         StatDefinitionCreate(key="x", displayName="X", min=0, max=10, default=99)
+
+
+def test_stat_band_carries_optional_description():
+    # description is optional (defaults to "") and round-trips when provided.
+    plain = StatBand(min=0, max=20, label="Exhausted")
+    assert plain.description == ""
+    described = StatBand(min=0, max=20, label="Exhausted", description="{Character} is spent.")
+    assert described.description == "{Character} is spent."
+    dumped = described.model_dump(by_alias=True)
+    assert dumped["description"] == "{Character} is spent."
+    # label stays required.
+    with pytest.raises(ValidationError):
+        StatBand(min=0, max=20, label="   ", description="x")
 
 
 def test_character_read_matches_frontend_shape():

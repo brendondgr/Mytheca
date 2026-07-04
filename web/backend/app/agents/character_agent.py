@@ -145,11 +145,20 @@ _VOICE_SYSTEM = (
 
 
 def _bands_text(definition) -> str:
-    """Render a definition's bands as an inline ' Bands: a (lo-hi); …' suffix."""
+    """Render a definition's bands as an inline ' Bands: a (lo-hi) — desc; …' suffix.
+
+    Includes the optional per-band ``description`` (with its ``{Character}``
+    placeholder left as-authored) so the stat-proposal agent can weigh what each
+    range actually means for the character.
+    """
     bands = definition.bands or []
     if not bands:
         return ""
-    parts = [f"{b.get('label', '')} ({b.get('min')}-{b.get('max')})" for b in bands]
+    parts: list[str] = []
+    for b in bands:
+        label = f"{b.get('label', '')} ({b.get('min')}-{b.get('max')})"
+        desc = str(b.get("description") or "").strip()
+        parts.append(f"{label} — {desc}" if desc else label)
     return " Bands: " + "; ".join(parts) + "."
 
 

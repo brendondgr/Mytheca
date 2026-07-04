@@ -24,6 +24,7 @@ from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmParams
 from app.services import llm
 from app.services.assembler import CastMember, TurnContext
+from app.services.stat_render import render_character_stats
 
 logger = logging.getLogger("velora.turn")
 
@@ -133,8 +134,15 @@ def _build_user_prompt(
             f"let the register flex with the moment):\n{speaker.voice_samples}"
         )
     if speaker.stats:
-        state = ", ".join(f"{k}={v}" for k, v in speaker.stats.items())
-        head.append(f"Your current state: {state}")
+        # Resolve each stat's current band and substitute {Character} with the
+        # speaker's name so the model reads what a value *means* for them right now
+        # (not a bare k=v). Falls back to the compact k=v when there are no defs.
+        state = render_character_stats(ctx.stat_defs, speaker.stats, speaker.name)
+        if state:
+            head.append(state)
+        else:
+            flat = ", ".join(f"{k}={v}" for k, v in speaker.stats.items())
+            head.append(f"Your current state: {flat}")
     if speaker.disposition:
         # Carried in from the previous turn's reflection (§P9): the stance you already
         # hold as you re-enter. It seeds this beat so <thinking> can stay very short.

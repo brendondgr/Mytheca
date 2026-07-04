@@ -40,7 +40,12 @@ _BLUEPRINT = json.dumps(
                 "max": 100,
                 "default": 100,
                 "bands": [
-                    {"min": 0, "max": 20, "label": "Nearly dead"},
+                    {
+                        "min": 0,
+                        "max": 20,
+                        "label": "Nearly dead",
+                        "description": "{Character} can barely stand.",
+                    },
                     {"min": 81, "max": 100, "label": "Hale"},
                 ],
             },
@@ -233,6 +238,9 @@ def test_build_world_assembles_full_proposal(client, monkeypatch):
     keys = [s["key"] for s in world["stats"]]
     assert keys == ["health", "suspicion"]
     assert world["stats"][0]["bands"][0]["label"] == "Nearly dead"
+    # The optional per-band description survives sanitization; a bandless one defaults to "".
+    assert world["stats"][0]["bands"][0]["description"] == "{Character} can barely stand."
+    assert world["stats"][0]["bands"][1]["description"] == ""
 
     # Exactly one character per character-doc, one setting per setting-doc (2 each).
     assert [c["name"] for c in world["characters"]] == ["Maerin Voss", "Maerin Voss"]
