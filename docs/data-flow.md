@@ -153,6 +153,9 @@ Options page (/options) → lib/api.ts → GET/PATCH /api/options
   → Image Generation tab: GET /api/options/comfy/workflows · POST /api/options/comfy/status
       → comfyui client → {baseUrl}/system_stats (status); the full generate
         pipeline (POST /prompt → WebSocket wait → /history → /view) is server-side
+  → Prompts tab: PATCH /api/options/prompts
+      → settings_store.set_prompts_overrides (PROMPTS_KEY namespace, registry-key gated;
+        blank value clears a key) → folded into TurnContext.prompts each turn
 ```
 
 The LLM API key is **write-only**: stored in the `app_settings` row, never
@@ -160,6 +163,36 @@ returned to the browser (reads expose `hasApiKey` + a masked hint). Model listin
 and the connection test run on the backend so they work against `localhost:*`
 servers that don't send CORS headers, and so the key never reaches the client.
 When the multi-agent brain lands it reads the same stored config.
+
+## Writing-Agent Prompt Resolution Flow
+
+```
+Per-turn assemble_context (Band-1, read-only):
+  prompt_registry.resolve_prompts(
+      settings_store.get_prompts_overrides(db),   # global layer
+      storyline.prompt_overrides or {},            # storyline layer
+      scenario.prompt_overrides   or {},           # scenario layer
+  )
+  → TurnContext.prompts: dict[registryKey, text]
+      (fold: registry default → global → storyline → scenario; last non-blank wins;
+       blank / unknown keys ignored)
+  → character_turn_agent reads ctx.prompts["character.output_contract"]
+  → narrator_agent     reads ctx.prompts["narrator.system"] / "narrator.system_long"
+  → director_agent     reads ctx.prompts["director.who_is_up"] / "director.rerank" / "director.branch"
+  → planner_agent      reads ctx.prompts["planner.system"]
+  (each falls back to prompt_registry.default(key) when the key is absent from ctx.prompts)
+```
+
+The **prompt registry** (`web/backend/app/agents/prompt_registry.py`) is the single source of
+truth for the four writing agents' system prompts. It defines `PromptSpec` (key, agent, label,
+description, default) and `PROMPT_REGISTRY` with exactly seven keys. `resolve_prompts(*layers)`
+folds the layers left-to-right; an empty/None value at any layer is skipped. The global layer is
+stored in `app_settings` (a `PROMPTS_KEY` namespace) via `settings_store.get_prompts_overrides` /
+`set_prompts_overrides`. Per-storyline and per-scenario overrides are nullable JSONB columns
+(`prompt_overrides`) persisted through the existing storyline/scenario PATCH endpoints. Authors
+edit global overrides via **Options › Prompts**; per-storyline overrides via the library's gear
+icon; per-scenario overrides via the scenario editor's "⚙ Writing prompts" button. The innermost
+(scenario) layer always wins when set.
 
 ## Reasoning-Budget Flow (engine detection + thinking cap)
 

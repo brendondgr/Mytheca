@@ -206,6 +206,45 @@ Every agentic authoring flow (the New Storyline **Build the whole world**, draft
 - **Process progress** — `components/feature/ProcessProgress.tsx` is a compact done/active/pending stepper with a live `aria-live` "Now … · Next …" line, shown during a build/draft (build stages; character Identity → Voice & tone → Starting stats; setting fields as steps).
 - **Notifications** — `components/ui/Toast.tsx` + `components/layout/ToastProvider.tsx` (`useToast`) render **top-right, stacking** toasts in a portal; errors are `role="alert"`, info/success `role="status"`, entrance via `embMsg` with `motion-reduce:animate-none`. Agentic errors across all surfaces raise an error toast (alongside the existing inline `role="alert"` copy). A toast may carry one optional **action button** (e.g. "Undo" for an auto scene-presence change), rendered before the dismiss control.
 
+## Writing-Agent Prompt Overrides UI
+
+Three surfaces let authors override the writing-agent prompts at different scopes.
+
+**Options › Prompts tab.** A top-level tab in the `/options` panel (label "Prompts", sub-label
+"writing agents") that edits the **global** defaults. It renders a `PromptOverridesEditor` with
+the full catalog sourced from `GET /options`. Saving calls `PATCH /options/prompts` with a merge
+patch that clears any key the editor has returned to its default (blank clears; non-blank
+replaces).
+
+**StorylineMenu gear icon.** A per-row gear icon-button in the header storyline switcher dropdown
+(labelled `aria-label="Writing prompts for {title}"`) opens a `PromptOverridesModal` scoped to
+that storyline. Saving calls `updateStoryline({ promptOverrides })`.
+
+**EntityModal (scenario editor) "⚙ Writing prompts" button.** Opens the same
+`PromptOverridesModal` scoped to the scenario being edited. The override map stages into the
+scenario draft (`_promptOverrides`) and persists with the scenario save.
+
+**`PromptOverridesEditor` component.** A reusable editor that:
+- Groups the catalog into per-agent **upper sub-tabs** (Character · Narrator · Director · Planner)
+  with an ARIA `role=tablist` / `role=tab` / `role=tabpanel` pattern and arrow-key navigation.
+- Each prompt row shows the prompt's `label` + `description`, then a `<textarea>`
+  (`aria-label`led) pre-filled with the active override or the inherited baseline. A **Reset to
+  default** button restores the field to the registry default.
+- Overridden prompts (differ from the inherited baseline) carry a badge so the author can see at
+  a glance which keys are customized.
+- The Character `output_contract` key carries an inline warning that the contract contains strict
+  `<speaker:>`/`<type:>` parsing tags — removing them will break the turn parser.
+- On Save the editor emits only the layer's overridden (non-blank, differ-from-baseline) keys;
+  returning a field to its default causes the key to be omitted (effectively clearing it).
+- Uses existing `--field-bg` / `--field-bd` / `--ink` / `--ink-soft` tokens; tab styling matches
+  the Options panel's vertical tablist; `TextArea` primitive.
+
+**`PromptOverridesModal` component.** A `Modal` wrapper that fetches the catalog + global
+overrides from `GET /options`, layers the passed `baseline` prop on top, and renders
+`PromptOverridesEditor`. The modal's save handler is provided by the caller (writes the chosen
+scope — global, storyline, or scenario). Uses `Modal`'s `externalClose`. No new design tokens
+— all existing primitives and theme variables.
+
 ## Meaningful Imagery
 
 Near the top of key pages show **real artifacts**: a live/sample scene transcript, a teal narrator card, a stat/tension panel, a character card with monogram and role — not abstract orbs, mesh gradients, or fake dashboards. The landing page should preview an actual narrator-card + dialogue exchange.
