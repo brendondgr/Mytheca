@@ -297,6 +297,9 @@ The `voiceSamples` then feed the runtime turn loop: `assembler._build_cast` rend
 each character's pairs into a `CastMember.voice_samples` block, and
 `character_turn_agent` injects it into the generation prompt HEAD — anchoring both
 the spoken line and the hidden `<thinking>` step to the character's authored voice.
+The samples are framed as a **baseline** ("how you sound at rest"), not a script:
+the person stays constant but the register **flexes with the stakes** of the moment
+(see the situational-voice-adaptation note in the turn-loop section below).
 
 Same **creation-time, no-RAG** rules as storyline authoring. Everything produced
 is a character's **own base identity** (§1 node properties) — no graph structure
@@ -617,7 +620,15 @@ character **speaks only after** the scene has moved and has a genuine point-of-v
 characters stop over-talking; a **cold scene open** with no directed character is narrator-led. Each
 character always **`<thinking>`**s (a real in-voice deliberation — a short paragraph in their own
 terminology at turn effort **MEDIUM**, streamed `private_to_user` and kept out of `turn_beats`), but a
-spoken line is **optional** — in an action moment they act or simply think with no forced dialogue. The
+spoken line is **optional** — in an action moment they act or simply think with no forced dialogue.
+**Situational voice adaptation:** the `<thinking>` step **appraises the moment first** (how grave/light,
+what changed, how much danger or feeling is in the air) before reasoning toward a response, and the
+output contract's manner-adaptation rule makes personality **constant** while manner **adapts** — the
+habitual act (constant quips, needless cruelty, forced levity) drops when the moment turns grave, and
+the character's own state + the scene's mood (restated as a recency "read the moment" cue in the prompt
+TAIL) reach their voice. The between-turn **`disposition`** carries the resulting emotional/situational
+state (shaken, grieving, afraid, relieved) forward, so an adapted manner persists rather than snapping
+back to the default next beat. The
 character conditions on the scene's **`context_beats`** most-recent beats (5–100; `assembler` fetches
 that depth from the Redis buffer, which retains up to `turn_buffer_size` = 100). At the **end of
 every turn**, up to the scenario's **`suggestions_count`** (0–4; `0` disables) follow-up suggestions

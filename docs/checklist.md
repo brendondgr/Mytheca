@@ -612,6 +612,10 @@ Backend stood up end-to-end (plan: `docs/plans/storyline-data-layer.md`): core c
 - [ ] Stat lifecycle across scenarios (reset / persist / partial carry-over) and how hidden stats render.
 - [ ] Deployment target (containerized vs. split hosting).
 
+### Character voice
+- [x] **Situational voice adaptation** — characters now adapt their manner to the moment instead of rigidly replicating their voice samples (constant quips at a funeral, no fear when dying, etc.). Prompt-first fix across `prompt_registry._CHARACTER_OUTPUT_CONTRACT` (manner-adaptation rule + moment-first `<thinking>`), `character_turn_agent._build_user_prompt` (baseline-voice HEAD reframing + read-the-moment TAIL cue), and `reflection_agent._SYSTEM` (disposition carries emotional state across turns). Plan: `docs/plans/situational-voice-adaptation.md`.
+- [ ] **(Deferred follow-up)** Shared per-turn **scene-appraisal** signal (one cheap LLM call, cached on `TurnContext`, feeding every speaker a common read of the scene's mood/stakes). Revisit only if playtesting shows the prompt-only adaptation above is insufficient; weighed against the local reasoning model's per-call latency/token cost.
+
 ### Deferred capabilities (design seams only for now)
 - [ ] Dice-based resolution (optional later layer: `check_request` → `roll_result` → `consequence` → `state_update`).
 - [ ] Vector DB for semantic memory / cross-scenario character & setting memory.
