@@ -24,6 +24,7 @@ from app.schemas.settings import (
     LlmBackendResponse,
     LlmConfigRead,
     LlmConfigUpdate,
+    LlmContextWindowResponse,
     LlmModelsRequest,
     LlmModelsResponse,
     LlmTestRequest,
@@ -97,6 +98,24 @@ def llm_backend_info(db: Session = Depends(get_db)):
         backend=backend.value,
         budgets={effort.value: budget for effort, budget in THINKING_BUDGET.items()},
     )
+
+
+@router.get("/llm/context-window", response_model=LlmContextWindowResponse)
+def llm_context_window(db: Session = Depends(get_db)):
+    """Return the effective context-window size for the configured LLM endpoint.
+
+    Probes the engine if possible (``source="detected"``); falls back to the
+    stored ``maxContextTokens`` setting when the probe is unavailable or fails
+    (``source="configured"``).
+    """
+    base_url, api_key = settings_store.resolve_llm_credentials(db, None, None)
+    detected = (
+        llm_backend.get_context_window(base_url, api_key) if base_url.strip() else None
+    )
+    if detected is not None:
+        return LlmContextWindowResponse(max_context_tokens=detected, source="detected")
+    configured = settings_store.get_llm(db).max_context_tokens
+    return LlmContextWindowResponse(max_context_tokens=configured, source="configured")
 
 
 # ---- ComfyUI image generation ----------------------------------------------

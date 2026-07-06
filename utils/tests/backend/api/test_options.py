@@ -211,3 +211,66 @@ def test_patch_prompts_ignores_unknown_keys(client):
         "/api/options/prompts", json={"overrides": {"bogus.key": "x"}}
     ).json()
     assert patched["overrides"] == {}
+
+
+# ---- max-context-tokens setting --------------------------------------------
+
+
+def test_patch_llm_max_context_tokens(client):
+    patched = client.patch("/api/options/llm", json={"maxContextTokens": 32768}).json()
+    assert patched["maxContextTokens"] == 32768
+    # Persists across a fresh GET.
+    assert client.get("/api/options").json()["llm"]["maxContextTokens"] == 32768
+    # Clamped to a floor of 1024.
+    assert (
+        client.patch("/api/options/llm", json={"maxContextTokens": 100}).json()["maxContextTokens"]
+        == 1024
+    )
+
+
+def test_get_options_returns_default_max_context_tokens(client):
+    body = client.get("/api/options").json()
+    assert body["llm"]["maxContextTokens"] == 16384
+
+
+# ---- context-window endpoint -----------------------------------------------
+
+
+def test_context_window_detected_source(client, monkeypatch):
+    import httpx
+
+    from app.services import llm, llm_backend
+
+    llm_backend.clear_cache()
+    client.patch("/api/options/llm", json={"baseUrl": "http://localhost:8080/v1"})
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/version":
+            return httpx.Response(404, text="not found")
+        if request.url.path == "/props":
+            return httpx.Response(
+                200,
+                json={"total_slots": 2, "default_generation_settings": {"n_ctx": 8192}},
+            )
+        return httpx.Response(404, text="not found")
+
+    def factory() -> httpx.Client:
+        return httpx.Client(transport=httpx.MockTransport(handler))
+
+    monkeypatch.setattr(llm, "get_http_client", factory)
+    body = client.get("/api/options/llm/context-window").json()
+    assert body["maxContextTokens"] == 8192
+    assert body["source"] == "detected"
+    llm_backend.clear_cache()
+
+
+def test_context_window_configured_fallback(client, monkeypatch):
+    from app.services import llm_backend
+
+    llm_backend.clear_cache()
+    # No base URL → engine cannot be probed → falls back to configured value.
+    client.patch("/api/options/llm", json={"baseUrl": "", "maxContextTokens": 4096})
+    body = client.get("/api/options/llm/context-window").json()
+    assert body["maxContextTokens"] == 4096
+    assert body["source"] == "configured"
+    llm_backend.clear_cache()

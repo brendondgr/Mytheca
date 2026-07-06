@@ -111,6 +111,71 @@ def get_backend(base_url: str, api_key: str = "", *, force: bool = False) -> Inf
 def clear_cache() -> None:
     """Drop all cached detections (used by tests)."""
     _CACHE.clear()
+    _CTX_CACHE.clear()
+
+
+# ---- context-window probe --------------------------------------------------
+
+# normalized base URL -> (probed_at_monotonic, window_tokens | None)
+_CTX_CACHE: dict[str, tuple[float, int | None]] = {}
+
+
+def get_context_window(base_url: str, api_key: str = "") -> int | None:
+    """Probe the inference engine for its context-window size.
+
+    Uses the already-detected backend to pick the right probe:
+    * llama.cpp — ``GET {root}/props`` → ``default_generation_settings.n_ctx``,
+      falling back to top-level ``n_ctx``.
+    * vLLM      — ``GET {base_url}/models`` → first model's ``max_model_len``.
+    * unknown   — returns ``None`` (no probe attempted).
+
+    Results are cached per base URL with the same TTL as ``_CACHE`` and share
+    the ``clear_cache`` reset seam for tests.
+    """
+    root = _api_root(base_url)
+    if not root:
+        return None
+    now = time.monotonic()
+    cached = _CTX_CACHE.get(root)
+    if cached is not None and (now - cached[0]) < _ttl_seconds():
+        return cached[1]
+
+    backend = get_backend(base_url, api_key)
+    result: int | None = None
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    client = llm.get_http_client()
+    try:
+        with client:
+            if backend == InferenceBackend.LLAMACPP:
+                try:
+                    res = client.get(f"{root}/props", headers=headers, timeout=_PROBE_TIMEOUT)
+                    if res.status_code == 200:
+                        data = res.json()
+                        gen = data.get("default_generation_settings") or {}
+                        n_ctx = gen.get("n_ctx") if isinstance(gen, dict) else None
+                        if n_ctx is None:
+                            n_ctx = data.get("n_ctx")
+                        if isinstance(n_ctx, int) and n_ctx > 0:
+                            result = n_ctx
+                except (httpx.HTTPError, ValueError, KeyError):
+                    pass
+            elif backend == InferenceBackend.VLLM:
+                try:
+                    res = client.get(f"{base_url}/models", headers=headers, timeout=_PROBE_TIMEOUT)
+                    if res.status_code == 200:
+                        data = res.json()
+                        models_list = data.get("data") if isinstance(data, dict) else None
+                        if isinstance(models_list, list) and models_list:
+                            max_len = models_list[0].get("max_model_len")
+                            if isinstance(max_len, int) and max_len > 0:
+                                result = max_len
+                except (httpx.HTTPError, ValueError, KeyError):
+                    pass
+    except httpx.HTTPError:
+        pass
+
+    _CTX_CACHE[root] = (now, result)
+    return result
 
 
 def refresh_for_config(db: Session) -> InferenceBackend:
