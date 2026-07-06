@@ -25,6 +25,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   getScenarioRelationships: vi.fn(async () => ({ relationships: [] })),
   closePlaySession: vi.fn(() => {}),
   getCharacterStats: vi.fn(async () => ({}) as Record<string, number>),
+  getLlmContextWindow: vi.fn(async () => ({ maxContextTokens: 16384, source: "configured" as const })),
 }));
 
 function streamOf(...frames: TurnStreamFrame[]) {

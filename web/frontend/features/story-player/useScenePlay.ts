@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   closePlaySession,
   getCharacterStats,
+  getLlmContextWindow,
   getScenarioRelationships,
   getSessionHistory,
   listPlaySessions,
@@ -11,6 +12,7 @@ import {
   setPresence as apiSetPresence,
   updateScenario,
 } from "@/lib/api";
+import { estimateUsedTokens } from "@/lib/contextBudget";
 import type { PresenceStatus, TurnStreamFrame } from "@/lib/events";
 import type { ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
@@ -90,9 +92,20 @@ export function useScenePlay(scenario: ResolvedScenario) {
   // Per-character live status: "idle" | "thinking" | "speaking". Resets to {} when the
   // stream leaves "streaming" (nobody is stuck in thinking/speaking between turns).
   const [activityByChar, setActivityByChar] = useState<Record<string, CharacterActivity>>({});
+  // Model's reported context-window size in tokens (null = unknown / fetch failed → bar hidden).
+  const [maxContextTokens, setMaxContextTokens] = useState<number | null>(null);
   // Live character↔character relationships from the story graph (P6). Falls back to the
   // seed placeholder while empty / when the graph is off.
   const [graphRels, setGraphRels] = useState<Relationship[]>([]);
+
+  // Estimated tokens the last `contextBeats` messages occupy in the context window.
+  // Recomputed whenever messages or contextBeats changes.
+  const usedTokens = useMemo(() => {
+    const window = messages.slice(-contextBeats);
+    const texts = window.map((m) => [m.text, m.action, m.thought].filter(Boolean).join(" "));
+    return estimateUsedTokens(texts);
+  }, [messages, contextBeats]);
+
   // The play session id is captured from the first streamed event (or a resumed
   // session) and reused so subsequent turns continue the same session. Mirrored into
   // state so the Export control can react to whether there is anything to export yet.
@@ -178,6 +191,14 @@ export function useScenePlay(scenario: ResolvedScenario) {
       alive = false;
     };
   }, [scenario.id, scenario.cast]);
+
+  // Fetch the model's context-window size once on mount (best-effort — failure keeps null
+  // so the ContextUsageBar stays hidden rather than showing an invalid value).
+  useEffect(() => {
+    getLlmContextWindow()
+      .then((r) => setMaxContextTokens(r.maxContextTokens))
+      .catch(() => {});
+  }, []);
 
   // Manually set a character's scene presence (the cast-rail control + toast undo).
   // Optimistic; persists best-effort so the change survives reload and folds like an
@@ -341,5 +362,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
     closeProfile: () => setProfileId(null),
     activity,
     activityByChar,
+    usedTokens,
+    maxContextTokens,
   };
 }

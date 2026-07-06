@@ -4,6 +4,7 @@ import { useScenePlay } from "./useScenePlay";
 import {
   closePlaySession,
   getCharacterStats,
+  getLlmContextWindow,
   getSessionHistory,
   listPlaySessions,
   postTurn,
@@ -27,6 +28,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   getCharacterStats: vi.fn(async () => ({}) as Record<string, number>),
   postTurn: vi.fn(),
   getScenarioRelationships: vi.fn(async () => ({ relationships: [] })),
+  getLlmContextWindow: vi.fn(async () => ({ maxContextTokens: 16384, source: "configured" as const })),
 }));
 
 /** Build a mock async generator that yields the given frames then completes. */
@@ -186,6 +188,30 @@ describe("useScenePlay stats baseline", () => {
 
     await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
     expect(result.current.statsByChar[speaker.id]).toBeUndefined();
+  });
+});
+
+describe("useScenePlay maxContextTokens", () => {
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  it("fetches maxContextTokens on mount and exposes it", async () => {
+    vi.mocked(getLlmContextWindow).mockResolvedValueOnce({
+      maxContextTokens: 32768,
+      source: "detected" as const,
+    });
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.maxContextTokens).toBe(32768));
+  });
+
+  it("leaves maxContextTokens as null when the fetch fails", async () => {
+    vi.mocked(getLlmContextWindow).mockRejectedValueOnce(new Error("network"));
+    const { result } = renderHook(() => useScenePlay(scenario));
+    // Wait for mount effects to settle (session fetch etc.) without crashing.
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    expect(result.current.maxContextTokens).toBeNull();
   });
 });
 
