@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -42,9 +42,16 @@ class ContextDocument(Base):
     # "other". Stored as a plain string; the schema constrains the value set.
     category: Mapped[str] = mapped_column(String, default="other")
     # Inclusion tiers chosen at triage. ``include_draft`` ⇒ world-setting docs that
-    # ground Velora's drafting; ``include_rag`` ⇒ the retrieval corpus (default on).
+    # ground Velora's drafting; ``include_rag`` ⇒ the retrieval corpus (default on);
+    # ``include_extract`` ⇒ OPT-IN: mine this doc for named characters/settings during
+    # **Build the whole world** (default OFF — a new storyline never auto-extracts).
+    # Non-null with a server default so existing rows backfill and the additive-column
+    # reconciler self-heals it.
     include_draft: Mapped[bool] = mapped_column(Boolean, default=False)
     include_rag: Mapped[bool] = mapped_column(Boolean, default=True)
+    include_extract: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=false(), default=False
+    )
     # Where the document came from (``upload`` today; future: ``event``, ``paste``).
     source: Mapped[str] = mapped_column(String, default="upload")
     # Optional entity scope. When set, the document belongs to a specific

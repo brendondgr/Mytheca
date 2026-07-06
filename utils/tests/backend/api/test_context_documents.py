@@ -42,13 +42,29 @@ def test_context_document_defaults(client, storyline_id):
     body = client.post(
         f"/api/storylines/{storyline_id}/context-docs", json={"name": "lore.txt"}
     ).json()
-    # Default triage: "other" bucket, RAG on, Draft off, upload source.
+    # Default triage: "other" bucket, RAG on, Draft off, Extract off, upload source.
     assert body["category"] == "other"
     assert body["includeRag"] is True
     assert body["includeDraft"] is False
+    assert body["includeExtract"] is False
     assert body["source"] == "upload"
     assert body["content"] == ""
     assert body["charCount"] == 0
+
+
+def test_context_document_include_extract_roundtrip(client, storyline_id):
+    # Opt-in Extract flag persists on create and can be toggled via PATCH.
+    created = client.post(
+        f"/api/storylines/{storyline_id}/context-docs",
+        json={"name": "maerin.md", "category": "character", "includeExtract": True},
+    )
+    assert created.status_code == 201
+    cid = created.json()["id"]
+    assert created.json()["includeExtract"] is True
+
+    patched = client.patch(f"/api/context-docs/{cid}", json={"includeExtract": False})
+    assert patched.status_code == 200
+    assert patched.json()["includeExtract"] is False
 
 
 def test_context_document_bulk_create_and_ordering(client, storyline_id):

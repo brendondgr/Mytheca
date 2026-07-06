@@ -28,6 +28,9 @@ class ContextDocumentBase(CamelModel):
     category: DocCategory = "other"
     include_draft: bool = False
     include_rag: bool = True
+    # Opt-in: mine this doc for named characters/settings during the world build.
+    # Default OFF so a new storyline never auto-extracts (the author checks it per file).
+    include_extract: bool = False
     source: str = "upload"
     entity_type: EntityScope | None = None
     entity_id: str | None = None
@@ -49,6 +52,7 @@ class ContextDocumentUpdate(CamelModel):
     category: DocCategory | None = None
     include_draft: bool | None = None
     include_rag: bool | None = None
+    include_extract: bool | None = None
 
 
 class ContextDocumentRead(CamelModel):
@@ -59,6 +63,7 @@ class ContextDocumentRead(CamelModel):
     category: DocCategory
     include_draft: bool
     include_rag: bool
+    include_extract: bool
     source: str
     char_count: int
     entity_type: EntityScope | None = None
@@ -87,6 +92,9 @@ class TriageItem(CamelModel):
     category: DocCategory = "other"
     include_draft: bool = False
     include_rag: bool = True
+    # Suggested opt-in for build-time extraction — conservative (only a clear,
+    # single, explicitly-named character/setting profile), default OFF.
+    include_extract: bool = False
     rationale: str = ""
 
 
