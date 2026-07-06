@@ -263,14 +263,6 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const stream = useEventStream<TurnStreamFrame>(onFrame);
   const sending = stream.status === "streaming";
 
-  // When streaming ends, clear per-character activity so nobody is stuck "thinking".
-  // The activity feed itself is kept (it describes what just happened).
-  useEffect(() => {
-    if (!sending) {
-      setActivityByChar({});
-    }
-  }, [sending]);
-
   const submit = useCallback(
     (text: string) => {
       const t = text.trim();
@@ -286,7 +278,10 @@ export function useScenePlay(scenario: ResolvedScenario) {
             signal,
           ),
         )
-        .catch(() => setStreamError((e) => e ?? "The turn could not be completed."));
+        .catch(() => setStreamError((e) => e ?? "The turn could not be completed."))
+        // Turn over (done or error): clear per-character activity so nobody is stuck
+        // "thinking". The activity feed itself is kept — it describes what just happened.
+        .finally(() => setActivityByChar({}));
     },
     [sending, scenario.id, stream],
   );

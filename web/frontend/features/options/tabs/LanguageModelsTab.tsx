@@ -237,7 +237,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
           </p>
           <p className="mt-[4px] font-body text-[12.5px] text-ink-soft">
             Max context is the fallback used when the engine does not report a context
-            window — set it to match your model's actual context length.
+            window — set it to match your model&apos;s actual context length.
           </p>
         </fieldset>
 
