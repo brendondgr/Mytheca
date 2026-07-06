@@ -32,7 +32,7 @@ export function StoryPlayerView({
 }) {
   const scene = useScenePlay(scenario);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const composerRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   // Picking a suggestion writes it into the composer for review/editing; move focus there so
   // the player can immediately edit before sending (request #2).
   const onChoose = useCallback(
@@ -146,7 +146,7 @@ export function StoryPlayerView({
             value={scene.composer}
             onChange={scene.setComposer}
             onSend={scene.send}
-            disabled={scene.sending}
+            sendDisabled={scene.sending}
             inputRef={composerRef}
           />
         </div>

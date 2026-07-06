@@ -98,7 +98,7 @@ describe("StoryPlayerView", () => {
       screen.getByRole("button", { name: /confront maerin about the captain/i }),
     );
     // The suggested player text lands in the composer (focused for editing), not sent.
-    const box = screen.getByRole("textbox", { name: /your message/i }) as HTMLInputElement;
+    const box = screen.getByRole("textbox", { name: /your message/i }) as HTMLTextAreaElement;
     expect(box.value).toMatch(/afraid of him/i);
     expect(box).toHaveFocus();
     expect(vi.mocked(postTurn)).not.toHaveBeenCalled();
