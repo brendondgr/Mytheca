@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { cn } from "@/lib/cn";
 import type { ContextBudget } from "@/lib/contextBudget";
+import type { DocUse } from "@/lib/readDocs";
 import type { DocCategory } from "@/lib/types";
 import type { UploadDefaults } from "@/features/library/storylineCreator";
 import type { CreatorDoc, TriageActive } from "@/features/library/storylineCreator";
@@ -16,9 +17,14 @@ const GROUPS: { key: DocCategory; label: string; hint: string }[] = [
   { key: "setting", label: "Settings", hint: "Setting details" },
 ];
 
-const USES: { key: "useDraft" | "useRag"; label: string; title: string }[] = [
+const USES: { key: DocUse; label: string; title: string }[] = [
   { key: "useDraft", label: "Draft", title: "World-setting doc — grounds the drafting" },
   { key: "useRag", label: "RAG", title: "Member of the retrieval corpus" },
+  {
+    key: "useExtract",
+    label: "Extract",
+    title: "Mine this file for named characters/settings during Build the whole world",
+  },
 ];
 
 /** Category options shown in both the upload-target picker and the per-row select.
@@ -51,7 +57,7 @@ export function TriagePanel({
   docs: CreatorDoc[];
   onAddFiles: (files: FileList | File[] | null, opts?: UploadDefaults) => void;
   onRemove: (name: string) => void;
-  onToggleUse: (name: string, key: "useDraft" | "useRag") => void;
+  onToggleUse: (name: string, key: DocUse) => void;
   onSetCategory: (name: string, category: DocCategory) => void;
   onTriage: () => void;
   triaging: boolean;
@@ -65,14 +71,19 @@ export function TriagePanel({
   const anyGrouped = docs.some((d) => d.triaged || d.category !== "select");
 
   // The author's chosen upload target: a whole batch dropped now gets this category +
-  // Draft/RAG, so e.g. a folder of character sheets lands as Characters with no triage.
+  // Draft/RAG/Extract, so e.g. a folder of character sheets lands as Characters with no
+  // triage. Extract defaults OFF (opt-in — a new storyline never auto-mines docs).
   const [uploadCategory, setUploadCategory] = useState<DocCategory>("select");
-  const [uploadDraft, setUploadDraft] = useState(false);
-  const [uploadRag, setUploadRag] = useState(true);
+  const [uploadUses, setUploadUses] = useState<Record<DocUse, boolean>>({
+    useDraft: false,
+    useRag: true,
+    useExtract: false,
+  });
   const uploadOpts: UploadDefaults = {
     category: uploadCategory,
-    useDraft: uploadDraft,
-    useRag: uploadRag,
+    useDraft: uploadUses.useDraft,
+    useRag: uploadUses.useRag,
+    useExtract: uploadUses.useExtract,
   };
 
   // Triage now sweeps only what's still Uncategorized; pre-bucketed docs are left alone.
@@ -190,8 +201,7 @@ export function TriagePanel({
             ))}
           </select>
           {USES.map(({ key, label, title }) => {
-            const on = key === "useDraft" ? uploadDraft : uploadRag;
-            const toggle = key === "useDraft" ? setUploadDraft : setUploadRag;
+            const on = uploadUses[key];
             return (
               <button
                 key={key}
@@ -199,7 +209,7 @@ export function TriagePanel({
                 title={title}
                 aria-pressed={on}
                 aria-label={`Default ${label} for uploads`}
-                onClick={() => toggle((v) => !v)}
+                onClick={() => setUploadUses((prev) => ({ ...prev, [key]: !prev[key] }))}
                 className={cn(
                   "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
                   on

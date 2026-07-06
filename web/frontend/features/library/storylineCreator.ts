@@ -102,13 +102,15 @@ export interface UploadDefaults {
   category?: DocCategory;
   useDraft?: boolean;
   useRag?: boolean;
+  useExtract?: boolean;
 }
 
 /**
- * A freshly-dropped doc. By default it is Uncategorized ("select"), RAG on, Draft off.
- * When the author picked an upload target (category / Draft / RAG), those are applied
- * so a whole batch lands pre-categorized — no Triage needed for it. A doc dropped into
- * a real category counts as already triaged (Triage then only sweeps the leftovers).
+ * A freshly-dropped doc. By default it is Uncategorized ("select"), RAG on, Draft off,
+ * Extract off (extraction is opt-in — a new storyline never auto-mines docs for cast/
+ * settings). When the author picked an upload target (category / Draft / RAG / Extract),
+ * those are applied so a whole batch lands pre-categorized — no Triage needed for it. A
+ * doc dropped into a real category counts as already triaged (Triage sweeps the rest).
  */
 export function toCreatorDoc(doc: ReadDoc, opts: UploadDefaults = {}): CreatorDoc {
   const category = opts.category ?? "select";
@@ -116,6 +118,7 @@ export function toCreatorDoc(doc: ReadDoc, opts: UploadDefaults = {}): CreatorDo
     ...doc,
     useDraft: opts.useDraft ?? doc.useDraft ?? false,
     useRag: opts.useRag ?? doc.useRag ?? true,
+    useExtract: opts.useExtract ?? doc.useExtract ?? false,
     category,
     triaged: category !== "select",
   };
@@ -132,6 +135,7 @@ export function fromContextDocument(doc: ContextDocument): CreatorDoc {
     text: doc.content,
     useDraft: doc.includeDraft,
     useRag: doc.includeRag,
+    useExtract: doc.includeExtract,
     category: doc.category,
     triaged: true,
   };
@@ -145,13 +149,26 @@ export function draftDocTexts(docs: CreatorDoc[]): string[] {
 /** Merge Triage results into the dropped docs by name. */
 export function applyTriage(
   docs: CreatorDoc[],
-  items: { name: string; category: DocCategory; includeDraft: boolean; includeRag: boolean }[],
+  items: {
+    name: string;
+    category: DocCategory;
+    includeDraft: boolean;
+    includeRag: boolean;
+    includeExtract?: boolean;
+  }[],
 ): CreatorDoc[] {
   const byName = new Map(items.map((i) => [i.name, i]));
   return docs.map((d) => {
     const t = byName.get(d.name);
     if (!t) return d;
-    return { ...d, category: t.category, useDraft: t.includeDraft, useRag: t.includeRag, triaged: true };
+    return {
+      ...d,
+      category: t.category,
+      useDraft: t.includeDraft,
+      useRag: t.includeRag,
+      useExtract: t.includeExtract ?? false,
+      triaged: true,
+    };
   });
 }
 
@@ -207,6 +224,7 @@ export function docToContextInput(d: CreatorDoc): ContextDocumentInput {
     category: d.category === "select" ? "other" : d.category,
     includeDraft: Boolean(d.useDraft),
     includeRag: d.useRag ?? true,
+    includeExtract: Boolean(d.useExtract),
     source: "upload",
   };
 }

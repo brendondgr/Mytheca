@@ -4,7 +4,9 @@ import {
   BLANK_FIELDS,
   commitWorld,
   type CommitEntityPatch,
+  docToContextInput,
   draftDocTexts,
+  fromContextDocument,
   persistStatsDiff,
   proposedToCharacterInput,
   renderProposalImages,
@@ -58,23 +60,26 @@ describe("storylineCreator.persistStatsDiff", () => {
 });
 
 describe("storylineCreator helpers", () => {
-  it("a fresh doc starts untriaged: Select (uncategorized), RAG on, Draft off", () => {
+  it("a fresh doc starts untriaged: Select (uncategorized), RAG on, Draft off, Extract off", () => {
     const d = toCreatorDoc({ name: "a.md", text: "x" });
     expect(d.category).toBe("select");
     expect(d.triaged).toBe(false);
     expect(d.useDraft).toBe(false);
     expect(d.useRag).toBe(true);
+    // Extraction is opt-in — a new doc is never auto-mined.
+    expect(d.useExtract).toBe(false);
   });
 
-  it("toCreatorDoc applies an upload target (category + Draft/RAG) and marks it triaged", () => {
+  it("toCreatorDoc applies an upload target (category + Draft/RAG/Extract) and marks it triaged", () => {
     const d = toCreatorDoc(
       { name: "hero.md", text: "x" },
-      { category: "character", useDraft: true, useRag: false },
+      { category: "character", useDraft: true, useRag: false, useExtract: true },
     );
     expect(d.category).toBe("character");
     expect(d.triaged).toBe(true); // a real category counts as already sorted
     expect(d.useDraft).toBe(true);
     expect(d.useRag).toBe(false);
+    expect(d.useExtract).toBe(true);
   });
 
   it("toCreatorDoc with an explicit 'select' target stays Uncategorized + untriaged", () => {
@@ -83,15 +88,32 @@ describe("storylineCreator helpers", () => {
     expect(d.triaged).toBe(false);
   });
 
-  it("applyTriage merges classifications by name", () => {
+  it("applyTriage merges classifications by name (incl. the Extract suggestion)", () => {
     const docs = [toCreatorDoc({ name: "a.md", text: "x" }), toCreatorDoc({ name: "b.md", text: "y" })];
     const merged = applyTriage(docs, [
-      { name: "a.md", category: "character", includeDraft: false, includeRag: true },
-      { name: "b.md", category: "other", includeDraft: true, includeRag: true },
+      { name: "a.md", category: "character", includeDraft: false, includeRag: true, includeExtract: true },
+      { name: "b.md", category: "other", includeDraft: true, includeRag: true, includeExtract: false },
     ]);
     expect(merged[0].category).toBe("character");
     expect(merged[0].triaged).toBe(true);
+    expect(merged[0].useExtract).toBe(true);
     expect(merged[1].useDraft).toBe(true);
+    expect(merged[1].useExtract).toBe(false);
+  });
+
+  it("docToContextInput and fromContextDocument round-trip includeExtract", () => {
+    const input = docToContextInput({
+      ...toCreatorDoc({ name: "maerin.md", text: "x" }, { category: "character" }),
+      useExtract: true,
+    });
+    expect(input.includeExtract).toBe(true);
+
+    const back = fromContextDocument({
+      id: "cd1", storylineId: "s", name: "maerin.md", content: "x",
+      category: "character", includeDraft: false, includeRag: true, includeExtract: true,
+      source: "upload", charCount: 1,
+    });
+    expect(back.useExtract).toBe(true);
   });
 
   it("draftDocTexts returns only the Draft-included doc texts", () => {
