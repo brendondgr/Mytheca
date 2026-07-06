@@ -1,18 +1,11 @@
 import type { RefObject } from "react";
-import { SceneConfigMenu } from "@/components/feature/SceneConfigMenu";
 
-/** Bottom composer: the scene-config menu (left), message input, send. */
+/** Bottom composer: message input and send button. */
 export function Composer({
   value,
   onChange,
   onSend,
   disabled = false,
-  maxTurns = 5,
-  onMaxTurnsChange,
-  suggestionsCount = 4,
-  onSuggestionsCountChange,
-  contextBeats = 14,
-  onContextBeatsChange,
   inputRef,
 }: {
   value: string;
@@ -20,29 +13,12 @@ export function Composer({
   onSend: () => void;
   /** While a turn is streaming, lock input + send. */
   disabled?: boolean;
-  /** Hard ceiling on character replies per player message (persisted per scene). */
-  maxTurns?: number;
-  onMaxTurnsChange?: (value: number) => void;
-  /** How many follow-up suggestions to offer after a turn (0–4; persisted per scene). */
-  suggestionsCount?: number;
-  onSuggestionsCountChange?: (value: number) => void;
-  /** Context-window depth the character conditions on (5–100; persisted per scene). */
-  contextBeats?: number;
-  onContextBeatsChange?: (value: number) => void;
   /** Lets the parent move focus here after a suggestion is written into the box. */
   inputRef?: RefObject<HTMLInputElement | null>;
 }) {
   return (
     <div className="velora-header flex-none border-t border-hair-strong p-[13px_16px] sm:p-[13px_30px]">
-      <div className="mx-auto flex max-w-[720px] flex-wrap items-end gap-[10px]">
-        <SceneConfigMenu
-          maxTurns={maxTurns}
-          onMaxTurnsChange={onMaxTurnsChange}
-          suggestionsCount={suggestionsCount}
-          onSuggestionsCountChange={onSuggestionsCountChange}
-          contextBeats={contextBeats}
-          onContextBeatsChange={onContextBeatsChange}
-        />
+      <div className="mx-auto flex max-w-[720px] items-end gap-[10px]">
         <input
           ref={inputRef}
           value={value}

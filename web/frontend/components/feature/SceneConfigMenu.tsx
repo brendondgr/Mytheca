@@ -31,7 +31,7 @@ function GearIcon() {
 }
 
 /**
- * The scene's play-configuration popover, anchored left of the composer input. Holds the
+ * The scene's play-configuration popover, anchored in the SceneHeader left of Export. Holds the
  * per-scene controls — Max turns, Suggestions, and the context-window depth (Number of beats,
  * 5–100) with a live approximate token estimate. Native controls + Esc/outside-click close.
  */
@@ -87,7 +87,7 @@ export function SceneConfigMenu({
         aria-expanded={open}
         aria-controls={panelId}
         aria-label="Scene configuration"
-        className="flex items-center gap-[6px] rounded-[3px] border border-field-bd bg-field p-[9px_11px] font-mono text-[11px] tracking-[0.1em] text-ink uppercase hover:border-accent focus:border-accent focus:outline-none"
+        className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[10px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent"
       >
         <GearIcon />
         Config
@@ -100,7 +100,7 @@ export function SceneConfigMenu({
           role="dialog"
           aria-label="Scene configuration"
           tabIndex={-1}
-          className="absolute bottom-full left-0 z-20 mb-[8px] flex w-[264px] flex-col gap-[13px] rounded-[4px] border border-cardbd bg-card p-[14px] shadow-[0_8px_24px_rgba(20,14,6,.18)] focus:outline-none"
+          className="absolute top-[38px] right-0 z-40 flex w-[264px] flex-col gap-[13px] rounded-[4px] border border-cardbd bg-card p-[14px] shadow-[0_8px_24px_rgba(20,14,6,.18)] focus:outline-none"
         >
           <Eyebrow tracking="0.16em" color="var(--accent)">
             Scene configuration

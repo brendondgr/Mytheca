@@ -82,6 +82,12 @@ export function StoryPlayerView({
         canExport={Boolean(scene.sessionId)}
         onToggleInspector={() => setInspectorOpen((o) => !o)}
         inspectorOpen={inspectorOpen}
+        maxTurns={scene.maxTurns}
+        onMaxTurnsChange={scene.setMaxTurns}
+        suggestionsCount={scene.suggestionsCount}
+        onSuggestionsCountChange={scene.setSuggestionsCount}
+        contextBeats={scene.contextBeats}
+        onContextBeatsChange={scene.setContextBeats}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -142,12 +148,6 @@ export function StoryPlayerView({
             onSend={scene.send}
             disabled={scene.sending}
             inputRef={composerRef}
-            maxTurns={scene.maxTurns}
-            onMaxTurnsChange={scene.setMaxTurns}
-            suggestionsCount={scene.suggestionsCount}
-            onSuggestionsCountChange={scene.setSuggestionsCount}
-            contextBeats={scene.contextBeats}
-            onContextBeatsChange={scene.setContextBeats}
           />
         </div>
 
