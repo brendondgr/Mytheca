@@ -91,12 +91,12 @@ _VOICE = json.dumps(
 
 # Attached character/setting docs — the build creates exactly one entity per doc.
 _CHAR_DOCS = [
-    {"name": "maerin.md", "text": "Maerin Voss, a wary harbor smuggler."},
-    {"name": "kestrel.md", "text": "A cold inquisitor who hunts heretics."},
+    {"name": "maerin.md", "text": "Maerin Voss, a wary harbor smuggler.", "extract": True},
+    {"name": "kestrel.md", "text": "A cold inquisitor who hunts heretics.", "extract": True},
 ]
 _SETTING_DOCS = [
-    {"name": "chapel.md", "text": "A drowned chapel beneath the tide."},
-    {"name": "quay.md", "text": "A lantern-lit quay at the harbor's edge."},
+    {"name": "chapel.md", "text": "A drowned chapel beneath the tide.", "extract": True},
+    {"name": "quay.md", "text": "A lantern-lit quay at the harbor's edge.", "extract": True},
 ]
 
 
@@ -271,6 +271,43 @@ def test_build_no_entity_docs_creates_no_cast(client, monkeypatch):
     assert world["settings"] == []
 
 
+def test_build_extract_off_doc_is_not_mined(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    # Extraction is OPT-IN: a character/setting doc with extract off (the default) is
+    # never mined, so no cast/settings are produced even though docs are attached.
+    res = client.post(
+        "/api/storylines/build",
+        json={
+            "seed": "A world.",
+            "characterDocs": [{"name": "maerin.md", "text": "Maerin Voss, a smuggler."}],
+            "settingDocs": [{"name": "chapel.md", "text": "A drowned chapel.", "extract": False}],
+        },
+    )
+    assert res.status_code == 200
+    world = res.json()
+    assert world["characters"] == []
+    assert world["settings"] == []
+
+
+def test_build_mines_only_extract_checked_docs(client, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    # Mixed: one character doc opted in, one left off → only the checked one is mined.
+    res = client.post(
+        "/api/storylines/build",
+        json={
+            "seed": "A world.",
+            "characterDocs": [
+                {"name": "maerin.md", "text": "Maerin Voss, a smuggler.", "extract": True},
+                {"name": "kestrel.md", "text": "A cold inquisitor.", "extract": False},
+            ],
+        },
+    )
+    assert res.status_code == 200
+    assert len(res.json()["characters"]) == 1
+
+
 def test_build_characters_only_when_only_character_docs(client, monkeypatch):
     _configure_llm(client)
     _patch_upstream(monkeypatch)
@@ -303,8 +340,8 @@ def test_build_cast_is_uncapped(client, monkeypatch):
     _configure_llm(client)
     _patch_upstream(monkeypatch)
     # 9 character docs + 7 setting docs — both exceed the old 6/5 blueprint caps.
-    char_docs = [{"name": f"c{i}.md", "text": f"Character {i}."} for i in range(9)]
-    setting_docs = [{"name": f"s{i}.md", "text": f"Setting {i}."} for i in range(7)]
+    char_docs = [{"name": f"c{i}.md", "text": f"Character {i}.", "extract": True} for i in range(9)]
+    setting_docs = [{"name": f"s{i}.md", "text": f"Setting {i}.", "extract": True} for i in range(7)]
     res = client.post(
         "/api/storylines/build",
         json={"seed": "A world.", "characterDocs": char_docs, "settingDocs": setting_docs},
@@ -338,7 +375,7 @@ def test_build_splits_a_multi_character_doc(client, monkeypatch):
         "/api/storylines/build",
         json={
             "seed": "A harbor.",
-            "characterDocs": [{"name": "crew.md", "text": "The ship's roster of three sailors."}],
+            "characterDocs": [{"name": "crew.md", "text": "The ship's roster of three sailors.", "extract": True}],
         },
     )
     assert res.status_code == 200
@@ -359,7 +396,7 @@ def test_build_other_bucket_doc_grounds_but_creates_no_entities(client, monkeypa
             "/api/storylines/build/stream",
             json={
                 "seed": "A harbor.",
-                "otherDocs": [{"name": "scene.md", "text": "A mixed scene at a crossing."}],
+                "otherDocs": [{"name": "scene.md", "text": "A mixed scene at a crossing.", "extract": True}],
             },
         )
     )
@@ -383,7 +420,7 @@ def test_build_uncategorized_doc_is_mined_for_named_entities(client, monkeypatch
             "/api/storylines/build/stream",
             json={
                 "seed": "A harbor.",
-                "uncategorizedDocs": [{"name": "scene.md", "text": "A mixed scene at a crossing."}],
+                "uncategorizedDocs": [{"name": "scene.md", "text": "A mixed scene at a crossing.", "extract": True}],
             },
         )
     )
@@ -403,7 +440,7 @@ def test_build_uncategorized_lore_doc_creates_nothing(client, monkeypatch):
             json={
                 "seed": "A harbor.",
                 "uncategorizedDocs": [
-                    {"name": "lore.md", "text": "A general history of the founding wars."}
+                    {"name": "lore.md", "text": "A general history of the founding wars.", "extract": True}
                 ],
             },
         )
@@ -422,8 +459,8 @@ def test_build_dedups_subjects_across_docs(client, monkeypatch):
         json={
             "seed": "A harbor.",
             "characterDocs": [
-                {"name": "a.md", "text": "Maerin the smuggler."},
-                {"name": "b.md", "text": "More notes on Maerin Voss, smuggler."},
+                {"name": "a.md", "text": "Maerin the smuggler.", "extract": True},
+                {"name": "b.md", "text": "More notes on Maerin Voss, smuggler.", "extract": True},
             ],
         },
     )
@@ -674,8 +711,8 @@ def test_build_skips_an_unreadable_uncategorized_doc(client, monkeypatch):
             json={
                 "seed": "A harbor.",
                 "uncategorizedDocs": [
-                    {"name": "good.md", "text": "Maerin Voss, a wary harbor smuggler."},
-                    {"name": "bad.md", "text": "A badjson document that will not parse."},
+                    {"name": "good.md", "text": "Maerin Voss, a wary harbor smuggler.", "extract": True},
+                    {"name": "bad.md", "text": "A badjson document that will not parse.", "extract": True},
                 ],
             },
         )
@@ -711,7 +748,7 @@ def test_build_classified_char_doc_falls_back_to_one_when_unnamed(client, monkey
             "/api/storylines/build/stream",
             json={
                 "seed": "A harbor.",
-                "characterDocs": [{"name": "warden.md", "text": "A grim nameless jailer."}],
+                "characterDocs": [{"name": "warden.md", "text": "A grim nameless jailer.", "extract": True}],
             },
         )
     )
@@ -747,7 +784,7 @@ def test_build_extraction_retries_a_transient_failure(client, monkeypatch):
     events = _stream_events(
         client.post(
             "/api/storylines/build/stream",
-            json={"seed": "A harbor.", "characterDocs": [{"name": "flaky.md", "text": "A flaky doc."}]},
+            json={"seed": "A harbor.", "characterDocs": [{"name": "flaky.md", "text": "A flaky doc.", "extract": True}]},
         )
     )
     assert calls["n"] == 2  # tried once, retried once
