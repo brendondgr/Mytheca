@@ -23,6 +23,10 @@ import {
   type StatChip,
 } from "./scene-data";
 import {
+  applyActivity,
+  applyCharacterActivity,
+  type ActivityEntry,
+  type CharacterActivity,
   applyPresence,
   applyStatByChar,
   applyStatUpdate,
@@ -79,6 +83,13 @@ export function useScenePlay(scenario: ResolvedScenario) {
   // Ordered per-turn diagnostic trace (the Inspector panel). Populated only from the
   // opt-in `trace` frames the backend interleaves when we request them.
   const [traceTurns, setTraceTurns] = useState<TraceTurn[]>([]);
+  // Live "scene pulse" activity feed: newest entries first, capped at 12. Live-only by
+  // design — not seeded from history. Both the Director rail (Phase 6) and the cast rail
+  // read from this feed. Resets to [] automatically on new scene load (initial state).
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  // Per-character live status: "idle" | "thinking" | "speaking". Resets to {} when the
+  // stream leaves "streaming" (nobody is stuck in thinking/speaking between turns).
+  const [activityByChar, setActivityByChar] = useState<Record<string, CharacterActivity>>({});
   // Live character↔character relationships from the story graph (P6). Falls back to the
   // seed placeholder while empty / when the graph is off.
   const [graphRels, setGraphRels] = useState<Relationship[]>([]);
@@ -184,6 +195,11 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const onFrame = useCallback((frame: TurnStreamFrame) => {
     const sid = sessionIdOf(frame);
     if (sid && sid !== sessionRef.current) rememberSession(sid);
+
+    // Activity feed + per-character status see ALL frames (trace, story events, errors).
+    setActivity((a) => applyActivity(a, frame));
+    setActivityByChar((m) => applyCharacterActivity(m, frame));
+
     if (frame.type === "trace") {
       setTraceTurns((t) => foldTrace(t, frame));
       return;
@@ -225,6 +241,14 @@ export function useScenePlay(scenario: ResolvedScenario) {
 
   const stream = useEventStream<TurnStreamFrame>(onFrame);
   const sending = stream.status === "streaming";
+
+  // When streaming ends, clear per-character activity so nobody is stuck "thinking".
+  // The activity feed itself is kept (it describes what just happened).
+  useEffect(() => {
+    if (!sending) {
+      setActivityByChar({});
+    }
+  }, [sending]);
 
   const submit = useCallback(
     (text: string) => {
@@ -315,5 +339,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
     profileId,
     openProfile: (id: string) => setProfileId(id),
     closeProfile: () => setProfileId(null),
+    activity,
+    activityByChar,
   };
 }

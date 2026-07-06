@@ -272,3 +272,203 @@ export function branchOptionsToChoices(
     follow: { who: "", text: "" },
   }));
 }
+
+// ---- Live activity feed (Phase 5) ----
+
+/**
+ * One entry in the live "scene pulse" activity feed. Newest entries are first;
+ * `who` is a `characterId` when attributable (name resolution is left to the UI
+ * layer, which has access to the cast). `id` is stable across delta chunks of the
+ * same underlying event so React keys do not flip on every stream tick.
+ */
+export interface ActivityEntry {
+  id: string;
+  kind: "narration" | "thinking" | "speaking" | "action" | "stat" | "presence" | "plan" | "branch";
+  who?: string; // characterId
+  label: string;
+  detail?: string;
+}
+
+const ACTIVITY_MAX = 12;
+
+/**
+ * Fold one frame into the activity feed. Returns a **new** array (newest first,
+ * capped at `ACTIVITY_MAX`) or the *same reference* when the frame is irrelevant,
+ * so callers can skip re-renders cheaply.
+ *
+ * Delta-streamed events (narration, character_dialogue) produce ONE entry on the
+ * first chunk and are never duplicated on subsequent chunks (id-keyed dedup).
+ */
+export function applyActivity(list: ActivityEntry[], frame: TurnStreamFrame): ActivityEntry[] {
+  // ---- trace frames ----
+  if (frame.type === "trace") {
+    const t = frame;
+    if (t.step === "speaker") {
+      // "X is about to speak" — fires before any character events.
+      const characterId = (t.data.characterId as string | undefined) ?? "";
+      const name = (t.data.name as string | undefined) ?? characterId;
+      if (!characterId) return list;
+      const entry: ActivityEntry = {
+        id: `trace-speaker-${characterId}-${t.n}`,
+        kind: "thinking",
+        who: characterId,
+        label: `${name} is about to speak`,
+      };
+      return [entry, ...list].slice(0, ACTIVITY_MAX);
+    }
+    if (t.step === "branch") {
+      const entry: ActivityEntry = {
+        id: `trace-branch-${t.n}`,
+        kind: "branch",
+        label: "New paths offered",
+        detail: t.detail || undefined,
+      };
+      return [entry, ...list].slice(0, ACTIVITY_MAX);
+    }
+    if (t.step === "plan") {
+      const entry: ActivityEntry = {
+        id: `trace-plan-${t.n}`,
+        kind: "plan",
+        label: t.title,
+        detail: t.detail || undefined,
+      };
+      return [entry, ...list].slice(0, ACTIVITY_MAX);
+    }
+    return list; // all other trace steps are inspector-only
+  }
+
+  if (frame.type === "error") return list;
+
+  // ---- story event frames ----
+  const event = frame as import("@/lib/events").PlayEvent;
+
+  if (event.type === "narration") {
+    // One entry for the whole narration stream — dedup by id.
+    if (list.some((e) => e.id === `narration-${event.id}`)) return list;
+    const entry: ActivityEntry = {
+      id: `narration-${event.id}`,
+      kind: "narration",
+      label: "The narrator sets the scene",
+    };
+    return [entry, ...list].slice(0, ACTIVITY_MAX);
+  }
+
+  if (event.type === "internal_thought") {
+    const cid = event.data.characterId;
+    const entry: ActivityEntry = {
+      id: `thought-${event.id}`,
+      kind: "thinking",
+      who: cid,
+      label: `${cid} is thinking`,
+    };
+    return [entry, ...list].slice(0, ACTIVITY_MAX);
+  }
+
+  if (event.type === "character_dialogue") {
+    // One entry for the whole dialogue stream — dedup by id.
+    if (list.some((e) => e.id === `dialogue-${event.id}`)) return list;
+    const cid = event.data.characterId;
+    const entry: ActivityEntry = {
+      id: `dialogue-${event.id}`,
+      kind: "speaking",
+      who: cid,
+      label: `${cid} speaks`,
+    };
+    return [entry, ...list].slice(0, ACTIVITY_MAX);
+  }
+
+  if (event.type === "character_action") {
+    const cid = event.data.characterId;
+    const entry: ActivityEntry = {
+      id: `action-${event.id}`,
+      kind: "action",
+      who: cid,
+      label: `${cid} acts`,
+      detail: event.data.text,
+    };
+    return [entry, ...list].slice(0, ACTIVITY_MAX);
+  }
+
+  if (event.type === "state_update" && event.data.stat) {
+    const stat = event.data.stat as import("@/lib/events").StatPatch;
+    const delta = stat.delta != null ? stat.delta : null;
+    const value = stat.value != null ? stat.value : null;
+    const change =
+      delta != null
+        ? `${delta >= 0 ? "+" : ""}${delta}`
+        : value != null
+          ? String(value)
+          : "";
+    const entry: ActivityEntry = {
+      id: `stat-${event.id}-${stat.key}`,
+      kind: "stat",
+      who: stat.characterId,
+      label: `${stat.key}${change ? ` ${change}` : ""}`,
+      detail: stat.reason || undefined,
+    };
+    return [entry, ...list].slice(0, ACTIVITY_MAX);
+  }
+
+  if (event.type === "character_status_change") {
+    const { characterId, status, reason } = event.data;
+    const entry: ActivityEntry = {
+      id: `presence-${event.id}`,
+      kind: "presence",
+      who: characterId,
+      label: `${characterId} → ${status}`,
+      detail: reason || undefined,
+    };
+    return [entry, ...list].slice(0, ACTIVITY_MAX);
+  }
+
+  return list;
+}
+
+// ---- Per-character activity status (Phase 5) ----
+
+/** Live status of a single character in the current turn. */
+export type CharacterActivity = "idle" | "thinking" | "speaking";
+
+/**
+ * Fold one frame into the per-character activity map. Returns the **same reference**
+ * when nothing changes (avoids unnecessary re-renders). Transitions:
+ * - trace `speaker` step or `internal_thought` → "thinking"
+ * - first `character_dialogue` chunk → "speaking"
+ * - `character_dialogue` with `done: true` → "idle"
+ */
+export function applyCharacterActivity(
+  map: Record<string, CharacterActivity>,
+  frame: TurnStreamFrame,
+): Record<string, CharacterActivity> {
+  if (frame.type === "trace") {
+    if (frame.step === "speaker") {
+      const cid = frame.data.characterId as string | undefined;
+      if (!cid) return map;
+      if (map[cid] === "thinking") return map;
+      return { ...map, [cid]: "thinking" };
+    }
+    return map;
+  }
+
+  if (frame.type === "error") return map;
+
+  const event = frame as import("@/lib/events").PlayEvent;
+
+  if (event.type === "internal_thought") {
+    const cid = event.data.characterId;
+    if (map[cid] === "thinking") return map;
+    return { ...map, [cid]: "thinking" };
+  }
+
+  if (event.type === "character_dialogue") {
+    const cid = event.data.characterId;
+    if (event.data.done) {
+      if (map[cid] === "idle" || map[cid] === undefined) return map;
+      return { ...map, [cid]: "idle" };
+    }
+    if (map[cid] === "speaking") return map;
+    return { ...map, [cid]: "speaking" };
+  }
+
+  return map;
+}

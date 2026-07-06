@@ -9,6 +9,10 @@ import type {
 } from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
+  applyActivity,
+  applyCharacterActivity,
+  type ActivityEntry,
+  type CharacterActivity,
   applyPresence,
   applyStatByChar,
   applyStatUpdate,
@@ -355,5 +359,206 @@ describe("applyPresence", () => {
     map = applyPresence(map, statusEvent("kira", "dead"));
     map = applyPresence(map, statusEvent("mei", "present"));
     expect(map).toEqual({ mei: "present", kira: "dead" });
+  });
+});
+
+// ---- applyActivity ----
+
+describe("applyActivity", () => {
+  function traceFrame(step: string, n: number, extra: Partial<TurnTraceFrame> = {}): TurnTraceFrame {
+    return { type: "trace", n, step, title: `${step} ${n}`, detail: "", data: {}, ...extra };
+  }
+
+  it("trace speaker step → thinking entry with characterId as who", () => {
+    const feed = applyActivity(
+      [],
+      traceFrame("speaker", 1, { data: { characterId: "mei", name: "Mei" } }),
+    );
+    expect(feed).toHaveLength(1);
+    expect(feed[0].kind).toBe("thinking");
+    expect(feed[0].who).toBe("mei");
+    expect(feed[0].label).toBe("Mei is about to speak");
+  });
+
+  it("trace branch step → branch entry", () => {
+    const feed = applyActivity([], traceFrame("branch", 5, { detail: "Two paths" }));
+    expect(feed).toHaveLength(1);
+    expect(feed[0].kind).toBe("branch");
+    expect(feed[0].label).toBe("New paths offered");
+    expect(feed[0].detail).toBe("Two paths");
+  });
+
+  it("trace plan step → plan entry with title as label", () => {
+    const feed = applyActivity(
+      [],
+      traceFrame("plan", 2, { title: "The narrator opens the scene", detail: "opening" }),
+    );
+    expect(feed).toHaveLength(1);
+    expect(feed[0].kind).toBe("plan");
+    expect(feed[0].label).toBe("The narrator opens the scene");
+  });
+
+  it("first narration chunk → narration entry; subsequent chunks do NOT duplicate", () => {
+    let feed: ActivityEntry[] = [];
+    feed = applyActivity(feed, ev("narration", "n1", { text: "Rain ", done: false }));
+    feed = applyActivity(feed, ev("narration", "n1", { text: "ticks.", done: true }));
+    expect(feed).toHaveLength(1);
+    expect(feed[0].kind).toBe("narration");
+    expect(feed[0].id).toBe("narration-n1");
+  });
+
+  it("internal_thought → thinking entry for that character", () => {
+    const feed = applyActivity([], ev("internal_thought", "t1", { characterId: "kira", text: "She knows." }));
+    expect(feed).toHaveLength(1);
+    expect(feed[0].kind).toBe("thinking");
+    expect(feed[0].who).toBe("kira");
+  });
+
+  it("first character_dialogue chunk → speaking entry; subsequent chunks do NOT duplicate", () => {
+    let feed: ActivityEntry[] = [];
+    feed = applyActivity(feed, ev("character_dialogue", "d1", { characterId: "mei", text: "He", done: false }));
+    feed = applyActivity(feed, ev("character_dialogue", "d1", { characterId: "mei", text: "llo.", done: true }));
+    expect(feed).toHaveLength(1);
+    expect(feed[0].kind).toBe("speaking");
+    expect(feed[0].who).toBe("mei");
+    expect(feed[0].id).toBe("dialogue-d1");
+  });
+
+  it("character_action → action entry", () => {
+    const feed = applyActivity(
+      [],
+      ev("character_action", "a1", { characterId: "mei", text: "Mei leans back." }),
+    );
+    expect(feed[0].kind).toBe("action");
+    expect(feed[0].who).toBe("mei");
+    expect(feed[0].detail).toBe("Mei leans back.");
+  });
+
+  it("state_update with stat → stat entry with delta/value and reason", () => {
+    const feed = applyActivity(
+      [],
+      ev("state_update", "s1", {
+        patch: {},
+        stat: { characterId: "mei", key: "suspicion", delta: 5, value: 67, reason: "pressed" },
+      }),
+    );
+    expect(feed[0].kind).toBe("stat");
+    expect(feed[0].who).toBe("mei");
+    expect(feed[0].label).toBe("suspicion +5");
+    expect(feed[0].detail).toBe("pressed");
+  });
+
+  it("state_update without stat → no entry (same reference)", () => {
+    const original: ActivityEntry[] = [];
+    const result = applyActivity(original, ev("state_update", "s1", { patch: {}, stat: null }));
+    expect(result).toBe(original);
+  });
+
+  it("character_status_change → presence entry", () => {
+    const feed = applyActivity(
+      [],
+      ev("character_status_change", "cs1", {
+        characterId: "kira", status: "left", reason: "She walked out.", auto: true,
+      }),
+    );
+    expect(feed[0].kind).toBe("presence");
+    expect(feed[0].who).toBe("kira");
+    expect(feed[0].detail).toBe("She walked out.");
+  });
+
+  it("entries are newest first (last added is first in list)", () => {
+    let feed: ActivityEntry[] = [];
+    feed = applyActivity(feed, ev("narration", "n1", { text: "a", done: true }));
+    feed = applyActivity(
+      feed,
+      traceFrame("speaker", 2, { data: { characterId: "mei", name: "Mei" } }),
+    );
+    expect(feed[0].kind).toBe("thinking"); // newer
+    expect(feed[1].kind).toBe("narration"); // older
+  });
+
+  it("caps the feed at 12 entries (oldest dropped)", () => {
+    let feed: ActivityEntry[] = [];
+    for (let i = 0; i < 14; i++) {
+      feed = applyActivity(
+        feed,
+        traceFrame("speaker", i, {
+          data: { characterId: `char${i}`, name: `Char${i}` },
+        }),
+      );
+    }
+    expect(feed).toHaveLength(12);
+  });
+
+  it("returns same reference for irrelevant frames (error / unknown trace step)", () => {
+    const original: ActivityEntry[] = [{ id: "x", kind: "narration", label: "test" }];
+    expect(applyActivity(original, { type: "error", message: "x" })).toBe(original);
+    expect(applyActivity(original, traceFrame("commit", 1))).toBe(original);
+    expect(applyActivity(original, traceFrame("lore", 1))).toBe(original);
+  });
+});
+
+// ---- applyCharacterActivity ----
+
+describe("applyCharacterActivity", () => {
+  function traceFrame(step: string, n: number, extra: Partial<TurnTraceFrame> = {}): TurnTraceFrame {
+    return { type: "trace", n, step, title: `${step} ${n}`, detail: "", data: {}, ...extra };
+  }
+
+  it("trace speaker step sets the character to thinking", () => {
+    const map = applyCharacterActivity(
+      {},
+      traceFrame("speaker", 1, { data: { characterId: "mei", name: "Mei" } }),
+    );
+    expect(map.mei).toBe("thinking");
+  });
+
+  it("internal_thought sets the character to thinking", () => {
+    const map = applyCharacterActivity(
+      {},
+      ev("internal_thought", "t1", { characterId: "kira", text: "Hmm." }),
+    );
+    expect(map.kira).toBe("thinking");
+  });
+
+  it("first character_dialogue chunk sets the character to speaking", () => {
+    const map = applyCharacterActivity(
+      { mei: "thinking" },
+      ev("character_dialogue", "d1", { characterId: "mei", text: "Hello.", done: false }),
+    );
+    expect(map.mei).toBe("speaking");
+  });
+
+  it("character_dialogue with done:true resets the character to idle", () => {
+    const map = applyCharacterActivity(
+      { mei: "speaking" },
+      ev("character_dialogue", "d1", { characterId: "mei", text: "Bye.", done: true }),
+    );
+    expect(map.mei).toBe("idle");
+  });
+
+  it("returns same reference when character already in target state (no re-render)", () => {
+    const original: Record<string, CharacterActivity> = { mei: "thinking" };
+    // already thinking — speaker trace for same char is a no-op reference-wise
+    const result = applyCharacterActivity(
+      original,
+      traceFrame("speaker", 1, { data: { characterId: "mei", name: "Mei" } }),
+    );
+    expect(result).toBe(original);
+  });
+
+  it("returns same reference for irrelevant frames (error / unknown trace step)", () => {
+    const original: Record<string, CharacterActivity> = { mei: "speaking" };
+    expect(applyCharacterActivity(original, { type: "error", message: "x" })).toBe(original);
+    expect(applyCharacterActivity(original, traceFrame("commit", 1))).toBe(original);
+  });
+
+  it("done:true on an already-idle character returns same reference", () => {
+    const original: Record<string, CharacterActivity> = { mei: "idle" };
+    const result = applyCharacterActivity(
+      original,
+      ev("character_dialogue", "d1", { characterId: "mei", text: "end", done: true }),
+    );
+    expect(result).toBe(original);
   });
 });
