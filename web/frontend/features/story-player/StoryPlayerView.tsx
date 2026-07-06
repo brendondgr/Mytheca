@@ -6,7 +6,6 @@ import { exportSessionUrl } from "@/lib/api";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 import type { ExportFormat } from "@/components/feature/ExportMenu";
 import { useScenePlay } from "./useScenePlay";
-import { tensionLabel } from "./scene-data";
 import { SceneHeader } from "@/components/layout/SceneHeader";
 import { CastRail } from "@/components/feature/CastRail";
 import { DirectorRail } from "@/components/feature/DirectorRail";
@@ -102,6 +101,7 @@ export function StoryPlayerView({
           setPresence={scene.setPresence}
           statDefs={statDefs}
           statsByChar={scene.statsByChar}
+          activityByChar={scene.activityByChar}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -171,11 +171,9 @@ export function StoryPlayerView({
           />
         ) : (
           <DirectorRail
-            goal={scenario.goal}
-            tension={scene.tension}
-            tensionText={tensionLabel(scene.tension)}
             stats={scene.stats}
-            relationships={scene.relationships}
+            activity={scene.activity}
+            charById={byId}
           />
         )}
 

@@ -47,7 +47,9 @@ describe("StoryPlayerView", () => {
       screen.getByText(/Lamplight gutters across the Saltworn/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/The tide doesn't wait/i)).toBeInTheDocument();
-    expect(screen.getByText(/Your move/i)).toBeInTheDocument();
+    // "Your move" appears in both the choices eyebrow and the scene-pulse empty state —
+    // confirm at least one instance of the choices heading is rendered.
+    expect(screen.getAllByText(/Your move/i).length).toBeGreaterThan(0);
     expect(screen.queryByText("d20 check")).not.toBeInTheDocument(); // CheckCard retired (D11)
   });
 
@@ -57,6 +59,22 @@ describe("StoryPlayerView", () => {
     expect(screen.queryByText("Character stats")).not.toBeInTheDocument();
     // Each public stat now renders beneath every cast member's name in the cast rail.
     expect(screen.getAllByText("Health").length).toBeGreaterThan(0);
+  });
+
+  it("renders the Director rail's Scene pulse log region", () => {
+    render(<StoryPlayerView scenario={embergate} />);
+    // The right rail now shows a live-feed log (role="log", aria-live="polite").
+    const log = screen.getByRole("log");
+    expect(log).toBeInTheDocument();
+    expect(log).toHaveAttribute("aria-live", "polite");
+    // Empty on mount — shows the quiet-state message.
+    expect(screen.getByText(/The scene is quiet/i)).toBeInTheDocument();
+  });
+
+  it("Director rail does NOT show Scene goal or Tension sections (regression)", () => {
+    render(<StoryPlayerView scenario={embergate} />);
+    expect(screen.queryByText("Scene goal")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tension")).not.toBeInTheDocument();
   });
 
   it("streams a turn on send: player bubble + the streamed reply", async () => {

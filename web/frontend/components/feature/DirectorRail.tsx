@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import type { StatDefinition } from "@/lib/types";
 import type { Relationship, StatChip } from "@/features/story-player/scene-data";
+import type { ActivityEntry } from "@/features/story-player/turn-stream";
 
 function fmt(n: number): string {
   return n > 0 ? `+${n}` : `${n}`;
@@ -211,43 +213,127 @@ export function Relationships({ items }: { items: Relationship[] }) {
   );
 }
 
-/** Right rail: scenario goal · tension meter · scene-state chips · relationships. Per-character
- * stats live in the cast rail (beneath each name) and the character dossier — this rail has no
- * single character to show a stat block for, so it no longer duplicates a generic legend. */
-export function DirectorRail({
-  goal,
-  tension,
-  tensionText,
-  stats,
-  relationships,
+/** Icon prefix for each activity kind (single char — purely decorative, aria-hidden). */
+function kindIcon(kind: ActivityEntry["kind"]): string {
+  switch (kind) {
+    case "thinking": return "…";
+    case "speaking": return "◆";
+    case "action": return "↳";
+    case "narration": return "◇";
+    case "stat": return "▲";
+    case "presence": return "●";
+    case "plan": return "⟳";
+    case "branch": return "⑂";
+  }
+}
+
+/** Drop the leading subject (characterId or resolved name) from an activity label. */
+function stripSubject(label: string, who: string, name: string): string {
+  if (label.startsWith(who)) return label.slice(who.length).trimStart();
+  if (label.startsWith(name)) return label.slice(name.length).trimStart();
+  return label;
+}
+
+/**
+ * The live "scene pulse" feed: a scrollable `role="log"` region that shows the 12 most
+ * recent activity entries streamed from the turn engine. Each entry shows the character
+ * name (in their colour) when `who` resolves via `charById`, the action label, and an
+ * optional muted detail line. Entries animate in with the transcript's standard entrance.
+ * Empty state: a quiet italic prompt.
+ */
+function ScenePulse({
+  activity,
+  charById,
 }: {
-  goal: string;
-  tension: number;
-  tensionText: string;
+  activity: ActivityEntry[];
+  charById?: (id: string) => { name: string; color: string } | undefined;
+}) {
+  return (
+    <div
+      role="log"
+      aria-live="polite"
+      aria-label="Scene pulse"
+      className="max-h-[52vh] overflow-y-auto"
+    >
+      {activity.length === 0 ? (
+        <p className="font-body text-[12px] italic text-ink-soft">
+          The scene is quiet — your move.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-[6px]">
+          {activity.map((entry) => {
+            const char = entry.who ? charById?.(entry.who) : undefined;
+            return (
+              <motion.div
+                key={entry.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
+              >
+                <div className="rounded-[3px] border border-cardbd bg-card p-[6px_9px]">
+                  <div className="flex items-baseline gap-[5px]">
+                    <span aria-hidden className="flex-none font-mono text-[9px] text-mute2">
+                      {kindIcon(entry.kind)}
+                    </span>
+                    {char ? (
+                      <span
+                        className="flex-none font-display text-[12px] font-semibold leading-[1.2]"
+                        style={{ color: char.color }}
+                      >
+                        {char.name}
+                      </span>
+                    ) : null}
+                    <span className="min-w-0 font-body text-[12px] leading-[1.3] text-ink">
+                      {/* Labels lead with their subject — the raw characterId for event-derived
+                          entries ("abc123 speaks") but the display name for trace-derived ones
+                          ("Maerin is about to speak"). Strip whichever prefixes the label so the
+                          colored name span never shows the subject twice. */}
+                      {char && entry.who
+                        ? stripSubject(entry.label, entry.who, char.name)
+                        : entry.label}
+                    </span>
+                  </div>
+                  {entry.detail ? (
+                    <p className="mt-[2px] font-body text-[11px] leading-[1.3] text-ink-soft pl-[14px]">
+                      {entry.detail}
+                    </p>
+                  ) : null}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Right rail: live "Scene pulse" activity feed · scene-state chips. The Scene Goal,
+ * Tension meter, and Relationships sections have been replaced by the live feed; those
+ * data streams now belong to the CharacterDossier (relationships) and the cast rail
+ * (per-character stats). `charById` resolves a characterId to a name+color for the feed.
+ */
+export function DirectorRail({
+  stats,
+  activity = [],
+  charById,
+}: {
   stats: StatChip[];
-  relationships: Relationship[];
+  activity?: ActivityEntry[];
+  charById?: (id: string) => { name: string; color: string } | undefined;
 }) {
   return (
     <aside className="velora-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block">
       <Eyebrow tracking="0.16em" className="mb-[9px] block">
-        Scene goal
+        Scene pulse
       </Eyebrow>
-      <p className="font-body text-[14px] leading-[1.45] text-ink italic">{goal}</p>
-
-      <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
-        Tension
-      </Eyebrow>
-      <TensionMeter pct={tension} label={tensionText} />
+      <ScenePulse activity={activity} charById={charById} />
 
       <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
         Scene state
       </Eyebrow>
       <StateChips stats={stats} />
-
-      <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
-        Relationships
-      </Eyebrow>
-      <Relationships items={relationships} />
     </aside>
   );
 }
