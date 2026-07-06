@@ -476,7 +476,8 @@ New Storyline page → "Build the whole world" → POST /storylines/build/stream
   → for-await over the response body (lib/api.postNdjson):
       status → meta  → left fields fill (Title/Genre/Tagline/Premise)
       status → primer→ World Primer fills
-      status → extract→ docs mined for NAMED subjects, RESPECTING the triage bucket
+      status → extract→ ONLY the Extract-checked docs are mined (opt-in per doc,
+                        default off), for NAMED subjects, RESPECTING the triage bucket
                         (character→named chars, setting→named settings, uncategorized→
                         either strictly, other→lore-only-never-extracted), CONCURRENTLY
                         (bounded by authoringConcurrency) + per-doc progress
@@ -496,8 +497,10 @@ New Storyline page → "Build the whole world" → POST /storylines/build/stream
 ```
 
 The build creates the storyline, the stat schema, and **only the characters/settings
-found in the attached context docs**, and extraction **respects the author's triage
-bucket** — it never invents an entity by expanding lore:
+mined from docs the author checked Extract on**. Extraction is **opt-in per document**:
+a doc's `extract` flag (default **off**) gates whether it is mined at all — a new
+storyline never auto-extracts. For the Extract-checked docs, extraction then **respects
+the author's triage bucket** — it never invents an entity by expanding lore:
 
 - **`characterDocs`** → mined for explicitly NAMED characters only (usually exactly
   one — the doc *is* that character; split into several only if it clearly names
@@ -511,8 +514,10 @@ bucket** — it never invents an entity by expanding lore:
   folds into the drafting grounding so drafts stay consistent with them).
 
 Subjects are de-duped across docs in document order (uncapped). It never invents a cast
-from thin air: no entity docs → no characters/settings. `useStorylineCreator.build()`
-routes each kept doc to its bucket's list and the backend applies the policy above.
+from thin air: no Extract-checked entity docs → no characters/settings.
+`useStorylineCreator.build()` routes each kept doc to its bucket's list **with its
+`extract` flag**, and `build_agent` mines only the Extract-checked docs before applying
+the bucket policy above.
 
 The **extract stage is parallel + fault-tolerant** (matching the drafting phase): the
 per-doc extraction calls run through `concurrency.imap_unordered` bounded by
@@ -558,19 +563,22 @@ mid-render aborts the build's image loop (no double-render, no race). The non-st
 
 ```
 New Storyline page → pick an upload target (Uncategorized / Character / Setting /
-  Other + Draft/RAG defaults) → drop .txt/.md (read in-browser)
+  Other + Draft/RAG/Extract defaults) → drop .txt/.md (read in-browser)
   → files land pre-categorized into that bucket (a whole batch at once, no triage)
   → leftovers left Uncategorized → POST /storylines/triage/stream (Uncategorized only)
-      → per file: status {name,index,total} → item {category, includeDraft, includeRag}
+      → per file: status {name,index,total} → item {category, includeDraft, includeRag,
+        includeExtract} (Extract suggested conservatively, default off)
       → each row fills in LIVE (the active file shows a "classifying…" badge)
-  → author reviews the buckets (Characters / Settings / Other) + Draft/RAG flags
+  → author reviews the buckets (Characters / Settings / Other) + Draft/RAG/Extract flags
   → on commit: POST /storylines/{id}/context-docs/bulk persists the corpus
       → ContextDocument rows (content stored verbatim, char_count cached)
 ```
 
-The author can **bulk-categorize on upload** — choose a bucket (and the Draft / RAG
-defaults) once, then drop a folder of e.g. character sheets and they all land as
-Characters with no triage. **Triage** then sweeps only what's still **Uncategorized**,
+The author can **bulk-categorize on upload** — choose a bucket (and the Draft / RAG /
+Extract defaults) once, then drop a folder of e.g. character sheets and they all land as
+Characters with no triage. **Extract is opt-in (default off)** — it is a separate per-doc
+check-off (like Draft/RAG) that gates whether **Build the whole world** mines a file for
+named characters/settings; a new storyline never auto-extracts. **Triage** then sweeps only what's still **Uncategorized**,
 leaving the manual buckets alone. Triage runs **per file** (one LLM call each) so the
 panel sorts documents in front of the author; the batched `POST /storylines/triage`
 remains for back-compat. A per-doc failure falls back to `other`/RAG-on without
@@ -584,7 +592,9 @@ This is the **persistence seam** for retrieval: the documents are durably stored
 per storyline and survive reload. The **Hybrid RAG** (see `docs/rag.md`) now reads
 `content` at runtime — `includeRag` docs are embedded on save and retrieved by the
 authoring agents. `includeDraft` docs additionally ground the creation-time
-generation inline (not retrieved, capped at 32K characters).
+generation inline (not retrieved, capped at 32K characters). `includeExtract` is the
+build-time opt-in — persisted so a re-opened storyline remembers which docs to mine
+when **Build the whole world** is re-run; it has no runtime/retrieval effect.
 
 ## Story Graph Flow (Neo4j substrate)
 

@@ -301,14 +301,14 @@ export interface BuildWorldBody {
   storylineId?: string;
   maxCharacters?: number;
   maxSettings?: number;
-  /** Docs classified as characters — mined for NAMED characters (usually one). */
-  characterDocs?: { name: string; text: string }[];
-  /** Docs classified as settings — mined for NAMED settings (usually one). */
-  settingDocs?: { name: string; text: string }[];
-  /** Uncategorized docs — mined strictly, only for a genuinely NAMED character/setting. */
-  uncategorizedDocs?: { name: string; text: string }[];
+  /** Docs classified as characters — mined for NAMED characters (usually one) IF `extract`. */
+  characterDocs?: { name: string; text: string; extract?: boolean }[];
+  /** Docs classified as settings — mined for NAMED settings (usually one) IF `extract`. */
+  settingDocs?: { name: string; text: string; extract?: boolean }[];
+  /** Uncategorized docs — mined strictly for a genuinely NAMED character/setting IF `extract`. */
+  uncategorizedDocs?: { name: string; text: string; extract?: boolean }[];
   /** Docs classified as 'other' — LORE/GROUNDING ONLY; never turned into entities. */
-  otherDocs?: { name: string; text: string }[];
+  otherDocs?: { name: string; text: string; extract?: boolean }[];
 }
 
 export const buildWorld = (body: BuildWorldBody) =>
@@ -325,6 +325,8 @@ export type ContextDocumentInput = {
   category?: DocCategory;
   includeDraft?: boolean;
   includeRag?: boolean;
+  /** Opt-in: mine this doc for named characters/settings during the world build. */
+  includeExtract?: boolean;
   source?: string;
   /** Optional entity scope (character/setting/scenario); null = storyline-level. */
   entityType?: "character" | "setting" | "scenario" | null;

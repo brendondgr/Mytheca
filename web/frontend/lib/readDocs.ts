@@ -21,13 +21,17 @@ export interface ReadDoc {
   // (as `ContextDocument.includeRag`), though retrieval itself is still a later plan.
   // (The former `useKg` knowledge-graph toggle was removed — documents triaged into
   // Characters/Settings already feed the graph via their entities.)
-  // Undefined is treated as ON for back-compat.
+  // `useExtract` is OPT-IN: mine this file for named characters/settings during
+  // **Build the whole world** (persisted as `ContextDocument.includeExtract`).
+  // Undefined `useDraft`/`useRag` is treated as ON for back-compat; undefined
+  // `useExtract` is treated as OFF (a new storyline never auto-extracts).
   useDraft?: boolean;
   useRag?: boolean;
+  useExtract?: boolean;
 }
 
 /** The downstream uses an author can toggle per context file. */
-export type DocUse = "useDraft" | "useRag";
+export type DocUse = "useDraft" | "useRag" | "useExtract";
 
 /** True for the plain-text formats we can read in the browser today. */
 export function isAcceptedDoc(name: string): boolean {

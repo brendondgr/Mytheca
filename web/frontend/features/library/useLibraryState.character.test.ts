@@ -253,8 +253,8 @@ describe("useLibraryState — character authoring", () => {
     vi.mocked(api.listContextDocuments).mockResolvedValueOnce([
       {
         id: "cd1", storylineId: "x", name: "notes.md", content: "secret tunnels",
-        category: "character", includeDraft: false, includeRag: true, source: "upload",
-        charCount: 13, entityType: "character", entityId: someId,
+        category: "character", includeDraft: false, includeRag: true, includeExtract: false,
+        source: "upload", charCount: 13, entityType: "character", entityId: someId,
       },
     ]);
     act(() => result.current.editCharacter(someId));

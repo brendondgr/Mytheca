@@ -24,18 +24,21 @@ MAX_STATS = 8
 
 
 class BuildDoc(CamelModel):
-    """An attached reference document to mine for characters / settings to build.
+    """An attached reference document that MAY be mined for characters / settings.
 
     A doc may describe ONE subject or MANY (a roster, a mixed scene, general lore).
-    The build runs an extraction pass over every attached doc, so a single file with
-    several characters becomes several cards. ``category`` is the author's triage
-    bucket (``character`` / ``setting`` / ``other``), kept as a soft hint only — the
-    extractor surfaces whatever subjects it actually finds regardless.
+    Extraction is **opt-in per document**: only a doc with ``extract=True`` is fed
+    into the extraction pass — the author checks **Extract** on the files they want
+    turned into cast/settings. ``category`` is the author's triage bucket, which then
+    scopes *what kind* is mined (character/setting/uncategorized); ``extract`` gates
+    *whether* the doc is mined at all (default OFF — a new storyline never auto-mines).
     """
 
     name: str = ""
     text: str = ""
     category: str | None = None
+    # Opt-in gate: mine this doc for named characters/settings during the build.
+    extract: bool = False
 
 
 class ExtractedEntity(CamelModel):

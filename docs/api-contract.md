@@ -28,7 +28,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. Read/write shape: `id`, `name`, `role`, `color`, `mono` (derived), `traits`, `speech`, `goal`, `secret`, plus base-identity prose `appearance`, `background`, `personality` (all nullable), `portrait` (nullable relative `/media/...` URL of the generated WebP avatar), `portraitPositive` / `portraitNegative` (nullable ComfyUI prompt strings that produced the portrait — persisted so the author can tweak-and-re-render on re-edit), and `voiceSamples` (a list of `{ situation, sample }` pairs — the character's voice & tone profile, each pair a previous situation paired with the character's *single* in-voice response to it (never a back-and-forth exchange); empty list when unauthored, derived from background/personality before starting stats and injected into the turn loop). |
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. Read/write shape: `id`, `name`, `type`, `desc` (short base description), plus §4.1 Setting-node metadata `atmosphere` (sensory character), `features` (notable fixtures/points of interest), `currentState` (initial here-and-now), and `image` (nullable relative `/media/scenes/...` URL of the generated WebP establishing shot) — all nullable; `sceneArtPositive` / `sceneArtNegative` (nullable ComfyUI prompt strings that produced the image — persisted for re-edit); and `timeline` (append-only event log, **empty at authoring**, play-accrued; defaults `[]`). |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. Read/write shape includes `image` (nullable relative `/media/scenes/...` URL of the generated WebP scene art), `sceneArtPositive`, and `sceneArtNegative` (nullable prompt strings), plus three **per-scene play controls** set from the composer's scene-config menu: `maxTurns` (hard ceiling on the beats a player message produces — character replies **and** narrator beats — ≥1, default **5**; the loop may still end earlier), `suggestionsCount` (how many follow-up suggestions to offer at the end of a turn, 0–4, `0` disables, default **4**), and `contextBeats` (depth of the recent-transcript window the character conditions on, 5–100, default **14**). Also includes `promptOverrides` (nullable JSON object `{registryKey: text}` — per-scenario writing-agent prompt overrides, the innermost layer of the four-layer resolution chain; coerced to `{}` when NULL on read; see Writing-Agent Prompt Overrides below). |
-| Context documents | `GET /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs/bulk`, `PATCH /context-docs/{docId}`, `DELETE /context-docs/{docId}` | **Implemented.** The persisted **triaged RAG corpus** for a world (written by the New Storyline page's Triage → commit). Each doc carries a `category` (`character`/`setting`/`other`) and inclusion tiers `includeDraft` / `includeRag`. Docs are **storyline-level** (Triage default) or **entity-scoped** — a doc with `entityType` + `entityId` reappears in that editor on re-edit and is removed (with its embedding) when the entity is deleted. `GET /storylines/{id}/context-docs` accepts `?entityType=&entityId=` to filter by scope. Docs with `includeRag` are embedded on save (hybrid RAG). See Context Document Shape below. |
+| Context documents | `GET /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs/bulk`, `PATCH /context-docs/{docId}`, `DELETE /context-docs/{docId}` | **Implemented.** The persisted **triaged RAG corpus** for a world (written by the New Storyline page's Triage → commit). Each doc carries a `category` (`character`/`setting`/`other`) and inclusion tiers `includeDraft` / `includeRag` / `includeExtract` (opt-in build-time mining, default off). Docs are **storyline-level** (Triage default) or **entity-scoped** — a doc with `entityType` + `entityId` reappears in that editor on re-edit and is removed (with its embedding) when the entity is deleted. `GET /storylines/{id}/context-docs` accepts `?entityType=&entityId=` to filter by scope. Docs with `includeRag` are embedded on save (hybrid RAG). See Context Document Shape below. |
 | Hybrid RAG | `GET /storylines/{id}/rag/status`, `POST /storylines/{id}/rag/reindex/stream`, `POST /storylines/{id}/rag/query` | **Implemented.** Vector-store status, NDJSON reindex progress stream, and debug retrieval query for a world's corpus. Best-effort (`available: false` when Qdrant is down/disabled). See RAG Shapes below. |
 | Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
 | Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
@@ -86,6 +86,7 @@ A persisted, triaged reference document on a storyline (the RAG-corpus seam):
   "category": "character",
   "includeDraft": false,
   "includeRag": true,
+  "includeExtract": false,
   "source": "upload",
   "charCount": 812,
   "entityType": "character",
@@ -96,7 +97,10 @@ A persisted, triaged reference document on a storyline (the RAG-corpus seam):
 `category` ∈ `character | setting | other` — a doc about **one** character/setting
 lands in that bucket; one holding **multiple** characters or settings, or a general
 world doc, lands in `other` (set by Triage). `includeDraft` marks world-setting docs
-that ground generation; `includeRag` (default `true`) marks the retrieval corpus.
+that ground generation; `includeRag` (default `true`) marks the retrieval corpus;
+`includeExtract` (default `false`) is **opt-in** — it marks a doc to be mined for
+named characters/settings during **Build the whole world** (a new storyline never
+auto-extracts unless the author checks **Extract** per file).
 `entityType` + `entityId` (both nullable) scope a doc to a specific
 character/setting/scenario: a scoped doc reappears in that editor on re-edit and is
 deleted (with its Qdrant point) when the entity is deleted. A doc without these
@@ -362,18 +366,20 @@ on-page context-budget meter).
   empty-completion error mapping as above.
 - `POST /storylines/triage` — `{ docs: [{ name, text }], storylineId? }`. Classifies
   each dropped reference document in one call → `{ "items": [{ name, category, includeDraft,
-  includeRag, rationale }] }`. `category` ∈ `character | setting | other` (a doc about
+  includeRag, includeExtract, rationale }] }`. `category` ∈ `character | setting | other` (a doc about
   ONE character/setting → that bucket; multiple/mixed/general → `other`); `includeDraft`
   marks world-setting docs that ground drafting, `includeRag` (default on) marks the
-  retrieval corpus. Empty `docs` → `{ "items": [] }` (no LLM call); a doc the model omits
-  falls back to `other`/RAG-on; unconfigured LLM → `400`; non-JSON reply → `502`. The
+  retrieval corpus; `includeExtract` (default **off**) is a **conservative opt-in**
+  suggestion — set only for a clear, single, explicitly-named character/setting profile.
+  Empty `docs` → `{ "items": [] }` (no LLM call); a doc the model omits
+  falls back to `other`/RAG-on/Extract-off; unconfigured LLM → `400`; non-JSON reply → `502`. The
   classified docs are persisted on commit via the **Context documents** bulk endpoint.
 - `POST /storylines/build` — `{ seed?, docsOverview?, storylineId?, maxCharacters?,
-  maxSettings?, characterDocs?: [{ name, text }], settingDocs?: [{ name, text }],
-  uncategorizedDocs?: [{ name, text }], otherDocs?: [{ name, text }] }`
+  maxSettings?, characterDocs?: [{ name, text, extract? }], settingDocs?: [{ name, text, extract? }],
+  uncategorizedDocs?: [{ name, text, extract? }], otherDocs?: [{ name, text, extract? }] }`
   (at least one of `seed` / `docsOverview` / any attached doc is required). Orchestrates
   several LLM calls (storyline draft → World Primer → one **blueprint** call for the
-  stat schema → **one strict extraction call per entity doc** → one draft per extracted
+  stat schema → **one strict extraction call per Extract-checked entity doc** → one draft per extracted
   character → one draft per extracted setting) and returns a reviewable `ProposedWorld`:
 
   ```json
@@ -385,17 +391,19 @@ on-page context-budget meter).
   }
   ```
 
-  **The cast/settings come ONLY from the attached docs, and extraction RESPECTS the
+  **Extraction is OPT-IN per document.** Only a doc with `extract: true` (the author
+  checked **Extract**) is mined at all — `extract` defaults `false`, so a new storyline
+  never auto-extracts. For the Extract-checked docs, extraction then **RESPECTS the
   author's classification** (it never invents a subject by expanding lore):
   `characterDocs` are mined for explicitly **NAMED characters** only (usually one — the
   doc *is* that character; split only if it clearly names several; a doc with no explicit
   name still becomes **one** character); `settingDocs` the same for named settings;
   `uncategorizedDocs` produce an entity **only if a genuinely NAMED** character/setting
   is present (lore → nothing, no fallback); `otherDocs` are **lore/grounding only** and
-  never become entities (they fold into the drafting grounding). Subjects are de-duped
-  across docs by folded name in document order. The build never **invents** a
-  character/setting the author didn't attach: with no entity docs, `characters`/`settings`
-  are `[]`. The storyline metadata, World Primer, and the universal **stat schema** are
+  never become entities (they fold into the drafting grounding, regardless of `extract`).
+  Subjects are de-duped across docs by folded name in document order. The build never
+  **invents** a character/setting the author didn't opt in: with no Extract-checked entity
+  docs, `characters`/`settings` are `[]`. The storyline metadata, World Primer, and the universal **stat schema** are
   always produced. Nothing is persisted by this call — the page reviews the proposal and
   commits it via the normal CRUD endpoints (rendering portraits/scene-art then, only if
   ComfyUI is reachable). The cast/settings are **uncapped** (every distinct subject the

@@ -243,6 +243,8 @@ export interface ContextDocument {
   includeDraft: boolean;
   /** Member of the retrieval corpus (embedded into Qdrant on save). */
   includeRag: boolean;
+  /** Opt-in: mine this doc for named characters/settings during the world build. */
+  includeExtract: boolean;
   source: string;
   charCount: number;
   /** When set, the doc belongs to a specific character/setting/scenario editor and
@@ -257,6 +259,8 @@ export interface TriageItem {
   category: DocCategory;
   includeDraft: boolean;
   includeRag: boolean;
+  /** Suggested opt-in for build-time extraction (conservative; default off). */
+  includeExtract: boolean;
   rationale: string;
 }
 

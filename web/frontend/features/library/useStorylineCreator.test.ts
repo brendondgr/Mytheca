@@ -122,10 +122,29 @@ describe("useStorylineCreator", () => {
       await result.current.build();
     });
     const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
-    expect(body.characterDocs).toEqual([{ name: "hero.md", text: "A hero." }]);
-    expect(body.settingDocs).toEqual([{ name: "keep.md", text: "A place." }]);
+    // Each build doc carries its opt-in Extract flag — default OFF (never auto-mined).
+    expect(body.characterDocs).toEqual([{ name: "hero.md", text: "A hero.", extract: false }]);
+    expect(body.settingDocs).toEqual([{ name: "keep.md", text: "A place.", extract: false }]);
     expect(body.uncategorizedDocs).toEqual([]);
     expect(body.otherDocs).toEqual([]);
+  });
+
+  it("sends extract: true only for docs the author checked Extract on", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    await act(async () => {
+      await result.current.addFiles([file("hero.md", "A hero."), file("extra.md", "A hero.")]);
+    });
+    act(() => result.current.setDocCategory("hero.md", "character"));
+    act(() => result.current.setDocCategory("extra.md", "character"));
+    act(() => result.current.toggleDocUse("hero.md", "useExtract")); // opt one in
+    await act(async () => {
+      await result.current.build();
+    });
+    const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
+    expect(body.characterDocs).toEqual([
+      { name: "hero.md", text: "A hero.", extract: true },
+      { name: "extra.md", text: "A hero.", extract: false },
+    ]);
   });
 
   it("routes an 'other'-bucket doc to otherDocs (lore/grounding only)", async () => {
@@ -140,7 +159,9 @@ describe("useStorylineCreator", () => {
     const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
     // 'Other' docs ride otherDocs — the backend uses them for grounding only, never
     // extracting entities from them.
-    expect(body.otherDocs).toEqual([{ name: "lore.md", text: "A history of the founding wars." }]);
+    expect(body.otherDocs).toEqual([
+      { name: "lore.md", text: "A history of the founding wars.", extract: false },
+    ]);
     expect(body.characterDocs).toEqual([]);
     expect(body.settingDocs).toEqual([]);
     expect(body.uncategorizedDocs).toEqual([]);
@@ -156,7 +177,9 @@ describe("useStorylineCreator", () => {
       await result.current.build();
     });
     const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
-    expect(body.uncategorizedDocs).toEqual([{ name: "mystery.md", text: "Some notes." }]);
+    expect(body.uncategorizedDocs).toEqual([
+      { name: "mystery.md", text: "Some notes.", extract: false },
+    ]);
     expect(body.characterDocs).toEqual([]);
     expect(body.settingDocs).toEqual([]);
     expect(body.otherDocs).toEqual([]);
@@ -325,12 +348,13 @@ describe("useStorylineCreator", () => {
     vi.mocked(api.listContextDocuments).mockResolvedValueOnce([
       {
         id: "cd1", storylineId: "embergate", name: "lore.md", content: "old lore",
-        category: "other", includeDraft: true, includeRag: true, source: "upload", charCount: 8,
+        category: "other", includeDraft: true, includeRag: true, includeExtract: false,
+        source: "upload", charCount: 8,
       },
       {
         id: "cd2", storylineId: "embergate", name: "maerin-notes.md", content: "x",
-        category: "character", includeDraft: false, includeRag: true, source: "upload",
-        charCount: 1, entityType: "character", entityId: "c1",
+        category: "character", includeDraft: false, includeRag: true, includeExtract: false,
+        source: "upload", charCount: 1, entityType: "character", entityId: "c1",
       },
     ]);
     const { result } = renderHook(() => useStorylineCreator("embergate"));
