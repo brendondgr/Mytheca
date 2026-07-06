@@ -63,11 +63,38 @@ run, keeping the quotes). `state_update` / `branch_choices` drive the side panel
 **narrator-only** (no character speaks before the player acts); selecting a follow-up suggestion
 **writes its text into the composer** (focused, for review/editing) rather than auto-sending —
 the player edits and sends it as an ordinary turn. A **scene-config menu** (`SceneConfigMenu`, a
-popover to the **left of the input**) sets three per-scene controls — Max turns, Suggestions, and
-**Number of beats** (the context-window depth, 5–100, with a live approximate token readout via
-`lib/contextBudget.estimateBeatsTokens`) — persisted on the scenario (`updateScenario` PATCH); four
-suggestions render as a **2×2 grid**. The composer is locked
-while a turn streams (in-flight guard); a mid-stream failure surfaces the terminal `error` frame.
+popover now rendered by **`SceneHeader` left of Export**) sets three per-scene controls — Max
+turns, Suggestions, and **Number of beats** (the context-window depth, 5–100, with a live
+approximate token readout via `lib/contextBudget.estimateBeatsTokens`) — persisted on the
+scenario (`updateScenario` PATCH); four suggestions render as a **2×2 grid**.
+
+**Type-while-streaming:** the composer's `sendDisabled` prop (renamed from `disabled`) blocks
+only the Send button and Enter key while a turn is in-flight — the `<textarea>` remains editable
+so the player can compose their next message while characters respond. `useScenePlay.send`/`submit`
+still guard against concurrent submissions. A mid-stream failure surfaces the terminal `error`
+frame.
+
+**Context-usage estimate path.** `useScenePlay` fetches `getLlmContextWindow()` once on mount
+(best-effort; the bar is hidden on failure). The denominator is the `maxContextTokens` field from
+`GET /options/llm/context-window` (`source: "detected"` when the engine was probed successfully,
+`source: "configured"` when the stored fallback is used). The numerator is `estimateUsedTokens`
+from `lib/contextBudget.ts` — the sum of each beat's combined text (text + action + thought) over
+the last `contextBeats` transcript beats, converted to tokens by the char/4 heuristic. The result
+drives `ContextUsageBar` (rendered by `StoryPlayerView` above the composer), which color-codes
+fill as green < 50 %, gold 50–75 %, danger ≥ 75 %, and surfaces `5.2K / 16K`-style counts via
+`fmtTokensK` in the hover `title` and `aria-valuetext`.
+
+**Activity feed + per-character status (live-only).** `turn-stream.applyActivity` derives
+`ActivityEntry` items from incoming frames — trace steps (`speaker` → "X is about to speak",
+`plan`, `branch`) and story events (first `narration`/`character_dialogue` chunk, `internal_thought`,
+`character_action`, `state_update` with reason, `character_status_change`) — and keeps the newest
+12 entries (newest first). `turn-stream.applyCharacterActivity` derives a per-character
+`idle | thinking | speaking` status: a `speaker` trace step or `internal_thought` event sets
+`thinking`; the first `character_dialogue` chunk sets `speaking`; `done: true` resets to `idle`;
+all statuses are cleared to `idle` when the stream finishes (`submit`'s `.finally`). Both feed
+arrays are held in `useScenePlay` state, folded on `onFrame`, and are **live-only** —
+`rehydrateFromHistory` seeds neither (the pulse and indicators reflect only the current in-flight
+turn).
 
 **Model output is sanitized centrally.** Reasoning models inline their chain-of-thought and
 harmony-style channel tokens (`<|channel|>…`, `<think>…</think>`, `*Check:*`/`*Revised:*`) in

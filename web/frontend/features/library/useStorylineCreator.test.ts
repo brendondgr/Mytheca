@@ -280,6 +280,7 @@ describe("useStorylineCreator", () => {
         hasApiKey: false,
         apiKeyHint: null,
         authoringConcurrency: 3,
+        maxContextTokens: 16384,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
       comfy: {

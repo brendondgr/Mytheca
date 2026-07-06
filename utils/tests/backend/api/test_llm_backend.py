@@ -148,3 +148,73 @@ def test_budget_map_matches_spec():
         ReasoningEffort.MAX: 4096,
     }
     assert budget_for(ReasoningEffort.HIGH) == 1024
+
+
+# ---- context-window probe --------------------------------------------------
+
+
+def _llamacpp_with_ctx_handler(request: httpx.Request) -> httpx.Response:
+    if request.url.path == "/version":
+        return httpx.Response(404, text="not found")
+    if request.url.path == "/props":
+        return httpx.Response(
+            200,
+            json={
+                "total_slots": 4,
+                "default_generation_settings": {"n_ctx": 8192},
+            },
+        )
+    return httpx.Response(404, text="not found")
+
+
+def _llamacpp_top_level_ctx_handler(request: httpx.Request) -> httpx.Response:
+    """llama.cpp props without default_generation_settings — falls back to top-level n_ctx."""
+    if request.url.path == "/version":
+        return httpx.Response(404, text="not found")
+    if request.url.path == "/props":
+        return httpx.Response(200, json={"total_slots": 2, "n_ctx": 4096})
+    return httpx.Response(404, text="not found")
+
+
+def _vllm_with_ctx_handler(request: httpx.Request) -> httpx.Response:
+    if request.url.path == "/version":
+        return httpx.Response(200, json={"version": "0.21.0"})
+    if request.url.path.rstrip("/").endswith("/models"):
+        return httpx.Response(
+            200,
+            json={"data": [{"id": "meta-llama-3-8b", "max_model_len": 131072}]},
+        )
+    return httpx.Response(404, text="not found")
+
+
+def test_get_context_window_llamacpp_default_generation_settings(monkeypatch):
+    _patch_upstream(monkeypatch, _llamacpp_with_ctx_handler)
+    assert llm_backend.get_context_window("http://localhost:8080/v1") == 8192
+
+
+def test_get_context_window_llamacpp_top_level_n_ctx_fallback(monkeypatch):
+    _patch_upstream(monkeypatch, _llamacpp_top_level_ctx_handler)
+    assert llm_backend.get_context_window("http://localhost:8080/v1") == 4096
+
+
+def test_get_context_window_vllm_max_model_len(monkeypatch):
+    _patch_upstream(monkeypatch, _vllm_with_ctx_handler)
+    assert llm_backend.get_context_window("http://localhost:8000/v1") == 131072
+
+
+def test_get_context_window_unknown_backend_returns_none(monkeypatch):
+    _patch_upstream(monkeypatch, lambda req: httpx.Response(404, text="nope"))
+    assert llm_backend.get_context_window("http://localhost:9999/v1") is None
+
+
+def test_get_context_window_blank_url_returns_none(monkeypatch):
+    _patch_upstream(monkeypatch, _vllm_with_ctx_handler)
+    assert llm_backend.get_context_window("") is None
+
+
+def test_get_context_window_error_returns_none(monkeypatch):
+    def error_handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused")
+
+    _patch_upstream(monkeypatch, error_handler)
+    assert llm_backend.get_context_window("http://localhost:8000/v1") is None

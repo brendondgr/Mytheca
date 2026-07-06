@@ -62,6 +62,31 @@ const STAT_DEFS: StatDefinition[] = [
   { key: "morale", displayName: "Morale", description: "", min: 0, max: 10, default: 5, visibility: "hidden", guidance: null, appliesTo: [], bands: [] },
 ];
 
+describe("CastRail activity status", () => {
+  it("shows 'Thinking' label and the typing-dots element when activity is 'thinking'", () => {
+    renderRail({ activityByChar: { mei: "thinking" } });
+    expect(screen.getByText("Thinking")).toBeInTheDocument();
+    expect(screen.getByTestId("typing-dots")).toBeInTheDocument();
+  });
+
+  it("shows 'Speaking' label when activity is 'speaking'", () => {
+    renderRail({ activityByChar: { mei: "speaking" } });
+    expect(screen.getByText("Speaking")).toBeInTheDocument();
+  });
+
+  it("shows no status label for idle characters", () => {
+    renderRail({ activityByChar: { mei: "idle" } });
+    expect(screen.queryByText("Thinking")).toBeNull();
+    expect(screen.queryByText("Speaking")).toBeNull();
+  });
+
+  it("shows no status label when activityByChar is omitted", () => {
+    renderRail();
+    expect(screen.queryByText("Thinking")).toBeNull();
+    expect(screen.queryByText("Speaking")).toBeNull();
+  });
+});
+
 describe("CastRail stats", () => {
   it("renders no stat rows when statDefs is omitted (back-compat)", () => {
     renderRail();

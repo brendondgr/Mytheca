@@ -376,6 +376,7 @@ export function makeApiMock() {
         hasApiKey: false,
         apiKeyHint: null,
         authoringConcurrency: 3,
+        maxContextTokens: 16384,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
       comfy: {
@@ -438,7 +439,12 @@ export function makeApiMock() {
       hasApiKey: false,
       apiKeyHint: null,
       authoringConcurrency: 3,
+      maxContextTokens: 16384,
       ...body,
+    })),
+    getLlmContextWindow: vi.fn(async () => ({
+      maxContextTokens: 16384,
+      source: "configured" as const,
     })),
     updateLibraryDefaults: vi.fn(async (body: Record<string, unknown>) => ({
       defaultStorylineId: null,

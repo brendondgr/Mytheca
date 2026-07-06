@@ -38,7 +38,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
 | Scenario authoring | `POST /scenarios/draft`, `POST /scenarios/scene-art-prompts`, `POST /scenarios/scene-art` | **Implemented.** The agentic Scenario Creator: draft a scenario (title/genre/tone/goal/opening) from a seed, plus a **valid cast + setting chosen from the active world's real roster**. The model returns names from a numbered roster; the agent resolves names→ids server-side, **dropping** unknown cast and falling back to `""` for an unmatched setting — so the draft never invents or dangles a reference. Scene-art prompts and image generation follow the same watercolor pipeline as Setting authoring. Declared above `/scenarios/{id}`. See Scenario Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits and setting scene art from `MEDIA_DIR`. |
-| Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup`, `PATCH /options/prompts` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation + writing-agent prompt overrides), read-only inference-engine detection (`/llm/backend`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
+| Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `GET /options/llm/context-window`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup`, `PATCH /options/prompts` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation + writing-agent prompt overrides), read-only inference-engine detection (`/llm/backend`), context-window probe (`/llm/context-window`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | **Implemented.** Submit a player turn; the response body **is** the NDJSON event stream (`application/x-ndjson`, one event per line). Body: `{ text, directedAt?, sessionId?, mode?, trace?, outcome? }` (omit `sessionId` to start a session). The engine **interprets the line** (narrate / address / **puppet** a character / whole-group), then runs a **ReAct planner** that decides the next beat after each one — a character speaks/acts (in their own voice; a puppeted character *performs* the direction), the narrator sets context, or the turn ends. Speaker order is dynamic; the back-and-forth is bounded by the scenario's **`maxTurns`** (a hard ceiling on **every emitted beat — character replies and narrator beats** — so the loop ends there even if the planner would continue). A **cold scene open** with no directed character is **narrator-led**. At the end of the turn, up to **`suggestionsCount`** follow-up suggestions (0–4) are generated from the **most recent line**, written as **situation-based** moves from a general perspective matched to the player's own tone, and emitted as `branch_choices`; **selecting one writes its text into the composer** for the player to edit and send (it does not auto-submit). Character replies are grounded in their **graph relationships** (direct + 2-hop). Pre-flight failures (unknown scenario → 404, empty text → 400, bad session → 404/400) return a normal error envelope before the 200 stream opens; a mid-stream failure is the terminal `{ "type": "error", "message": "…" }` frame. See Turn Stream below. |
 | Presence | `POST /play/{scenarioId}/presence` | **Implemented.** Manually set a character's scene presence (the cast-rail control + its undo). Body: `{ sessionId, characterId, status }` (`status` ∈ `present`\|`unconscious`\|`departed`\|`left`\|`dead`). Persists a `character_status_change` event (`auto: false`) on the session and returns it in the wire-envelope shape; folds into presence like an engine-driven change and survives reload. A manual override is **not** bound by the engine's transition guard — the player may resurrect a `dead` character. 404 (unknown scenario/session/character), 422 (unknown status). Undo = the inverse call. |
 | Relationships | `GET /play/{scenarioId}/relationships` | **Implemented.** The scenario's live character↔character relationships from the story graph — `{ relationships: [{ source, sourceName, type, target, targetName, reason }] }`. Best-effort: an empty list when the graph is off/unreachable (the story player keeps its seed placeholder). 404 only when the scenario is unknown. |
@@ -212,7 +212,8 @@ key is **write-only**: it is stored server-side and never returned in clear.
     "params": { "temperature": 0.7, "maxTokens": 512, "topP": 1.0, "frequencyPenalty": 0.0, "presencePenalty": 0.0 },
     "hasApiKey": true,
     "apiKeyHint": "…AB12",
-    "authoringConcurrency": 3
+    "authoringConcurrency": 3,
+    "maxContextTokens": 16384
   },
   "library": { "defaultStorylineId": "embergate", "openLastStoryline": true },
   "comfy": {
@@ -231,13 +232,16 @@ key is **write-only**: it is stored server-side and never returned in clear.
 ```
 
 - `PATCH /options/llm` — body may include `baseUrl`, `model`, `provider`, `params`,
-  `apiKey`, and `authoringConcurrency`. **`apiKey` semantics:** omitted = keep the
+  `apiKey`, `authoringConcurrency`, and `maxContextTokens`. **`apiKey` semantics:** omitted = keep the
   stored key; `""` = clear it; any other value = replace it. The base URL is
   normalized (trailing slash trimmed). **`authoringConcurrency`** (default from
   `BUILD_MAX_CONCURRENCY`, clamped ≥1) bounds how many characters/settings the world
   build drafts concurrently **and** how many entities a RAG re-index embeds
   concurrently (single-slot llama.cpp → 1, vLLM → higher; image generation stays
-  sequential). Returns the masked `LlmConfigRead`.
+  sequential). **`maxContextTokens`** (default 16384, floor-clamped to 1024, persisted
+  in the `llm` namespace) is the configurable fallback used when the running inference
+  engine cannot be probed for its context window (see `GET /options/llm/context-window`
+  below). Returns the masked `LlmConfigRead`.
 - `PATCH /options/library` — body may include `defaultStorylineId`,
   `openLastStoryline`. Returns `LibraryDefaultsRead`.
 - `POST /options/llm/models` — `{ baseUrl?, apiKey? }` (fall back to stored).
@@ -256,6 +260,20 @@ key is **write-only**: it is stored server-side and never returned in clear.
   unreachable) means no thinking budget is sent. See **Reasoning budget** below.
   Surfaced read-only in the Options **About** tab (`getLlmBackend` in `lib/api.ts`):
   the detected engine plus the budget ladder, degrading to "unavailable" on error.
+- `GET /options/llm/context-window` — returns the effective context-window token count
+  for the currently configured LLM endpoint →
+  `{ "maxContextTokens": 32768, "source": "detected" | "configured" }`. `source` is
+  `"detected"` when `llm_backend.get_context_window` successfully probed the engine
+  (llama.cpp `GET /props` → `default_generation_settings.n_ctx`, top-level `n_ctx`
+  fallback; vLLM `GET /v1/models` → first model's `max_model_len`); `"configured"` when
+  the probe is unavailable or fails, in which case the stored `maxContextTokens` LLM
+  setting (default 16384) is returned. The detection result is cached per base URL with
+  the same TTL as the backend probe; `clear_cache()` resets both. Consumed by
+  `getLlmContextWindow()` in `lib/api.ts` — the story player fetches it once on mount
+  to power the **context usage bar** (bar is hidden on error, i.e. best-effort).
+  Also surfaced as the "Max context (tokens)" fallback field in the Options **Language
+  Models** tab, so the operator can configure the denominator when the engine is not
+  auto-detectable.
 
 **Writing-Agent Prompt Overrides** — the global layer of the four-layer resolution chain. The
 `prompts` field on `GET /options` contains:

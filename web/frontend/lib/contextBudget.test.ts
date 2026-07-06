@@ -6,6 +6,8 @@ import {
   DRAFT_DOCS_CAP_TOKENS,
   estimateBeatsTokens,
   estimateTokens,
+  estimateUsedTokens,
+  fmtTokensK,
   PRIMER_SOFT_CAP_TOKENS,
 } from "@/lib/contextBudget";
 
@@ -46,5 +48,48 @@ describe("contextBudget", () => {
     expect(estimateBeatsTokens(0)).toBe(0);
     // Monotonic: more beats → more tokens.
     expect(estimateBeatsTokens(100)).toBeGreaterThan(estimateBeatsTokens(5));
+  });
+
+  describe("estimateUsedTokens", () => {
+    it("returns 0 for an empty array", () => {
+      expect(estimateUsedTokens([])).toBe(0);
+    });
+
+    it("sums estimated tokens across all beat strings", () => {
+      // "abcd" = ceil(4/4) = 1 token, "efghijkl" = ceil(8/4) = 2 tokens → 3 total
+      expect(estimateUsedTokens(["abcd", "efghijkl"])).toBe(3);
+    });
+
+    it("handles empty strings in the array", () => {
+      expect(estimateUsedTokens(["", "", "abcd"])).toBe(1);
+    });
+  });
+
+  describe("fmtTokensK", () => {
+    it("formats sub-1K values with one decimal", () => {
+      expect(fmtTokensK(500)).toBe("0.5K");
+    });
+
+    it("formats values between 1K–10K with one decimal, dropping .0", () => {
+      expect(fmtTokensK(5200)).toBe("5.2K");
+      expect(fmtTokensK(5000)).toBe("5K");
+    });
+
+    it("formats exact round-thousands without a decimal", () => {
+      expect(fmtTokensK(16000)).toBe("16K");
+    });
+
+    it("formats non-round thousands with one decimal", () => {
+      // 16384 / 1000 = 16.384, rounded to 1dp = 16.4
+      expect(fmtTokensK(16384)).toBe("16.4K");
+    });
+
+    it("handles 0", () => {
+      expect(fmtTokensK(0)).toBe("0K");
+    });
+
+    it("handles negative input as 0", () => {
+      expect(fmtTokensK(-100)).toBe("0K");
+    });
   });
 });

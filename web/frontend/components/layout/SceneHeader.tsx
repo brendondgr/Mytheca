@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
 import { ExportMenu, type ExportFormat } from "@/components/feature/ExportMenu";
+import { SceneConfigMenu } from "@/components/feature/SceneConfigMenu";
 
-/** Story-player header: back to the Library, scene title/setting, export, theme, status. */
+/** Story-player header: back to the Library, scene title/setting, config, export, theme, status. */
 export function SceneHeader({
   title,
   settingName,
@@ -13,6 +14,12 @@ export function SceneHeader({
   canExport = false,
   onToggleInspector,
   inspectorOpen = false,
+  maxTurns,
+  onMaxTurnsChange,
+  suggestionsCount,
+  onSuggestionsCountChange,
+  contextBeats,
+  onContextBeatsChange,
 }: {
   title: string;
   settingName: string;
@@ -26,6 +33,13 @@ export function SceneHeader({
   /** Toggle the Turn Inspector drawer (omit to hide the control). */
   onToggleInspector?: () => void;
   inspectorOpen?: boolean;
+  /** Scene config props — renders the Config control when at least one handler is provided. */
+  maxTurns?: number;
+  onMaxTurnsChange?: (value: number) => void;
+  suggestionsCount?: number;
+  onSuggestionsCountChange?: (value: number) => void;
+  contextBeats?: number;
+  onContextBeatsChange?: (value: number) => void;
 }) {
   const meta = [`◆ ${settingName}`, genre, tone].filter(Boolean).join(" · ");
   return (
@@ -48,6 +62,16 @@ export function SceneHeader({
         </div>
       </div>
       <div className="flex flex-none items-center gap-[14px]">
+        {(onMaxTurnsChange ?? onSuggestionsCountChange ?? onContextBeatsChange) ? (
+          <SceneConfigMenu
+            maxTurns={maxTurns}
+            onMaxTurnsChange={onMaxTurnsChange}
+            suggestionsCount={suggestionsCount}
+            onSuggestionsCountChange={onSuggestionsCountChange}
+            contextBeats={contextBeats}
+            onContextBeatsChange={onContextBeatsChange}
+          />
+        ) : null}
         {onExport ? <ExportMenu onExport={onExport} disabled={!canExport} /> : null}
         <ThemeSwitcher />
         <div className="hidden items-center gap-2 font-mono text-[9px] tracking-[0.12em] text-mute uppercase sm:flex">

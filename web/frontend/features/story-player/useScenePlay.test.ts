@@ -1,14 +1,16 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { useScenePlay } from "./useScenePlay";
 import {
   closePlaySession,
   getCharacterStats,
+  getLlmContextWindow,
   getSessionHistory,
   listPlaySessions,
+  postTurn,
   setPresence as apiSetPresence,
 } from "@/lib/api";
-import type { SessionHistory } from "@/lib/events";
+import type { SessionHistory, TurnStreamFrame } from "@/lib/events";
 import {
   resolveScenario,
   SEED_CHARACTERS,
@@ -24,7 +26,15 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   closePlaySession: vi.fn(),
   setPresence: vi.fn(async () => ({}) as never),
   getCharacterStats: vi.fn(async () => ({}) as Record<string, number>),
+  postTurn: vi.fn(),
+  getScenarioRelationships: vi.fn(async () => ({ relationships: [] })),
+  getLlmContextWindow: vi.fn(async () => ({ maxContextTokens: 16384, source: "configured" as const })),
 }));
+
+/** Build a mock async generator that yields the given frames then completes. */
+async function* makeStream(frames: TurnStreamFrame[]): AsyncGenerator<TurnStreamFrame> {
+  for (const f of frames) yield f;
+}
 
 const scenario = resolveScenario(SEED_SCENARIOS[0], SEED_CHARACTERS, SEED_SETTINGS);
 const speaker = scenario.cast[0];
@@ -178,5 +188,142 @@ describe("useScenePlay stats baseline", () => {
 
     await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
     expect(result.current.statsByChar[speaker.id]).toBeUndefined();
+  });
+});
+
+describe("useScenePlay maxContextTokens", () => {
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  it("fetches maxContextTokens on mount and exposes it", async () => {
+    vi.mocked(getLlmContextWindow).mockResolvedValueOnce({
+      maxContextTokens: 32768,
+      source: "detected" as const,
+    });
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.maxContextTokens).toBe(32768));
+  });
+
+  it("leaves maxContextTokens as null when the fetch fails", async () => {
+    vi.mocked(getLlmContextWindow).mockRejectedValueOnce(new Error("network"));
+    const { result } = renderHook(() => useScenePlay(scenario));
+    // Wait for mount effects to settle (session fetch etc.) without crashing.
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    expect(result.current.maxContextTokens).toBeNull();
+  });
+});
+
+describe("useScenePlay activity feed + per-character status", () => {
+  const cid = speaker.id;
+
+  function envelope(type: string, id: string, data: unknown): TurnStreamFrame {
+    return {
+      type,
+      id,
+      seq: 1,
+      scenarioId: scenario.id,
+      sessionId: "ps_live",
+      ts: "t",
+      visibility: "public",
+      data,
+    } as TurnStreamFrame;
+  }
+
+  function traceFrame(step: string, n: number, data: Record<string, unknown> = {}): TurnStreamFrame {
+    return { type: "trace", n, step, title: `${step} ${n}`, detail: "", data } as TurnStreamFrame;
+  }
+
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  it("activity feed accumulates entries and character goes thinking → speaking during a turn", async () => {
+    const frames: TurnStreamFrame[] = [
+      traceFrame("turn", 1, {}),
+      traceFrame("speaker", 2, { characterId: cid, name: speaker.name }),
+      envelope("internal_thought", "t1", { characterId: cid, text: "Let me think." }),
+      envelope("character_dialogue", "d1", { characterId: cid, text: "Hello", done: false }),
+      envelope("character_dialogue", "d1", { characterId: cid, text: " world.", done: true }),
+    ];
+    vi.mocked(postTurn).mockReturnValue(makeStream(frames));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.send();
+    });
+
+    // Force send with a composer value
+    act(() => {
+      result.current.setComposer("Hi there");
+    });
+    act(() => {
+      result.current.send();
+    });
+
+    await waitFor(() =>
+      expect(result.current.activity.some((e) => e.kind === "thinking")).toBe(true),
+    );
+
+    // At least the speaker trace → thinking and the dialogue → speaking entries exist.
+    const feed = result.current.activity;
+    expect(feed.some((e) => e.kind === "thinking")).toBe(true);
+    expect(feed.some((e) => e.kind === "speaking")).toBe(true);
+
+    // Dialogue id is stable (no duplicate for each chunk).
+    const speakingEntries = feed.filter((e) => e.id === `dialogue-d1`);
+    expect(speakingEntries).toHaveLength(1);
+  });
+
+  it("activityByChar resets to empty after the stream ends", async () => {
+    const frames: TurnStreamFrame[] = [
+      traceFrame("speaker", 1, { characterId: cid, name: speaker.name }),
+      envelope("character_dialogue", "d1", { characterId: cid, text: "Hi.", done: false }),
+      envelope("character_dialogue", "d1", { characterId: cid, text: "", done: true }),
+    ];
+    vi.mocked(postTurn).mockReturnValue(makeStream(frames));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.setComposer("Hello");
+    });
+    act(() => {
+      result.current.send();
+    });
+
+    // Wait for stream to complete (sending flips back to false → activityByChar clears).
+    await waitFor(() => expect(result.current.sending).toBe(false));
+    expect(result.current.activityByChar).toEqual({});
+  });
+
+  it("activity feed starts empty and accumulates only live frames (no rehydration)", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValueOnce({
+      sessions: [{ id: "ps_old", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "old" }],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValueOnce({
+      session: { id: "ps_old", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "old" },
+      events: [
+        { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_old", ts: "t", visibility: "public", data: { text: "old", directedAt: null } },
+        { type: "character_dialogue", id: "d_old", seq: 1, scenarioId: scenario.id, sessionId: "ps_old", ts: "t", visibility: "public", data: { characterId: cid, text: '"Resumed."', done: true } },
+      ],
+      traces: [],
+    });
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+
+    // Wait for rehydration to complete.
+    await waitFor(() =>
+      expect(result.current.messages.some((m) => m.text === '"Resumed."')).toBe(true),
+    );
+
+    // Activity feed should be empty — it is live-only.
+    expect(result.current.activity).toEqual([]);
+    expect(result.current.activityByChar).toEqual({});
   });
 });

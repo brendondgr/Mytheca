@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   closePlaySession,
   getCharacterStats,
+  getLlmContextWindow,
   getScenarioRelationships,
   getSessionHistory,
   listPlaySessions,
@@ -11,6 +12,7 @@ import {
   setPresence as apiSetPresence,
   updateScenario,
 } from "@/lib/api";
+import { estimateUsedTokens } from "@/lib/contextBudget";
 import type { PresenceStatus, TurnStreamFrame } from "@/lib/events";
 import type { ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
@@ -23,6 +25,10 @@ import {
   type StatChip,
 } from "./scene-data";
 import {
+  applyActivity,
+  applyCharacterActivity,
+  type ActivityEntry,
+  type CharacterActivity,
   applyPresence,
   applyStatByChar,
   applyStatUpdate,
@@ -79,9 +85,27 @@ export function useScenePlay(scenario: ResolvedScenario) {
   // Ordered per-turn diagnostic trace (the Inspector panel). Populated only from the
   // opt-in `trace` frames the backend interleaves when we request them.
   const [traceTurns, setTraceTurns] = useState<TraceTurn[]>([]);
+  // Live "scene pulse" activity feed: newest entries first, capped at 12. Live-only by
+  // design — not seeded from history. Both the Director rail (Phase 6) and the cast rail
+  // read from this feed. Resets to [] automatically on new scene load (initial state).
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  // Per-character live status: "idle" | "thinking" | "speaking". Resets to {} when the
+  // stream leaves "streaming" (nobody is stuck in thinking/speaking between turns).
+  const [activityByChar, setActivityByChar] = useState<Record<string, CharacterActivity>>({});
+  // Model's reported context-window size in tokens (null = unknown / fetch failed → bar hidden).
+  const [maxContextTokens, setMaxContextTokens] = useState<number | null>(null);
   // Live character↔character relationships from the story graph (P6). Falls back to the
   // seed placeholder while empty / when the graph is off.
   const [graphRels, setGraphRels] = useState<Relationship[]>([]);
+
+  // Estimated tokens the last `contextBeats` messages occupy in the context window.
+  // Recomputed whenever messages or contextBeats changes.
+  const usedTokens = useMemo(() => {
+    const window = messages.slice(-contextBeats);
+    const texts = window.map((m) => [m.text, m.action, m.thought].filter(Boolean).join(" "));
+    return estimateUsedTokens(texts);
+  }, [messages, contextBeats]);
+
   // The play session id is captured from the first streamed event (or a resumed
   // session) and reused so subsequent turns continue the same session. Mirrored into
   // state so the Export control can react to whether there is anything to export yet.
@@ -168,6 +192,14 @@ export function useScenePlay(scenario: ResolvedScenario) {
     };
   }, [scenario.id, scenario.cast]);
 
+  // Fetch the model's context-window size once on mount (best-effort — failure keeps null
+  // so the ContextUsageBar stays hidden rather than showing an invalid value).
+  useEffect(() => {
+    getLlmContextWindow()
+      .then((r) => setMaxContextTokens(r.maxContextTokens))
+      .catch(() => {});
+  }, []);
+
   // Manually set a character's scene presence (the cast-rail control + toast undo).
   // Optimistic; persists best-effort so the change survives reload and folds like an
   // engine-driven one. No-op without a session yet (nothing to attach it to).
@@ -184,6 +216,11 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const onFrame = useCallback((frame: TurnStreamFrame) => {
     const sid = sessionIdOf(frame);
     if (sid && sid !== sessionRef.current) rememberSession(sid);
+
+    // Activity feed + per-character status see ALL frames (trace, story events, errors).
+    setActivity((a) => applyActivity(a, frame));
+    setActivityByChar((m) => applyCharacterActivity(m, frame));
+
     if (frame.type === "trace") {
       setTraceTurns((t) => foldTrace(t, frame));
       return;
@@ -241,7 +278,10 @@ export function useScenePlay(scenario: ResolvedScenario) {
             signal,
           ),
         )
-        .catch(() => setStreamError((e) => e ?? "The turn could not be completed."));
+        .catch(() => setStreamError((e) => e ?? "The turn could not be completed."))
+        // Turn over (done or error): clear per-character activity so nobody is stuck
+        // "thinking". The activity feed itself is kept — it describes what just happened.
+        .finally(() => setActivityByChar({}));
     },
     [sending, scenario.id, stream],
   );
@@ -315,5 +355,9 @@ export function useScenePlay(scenario: ResolvedScenario) {
     profileId,
     openProfile: (id: string) => setProfileId(id),
     closeProfile: () => setProfileId(null),
+    activity,
+    activityByChar,
+    usedTokens,
+    maxContextTokens,
   };
 }

@@ -55,6 +55,32 @@ function worst(a: BudgetLevel, b: BudgetLevel): BudgetLevel {
   return RANK[a] >= RANK[b] ? a : b;
 }
 
+/**
+ * Estimate the total tokens consumed by a set of transcript beat texts (the live
+ * context window). Pass each beat's concatenated text + action + thought strings.
+ * Uses the same char/4 heuristic as `estimateTokens`.
+ */
+export function estimateUsedTokens(texts: string[]): number {
+  return texts.reduce((sum, t) => sum + estimateTokens(t), 0);
+}
+
+/**
+ * Format a token count as a compact "K" string for hover readouts (e.g. `5K / 16K`).
+ *
+ * Rule: divide by 1000, round to one decimal, then drop the ".0" suffix:
+ *   - 500      → "0.5K"
+ *   - 5200     → "5.2K"
+ *   - 16000    → "16K"
+ *   - 16384    → "16.4K"
+ *
+ * Always returns a "K" value (never raw tokens) so the caller can safely concatenate
+ * with a static "K" suffix omitted — it is already included.
+ */
+export function fmtTokensK(n: number): string {
+  const k = Math.round((Math.max(0, n) / 1000) * 10) / 10;
+  return `${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
+}
+
 /** Compute the context budget from the primer + the Draft-included doc texts. */
 export function budgetFor(input: {
   worldPrimer?: string | null;

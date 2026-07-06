@@ -26,6 +26,8 @@ from app.schemas.settings import (
     PromptSpecRead,
 )
 
+_DEFAULT_MAX_CONTEXT_TOKENS = 16384
+
 LLM_KEY = "llm"
 LIBRARY_KEY = "library"
 COMFY_KEY = "comfy"
@@ -67,6 +69,7 @@ def _llm_defaults() -> dict:
         "params": LlmParams().model_dump(by_alias=True),
         "_apiKey": s.openai_api_key or "",
         "authoringConcurrency": s.build_max_concurrency,
+        "maxContextTokens": _DEFAULT_MAX_CONTEXT_TOKENS,
     }
 
 
@@ -85,6 +88,9 @@ def get_llm(db: Session) -> LlmConfigRead:
         has_api_key=bool(api_key),
         api_key_hint=_mask(api_key),
         authoring_concurrency=max(1, int(doc.get("authoringConcurrency") or 1)),
+        max_context_tokens=max(
+            1024, int(doc.get("maxContextTokens") or _DEFAULT_MAX_CONTEXT_TOKENS)
+        ),
     )
 
 
@@ -104,6 +110,8 @@ def update_llm(db: Session, data: LlmConfigUpdate) -> LlmConfigRead:
         doc["_apiKey"] = data.api_key
     if data.authoring_concurrency is not None:
         doc["authoringConcurrency"] = max(1, int(data.authoring_concurrency))
+    if data.max_context_tokens is not None:
+        doc["maxContextTokens"] = max(1024, int(data.max_context_tokens))
     _set_row(db, LLM_KEY, doc)
     return get_llm(db)
 

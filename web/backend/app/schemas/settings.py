@@ -8,6 +8,8 @@ and a short masked hint.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from app.schemas.base import CamelModel
 
 
@@ -33,6 +35,8 @@ class LlmConfigRead(CamelModel):
     # what the configured backend can serve: single-slot llama.cpp → 1, vLLM → higher.
     # Image generation is always sequential (single-GPU ComfyUI) regardless.
     authoring_concurrency: int = 3
+    # Fallback context-window size used when the engine does not report one.
+    max_context_tokens: int = 16384
 
 
 class LlmConfigUpdate(CamelModel):
@@ -43,6 +47,8 @@ class LlmConfigUpdate(CamelModel):
     # Omitted = keep the stored key; "" = clear it; any other value = replace it.
     api_key: str | None = None
     authoring_concurrency: int | None = None
+    # ge=1024: a window smaller than 1 K is not useful and likely a config error.
+    max_context_tokens: int | None = None
 
 
 class LibraryDefaultsRead(CamelModel):
@@ -170,6 +176,18 @@ class LlmBackendResponse(CamelModel):
 
     backend: str
     budgets: dict[str, int]
+
+
+class LlmContextWindowResponse(CamelModel):
+    """Context-window size for the configured LLM endpoint.
+
+    ``source`` is ``detected`` when the engine reported the value directly,
+    ``configured`` when the engine probe returned nothing and the stored fallback
+    is used instead.
+    """
+
+    max_context_tokens: int
+    source: Literal["detected", "configured"]
 
 
 # ---- Orphaned-media cleanup -----------------------------------------------

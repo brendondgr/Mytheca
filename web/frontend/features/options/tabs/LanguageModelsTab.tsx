@@ -38,6 +38,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
   const [apiKey, setApiKey] = useState("");
   const [params, setParams] = useState<LlmParams>(llm?.params ?? DEFAULT_PARAMS);
   const [authoringConcurrency, setAuthoringConcurrency] = useState(llm?.authoringConcurrency ?? 3);
+  const [maxContextTokens, setMaxContextTokens] = useState(llm?.maxContextTokens ?? 16384);
 
   const [models, setModels] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
@@ -99,6 +100,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
         model,
         params,
         authoringConcurrency,
+        maxContextTokens,
         ...(apiKey ? { apiKey } : {}),
       });
       setApiKey("");
@@ -206,7 +208,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
           <legend className="px-[6px] font-mono text-[9px] tracking-[0.14em] text-gold uppercase">
             Authoring
           </legend>
-          <div className="grid gap-[4px] sm:max-w-[220px]">
+          <div className="grid gap-[12px] sm:grid-cols-2 sm:max-w-[460px]">
             <TextField
               label="Max parallel authoring requests"
               type="number"
@@ -216,12 +218,26 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
               value={String(authoringConcurrency)}
               onChange={(e) => setAuthoringConcurrency(Math.max(1, Number(e.target.value) || 1))}
             />
+            <TextField
+              label="Max context (tokens)"
+              type="number"
+              step={1024}
+              min={1024}
+              value={String(maxContextTokens)}
+              onChange={(e) =>
+                setMaxContextTokens(Math.max(1024, Number(e.target.value) || 16384))
+              }
+            />
           </div>
           <p className="mt-[8px] font-body text-[12.5px] text-ink-soft">
             How many characters/settings the world build drafts at once (and how many
             entries a RAG re-index embeds at once). A single-slot server (llama.cpp)
             should stay at <span className="font-mono">1</span>; a batching server
             (vLLM) can go higher. Image generation always runs one at a time.
+          </p>
+          <p className="mt-[4px] font-body text-[12.5px] text-ink-soft">
+            Max context is the fallback used when the engine does not report a context
+            window — set it to match your model&apos;s actual context length.
           </p>
         </fieldset>
 

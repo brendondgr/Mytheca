@@ -639,6 +639,11 @@ export interface LlmConfig {
    * single-slot llama.cpp → 1, vLLM → higher. Images always render sequentially.
    */
   authoringConcurrency: number;
+  /**
+   * Fallback context-window size (tokens) used when the engine doesn't report one.
+   * The live value is always available via `getLlmContextWindow()`.
+   */
+  maxContextTokens: number;
 }
 
 /** PATCH payload. Omit `apiKey` to keep the stored key; "" clears it. */
@@ -649,6 +654,7 @@ export interface LlmConfigUpdate {
   params?: LlmParams;
   apiKey?: string;
   authoringConcurrency?: number;
+  maxContextTokens?: number;
 }
 
 export interface LibraryDefaults {
@@ -736,6 +742,17 @@ export interface LlmBackendInfo {
   budgets: Record<string, number>;
 }
 
+/** Context-window size returned by `GET /api/options/llm/context-window`. */
+export interface LlmContextWindow {
+  /** Effective context-window size in tokens. */
+  maxContextTokens: number;
+  /**
+   * How the value was determined: `"detected"` when the engine reported it
+   * directly, `"configured"` when the stored fallback was used instead.
+   */
+  source: "detected" | "configured";
+}
+
 export const getSettings = () => request<AppSettings>("/options");
 export const updateLlmConfig = (body: LlmConfigUpdate) =>
   patch<LlmConfig>("/options/llm", body);
@@ -750,6 +767,8 @@ export const testLlmConnection = (body: {
   params?: LlmParams;
 }) => post<LlmTestResult>("/options/llm/test", body);
 export const getLlmBackend = () => request<LlmBackendInfo>("/options/llm/backend");
+export const getLlmContextWindow = () =>
+  request<LlmContextWindow>("/options/llm/context-window");
 export const updatePromptsConfig = (body: PromptsConfigUpdate) =>
   patch<PromptsConfig>("/options/prompts", body);
 

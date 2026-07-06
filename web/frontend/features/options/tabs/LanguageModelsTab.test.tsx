@@ -18,6 +18,7 @@ function makeOpts(overrides: Partial<OptionsState["settings"]> = {}): OptionsSta
         hasApiKey: false,
         apiKeyHint: null,
         authoringConcurrency: 3,
+        maxContextTokens: 16384,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
       comfy: {
@@ -84,6 +85,7 @@ describe("LanguageModelsTab", () => {
         hasApiKey: true,
         apiKeyHint: "…AB12",
         authoringConcurrency: 3,
+        maxContextTokens: 16384,
       },
     });
     render(<LanguageModelsTab opts={opts} />);
@@ -120,11 +122,26 @@ describe("LanguageModelsTab", () => {
         hasApiKey: false,
         apiKeyHint: null,
         authoringConcurrency: 3,
+        maxContextTokens: 16384,
       },
     });
     render(<LanguageModelsTab opts={opts} />);
     await user.click(screen.getByRole("button", { name: /test connection/i }));
     expect(await screen.findByText(/OK · 42ms/i)).toBeInTheDocument();
+  });
+
+  it("hydrates and saves the max context tokens", async () => {
+    const user = userEvent.setup();
+    const opts = makeOpts();
+    render(<LanguageModelsTab opts={opts} />);
+
+    const field = screen.getByLabelText(/max context \(tokens\)/i) as HTMLInputElement;
+    expect(field.value).toBe("16384");
+    fireEvent.change(field, { target: { value: "32768" } });
+    await user.click(screen.getByRole("button", { name: /save/i }));
+    expect(opts.saveLlm).toHaveBeenCalledWith(
+      expect.objectContaining({ maxContextTokens: 32768 }),
+    );
   });
 
   it("surfaces a fetch error and leaves the model as a text field", async () => {

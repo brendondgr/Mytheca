@@ -6,6 +6,7 @@ import { liveValueFor } from "@/components/feature/DirectorRail";
 import type { PresenceStatus } from "@/lib/events";
 import type { Character, StatDefinition } from "@/lib/types";
 import type { StatChip } from "@/features/story-player/scene-data";
+import type { CharacterActivity } from "@/features/story-player/turn-stream";
 
 export function TurnOrder({
   order,
@@ -116,10 +117,40 @@ function CastMemberStats({
   );
 }
 
+/**
+ * Animated three-dot typing indicator. Uses the `embDots` keyframe defined in
+ * themes.css. The `.velora-themed *` reduced-motion rule strips `animation` globally,
+ * so the dots need a visible static base — they render as "…" text by default and
+ * animate via inline styles only when motion is available (no separate media query needed:
+ * the global rule handles it). Each dot uses an explicit non-zero opacity as baseline so
+ * the static state is visible.
+ */
+function TypingDots() {
+  return (
+    <span
+      aria-hidden
+      className="inline-flex items-center gap-[2px]"
+      data-testid="typing-dots"
+    >
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="inline-block h-[4px] w-[4px] rounded-full bg-current"
+          style={{
+            opacity: 0.5,
+            animation: `embDots 1.2s ease-in-out ${i * 0.2}s infinite`,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
 function CastMemberRow({
   c,
   status,
   speaking,
+  activity,
   onProfile,
   setPresence,
   statDefs,
@@ -128,17 +159,25 @@ function CastMemberRow({
   c: Character;
   status: PresenceStatus;
   speaking: boolean;
+  activity?: CharacterActivity;
   onProfile: (id: string) => void;
   setPresence?: (id: string, status: PresenceStatus) => void;
   statDefs?: StatDefinition[];
   stats?: StatChip[];
 }) {
   const away = status !== "present";
+  // Merge the activity-based status with the existing speakingId signal.
+  // activity==="speaking" (or the legacy speakingId match) → show "Speaking".
+  // activity==="thinking" → show "Thinking" + dots.
+  // Away characters keep their presence label regardless.
+  const effectiveSpeaking = speaking || activity === "speaking";
+  const isThinking = !effectiveSpeaking && activity === "thinking";
+
   return (
     <div
       className={cn(
         "rounded-[3px] border p-[8px_10px]",
-        speaking ? "border-accent bg-card2" : "border-cardbd bg-card",
+        effectiveSpeaking ? "border-accent bg-card2" : "border-cardbd bg-card",
         away && "opacity-60",
       )}
     >
@@ -164,9 +203,13 @@ function CastMemberRow({
             </Eyebrow>
           </span>
         </button>
-        {speaking ? (
+        {effectiveSpeaking ? (
           <span className="flex-none font-mono text-[7.5px] tracking-[0.1em] text-success uppercase">
-            • now
+            Speaking
+          </span>
+        ) : isThinking ? (
+          <span className="flex flex-none items-center gap-[4px] font-mono text-[7.5px] tracking-[0.1em] text-ink-soft uppercase">
+            Thinking <TypingDots />
           </span>
         ) : away ? (
           <span className="flex-none font-mono text-[7.5px] tracking-[0.1em] text-ink-soft uppercase">
@@ -182,9 +225,10 @@ function CastMemberRow({
   );
 }
 
-/** Left rail: cast "in the scene" (with a speaking marker + presence control), those out of
- * the scene grouped below, and the turn order. Presence lets the player remove/restore any
- * character; the engine also removes them automatically on death/departure. */
+/** Left rail: cast "in the scene" (with a speaking/thinking marker + presence control),
+ * those out of the scene grouped below, and the turn order. Presence lets the player
+ * remove/restore any character; the engine also removes them automatically on death/departure.
+ * `activityByChar` drives per-character "Thinking" (dots) and "Speaking" status labels. */
 export function CastRail({
   cast,
   speakingId,
@@ -195,6 +239,7 @@ export function CastRail({
   setPresence,
   statDefs,
   statsByChar = {},
+  activityByChar = {},
 }: {
   cast: Character[];
   speakingId: string | null;
@@ -207,6 +252,8 @@ export function CastRail({
    * values (live via `statsByChar`, else the schema default) beneath their name/role. */
   statDefs?: StatDefinition[];
   statsByChar?: Record<string, StatChip[]>;
+  /** Live per-character activity status from the turn stream (Phase 6). */
+  activityByChar?: Record<string, CharacterActivity>;
 }) {
   const statusOf = (id: string): PresenceStatus => presenceByChar[id] ?? "present";
   const present = cast.filter((c) => statusOf(c.id) === "present");
@@ -224,6 +271,7 @@ export function CastRail({
             c={c}
             status="present"
             speaking={c.id === speakingId}
+            activity={activityByChar[c.id]}
             onProfile={onProfile}
             setPresence={setPresence}
             statDefs={statDefs}
@@ -244,6 +292,7 @@ export function CastRail({
                 c={c}
                 status={statusOf(c.id)}
                 speaking={false}
+                activity={activityByChar[c.id]}
                 onProfile={onProfile}
                 setPresence={setPresence}
                 statDefs={statDefs}

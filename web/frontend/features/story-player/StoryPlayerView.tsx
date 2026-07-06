@@ -6,7 +6,6 @@ import { exportSessionUrl } from "@/lib/api";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 import type { ExportFormat } from "@/components/feature/ExportMenu";
 import { useScenePlay } from "./useScenePlay";
-import { tensionLabel } from "./scene-data";
 import { SceneHeader } from "@/components/layout/SceneHeader";
 import { CastRail } from "@/components/feature/CastRail";
 import { DirectorRail } from "@/components/feature/DirectorRail";
@@ -17,6 +16,7 @@ import { TranscriptBeat } from "@/components/feature/TranscriptBeat";
 import { CharacterDossier } from "@/components/feature/CharacterDossier";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { TurnInspectorPanel } from "@/components/feature/TurnInspectorPanel";
+import { ContextUsageBar } from "@/components/feature/ContextUsageBar";
 
 /** The signature surface: a three-zone "open book" live scene. */
 export function StoryPlayerView({
@@ -32,7 +32,7 @@ export function StoryPlayerView({
 }) {
   const scene = useScenePlay(scenario);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const composerRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   // Picking a suggestion writes it into the composer for review/editing; move focus there so
   // the player can immediately edit before sending (request #2).
   const onChoose = useCallback(
@@ -82,6 +82,12 @@ export function StoryPlayerView({
         canExport={Boolean(scene.sessionId)}
         onToggleInspector={() => setInspectorOpen((o) => !o)}
         inspectorOpen={inspectorOpen}
+        maxTurns={scene.maxTurns}
+        onMaxTurnsChange={scene.setMaxTurns}
+        suggestionsCount={scene.suggestionsCount}
+        onSuggestionsCountChange={scene.setSuggestionsCount}
+        contextBeats={scene.contextBeats}
+        onContextBeatsChange={scene.setContextBeats}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -95,6 +101,7 @@ export function StoryPlayerView({
           setPresence={scene.setPresence}
           statDefs={statDefs}
           statsByChar={scene.statsByChar}
+          activityByChar={scene.activityByChar}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -136,18 +143,20 @@ export function StoryPlayerView({
               ) : null}
             </div>
           </div>
+          {scene.maxContextTokens !== null ? (
+            <div className="mx-auto w-full max-w-[720px] px-[16px] pb-[4px] sm:px-[30px]">
+              <ContextUsageBar
+                usedTokens={scene.usedTokens}
+                maxTokens={scene.maxContextTokens}
+              />
+            </div>
+          ) : null}
           <Composer
             value={scene.composer}
             onChange={scene.setComposer}
             onSend={scene.send}
-            disabled={scene.sending}
+            sendDisabled={scene.sending}
             inputRef={composerRef}
-            maxTurns={scene.maxTurns}
-            onMaxTurnsChange={scene.setMaxTurns}
-            suggestionsCount={scene.suggestionsCount}
-            onSuggestionsCountChange={scene.setSuggestionsCount}
-            contextBeats={scene.contextBeats}
-            onContextBeatsChange={scene.setContextBeats}
           />
         </div>
 
@@ -162,11 +171,9 @@ export function StoryPlayerView({
           />
         ) : (
           <DirectorRail
-            goal={scenario.goal}
-            tension={scene.tension}
-            tensionText={tensionLabel(scene.tension)}
             stats={scene.stats}
-            relationships={scene.relationships}
+            activity={scene.activity}
+            charById={byId}
           />
         )}
 
