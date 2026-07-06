@@ -5,7 +5,7 @@ import * as api from "@/lib/api";
 import { useToast } from "@/components/layout/ToastProvider";
 import { useFieldReveal } from "@/hooks/use-field-reveal";
 import { budgetFor } from "@/lib/contextBudget";
-import { concatDocs, readDocFiles } from "@/lib/readDocs";
+import { concatDocs, readDocFiles, type DocUse } from "@/lib/readDocs";
 import type {
   ContextDocument,
   DocCategory,
@@ -203,7 +203,7 @@ export function useStorylineCreator(editId?: string) {
     [],
   );
   const toggleDocUse = useCallback(
-    (name: string, key: "useDraft" | "useRag") =>
+    (name: string, key: DocUse) =>
       setDocs((prev) =>
         prev.map((d) => (d.name === name ? { ...d, [key]: !(d[key] ?? false) } : d)),
       ),
@@ -317,12 +317,17 @@ export function useStorylineCreator(editId?: string) {
   const build = useCallback(async () => {
     const s = seed.trim();
     const docsOverview = draftGrounding(docs);
-    // Each kept doc rides its OWN triage bucket, and the build extracts by bucket
-    // (respecting the author's classification — it never invents entities from lore):
+    // Each kept doc rides its OWN triage bucket AND its opt-in Extract flag. The build
+    // mines a doc ONLY when Extract is checked (`extract: true`); the bucket then scopes
+    // what kind is mined (respecting classification — it never invents from lore):
     //   character/setting → mined for NAMED characters/settings (usually one);
     //   uncategorized ('select') → mined strictly, only for a genuinely NAMED subject;
     //   other → LORE/GROUNDING ONLY, never turned into an entity.
-    const toBuildDoc = (d: CreatorDoc) => ({ name: d.name, text: d.text });
+    const toBuildDoc = (d: CreatorDoc) => ({
+      name: d.name,
+      text: d.text,
+      extract: Boolean(d.useExtract),
+    });
     const withText = docs.filter((d) => d.text);
     const characterDocs = withText.filter((d) => d.category === "character").map(toBuildDoc);
     const settingDocs = withText.filter((d) => d.category === "setting").map(toBuildDoc);

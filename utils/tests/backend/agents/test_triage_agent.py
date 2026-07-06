@@ -45,7 +45,8 @@ def test_triage_classifies_each_doc(client, monkeypatch):
     reply = json.dumps(
         {
             "items": [
-                {"name": "maerin.md", "category": "character", "includeDraft": False, "includeRag": True},
+                {"name": "maerin.md", "category": "character", "includeDraft": False,
+                 "includeRag": True, "includeExtract": True},
                 {"name": "tavern.md", "category": "setting", "includeDraft": False, "includeRag": True},
                 {"name": "history.md", "category": "other", "includeDraft": True, "includeRag": True},
             ]
@@ -69,6 +70,10 @@ def test_triage_classifies_each_doc(client, monkeypatch):
     assert items["history.md"]["category"] == "other"
     # World history is the one doc that should ground drafting.
     assert items["history.md"]["includeDraft"] is True
+    # includeExtract is coerced from the reply; omitting it defaults to False (opt-in).
+    assert items["maerin.md"]["includeExtract"] is True
+    assert items["tavern.md"]["includeExtract"] is False
+    assert items["history.md"]["includeExtract"] is False
 
 
 def test_triage_multi_character_doc_goes_to_other(client, monkeypatch):

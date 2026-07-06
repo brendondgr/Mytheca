@@ -238,6 +238,7 @@ def _new_context_document(
         category=data.category,
         include_draft=data.include_draft,
         include_rag=data.include_rag,
+        include_extract=data.include_extract,
         source=data.source,
         entity_type=data.entity_type,
         entity_id=data.entity_id,

@@ -79,19 +79,32 @@ describe("TriagePanel self-triage", () => {
     expect(onSetCategory).toHaveBeenCalledWith("hero.md", "character");
   });
 
-  it("passes the chosen upload target (category + Draft/RAG) to onAddFiles via Browse", async () => {
+  it("passes the chosen upload target (category + Draft/RAG/Extract) to onAddFiles via Browse", async () => {
     const user = userEvent.setup();
     const onAddFiles = vi.fn();
     render(<TriagePanel {...baseProps} docs={[]} triaging={false} onAddFiles={onAddFiles} />);
-    // Pick "Character" as the upload target and flip the Draft default on.
+    // Pick "Character" as the upload target and flip Draft + Extract defaults on.
     await user.selectOptions(screen.getByRole("combobox", { name: /add as/i }), "character");
     await user.click(screen.getByRole("button", { name: /default draft for uploads/i }));
+    await user.click(screen.getByRole("button", { name: /default extract for uploads/i }));
     // Browse a file → it carries the chosen target.
     const input = document.getElementById("creator-docs-input") as HTMLInputElement;
     await user.upload(input, new File(["A hero."], "hero.md", { type: "text/plain" }));
     expect(onAddFiles).toHaveBeenCalledTimes(1);
     const opts = onAddFiles.mock.calls[0][1];
-    expect(opts).toEqual({ category: "character", useDraft: true, useRag: true });
+    // Extract defaults OFF (opt-in); flipping it on rides the upload target.
+    expect(opts).toEqual({ category: "character", useDraft: true, useRag: true, useExtract: true });
+  });
+
+  it("renders a per-row Extract chip and toggles useExtract when clicked", async () => {
+    const user = userEvent.setup();
+    const onToggleUse = vi.fn();
+    const docs = [toCreatorDoc({ name: "hero.md", text: "A hero." })];
+    render(
+      <TriagePanel {...baseProps} docs={docs} triaging={false} onToggleUse={onToggleUse} />,
+    );
+    await user.click(screen.getByRole("button", { name: /extract for hero\.md/i }));
+    expect(onToggleUse).toHaveBeenCalledWith("hero.md", "useExtract");
   });
 
   it("switches to grouped view once a doc is manually categorized", () => {

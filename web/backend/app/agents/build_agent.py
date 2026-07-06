@@ -245,6 +245,15 @@ def _doc_sources(docs: list[BuildDoc] | None, cap: int | None = None) -> list[tu
     return out
 
 
+def _opted_in(docs: list[BuildDoc] | None) -> list[BuildDoc]:
+    """Only the docs the author checked **Extract** on — extraction is opt-in per doc.
+
+    A doc with ``extract=False`` (the default) is never mined for characters/settings,
+    so a new storyline no longer auto-extracts from attached files. Its grounding
+    contribution, if any, still flows through the normal draft/grounding path."""
+    return [d for d in (docs or []) if d.extract]
+
+
 def has_buildable_docs(*lists: list[BuildDoc] | None) -> bool:
     """True if any attached reference doc carries text to build from."""
     return any((d.text or "").strip() for docs in lists for d in (docs or []))
@@ -374,8 +383,9 @@ def iter_build_world(
     bucket** → one full character/setting per extracted subject → a terminal ``done``
     carrying the assembled ``ProposedWorld``.
 
-    **Cast/settings come ONLY from the attached, triaged docs, and extraction respects
-    the author's classification** — it never invents a subject by expanding lore:
+    **Cast/settings come ONLY from the docs the author checked Extract on**, and
+    extraction respects the author's classification — it never invents a subject by
+    expanding lore. A doc with ``extract=False`` (the default) is skipped entirely:
 
     * ``character_docs`` → mine for explicitly NAMED characters only; usually exactly
       one (the doc *is* that character), split into several only when it clearly names
@@ -389,7 +399,7 @@ def iter_build_world(
       into the drafting grounding so drafts stay consistent with them).
 
     Subjects are de-duped across docs in document order (uncapped). The build never
-    invents an entity the author didn't attach: no entity docs → no cast/settings.
+    invents an entity the author didn't opt in: no Extract-checked docs → no cast/settings.
     (The storyline metadata, World Primer, and the universal stat schema are always
     produced.) Errors propagate (the route wraps them into an in-band ``error`` event
     once the stream is open).
@@ -451,18 +461,20 @@ def iter_build_world(
     conn = resolve_llm(db)
     workers = settings_store.get_llm(db).authoring_concurrency
 
-    # 4) Extract the roster, **respecting the author's classification**. Each doc is
-    #    mined only for the kind its bucket asserts — character docs for named
-    #    characters, setting docs for named settings, uncategorized docs for either;
-    #    Other docs are lore only (already folded into ``grounding`` above, never
-    #    extracted). Runs **concurrently** (bounded by ``workers``), **failure-isolated**
-    #    (``imap_unordered`` → skip on a second parse/upstream failure so one malformed
-    #    reply can't abort the whole build), with a **per-doc status** so the UI shows
-    #    movement instead of freezing on a single "Reading docs…" line.
+    # 4) Extract the roster from the docs the author **opted in** to mining (Extract
+    #    checked), **respecting the author's classification**. Extraction is opt-in
+    #    per document: a doc with ``extract=False`` is skipped entirely (never mined).
+    #    Each remaining doc is mined only for the kind its bucket asserts — character
+    #    docs for named characters, setting docs for named settings, uncategorized docs
+    #    for either; Other docs are lore only (already folded into ``grounding`` above,
+    #    never extracted). Runs **concurrently** (bounded by ``workers``),
+    #    **failure-isolated** (``imap_unordered`` → skip on a second parse/upstream
+    #    failure so one malformed reply can't abort the whole build), with a **per-doc
+    #    status** so the UI shows movement instead of freezing on a single line.
     extract_jobs: list[tuple[str, str, str]] = (  # (name, text, kind)
-        [(n, t, "character") for n, t in _doc_sources(character_docs)]
-        + [(n, t, "setting") for n, t in _doc_sources(setting_docs)]
-        + [(n, t, "both") for n, t in _doc_sources(uncategorized_docs)]
+        [(n, t, "character") for n, t in _doc_sources(_opted_in(character_docs))]
+        + [(n, t, "setting") for n, t in _doc_sources(_opted_in(setting_docs))]
+        + [(n, t, "both") for n, t in _doc_sources(_opted_in(uncategorized_docs))]
     )
     total_docs = len(extract_jobs)
     yield BuildStatusEvent(

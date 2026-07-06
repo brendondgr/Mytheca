@@ -30,6 +30,7 @@ export async function loadEntityDocs(
     text: d.content,
     useDraft: d.includeDraft,
     useRag: d.includeRag,
+    useExtract: d.includeExtract,
   }));
 }
 
@@ -64,6 +65,8 @@ export async function syncEntityDocs(
         category: SCOPE_CATEGORY[entityType],
         includeDraft: f.useDraft ?? false,
         includeRag: f.useRag ?? true,
+        // Extraction never applies to entity-scoped docs (already tied to one entity).
+        includeExtract: f.useExtract ?? false,
         source: "upload",
         entityType,
         entityId,

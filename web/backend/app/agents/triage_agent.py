@@ -52,7 +52,7 @@ _TRIAGE_SYSTEM = (
     "prose, no markdown, no code fences — of the form "
     '{"items": [{"name": "<the document name exactly as given>", "category": '
     '"character"|"setting"|"other", "includeDraft": true|false, "includeRag": '
-    'true|false, "rationale": "<one short line>"}]}.\n'
+    'true|false, "includeExtract": true|false, "rationale": "<one short line>"}]}.\n'
     "Rules for category:\n"
     "- 'character' — the document is primarily about ONE character (a single "
     "person, being, or creature).\n"
@@ -66,6 +66,10 @@ _TRIAGE_SYSTEM = (
     "false (most character/setting/reference sheets are false).\n"
     "- includeRag: true for essentially every real document (it is the retrieval "
     "corpus); set false only for empty or clearly irrelevant content.\n"
+    "- includeExtract: BE CONSERVATIVE — true ONLY when the document is a clear, "
+    "single, explicitly-NAMED character or setting profile the author would obviously "
+    "want turned into a card during the world build. Set false for lore, history, "
+    "rules, multi-subject, or ambiguous documents; default to false when unsure.\n"
     "Return exactly one item per input document, using the document's name verbatim."
 )
 
@@ -77,7 +81,8 @@ _TRIAGE_ONE_SYSTEM = (
     "it should be used. Respond with ONLY a JSON object — no prose, no markdown, "
     "no code fences — of the form "
     '{"category": "character"|"setting"|"other", "includeDraft": true|false, '
-    '"includeRag": true|false, "rationale": "<one short line>"}.\n'
+    '"includeRag": true|false, "includeExtract": true|false, "rationale": '
+    '"<one short line>"}.\n'
     "Rules for category:\n"
     "- 'character' — the document is primarily about ONE character (a single "
     "person, being, or creature).\n"
@@ -90,7 +95,11 @@ _TRIAGE_ONE_SYSTEM = (
     "tone, lore, or rules and should ground how the world is drafted; otherwise "
     "false.\n"
     "- includeRag: true for essentially every real document; false only for empty "
-    "or clearly irrelevant content."
+    "or clearly irrelevant content.\n"
+    "- includeExtract: BE CONSERVATIVE — true ONLY when the document is a clear, "
+    "single, explicitly-NAMED character or setting profile the author would obviously "
+    "want turned into a card during the world build; false for lore, multi-subject, "
+    "or ambiguous documents; default to false when unsure."
 )
 
 
@@ -120,13 +129,16 @@ def _coerce_item(name: str, row: dict) -> TriageItem:
         category=category,  # type: ignore[arg-type]
         include_draft=bool(row.get("includeDraft", row.get("include_draft", False))),
         include_rag=bool(row.get("includeRag", row.get("include_rag", True))),
+        include_extract=bool(row.get("includeExtract", row.get("include_extract", False))),
         rationale=str(row.get("rationale") or "").strip(),
     )
 
 
 def _fallback(name: str) -> TriageItem:
-    """Default classification for a doc the model skipped: Other, RAG-on."""
-    return TriageItem(name=name, category="other", include_draft=False, include_rag=True)
+    """Default classification for a doc the model skipped: Other, RAG-on, Extract-off."""
+    return TriageItem(
+        name=name, category="other", include_draft=False, include_rag=True, include_extract=False
+    )
 
 
 def triage_documents(
