@@ -11,9 +11,12 @@ The HTTP client is built by ``get_http_client`` so tests can inject an
 from __future__ import annotations
 
 import hashlib
+import logging
 import time
 
 import httpx
+
+logger = logging.getLogger("velora.llm")
 
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
@@ -148,6 +151,10 @@ def chat_complete(
         raise APIError(
             502, "upstream_error", "The model endpoint returned an unexpected response."
         ) from exc
+    # TEMP DIAGNOSTIC (garbled-output investigation): log the EXACT raw completion the
+    # server returns, before any scrubbing, using repr() so leaked special/separator
+    # tokens and stray glyphs are visible verbatim. Remove once the cause is confirmed.
+    logger.warning("RAW model completion (pre-scrub): %r", content)
     # Reasoning models inline their chain-of-thought + harmony channel tokens
     # (``<|channel|>…``, ``<think>…</think>``) in ``content``; strip them here at the one
     # choke point every agent shares, so the narrator, the character emission parser, and
