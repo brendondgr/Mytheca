@@ -16,7 +16,6 @@ import { TranscriptBeat } from "@/components/feature/TranscriptBeat";
 import { CharacterDossier } from "@/components/feature/CharacterDossier";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { TurnInspectorPanel } from "@/components/feature/TurnInspectorPanel";
-import { ContextUsageBar } from "@/components/feature/ContextUsageBar";
 
 /** The signature surface: a three-zone "open book" live scene. */
 export function StoryPlayerView({
@@ -143,14 +142,6 @@ export function StoryPlayerView({
               ) : null}
             </div>
           </div>
-          {scene.maxContextTokens !== null ? (
-            <div className="mx-auto w-full max-w-[720px] px-[16px] pb-[4px] sm:px-[30px]">
-              <ContextUsageBar
-                usedTokens={scene.usedTokens}
-                maxTokens={scene.maxContextTokens}
-              />
-            </div>
-          ) : null}
           <Composer
             value={scene.composer}
             onChange={scene.setComposer}
