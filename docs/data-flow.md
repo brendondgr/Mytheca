@@ -597,6 +597,33 @@ The **context budget** (the inline grounding cap + the meter on the page) is **3
 characters** (`_common.DOCS_CAP` / `readDocs.DOCS_CHAR_CAP`; ~8000 tokens), raised from
 the original 8K so larger lore/corpus batches can ground generation.
 
+**Post-creation document manager (`/storylines/[id]/documents`).** Once a world exists,
+its whole corpus is managed on a dedicated route (`features/documents/DocumentsView` +
+`useDocuments` + `components/feature/DocumentsTable`), reached from the Library's
+storyline switcher (`StorylineMenu`'s per-row **Documents** action). It lists **every**
+context doc (`listContextDocuments(id)` with no scope — storyline-level *and*
+entity-owned) with search/filter/group-by-category, and edits go straight through the
+existing endpoints: toggle Draft/RAG/Extract or change category (`updateContextDocument`),
+delete (`deleteContextDocument`), or drop new `.txt`/`.md` files (`bulkCreateContextDocuments`).
+Each row shows its scope (storyline-level vs. entity-owned) and the entities it is
+**provenance** for.
+
+**Doc→entity provenance links.** A `ContextDocumentLink` many-to-many layer
+(`context_document_links` table) records which documents were used as context **for**
+which character/setting — distinct from a doc's own single `entity_type`/`entity_id`
+ownership scope (a link leaves the doc a storyline-level corpus member; one doc may link
+to several entities). Two paths populate it: (1) **build lineage** — `extract_agent`
+stamps each `ExtractedEntity.source_doc_names` with the doc it was mined from,
+`build_agent` merges names across docs during roster de-dup and carries them onto each
+`ProposedCharacter`/`ProposedSetting.sourceDocNames`; the frontend commit
+(`storylineCreator.commitWorld`) resolves each name to its just-persisted corpus doc id
+and calls `addDocumentLink` (best-effort). (2) **Manual** — the Character/Setting editor's
+**Source documents** section (`SourceDocumentsPanel`, self-fetching) lists the entity's
+linked docs (`?linkedEntityType=&linkedEntityId=`) with unlink, plus a picker to link any
+corpus doc (`addDocumentLink`/`removeDocumentLink`). Deleting a doc cascades its links;
+deleting a linked entity drops the dangling links but keeps the doc. Links carry **no**
+RAG/retrieval effect (pure provenance).
+
 This is the **persistence seam** for retrieval: the documents are durably stored
 per storyline and survive reload. The **Hybrid RAG** (see `docs/rag.md`) now reads
 `content` at runtime — `includeRag` docs are embedded on save and retrieved by the
