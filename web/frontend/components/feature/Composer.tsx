@@ -6,11 +6,13 @@ import { ContextUsageDial } from "@/components/feature/ContextUsageDial";
 const MAX_HEIGHT = 240;
 
 /**
- * Bottom composer — one panel, two rows:
- *   • Row 1: the auto-growing message textarea (Enter sends / Shift+Enter newline).
- *   • Row 2: a controls bar — Config on the left (with room reserved for future options),
- *     and on the right the circular context dial then the "Send →" pill.
- * The textarea stays editable while a turn streams; only sending is blocked (`sendDisabled`).
+ * Bottom composer — one continuous panel, two stacked areas:
+ *   • the auto-growing message textarea (Enter sends / Shift+Enter newline), then a gap,
+ *   • a compact controls bar — Config on the left (room reserved for future options),
+ *     and on the right the circular context dial then a small "Send →" pill.
+ * The panel shows a single accent border on focus-within; the textarea itself has no
+ * focus outline (that boxy ring is suppressed). The textarea stays editable while a turn
+ * streams; only sending is blocked (`sendDisabled`).
  */
 export function Composer({
   value,
@@ -78,10 +80,10 @@ export function Composer({
 
   return (
     /* Outer band: transparent, no background — just positions the centered panel. */
-    <div className="flex-none px-[16px] pb-[16px] sm:px-[30px] sm:pb-[20px]">
-      {/* The single visual unit: the chat box panel (textarea row + controls row). */}
-      <div className="mx-auto max-w-[720px] rounded-[14px] border border-field-bd bg-field focus-within:border-accent transition-colors duration-150">
-        {/* Row 1 — the message input. */}
+    <div className="flex-none px-[16px] pb-[12px] sm:px-[30px] sm:pb-[14px]">
+      {/* The single visual unit: the chat box panel (input area + gap + controls). */}
+      <div className="mx-auto flex max-w-[720px] flex-col rounded-[14px] border border-field-bd bg-field px-[10px] pt-[8px] pb-[7px] focus-within:border-accent transition-colors duration-150">
+        {/* The message input — no focus outline (the container carries the accent border). */}
         <textarea
           ref={ref}
           rows={1}
@@ -99,12 +101,12 @@ export function Composer({
           // textarea is always enabled — only send is blocked while streaming
           aria-label="Your message"
           placeholder={sendDisabled ? "The scene responds…" : "Speak, or describe what you do…"}
-          className="block w-full resize-none bg-transparent p-[12px_14px] font-body text-[15px] text-ink placeholder:text-mute2 focus:outline-none"
+          className="composer-input block w-full resize-none bg-transparent px-[4px] pt-[2px] pb-[8px] font-body text-[14px] text-ink placeholder:text-mute2 focus:outline-none"
           style={{ overflowY: "hidden" }}
         />
 
-        {/* Row 2 — the controls bar. */}
-        <div className="flex items-center gap-[8px] border-t border-field-bd px-[10px] py-[7px]">
+        {/* Controls bar — sits a gap below the textarea, no dividing line. */}
+        <div className="flex items-center gap-[7px]">
           {/* Left: Config (+ blank space reserved for future options). */}
           {hasConfig ? (
             <SceneConfigMenu
@@ -120,26 +122,26 @@ export function Composer({
           ) : null}
           <div className="min-w-0 flex-1" />
 
-          {/* Right cluster: context dial, then the Send pill. */}
+          {/* Right cluster: context dial, then the small Send pill. */}
           <ContextUsageDial
             usedTokens={usedTokens}
             maxTokens={maxContextTokens ?? 0}
             exact={usedTokensExact}
-            size={34}
+            size={24}
           />
           <button
             type="button"
             onClick={onSend}
             disabled={sendDisabled}
             aria-label="Send"
-            className="flex flex-none items-center gap-[6px] rounded-[9px] bg-accent px-[15px] py-[8px] font-mono text-[11px] tracking-[0.08em] text-[#F6ECDA] uppercase transition-[filter] hover:brightness-110 disabled:opacity-50 disabled:hover:brightness-100"
+            className="flex flex-none items-center gap-[5px] rounded-[8px] bg-accent px-[11px] py-[5px] font-mono text-[10px] tracking-[0.08em] text-[#F6ECDA] uppercase transition-[filter] hover:brightness-110 disabled:opacity-50 disabled:hover:brightness-100"
           >
             Send
             {/* Right-arrow — matches the reference "Send →". */}
             <svg
               aria-hidden="true"
-              width="14"
-              height="14"
+              width="12"
+              height="12"
               viewBox="0 0 14 14"
               fill="none"
               stroke="currentColor"
