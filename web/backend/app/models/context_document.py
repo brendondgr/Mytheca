@@ -16,7 +16,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, false
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    false,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -70,3 +79,42 @@ class ContextDocument(Base):
     )
 
     storyline: Mapped[Storyline] = relationship(back_populates="context_documents")
+    # Provenance links to the entities this document was used as context for (which
+    # character/setting it helped build, or ones the author linked manually). Distinct
+    # from ``entity_type``/``entity_id`` above (that is single-valued OWNERSHIP that
+    # cascade-deletes with the entity); a link is a many-to-many REFERENCE that leaves
+    # the doc a storyline-level corpus member. Deleting the doc drops its links.
+    links: Mapped[list[ContextDocumentLink]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class ContextDocumentLink(Base):
+    """A doc→entity provenance reference (many-to-many).
+
+    Records that a context document was used as context for a specific
+    character/setting (auto-captured when **Build the whole world** mines a doc into
+    that entity, plus any the author links by hand from the editor). Unlike the
+    document's own ``entity_type``/``entity_id`` scope, a link never changes the
+    document's storyline-level membership and one doc may link to several entities.
+    """
+
+    __tablename__ = "context_document_links"
+    __table_args__ = (
+        UniqueConstraint("doc_id", "entity_type", "entity_id", name="uq_ctxdoc_link"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("cdl"))
+    doc_id: Mapped[str] = mapped_column(
+        ForeignKey("context_documents.id", ondelete="CASCADE"), index=True
+    )
+    # The linked entity — ``entity_type`` ∈ {character, setting, scenario}.
+    entity_type: Mapped[str] = mapped_column(String, index=True)
+    entity_id: Mapped[str] = mapped_column(String, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    document: Mapped[ContextDocument] = relationship(back_populates="links")
