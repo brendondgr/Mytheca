@@ -138,3 +138,59 @@ class AgentMessage(CamelModel):
 
     role: Literal["user", "assistant"]
     content: str
+
+
+class StorylineFieldsSnapshot(CamelModel):
+    """The author's *current* form values — the agent's read context + plan before-values.
+
+    Sent with every request so each scoped pass re-reads the current (possibly
+    unsaved) state of the form, exactly as the design intends.
+    """
+
+    title: str = ""
+    genre: str = ""
+    tagline: str = ""
+    premise: str = ""
+    world_primer: str = ""
+    stats: list[StatDefinitionDraft] = Field(default_factory=list)
+
+
+class StorylineAgentRequest(CamelModel):
+    """Request body for both converse/plan streams (create + edit)."""
+
+    scope: ScopeState = Field(default_factory=dict)
+    messages: list[AgentMessage] = Field(default_factory=list)
+    fields: StorylineFieldsSnapshot = Field(default_factory=StorylineFieldsSnapshot)
+
+
+# ---- Stream frames (NDJSON-from-POST) ---------------------------------------
+
+
+class AgentStatusFrame(CamelModel):
+    type: Literal["status"] = "status"
+    message: str
+
+
+class AgentMessageFrame(CamelModel):
+    """A chunk of the assistant's conversational reply (accumulated on the client)."""
+
+    type: Literal["message"] = "message"
+    delta: str = ""
+    done: bool = False
+
+
+class AgentPlanFrame(CamelModel):
+    """The terminal structured plan (present only when the agent proposes changes)."""
+
+    type: Literal["plan"] = "plan"
+    plan: StoryPlan
+
+
+class AgentErrorFrame(CamelModel):
+    """Terminal in-band error frame (mid-stream failures can't change the HTTP status)."""
+
+    type: Literal["error"] = "error"
+    message: str
+
+
+AgentEditEvent = AgentStatusFrame | AgentMessageFrame | AgentPlanFrame | AgentErrorFrame

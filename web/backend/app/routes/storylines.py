@@ -10,6 +10,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.agents import build_agent, storyline_agent, triage_agent
+from app.agents.storyline_edit import core as storyline_edit_core
+from app.agents.storyline_edit import creation as creation_agent
+from app.agents.storyline_edit import editor as editor_agent
 from app.core.db import get_db
 from app.core.errors import APIError
 from app.models import Character, Scenario, Setting
@@ -24,6 +27,7 @@ from app.schemas.storyline import (
     WorldPrimerRequest,
     WorldPrimerResponse,
 )
+from app.schemas.storyline_edit import AgentErrorFrame, StorylineAgentRequest
 from app.services import crud
 
 router = APIRouter(prefix="/storylines", tags=["storylines"])
@@ -84,6 +88,45 @@ def triage_documents_stream(data: TriageRequest, db: Session = Depends(get_db)):
 
     return StreamingResponse(
         _lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS
+    )
+
+
+# ---- Agentic storyline editor/creator (conversational, plan → implement) -----
+
+
+def _agent_stream(events: Iterator) -> StreamingResponse:
+    """Wrap an agent event generator as an NDJSON stream with a terminal error frame."""
+
+    def _lines() -> Iterator[str]:
+        try:
+            for event in events:
+                yield event.model_dump_json(by_alias=True) + "\n"
+        except APIError as exc:
+            yield AgentErrorFrame(message=exc.message).model_dump_json(by_alias=True) + "\n"
+        except Exception:  # never leak a stack trace into the stream
+            yield AgentErrorFrame(
+                message="The assistant failed unexpectedly."
+            ).model_dump_json(by_alias=True) + "\n"
+
+    return StreamingResponse(
+        _lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS
+    )
+
+
+@router.post("/agent/create/stream")
+def storyline_agent_create_stream(data: StorylineAgentRequest, db: Session = Depends(get_db)):
+    """Converse with the storyline **creation** agent (blank/partial start).
+
+    Streams the assistant reply (chunked ``message`` frames) and, when the author asks
+    for changes, a terminal ``plan`` frame — scoped to the writable fields only. No
+    writes: on approval the client fills the create form and commits via Create World.
+    An empty message / unconfigured LLM returns a normal 400 before the stream opens.
+    """
+    storyline_edit_core.validate_inputs(db, data.messages)
+    return _agent_stream(
+        creation_agent.storyline_creation_agent(
+            db, scope=data.scope, messages=data.messages, fields=data.fields
+        )
     )
 
 
@@ -184,3 +227,26 @@ def update_storyline(storyline_id: str, data: StorylineUpdate, db: Session = Dep
 @router.delete("/{storyline_id}", status_code=204)
 def delete_storyline(storyline_id: str, db: Session = Depends(get_db)):
     crud.delete_storyline(db, storyline_id)
+
+
+@router.post("/{storyline_id}/agent/edit/stream")
+def storyline_agent_edit_stream(
+    storyline_id: str, data: StorylineAgentRequest, db: Session = Depends(get_db)
+):
+    """Converse with the storyline **editor** agent for an existing world.
+
+    Streams the assistant reply + an optional ``plan`` frame scoped to the writable
+    fields. No writes here — approval is a separate POST to ``…/agent/apply``. A missing
+    storyline (404) or unconfigured LLM (400) is validated before the stream opens.
+    """
+    crud.get_storyline(db, storyline_id)  # 404 pre-flight
+    storyline_edit_core.validate_inputs(db, data.messages)
+    return _agent_stream(
+        editor_agent.storyline_editor_agent(
+            db,
+            storyline_id=storyline_id,
+            scope=data.scope,
+            messages=data.messages,
+            fields=data.fields,
+        )
+    )
