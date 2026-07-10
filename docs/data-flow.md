@@ -438,126 +438,80 @@ file from an in-flight draft counts as an orphan but is *not eligible*, so an
 author mid-creation never loses their pending image. Deletion is doubly guarded
 (unreferenced AND grace-expired), `.webp`-only, and scoped to the two media subdirs.
 
-## Build Everything Flow (the New Storyline world build)
+## Agentic Storyline Editing Flow (conversational, scope-aware editor)
+
+Replaces the old one-shot **"Build the whole world"** orchestration. The author sets a
+**write scope** — which of the storyline's own six fields (`title`/`genre`/`tagline`/
+`premise`/`worldPrimer`/`statistics`) the agent may write — converses with it, reviews a
+proposed **plan**, and only then approves. The **scope object is the single source of
+truth shared by client and server**: the same `ScopeState` is rendered as the panel's
+checkbox/pill list *and* sent with every request so the server builds a matching response
+schema, prompt, and guard from it.
 
 ```
-New Storyline page → "Build the whole world" → POST /storylines/build {seed?, docsOverview?, …Docs?}
-  → build_agent orchestrates (configured LLM):
-      draft_storyline → metadata
-      generate_world_primer → World Primer
-      blueprint → universal stat schema (its invented concepts are ignored)
-      extract_agent.extract_entities × (one per attached doc) → the roster of
-        distinct characters + settings each doc contains (deduped across docs)
-      draft_character × N (one per extracted character, grounded in the world brief)
-      draft_setting   × M (one per extracted setting)
-        ↑ N and M drafts run CONCURRENTLY (bounded by the operator's
-          authoringConcurrency; the LLM connection is pre-resolved once so the
-          worker threads never touch the request Session). 1 → sequential.
-          A per-entity draft failure is skipped (best-effort), never fatal.
-  → ProposedWorld returned for REVIEW (nothing persisted yet)
-  → author edits/prunes → "Create world" commits via normal CRUD:
-      POST /storylines → POST …/stats × → POST …/characters × (+ portrait if ComfyUI)
-        + PUT …/stats → POST …/settings × (+ scene-art if ComfyUI)
-        + POST …/context-docs/bulk (the triaged corpus)
-  → navigate to /{newStorylineId}
+StorylineAgentPanel (segmented [Assistant|Context] right pane of StorylineCreatorView)
+  → useStorylineAgent.send(instruction)
+      appends {role:"user", content} to the CLIENT-SESSION messages[] (React state —
+        no persisted conversation table; "New chat" clears it + any pending plan)
+  → POST /api/storylines/agent/create/stream            (create mode)
+    POST /api/storylines/{id}/agent/edit/stream          (edit mode)
+      body: { scope: ScopeState, messages: AgentMessage[], fields: <current values> }
+  → routes/storylines → agents/storyline_edit/{creation,editor}.storyline_*_agent
+      → core.converse:
+          1. assemble READ-SCOPED context — the request's `fields` snapshot restricted
+             to readable_keys(scope), plus (edit only) world_context + best-effort
+             rag_block grounding over the storyline's own corpus
+          2. build the DYNAMIC response schema (agents/storyline_edit/scope.
+             response_schema_for(scope)) — an object schema whose properties are
+             EXACTLY the writable fields — and a system prompt naming them, instructing
+             the model to leave every other field untouched and only return a plan when
+             a change is requested
+          3. services/llm.chat_complete(reasoning=DEFAULT_AUTHORING_EFFORT, low temp,
+             extra_body={"guided_json": schema} IFF llm_backend.detect_backend == vLLM)
+             — guided_json is a best-effort layer (only vLLM supports constrained
+             decoding); the schema-shaped prompt is the layer that always applies
+          4. parse the reply (_common.extract_json) → {assistant_message, plan?}
+          5. when a plan is present: diff_guard(plan, scope) recomputes the changed-field
+             set and rejects (surfaces as an in-band error frame) anything outside
+             writable_keys(scope) — the LOAD-BEARING enforcement layer, since the stack
+             has no constrained decoding outside the vLLM guided_json seam
+      → yields frames: message (chunked via events.stream.chunk_text) then, when a plan
+        survives the guard, a terminal plan frame (edit mode also carries baseVersion —
+        a content hash of the writable fields the plan was generated against)
+  → StreamingResponse NDJSON ──▶ client
+      → useStorylineAgent folds frames (foldAgentEvent): message deltas accumulate into
+        the streaming bubble; a plan frame becomes pendingPlan
 ```
 
-The build is a **one-time, creation-time** orchestration (not a per-turn cost) and
-**persists nothing** — it returns a proposal so the author reviews before a dozen
-AI-drafted rows are written. Images are **opt-in** and rendered at commit only when
-ComfyUI is configured (best-effort per entity; a failed render never aborts the build).
-Same **no-retrieval** rule as the other authoring agents: `docsOverview` is inline
-dropped-file text, bounded and used for the build only.
-
-### Live build (streaming) — the default UI path
+Nothing is written until the human clicks **Approve**:
 
 ```
-New Storyline page → "Build the whole world" → POST /storylines/build/stream  (NDJSON)
-  → for-await over the response body (lib/api.postNdjson):
-      status → meta  → left fields fill (Title/Genre/Tagline/Premise)
-      status → primer→ World Primer fills
-      status → extract→ ONLY the Extract-checked docs are mined (opt-in per doc,
-                        default off), for NAMED subjects, RESPECTING the triage bucket
-                        (character→named chars, setting→named settings, uncategorized→
-                        either strictly, other→lore-only-never-extracted), CONCURRENTLY
-                        (bounded by authoringConcurrency) + per-doc progress
-                        ("Read k/N: <name>"); an unreadable uncategorized doc is retried
-                        once then SKIPPED (named), never fatal
-      status → plan  → stat schema + skeleton labels (the EXTRACTED subject names)
-      character × N  → one per extracted character, fills its skeleton card
-      setting   × M  → one per extracted setting, fills its skeleton card
-        ↑ drafted CONCURRENTLY → events arrive OUT OF ORDER; the page places each by
-          its `index` (storylineCreator.upsertAt), so a sparse card fills as its
-          draft completes. Image rendering (renderProposalImages) stays sequential.
-      done           → canonical ProposedWorld swapped in (review mode)
-  → if ComfyUI REACHABLE (status preflight): renderProposalImages renders each
-      portrait/scene-art and patches the displayed entity → IMAGE previews pop in live
-  → "Create World" commit → persists everything; attaches already-rendered images and
-      renders any still missing (renderPortrait/renderSceneArt) → navigate to /{id}
+Create mode: approve(pendingPlan)
+  → useStorylineAgent.approve → applyToForm(pendingPlan)
+      fills the on-screen form's field setters (setTitle/setGenre/…/setStats) — the
+      author still commits via the existing "Create World" path, unchanged
+
+Edit mode: approve(pendingPlan)
+  → POST /api/storylines/{id}/agent/apply   body: { scope, plan, baseVersion }
+  → routes/storylines → services/storyline_apply.apply_plan (ONE transaction):
+      1. diff_guard(plan, scope) AGAIN — backstop at implement time, in case a
+         hand-crafted request skipped the client and the schema/guided_json layers
+      2. content_hash(current DB row's writable fields) vs. baseVersion — a MISMATCH
+         (a concurrent manual edit landed between plan and approve) → 409
+         stale_storyline, rejected rather than silently overwritten
+      3. apply text/primer FieldChanges via the normal storyline write path; apply
+         StatChanges via the existing CLAMPED stat-definition services
+         (create_stat_definition / update_stat_definition / delete_stat_definition —
+         same range re-clamp + character-value pruning as the by-hand Stats editor)
+      4. any failure ROLLS BACK the whole plan (never a half-edited storyline)
+  → { storyline: StorylineRead, applied: string[] } — the author sees the refreshed fields
 ```
 
-The build creates the storyline, the stat schema, and **only the characters/settings
-mined from docs the author checked Extract on**. Extraction is **opt-in per document**:
-a doc's `extract` flag (default **off**) gates whether it is mined at all — a new
-storyline never auto-extracts. For the Extract-checked docs, extraction then **respects
-the author's triage bucket** — it never invents an entity by expanding lore:
-
-- **`characterDocs`** → mined for explicitly NAMED characters only (usually exactly
-  one — the doc *is* that character; split into several only if it clearly names
-  several). A classified doc with no explicit name still becomes **one** character (the
-  classification asserts it is one) — never lost, never invented.
-- **`settingDocs`** → the same, for named settings.
-- **`uncategorizedDocs`** (the `select` bucket) → read strictly; produce an entity
-  **only if a genuinely NAMED** character/setting is present. Lore/history/rules/
-  atmosphere → **nothing** (0 is valid — no fallback).
-- **`otherDocs`** → **LORE/GROUNDING ONLY**; never turned into entities (their text
-  folds into the drafting grounding so drafts stay consistent with them).
-
-Subjects are de-duped across docs in document order (uncapped). It never invents a cast
-from thin air: no Extract-checked entity docs → no characters/settings.
-`useStorylineCreator.build()` routes each kept doc to its bucket's list **with its
-`extract` flag**, and `build_agent` mines only the Extract-checked docs before applying
-the bucket policy above.
-
-The **extract stage is parallel + fault-tolerant** (matching the drafting phase): the
-per-doc extraction calls run through `concurrency.imap_unordered` bounded by
-`authoringConcurrency` (connection pre-resolved once so worker threads never touch the
-request `Session`), each at **LOW** reasoning effort (segmentation — faster, far less
-JSON truncation) with a **strict, named-only** prompt (no inventing/expanding from
-lore); an **unreadable uncategorized** doc is **retried once then skipped** (the build
-continues and names it in a status line) instead of aborting the whole build with
-`"The model did not return valid JSON."` — a classified character/setting doc instead
-**falls back to one entity** so it is never lost; and a `BuildStatusEvent(stage="extract")`
-streams **per doc** so the UI shows movement rather than freezing on "Reading docs…".
-Cross-doc de-dup runs in **document order** (index slots) so the roster is stable
-regardless of which extraction finished first. (The larger RAG-first ingestion + on-
-demand ReAct redesign is the follow-up plan `docs/plans/rag-first-ingestion.md`.)
-
-The page consumes the stream in `useStorylineCreator.build()`, accumulating into
-`proposed` + `planConcepts`; the right pane (`WorldBuildPanel`) renders the cast/settings
-as they arrive (a "drafting…" skeleton per not-yet-drafted concept), then becomes the
-editable review.
-
-**Real-time field feedback (presentational — no new backend events).** As those
-events arrive, the page also surfaces *where it is*: `meta`/`primer` drive a
-left-pane **active-field highlight** (`.velora-field-active`, via `useFieldReveal`),
-each `character`/`setting` event marks the **active card** in `WorldBuildPanel`
-(`activeEntity`), the `status` `stage` feeds a **`ProcessProgress`** stepper
-(metadata → primer → stats → docs → cast → settings), and an in-band `error` (or a
-thrown stream) raises a **top-right error toast** (`useToast`). This is a frontend
-presentation layer over the existing stream — the NDJSON contract is unchanged.
-The all-at-once draft endpoints (character/setting/scenario drafts, voice/stats,
-portrait/scene-art prompts) reuse the same primitives via a **choreographed reveal**
-in `useLibraryState` (fields filled one at a time after the JSON lands; reduced-motion
-fills at once) plus per-surface progress + error toasts. **Images render as part of the build** (`renderProposalImages`, best-effort,
-skipping entities that already have one) — but only after a ComfyUI **status preflight**
-confirms the server is actually reachable (`imagesAvailable` just means a URL is
-configured), and a **circuit breaker** stops on the first failed render so a stopped
-ComfyUI never produces a 502-per-entity storm. The image-gen endpoints are id-agnostic
-so no persistence is needed yet; the **commit** then attaches those URLs (and renders any
-still missing, with the same one-failure-then-stop guard). Hitting *Create World*
-mid-render aborts the build's image loop (no double-render, no race). The non-streaming
-`/build` collector remains for back-compat.
+This is a **one-time, per-approval** cost (like the old build), not a per-turn one, and
+**persists nothing before Approve**. The agent owns only the storyline's own fields —
+cast, settings, and scenarios keep their existing per-entity "Draft with Velora" flows
+untouched. **No new DB column:** the stale-read check is a content hash recomputed from
+the current row on read, not a `version`/`updated_at` column on `Storyline`.
 
 ## Context Document Flow (the triaged RAG corpus)
 
@@ -576,9 +530,9 @@ New Storyline page → pick an upload target (Uncategorized / Character / Settin
 
 The author can **bulk-categorize on upload** — choose a bucket (and the Draft / RAG /
 Extract defaults) once, then drop a folder of e.g. character sheets and they all land as
-Characters with no triage. **Extract is opt-in (default off)** — it is a separate per-doc
-check-off (like Draft/RAG) that gates whether **Build the whole world** mines a file for
-named characters/settings; a new storyline never auto-extracts. **Triage** then sweeps only what's still **Uncategorized**,
+Characters with no triage. **Extract is a legacy per-doc toggle** from the retired
+"Build the whole world" flow — still settable (like Draft/RAG), still persisted, but no
+longer consumed by any agent. **Triage** sweeps only what's still **Uncategorized**,
 leaving the manual buckets alone. Triage runs **per file** (one LLM call each) so the
 panel sorts documents in front of the author; the batched `POST /storylines/triage`
 remains for back-compat. A per-doc failure falls back to `other`/RAG-on without
@@ -592,9 +546,10 @@ This is the **persistence seam** for retrieval: the documents are durably stored
 per storyline and survive reload. The **Hybrid RAG** (see `docs/rag.md`) now reads
 `content` at runtime — `includeRag` docs are embedded on save and retrieved by the
 authoring agents. `includeDraft` docs additionally ground the creation-time
-generation inline (not retrieved, capped at 32K characters). `includeExtract` is the
-build-time opt-in — persisted so a re-opened storyline remembers which docs to mine
-when **Build the whole world** is re-run; it has no runtime/retrieval effect.
+generation inline (not retrieved, capped at 32K characters). `includeExtract` is a
+**legacy** flag from the retired "Build the whole world" flow — still persisted for
+back-compat, but has no runtime/retrieval effect (no agent mines context docs for
+new characters/settings anymore).
 
 ## Story Graph Flow (Neo4j substrate)
 

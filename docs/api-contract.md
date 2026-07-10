@@ -32,8 +32,9 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Hybrid RAG | `GET /storylines/{id}/rag/status`, `POST /storylines/{id}/rag/reindex/stream`, `POST /storylines/{id}/rag/query` | **Implemented.** Vector-store status, NDJSON reindex progress stream, and debug retrieval query for a world's corpus. Best-effort (`available: false` when Qdrant is down/disabled). See RAG Shapes below. |
 | Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
 | Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
-| Authoring | `POST /storylines/draft`, `POST /storylines/primer`, `POST /storylines/triage`, `POST /storylines/build` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, generate the agent-facing World Primer, **triage** dropped reference docs into Characters / Settings / Other with Draft/RAG inclusion, and **build** an entire reviewable world (metadata + primer + stat schema + cast + settings) in one orchestrated call (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
-| Authoring (live) | `POST /storylines/build/stream`, `POST /storylines/triage/stream` | **Implemented.** NDJSON (`application/x-ndjson`) streaming variants of build + triage so the New Storyline page renders the world / triage **as they are built** — the build emits `meta`/`primer`/`plan`/`character`/`setting`/`done`; triage classifies **per file**, emitting `status`+`item` per doc then `done`. Pre-flight failures (no context / unconfigured LLM) return a normal `400` before the stream opens; mid-stream failures arrive as a terminal `error` event. See Live Authoring Stream below. |
+| Authoring | `POST /storylines/draft`, `POST /storylines/primer`, `POST /storylines/triage` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, generate the agent-facing World Primer, and **triage** dropped reference docs into Characters / Settings / Other with Draft/RAG inclusion (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
+| Authoring (live) | `POST /storylines/triage/stream` | **Implemented.** NDJSON (`application/x-ndjson`) streaming triage so the New Storyline page renders the classification **as it happens** — one `status`+`item` per doc then a terminal `done`. Pre-flight failures (no context / unconfigured LLM) return a normal `400` before the stream opens; a per-doc failure falls back to `other`/RAG-on rather than aborting. See Live Authoring Stream below. |
+| Storyline agent (editing) | `POST /storylines/agent/create/stream`, `POST /storylines/{id}/agent/edit/stream`, `POST /storylines/{id}/agent/apply` | **Implemented.** The conversational, scope-aware agent that **replaced "Build the whole world"** on the storyline create/edit pages: chat about the storyline's own fields (title/genre/tagline/premise/World Primer/stat schema) within an author-set **write scope**, review a proposed `StoryPlan`, then approve to write it (create: fills the form; edit: applies through validated writes). Nothing is written before `…/agent/apply`. See Storyline Agent Shapes below. |
 | Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/voice-samples`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), derive a **voice & tone profile** (situation → sample-response pairs) from the character's prose, and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
 | Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
 | Scenario authoring | `POST /scenarios/draft`, `POST /scenarios/scene-art-prompts`, `POST /scenarios/scene-art` | **Implemented.** The agentic Scenario Creator: draft a scenario (title/genre/tone/goal/opening) from a seed, plus a **valid cast + setting chosen from the active world's real roster**. The model returns names from a numbered roster; the agent resolves names→ids server-side, **dropping** unknown cast and falling back to `""` for an unmatched setting — so the draft never invents or dangles a reference. Scene-art prompts and image generation follow the same watercolor pipeline as Setting authoring. Declared above `/scenarios/{id}`. See Scenario Authoring Shapes below. |
@@ -98,9 +99,11 @@ A persisted, triaged reference document on a storyline (the RAG-corpus seam):
 lands in that bucket; one holding **multiple** characters or settings, or a general
 world doc, lands in `other` (set by Triage). `includeDraft` marks world-setting docs
 that ground generation; `includeRag` (default `true`) marks the retrieval corpus;
-`includeExtract` (default `false`) is **opt-in** — it marks a doc to be mined for
-named characters/settings during **Build the whole world** (a new storyline never
-auto-extracts unless the author checks **Extract** per file).
+`includeExtract` (default `false`) is a **legacy** per-doc flag from the retired
+**Build the whole world** flow — still settable via Triage and persisted for
+back-compat, but no longer consumed by any agent (the storyline agent that replaced
+Build the whole world edits the storyline's own fields only; it does not mine
+context docs for new characters/settings).
 `entityType` + `entityId` (both nullable) scope a doc to a specific
 character/setting/scenario: a scoped doc reappears in that editor on re-edit and is
 deleted (with its Qdrant point) when the entity is deleted. A doc without these
@@ -336,8 +339,8 @@ toggle for it.
 
 - **Efforts → thinking-token budget:** `low` 256 · `medium` 512 · `high` 1024 ·
   `very_high` 2048 · `max` 4096 (`web/backend/app/schemas/reasoning.py`).
-- **Per call-site:** **Triage = Low**; **Build the whole world** + the standalone
-  storyline/character/setting drafts = **Medium** (`DEFAULT_AUTHORING_EFFORT`).
+- **Per call-site:** **Triage = Low**; the standalone storyline/character/setting
+  drafts + the storyline agent's converse/plan calls = **Medium** (`DEFAULT_AUTHORING_EFFORT`).
 - **Transport:** `services/llm.chat_complete(..., reasoning=)` detects the engine and
   adds the matching key — **vLLM** `thinking_token_budget`, **llama.cpp**
   `thinking_budget_tokens`. An OpenAI / unknown endpoint gets no key (unchanged
@@ -374,69 +377,130 @@ on-page context-budget meter).
   Empty `docs` → `{ "items": [] }` (no LLM call); a doc the model omits
   falls back to `other`/RAG-on/Extract-off; unconfigured LLM → `400`; non-JSON reply → `502`. The
   classified docs are persisted on commit via the **Context documents** bulk endpoint.
-- `POST /storylines/build` — `{ seed?, docsOverview?, storylineId?, maxCharacters?,
-  maxSettings?, characterDocs?: [{ name, text, extract? }], settingDocs?: [{ name, text, extract? }],
-  uncategorizedDocs?: [{ name, text, extract? }], otherDocs?: [{ name, text, extract? }] }`
-  (at least one of `seed` / `docsOverview` / any attached doc is required). Orchestrates
-  several LLM calls (storyline draft → World Primer → one **blueprint** call for the
-  stat schema → **one strict extraction call per Extract-checked entity doc** → one draft per extracted
-  character → one draft per extracted setting) and returns a reviewable `ProposedWorld`:
-
-  ```json
-  {
-    "storyline": { "title": "…", "genre": "…", "tagline": "…", "premise": "…", "worldPrimer": "…" },
-    "stats": [ { "key": "health", "displayName": "Health", "min": 0, "max": 100, "default": 100, "bands": […] } ],
-    "characters": [ { "name": "…", "role": "…", "traits": "…", "appearance": "…", …, "startingStats": [ { "key": "health", "value": 100 } ] } ],
-    "settings": [ { "name": "…", "type": "…", "desc": "…", "atmosphere": "…", "features": "…", "currentState": "…" } ]
-  }
-  ```
-
-  **Extraction is OPT-IN per document.** Only a doc with `extract: true` (the author
-  checked **Extract**) is mined at all — `extract` defaults `false`, so a new storyline
-  never auto-extracts. For the Extract-checked docs, extraction then **RESPECTS the
-  author's classification** (it never invents a subject by expanding lore):
-  `characterDocs` are mined for explicitly **NAMED characters** only (usually one — the
-  doc *is* that character; split only if it clearly names several; a doc with no explicit
-  name still becomes **one** character); `settingDocs` the same for named settings;
-  `uncategorizedDocs` produce an entity **only if a genuinely NAMED** character/setting
-  is present (lore → nothing, no fallback); `otherDocs` are **lore/grounding only** and
-  never become entities (they fold into the drafting grounding, regardless of `extract`).
-  Subjects are de-duped across docs by folded name in document order. The build never
-  **invents** a character/setting the author didn't opt in: with no Extract-checked entity
-  docs, `characters`/`settings` are `[]`. The storyline metadata, World Primer, and the universal **stat schema** are
-  always produced. Nothing is persisted by this call — the page reviews the proposal and
-  commits it via the normal CRUD endpoints (rendering portraits/scene-art then, only if
-  ComfyUI is reachable). The cast/settings are **uncapped** (every distinct subject the
-  author attached becomes a card); only the invented **stats** are bounded (≤8). Proposed stats are
-  sanitized to valid ranges so they persist straight through `POST /storylines/{id}/stats`;
-  starting stats default to the schema defaults. No context at all → `400`; unconfigured
-  LLM → `400`; a non-JSON sub-reply → `502`.
-
 ### Live Authoring Stream (NDJSON)
 
-Streaming variants of build + triage. The response is `application/x-ndjson` — **one
-JSON object per line** — so the New Storyline page renders the world / triage *as they
-are built*. **Pre-flight** errors (no context, unconfigured LLM) are validated before
-the `200` stream opens and returned as the usual error envelope; once the stream is open
-the status can't change, so a mid-run failure is emitted as a terminal `error` event.
-The non-streaming `/build` + `/triage` routes above are unchanged (collectors over the
-same generators).
+Streaming triage. The response is `application/x-ndjson` — **one JSON object per
+line** — so the New Storyline page renders the classification *as it happens*.
+**Pre-flight** errors (no context, unconfigured LLM) are validated before the `200`
+stream opens and returned as the usual error envelope; once the stream is open the
+status can't change, so a per-doc failure falls back to `other`/RAG-on rather than
+aborting the run. The non-streaming `/triage` route above is unchanged (a collector
+over the same generator).
 
-- `POST /storylines/build/stream` — same body as `/build`. Emits, in order:
-  - `{ "type": "status", "stage": "metadata|primer|blueprint|extract|characters|settings", "message": "…" }` — progress markers.
-  - `{ "type": "meta", "title", "genre", "tagline", "premise" }` — storyline metadata drafted.
-  - `{ "type": "primer", "worldPrimer": "…" }` — the World Primer.
-  - `{ "type": "plan", "stats": […], "characters": ["name", …], "settings": ["name", …] }` — the stat schema + the skeleton labels for the cast/settings to be built (the **extracted subject names**, after every attached doc is mined; empty when no subjects are found).
-  - `{ "type": "character", "index", "total", "character": { … } }` — one full character per extracted subject (fills its skeleton).
-  - `{ "type": "setting", "index", "total", "setting": { … } }` — one full setting per extracted subject.
-  - `{ "type": "done", "world": ProposedWorld }` — terminal success (the assembled proposal).
-  - `{ "type": "error", "message": "…" }` — terminal in-band failure.
 - `POST /storylines/triage/stream` — same body as `/triage`, but classifies **one
   document per LLM call** (genuinely live). Emits, per file:
   `{ "type": "status", "name", "index", "total" }` then `{ "type": "item", "item": TriageItem }`,
   and a terminal `{ "type": "done" }`. A per-doc failure falls back to `other`/RAG-on
   (it does not abort the run). Empty/blank docs stream straight to `done` with no LLM call
   (and need no configured LLM).
+
+## Storyline Agent Shapes (conversational, scope-aware editor)
+
+The agent that **replaced "Build the whole world"** on both `/storylines/new` and
+`/storylines/[id]/edit`. Instead of one orchestrated build call, the author sets a
+**write scope** (which of the storyline's own fields the agent may change), chats
+with it, and reviews a proposed **plan** before anything is written. The agent owns
+only the storyline's own fields — cast and settings keep their existing per-entity
+"Draft with Velora" flows. Conversation history is **client-session memory**: held
+in the page's React state and sent back to the server every turn (`messages[]`); a
+**New chat / reset** clears it. Run over the configured LLM.
+
+**Write scope.** `FieldScope { writable: boolean, readable: boolean }`; `ScopeState
+= { [fieldKey]: FieldScope }` over the six fields `title | genre | tagline | premise
+| worldPrimer | statistics`. The scope object is the single source of truth shared
+by client and server — the client renders it as a checkbox/pill list, and the same
+object is sent with every request so the server can build a matching response
+schema and prompt.
+
+**Plan shapes:**
+
+```json
+{
+  "changes": [
+    { "field": "tagline", "before": "A city of ash.", "after": "A city that forgets its own fires.", "rationale": "Tighter, more evocative." }
+  ],
+  "statChanges": [
+    { "key": "suspicion", "changeType": "update", "before": { "max": 100 }, "after": { "max": 120 }, "schemaAltering": true, "rationale": "Widen the ceiling for the endgame arc." }
+  ],
+  "notes": "…"
+}
+```
+
+`FieldChange { field, before?, after?, rationale }` — one row per non-stat field the
+plan touches (`before` omitted on create, where there is no prior value). `StatChange
+{ key, changeType: "add"|"update"|"remove", before?, after?, schemaAltering, rationale
+}` — one row per stat-definition change; `schemaAltering: true` flags an add/remove or
+a range/band change so the plan renderer marks it as higher-risk. `StoryPlan {
+changes[], statChanges[], notes? }` is the terminal payload of a conversation turn
+that asked for a change; a purely discursive turn returns no plan at all.
+
+**Stream frames** (NDJSON, `application/x-ndjson`, one JSON object per line):
+
+```json
+{ "type": "message", "delta": "Here's what I'd change: ", "done": false }
+{ "type": "message", "delta": "a tighter tagline.", "done": true }
+{ "type": "plan", "plan": { "changes": […], "statChanges": […], "notes": "…" }, "baseVersion": "a1b2c3…" }
+{ "type": "status", "message": "…" }
+{ "type": "error", "message": "…" }
+```
+
+`message` frames chunk the assistant's conversational reply (same shape as the turn
+stream's delta convention — accumulate by arrival order, `done: true` on the last
+chunk). A terminal `plan` frame carries the reviewable `StoryPlan`; on the **edit**
+stream it also carries `baseVersion` — a content hash of the current writable-field
+values, used later to detect a stale read (see Apply below). A turn that is purely
+conversational (no change requested) ends with no `plan` frame. `status` frames are
+optional progress markers; `error` is the terminal in-band failure shape shared with
+every other NDJSON stream in this contract.
+
+**Endpoints:**
+
+- `POST /storylines/agent/create/stream` — the **creation** agent, for a blank/partial
+  draft on `/storylines/new`. Body: `{ scope: ScopeState, messages: AgentMessage[],
+  fields: <current in-progress field values> }` (`AgentMessage { role: "user"|"assistant",
+  content }`). Streams `message` + an optional terminal `plan` (no `baseVersion` — there
+  is no persisted row yet). No writes; unconfigured LLM or an empty last user message →
+  `400 bad_request`.
+- `POST /storylines/{id}/agent/edit/stream` — the **editor** agent, scoped to an existing
+  storyline. Same body shape as create, plus the storyline is loaded server-side to ground
+  the conversation (world context + best-effort RAG over its own corpus, restricted to
+  `readable_keys(scope)`). The terminal `plan` frame carries `baseVersion`. `404` if the
+  storyline is missing; `400` if the LLM is unconfigured or the last message has no user
+  turn. No writes.
+- `POST /storylines/{id}/agent/apply` — approves and writes a plan. Body:
+  `{ scope: ScopeState, plan: StoryPlan, baseVersion?: string }` → `{ storyline:
+  StorylineRead, applied: string[] }` (`applied` lists the field/stat keys actually
+  written, for an audit trail). Applies **inside one transaction**: text/primer fields
+  through the normal storyline write path, statistics through the existing clamped
+  stat-definition services (`create_stat_definition`/`update_stat_definition`/
+  `delete_stat_definition` — ranges re-clamp character values, adds/removes behave exactly
+  as the by-hand Stats editor); any failure rolls back the whole plan (never a
+  half-applied storyline). Create-mode approval does **not** call this endpoint — it fills
+  the on-page form directly and the author commits via the existing "Create World" path.
+
+**Enforcement is belt-and-suspenders**, since the local stack is prompt-instructed JSON
+(no constrained decoding by default):
+
+1. **Schema-shaped prompt (always).** The response schema passed to the model is built
+   dynamically from the scope (`response_schema_for(scope)`) so its properties are
+   *exactly* the writable fields — the prompt and shape make an out-of-scope change hard
+   to even express.
+2. **`guided_json` when available.** The same schema is passed as `extra_body.guided_json`
+   only when the configured endpoint is detected as **vLLM** (`llm_backend.detect_backend`)
+   — constrained decoding where the backend supports it, a no-op elsewhere.
+3. **Server-side diff guard (load-bearing).** `diff_guard(plan, scope)` recomputes the
+   changed-field set from the plan and rejects it — **`422 scope_violation`** — if any key
+   lies outside `writable_keys(scope)`. This runs at **plan time** (in the converse stream,
+   before the plan frame is even emitted) **and again at apply time** as a backstop, so a
+   hand-crafted request that skips the client can never write out of scope even if layers 1
+   and 2 are bypassed.
+
+**Stale-read reconcile.** The apply endpoint does not add a `version` column to
+`Storyline` — it recomputes a **content hash of the writable fields** from the current DB
+row and compares it to the `baseVersion` the client planned against (itself a hash of the
+snapshot the plan was generated from). A mismatch — a concurrent manual edit landed between
+plan and approve — is rejected as **`409 stale_storyline`** rather than silently overwritten;
+the author re-opens the panel to plan against the fresh state.
 
 ## Character Authoring Shapes (agentic Character Creator)
 

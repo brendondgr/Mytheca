@@ -207,12 +207,43 @@ Purposeful only, and always with a near-instant `prefers-reduced-motion` fallbac
 
 ### Real-time agentic authoring feedback
 
-Every agentic authoring flow (the New Storyline **Build the whole world**, drafting/editing a Character or Setting/Scenario, and generating voice samples, starting stats, or portrait/scene-art prompts) shows **which field is being written at that exact moment**, where the process is, and any error:
+Every agentic authoring flow (drafting/editing a Character or Setting/Scenario, and generating voice samples, starting stats, or portrait/scene-art prompts) shows **which field is being written at that exact moment**, where the process is, and any error:
 
 - **Active-field highlight** — `.velora-field-active` (`styles/themes.css`) rings the field being authored now (`veloraFieldPulse` on the `--glow-color`, defaulting to `--accent`); the base `box-shadow` lives outside the keyframes so the app-wide `prefers-reduced-motion` rule leaves a **static** ring instead of nothing (same idiom as `.velora-glow`).
-- **Choreographed reveal** — for the draft endpoints that return the whole result at once, `hooks/use-field-reveal.ts` (and the inline reveal loops in `useLibraryState`) fill fields **one at a time** on a ~150 ms cadence so the author watches them populate; under reduced motion everything appears at once. The world-build page drives the same highlight from its real NDJSON stream (`meta`/`primer` → left fields, `character`/`setting` → the active card in `WorldBuildPanel`).
-- **Process progress** — `components/feature/ProcessProgress.tsx` is a compact done/active/pending stepper with a live `aria-live` "Now … · Next …" line, shown during a build/draft (build stages; character Identity → Voice & tone → Starting stats; setting fields as steps).
+- **Choreographed reveal** — for the draft endpoints that return the whole result at once, `hooks/use-field-reveal.ts` (and the inline reveal loops in `useLibraryState`) fill fields **one at a time** on a ~150 ms cadence so the author watches them populate; under reduced motion everything appears at once.
+- **Process progress** — `components/feature/ProcessProgress.tsx` is a compact done/active/pending stepper with a live `aria-live` "Now … · Next …" line, shown during a draft (character Identity → Voice & tone → Starting stats; setting fields as steps).
 - **Notifications** — `components/ui/Toast.tsx` + `components/layout/ToastProvider.tsx` (`useToast`) render **top-right, stacking** toasts in a portal; errors are `role="alert"`, info/success `role="status"`, entrance via `embMsg` with `motion-reduce:animate-none`. Agentic errors across all surfaces raise an error toast (alongside the existing inline `role="alert"` copy). A toast may carry one optional **action button** (e.g. "Undo" for an auto scene-presence change), rendered before the dismiss control.
+
+## Storyline Assistant Panel (conversational, scope-aware editing)
+
+The storyline create/edit page (`StorylineCreatorView`) replaced its one-shot "Build the
+whole world" hero with a **segmented right pane** — `[ Assistant | Context ]` — an
+ARIA `role=tab`/`aria-selected` pair switching between the new **Assistant** (the
+`StorylineAgentPanel`) and the existing **Context** (`TriagePanel` + `ContextBudgetMeter`,
+now hosted `embedded`). No new tokens — the panel reuses the existing `--field`/`--card`
+surfaces, `--accent`/gold highlights, and `Button`/`TextArea`/`ToggleChip` primitives.
+
+- **Scope selector** — one `ToggleChip` pill per writable field (Title · Genre · Tagline ·
+  Premise · World Primer · Statistics), each `aria-pressed` to reflect whether the agent
+  may write it; Statistics carries a small "schema" note since toggling it authorizes
+  add/remove/re-range changes, not just a text edit.
+- **Chat transcript** — a `role="log" aria-live="polite"` scrollable region of user/assistant
+  message bubbles (mirrors the story-player transcript idiom: player bubble in `--accent`,
+  assistant in `--card-bg`); streamed assistant text accumulates in place as `message`
+  frames arrive.
+- **Plan renderer** — once the agent proposes a change, a reviewable card lists each
+  in-scope **field before/after** (label + old value struck or dimmed → new value) with its
+  rationale; a **Statistics** change instead lists **per-stat before/after/delta** rows, and
+  any **schema-altering** row (add, remove, range/band change) carries a visually distinct
+  "schema change" flag (icon + text label, never color alone) so it reads as higher-risk
+  than a value tweak.
+- **Composer** — a labeled `<textarea>` + a **Send** pill (Enter sends, Shift+Enter newlines
+  — the same convention as the story-player composer), disabled while a reply streams.
+- **Approve / Refine / New chat** — **Approve** (labeled "Approve & fill form" on create,
+  "Approve & apply" on edit) commits the pending plan; **Refine** sends a follow-up
+  instruction without discarding the plan card; **New chat** resets the client-session
+  message history and any pending plan (a plain button, not destructive-styled — the
+  conversation is ephemeral by design, not a stored artifact).
 
 ## Writing-Agent Prompt Overrides UI
 
