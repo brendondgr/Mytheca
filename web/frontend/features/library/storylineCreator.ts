@@ -480,6 +480,10 @@ export async function commitWorld(
   // entities are still created, just without an image.
   let imagesOk = true;
 
+  // Build lineage: which uploaded doc(s) produced each entity, resolved to links once
+  // the corpus is persisted below (source doc name → persisted doc id → link).
+  const lineage: { entityType: "character" | "setting"; entityId: string; docNames: string[] }[] = [];
+
   const characters = proposed?.characters ?? [];
   for (let i = 0; i < characters.length; i++) {
     const c = characters[i];
@@ -487,6 +491,8 @@ export async function commitWorld(
     const ch = await api.createCharacter(id, proposedToCharacterInput(c));
     const values = startingStatsMap(c.startingStats, stats);
     if (Object.keys(values).length) await api.setCharacterStats(ch.id, values);
+    if (c.sourceDocNames?.length)
+      lineage.push({ entityType: "character", entityId: ch.id, docNames: c.sourceDocNames });
     // Images are rendered during the build; persist what's there, and render fresh
     // only if one is still missing (and the author left image generation on).
     if (c.portrait) await api.updateCharacter(ch.id, { portrait: c.portrait });
@@ -500,6 +506,8 @@ export async function commitWorld(
     const s = settings[i];
     onProgress?.(`Adding ${s.name || "a setting"}…`);
     const st = await api.createSetting(id, proposedToSettingInput(s));
+    if (s.sourceDocNames?.length)
+      lineage.push({ entityType: "setting", entityId: st.id, docNames: s.sourceDocNames });
     if (s.image) await api.updateSetting(st.id, { image: s.image });
     else if (args.generateImages && imagesOk) {
       imagesOk = await renderSceneArt(st.id, s, i, onProgress, onEntity);
@@ -507,9 +515,23 @@ export async function commitWorld(
   }
 
   const corpus = docs.filter((d) => d.text);
+  let createdDocs: ContextDocument[] = [];
   if (corpus.length) {
     onProgress?.("Saving context files…");
-    await api.bulkCreateContextDocuments(id, corpus.map(docToContextInput));
+    createdDocs = await api.bulkCreateContextDocuments(id, corpus.map(docToContextInput));
   }
+
+  // Turn build lineage into doc→entity provenance links (best-effort: a failed link
+  // never aborts the commit). Match each source doc name to its persisted corpus doc.
+  const nameToId = new Map(createdDocs.map((d) => [d.name, d.id]));
+  const linkJobs: Promise<unknown>[] = [];
+  for (const { entityType, entityId, docNames } of lineage) {
+    for (const name of docNames) {
+      const docId = nameToId.get(name);
+      if (docId) linkJobs.push(api.addDocumentLink(docId, { entityType, entityId }).catch(() => {}));
+    }
+  }
+  if (linkJobs.length) await Promise.all(linkJobs);
+
   return id;
 }
