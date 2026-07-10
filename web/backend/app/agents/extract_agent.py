@@ -85,10 +85,14 @@ _KIND_INSTRUCTION = {
 }
 
 
-def _coerce_entities(rows: object) -> list[ExtractedEntity]:
-    """Turn a model list-of-rows into clean ExtractedEntity values (named only)."""
+def _coerce_entities(rows: object, doc_name: str = "") -> list[ExtractedEntity]:
+    """Turn a model list-of-rows into clean ExtractedEntity values (named only).
+
+    Each entity is stamped with ``doc_name`` as its source document (build lineage),
+    so the roster can merge names when a subject spans several docs."""
     out: list[ExtractedEntity] = []
     seen: set[str] = set()
+    source_docs = [doc_name.strip()] if doc_name.strip() else []
     if not isinstance(rows, list):
         return out
     for row in rows:
@@ -102,7 +106,7 @@ def _coerce_entities(rows: object) -> list[ExtractedEntity]:
             continue
         seen.add(key)
         source = str(row.get("source") or "").strip()[:_SOURCE_CAP] or name
-        out.append(ExtractedEntity(name=name, source=source))
+        out.append(ExtractedEntity(name=name, source=source, source_doc_names=list(source_docs)))
     return out
 
 
@@ -155,6 +159,6 @@ def extract_entities(
     )
     # Enforce the kind scope: a Character doc yields only characters, a Setting doc only
     # settings — never let the model's off-kind list leak a phantom entity.
-    characters = _coerce_entities(data.get("characters")) if kind != "setting" else []
-    settings = _coerce_entities(data.get("settings")) if kind != "character" else []
+    characters = _coerce_entities(data.get("characters"), doc_name) if kind != "setting" else []
+    settings = _coerce_entities(data.get("settings"), doc_name) if kind != "character" else []
     return ExtractedEntities(characters=characters, settings=settings)

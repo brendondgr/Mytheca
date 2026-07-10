@@ -468,6 +468,45 @@ def test_build_dedups_subjects_across_docs(client, monkeypatch):
     assert len(res.json()["characters"]) == 1
 
 
+def test_build_proposal_carries_per_entity_source_docs(client, monkeypatch):
+    """Each proposed character/setting records which doc it was mined from (lineage)."""
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    res = client.post(
+        "/api/storylines/build",
+        json={
+            "seed": "A drowned harbor town.",
+            "characterDocs": _CHAR_DOCS,
+            "settingDocs": _SETTING_DOCS,
+        },
+    )
+    assert res.status_code == 200
+    world = res.json()
+    # Document order: maerin.md → char 0, kestrel.md → char 1; chapel.md → setting 0, quay.md → 1.
+    assert [c["sourceDocNames"] for c in world["characters"]] == [["maerin.md"], ["kestrel.md"]]
+    assert [s["sourceDocNames"] for s in world["settings"]] == [["chapel.md"], ["quay.md"]]
+
+
+def test_build_merges_source_docs_when_subject_spans_docs(client, monkeypatch):
+    """A subject profiled in two docs collapses to one card that links BOTH docs."""
+    _configure_llm(client)
+    _patch_upstream(monkeypatch)
+    res = client.post(
+        "/api/storylines/build",
+        json={
+            "seed": "A harbor.",
+            "characterDocs": [
+                {"name": "a.md", "text": "Maerin the smuggler.", "extract": True},
+                {"name": "b.md", "text": "More notes on Maerin Voss, smuggler.", "extract": True},
+            ],
+        },
+    )
+    assert res.status_code == 200
+    chars = res.json()["characters"]
+    assert len(chars) == 1
+    assert chars[0]["sourceDocNames"] == ["a.md", "b.md"]
+
+
 def test_build_requires_seed_or_docs(client, monkeypatch):
     _configure_llm(client)
     _patch_upstream(monkeypatch)
