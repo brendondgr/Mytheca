@@ -18,54 +18,6 @@ export function makeApiMock() {
   let n = 0;
   const nid = (prefix: string) => `${prefix}-test-${++n}`;
 
-  // The reviewable world the build resolves to — shared by the one-shot `buildWorld`
-  // and the streaming `buildWorldStream` (whose `done` event carries this exact shape).
-  const BUILT_STAT = {
-    key: "health",
-    displayName: "Health",
-    description: "Body.",
-    min: 0,
-    max: 100,
-    default: 100,
-    visibility: "public" as const,
-    guidance: null,
-    appliesTo: ["character"],
-    bands: [],
-  };
-  const BUILT_CHARACTER = {
-    name: "Built Hero",
-    role: "Lead",
-    traits: "Bold",
-    speech: "Terse.",
-    goal: "Win.",
-    secret: "Hidden.",
-    appearance: "Tall.",
-    background: "Born here.",
-    personality: "Driven.",
-    color: "#3A5A78",
-    startingStats: [{ key: "health", value: 100 }],
-  };
-  const BUILT_SETTING = {
-    name: "Built Place",
-    type: "Social Hub",
-    desc: "Lamplit.",
-    atmosphere: "Warm.",
-    features: "A bar.",
-    currentState: "Open.",
-  };
-  const BUILT_WORLD = {
-    storyline: {
-      title: "Built World",
-      genre: "Built Genre",
-      tagline: "A built tagline.",
-      premise: "Built premise.",
-      worldPrimer: "Built primer.",
-    },
-    stats: [BUILT_STAT],
-    characters: [BUILT_CHARACTER],
-    settings: [BUILT_SETTING],
-  };
-
   return {
     API_BASE: "http://test/api",
     ApiError: class ApiError extends Error {},
@@ -146,6 +98,14 @@ export function makeApiMock() {
     storylineAgentCreateStream: vi.fn(async function* () {
       yield { type: "message" as const, delta: "Here is a draft.", done: false };
       yield { type: "message" as const, delta: "", done: true };
+      yield {
+        type: "plan" as const,
+        plan: {
+          changes: [{ field: "title", after: "Assistant Draft", rationale: "evocative" }],
+          statChanges: [],
+          notes: "",
+        },
+      };
     }),
     applyStorylineAgentPlan: vi.fn(async (id: string, body: { plan: { changes: unknown[] } }) => ({
       storyline: { id, title: "Embergate", genre: "Maritime", tagline: "Every secret has a price." },
@@ -153,17 +113,11 @@ export function makeApiMock() {
     })),
 
     // ---- storyline authoring (the creation-time agent) ----
-    draftStoryline: vi.fn(async (seed: string) => ({
-      title: "Drafted World",
-      genre: "Drafted Genre",
-      tagline: `Tagline for: ${seed}`,
-      premise: "Drafted premise paragraph one.\n\nDrafted premise paragraph two.",
-    })),
     generateWorldPrimer: vi.fn(async () => ({
       worldPrimer: "A generated, agent-facing primer.\n\nThree powers govern the world.",
     })),
 
-    // ---- triage + world build (the New Storyline page) ----
+    // ---- triage (the New Storyline page) ----
     triageDocuments: vi.fn(async (docs: { name: string; text: string }[]) => ({
       items: docs.map((d, i) => ({
         name: d.name,
@@ -191,28 +145,6 @@ export function makeApiMock() {
         };
       }
       yield { type: "done" as const };
-    }),
-    buildWorld: vi.fn(async () => BUILT_WORLD),
-    // Live world build — staged events culminating in the same BUILT_WORLD.
-    buildWorldStream: vi.fn(async function* () {
-      yield { type: "status" as const, stage: "metadata", message: "Drafting the title…" };
-      yield {
-        type: "meta" as const,
-        title: BUILT_WORLD.storyline.title,
-        genre: BUILT_WORLD.storyline.genre,
-        tagline: BUILT_WORLD.storyline.tagline,
-        premise: BUILT_WORLD.storyline.premise,
-      };
-      yield { type: "primer" as const, worldPrimer: BUILT_WORLD.storyline.worldPrimer };
-      yield {
-        type: "plan" as const,
-        stats: BUILT_WORLD.stats,
-        characters: ["A bold lead."],
-        settings: ["A lamplit hub."],
-      };
-      yield { type: "character" as const, index: 0, total: 1, character: BUILT_CHARACTER };
-      yield { type: "setting" as const, index: 0, total: 1, setting: BUILT_SETTING };
-      yield { type: "done" as const, world: BUILT_WORLD };
     }),
 
     // ---- context documents (the persisted triaged RAG corpus) ----

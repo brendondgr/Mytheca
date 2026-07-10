@@ -53,6 +53,7 @@ export function TriagePanel({
   triageActive = null,
   budget,
   inputId = "creator-docs-input",
+  embedded = false,
 }: {
   docs: CreatorDoc[];
   onAddFiles: (files: FileList | File[] | null, opts?: UploadDefaults) => void;
@@ -65,6 +66,8 @@ export function TriagePanel({
   triageActive?: TriageActive | null;
   budget: ContextBudget;
   inputId?: string;
+  /** When hosted inside a segmented right-pane wrapper, drop the outer column sizing. */
+  embedded?: boolean;
 }) {
   // Show grouped view as soon as any doc has been categorized — either manually by
   // the author (self-triage) or automatically by the AI Triage button.
@@ -165,7 +168,12 @@ export function TriagePanel({
     // pinned and the inner body scrolls independently.
     <aside
       aria-label="Context files"
-      className="flex min-h-0 max-h-[42dvh] shrink-0 flex-col border-t border-hair-strong bg-card md:max-h-none md:w-[360px] md:border-t-0 md:border-l md:self-stretch"
+      className={cn(
+        "flex min-h-0 flex-col bg-card",
+        embedded
+          ? "flex-1"
+          : "max-h-[42dvh] shrink-0 border-t border-hair-strong md:max-h-none md:w-[360px] md:border-t-0 md:border-l md:self-stretch",
+      )}
     >
       {/* ── Sticky top: upload zone + triage button ─────────────────────── */}
       <div className="sticky top-0 z-10 flex flex-col gap-[12px] border-b border-hair-strong bg-card p-[18px_20px]">

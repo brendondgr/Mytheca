@@ -1,21 +1,13 @@
 // Pure helpers + the commit orchestration for the New Storyline page.
 //
 // The page state lives in `useStorylineCreator`; this module holds the framework-free
-// pieces: the field model, validation, proposed-world → CRUD-payload mappers, triage
-// merging, the context-budget input, and `commitWorld` (the ordered create sequence
-// that persists an approved world). Keeping these out of the hook keeps both testable.
+// pieces: the field model, validation, triage merging, the context-budget input, and
+// `commitWorld` (the ordered create sequence that persists an approved world). Keeping
+// these out of the hook keeps both testable.
 
 import * as api from "@/lib/api";
 import type { ContextDocumentInput } from "@/lib/api";
-import type {
-  ContextDocument,
-  DocCategory,
-  ProposedCharacter,
-  ProposedSetting,
-  ProposedWorld,
-  StatDefinition,
-  Storyline,
-} from "@/lib/types";
+import type { ContextDocument, DocCategory, StatDefinition, Storyline } from "@/lib/types";
 import type { ReadDoc } from "@/lib/readDocs";
 import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 
@@ -26,32 +18,11 @@ export interface CreatorDoc extends ReadDoc {
   triaged: boolean;
 }
 
-/**
- * The blueprint concepts (one vivid sentence each) the build emits before drafting
- * the full entities — they drive the "drafting…" skeleton cards in the right column
- * until each `character`/`setting` event fills its slot.
- */
-export interface PlanConcepts {
-  characters: string[];
-  settings: string[];
-}
-
 /** The document currently being classified during a live (per-file) triage. */
 export interface TriageActive {
   name: string;
   index: number;
   total: number;
-}
-
-/**
- * Set `arr[index] = value` immutably. The build streams characters/settings in
- * order (index === current length), so this is effectively an append; written
- * generically so an out-of-order event still lands in the right slot.
- */
-export function upsertAt<T>(arr: T[], index: number, value: T): T[] {
-  const out = arr.slice();
-  out[index] = value;
-  return out;
 }
 
 /** The creator's by-hand fields (mirror the storyline wire shape). */
@@ -172,50 +143,6 @@ export function applyTriage(
   });
 }
 
-// ---- proposed-world → CRUD payload mappers ---------------------------------
-
-export function proposedStatToInput(s: StatDefinition): api.StatDefinitionInput {
-  return {
-    key: s.key,
-    displayName: s.displayName,
-    description: s.description,
-    min: s.min,
-    max: s.max,
-    default: s.default,
-    bands: s.bands,
-    visibility: s.visibility,
-    appliesTo: s.appliesTo,
-  };
-}
-
-export function proposedToCharacterInput(c: ProposedCharacter): api.CharacterInput {
-  return {
-    name: c.name,
-    role: c.role,
-    color: c.color || "#8E2B1C",
-    traits: c.traits,
-    speech: c.speech,
-    goal: c.goal,
-    secret: c.secret,
-    appearance: c.appearance,
-    background: c.background,
-    personality: c.personality,
-    // Voice & tone samples generated during the build ride into the create body.
-    voiceSamples: c.voiceSamples ?? [],
-  };
-}
-
-export function proposedToSettingInput(s: ProposedSetting): api.SettingInput {
-  return {
-    name: s.name,
-    type: s.type,
-    desc: s.desc,
-    atmosphere: s.atmosphere,
-    features: s.features,
-    currentState: s.currentState,
-  };
-}
-
 export function docToContextInput(d: CreatorDoc): ContextDocumentInput {
   return {
     name: d.name,
@@ -227,17 +154,6 @@ export function docToContextInput(d: CreatorDoc): ContextDocumentInput {
     includeExtract: Boolean(d.useExtract),
     source: "upload",
   };
-}
-
-/** Proposed starting stats → a {key: value} map, restricted to defined stats. */
-export function startingStatsMap(
-  starting: { key: string; value: number }[],
-  defined: StatDefinition[],
-): Record<string, number> {
-  const keys = new Set(defined.map((s) => s.key));
-  const out: Record<string, number> = {};
-  for (const s of starting) if (keys.has(s.key)) out[s.key] = s.value;
-  return out;
 }
 
 // ---- persistence -----------------------------------------------------------
@@ -278,148 +194,10 @@ export interface CommitArgs {
   fields: CreatorFields;
   stats: StatDefinition[];
   statsOriginal: StatDefinition[];
-  /** The proposed cast + settings to create (creation mode only). */
-  proposed: ProposedWorld | null;
   /** The triaged corpus to persist. */
   docs: CreatorDoc[];
   /** Already-persisted docs (edit mode) — skipped so we don't duplicate them. */
   existingDocs?: ContextDocument[];
-  /** Opt-in: render portraits / scene-art via ComfyUI (best-effort per entity). */
-  generateImages?: boolean;
-}
-
-/**
- * A live entity update emitted during the commit — lets the page patch the
- * displayed cast/settings as each portrait / scene-art finishes rendering, so the
- * previews pop into the right column in front of the author.
- */
-export type CommitEntityPatch =
-  | { type: "character"; index: number; patch: Partial<ProposedCharacter> }
-  | { type: "setting"; index: number; patch: Partial<ProposedSetting> };
-
-/** Generate a portrait image URL for a (possibly unsaved) character — no persist. */
-async function proposePortraitUrl(
-  c: ProposedCharacter,
-  onProgress?: (msg: string) => void,
-): Promise<string | null> {
-  onProgress?.(`Rendering portrait for ${c.name || "a character"}…`);
-  const prompts = await api.generatePortraitPrompts({
-    name: c.name,
-    role: c.role,
-    appearance: c.appearance,
-    traits: c.traits,
-    personality: c.personality,
-  });
-  const { portrait } = await api.generatePortrait({
-    positive: prompts.positive,
-    negative: prompts.negative,
-  });
-  return portrait || null;
-}
-
-/** Generate a scene-art image URL for a (possibly unsaved) setting — no persist. */
-async function proposeSceneArtUrl(
-  s: ProposedSetting,
-  onProgress?: (msg: string) => void,
-): Promise<string | null> {
-  onProgress?.(`Rendering scene art for ${s.name || "a setting"}…`);
-  const prompts = await api.generateSceneArtPrompts({
-    name: s.name,
-    type: s.type,
-    desc: s.desc,
-    atmosphere: s.atmosphere,
-    features: s.features,
-    currentState: s.currentState,
-  });
-  const { image } = await api.generateSceneArt({
-    positive: prompts.positive,
-    negative: prompts.negative,
-  });
-  return image || null;
-}
-
-/**
- * Render portraits + scene art for a proposed (un-persisted) world, patching each
- * into the proposal as it lands — so **Build the whole world** shows images appear
- * live whenever ComfyUI is available. Best-effort per entity (a failed render is
- * skipped, never thrown), skips entities that already have an image, and bails
- * promptly when `signal` aborts (e.g. the author hits Create World, or navigates).
- */
-export async function renderProposalImages(
-  proposed: ProposedWorld,
-  onEntity: (e: CommitEntityPatch) => void,
-  onProgress?: (msg: string) => void,
-  signal?: AbortSignal,
-): Promise<void> {
-  // Circuit breaker: if a render call fails (e.g. ComfyUI stopped mid-build), bail
-  // immediately rather than hammering a down server with one 502 per entity.
-  for (let i = 0; i < proposed.characters.length; i++) {
-    if (signal?.aborted) return;
-    const c = proposed.characters[i];
-    if (c.portrait) continue;
-    try {
-      const portrait = await proposePortraitUrl(c, onProgress);
-      if (signal?.aborted) return;
-      if (portrait) onEntity({ type: "character", index: i, patch: { portrait } });
-    } catch {
-      onProgress?.("Image generation stopped — is ComfyUI running? (check Options).");
-      return;
-    }
-  }
-  for (let i = 0; i < proposed.settings.length; i++) {
-    if (signal?.aborted) return;
-    const s = proposed.settings[i];
-    if (s.image) continue;
-    try {
-      const image = await proposeSceneArtUrl(s, onProgress);
-      if (signal?.aborted) return;
-      if (image) onEntity({ type: "setting", index: i, patch: { image } });
-    } catch {
-      onProgress?.("Image generation stopped — is ComfyUI running? (check Options).");
-      return;
-    }
-  }
-}
-
-/** Render + persist a portrait (never throws). Returns false if the render failed
- *  (the caller stops rendering further images — likely ComfyUI is down). */
-async function renderPortrait(
-  characterId: string,
-  c: ProposedCharacter,
-  index: number,
-  onProgress?: (msg: string) => void,
-  onEntity?: (e: CommitEntityPatch) => void,
-): Promise<boolean> {
-  try {
-    const portrait = await proposePortraitUrl(c, onProgress);
-    if (!portrait) return true;
-    await api.updateCharacter(characterId, { portrait });
-    onEntity?.({ type: "character", index, patch: { portrait } });
-    return true;
-  } catch {
-    onProgress?.("Image generation stopped — is ComfyUI running? (check Options).");
-    return false;
-  }
-}
-
-/** Render + persist scene art (never throws). Returns false on a failed render. */
-async function renderSceneArt(
-  settingId: string,
-  s: ProposedSetting,
-  index: number,
-  onProgress?: (msg: string) => void,
-  onEntity?: (e: CommitEntityPatch) => void,
-): Promise<boolean> {
-  try {
-    const image = await proposeSceneArtUrl(s, onProgress);
-    if (!image) return true;
-    await api.updateSetting(settingId, { image });
-    onEntity?.({ type: "setting", index, patch: { image } });
-    return true;
-  } catch {
-    onProgress?.("Image generation stopped — is ComfyUI running? (check Options).");
-    return false;
-  }
 }
 
 function coreInput(f: CreatorFields, clearable: boolean): api.StorylineInput {
@@ -438,16 +216,14 @@ function coreInput(f: CreatorFields, clearable: boolean): api.StorylineInput {
 
 /**
  * Persist an approved world. Returns the storyline id. In edit mode it updates the
- * core + stats (+ appends any newly-dropped docs). In create mode it creates the
- * storyline, its stats, the proposed cast (+ starting stats) and settings, then the
- * triaged corpus — reporting progress per step. Image rendering is layered on later.
+ * core + stats (+ reconciles the storyline-level corpus). In create mode it creates
+ * the storyline, its stats, then the triaged corpus — reporting progress per step.
  */
 export async function commitWorld(
   args: CommitArgs,
   onProgress?: (msg: string) => void,
-  onEntity?: (e: CommitEntityPatch) => void,
 ): Promise<string> {
-  const { editId, fields, stats, statsOriginal, proposed, docs } = args;
+  const { editId, fields, stats, statsOriginal, docs } = args;
 
   if (editId) {
     onProgress?.("Saving changes…");
@@ -474,36 +250,6 @@ export async function commitWorld(
   if (stats.length) {
     onProgress?.("Adding statistics…");
     await persistStatsDiff(id, stats, []);
-  }
-
-  // Once a fresh render fails we stop attempting more (ComfyUI is likely down) —
-  // entities are still created, just without an image.
-  let imagesOk = true;
-
-  const characters = proposed?.characters ?? [];
-  for (let i = 0; i < characters.length; i++) {
-    const c = characters[i];
-    onProgress?.(`Adding ${c.name || "a character"}…`);
-    const ch = await api.createCharacter(id, proposedToCharacterInput(c));
-    const values = startingStatsMap(c.startingStats, stats);
-    if (Object.keys(values).length) await api.setCharacterStats(ch.id, values);
-    // Images are rendered during the build; persist what's there, and render fresh
-    // only if one is still missing (and the author left image generation on).
-    if (c.portrait) await api.updateCharacter(ch.id, { portrait: c.portrait });
-    else if (args.generateImages && imagesOk) {
-      imagesOk = await renderPortrait(ch.id, c, i, onProgress, onEntity);
-    }
-  }
-
-  const settings = proposed?.settings ?? [];
-  for (let i = 0; i < settings.length; i++) {
-    const s = settings[i];
-    onProgress?.(`Adding ${s.name || "a setting"}…`);
-    const st = await api.createSetting(id, proposedToSettingInput(s));
-    if (s.image) await api.updateSetting(st.id, { image: s.image });
-    else if (args.generateImages && imagesOk) {
-      imagesOk = await renderSceneArt(st.id, s, i, onProgress, onEntity);
-    }
   }
 
   const corpus = docs.filter((d) => d.text);

@@ -16,12 +16,10 @@ import type {
 import type {
   AgentEditFrame,
   AgentMessage,
-  BuildEvent,
   Character,
   ContextDocument,
   DocCategory,
   GraphTypeDefinition,
-  ProposedWorld,
   Scenario,
   ScenarioGraph,
   Setting,
@@ -305,20 +303,9 @@ export const applyStorylineAgentPlan = (id: string, body: StorylineApplyBody) =>
 // `docsOverview` is inline text read from dropped reference files in the browser,
 // used to ground a single generation only — never uploaded/persisted (no RAG).
 
-/** Metadata drafted from a one-sentence seed (fills the create form). */
-export interface StorylineDraftResult {
-  title: string;
-  genre: string;
-  tagline: string;
-  premise: string;
-}
-
 export interface WorldPrimerResult {
   worldPrimer: string;
 }
-
-export const draftStoryline = (seed: string, docsOverview?: string) =>
-  post<StorylineDraftResult>("/storylines/draft", { seed, docsOverview });
 
 export const generateWorldPrimer = (body: {
   premise?: string;
@@ -326,9 +313,9 @@ export const generateWorldPrimer = (body: {
   docsOverview?: string;
 }) => post<WorldPrimerResult>("/storylines/primer", body);
 
-// ---- triage + world build (the New Storyline page) ----
-// Triage classifies dropped docs into Characters/Settings/Other + Draft/RAG; build
-// drafts a whole reviewable world. Neither persists — the page commits via CRUD.
+// ---- triage (the New Storyline page) ----
+// Triage classifies dropped docs into Characters/Settings/Other + Draft/RAG. It does
+// not persist — the page commits the triaged corpus via CRUD.
 
 export interface TriageResult {
   items: TriageItem[];
@@ -345,29 +332,6 @@ export const triageDocumentsStream = (
   storylineId?: string,
   signal?: AbortSignal,
 ) => postNdjson<TriageEvent>("/storylines/triage/stream", { docs, storylineId }, signal);
-
-export interface BuildWorldBody {
-  seed?: string;
-  docsOverview?: string;
-  storylineId?: string;
-  maxCharacters?: number;
-  maxSettings?: number;
-  /** Docs classified as characters — mined for NAMED characters (usually one) IF `extract`. */
-  characterDocs?: { name: string; text: string; extract?: boolean }[];
-  /** Docs classified as settings — mined for NAMED settings (usually one) IF `extract`. */
-  settingDocs?: { name: string; text: string; extract?: boolean }[];
-  /** Uncategorized docs — mined strictly for a genuinely NAMED character/setting IF `extract`. */
-  uncategorizedDocs?: { name: string; text: string; extract?: boolean }[];
-  /** Docs classified as 'other' — LORE/GROUNDING ONLY; never turned into entities. */
-  otherDocs?: { name: string; text: string; extract?: boolean }[];
-}
-
-export const buildWorld = (body: BuildWorldBody) =>
-  post<ProposedWorld>("/storylines/build", body);
-
-/** Live world build — yields meta/primer/plan/character/setting events, then `done`. */
-export const buildWorldStream = (body: BuildWorldBody, signal?: AbortSignal) =>
-  postNdjson<BuildEvent>("/storylines/build/stream", body, signal);
 
 // ---- context documents (the persisted RAG corpus) ----
 export type ContextDocumentInput = {

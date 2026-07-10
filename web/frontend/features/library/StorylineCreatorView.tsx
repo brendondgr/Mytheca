@@ -5,56 +5,54 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/Button";
-import { Eyebrow } from "@/components/ui/Eyebrow";
 import { TextField } from "@/components/ui/TextField";
 import { TextArea } from "@/components/ui/TextArea";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { StatsEditor } from "@/components/feature/StatsEditor";
 import { SealModal } from "@/components/feature/SealModal";
 import { TriagePanel } from "@/components/feature/TriagePanel";
-import { WorldBuildPanel } from "@/components/feature/WorldBuildPanel";
-import {
-  ProcessProgress,
-  type ProcessStep,
-} from "@/components/feature/ProcessProgress";
+import { StorylineAgentPanel } from "@/components/feature/StorylineAgentPanel";
 import { useStorylineCreator } from "@/features/library/useStorylineCreator";
-
-/** The ordered major steps of a whole-world build (keys = backend stage keys). */
-const BUILD_STEPS: ProcessStep[] = [
-  { key: "metadata", label: "Metadata" },
-  { key: "primer", label: "World Primer" },
-  { key: "blueprint", label: "Stats" },
-  { key: "extract", label: "Reading docs" },
-  { key: "characters", label: "Cast" },
-  { key: "settings", label: "Settings" },
-];
+import { useStorylineAgent } from "@/features/library/useStorylineAgent";
+import type { AppliedFields } from "@/features/library/storylineAgent";
 
 /**
  * The dedicated New / Edit Storyline page (routes `/storylines/new` +
  * `/storylines/[id]/edit`; the empty-state default when no storylines exist).
  *
  * Left: the by-hand fields (title / genre / tagline / premise / World Primer /
- * statistics / seal). Right: the **Triage** context column + budget meter. Top
- * (create only): the prominent **Build the whole world** entry — it makes plain the
- * world can be built agentically from the start, but requires context (a sentence or
- * dropped files). A build produces a reviewable proposal; nothing persists until
- * "Create World".
+ * statistics / seal). Right: the **Triage** context column + budget meter.
  */
 export function StorylineCreatorView({ editId }: { editId?: string }) {
   const c = useStorylineCreator(editId);
   const router = useRouter();
   const [sealOpen, setSealOpen] = useState(false);
+  const [rightTab, setRightTab] = useState<"assistant" | "context">("assistant");
 
-  const seedText = c.seed.trim();
-  const hasDraftDocs = c.docs.some((d) => d.useDraft && d.text);
-  const canBuild = Boolean(seedText || hasDraftDocs);
-  // Class for a left-pane field the build is writing right now (live highlight).
-  const fieldClass = (key: string) =>
-    c.activeField === key ? "velora-field-active" : undefined;
-  const canGeneratePrimer = Boolean(seedText || c.fields.premise.trim());
-  // While building (or once a proposal exists) the right column shows the live
-  // world being built; otherwise it's the Triage / Context-files column.
-  const showWorldPanel = c.building || Boolean(c.proposed);
+  const canGeneratePrimer = Boolean(c.fields.premise.trim());
+
+  // The Assistant reads the current form + writes approved changes back into it.
+  const onApplied = (patch: AppliedFields) => {
+    if (patch.title !== undefined) c.setField("title", patch.title);
+    if (patch.genre !== undefined) c.setField("genre", patch.genre);
+    if (patch.tagline !== undefined) c.setField("tagline", patch.tagline);
+    if (patch.premise !== undefined) c.setField("premise", patch.premise);
+    if (patch.worldPrimer !== undefined) c.setField("worldPrimer", patch.worldPrimer);
+    if (patch.stats) c.setStats(patch.stats);
+  };
+  const agent = useStorylineAgent({
+    mode: c.isEdit ? "edit" : "create",
+    storylineId: editId,
+    getFields: () => ({
+      title: c.fields.title,
+      genre: c.fields.genre,
+      tagline: c.fields.tagline,
+      premise: c.fields.premise,
+      worldPrimer: c.fields.worldPrimer,
+      stats: c.stats,
+    }),
+    onApplied,
+  });
 
   async function onCommit() {
     const id = await c.commit();
@@ -99,58 +97,6 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
             </p>
           ) : null}
 
-          {/* Build the whole world — agentic entry (create only). */}
-          {!c.isEdit ? (
-            <section
-              aria-label="Build the whole world"
-              className="mt-[16px] rounded-[6px] border border-accent/40 bg-card p-[18px_20px]"
-            >
-              <Eyebrow size={9.5} tracking="0.2em" color="#A8762A">
-                ❖ Build the whole world
-              </Eyebrow>
-              <p className="mt-[8px] font-body text-[14px] text-ink">
-                Provide context — a sentence and/or dropped files — and Velora drafts the{" "}
-                <span className="italic text-ink-soft">
-                  entire world: metadata, World Primer, statistics, a full cast, and settings.
-                </span>{" "}
-                You review everything before anything is saved.
-              </p>
-              <TextArea
-                label="Describe the world (optional once you've added context files)"
-                rows={3}
-                placeholder="e.g. A rotting harbor town where every secret has a price…"
-                value={c.seed}
-                onChange={(e) => c.setSeed(e.target.value)}
-                className="mt-[12px]"
-              />
-              <div className="mt-[12px] flex flex-wrap items-center gap-[10px]">
-                <Button onClick={c.build} disabled={!canBuild || c.building}>
-                  {c.building ? "Building the world…" : "❖ Build the whole world"}
-                </Button>
-                <Button variant="ghost" onClick={c.draftMeta} disabled={!seedText || c.drafting}>
-                  {c.drafting ? "Drafting…" : "Draft fields only"}
-                </Button>
-                {!canBuild ? (
-                  <span className="font-body text-[12.5px] text-mute">
-                    Add a sentence or drop context files to enable.
-                  </span>
-                ) : null}
-              </div>
-              {c.building || c.buildingImages ? (
-                <ProcessProgress
-                  className="mt-[14px]"
-                  label="World build progress"
-                  steps={BUILD_STEPS}
-                  activeKey={c.buildStageKey}
-                  done={!c.building}
-                />
-              ) : null}
-            </section>
-          ) : null}
-
-          {/* The reviewable proposal lives in the right column (WorldBuildPanel),
-              building live as Velora drafts it. */}
-
           {/* Fields */}
           <div className="mt-[16px] min-w-0">
             <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
@@ -159,14 +105,12 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
                 placeholder="e.g. Embergate"
                 value={c.fields.title}
                 onChange={(e) => c.setField("title", e.target.value)}
-                className={fieldClass("title")}
               />
               <TextField
                 label="Genre"
                 placeholder="e.g. Maritime Intrigue"
                 value={c.fields.genre}
                 onChange={(e) => c.setField("genre", e.target.value)}
-                className={fieldClass("genre")}
               />
             </div>
             <TextField
@@ -174,7 +118,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
               placeholder="One line for the switcher — what the world is, in a breath."
               value={c.fields.tagline}
               onChange={(e) => c.setField("tagline", e.target.value)}
-              className={cn("mt-[14px]", fieldClass("tagline"))}
+              className="mt-[14px]"
             />
             <TextArea
               label="Premise"
@@ -182,7 +126,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
               rows={6}
               value={c.fields.premise}
               onChange={(e) => c.setField("premise", e.target.value)}
-              className={cn("mt-[14px]", fieldClass("premise"))}
+              className="mt-[14px]"
             />
 
             {/* World Primer */}
@@ -207,7 +151,6 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
                 placeholder="Front-load the always-true facts: tone, the constant proper nouns, the load-bearing rules."
                 value={c.fields.worldPrimer}
                 onChange={(e) => c.setField("worldPrimer", e.target.value)}
-                className={fieldClass("worldPrimer")}
               />
             </div>
 
@@ -274,7 +217,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
             >
               Cancel
             </Link>
-            <Button onClick={onCommit} disabled={!c.isValid || c.committing || c.building}>
+            <Button onClick={onCommit} disabled={!c.isValid || c.committing}>
               {c.committing
                 ? c.isEdit
                   ? "Saving…"
@@ -287,37 +230,46 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
         </div>
       </div>
 
-      {/* ── Right pane — live world build, or the Context files column ───── */}
-      {showWorldPanel ? (
-        <WorldBuildPanel
-          proposed={c.proposed}
-          planConcepts={c.planConcepts}
-          building={c.building}
-          buildStage={c.buildStage}
-          activeEntity={c.activeEntity}
-          renderingImages={c.committing || c.buildingImages}
-          onUpdateCharacter={c.updateProposedCharacter}
-          onRemoveCharacter={c.removeProposedCharacter}
-          onUpdateSetting={c.updateProposedSetting}
-          onRemoveSetting={c.removeProposedSetting}
-          onDiscard={c.discardProposal}
-          imagesAvailable={c.imagesAvailable}
-          generateImages={c.generateImages}
-          onToggleImages={c.setGenerateImages}
-        />
-      ) : (
-        <TriagePanel
-          docs={c.docs}
-          onAddFiles={(files, opts) => void c.addFiles(files, opts)}
-          onRemove={c.removeDoc}
-          onToggleUse={c.toggleDocUse}
-          onSetCategory={c.setDocCategory}
-          onTriage={c.triage}
-          triaging={c.triaging}
-          triageActive={c.triageActive}
-          budget={c.budget}
-        />
-      )}
+      {/* ── Right pane — Assistant / Context (segmented) ────────────────── */}
+      <div className="flex max-h-[52dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong bg-card md:max-h-none md:w-[380px] md:border-t-0 md:border-l md:self-stretch">
+        <div role="tablist" aria-label="Right pane" className="flex shrink-0 border-b border-hair-strong">
+          {(["assistant", "context"] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={rightTab === tab}
+              onClick={() => setRightTab(tab)}
+              className={cn(
+                "flex-1 cursor-pointer px-[14px] py-[10px] font-mono text-[10.5px] tracking-[0.1em] uppercase",
+                rightTab === tab
+                  ? "border-b-2 border-accent text-accent"
+                  : "border-b-2 border-transparent text-mute hover:text-ink-soft",
+              )}
+            >
+              {tab === "assistant" ? "❖ Assistant" : "⎙ Context"}
+            </button>
+          ))}
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col">
+          {rightTab === "assistant" ? (
+            <StorylineAgentPanel agent={agent} mode={c.isEdit ? "edit" : "create"} />
+          ) : (
+            <TriagePanel
+              embedded
+              docs={c.docs}
+              onAddFiles={(files, opts) => void c.addFiles(files, opts)}
+              onRemove={c.removeDoc}
+              onToggleUse={c.toggleDocUse}
+              onSetCategory={c.setDocCategory}
+              onTriage={c.triage}
+              triaging={c.triaging}
+              triageActive={c.triageActive}
+              budget={c.budget}
+            />
+          )}
+        </div>
+      </div>
 
       <SealModal
         open={sealOpen}

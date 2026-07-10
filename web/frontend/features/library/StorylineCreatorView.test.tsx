@@ -1,8 +1,7 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { StorylineCreatorView } from "./StorylineCreatorView";
-import { ToastProvider } from "@/components/layout/ToastProvider";
 import * as api from "@/lib/api";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
@@ -13,95 +12,63 @@ function md(name: string, text: string): File {
   return new File([text], name, { type: "text/markdown" });
 }
 
+/** The Context (triage) column now lives behind the right-pane "Context" tab. */
+async function openContext(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("tab", { name: /context/i }));
+}
+
 describe("StorylineCreatorView", () => {
-  it("renders the New Storyline page with the Build hero and fields", () => {
+  it("renders the fields, the Assistant by default, and the Context tab", async () => {
+    const user = userEvent.setup();
     render(<StorylineCreatorView />);
     expect(screen.getByRole("heading", { name: /new storyline/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/describe the world/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^title$/i)).toBeInTheDocument();
-    // Build is disabled until there's a seed or context.
-    expect(screen.getByRole("button", { name: /build the whole world/i })).toBeDisabled();
-  });
-
-  it("builds a world and shows the reviewable proposal", async () => {
-    const user = userEvent.setup();
-    render(<StorylineCreatorView />);
-    await user.type(screen.getByLabelText(/describe the world/i), "A drowned harbor town.");
-    const buildBtn = screen.getByRole("button", { name: /build the whole world/i });
-    expect(buildBtn).toBeEnabled();
-    await user.click(buildBtn);
-
-    expect(vi.mocked(api.buildWorldStream)).toHaveBeenCalled();
-    // The proposal reflects the storyline core into the Title field…
-    await waitFor(() => expect(screen.getByLabelText(/^title$/i)).toHaveValue("Built World"));
-    // …and the right-column world panel lists the built cast/settings for review.
-    const review = await screen.findByRole("region", { name: /proposed world/i });
-    expect(within(review).getByDisplayValue("Built Hero")).toBeInTheDocument();
-    expect(within(review).getByDisplayValue("Built Place")).toBeInTheDocument();
-  });
-
-  it("swaps the right column from Context files to the live world build", async () => {
-    const user = userEvent.setup();
-    render(<StorylineCreatorView />);
-    // Before any build: the Context files column is shown.
+    // Assistant is the default right pane.
+    expect(screen.getByRole("complementary", { name: /storyline assistant/i })).toBeInTheDocument();
+    // Context files are reachable via the tab.
+    await openContext(user);
     expect(screen.getByRole("complementary", { name: /context files/i })).toBeInTheDocument();
-
-    await user.type(screen.getByLabelText(/describe the world/i), "A drowned harbor town.");
-    await user.click(screen.getByRole("button", { name: /build the whole world/i }));
-
-    // After building: the world panel replaces the Context files column.
-    expect(await screen.findByRole("region", { name: /proposed world/i })).toBeInTheDocument();
-    expect(screen.queryByRole("complementary", { name: /context files/i })).not.toBeInTheDocument();
   });
 
   it("triages dropped files into grouped buckets", async () => {
     const user = userEvent.setup();
     render(<StorylineCreatorView />);
+    await openContext(user);
     await user.upload(screen.getByLabelText(/browse files/i), md("hero.md", "A person."));
     expect(await screen.findByRole("button", { name: /remove hero\.md/i })).toBeInTheDocument();
 
-    // One Uncategorized doc → the Triage action is scoped to it.
     await user.click(screen.getByRole("button", { name: /triage uncategorized \(1\)/i }));
-    // The mock classifies the first doc as a character → the grouped "Character details".
     expect(await screen.findByText(/character details/i)).toBeInTheDocument();
   });
 
   it("drops files pre-categorized when an 'Add as' bucket is chosen (no triage)", async () => {
     const user = userEvent.setup();
     render(<StorylineCreatorView />);
-    // Choose Character as the upload target, then add a file.
+    await openContext(user);
     await user.selectOptions(screen.getByRole("combobox", { name: /add as/i }), "character");
     await user.upload(screen.getByLabelText(/browse files/i), md("hero.md", "A person."));
-    // It lands under Characters immediately — no Triage run.
     expect(await screen.findByText(/character details/i)).toBeInTheDocument();
     const row = screen.getByRole("combobox", { name: /category for hero\.md/i });
     expect(row).toHaveValue("character");
     expect(vi.mocked(api.triageDocumentsStream)).not.toHaveBeenCalled();
   });
 
-  it("raises a top-right error toast when the build stream fails", async () => {
-    vi.mocked(api.buildWorldStream).mockImplementationOnce(async function* () {
-      yield { type: "status" as const, stage: "metadata", message: "Drafting…" };
-      yield { type: "error" as const, message: "The model timed out." };
-    });
+  it("shows the context-budget meter under the Context tab", async () => {
     const user = userEvent.setup();
-    render(
-      <ToastProvider>
-        <StorylineCreatorView />
-      </ToastProvider>,
-    );
-    await user.type(screen.getByLabelText(/describe the world/i), "A drowned harbor town.");
-    await user.click(screen.getByRole("button", { name: /build the whole world/i }));
-
-    // The dismissible toast (unique to the notification) carries the message.
-    const dismiss = await screen.findByRole("button", { name: /dismiss notification/i });
-    expect(dismiss).toBeInTheDocument();
-    expect(screen.getAllByText(/the model timed out\./i).length).toBeGreaterThan(0);
+    render(<StorylineCreatorView />);
+    await openContext(user);
+    expect(screen.getByText(/context budget/i)).toBeInTheDocument();
   });
 
-  it("shows the context-budget meter", () => {
+  it("drafts via the Assistant and fills the form on approve", async () => {
+    const user = userEvent.setup();
     render(<StorylineCreatorView />);
-    expect(screen.getByText(/context budget/i)).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/message the assistant/i), "draft a title");
+    await user.click(screen.getByRole("button", { name: /^send/i }));
+    // The proposed plan renders; approving fills the Title field.
+    expect(await screen.findByText("Assistant Draft")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /approve & fill form/i }));
+    await waitFor(() => expect(screen.getByLabelText(/^title$/i)).toHaveValue("Assistant Draft"));
   });
 
   it("creates a storyline by hand and navigates to it", async () => {
@@ -126,7 +93,5 @@ describe("StorylineCreatorView", () => {
       expect(screen.getByRole("heading", { name: /edit storyline/i })).toBeInTheDocument(),
     );
     expect(screen.getByLabelText(/^title$/i)).toHaveValue("Embergate");
-    // Build hero is create-only.
-    expect(screen.queryByRole("button", { name: /build the whole world/i })).not.toBeInTheDocument();
   });
 });

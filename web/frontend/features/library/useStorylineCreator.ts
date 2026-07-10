@@ -2,35 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "@/lib/api";
-import { useToast } from "@/components/layout/ToastProvider";
-import { useFieldReveal } from "@/hooks/use-field-reveal";
-import { budgetFor } from "@/lib/contextBudget";
 import { concatDocs, readDocFiles, type DocUse } from "@/lib/readDocs";
-import type {
-  ContextDocument,
-  DocCategory,
-  ProposedCharacter,
-  ProposedSetting,
-  ProposedWorld,
-  StatDefinition,
-} from "@/lib/types";
+import { budgetFor } from "@/lib/contextBudget";
+import type { ContextDocument, DocCategory, StatDefinition } from "@/lib/types";
 import {
   applyTriage,
   BLANK_FIELDS,
   commitWorld,
-  type CommitEntityPatch,
   type CreatorDoc,
   type CreatorFields,
   draftDocTexts,
   fieldsFromStoryline,
   fromContextDocument,
   isCreatorValid,
-  type PlanConcepts,
-  renderProposalImages,
   toCreatorDoc,
   type TriageActive,
   type UploadDefaults,
-  upsertAt,
 } from "@/features/library/storylineCreator";
 
 function messageOf(e: unknown): string {
@@ -44,9 +31,9 @@ function draftGrounding(docs: CreatorDoc[]): string | undefined {
 
 /**
  * State for the New Storyline page (`StorylineCreatorView`). Holds the by-hand
- * fields, the universal stats, the dropped + triaged context docs, and the agentic
- * build proposal; exposes the triage / build / draft / generate-primer / commit
- * actions. In edit mode it loads the storyline, its stats, and its corpus.
+ * fields, the universal stats, and the dropped + triaged context docs; exposes the
+ * triage / generate-primer / commit actions. In edit mode it loads the storyline,
+ * its stats, and its corpus.
  */
 export function useStorylineCreator(editId?: string) {
   const [fields, setFields] = useState<CreatorFields>(BLANK_FIELDS);
@@ -54,40 +41,14 @@ export function useStorylineCreator(editId?: string) {
   const [statsOriginal, setStatsOriginal] = useState<StatDefinition[]>([]);
   const [docs, setDocs] = useState<CreatorDoc[]>([]);
   const [existingDocs, setExistingDocs] = useState<ContextDocument[]>([]);
-  const [seed, setSeed] = useState("");
-  const [proposed, setProposed] = useState<ProposedWorld | null>(null);
-
-  const [imagesAvailable, setImagesAvailable] = useState(false);
-  const [generateImages, setGenerateImages] = useState(false);
 
   const [loading, setLoading] = useState(Boolean(editId));
-  const [drafting, setDrafting] = useState(false);
   const [generatingPrimer, setGeneratingPrimer] = useState(false);
   const [triaging, setTriaging] = useState(false);
   const [triageActive, setTriageActive] = useState<TriageActive | null>(null);
-  const [building, setBuilding] = useState(false);
-  const [buildingImages, setBuildingImages] = useState(false);
-  const [buildStage, setBuildStage] = useState<string | null>(null);
-  const [buildStageKey, setBuildStageKey] = useState<string | null>(null);
-  // Which cast/setting card is being drafted right now (for a live highlight).
-  const [activeEntity, setActiveEntity] = useState<{
-    type: "character" | "setting";
-    index: number;
-  } | null>(null);
-  const [planConcepts, setPlanConcepts] = useState<PlanConcepts | null>(null);
   const [committing, setCommitting] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const toast = useToast();
-  // Highlights the left-pane field an event is writing right now (highlight only —
-  // the field values are still set synchronously below). The sweep clears itself.
-  // Destructure the stable callbacks so `build`'s memo doesn't churn every render.
-  const {
-    activeKey: activeField,
-    start: revealFields,
-    reset: resetReveal,
-  } = useFieldReveal<keyof CreatorFields>();
 
   // RAG corpus (vector store) status + the live re-embed action (edit mode).
   const [ragStatus, setRagStatus] = useState<{ available: boolean; indexed: number } | null>(null);
@@ -95,11 +56,9 @@ export function useStorylineCreator(editId?: string) {
   const [reembedProgress, setReembedProgress] = useState<string | null>(null);
 
   // Abort in-flight streams when the component unmounts (or a new run starts).
-  const buildAbort = useRef<AbortController | null>(null);
   const triageAbort = useRef<AbortController | null>(null);
   useEffect(
     () => () => {
-      buildAbort.current?.abort();
       triageAbort.current?.abort();
     },
     [],
@@ -139,23 +98,6 @@ export function useStorylineCreator(editId?: string) {
       cancelled = true;
     };
   }, [editId]);
-
-  // Detect whether ComfyUI is configured so image generation can be offered.
-  useEffect(() => {
-    let cancelled = false;
-    void api
-      .getSettings()
-      .then((s) => {
-        if (cancelled) return;
-        const ok = Boolean(s.comfy?.baseUrl?.trim());
-        setImagesAvailable(ok);
-        setGenerateImages(ok); // default on when available
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const setField = useCallback(
     <K extends keyof CreatorFields>(key: K, value: CreatorFields[K]) =>
@@ -252,37 +194,14 @@ export function useStorylineCreator(editId?: string) {
     }
   }, [docs, editId]);
 
-  const draftMeta = useCallback(async () => {
-    const s = seed.trim();
-    if (!s) return;
-    setDrafting(true);
-    setError(null);
-    try {
-      const d = await api.draftStoryline(s, draftGrounding(docs));
-      setFields((prev) => ({
-        ...prev,
-        title: d.title || prev.title,
-        genre: d.genre || prev.genre,
-        tagline: d.tagline || prev.tagline,
-        premise: d.premise || prev.premise,
-      }));
-    } catch (e) {
-      setError(messageOf(e));
-    } finally {
-      setDrafting(false);
-    }
-  }, [seed, docs]);
-
   const generatePrimer = useCallback(async () => {
     const premise = fields.premise.trim();
-    const s = seed.trim();
-    if (!premise && !s) return;
+    if (!premise) return;
     setGeneratingPrimer(true);
     setError(null);
     try {
       const { worldPrimer } = await api.generateWorldPrimer({
-        premise: premise || undefined,
-        seed: s || undefined,
+        premise,
         docsOverview: draftGrounding(docs),
       });
       setFields((prev) => ({ ...prev, worldPrimer }));
@@ -291,234 +210,7 @@ export function useStorylineCreator(editId?: string) {
     } finally {
       setGeneratingPrimer(false);
     }
-  }, [fields.premise, seed, docs]);
-
-  // Patch the displayed cast/settings in place (used by both the live image render
-  // during build and the commit) — e.g. once a portrait / scene-art URL lands.
-  const applyEntityPatch = useCallback(
-    (e: CommitEntityPatch) =>
-      setProposed((p) => {
-        if (!p) return p;
-        if (e.type === "character") {
-          return {
-            ...p,
-            characters: p.characters.map((c, i) => (i === e.index ? { ...c, ...e.patch } : c)),
-          };
-        }
-        return { ...p, settings: p.settings.map((s, i) => (i === e.index ? { ...s, ...e.patch } : s)) };
-      }),
-    [],
-  );
-
-  // The world build streams: metadata fills the left fields, the blueprint seeds
-  // skeleton cards (planConcepts), and each character/setting event appends to the
-  // proposal so the right column fills in live. `done` swaps in the canonical world.
-  // Then, when ComfyUI is available, portraits + scene art render live into the cards.
-  const build = useCallback(async () => {
-    const s = seed.trim();
-    const docsOverview = draftGrounding(docs);
-    // Each kept doc rides its OWN triage bucket AND its opt-in Extract flag. The build
-    // mines a doc ONLY when Extract is checked (`extract: true`); the bucket then scopes
-    // what kind is mined (respecting classification — it never invents from lore):
-    //   character/setting → mined for NAMED characters/settings (usually one);
-    //   uncategorized ('select') → mined strictly, only for a genuinely NAMED subject;
-    //   other → LORE/GROUNDING ONLY, never turned into an entity.
-    const toBuildDoc = (d: CreatorDoc) => ({
-      name: d.name,
-      text: d.text,
-      extract: Boolean(d.useExtract),
-    });
-    const withText = docs.filter((d) => d.text);
-    const characterDocs = withText.filter((d) => d.category === "character").map(toBuildDoc);
-    const settingDocs = withText.filter((d) => d.category === "setting").map(toBuildDoc);
-    const uncategorizedDocs = withText.filter((d) => d.category === "select").map(toBuildDoc);
-    const otherDocs = withText.filter((d) => d.category === "other").map(toBuildDoc);
-    const anyDoc =
-      characterDocs.length || settingDocs.length || uncategorizedDocs.length || otherDocs.length;
-    if (!s && !docsOverview && !anyDoc) {
-      setError(
-        "Add a one-sentence seed, drop context files, or attach characters/settings to build from.",
-      );
-      return;
-    }
-    buildAbort.current?.abort();
-    const ac = new AbortController();
-    buildAbort.current = ac;
-    setBuilding(true);
-    setBuildingImages(false);
-    setError(null);
-    setBuildStage(null);
-    setBuildStageKey(null);
-    setActiveEntity(null);
-    resetReveal();
-    setProposed(null);
-    setPlanConcepts(null);
-    // Accumulate the storyline core across events so `plan` can seed the proposal.
-    const meta = { title: "", genre: "", tagline: "", premise: "", worldPrimer: "" };
-    let finalWorld: ProposedWorld | null = null;
-    try {
-      for await (const ev of api.buildWorldStream(
-        {
-          seed: s || undefined,
-          docsOverview,
-          storylineId: editId,
-          characterDocs,
-          settingDocs,
-          uncategorizedDocs,
-          otherDocs,
-        },
-        ac.signal,
-      )) {
-        switch (ev.type) {
-          case "status":
-            setBuildStage(ev.message);
-            setBuildStageKey(ev.stage);
-            break;
-          case "meta":
-            meta.title = ev.title;
-            meta.genre = ev.genre;
-            meta.tagline = ev.tagline;
-            meta.premise = ev.premise;
-            setFields((prev) => ({
-              ...prev,
-              title: ev.title || prev.title,
-              genre: ev.genre || prev.genre,
-              tagline: ev.tagline || prev.tagline,
-              premise: ev.premise || prev.premise,
-            }));
-            // Sweep the highlight across the four fields the meta event just wrote.
-            revealFields([
-              { key: "title", value: ev.title },
-              { key: "genre", value: ev.genre },
-              { key: "tagline", value: ev.tagline },
-              { key: "premise", value: ev.premise },
-            ]);
-            break;
-          case "primer":
-            meta.worldPrimer = ev.worldPrimer;
-            setFields((prev) => ({ ...prev, worldPrimer: ev.worldPrimer || prev.worldPrimer }));
-            revealFields([{ key: "worldPrimer", value: ev.worldPrimer }]);
-            break;
-          case "plan":
-            if (ev.stats.length) setStats(ev.stats);
-            resetReveal();
-            setPlanConcepts({ characters: ev.characters, settings: ev.settings });
-            setProposed({ storyline: { ...meta }, stats: ev.stats, characters: [], settings: [] });
-            break;
-          case "character":
-            resetReveal();
-            setActiveEntity({ type: "character", index: ev.index });
-            setProposed((p) =>
-              p ? { ...p, characters: upsertAt(p.characters, ev.index, ev.character) } : p,
-            );
-            break;
-          case "setting":
-            resetReveal();
-            setActiveEntity({ type: "setting", index: ev.index });
-            setProposed((p) =>
-              p ? { ...p, settings: upsertAt(p.settings, ev.index, ev.setting) } : p,
-            );
-            break;
-          case "done":
-            finalWorld = ev.world;
-            resetReveal();
-            setActiveEntity(null);
-            setBuildStageKey("done");
-            setProposed(ev.world);
-            if (ev.world.stats.length) setStats(ev.world.stats);
-            setFields((prev) => ({
-              ...prev,
-              title: ev.world.storyline.title || prev.title,
-              genre: ev.world.storyline.genre || prev.genre,
-              tagline: ev.world.storyline.tagline || prev.tagline,
-              premise: ev.world.storyline.premise || prev.premise,
-              worldPrimer: ev.world.storyline.worldPrimer || prev.worldPrimer,
-            }));
-            break;
-          case "error":
-            setError(ev.message);
-            toast.notify({
-              variant: "error",
-              title: "World build",
-              message: ev.message,
-            });
-            break;
-        }
-      }
-
-      // Text build done → render portraits + scene art live whenever ComfyUI is
-      // available (the build now produces images too, not just the commit). Verify
-      // the server is actually *reachable* first — `imagesAvailable` only means a URL
-      // is configured, so without this a stopped ComfyUI would 502 on every entity.
-      const hasImageWork =
-        Boolean(finalWorld) &&
-        ((finalWorld?.characters.length ?? 0) > 0 || (finalWorld?.settings.length ?? 0) > 0);
-      if (finalWorld && hasImageWork && imagesAvailable && generateImages && !ac.signal.aborted) {
-        const reachable = await api
-          .checkComfyStatus({})
-          .then((st) => Boolean(st?.ok))
-          .catch(() => false);
-        if (reachable && !ac.signal.aborted) {
-          setBuilding(false); // switch the panel to review mode while images render in
-          setBuildingImages(true);
-          await renderProposalImages(finalWorld, applyEntityPatch, setBuildStage, ac.signal);
-        }
-      }
-    } catch (e) {
-      if (!ac.signal.aborted) {
-        const msg = messageOf(e);
-        setError(msg);
-        toast.notify({ variant: "error", title: "World build", message: msg });
-      }
-    } finally {
-      if (buildAbort.current === ac) buildAbort.current = null;
-      setBuilding(false);
-      setBuildingImages(false);
-      setBuildStage(null);
-      setActiveEntity(null);
-      resetReveal();
-    }
-  }, [
-    seed,
-    docs,
-    editId,
-    imagesAvailable,
-    generateImages,
-    applyEntityPatch,
-    toast,
-    revealFields,
-    resetReveal,
-  ]);
-
-  // ---- proposed-world review edits ----
-  const updateProposedCharacter = useCallback(
-    (index: number, patch: Partial<ProposedCharacter>) =>
-      setProposed((p) =>
-        p ? { ...p, characters: p.characters.map((c, i) => (i === index ? { ...c, ...patch } : c)) } : p,
-      ),
-    [],
-  );
-  const removeProposedCharacter = useCallback(
-    (index: number) =>
-      setProposed((p) => (p ? { ...p, characters: p.characters.filter((_, i) => i !== index) } : p)),
-    [],
-  );
-  const updateProposedSetting = useCallback(
-    (index: number, patch: Partial<ProposedSetting>) =>
-      setProposed((p) =>
-        p ? { ...p, settings: p.settings.map((s, i) => (i === index ? { ...s, ...patch } : s)) } : p,
-      ),
-    [],
-  );
-  const removeProposedSetting = useCallback(
-    (index: number) =>
-      setProposed((p) => (p ? { ...p, settings: p.settings.filter((_, i) => i !== index) } : p)),
-    [],
-  );
-  const discardProposal = useCallback(() => {
-    setProposed(null);
-    setPlanConcepts(null);
-  }, []);
+  }, [fields.premise, docs]);
 
   // ---- commit ----
   const commit = useCallback(async (): Promise<string | null> => {
@@ -526,10 +218,6 @@ export function useStorylineCreator(editId?: string) {
       setError("Give the world a title first.");
       return null;
     }
-    // Stop any still-running build-time image render; commit persists what's there
-    // and renders any that are still missing (no double-render, no race).
-    buildAbort.current?.abort();
-    setBuildingImages(false);
     setCommitting(true);
     setError(null);
     setProgress(null);
@@ -540,15 +228,10 @@ export function useStorylineCreator(editId?: string) {
           fields,
           stats,
           statsOriginal,
-          proposed,
           docs,
           existingDocs,
-          generateImages: imagesAvailable && generateImages,
         },
         setProgress,
-        // Patch the displayed cast/settings as each image renders, so previews
-        // pop into the right column live during "Create World".
-        applyEntityPatch,
       );
       return id;
     } catch (e) {
@@ -558,18 +241,7 @@ export function useStorylineCreator(editId?: string) {
       setCommitting(false);
       setProgress(null);
     }
-  }, [
-    editId,
-    fields,
-    stats,
-    statsOriginal,
-    proposed,
-    docs,
-    existingDocs,
-    imagesAvailable,
-    generateImages,
-    applyEntityPatch,
-  ]);
+  }, [editId, fields, stats, statsOriginal, docs, existingDocs]);
 
   const budget = useMemo(
     () => budgetFor({ worldPrimer: fields.worldPrimer, draftDocs: draftDocTexts(docs) }),
@@ -621,31 +293,12 @@ export function useStorylineCreator(editId?: string) {
     removeDoc,
     toggleDocUse,
     setDocCategory,
-    seed,
-    setSeed,
-    proposed,
-    planConcepts,
-    updateProposedCharacter,
-    removeProposedCharacter,
-    updateProposedSetting,
-    removeProposedSetting,
-    discardProposal,
-    imagesAvailable,
-    generateImages,
-    setGenerateImages,
     budget,
     isValid: isCreatorValid(fields),
     loading,
-    drafting,
     generatingPrimer,
     triaging,
     triageActive,
-    building,
-    buildingImages,
-    buildStage,
-    buildStageKey,
-    activeField,
-    activeEntity,
     committing,
     progress,
     error,
@@ -654,9 +307,7 @@ export function useStorylineCreator(editId?: string) {
     reembedProgress,
     reembed,
     triage,
-    draftMeta,
     generatePrimer,
-    build,
     commit,
   };
 }

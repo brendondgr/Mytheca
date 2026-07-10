@@ -318,78 +318,9 @@ export interface TriageItem {
   rationale: string;
 }
 
-/** The storyline core of a build proposal. */
-export interface ProposedStoryline {
-  title: string;
-  genre: string;
-  tagline: string;
-  premise: string;
-  worldPrimer: string;
-}
-
-/** A proposed starting value for one universal stat (defaults to the schema). */
-export interface ProposedStartingStat {
-  key: string;
-  value: number;
-}
-
-/** A character drafted by the world build, plus its starting stats. */
-export interface ProposedCharacter {
-  name: string;
-  role: string;
-  traits: string;
-  speech: string;
-  goal: string;
-  secret: string;
-  appearance: string;
-  background: string;
-  personality: string;
-  color: string;
-  /** Voice & tone samples generated before stats (situation → sample-response pairs). */
-  voiceSamples: VoiceSample[];
-  startingStats: ProposedStartingStat[];
-  /** Client-side only: the portrait URL once it renders during commit (live preview). */
-  portrait?: string | null;
-}
-
-/** A setting drafted by the world build. */
-export interface ProposedSetting {
-  name: string;
-  type: string;
-  desc: string;
-  atmosphere: string;
-  features: string;
-  currentState: string;
-  /** Client-side only: the scene-art URL once it renders during commit (live preview). */
-  image?: string | null;
-}
-
-/**
- * The reviewable world proposal returned by `POST /storylines/build` — drafted but
- * not persisted; the page reviews then commits it via the normal CRUD endpoints.
- */
-export interface ProposedWorld {
-  storyline: ProposedStoryline;
-  stats: StatDefinition[];
-  characters: ProposedCharacter[];
-  settings: ProposedSetting[];
-}
-
-// ---- Live build / triage stream events (NDJSON) -----------------------------
-// Mirror the backend event unions (app/schemas/build.py, context_document.py).
-// `POST /storylines/build/stream` and `/triage/stream` emit one of these per line
-// so the New Storyline page can render the world / triage as they are built.
-
-/** One progress event from the streaming world build. */
-export type BuildEvent =
-  | { type: "status"; stage: string; message: string }
-  | { type: "meta"; title: string; genre: string; tagline: string; premise: string }
-  | { type: "primer"; worldPrimer: string }
-  | { type: "plan"; stats: StatDefinition[]; characters: string[]; settings: string[] }
-  | { type: "character"; index: number; total: number; character: ProposedCharacter }
-  | { type: "setting"; index: number; total: number; setting: ProposedSetting }
-  | { type: "done"; world: ProposedWorld }
-  | { type: "error"; message: string };
+// ---- Live triage stream events (NDJSON) -------------------------------------
+// Mirror the backend event union (app/schemas/context_document.py). `/triage/stream`
+// emits one of these per line so the New Storyline page can render triage live.
 
 /** One progress event from the streaming (per-file) triage. */
 export type TriageEvent =

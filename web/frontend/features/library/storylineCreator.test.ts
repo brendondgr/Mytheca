@@ -3,18 +3,15 @@ import {
   applyTriage,
   BLANK_FIELDS,
   commitWorld,
-  type CommitEntityPatch,
   docToContextInput,
   draftDocTexts,
   fromContextDocument,
   persistStatsDiff,
-  proposedToCharacterInput,
-  renderProposalImages,
   toCreatorDoc,
 } from "./storylineCreator";
 import { blankStat } from "./editor";
 import * as api from "@/lib/api";
-import type { ContextDocument, ProposedWorld, StatDefinition } from "@/lib/types";
+import type { ContextDocument, StatDefinition } from "@/lib/types";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
@@ -123,157 +120,28 @@ describe("storylineCreator helpers", () => {
     ];
     expect(draftDocTexts(docs)).toEqual(["AAA"]);
   });
-
-  it("proposedToCharacterInput carries the generated voice samples into the create body", () => {
-    const input = proposedToCharacterInput({
-      name: "Maerin", role: "Smuggler", traits: "Wary", speech: "Clipped.",
-      goal: "Out.", secret: "Informant.", appearance: "", background: "", personality: "",
-      color: "#3A5A78",
-      voiceSamples: [{ situation: "questioned", sample: "Ask again." }],
-      startingStats: [],
-    });
-    expect(input.voiceSamples).toEqual([{ situation: "questioned", sample: "Ask again." }]);
-  });
 });
 
-describe("storylineCreator.commitWorld image previews", () => {
-  const PROPOSED: ProposedWorld = {
-    storyline: { title: "W", genre: "G", tagline: "", premise: "", worldPrimer: "" },
-    stats: [],
-    characters: [
-      {
-        name: "Hero",
-        role: "Lead",
-        traits: "Bold",
-        speech: "",
-        goal: "",
-        secret: "",
-        appearance: "",
-        background: "",
-        personality: "",
-        color: "#000",
-        voiceSamples: [],
-        startingStats: [],
-      },
-    ],
-    settings: [
-      { name: "Place", type: "Hub", desc: "", atmosphere: "", features: "", currentState: "" },
-    ],
-  };
-
-  it("emits onEntity patches as each portrait / scene-art renders", async () => {
-    const events: CommitEntityPatch[] = [];
-    await commitWorld(
-      {
-        fields: { ...BLANK_FIELDS, title: "World" },
-        stats: [],
-        statsOriginal: [],
-        proposed: PROPOSED,
-        docs: [],
-        generateImages: true,
-      },
-      undefined,
-      (e) => events.push(e),
-    );
-    expect(events).toContainEqual({
-      type: "character",
-      index: 0,
-      patch: { portrait: "/media/portraits/test.webp" },
-    });
-    expect(events).toContainEqual({
-      type: "setting",
-      index: 0,
-      patch: { image: "/media/scenes/test.webp" },
-    });
-  });
-
-  it("emits no entity patches when image generation is off", async () => {
-    const events: CommitEntityPatch[] = [];
-    await commitWorld(
-      {
-        fields: { ...BLANK_FIELDS, title: "World" },
-        stats: [],
-        statsOriginal: [],
-        proposed: PROPOSED,
-        docs: [],
-        generateImages: false,
-      },
-      undefined,
-      (e) => events.push(e),
-    );
-    expect(events).toHaveLength(0);
-    expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
-  });
-
-  it("renderProposalImages renders an image per entity (build-time, no persist)", async () => {
-    const events: CommitEntityPatch[] = [];
-    await renderProposalImages(PROPOSED, (e) => events.push(e));
-    expect(events).toContainEqual({
-      type: "character",
-      index: 0,
-      patch: { portrait: "/media/portraits/test.webp" },
-    });
-    expect(events).toContainEqual({
-      type: "setting",
-      index: 0,
-      patch: { image: "/media/scenes/test.webp" },
-    });
-    // It only generates — nothing is persisted during the build (entities have no id).
-    expect(vi.mocked(api.updateCharacter)).not.toHaveBeenCalled();
-    expect(vi.mocked(api.updateSetting)).not.toHaveBeenCalled();
-  });
-
-  it("renderProposalImages skips entities that already have an image", async () => {
-    const withImages = {
-      ...PROPOSED,
-      characters: [{ ...PROPOSED.characters[0], portrait: "/already.webp" }],
-      settings: [{ ...PROPOSED.settings[0], image: "/already.webp" }],
-    };
-    const events: CommitEntityPatch[] = [];
-    await renderProposalImages(withImages, (e) => events.push(e));
-    expect(events).toHaveLength(0);
-    expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
-    expect(vi.mocked(api.generateSceneArt)).not.toHaveBeenCalled();
-  });
-
-  it("renderProposalImages circuit-breaks on the first failed render (ComfyUI down)", async () => {
-    vi.mocked(api.generatePortrait).mockRejectedValue(new Error("502"));
-    const twoChars = {
-      ...PROPOSED,
-      characters: [
-        { ...PROPOSED.characters[0], name: "A" },
-        { ...PROPOSED.characters[0], name: "B" },
-      ],
-    };
-    const events: CommitEntityPatch[] = [];
-    await renderProposalImages(twoChars, (e) => events.push(e));
-    // First portrait fails → stop; the 2nd character and all settings are skipped.
-    expect(events).toHaveLength(0);
-    expect(vi.mocked(api.generatePortrait)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(api.generateSceneArt)).not.toHaveBeenCalled();
-  });
-
-  it("commitWorld stops rendering after the first failure but still creates entities", async () => {
-    vi.mocked(api.generatePortrait).mockRejectedValue(new Error("502"));
-    const twoChars = {
-      ...PROPOSED,
-      characters: [
-        { ...PROPOSED.characters[0], name: "A" },
-        { ...PROPOSED.characters[0], name: "B" },
-      ],
-    };
+describe("storylineCreator.commitWorld create mode", () => {
+  it("creates the storyline, its stats, then the triaged corpus", async () => {
     const id = await commitWorld({
       fields: { ...BLANK_FIELDS, title: "World" },
-      stats: [],
+      stats: [HEALTH],
       statsOriginal: [],
-      proposed: twoChars,
-      docs: [],
-      generateImages: true,
+      docs: [{ name: "lore.md", text: "x", category: "other", triaged: true }],
     });
     expect(id).toBeTruthy();
-    // Both characters created; only ONE portrait render attempted (then circuit-broke).
-    expect(vi.mocked(api.createCharacter)).toHaveBeenCalledTimes(2);
-    expect(vi.mocked(api.generatePortrait)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(api.createStoryline)).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "World" }),
+    );
+    expect(vi.mocked(api.createStatDefinition)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ key: "health" }),
+    );
+    expect(vi.mocked(api.bulkCreateContextDocuments)).toHaveBeenCalledWith(
+      expect.any(String),
+      [expect.objectContaining({ name: "lore.md" })],
+    );
   });
 });
 
@@ -298,13 +166,11 @@ describe("storylineCreator.commitWorld edit-mode corpus reconcile", () => {
       fields: { ...BLANK_FIELDS, title: "World" },
       stats: [],
       statsOriginal: [],
-      proposed: null,
       docs: [
         { name: "keep.md", text: "x", category: "other", triaged: true },
         { name: "new.md", text: "n", category: "other", triaged: true },
       ],
       existingDocs,
-      generateImages: false,
     });
     // New storyline-level doc is created…
     expect(vi.mocked(api.bulkCreateContextDocuments)).toHaveBeenCalledWith("w", [

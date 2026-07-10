@@ -70,159 +70,14 @@ describe("useStorylineCreator", () => {
     expect(byName["mystery.md"].category).not.toBe("select");
   });
 
-  it("builds a proposed world and reflects it into the editable fields", async () => {
+  it("commits by hand: creates the storyline, its stats, and the triaged corpus", async () => {
     const { result } = renderHook(() => useStorylineCreator());
-    act(() => result.current.setSeed("A drowned harbor town."));
-    await act(async () => {
-      await result.current.build();
-    });
-    expect(vi.mocked(api.buildWorldStream)).toHaveBeenCalled();
-    expect(result.current.proposed?.characters[0].name).toBe("Built Hero");
-    // The build reflects the storyline core into the left column + stats.
-    expect(result.current.fields.title).toBe("Built World");
-    expect(result.current.stats[0].key).toBe("health");
-    expect(result.current.isValid).toBe(true);
-    // The blueprint concepts seeded the live skeleton (one cast + one setting).
-    expect(result.current.planConcepts?.characters).toHaveLength(1);
-  });
-
-  it("tracks the build stage and clears the live highlights when done", async () => {
-    const { result } = renderHook(() => useStorylineCreator());
-    act(() => result.current.setSeed("A drowned harbor town."));
-    await act(async () => {
-      await result.current.build();
-    });
-    // The last stage key is 'done'; the field/entity highlights are cleared.
-    expect(result.current.buildStageKey).toBe("done");
-    expect(result.current.activeField).toBeNull();
-    expect(result.current.activeEntity).toBeNull();
-  });
-
-  it("surfaces an in-band build error in the error state", async () => {
-    vi.mocked(api.buildWorldStream).mockImplementationOnce(async function* () {
-      yield { type: "status" as const, stage: "metadata", message: "Drafting…" };
-      yield { type: "error" as const, message: "The model timed out." };
-    });
-    const { result } = renderHook(() => useStorylineCreator());
-    act(() => result.current.setSeed("A drowned harbor town."));
-    await act(async () => {
-      await result.current.build();
-    });
-    expect(result.current.error).toBe("The model timed out.");
-  });
-
-  it("sends the categorized character/setting docs as the cast source", async () => {
-    const { result } = renderHook(() => useStorylineCreator());
-    await act(async () => {
-      await result.current.addFiles([file("hero.md", "A hero."), file("keep.md", "A place.")]);
-    });
-    act(() => result.current.setDocCategory("hero.md", "character"));
-    act(() => result.current.setDocCategory("keep.md", "setting"));
-    await act(async () => {
-      await result.current.build();
-    });
-    const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
-    // Each build doc carries its opt-in Extract flag — default OFF (never auto-mined).
-    expect(body.characterDocs).toEqual([{ name: "hero.md", text: "A hero.", extract: false }]);
-    expect(body.settingDocs).toEqual([{ name: "keep.md", text: "A place.", extract: false }]);
-    expect(body.uncategorizedDocs).toEqual([]);
-    expect(body.otherDocs).toEqual([]);
-  });
-
-  it("sends extract: true only for docs the author checked Extract on", async () => {
-    const { result } = renderHook(() => useStorylineCreator());
-    await act(async () => {
-      await result.current.addFiles([file("hero.md", "A hero."), file("extra.md", "A hero.")]);
-    });
-    act(() => result.current.setDocCategory("hero.md", "character"));
-    act(() => result.current.setDocCategory("extra.md", "character"));
-    act(() => result.current.toggleDocUse("hero.md", "useExtract")); // opt one in
-    await act(async () => {
-      await result.current.build();
-    });
-    const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
-    expect(body.characterDocs).toEqual([
-      { name: "hero.md", text: "A hero.", extract: true },
-      { name: "extra.md", text: "A hero.", extract: false },
-    ]);
-  });
-
-  it("routes an 'other'-bucket doc to otherDocs (lore/grounding only)", async () => {
-    const { result } = renderHook(() => useStorylineCreator());
-    await act(async () => {
-      await result.current.addFiles([file("lore.md", "A history of the founding wars.")]);
-    });
-    act(() => result.current.setDocCategory("lore.md", "other"));
-    await act(async () => {
-      await result.current.build();
-    });
-    const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
-    // 'Other' docs ride otherDocs — the backend uses them for grounding only, never
-    // extracting entities from them.
-    expect(body.otherDocs).toEqual([
-      { name: "lore.md", text: "A history of the founding wars.", extract: false },
-    ]);
-    expect(body.characterDocs).toEqual([]);
-    expect(body.settingDocs).toEqual([]);
-    expect(body.uncategorizedDocs).toEqual([]);
-  });
-
-  it("routes an Uncategorized ('select') doc to uncategorizedDocs (strict extraction)", async () => {
-    const { result } = renderHook(() => useStorylineCreator());
-    await act(async () => {
-      await result.current.addFiles([file("mystery.md", "Some notes.")]);
-    });
-    // Left Uncategorized (default 'select') — no setDocCategory call.
-    await act(async () => {
-      await result.current.build();
-    });
-    const body = vi.mocked(api.buildWorldStream).mock.calls[0][0];
-    expect(body.uncategorizedDocs).toEqual([
-      { name: "mystery.md", text: "Some notes.", extract: false },
-    ]);
-    expect(body.characterDocs).toEqual([]);
-    expect(body.settingDocs).toEqual([]);
-    expect(body.otherDocs).toEqual([]);
-  });
-
-  it("skips image rendering when ComfyUI is configured but unreachable", async () => {
-    vi.mocked(api.checkComfyStatus).mockResolvedValueOnce({
-      ok: false,
-      comfyuiVersion: "",
-      device: "",
-      pythonVersion: "",
-    });
-    const { result } = renderHook(() => useStorylineCreator());
-    await waitFor(() => expect(result.current.imagesAvailable).toBe(true));
-    act(() => result.current.setSeed("A world."));
-    await act(async () => {
-      await result.current.build();
-    });
-    // Reachability preflight failed → no portrait/scene-art calls (no 502 storm).
-    expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
-    expect(vi.mocked(api.generateSceneArt)).not.toHaveBeenCalled();
-  });
-
-  it("refuses to build with neither a seed nor draft docs", async () => {
-    const { result } = renderHook(() => useStorylineCreator());
-    await act(async () => {
-      await result.current.build();
-    });
-    expect(vi.mocked(api.buildWorldStream)).not.toHaveBeenCalled();
-    expect(result.current.error).toMatch(/seed, drop context files, or attach/i);
-  });
-
-  it("commits the built world: storyline → stats → cast → settings → corpus", async () => {
-    const { result } = renderHook(() => useStorylineCreator());
-    act(() => result.current.setSeed("A world."));
+    act(() => result.current.setField("title", "A World"));
     await act(async () => {
       await result.current.addFiles([file("lore.md", "World lore.")]);
     });
     await act(async () => {
       await result.current.triage();
-    });
-    await act(async () => {
-      await result.current.build();
     });
 
     let newId: string | null = null;
@@ -231,92 +86,10 @@ describe("useStorylineCreator", () => {
     });
 
     expect(newId).toBeTruthy();
-    expect(vi.mocked(api.createStoryline)).toHaveBeenCalled();
-    expect(vi.mocked(api.createStatDefinition)).toHaveBeenCalled();
-    expect(vi.mocked(api.createCharacter)).toHaveBeenCalled();
-    expect(vi.mocked(api.setCharacterStats)).toHaveBeenCalledWith(expect.any(String), { health: 100 });
-    expect(vi.mocked(api.createSetting)).toHaveBeenCalled();
+    expect(vi.mocked(api.createStoryline)).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "A World" }),
+    );
     expect(vi.mocked(api.bulkCreateContextDocuments)).toHaveBeenCalled();
-  });
-
-  it("renders portraits + scene art during the build when ComfyUI is configured", async () => {
-    const { result } = renderHook(() => useStorylineCreator());
-    await waitFor(() => expect(result.current.imagesAvailable).toBe(true));
-    act(() => result.current.setSeed("A world."));
-    await act(async () => {
-      await result.current.build();
-    });
-    // Images are rendered as part of the build — the proposal already carries them.
-    expect(vi.mocked(api.generatePortrait)).toHaveBeenCalled();
-    expect(vi.mocked(api.generateSceneArt)).toHaveBeenCalled();
-    expect(result.current.proposed?.characters[0].portrait).toBe("/media/portraits/test.webp");
-    expect(result.current.proposed?.settings[0].image).toBe("/media/scenes/test.webp");
-
-    // Commit then persists the already-rendered images (attaches; never re-renders).
-    vi.mocked(api.generatePortrait).mockClear();
-    vi.mocked(api.generateSceneArt).mockClear();
-    await act(async () => {
-      await result.current.commit();
-    });
-    expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
-    expect(vi.mocked(api.generateSceneArt)).not.toHaveBeenCalled();
-    expect(vi.mocked(api.updateCharacter)).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ portrait: "/media/portraits/test.webp" }),
-    );
-    expect(vi.mocked(api.updateSetting)).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ image: "/media/scenes/test.webp" }),
-    );
-  });
-
-  it("skips images when ComfyUI is not configured", async () => {
-    vi.mocked(api.getSettings).mockResolvedValueOnce({
-      llm: {
-        baseUrl: "",
-        model: "",
-        provider: "openai-compatible",
-        params: { temperature: 0.7, maxTokens: 512, topP: 1, frequencyPenalty: 0, presencePenalty: 0 },
-        hasApiKey: false,
-        apiKeyHint: null,
-        authoringConcurrency: 3,
-        maxContextTokens: 16384,
-      },
-      library: { defaultStorylineId: null, openLastStoryline: true },
-      comfy: {
-        baseUrl: "",
-        workflow: "",
-        params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
-      },
-      prompts: { catalog: [], overrides: {} },
-    });
-    const { result } = renderHook(() => useStorylineCreator());
-    await waitFor(() => expect(result.current.imagesAvailable).toBe(false));
-    act(() => result.current.setSeed("A world."));
-    await act(async () => {
-      await result.current.build();
-    });
-    await act(async () => {
-      await result.current.commit();
-    });
-    expect(vi.mocked(api.generatePortrait)).not.toHaveBeenCalled();
-    expect(vi.mocked(api.generateSceneArt)).not.toHaveBeenCalled();
-  });
-
-  it("a failed image render does not abort the commit", async () => {
-    const { result } = renderHook(() => useStorylineCreator());
-    await waitFor(() => expect(result.current.imagesAvailable).toBe(true));
-    vi.mocked(api.generatePortrait).mockRejectedValueOnce(new Error("comfy down"));
-    act(() => result.current.setSeed("A world."));
-    await act(async () => {
-      await result.current.build();
-    });
-    let id: string | null = null;
-    await act(async () => {
-      id = await result.current.commit();
-    });
-    expect(id).toBeTruthy(); // commit still succeeds…
-    expect(vi.mocked(api.createSetting)).toHaveBeenCalled(); // …and continues past the failure
   });
 
   it("loads an existing storyline + stats + corpus in edit mode", async () => {
