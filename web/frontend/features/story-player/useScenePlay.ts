@@ -205,7 +205,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
   }, [scenario.id, scenario.cast]);
 
   // Fetch the model's context-window size once on mount (best-effort — failure keeps null
-  // so the ContextUsageBar stays hidden rather than showing an invalid value).
+  // so the ContextUsageDial stays hidden rather than showing an invalid value).
   useEffect(() => {
     getLlmContextWindow()
       .then((r) => setMaxContextTokens(r.maxContextTokens))

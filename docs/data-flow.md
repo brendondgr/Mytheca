@@ -63,10 +63,12 @@ run, keeping the quotes). `state_update` / `branch_choices` drive the side panel
 **narrator-only** (no character speaks before the player acts); selecting a follow-up suggestion
 **writes its text into the composer** (focused, for review/editing) rather than auto-sending —
 the player edits and sends it as an ordinary turn. A **scene-config menu** (`SceneConfigMenu`, a
-popover now rendered by **`SceneHeader` left of Export**) sets three per-scene controls — Max
-turns, Suggestions, and **Number of beats** (the context-window depth, 5–100, with a live
-approximate token readout via `lib/contextBudget.estimateBeatsTokens`) — persisted on the
-scenario (`updateScenario` PATCH); four suggestions render as a **2×2 grid**.
+popover now rendered by the **composer's bottom-left controls row**, opening upward) sets three
+per-scene controls — Max turns, Suggestions, and **Number of beats** (the context-window depth,
+5–100). Its token readout is **content-real**: `lib/contextBudget.beatsTokensFromTexts` sums the
+actual last-N transcript beats (fed down as `beatTexts`), falling back to the flat
+`estimateBeatsTokens` average only before a scene has beats. Persisted on the scenario
+(`updateScenario` PATCH); four suggestions render as a **2×2 grid**.
 
 **Type-while-streaming:** the composer's `sendDisabled` prop (renamed from `disabled`) blocks
 only the Send button and Enter key while a turn is in-flight — the `<textarea>` remains editable
@@ -74,15 +76,21 @@ so the player can compose their next message while characters respond. `useScene
 still guard against concurrent submissions. A mid-stream failure surfaces the terminal `error`
 frame.
 
-**Context-usage estimate path.** `useScenePlay` fetches `getLlmContextWindow()` once on mount
-(best-effort; the bar is hidden on failure). The denominator is the `maxContextTokens` field from
-`GET /options/llm/context-window` (`source: "detected"` when the engine was probed successfully,
-`source: "configured"` when the stored fallback is used). The numerator is `estimateUsedTokens`
-from `lib/contextBudget.ts` — the sum of each beat's combined text (text + action + thought) over
-the last `contextBeats` transcript beats, converted to tokens by the char/4 heuristic. The result
-drives `ContextUsageBar` (rendered by `StoryPlayerView` above the composer), which color-codes
-fill as green < 50 %, gold 50–75 %, danger ≥ 75 %, and surfaces `5.2K / 16K`-style counts via
-`fmtTokensK` in the hover `title` and `aria-valuetext`.
+**Context-usage path (exact, with an estimate fallback).** `useScenePlay` fetches
+`getLlmContextWindow()` once on mount (best-effort; the dial is hidden on failure). The denominator
+is the `maxContextTokens` field from `GET /options/llm/context-window` (`source: "detected"` when
+the engine was probed, `source: "configured"` for the stored fallback). The numerator is the
+**exact** figure: after each character generation the turn engine emits a persisted `context`
+trace step carrying the LLM's reported `usage.prompt_tokens` (`llm.chat_complete_usage` →
+`character_turn_agent.generate_line_with_usage` → `_generate_speaker`). `useScenePlay` sets
+`liveContextTokens` from that live `context` frame and seeds it on resume via
+`turn-stream.latestContextTokens(history.traces)`; it exposes `usedTokens = liveContextTokens ??`
+the char/4 estimate (`estimateUsedTokens` over the last `contextBeats` beats) plus `usedTokensExact`.
+This drives `ContextUsageDial` in the composer's bottom row, which colour-codes the ring green
+< 50 %, gold 50–75 %, danger ≥ 75 %, shows the used-token `K` in the centre, and surfaces
+`8.3K of 16K tokens (exact|estimated)` via `fmtTokensK` in the hover `title` + `aria-valuetext`.
+The estimate is shown only until a real turn (or a resumed session's trace) supplies the exact
+count; an endpoint that reports no `usage` keeps the estimate.
 
 **Activity feed + per-character status (live-only).** `turn-stream.applyActivity` derives
 `ActivityEntry` items from incoming frames — trace steps (`speaker` → "X is about to speak",
