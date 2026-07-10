@@ -20,6 +20,7 @@ import {
   branchOptionsToChoices,
   foldTrace,
   graphRelationshipsToRel,
+  latestContextTokens,
   mergeFrame,
   type PresenceMap,
   rehydrateFromHistory,
@@ -341,6 +342,28 @@ describe("rehydrateFromHistory", () => {
     expect(scene.presenceByChar).toEqual({ mei: "dead", kira: "left" });
     // A status change is not a transcript message.
     expect(scene.messages.some((m) => m.kind === "char")).toBe(false);
+  });
+});
+
+describe("latestContextTokens", () => {
+  const t = (step: string, n: number, data: Record<string, unknown> = {}): PersistedTrace => ({
+    turn: 0, n, step, title: step, detail: "", data,
+  });
+
+  it("returns the last `context` step's promptTokens", () => {
+    const traces: PersistedTrace[] = [
+      t("turn", 1),
+      t("context", 2, { promptTokens: 3000 }),
+      t("commit", 3),
+      t("context", 4, { promptTokens: 7200 }), // most recent wins
+    ];
+    expect(latestContextTokens(traces)).toBe(7200);
+  });
+
+  it("returns null when there is no context step (or no numeric token)", () => {
+    expect(latestContextTokens([t("turn", 1), t("commit", 2)])).toBeNull();
+    expect(latestContextTokens([t("context", 1, { promptTokens: "nope" })])).toBeNull();
+    expect(latestContextTokens([])).toBeNull();
   });
 });
 

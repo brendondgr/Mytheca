@@ -54,3 +54,43 @@ def test_chat_complete_preserves_app_emission_markers(monkeypatch):
     emission = '<speaker:1>\n<thinking>plot</thinking>\n<type:character_dialogue>\n"Fine."'
     _patch(monkeypatch, emission)
     assert _call() == emission
+
+
+def _patch_with_usage(monkeypatch, content: str, usage: dict | None):
+    def handler(_req: httpx.Request) -> httpx.Response:
+        payload: dict = {"choices": [{"message": {"content": content}}]}
+        if usage is not None:
+            payload["usage"] = usage
+        return httpx.Response(200, json=payload)
+
+    monkeypatch.setattr(
+        llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
+    )
+
+
+def _call_usage() -> tuple[str, int | None]:
+    return llm.chat_complete_usage(
+        "http://localhost:7070/v1", "sk-test", "m", [{"role": "user", "content": "hi"}]
+    )
+
+
+def test_chat_complete_usage_returns_exact_prompt_tokens(monkeypatch):
+    # The server-reported usage.prompt_tokens is the exact "context window used" figure.
+    _patch_with_usage(monkeypatch, "A clean reply.", {"prompt_tokens": 1234, "completion_tokens": 7})
+    text, prompt_tokens = _call_usage()
+    assert text == "A clean reply."
+    assert prompt_tokens == 1234
+
+
+def test_chat_complete_usage_none_when_usage_absent(monkeypatch):
+    # No usage block → None (the caller keeps its estimate instead of showing a bogus 0).
+    _patch_with_usage(monkeypatch, "A clean reply.", None)
+    text, prompt_tokens = _call_usage()
+    assert text == "A clean reply."
+    assert prompt_tokens is None
+
+
+def test_chat_complete_usage_none_when_prompt_tokens_nonpositive(monkeypatch):
+    _patch_with_usage(monkeypatch, "A clean reply.", {"prompt_tokens": 0})
+    _, prompt_tokens = _call_usage()
+    assert prompt_tokens is None

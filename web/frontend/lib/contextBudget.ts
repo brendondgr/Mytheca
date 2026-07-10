@@ -32,9 +32,25 @@ export const AVG_CHARS_PER_BEAT = 180;
 /**
  * Estimate the tokens a context window of `beats` recent beats costs, from an average
  * beat length and the char/4 heuristic. Approximate, for the UI readout as the slider moves.
+ * The `beatsTokensFromTexts` variant is preferred when the real transcript is available —
+ * this flat average is only the fallback before a scene has any beats.
  */
 export function estimateBeatsTokens(beats: number): number {
   return Math.ceil((Math.max(0, beats) * AVG_CHARS_PER_BEAT) / CHARS_PER_TOKEN);
+}
+
+/**
+ * Estimate the tokens the last `beats` of the ACTUAL transcript occupy, from each beat's
+ * real text (char/4). Content-real — it reflects what the player has actually written and
+ * the characters have actually said, not a flat average — so the scene-config readout tracks
+ * the true recent-context size as the slider moves. `texts` is one string per beat (its
+ * concatenated dialogue/action/thought). Still an estimate (no client tokenizer), but far
+ * closer than the average; the exact figure lives on the context dial after a turn runs.
+ */
+export function beatsTokensFromTexts(texts: string[], beats: number): number {
+  const n = Math.max(0, Math.floor(beats));
+  if (n === 0) return 0; // guard: slice(-0) === slice(0) would sum the whole array
+  return texts.slice(-n).reduce((sum, t) => sum + estimateTokens(t), 0);
 }
 
 export interface ContextBudget {

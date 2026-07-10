@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { exportSessionUrl } from "@/lib/api";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
@@ -16,7 +16,6 @@ import { TranscriptBeat } from "@/components/feature/TranscriptBeat";
 import { CharacterDossier } from "@/components/feature/CharacterDossier";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { TurnInspectorPanel } from "@/components/feature/TurnInspectorPanel";
-import { ContextUsageBar } from "@/components/feature/ContextUsageBar";
 
 /** The signature surface: a three-zone "open book" live scene. */
 export function StoryPlayerView({
@@ -31,6 +30,12 @@ export function StoryPlayerView({
   backHref?: string;
 }) {
   const scene = useScenePlay(scenario);
+  // One string per transcript beat (its dialogue/action/thought), so the composer's Config
+  // "Number of beats" readout reflects the REAL recent content, not a flat average.
+  const beatTexts = useMemo(
+    () => scene.messages.map((m) => [m.text, m.action, m.thought].filter(Boolean).join(" ")),
+    [scene.messages],
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   // Picking a suggestion writes it into the composer for review/editing; move focus there so
@@ -82,12 +87,6 @@ export function StoryPlayerView({
         canExport={Boolean(scene.sessionId)}
         onToggleInspector={() => setInspectorOpen((o) => !o)}
         inspectorOpen={inspectorOpen}
-        maxTurns={scene.maxTurns}
-        onMaxTurnsChange={scene.setMaxTurns}
-        suggestionsCount={scene.suggestionsCount}
-        onSuggestionsCountChange={scene.setSuggestionsCount}
-        contextBeats={scene.contextBeats}
-        onContextBeatsChange={scene.setContextBeats}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -143,20 +142,22 @@ export function StoryPlayerView({
               ) : null}
             </div>
           </div>
-          {scene.maxContextTokens !== null ? (
-            <div className="mx-auto w-full max-w-[720px] px-[16px] pb-[4px] sm:px-[30px]">
-              <ContextUsageBar
-                usedTokens={scene.usedTokens}
-                maxTokens={scene.maxContextTokens}
-              />
-            </div>
-          ) : null}
           <Composer
             value={scene.composer}
             onChange={scene.setComposer}
             onSend={scene.send}
             sendDisabled={scene.sending}
             inputRef={composerRef}
+            maxTurns={scene.maxTurns}
+            onMaxTurnsChange={scene.setMaxTurns}
+            suggestionsCount={scene.suggestionsCount}
+            onSuggestionsCountChange={scene.setSuggestionsCount}
+            contextBeats={scene.contextBeats}
+            onContextBeatsChange={scene.setContextBeats}
+            beatTexts={beatTexts}
+            usedTokens={scene.usedTokens}
+            maxContextTokens={scene.maxContextTokens}
+            usedTokensExact={scene.usedTokensExact}
           />
         </div>
 

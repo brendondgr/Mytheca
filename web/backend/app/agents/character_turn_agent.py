@@ -70,6 +70,34 @@ def generate_line(
 ) -> str:
     """Generate one character's raw emission for this beat (thin-tag format).
 
+    Thin wrapper over :func:`generate_line_with_usage` that drops the token figure.
+    """
+    raw, _ = generate_line_with_usage(
+        db, ctx, speaker, turn_beats=turn_beats, reasoning=reasoning,
+        correction=correction, directive=directive, relationship_note=relationship_note,
+    )
+    return raw
+
+
+def generate_line_with_usage(
+    db: Session,
+    ctx: TurnContext,
+    speaker: CastMember,
+    *,
+    turn_beats: list[dict],
+    reasoning: ReasoningEffort = TURN_EFFORT,
+    correction: str | None = None,
+    directive: str | None = None,
+    relationship_note: str | None = None,
+) -> tuple[str, int | None]:
+    """Generate one character's raw emission + the call's exact ``prompt_tokens``.
+
+    ``prompt_tokens`` (the server-reported input-token count, or ``None`` when the
+    endpoint omits ``usage``) is the largest, most representative "context window
+    used" figure in a turn — the character call carries the full system prefix
+    (output contract + World Primer + stat guidance) plus the transcript — so the
+    turn engine surfaces it to the story player's context dial.
+
     ``turn_beats`` is the chronological this-turn transcript so far (the player's
     line, then any earlier speakers' lines) — so a later speaker genuinely reacts to
     its predecessor (the immediate predecessor sits last, where recency attention is
@@ -89,7 +117,7 @@ def generate_line(
         ctx, speaker, turn_beats, correction=correction, directive=directive,
         relationship_note=relationship_note,
     )
-    return llm.chat_complete(
+    return llm.chat_complete_usage(
         base_url,
         api_key,
         model,

@@ -54,6 +54,23 @@ export function foldTrace(prev: TraceTurn[], frame: TurnTraceFrame): TraceTurn[]
   return next;
 }
 
+/**
+ * The exact context-window usage (input tokens) recorded on a saved session's traces —
+ * the last persisted `context` step's `promptTokens`, or `null` when none exists (older
+ * sessions, or an endpoint that reports no usage). Traces arrive ordered by turn then step
+ * order, so the last match is the most recent. Lets a resumed scene seed the context dial
+ * with the real last value instead of falling back to the char/4 estimate.
+ */
+export function latestContextTokens(traces: PersistedTrace[]): number | null {
+  for (let i = traces.length - 1; i >= 0; i--) {
+    if (traces[i].step === "context") {
+      const pt = (traces[i].data as { promptTokens?: unknown }).promptTokens;
+      if (typeof pt === "number") return pt;
+    }
+  }
+  return null;
+}
+
 /** Append/extend the message that owns `id`, or push a new one (delta accumulation). */
 function mergeDelta(
   prev: SceneMessage[],

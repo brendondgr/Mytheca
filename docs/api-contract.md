@@ -704,8 +704,8 @@ envelope before the 200 opens.
 order**, what the turn loop did and why — the story player's **Inspector** panel renders
 these. `step` is a stable key (`turn` opens each turn, then `intent` / `assemble` / `lore` /
 `plan` / `speaker` / `thinking` / `consistency` / `relationship` / `action` / `dialogue` /
-`stat` / `relationship_change` / `branch` / `commit` / `reflection`); `n` orders within one
-turn. Trace frames stay **out of the story-event stream** (not story events, not in
+`context` / `stat` / `relationship_change` / `branch` / `commit` / `reflection`); `n` orders
+within one turn. Trace frames stay **out of the story-event stream** (not story events, not in
 `story_event_adapter`), and the streaming flag defaults **off** so the default stream and
 the story-event contract are unchanged — but they are now **persisted** to the `turn_traces`
 table on **every** turn (independent of the flag) so a reopened scene's graph/RAG/reasoning
@@ -715,6 +715,15 @@ a `private_to_user` story event (the inline thinking line). Clients ignore `trac
 the transcript. The green **Graph** steps name what was written: `commit`'s `detail` lists
 each durable change (`data.changes[]` — the `Consequence` summaries), and the first-turn
 `relationships` seed step's `detail` lists the seeded edges (`data.edges[]`).
+
+**`context` step — exact context-window usage.** After a character generation, the engine
+emits a `context` trace step carrying the LLM-reported **`data.promptTokens`** — the exact
+`usage.prompt_tokens` for that call (the real size of everything sent: output contract +
+World Primer + stat guidance + RAG lore + transcript), the honest "context window used"
+figure. It is emitted only when the endpoint reports usage (omitted otherwise) and, like
+every step, is **persisted**, so the story player seeds its context dial from the resumed
+session's last `context` step and updates it live each turn. The frontend falls back to a
+char/4 estimate only until a real `promptTokens` is known.
 
 ### Rules
 
