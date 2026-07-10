@@ -31,7 +31,7 @@ describe("Composer", () => {
     expect(screen.getByRole("button", { name: /scene configuration/i })).toBeInTheDocument();
   });
 
-  it("renders the context dial when the model window size is known", () => {
+  it("renders the context dial as a labelled button when the model window size is known", () => {
     render(
       <Composer
         value=""
@@ -42,14 +42,13 @@ describe("Composer", () => {
         usedTokensExact
       />,
     );
-    const dial = screen.getByRole("progressbar", { name: /context usage/i });
-    expect(dial).toHaveAttribute("aria-valuenow", "5000");
-    expect(dial).toHaveAttribute("aria-valuetext", expect.stringContaining("exact"));
+    const dial = screen.getByRole("button", { name: /context usage/i });
+    expect(dial.getAttribute("aria-label")).toContain("exact");
   });
 
   it("omits the context dial when the window size is unknown", () => {
     render(<Composer value="" onChange={() => {}} onSend={() => {}} maxContextTokens={null} />);
-    expect(screen.queryByRole("progressbar", { name: /context usage/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /context usage/i })).not.toBeInTheDocument();
   });
 
   it("typing fires onChange", async () => {

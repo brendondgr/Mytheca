@@ -86,11 +86,12 @@ trace step carrying the LLM's reported `usage.prompt_tokens` (`llm.chat_complete
 `liveContextTokens` from that live `context` frame and seeds it on resume via
 `turn-stream.latestContextTokens(history.traces)`; it exposes `usedTokens = liveContextTokens ??`
 the char/4 estimate (`estimateUsedTokens` over the last `contextBeats` beats) plus `usedTokensExact`.
-This drives `ContextUsageDial` in the composer's bottom row, which colour-codes the ring green
-< 50 %, gold 50–75 %, danger ≥ 75 %, shows the used-token `K` in the centre, and surfaces
-`8.3K of 16K tokens (exact|estimated)` via `fmtTokensK` in the hover `title` + `aria-valuetext`.
-The estimate is shown only until a real turn (or a resumed session's trace) supplies the exact
-count; an endpoint that reports no `usage` keeps the estimate.
+This drives `ContextUsageDial` in the composer's bottom row — a small circular **button** whose
+visual-only ring colour-codes green < 50 %, gold 50–75 %, danger ≥ 75 %. The count is not printed
+in the ring; it surfaces on hover/focus in a tooltip (`8.3K of 16K tokens · 56% · exact`, via
+`fmtTokensK`), which is also the button's `aria-label`. The estimate is shown only until a real
+turn (or a resumed session's trace) supplies the exact count; an endpoint that reports no `usage`
+keeps the estimate.
 
 **Activity feed + per-character status (live-only).** `turn-stream.applyActivity` derives
 `ActivityEntry` items from incoming frames — trace steps (`speaker` → "X is about to speak",
