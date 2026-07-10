@@ -9,14 +9,13 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.agents import build_agent, storyline_agent, triage_agent
+from app.agents import storyline_agent, triage_agent
 from app.agents.storyline_edit import core as storyline_edit_core
 from app.agents.storyline_edit import creation as creation_agent
 from app.agents.storyline_edit import editor as editor_agent
 from app.core.db import get_db
 from app.core.errors import APIError
 from app.models import Character, Scenario, Setting
-from app.schemas.build import BuildErrorEvent, BuildWorldRequest, ProposedWorld
 from app.schemas.context_document import TriageErrorEvent, TriageRequest, TriageResponse
 from app.schemas.storyline import (
     StorylineCreate,
@@ -135,71 +134,8 @@ def storyline_agent_create_stream(data: StorylineAgentRequest, db: Session = Dep
     )
 
 
-@router.post("/build", response_model=ProposedWorld)
-def build_world(data: BuildWorldRequest, db: Session = Depends(get_db)):
-    """Draft an entire world (metadata, primer, stats, cast, settings) for review."""
-    return build_agent.build_world(
-        db,
-        data.seed,
-        data.docs_overview,
-        data.storyline_id,
-        max_characters=data.max_characters,
-        max_settings=data.max_settings,
-        character_docs=data.character_docs,
-        setting_docs=data.setting_docs,
-        uncategorized_docs=data.uncategorized_docs,
-        other_docs=data.other_docs,
-    )
-
-
 # NDJSON streaming headers: keep proxies (nginx) from buffering the live stream.
 _STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
-
-
-@router.post("/build/stream")
-def build_world_stream(data: BuildWorldRequest, db: Session = Depends(get_db)):
-    """Stream the world build live as NDJSON (``application/x-ndjson``).
-
-    One JSON object per line: ``status`` / ``meta`` / ``primer`` / ``plan`` /
-    ``character`` / ``setting`` / ``done`` (or a terminal ``error``). Missing
-    context or an unconfigured LLM is validated *before* the stream opens, so those
-    still return a normal ``400`` envelope.
-    """
-    # Pre-flight (status can't change once the 200 stream has opened).
-    build_agent.validate_build_inputs(
-        db,
-        data.seed,
-        data.docs_overview,
-        has_entity_docs=build_agent.has_buildable_docs(
-            data.character_docs, data.setting_docs, data.uncategorized_docs, data.other_docs
-        ),
-    )
-
-    def _lines() -> Iterator[str]:
-        try:
-            for event in build_agent.iter_build_world(
-                db,
-                data.seed,
-                data.docs_overview,
-                data.storyline_id,
-                max_characters=data.max_characters,
-                max_settings=data.max_settings,
-                character_docs=data.character_docs,
-                setting_docs=data.setting_docs,
-                uncategorized_docs=data.uncategorized_docs,
-                other_docs=data.other_docs,
-            ):
-                yield event.model_dump_json(by_alias=True) + "\n"
-        except APIError as exc:
-            yield BuildErrorEvent(message=exc.message).model_dump_json(by_alias=True) + "\n"
-        except Exception:  # never leak a stack trace into the stream
-            yield BuildErrorEvent(
-                message="The build failed unexpectedly."
-            ).model_dump_json(by_alias=True) + "\n"
-
-    return StreamingResponse(
-        _lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS
-    )
 
 
 @router.get("/{storyline_id}", response_model=StorylineRead)

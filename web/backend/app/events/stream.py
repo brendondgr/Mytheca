@@ -96,7 +96,7 @@ def chunk_text(text: str, max_chunk_chars: int = _DELTA_CHUNK_CHARS) -> list[str
 class TurnErrorFrame(CamelModel):
     """Terminal in-band error frame for the turn stream.
 
-    Mirrors ``BuildErrorEvent`` / ``TriageErrorEvent``: pre-flight failures return a
+    Mirrors ``TriageErrorEvent`` / ``AgentErrorFrame``: pre-flight failures return a
     normal ``400`` before the ``200`` stream opens, but a mid-stream failure can only
     be reported in-band, so the route yields this as the final line.
     """
