@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AVG_CHARS_PER_BEAT,
+  beatsTokensFromTexts,
   budgetFor,
   CHARS_PER_TOKEN,
   DRAFT_DOCS_CAP_TOKENS,
@@ -48,6 +49,22 @@ describe("contextBudget", () => {
     expect(estimateBeatsTokens(0)).toBe(0);
     // Monotonic: more beats → more tokens.
     expect(estimateBeatsTokens(100)).toBeGreaterThan(estimateBeatsTokens(5));
+  });
+
+  describe("beatsTokensFromTexts", () => {
+    it("sums estimateTokens over the last `beats` real beat texts", () => {
+      const texts = ["abcd", "abcdefgh", "ab", "abcdefghijkl"]; // 1, 2, 1, 3 tokens
+      // Last 2 beats → 1 + 3 = 4.
+      expect(beatsTokensFromTexts(texts, 2)).toBe(1 + 3);
+      // All 4 → 1 + 2 + 1 + 3 = 7.
+      expect(beatsTokensFromTexts(texts, 10)).toBe(1 + 2 + 1 + 3);
+    });
+
+    it("is 0 for an empty transcript or a zero/negative window", () => {
+      expect(beatsTokensFromTexts([], 14)).toBe(0);
+      expect(beatsTokensFromTexts(["abcd"], 0)).toBe(0);
+      expect(beatsTokensFromTexts(["abcd"], -3)).toBe(0);
+    });
   });
 
   describe("estimateUsedTokens", () => {

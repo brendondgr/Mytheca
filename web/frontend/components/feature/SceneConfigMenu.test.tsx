@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { SceneConfigMenu } from "./SceneConfigMenu";
-import { estimateBeatsTokens } from "@/lib/contextBudget";
+import { beatsTokensFromTexts, estimateBeatsTokens } from "@/lib/contextBudget";
 
 function setup(overrides = {}) {
   const props = {
@@ -66,6 +66,22 @@ describe("SceneConfigMenu", () => {
       screen.getByText(new RegExp(`${estimateBeatsTokens(100).toLocaleString()} tokens`)),
     ).toBeInTheDocument();
     expect(estimateBeatsTokens(100)).toBeGreaterThan(estimateBeatsTokens(14));
+  });
+
+  it("computes the beats readout from the real transcript when beatTexts is given", async () => {
+    const user = userEvent.setup();
+    // Long, real beats → far more tokens than the flat 180-char average would guess.
+    const beatTexts = Array.from({ length: 6 }, (_, i) => `Beat ${i}: ` + "word ".repeat(60));
+    render(
+      <SceneConfigMenu contextBeats={4} onContextBeatsChange={() => {}} beatTexts={beatTexts} />,
+    );
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    const expected = beatsTokensFromTexts(beatTexts, 4);
+    expect(
+      screen.getByText(new RegExp(`${expected.toLocaleString()} tokens \\(recent beats\\)`)),
+    ).toBeInTheDocument();
+    // The content-real count differs from the flat-average estimate for the same depth.
+    expect(expected).not.toBe(estimateBeatsTokens(4));
   });
 
   it("closes on Escape", async () => {
