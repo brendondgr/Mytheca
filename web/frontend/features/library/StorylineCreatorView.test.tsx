@@ -12,28 +12,19 @@ function md(name: string, text: string): File {
   return new File([text], name, { type: "text/markdown" });
 }
 
-/** The Context (triage) column now lives behind the right-pane "Context" tab. */
-async function openContext(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("tab", { name: /context/i }));
-}
-
 describe("StorylineCreatorView", () => {
-  it("renders the fields, the Assistant by default, and the Context tab", async () => {
-    const user = userEvent.setup();
+  it("renders the fields with the Assistant left sidebar and the Context right sidebar", () => {
     render(<StorylineCreatorView />);
     expect(screen.getByRole("heading", { name: /new storyline/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/^title$/i)).toBeInTheDocument();
-    // Assistant is the default right pane.
+    // Both sidebars are separate, always-visible landmarks (no tabs).
     expect(screen.getByRole("complementary", { name: /storyline assistant/i })).toBeInTheDocument();
-    // Context files are reachable via the tab.
-    await openContext(user);
     expect(screen.getByRole("complementary", { name: /context files/i })).toBeInTheDocument();
   });
 
   it("triages dropped files into grouped buckets", async () => {
     const user = userEvent.setup();
     render(<StorylineCreatorView />);
-    await openContext(user);
     await user.upload(screen.getByLabelText(/browse files/i), md("hero.md", "A person."));
     expect(await screen.findByRole("button", { name: /remove hero\.md/i })).toBeInTheDocument();
 
@@ -44,7 +35,6 @@ describe("StorylineCreatorView", () => {
   it("drops files pre-categorized when an 'Add as' bucket is chosen (no triage)", async () => {
     const user = userEvent.setup();
     render(<StorylineCreatorView />);
-    await openContext(user);
     await user.selectOptions(screen.getByRole("combobox", { name: /add as/i }), "character");
     await user.upload(screen.getByLabelText(/browse files/i), md("hero.md", "A person."));
     expect(await screen.findByText(/character details/i)).toBeInTheDocument();
@@ -53,10 +43,8 @@ describe("StorylineCreatorView", () => {
     expect(vi.mocked(api.triageDocumentsStream)).not.toHaveBeenCalled();
   });
 
-  it("shows the context-budget meter under the Context tab", async () => {
-    const user = userEvent.setup();
+  it("shows the context-budget meter", () => {
     render(<StorylineCreatorView />);
-    await openContext(user);
     expect(screen.getByText(/context budget/i)).toBeInTheDocument();
   });
 

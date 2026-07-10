@@ -256,15 +256,51 @@ def _plan_from_raw(
         )
 
     stat_changes: list[StatChange] = []
-    if "statistics" in writable and isinstance(raw.get(sc.STAT_CHANGES_KEY), list):
+    raw_stats = _raw_stat_list(raw)
+    if "statistics" in writable and raw_stats is not None:
         existing = {s.key: s for s in fields.stats}
-        for item in raw[sc.STAT_CHANGES_KEY]:
+        for item in raw_stats:
             change = _stat_change_from_raw(item, existing)
             if change is not None:
                 stat_changes.append(change)
 
     plan = StoryPlan(changes=changes, stat_changes=stat_changes, notes=str(raw.get("notes") or ""))
     return None if plan.is_empty() else plan
+
+
+def _raw_stat_list(raw: dict) -> list | None:
+    """The plan's stat-change array — tolerant of the model using camel or snake case."""
+    for key in (sc.STAT_CHANGES_KEY, "stat_changes"):
+        value = raw.get(key)
+        if isinstance(value, list):
+            return value
+    return None
+
+
+def _merge_bands(existing: list, proposed: list) -> list:
+    """Overlay each proposed band onto its existing counterpart (match by label, else
+    index) so a **partial** band edit — e.g. adding a description — keeps each band's
+    ``min``/``max``/``label`` instead of replacing the whole list (which would drop the
+    required fields and get the entire stat change silently rejected). The proposed list
+    stays authoritative for the band *set* (add/remove/reorder); each entry is enriched."""
+    by_label: dict[str, dict] = {}
+    for band in existing:
+        if isinstance(band, dict):
+            label = str(band.get("label") or "").strip().lower()
+            if label:
+                by_label[label] = band
+    out: list = []
+    for i, pband in enumerate(proposed):
+        if not isinstance(pband, dict):
+            continue
+        base: dict | None = None
+        label = str(pband.get("label") or "").strip().lower()
+        if label and label in by_label:
+            base = by_label[label]
+        elif i < len(existing) and isinstance(existing[i], dict):
+            base = existing[i]
+        out.append({**(base or {}), **pband})
+    return out
 
 
 def _stat_change_from_raw(
@@ -287,7 +323,10 @@ def _stat_change_from_raw(
             merged.update(before.model_dump(by_alias=True))
         raw_after = item.get("after")
         if isinstance(raw_after, dict):
-            merged.update(raw_after)
+            patch = dict(raw_after)
+            if isinstance(patch.get("bands"), list) and merged.get("bands"):
+                patch["bands"] = _merge_bands(merged["bands"], patch["bands"])
+            merged.update(patch)
         merged["key"] = key
         try:
             after = StatDefinitionDraft.model_validate(merged)

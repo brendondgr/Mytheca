@@ -123,3 +123,69 @@ def test_stat_remove_is_schema_altering():
 def test_stat_changes_dropped_when_statistics_not_writable():
     raw = {"statChanges": [{"key": "x", "changeType": "remove"}]}
     assert core._plan_from_raw(raw, _scope({"title"}), StorylineFieldsSnapshot()) is None
+
+
+def test_band_description_merge_keeps_min_max_and_is_not_dropped():
+    # Regression: adding band descriptions while sending only label+description per band
+    # must NOT drop the whole change (previously bands were wholesale-replaced, so the
+    # missing min/max failed StatBand validation and the stat change vanished).
+    existing = StatDefinitionDraft(
+        key="syth",
+        display_name="Syth",
+        min=0,
+        max=100,
+        default=50,
+        bands=[
+            {"min": 0, "max": 30, "label": "Faint"},
+            {"min": 31, "max": 70, "label": "Present"},
+            {"min": 71, "max": 100, "label": "Overwhelming"},
+        ],
+    )
+    snap = StorylineFieldsSnapshot(stats=[existing])
+    raw = {
+        "statChanges": [
+            {
+                "key": "syth",
+                "changeType": "update",
+                "after": {
+                    "bands": [
+                        {"label": "Faint", "description": "{Character} barely senses it."},
+                        {"label": "Present", "description": "{Character} feels it clearly."},
+                        {"label": "Overwhelming", "description": "{Character} is consumed by it."},
+                    ]
+                },
+            }
+        ]
+    }
+    plan = core._plan_from_raw(raw, _scope({"statistics"}), snap)
+    assert plan is not None  # not silently dropped
+    bands = plan.stat_changes[0].after.bands
+    assert [b.label for b in bands] == ["Faint", "Present", "Overwhelming"]
+    assert (bands[0].min, bands[0].max) == (0, 30)  # preserved from the existing band
+    assert bands[0].description == "{Character} barely senses it."
+    assert plan.stat_changes[0].schema_altering is False  # range unchanged
+
+
+def test_band_merge_by_index_when_labels_absent():
+    existing = StatDefinitionDraft(
+        key="hp",
+        display_name="HP",
+        bands=[{"min": 0, "max": 50, "label": "Low"}, {"min": 51, "max": 100, "label": "High"}],
+    )
+    snap = StorylineFieldsSnapshot(stats=[existing])
+    raw = {
+        "statChanges": [
+            {"key": "hp", "changeType": "update", "after": {"bands": [{"description": "d1"}, {"description": "d2"}]}}
+        ]
+    }
+    plan = core._plan_from_raw(raw, _scope({"statistics"}), snap)
+    bands = plan.stat_changes[0].after.bands
+    assert bands[0].label == "Low" and bands[0].description == "d1"
+    assert bands[1].label == "High" and bands[1].description == "d2"
+
+
+def test_stat_changes_accepts_snake_case_key():
+    snap = StorylineFieldsSnapshot(stats=[StatDefinitionDraft(key="trust", display_name="Trust")])
+    raw = {"stat_changes": [{"key": "trust", "changeType": "remove"}]}
+    plan = core._plan_from_raw(raw, _scope({"statistics"}), snap)
+    assert plan is not None and plan.stat_changes[0].change_type == "remove"

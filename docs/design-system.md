@@ -217,11 +217,13 @@ Every agentic authoring flow (drafting/editing a Character or Setting/Scenario, 
 ## Storyline Assistant Panel (conversational, scope-aware editing)
 
 The storyline create/edit page (`StorylineCreatorView`) replaced its one-shot "Build the
-whole world" hero with a **segmented right pane** — `[ Assistant | Context ]` — an
-ARIA `role=tab`/`aria-selected` pair switching between the new **Assistant** (the
-`StorylineAgentPanel`) and the existing **Context** (`TriagePanel` + `ContextBudgetMeter`,
-now hosted `embedded`). No new tokens — the panel reuses the existing `--field`/`--card`
-surfaces, `--accent`/gold highlights, and `Button`/`TextArea`/`ToggleChip` primitives.
+whole world" hero with a **three-column layout** (at `lg+`): a **left sidebar** holding the
+new **Assistant** (`StorylineAgentPanel`), the **by-hand fields in the center**, and a
+**right sidebar** holding the existing **Context** (`TriagePanel` + `ContextBudgetMeter`,
+hosted `embedded`). Each column scrolls independently; below `lg` they stack (the center form
+leads via `order-1`, the two sidebars become bounded strips). No new tokens — the panel reuses
+the existing `--field`/`--card` surfaces, `--accent`/gold highlights, and
+`Button`/`TextArea`/`ToggleChip` primitives.
 
 - **Scope selector** — one `ToggleChip` pill per writable field (Title · Genre · Tagline ·
   Premise · World Primer · Statistics), each `aria-pressed` to reflect whether the agent

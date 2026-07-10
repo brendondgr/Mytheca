@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { TextArea } from "@/components/ui/TextArea";
@@ -27,7 +26,6 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
   const c = useStorylineCreator(editId);
   const router = useRouter();
   const [sealOpen, setSealOpen] = useState(false);
-  const [rightTab, setRightTab] = useState<"assistant" | "context">("assistant");
 
   const canGeneratePrimer = Boolean(c.fields.premise.trim());
 
@@ -70,13 +68,18 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
   }
 
   return (
-    // Self-contained one-screen shell at every width: the page never scrolls as a
-    // whole — the left (world fields) and the right (Context files) each own an
-    // independent vertical scroll. Two columns at md+; below md they stack, the
-    // fields taking the bulk and the context pane a bounded, scrollable strip.
-    <main className="flex h-dvh min-h-0 flex-col overflow-hidden md:flex-row">
-      {/* ── Left pane — the world fields (own scroll) ───────────────────── */}
-      <div className="min-h-0 flex-1 min-w-0 overflow-y-auto">
+    // Self-contained one-screen shell: the page never scrolls as a whole. Three columns
+    // at lg+ — the **Assistant** left sidebar, the world fields in the center, and the
+    // **Context** files right sidebar, each owning an independent vertical scroll. Below
+    // lg they stack (the form leads via `order-1`; the two sidebars become bounded strips).
+    <main className="flex h-dvh min-h-0 flex-col overflow-hidden lg:flex-row">
+      {/* ── Left sidebar — the Assistant (own scroll; StorylineAgentPanel is the landmark) ── */}
+      <div className="order-2 flex max-h-[50dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong lg:order-1 lg:max-h-none lg:w-[380px] lg:border-t-0 lg:border-r lg:self-stretch">
+        <StorylineAgentPanel agent={agent} mode={c.isEdit ? "edit" : "create"} />
+      </div>
+
+      {/* ── Center — the world fields (own scroll) ──────────────────────── */}
+      <div className="order-1 min-h-0 flex-1 min-w-0 overflow-y-auto lg:order-2">
         <div className="mx-auto flex w-full max-w-[840px] flex-col px-[22px] py-[20px]">
           <Link
             href="/"
@@ -230,45 +233,20 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
         </div>
       </div>
 
-      {/* ── Right pane — Assistant / Context (segmented) ────────────────── */}
-      <div className="flex max-h-[52dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong bg-card md:max-h-none md:w-[380px] md:border-t-0 md:border-l md:self-stretch">
-        <div role="tablist" aria-label="Right pane" className="flex shrink-0 border-b border-hair-strong">
-          {(["assistant", "context"] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={rightTab === tab}
-              onClick={() => setRightTab(tab)}
-              className={cn(
-                "flex-1 cursor-pointer px-[14px] py-[10px] font-mono text-[10.5px] tracking-[0.1em] uppercase",
-                rightTab === tab
-                  ? "border-b-2 border-accent text-accent"
-                  : "border-b-2 border-transparent text-mute hover:text-ink-soft",
-              )}
-            >
-              {tab === "assistant" ? "❖ Assistant" : "⎙ Context"}
-            </button>
-          ))}
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col">
-          {rightTab === "assistant" ? (
-            <StorylineAgentPanel agent={agent} mode={c.isEdit ? "edit" : "create"} />
-          ) : (
-            <TriagePanel
-              embedded
-              docs={c.docs}
-              onAddFiles={(files, opts) => void c.addFiles(files, opts)}
-              onRemove={c.removeDoc}
-              onToggleUse={c.toggleDocUse}
-              onSetCategory={c.setDocCategory}
-              onTriage={c.triage}
-              triaging={c.triaging}
-              triageActive={c.triageActive}
-              budget={c.budget}
-            />
-          )}
-        </div>
+      {/* ── Right sidebar — Context files (own scroll; TriagePanel is the landmark) ──── */}
+      <div className="order-3 flex max-h-[42dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong lg:max-h-none lg:w-[340px] lg:border-t-0 lg:border-l lg:self-stretch">
+        <TriagePanel
+          embedded
+          docs={c.docs}
+          onAddFiles={(files, opts) => void c.addFiles(files, opts)}
+          onRemove={c.removeDoc}
+          onToggleUse={c.toggleDocUse}
+          onSetCategory={c.setDocCategory}
+          onTriage={c.triage}
+          triaging={c.triaging}
+          triageActive={c.triageActive}
+          budget={c.budget}
+        />
       </div>
 
       <SealModal
