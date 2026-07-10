@@ -129,6 +129,29 @@ export function makeApiMock() {
     ),
     deleteStoryline: vi.fn(async () => {}),
 
+    // ---- agentic storyline editor / creator ----
+    storylineAgentEditStream: vi.fn(async function* () {
+      yield { type: "message" as const, delta: "Here is a tighter tagline.", done: false };
+      yield { type: "message" as const, delta: "", done: true };
+      yield {
+        type: "plan" as const,
+        plan: {
+          changes: [{ field: "tagline", after: "Every secret has a price.", rationale: "punchier" }],
+          statChanges: [],
+          notes: "",
+        },
+        baseVersion: "hash-1",
+      };
+    }),
+    storylineAgentCreateStream: vi.fn(async function* () {
+      yield { type: "message" as const, delta: "Here is a draft.", done: false };
+      yield { type: "message" as const, delta: "", done: true };
+    }),
+    applyStorylineAgentPlan: vi.fn(async (id: string, body: { plan: { changes: unknown[] } }) => ({
+      storyline: { id, title: "Embergate", genre: "Maritime", tagline: "Every secret has a price." },
+      applied: body.plan.changes.map(() => "Updated tagline"),
+    })),
+
     // ---- storyline authoring (the creation-time agent) ----
     draftStoryline: vi.fn(async (seed: string) => ({
       title: "Drafted World",

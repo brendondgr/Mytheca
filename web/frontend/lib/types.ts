@@ -218,6 +218,60 @@ export interface StatDefinition {
   bands: StatBand[];
 }
 
+// ---- Agentic storyline editor/creator (docs/api-contract.md) ----------------
+// A conversational, scope-aware agent edits a storyline's own fields (title,
+// genre, tagline, premise, World Primer, stat schema) under an explicit write
+// scope, plan → approve → implement. Mirrors app/schemas/storyline_edit.py.
+
+/** Per-field agent scope — may the agent write it, and read it as context. */
+export interface FieldScope {
+  writable: boolean;
+  readable: boolean;
+}
+
+/** The scope object shared client↔server: `{ field key → FieldScope }`. */
+export type StorylineScope = Record<string, FieldScope>;
+
+/** One turn of the client-session conversation with the storyline agent. */
+export interface AgentMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/** A proposed change to one text/primer field (before → after + why). */
+export interface FieldChange {
+  field: string;
+  before?: string;
+  after?: string;
+  rationale: string;
+}
+
+export type StatChangeType = "add" | "update" | "remove";
+
+/** A proposed stat *definition* change; `schemaAltering` flags the higher-risk ones. */
+export interface StatChange {
+  key: string;
+  changeType: StatChangeType;
+  before?: StatDefinition | null;
+  after?: StatDefinition | null;
+  schemaAltering: boolean;
+  rationale: string;
+}
+
+/** The reviewable plan for one agent turn — nothing is written until approval. */
+export interface StoryPlan {
+  changes: FieldChange[];
+  statChanges: StatChange[];
+  notes: string;
+}
+
+/** One NDJSON frame from the converse/plan stream. */
+export type AgentEditFrame =
+  | { type: "status"; message: string }
+  | { type: "message"; delta: string; done: boolean }
+  | { type: "plan"; plan: StoryPlan; baseVersion?: string | null }
+  | { type: "error"; message: string };
+
 // ---- Context documents + the triaged world build ---------------------------
 // The New Storyline page drops `.txt`/`.md` files, triages them into buckets, and
 // (on commit) persists them as the storyline's reference corpus. Mirrors the backend

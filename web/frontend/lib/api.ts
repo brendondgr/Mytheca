@@ -14,6 +14,8 @@ import type {
   TurnStreamFrame,
 } from "@/lib/events";
 import type {
+  AgentEditFrame,
+  AgentMessage,
   BuildEvent,
   Character,
   ContextDocument,
@@ -25,6 +27,8 @@ import type {
   Setting,
   StatDefinition,
   Storyline,
+  StoryPlan,
+  StorylineScope,
   TriageEvent,
   TriageItem,
   VoiceSample,
@@ -249,6 +253,53 @@ export const createStoryline = (body: StorylineInput) =>
 export const updateStoryline = (id: string, body: StorylineInput) =>
   patch<StorylineSummary>(`/storylines/${id}`, body);
 export const deleteStoryline = (id: string) => del(`/storylines/${id}`);
+
+// ---- agentic storyline editor / creator (conversational, plan → implement) ----
+// The author sets a write scope, chats with the agent (in-chat memory), and the
+// agent streams a reply + an optional structured plan. Approval applies the plan
+// (edit) or fills the create form. See docs/api-contract.md.
+
+/** The author's current form values — the agent's read context + plan before-values. */
+export interface StorylineFieldsSnapshot {
+  title?: string;
+  genre?: string;
+  tagline?: string;
+  premise?: string;
+  worldPrimer?: string;
+  stats?: StatDefinition[];
+}
+
+export interface StorylineAgentBody {
+  scope: StorylineScope;
+  messages: AgentMessage[];
+  fields: StorylineFieldsSnapshot;
+}
+
+/** Converse with the storyline **editor** agent for an existing world (NDJSON). */
+export const storylineAgentEditStream = (
+  id: string,
+  body: StorylineAgentBody,
+  signal?: AbortSignal,
+) => postNdjson<AgentEditFrame>(`/storylines/${id}/agent/edit/stream`, body, signal);
+
+/** Converse with the storyline **creation** agent from a blank/partial start (NDJSON). */
+export const storylineAgentCreateStream = (body: StorylineAgentBody, signal?: AbortSignal) =>
+  postNdjson<AgentEditFrame>(`/storylines/agent/create/stream`, body, signal);
+
+export interface StorylineApplyBody {
+  scope: StorylineScope;
+  plan: StoryPlan;
+  baseVersion?: string | null;
+}
+
+export interface StorylineApplyResult {
+  storyline: StorylineSummary;
+  applied: string[];
+}
+
+/** Approve → implement an edit plan against an existing storyline. */
+export const applyStorylineAgentPlan = (id: string, body: StorylineApplyBody) =>
+  post<StorylineApplyResult>(`/storylines/${id}/agent/apply`, body);
 
 // ---- storyline authoring (the creation-time agent process) ----
 // `docsOverview` is inline text read from dropped reference files in the browser,
