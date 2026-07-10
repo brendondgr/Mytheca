@@ -28,7 +28,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. Read/write shape: `id`, `name`, `role`, `color`, `mono` (derived), `traits`, `speech`, `goal`, `secret`, plus base-identity prose `appearance`, `background`, `personality` (all nullable), `portrait` (nullable relative `/media/...` URL of the generated WebP avatar), `portraitPositive` / `portraitNegative` (nullable ComfyUI prompt strings that produced the portrait — persisted so the author can tweak-and-re-render on re-edit), and `voiceSamples` (a list of `{ situation, sample }` pairs — the character's voice & tone profile, each pair a previous situation paired with the character's *single* in-voice response to it (never a back-and-forth exchange); empty list when unauthored, derived from background/personality before starting stats and injected into the turn loop). |
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. Read/write shape: `id`, `name`, `type`, `desc` (short base description), plus §4.1 Setting-node metadata `atmosphere` (sensory character), `features` (notable fixtures/points of interest), `currentState` (initial here-and-now), and `image` (nullable relative `/media/scenes/...` URL of the generated WebP establishing shot) — all nullable; `sceneArtPositive` / `sceneArtNegative` (nullable ComfyUI prompt strings that produced the image — persisted for re-edit); and `timeline` (append-only event log, **empty at authoring**, play-accrued; defaults `[]`). |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. Read/write shape includes `image` (nullable relative `/media/scenes/...` URL of the generated WebP scene art), `sceneArtPositive`, and `sceneArtNegative` (nullable prompt strings), plus three **per-scene play controls** set from the composer's scene-config menu: `maxTurns` (hard ceiling on the beats a player message produces — character replies **and** narrator beats — ≥1, default **5**; the loop may still end earlier), `suggestionsCount` (how many follow-up suggestions to offer at the end of a turn, 0–4, `0` disables, default **4**), and `contextBeats` (depth of the recent-transcript window the character conditions on, 5–100, default **14**). Also includes `promptOverrides` (nullable JSON object `{registryKey: text}` — per-scenario writing-agent prompt overrides, the innermost layer of the four-layer resolution chain; coerced to `{}` when NULL on read; see Writing-Agent Prompt Overrides below). |
-| Context documents | `GET /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs/bulk`, `PATCH /context-docs/{docId}`, `DELETE /context-docs/{docId}` | **Implemented.** The persisted **triaged RAG corpus** for a world (written by the New Storyline page's Triage → commit). Each doc carries a `category` (`character`/`setting`/`other`) and inclusion tiers `includeDraft` / `includeRag` / `includeExtract` (opt-in build-time mining, default off). Docs are **storyline-level** (Triage default) or **entity-scoped** — a doc with `entityType` + `entityId` reappears in that editor on re-edit and is removed (with its embedding) when the entity is deleted. `GET /storylines/{id}/context-docs` accepts `?entityType=&entityId=` to filter by scope. Docs with `includeRag` are embedded on save (hybrid RAG). See Context Document Shape below. |
+| Context documents | `GET /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs/bulk`, `PATCH /context-docs/{docId}`, `DELETE /context-docs/{docId}`, `POST /context-docs/{docId}/links`, `DELETE /context-docs/{docId}/links` | **Implemented.** The persisted **triaged RAG corpus** for a world (written by the New Storyline page's Triage → commit; managed post-creation at `/storylines/[id]/documents`). Each doc carries a `category` (`character`/`setting`/`other`) and inclusion tiers `includeDraft` / `includeRag` / `includeExtract` (opt-in build-time mining, default off). Docs are **storyline-level** (Triage default) or **entity-scoped** — a doc with `entityType` + `entityId` reappears in that editor on re-edit and is removed (with its embedding) when the entity is deleted. Each doc also carries **provenance `links`** (which entities it is context *for* — build lineage + manual). `GET /storylines/{id}/context-docs` accepts `?entityType=&entityId=` (owned scope) or `?linkedEntityType=&linkedEntityId=` (provenance). Docs with `includeRag` are embedded on save (hybrid RAG). See Context Document Shape below. |
 | Hybrid RAG | `GET /storylines/{id}/rag/status`, `POST /storylines/{id}/rag/reindex/stream`, `POST /storylines/{id}/rag/query` | **Implemented.** Vector-store status, NDJSON reindex progress stream, and debug retrieval query for a world's corpus. Best-effort (`available: false` when Qdrant is down/disabled). See RAG Shapes below. |
 | Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
 | Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
@@ -91,7 +91,8 @@ A persisted, triaged reference document on a storyline (the RAG-corpus seam):
   "source": "upload",
   "charCount": 812,
   "entityType": "character",
-  "entityId": "c_abc123"
+  "entityId": "c_abc123",
+  "links": [{ "id": "cdl_…", "entityType": "character", "entityId": "c_abc123" }]
 }
 ```
 
@@ -112,6 +113,20 @@ accepts `?entityType=character&entityId=c_abc123` to filter by scope.
 `POST …/context-docs/bulk` takes `{ docs: [ContextDocumentCreate…] }` and persists
 the whole corpus in one call (the New Storyline commit). Docs with `includeRag: true`
 are embedded on save and pruned on delete (hybrid RAG).
+
+**Provenance links (`links[]`).** A doc→entity **many-to-many** reference recording
+which entities a document was used as context **for** — distinct from the single
+`entityType`/`entityId` OWNERSHIP scope above (a link never changes the doc's
+storyline-level membership, and one doc may link to several entities). Auto-captured
+when **Build the whole world** mines a doc into a character/setting (the commit turns
+each proposed entity's `sourceDocNames` into links), plus manual links from the entity
+editor's **Source documents** section. Endpoints: `POST /context-docs/{docId}/links`
+`{ entityType, entityId }` (idempotent) and `DELETE /context-docs/{docId}/links?entityType=&entityId=`
+both return the updated `ContextDocumentRead`; deleting a doc cascades its links,
+deleting a linked entity drops the dangling links but keeps the doc. Links are pure
+provenance metadata — no effect on embeddings/retrieval.
+`GET /storylines/{id}/context-docs?linkedEntityType=character&linkedEntityId=c_abc123`
+returns the docs an entity is a context reference of (the Source-documents panel).
 
 ## Story Graph Shapes
 
@@ -768,8 +783,8 @@ envelope before the 200 opens.
 order**, what the turn loop did and why — the story player's **Inspector** panel renders
 these. `step` is a stable key (`turn` opens each turn, then `intent` / `assemble` / `lore` /
 `plan` / `speaker` / `thinking` / `consistency` / `relationship` / `action` / `dialogue` /
-`stat` / `relationship_change` / `branch` / `commit` / `reflection`); `n` orders within one
-turn. Trace frames stay **out of the story-event stream** (not story events, not in
+`context` / `stat` / `relationship_change` / `branch` / `commit` / `reflection`); `n` orders
+within one turn. Trace frames stay **out of the story-event stream** (not story events, not in
 `story_event_adapter`), and the streaming flag defaults **off** so the default stream and
 the story-event contract are unchanged — but they are now **persisted** to the `turn_traces`
 table on **every** turn (independent of the flag) so a reopened scene's graph/RAG/reasoning
@@ -779,6 +794,15 @@ a `private_to_user` story event (the inline thinking line). Clients ignore `trac
 the transcript. The green **Graph** steps name what was written: `commit`'s `detail` lists
 each durable change (`data.changes[]` — the `Consequence` summaries), and the first-turn
 `relationships` seed step's `detail` lists the seeded edges (`data.edges[]`).
+
+**`context` step — exact context-window usage.** After a character generation, the engine
+emits a `context` trace step carrying the LLM-reported **`data.promptTokens`** — the exact
+`usage.prompt_tokens` for that call (the real size of everything sent: output contract +
+World Primer + stat guidance + RAG lore + transcript), the honest "context window used"
+figure. It is emitted only when the endpoint reports usage (omitted otherwise) and, like
+every step, is **persisted**, so the story player seeds its context dial from the resumed
+session's last `context` step and updates it live each turn. The frontend falls back to a
+char/4 estimate only until a real `promptTokens` is known.
 
 ### Rules
 

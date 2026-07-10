@@ -257,5 +257,6 @@ export async function commitWorld(
     onProgress?.("Saving context files…");
     await api.bulkCreateContextDocuments(id, corpus.map(docToContextInput));
   }
+
   return id;
 }

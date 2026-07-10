@@ -36,6 +36,7 @@ import {
   branchOptionsToChoices,
   foldTrace,
   graphRelationshipsToRel,
+  latestContextTokens,
   mergeFrame,
   type PresenceMap,
   rehydrateFromHistory,
@@ -92,15 +93,23 @@ export function useScenePlay(scenario: ResolvedScenario) {
   // Per-character live status: "idle" | "thinking" | "speaking". Resets to {} when the
   // stream leaves "streaming" (nobody is stuck in thinking/speaking between turns).
   const [activityByChar, setActivityByChar] = useState<Record<string, CharacterActivity>>({});
-  // Model's reported context-window size in tokens (null = unknown / fetch failed → bar hidden).
+  // Model's reported context-window size in tokens (null = unknown / fetch failed → dial hidden).
   const [maxContextTokens, setMaxContextTokens] = useState<number | null>(null);
+  // The EXACT input-token count the model reported for the latest turn (`usage.prompt_tokens`,
+  // carried on the engine's `context` trace step) — the true "context window used", including
+  // the World Primer, output contract, stat guidance, RAG lore, and transcript. `null` before
+  // any turn has streamed one (or on an endpoint that reports no usage); the dial then falls
+  // back to the estimate below. Seeded from persisted traces on resume.
+  const [liveContextTokens, setLiveContextTokens] = useState<number | null>(null);
   // Live character↔character relationships from the story graph (P6). Falls back to the
   // seed placeholder while empty / when the graph is off.
   const [graphRels, setGraphRels] = useState<Relationship[]>([]);
 
-  // Estimated tokens the last `contextBeats` messages occupy in the context window.
-  // Recomputed whenever messages or contextBeats changes.
-  const usedTokens = useMemo(() => {
+  // Char/4 estimate of the tokens the last `contextBeats` messages occupy — the fallback
+  // the context dial shows before a turn has reported its EXACT `usage.prompt_tokens`
+  // (which is far larger, since it also counts the primer/contract/guidance/RAG the
+  // estimate can't see). Recomputed whenever messages or contextBeats changes.
+  const estimatedUsedTokens = useMemo(() => {
     const window = messages.slice(-contextBeats);
     const texts = window.map((m) => [m.text, m.action, m.thought].filter(Boolean).join(" "));
     return estimateUsedTokens(texts);
@@ -151,6 +160,9 @@ export function useScenePlay(scenario: ResolvedScenario) {
       if (!alive) return;
       const scene = rehydrateFromHistory(history.events, history.traces, base);
       rememberSession(history.session.id);
+      // Seed the dial with the resumed session's last real context-token count (null when
+      // none was recorded → the estimate fallback is used until the next turn streams one).
+      setLiveContextTokens(latestContextTokens(history.traces));
       if (scene.messages.length) setMessages(scene.messages);
       if (scene.stats.length) setStats(scene.stats);
       setStatsByChar(scene.statsByChar);
@@ -193,7 +205,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
   }, [scenario.id, scenario.cast]);
 
   // Fetch the model's context-window size once on mount (best-effort — failure keeps null
-  // so the ContextUsageBar stays hidden rather than showing an invalid value).
+  // so the ContextUsageDial stays hidden rather than showing an invalid value).
   useEffect(() => {
     getLlmContextWindow()
       .then((r) => setMaxContextTokens(r.maxContextTokens))
@@ -222,6 +234,11 @@ export function useScenePlay(scenario: ResolvedScenario) {
     setActivityByChar((m) => applyCharacterActivity(m, frame));
 
     if (frame.type === "trace") {
+      // The engine's `context` step carries the exact input-token count for the turn's
+      // character call — the real "context window used" the dial renders.
+      if (frame.step === "context" && typeof frame.data.promptTokens === "number") {
+        setLiveContextTokens(frame.data.promptTokens);
+      }
       setTraceTurns((t) => foldTrace(t, frame));
       return;
     }
@@ -357,7 +374,10 @@ export function useScenePlay(scenario: ResolvedScenario) {
     closeProfile: () => setProfileId(null),
     activity,
     activityByChar,
-    usedTokens,
+    // The dial's used-token count: the exact `usage.prompt_tokens` once a turn has reported
+    // it, else the char/4 estimate. `usedTokensExact` lets the UI label which it is showing.
+    usedTokens: liveContextTokens ?? estimatedUsedTokens,
+    usedTokensExact: liveContextTokens !== null,
     maxContextTokens,
   };
 }

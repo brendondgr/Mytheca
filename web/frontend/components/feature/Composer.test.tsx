@@ -9,9 +9,46 @@ describe("Composer", () => {
     expect(screen.getByRole("textbox", { name: /your message/i })).toBeInTheDocument();
   });
 
-  it("does not render a Config button (Config lives in the SceneHeader)", () => {
+  it("omits the Config control when no config handlers are given", () => {
     render(<Composer value="" onChange={() => {}} onSend={() => {}} />);
     expect(screen.queryByRole("button", { name: /scene configuration/i })).not.toBeInTheDocument();
+  });
+
+  it("renders the Config control on the bottom row when config handlers are provided", () => {
+    render(
+      <Composer
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        maxTurns={5}
+        onMaxTurnsChange={() => {}}
+        suggestionsCount={4}
+        onSuggestionsCountChange={() => {}}
+        contextBeats={14}
+        onContextBeatsChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /scene configuration/i })).toBeInTheDocument();
+  });
+
+  it("renders the context dial as a labelled button when the model window size is known", () => {
+    render(
+      <Composer
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        usedTokens={5000}
+        maxContextTokens={16384}
+        usedTokensExact
+      />,
+    );
+    const dial = screen.getByRole("button", { name: /context usage/i });
+    expect(dial.getAttribute("aria-label")).toContain("exact");
+  });
+
+  it("omits the context dial when the window size is unknown", () => {
+    render(<Composer value="" onChange={() => {}} onSend={() => {}} maxContextTokens={null} />);
+    expect(screen.queryByRole("button", { name: /context usage/i })).not.toBeInTheDocument();
   });
 
   it("typing fires onChange", async () => {

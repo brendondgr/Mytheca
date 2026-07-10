@@ -9,6 +9,7 @@ import { TextArea } from "@/components/ui/TextArea";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import { ContextFilesPanel } from "@/components/feature/ContextFilesPanel";
+import { SourceDocumentsPanel } from "@/components/feature/SourceDocumentsPanel";
 import {
   ProcessProgress,
   type ProcessStep,
@@ -266,6 +267,13 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 <p role="alert" className="mt-4 font-body text-[13px] text-accent md:hidden">
                   {lib.error}
                 </p>
+              ) : null}
+              {isEdit && m.editId ? (
+                <SourceDocumentsPanel
+                  storylineId={lib.activeStorylineId}
+                  entityType="setting"
+                  entityId={m.editId}
+                />
               ) : null}
             </aside>
           </div>

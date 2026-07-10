@@ -71,6 +71,41 @@ def test_generate_line_returns_raw_emission(client, db_session, monkeypatch):
     assert raw == _EMISSION
 
 
+def _patch_llm_with_usage(monkeypatch, prompt_tokens: int | None):
+    def handler(_req: httpx.Request) -> httpx.Response:
+        payload: dict = {"choices": [{"message": {"content": _EMISSION}}]}
+        if prompt_tokens is not None:
+            payload["usage"] = {"prompt_tokens": prompt_tokens, "completion_tokens": 9}
+        return httpx.Response(200, json=payload)
+
+    monkeypatch.setattr(
+        llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
+    )
+
+
+def test_generate_line_with_usage_surfaces_exact_prompt_tokens(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch_llm_with_usage(monkeypatch, 2048)
+    ctx = _ctx()
+    raw, prompt_tokens = character_turn_agent.generate_line_with_usage(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "I slide the pouch over.", "characterId": None}],
+    )
+    assert raw == _EMISSION
+    assert prompt_tokens == 2048
+
+
+def test_generate_line_with_usage_none_when_endpoint_omits_usage(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch_llm_with_usage(monkeypatch, None)
+    ctx = _ctx()
+    _, prompt_tokens = character_turn_agent.generate_line_with_usage(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    assert prompt_tokens is None
+
+
 def test_prompt_is_bookended_and_grounded(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}

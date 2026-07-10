@@ -16,11 +16,11 @@ import time
 
 import httpx
 
-logger = logging.getLogger("velora.llm")
-
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmModelsResponse, LlmParams, LlmTestResponse
+
+logger = logging.getLogger("velora.llm")
 
 # Listing models / the connection test are quick; generation (especially slow
 # local or reasoning models that think for many tokens) needs a far longer read
@@ -102,9 +102,34 @@ def chat_complete(
     reasoning: ReasoningEffort | None = None,
     extra_body: dict | None = None,
 ) -> str:
-    """Run one chat completion and return the assistant's text.
+    """Run one chat completion and return the assistant's (scrubbed) text.
 
     The general-purpose generation primitive (the authoring agent builds on it).
+    Thin wrapper over :func:`chat_complete_usage` that discards the usage figure.
+    """
+    text, _ = chat_complete_usage(
+        base_url, api_key, model, messages, params, reasoning=reasoning, extra_body=extra_body
+    )
+    return text
+
+
+def chat_complete_usage(
+    base_url: str,
+    api_key: str,
+    model: str,
+    messages: list[dict[str, str]],
+    params: LlmParams | None = None,
+    *,
+    reasoning: ReasoningEffort | None = None,
+    extra_body: dict | None = None,
+) -> tuple[str, int | None]:
+    """Run one chat completion; return ``(scrubbed_text, prompt_tokens)``.
+
+    ``prompt_tokens`` is the server-reported ``usage.prompt_tokens`` — the **exact**
+    number of input tokens the model actually saw for this call — or ``None`` when the
+    endpoint omits ``usage`` (so the caller can fall back to an estimate). It is the
+    honest "context window used" figure the story player's context dial renders.
+
     Errors map to the contract envelope; an empty/malformed completion is an
     ``upstream_error`` rather than a silent blank.
 
@@ -147,6 +172,7 @@ def chat_complete(
         choice = choices[0] if choices else {}
         content = (choice.get("message", {}).get("content") or "").strip()
         finish_reason = choice.get("finish_reason")
+        prompt_tokens = _prompt_tokens(payload)
     except (ValueError, AttributeError, IndexError, TypeError) as exc:
         raise APIError(
             502, "upstream_error", "The model endpoint returned an unexpected response."
@@ -176,7 +202,20 @@ def chat_complete(
                 "Options — reasoning models need extra headroom.",
             )
         raise APIError(502, "upstream_error", "The model returned an empty response.")
-    return content
+    return content, prompt_tokens
+
+
+def _prompt_tokens(payload: dict) -> int | None:
+    """Extract ``usage.prompt_tokens`` from an OpenAI-compatible completion payload.
+
+    Returns ``None`` when the endpoint omits ``usage`` or the value is not a positive
+    integer, so callers degrade to an estimate instead of surfacing a bogus zero.
+    """
+    usage = payload.get("usage") if isinstance(payload, dict) else None
+    value = usage.get("prompt_tokens") if isinstance(usage, dict) else None
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if value > 0 else None
 
 
 def list_models(base_url: str, api_key: str) -> LlmModelsResponse:

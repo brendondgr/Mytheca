@@ -19,6 +19,7 @@ import type {
   Character,
   ContextDocument,
   DocCategory,
+  EntityScope,
   GraphTypeDefinition,
   Scenario,
   ScenarioGraph,
@@ -348,14 +349,30 @@ export type ContextDocumentInput = {
   entityId?: string | null;
 };
 
-/** List a world's context docs; pass a scope to get just one entity's files. */
+/**
+ * List a world's context docs. Pass `{ entityType, entityId }` to get just one
+ * entity's OWNED files (they reappear in its editor); pass `{ linkedEntityType,
+ * linkedEntityId }` for the docs an entity is a context REFERENCE of (provenance).
+ */
 export const listContextDocuments = (
   storylineId: string,
-  scope?: { entityType: string; entityId: string },
+  scope?: {
+    entityType?: string;
+    entityId?: string;
+    linkedEntityType?: string;
+    linkedEntityId?: string;
+  },
 ) => {
-  const q = scope
-    ? `?entityType=${encodeURIComponent(scope.entityType)}&entityId=${encodeURIComponent(scope.entityId)}`
-    : "";
+  const params = new URLSearchParams();
+  if (scope?.entityType && scope?.entityId) {
+    params.set("entityType", scope.entityType);
+    params.set("entityId", scope.entityId);
+  }
+  if (scope?.linkedEntityType && scope?.linkedEntityId) {
+    params.set("linkedEntityType", scope.linkedEntityType);
+    params.set("linkedEntityId", scope.linkedEntityId);
+  }
+  const q = params.toString() ? `?${params.toString()}` : "";
   return request<ContextDocument[]>(`/storylines/${storylineId}/context-docs${q}`);
 };
 export const createContextDocument = (storylineId: string, doc: ContextDocumentInput) =>
@@ -369,6 +386,21 @@ export const updateContextDocument = (
   body: Partial<ContextDocumentInput>,
 ) => patch<ContextDocument>(`/context-docs/${docId}`, body);
 export const deleteContextDocument = (docId: string) => del(`/context-docs/${docId}`);
+
+/** Link a document to an entity as a context reference (build lineage / manual). Idempotent. */
+export const addDocumentLink = (
+  docId: string,
+  link: { entityType: EntityScope; entityId: string },
+) => post<ContextDocument>(`/context-docs/${docId}/links`, link);
+/** Remove a doc→entity provenance link (leaves the document). Returns the updated doc. */
+export const removeDocumentLink = (
+  docId: string,
+  link: { entityType: EntityScope; entityId: string },
+) =>
+  request<ContextDocument>(
+    `/context-docs/${docId}/links?entityType=${encodeURIComponent(link.entityType)}&entityId=${encodeURIComponent(link.entityId)}`,
+    { method: "DELETE" },
+  );
 
 // ---- RAG corpus status + re-embed (the vector store) ----
 export type RagStatus = { available: boolean; indexed: number };

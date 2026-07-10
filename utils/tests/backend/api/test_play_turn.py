@@ -802,6 +802,53 @@ def test_trace_surfaces_hidden_thinking(client, storyline_id, monkeypatch):
     assert "Coin first" in think["detail"]
 
 
+def _patch_llm_with_usage(monkeypatch, prompt_tokens: int, content: str = _EMISSION):
+    def handler(_req: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": content}}],
+                "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": 40},
+            },
+        )
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+
+
+def test_context_trace_reports_exact_prompt_tokens(client, db_session, storyline_id, monkeypatch):
+    # When the model reports usage.prompt_tokens, the engine emits a `context` trace step
+    # carrying the EXACT input-token count — the real "context window used" for the dial —
+    # and persists it so a resumed scene can seed the dial without re-running a turn.
+    from app.models import TurnTrace
+
+    _configure_llm(client)
+    _patch_llm_with_usage(monkeypatch, 4096)
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid, "trace": True})
+    )
+    ctx = next(t for t in events if t["type"] == "trace" and t["step"] == "context")
+    assert ctx["data"]["promptTokens"] == 4096
+    assert ctx["data"]["characterId"] == cid
+
+    # Persisted (regardless of the stream opt-in) so resume rehydrates the real value.
+    rows = db_session.query(TurnTrace).filter(TurnTrace.step == "context").all()
+    assert rows and rows[-1].data["promptTokens"] == 4096
+
+
+def test_context_trace_absent_when_endpoint_omits_usage(client, storyline_id, monkeypatch):
+    # No usage block → no context step (the dial keeps its char/4 heuristic fallback).
+    _configure_llm(client)
+    _patch_llm(monkeypatch)  # the default mock omits `usage`
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid, "trace": True})
+    )
+    assert all(not (e["type"] == "trace" and e["step"] == "context") for e in events)
+
+
 # ---- Reactive Turn Director P1: puppet performance + attribution ---------------
 
 

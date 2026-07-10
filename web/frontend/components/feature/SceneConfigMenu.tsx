@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { SceneControlSelect } from "@/components/ui/SceneControlSelect";
 import { Eyebrow } from "@/components/ui/Eyebrow";
-import { estimateBeatsTokens } from "@/lib/contextBudget";
+import { beatsTokensFromTexts, estimateBeatsTokens } from "@/lib/contextBudget";
 
 const MAX_TURN_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const SUGGESTION_OPTIONS = [0, 1, 2, 3, 4];
@@ -31,9 +31,11 @@ function GearIcon() {
 }
 
 /**
- * The scene's play-configuration popover, anchored in the SceneHeader left of Export. Holds the
- * per-scene controls — Max turns, Suggestions, and the context-window depth (Number of beats,
- * 5–100) with a live approximate token estimate. Native controls + Esc/outside-click close.
+ * The scene's play-configuration popover — the per-scene controls (Max turns, Suggestions,
+ * and the context-window depth "Number of beats", 5–100). Now anchored in the composer's
+ * bottom-left controls row (`openUp` flips the popover above the button); when `beatTexts`
+ * (the real transcript beats) is passed, the beats readout reflects the ACTUAL recent
+ * content rather than a flat average. Native controls + Esc/outside-click close.
  */
 export function SceneConfigMenu({
   maxTurns = 5,
@@ -42,6 +44,8 @@ export function SceneConfigMenu({
   onSuggestionsCountChange,
   contextBeats = 14,
   onContextBeatsChange,
+  beatTexts,
+  openUp = false,
   disabled = false,
 }: {
   maxTurns?: number;
@@ -50,6 +54,10 @@ export function SceneConfigMenu({
   onSuggestionsCountChange?: (value: number) => void;
   contextBeats?: number;
   onContextBeatsChange?: (value: number) => void;
+  /** The real transcript beats (one string each) — makes the readout content-real. */
+  beatTexts?: string[];
+  /** Open the popover upward (for the bottom-of-screen composer). */
+  openUp?: boolean;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -76,7 +84,11 @@ export function SceneConfigMenu({
     };
   }, [open]);
 
-  const beatsTokens = estimateBeatsTokens(contextBeats);
+  // Content-real when the transcript is available; the flat average is the fallback.
+  const beatsTokens = beatTexts
+    ? beatsTokensFromTexts(beatTexts, contextBeats)
+    : estimateBeatsTokens(contextBeats);
+  const beatsLabel = beatTexts ? "tokens (recent beats)" : "tokens of context";
 
   return (
     <div ref={ref} className="relative flex-none">
@@ -87,7 +99,7 @@ export function SceneConfigMenu({
         aria-expanded={open}
         aria-controls={panelId}
         aria-label="Scene configuration"
-        className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[10px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent"
+        className="flex flex-none items-center gap-[5px] rounded-[8px] border border-field-bd px-[9px] py-[5px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent"
       >
         <GearIcon />
         Config
@@ -100,7 +112,9 @@ export function SceneConfigMenu({
           role="dialog"
           aria-label="Scene configuration"
           tabIndex={-1}
-          className="absolute top-[38px] right-0 z-40 flex w-[264px] flex-col gap-[13px] rounded-[4px] border border-cardbd bg-card p-[14px] shadow-[0_8px_24px_rgba(20,14,6,.18)] focus:outline-none"
+          className={`absolute left-0 z-40 flex w-[264px] flex-col gap-[13px] rounded-[4px] border border-cardbd bg-card p-[14px] shadow-[0_8px_24px_rgba(20,14,6,.18)] focus:outline-none ${
+            openUp ? "bottom-[38px]" : "top-[38px]"
+          }`}
         >
           <Eyebrow tracking="0.16em" color="var(--accent)">
             Scene configuration
@@ -147,7 +161,7 @@ export function SceneConfigMenu({
               className="w-full accent-accent disabled:opacity-60"
             />
             <span className="font-mono text-[10px] tracking-[0.04em] text-ink-soft">
-              ≈ {beatsTokens.toLocaleString()} tokens of context
+              ≈ {beatsTokens.toLocaleString()} {beatsLabel}
             </span>
           </div>
         </div>

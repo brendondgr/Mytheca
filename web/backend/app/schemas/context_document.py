@@ -55,6 +55,21 @@ class ContextDocumentUpdate(CamelModel):
     include_extract: bool | None = None
 
 
+class ContextDocumentLinkRead(CamelModel):
+    """A doc→entity provenance link (which character/setting a doc is context for)."""
+
+    id: str
+    entity_type: EntityScope
+    entity_id: str
+
+
+class ContextDocumentLinkCreate(CamelModel):
+    """Attach a document to an entity as a context reference (idempotent)."""
+
+    entity_type: EntityScope
+    entity_id: str
+
+
 class ContextDocumentRead(CamelModel):
     id: str
     storyline_id: str
@@ -68,6 +83,9 @@ class ContextDocumentRead(CamelModel):
     char_count: int
     entity_type: EntityScope | None = None
     entity_id: str | None = None
+    # Provenance links: the entities this doc was used as context for (build lineage
+    # + manual links). Read straight off the ORM ``links`` relationship.
+    links: list[ContextDocumentLinkRead] = []
 
 
 # ---- Triage (the agentic classification step) -------------------------------

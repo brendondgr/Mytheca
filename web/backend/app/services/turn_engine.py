@@ -649,7 +649,7 @@ def _generate_speaker(
     graph relationships (to whom they address, + 2-hop) into the prompt (D4)."""
     tr = tracer or _Tracer(False)
     roster = {i + 1: m.id for i, m in enumerate(ctx.cast)}
-    raw = character_turn_agent.generate_line(
+    raw, prompt_tokens = character_turn_agent.generate_line_with_usage(
         db, ctx, speaker, turn_beats=turn_beats, directive=directive, relationship_note=relationship_note
     )
     segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
@@ -674,11 +674,25 @@ def _generate_speaker(
             data={"characterId": speaker.id, "consistent": verdict.consistent},
         )
         if not verdict.consistent:
-            raw = character_turn_agent.generate_line(
+            raw, prompt_tokens = character_turn_agent.generate_line_with_usage(
                 db, ctx, speaker, turn_beats=turn_beats, correction=verdict.reason,
                 relationship_note=relationship_note,
             )
             segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
+
+    # Exact context-window usage: the server-reported input-token count for this
+    # character call — the real size of everything actually sent (output contract +
+    # World Primer + stat guidance + transcript). Streamed live and persisted (the
+    # tracer writes it regardless of the opt-in) so the story player's context dial
+    # reads the truth, not a char/4 estimate. Omitted when the endpoint reports no
+    # usage (the dial then keeps its heuristic fallback).
+    if prompt_tokens is not None:
+        yield from tr.emit(
+            "context",
+            "Context window",
+            detail=f"{prompt_tokens:,} tokens sent to the model",
+            data={"characterId": speaker.id, "promptTokens": prompt_tokens},
+        )
 
     impact = 0
     for seg in segments:

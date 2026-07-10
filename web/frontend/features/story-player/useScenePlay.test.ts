@@ -327,3 +327,59 @@ describe("useScenePlay activity feed + per-character status", () => {
     expect(result.current.activityByChar).toEqual({});
   });
 });
+
+describe("useScenePlay context tokens (exact vs. estimate)", () => {
+  function traceFrame(step: string, n: number, data: Record<string, unknown> = {}): TurnStreamFrame {
+    return { type: "trace", n, step, title: `${step} ${n}`, detail: "", data } as TurnStreamFrame;
+  }
+
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  it("shows the char/4 estimate before any turn reports usage", async () => {
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    // No live value yet → not exact, and the count is the (small) transcript estimate.
+    expect(result.current.usedTokensExact).toBe(false);
+    expect(typeof result.current.usedTokens).toBe("number");
+  });
+
+  it("adopts the exact prompt_tokens from a live `context` trace frame", async () => {
+    vi.mocked(postTurn).mockReturnValue(
+      makeStream([
+        traceFrame("turn", 1, {}),
+        traceFrame("context", 2, { characterId: speaker.id, promptTokens: 8321 }),
+      ]),
+    );
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setComposer("Go"));
+    act(() => result.current.send());
+
+    await waitFor(() => expect(result.current.usedTokens).toBe(8321));
+    expect(result.current.usedTokensExact).toBe(true);
+  });
+
+  it("seeds the exact value from a resumed session's persisted `context` trace", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValueOnce({
+      sessions: [{ id: "ps_ct", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" }],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValueOnce({
+      session: { id: "ps_ct", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" },
+      events: [
+        { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_ct", ts: "t", visibility: "public", data: { text: "x", directedAt: null } },
+      ],
+      traces: [
+        { turn: 0, n: 1, step: "turn", title: "You", detail: "x", data: {} },
+        { turn: 0, n: 2, step: "context", title: "Context window", detail: "", data: { promptTokens: 5120 } },
+      ],
+    });
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.usedTokens).toBe(5120));
+    expect(result.current.usedTokensExact).toBe(true);
+  });
+});

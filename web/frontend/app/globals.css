@@ -77,6 +77,14 @@ textarea::placeholder {
   outline-offset: 2px;
 }
 
+/* The story composer's textarea signals focus through its panel's accent border
+ * (focus-within), so it opts out of the boxy outline above. This unlayered, higher-
+ * specificity rule is what actually wins: the rule above is unlayered, so a Tailwind
+ * `focus-visible:outline-none` utility (in @layer utilities) can't override it. */
+textarea.composer-input:focus-visible {
+  outline: none;
+}
+
 ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
