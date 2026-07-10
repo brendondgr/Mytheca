@@ -26,6 +26,7 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
   // Storyline create/edit now live on a dedicated page (not a modal).
   const goCreateStoryline = () => router.push("/storylines/new");
   const goEditStoryline = (id: string) => router.push(`/storylines/${id}/edit`);
+  const goDocuments = (id: string) => router.push(`/storylines/${id}/documents`);
 
   // Empty-state default: with no storylines, the New Storyline page IS the home.
   useEffect(() => {
@@ -50,6 +51,7 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
             onCreate={goCreateStoryline}
             onEdit={goEditStoryline}
             onConfigurePrompts={lib.openStorylinePrompts}
+            onDocuments={goDocuments}
             onDelete={lib.requestDeleteStoryline}
           />
         }

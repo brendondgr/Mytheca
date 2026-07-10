@@ -229,6 +229,36 @@ export function makeApiMock() {
       ...body,
     })),
     deleteContextDocument: vi.fn(async () => {}),
+    addDocumentLink: vi.fn(
+      async (docId: string, link: { entityType: string; entityId: string }) => ({
+        id: docId,
+        storylineId: "embergate",
+        name: "doc.md",
+        content: "",
+        category: "other",
+        includeDraft: false,
+        includeRag: true,
+        includeExtract: false,
+        source: "upload",
+        charCount: 0,
+        links: [{ id: nid("cdl"), ...link }],
+      }),
+    ),
+    removeDocumentLink: vi.fn(
+      async (docId: string) => ({
+        id: docId,
+        storylineId: "embergate",
+        name: "doc.md",
+        content: "",
+        category: "other",
+        includeDraft: false,
+        includeRag: true,
+        includeExtract: false,
+        source: "upload",
+        charCount: 0,
+        links: [],
+      }),
+    ),
     getRagStatus: vi.fn(async () => ({ available: false, indexed: 0 })),
     reindexCorpusStream: vi.fn(async function* () {
       yield { stage: "done", indexed: 0, skipped: 0, total: 0, available: false };

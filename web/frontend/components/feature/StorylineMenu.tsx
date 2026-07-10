@@ -43,6 +43,27 @@ function GearIcon() {
   );
 }
 
+function DocsIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 13h8" />
+      <path d="M8 17h8" />
+    </svg>
+  );
+}
+
 function TrashIcon() {
   return (
     <svg
@@ -97,6 +118,7 @@ export function StorylineMenu({
   onCreate,
   onEdit,
   onConfigurePrompts,
+  onDocuments,
   onDelete,
 }: {
   storylines: Storyline[];
@@ -105,6 +127,7 @@ export function StorylineMenu({
   onCreate: () => void;
   onEdit: (id: string) => void;
   onConfigurePrompts: (id: string) => void;
+  onDocuments: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -227,6 +250,18 @@ export function StorylineMenu({
                       className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-accent focus-visible:text-accent"
                     >
                       <GearIcon />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Documents for ${s.title}`}
+                      title="Documents"
+                      onClick={() => {
+                        onDocuments(s.id);
+                        setOpen(false);
+                      }}
+                      className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-accent focus-visible:text-accent"
+                    >
+                      <DocsIcon />
                     </button>
                     <button
                       type="button"
