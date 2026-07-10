@@ -180,10 +180,16 @@ class AgentMessageFrame(CamelModel):
 
 
 class AgentPlanFrame(CamelModel):
-    """The terminal structured plan (present only when the agent proposes changes)."""
+    """The terminal structured plan (present only when the agent proposes changes).
+
+    ``base_version`` is the server's content hash of the writable fields at plan
+    time (edit mode only); the client echoes it on apply so a concurrent manual
+    edit is rejected rather than silently overwritten.
+    """
 
     type: Literal["plan"] = "plan"
     plan: StoryPlan
+    base_version: str | None = None
 
 
 class AgentErrorFrame(CamelModel):
@@ -194,3 +200,29 @@ class AgentErrorFrame(CamelModel):
 
 
 AgentEditEvent = AgentStatusFrame | AgentMessageFrame | AgentPlanFrame | AgentErrorFrame
+
+
+# ---- Apply (implement) ------------------------------------------------------
+
+
+class StorylineApplyRequest(CamelModel):
+    """Approve → implement an edit plan against an existing storyline."""
+
+    scope: ScopeState = Field(default_factory=dict)
+    plan: StoryPlan
+    # The content hash the plan was built against; when present and mismatched the
+    # apply is rejected (409 stale). Omit to skip the concurrency check.
+    base_version: str | None = None
+
+
+class StorylineApplyResponse(CamelModel):
+    """The refreshed storyline plus a human-readable audit of what was applied."""
+
+    storyline: "StorylineRead"
+    applied: list[str] = Field(default_factory=list)
+
+
+# Imported at the bottom to avoid a cycle (storyline schema is standalone).
+from app.schemas.storyline import StorylineRead  # noqa: E402
+
+StorylineApplyResponse.model_rebuild()

@@ -43,8 +43,10 @@ def _get_definition(db: Session, storyline_id: str, key: str) -> StatDefinition:
 
 
 def create_stat_definition(
-    db: Session, storyline_id: str, data: StatDefinitionCreate
+    db: Session, storyline_id: str, data: StatDefinitionCreate, *, commit: bool = True
 ) -> StatDefinition:
+    """Create a stat definition. ``commit=False`` only flushes, so a caller (the
+    agentic-apply path) can batch several stat writes into one transaction."""
     get_storyline(db, storyline_id)
     if db.scalar(
         select(StatDefinition).where(
@@ -67,8 +69,11 @@ def create_stat_definition(
         bands=[b.model_dump() for b in data.bands],
     )
     db.add(sd)
-    db.commit()
-    db.refresh(sd)
+    if commit:
+        db.commit()
+        db.refresh(sd)
+    else:
+        db.flush()
     return sd
 
 
@@ -88,7 +93,7 @@ def _reclamp_character_values(db: Session, storyline_id: str, sd: StatDefinition
 
 
 def update_stat_definition(
-    db: Session, storyline_id: str, key: str, data: StatDefinitionUpdate
+    db: Session, storyline_id: str, key: str, data: StatDefinitionUpdate, *, commit: bool = True
 ) -> StatDefinition:
     sd = _get_definition(db, storyline_id, key)
     fields = data.model_dump(exclude_unset=True)
@@ -104,16 +109,22 @@ def update_stat_definition(
             raise APIError(422, "invalid_range", "Stat min must be less than max.")
         sd.default = max(sd.min, min(sd.max, sd.default))
         _reclamp_character_values(db, storyline_id, sd)
-    db.commit()
-    db.refresh(sd)
+    if commit:
+        db.commit()
+        db.refresh(sd)
+    else:
+        db.flush()
     return sd
 
 
-def delete_stat_definition(db: Session, storyline_id: str, key: str) -> None:
+def delete_stat_definition(
+    db: Session, storyline_id: str, key: str, *, commit: bool = True
+) -> None:
     """Remove a stat definition and prune its values from every character.
 
     The definition→value link is by ``key`` (not a FK), so the values are pruned
-    explicitly here rather than by cascade.
+    explicitly here rather than by cascade. ``commit=False`` only flushes (see
+    :func:`create_stat_definition`).
     """
     sd = _get_definition(db, storyline_id, key)
     for row in db.scalars(
@@ -123,7 +134,10 @@ def delete_stat_definition(db: Session, storyline_id: str, key: str) -> None:
     ):
         db.delete(row)
     db.delete(sd)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
 
 
 # ---- character stat values (clamped) ---------------------------------------

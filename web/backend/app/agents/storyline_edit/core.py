@@ -41,7 +41,7 @@ from app.schemas.storyline_edit import (
     StorylineFieldsSnapshot,
     StoryPlan,
 )
-from app.services import llm
+from app.services import crud, llm, storyline_apply
 
 # camelCase field key → the snapshot attribute holding its current value.
 _SNAPSHOT_ATTR = {
@@ -122,7 +122,18 @@ def converse(
         # Belt: the plan is already filtered to writable keys by construction; the
         # guard re-asserts it (the load-bearing rejection lives on the apply path).
         sc.diff_guard(plan, scope)
-        yield AgentPlanFrame(plan=plan)
+        yield AgentPlanFrame(plan=plan, base_version=_base_version(db, storyline_id, scope))
+
+
+def _base_version(db: Session, storyline_id: str | None, scope: ScopeState) -> str | None:
+    """The writable-fields content hash the client echoes on apply (edit mode only)."""
+    if not storyline_id:
+        return None
+    try:
+        sl = crud.get_storyline(db, storyline_id)
+        return storyline_apply.storyline_version(db, sl, sc.writable_keys(scope))
+    except APIError:  # pragma: no cover - defensive; a missing world just skips reconcile
+        return None
 
 
 # ---- context + prompt -------------------------------------------------------

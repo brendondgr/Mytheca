@@ -27,8 +27,13 @@ from app.schemas.storyline import (
     WorldPrimerRequest,
     WorldPrimerResponse,
 )
-from app.schemas.storyline_edit import AgentErrorFrame, StorylineAgentRequest
-from app.services import crud
+from app.schemas.storyline_edit import (
+    AgentErrorFrame,
+    StorylineAgentRequest,
+    StorylineApplyRequest,
+    StorylineApplyResponse,
+)
+from app.services import crud, storyline_apply
 
 router = APIRouter(prefix="/storylines", tags=["storylines"])
 
@@ -250,3 +255,15 @@ def storyline_agent_edit_stream(
             fields=data.fields,
         )
     )
+
+
+@router.post("/{storyline_id}/agent/apply", response_model=StorylineApplyResponse)
+def storyline_agent_apply(
+    storyline_id: str, data: StorylineApplyRequest, db: Session = Depends(get_db)
+):
+    """Approve → implement an edit plan: diff guard, stale-read reconcile, then the
+    same validated writes manual edits use — transactionally (rolls back on failure)."""
+    _sl, applied = storyline_apply.apply_plan(
+        db, storyline_id, data.scope, data.plan, data.base_version
+    )
+    return StorylineApplyResponse(storyline=get_storyline(storyline_id, db), applied=applied)
