@@ -30,7 +30,7 @@ velora/
 │   ├── frontend/           # Live Next.js 16 app (App Router, Turbopack) + React 19 + TS + Tailwind v4 + Framer Motion
 │   │   ├── app/            # Routes, layouts, route handlers (+ co-located *.test.tsx)
 │   │   ├── components/{ui,layout,feature}/
-│   │   ├── features/       # Feature modules (story player, editors)
+│   │   ├── features/       # Feature modules (story player, library, options, documents)
 │   │   ├── hooks/          # Shared hooks (event-stream consumer, etc.)
 │   │   ├── lib/            # Frontend helpers, API client
 │   │   ├── styles/         # Global styles / Tailwind target
@@ -50,7 +50,7 @@ velora/
 │   │       ├── rag/        # Entry-based hybrid RAG: schema.py (LoreEntry) · serializer.py (prefix-fusion) · tokens.py (512-token guard) · entries.py (entity→entry adapters) · embedder.py (fastembed bge-large + HashEmbedder fallback) · store.py (Qdrant) · indexer.py (embed-on-save/delete hooks + reindex progress) · retriever.py (dense+BM25+RRF+pre-filter) · const.py
 │   │       ├── memory/     # Live turn state (Redis, best-effort): buffer.py (recent-turn buffer); interior state + prefetch are later-phase seams
 │   │       ├── events/     # Story-event envelope (6 types incl. internal_thought) + stream.py (build_event/to_ndjson_line/chunk_text)
-│   │       ├── models/     # PostgreSQL models (storylines, characters, settings, scenarios, play_sessions, events, turn_traces, stats, app_settings, graph_type_definitions, context_documents)
+│   │       ├── models/     # PostgreSQL models (storylines, characters, settings, scenarios, play_sessions, events, turn_traces, stats, app_settings, graph_type_definitions, context_documents, context_document_links)
 │   │       ├── schemas/    # Pydantic request/response + event schemas (stat clamping, rag.py)
 │   │       └── core/       # Config, db/redis/neo4j/qdrant.py clients, LLM provider interface, YAML/Markdown loaders
 │   └── shared/

@@ -232,6 +232,18 @@ export type DocCategory = "character" | "setting" | "other" | "select";
 /** Entity a context document can be scoped to (else storyline-level). */
 export type EntityScope = "character" | "setting" | "scenario";
 
+/**
+ * A doc→entity provenance link — records that a document was used as context for a
+ * character/setting (auto-captured at build time, plus manual links). Distinct from a
+ * doc's own `entityType`/`entityId` OWNERSHIP scope: a link is a reference that leaves
+ * the doc a storyline-level corpus member, and one doc may link to several entities.
+ */
+export interface ContextDocumentLink {
+  id: string;
+  entityType: EntityScope;
+  entityId: string;
+}
+
 /** A persisted, triaged reference document (the RAG corpus). */
 export interface ContextDocument {
   id: string;
@@ -251,6 +263,8 @@ export interface ContextDocument {
    *  reappears there; when null it is a storyline-level corpus doc. */
   entityType?: EntityScope | null;
   entityId?: string | null;
+  /** Provenance links — the entities this doc was used as context for. */
+  links?: ContextDocumentLink[];
 }
 
 /** One Triage classification for a dropped doc (before persistence). */
@@ -294,6 +308,9 @@ export interface ProposedCharacter {
   /** Voice & tone samples generated before stats (situation → sample-response pairs). */
   voiceSamples: VoiceSample[];
   startingStats: ProposedStartingStat[];
+  /** Uploaded document(s) this character was mined from (build lineage); the commit
+   *  turns these into doc→entity provenance links. */
+  sourceDocNames?: string[];
   /** Client-side only: the portrait URL once it renders during commit (live preview). */
   portrait?: string | null;
 }
@@ -306,6 +323,8 @@ export interface ProposedSetting {
   atmosphere: string;
   features: string;
   currentState: string;
+  /** Uploaded document(s) this setting was mined from (build lineage). */
+  sourceDocNames?: string[];
   /** Client-side only: the scene-art URL once it renders during commit (live preview). */
   image?: string | null;
 }

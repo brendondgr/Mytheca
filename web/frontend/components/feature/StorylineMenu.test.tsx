@@ -15,6 +15,7 @@ function setup(storylines = STORYLINES) {
     onCreate: vi.fn(),
     onEdit: vi.fn(),
     onConfigurePrompts: vi.fn(),
+    onDocuments: vi.fn(),
     onDelete: vi.fn(),
   };
   render(<StorylineMenu storylines={storylines} activeId="embergate" {...handlers} />);
@@ -33,6 +34,15 @@ describe("StorylineMenu", () => {
     await user.click(screen.getByTitle(/switch storyline/i)); // reopen (closed on action)
     await user.click(screen.getByRole("button", { name: /delete embergate/i }));
     expect(onDelete).toHaveBeenCalledWith("embergate");
+  });
+
+  it("offers a per-storyline Documents action", async () => {
+    const user = userEvent.setup();
+    const { onDocuments } = setup();
+
+    await user.click(screen.getByTitle(/switch storyline/i));
+    await user.click(screen.getByRole("button", { name: /documents for tidefall/i }));
+    expect(onDocuments).toHaveBeenCalledWith("tidefall");
   });
 
   it("offers a per-storyline writing-prompts (gear) action", async () => {

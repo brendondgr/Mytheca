@@ -259,16 +259,26 @@ def has_buildable_docs(*lists: list[BuildDoc] | None) -> bool:
     return any((d.text or "").strip() for docs in lists for d in (docs or []))
 
 
-def _dedup(entities: list[ExtractedEntity], seen: set[str]) -> list[ExtractedEntity]:
-    """Append entities not already seen (folded-name key); first occurrence wins."""
-    out: list[ExtractedEntity] = []
+def _add_entities(
+    roster: list[ExtractedEntity],
+    index: dict[str, ExtractedEntity],
+    entities: list[ExtractedEntity],
+) -> None:
+    """Append first-seen entities to ``roster``; for a repeat subject (folded-name key)
+    MERGE its ``source_doc_names`` into the kept entity so cross-doc lineage survives
+    de-dup (a subject profiled in two docs links to both)."""
     for e in entities:
         key = e.name.casefold()
-        if not key or key in seen:
+        if not key:
             continue
-        seen.add(key)
-        out.append(e)
-    return out
+        existing = index.get(key)
+        if existing is None:
+            index[key] = e
+            roster.append(e)
+        else:
+            for dn in e.source_doc_names:
+                if dn and dn not in existing.source_doc_names:
+                    existing.source_doc_names.append(dn)
 
 
 def _extract_one(
@@ -294,7 +304,8 @@ def _fallback_entity(name: str, text: str) -> ExtractedEntity:
     character/setting yields no explicitly named subject (its classification asserts it
     is one, so it is never lost). The draft agent overrides the provisional name."""
     label = re.sub(r"\.(md|markdown|txt|text)$", "", name.strip(), flags=re.IGNORECASE)
-    return ExtractedEntity(name=label or "Unnamed", source=text[:DOCS_CAP])
+    source_docs = [name.strip()] if name.strip() else []
+    return ExtractedEntity(name=label or "Unnamed", source=text[:DOCS_CAP], source_doc_names=source_docs)
 
 
 def _collect_roster(
@@ -314,8 +325,8 @@ def _collect_roster(
     """
     characters: list[ExtractedEntity] = []
     settings: list[ExtractedEntity] = []
-    seen_chars: set[str] = set()
-    seen_settings: set[str] = set()
+    char_index: dict[str, ExtractedEntity] = {}
+    setting_index: dict[str, ExtractedEntity] = {}
     for (name, text, kind), found in zip(jobs, found_slots):
         found_chars = found.characters if found else []
         found_settings = found.settings if found else []
@@ -325,14 +336,14 @@ def _collect_roster(
             # (that would spuriously invent a filename-named duplicate).
             if not found_chars:
                 found_chars = [_fallback_entity(name, text)]
-            characters.extend(_dedup(found_chars, seen_chars))
+            _add_entities(characters, char_index, found_chars)
         elif kind == "setting":
             if not found_settings:
                 found_settings = [_fallback_entity(name, text)]
-            settings.extend(_dedup(found_settings, seen_settings))
+            _add_entities(settings, setting_index, found_settings)
         else:  # uncategorized — strict, may contribute nothing (no fallback)
-            characters.extend(_dedup(found_chars, seen_chars))
-            settings.extend(_dedup(found_settings, seen_settings))
+            _add_entities(characters, char_index, found_chars)
+            _add_entities(settings, setting_index, found_settings)
     return characters, settings
 
 
@@ -541,6 +552,7 @@ def iter_build_world(
             **draft.model_dump(),
             voice_samples=voice.samples,
             starting_stats=list(default_stats),
+            source_doc_names=list(entity.source_doc_names),
         )
 
     char_slots: list[ProposedCharacter | None] = [None] * len(char_entities)
@@ -561,7 +573,9 @@ def iter_build_world(
     # 6) One full setting per extracted subject, drafted concurrently.
     def _draft_setting(entity: ExtractedEntity) -> ProposedSetting:
         setting_draft = setting_agent.draft_setting(db, entity.source, grounding, None, conn=conn)
-        return ProposedSetting(**setting_draft.model_dump())
+        return ProposedSetting(
+            **setting_draft.model_dump(), source_doc_names=list(entity.source_doc_names)
+        )
 
     setting_slots: list[ProposedSetting | None] = [None] * len(setting_entities)
     if setting_entities:

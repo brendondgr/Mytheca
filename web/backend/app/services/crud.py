@@ -10,12 +10,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
 from app.core.ids import new_hex_id, new_id
-from app.models import Character, ContextDocument, Scenario, Setting, Storyline
+from app.models import (
+    Character,
+    ContextDocument,
+    ContextDocumentLink,
+    Scenario,
+    Setting,
+    Storyline,
+)
 from app.rag import indexer as rag_index
 from app.services import graph_writer, settings_store
 from app.schemas.character import CharacterCreate, CharacterUpdate
@@ -184,18 +191,33 @@ def list_context_documents(
     *,
     entity_type: str | None = None,
     entity_id: str | None = None,
+    linked_entity_type: str | None = None,
+    linked_entity_id: str | None = None,
 ) -> list[ContextDocument]:
     """List a world's context docs, optionally narrowed to one entity's scope.
 
     With no scope, returns every document (storyline-level + entity-scoped). With
-    ``entity_type``/``entity_id`` it returns just that entity's docs — what a
-    character/setting/scenario editor re-fetches so its files reappear."""
+    ``entity_type``/``entity_id`` it returns just that entity's OWNED docs — what a
+    character/setting/scenario editor re-fetches so its files reappear. With
+    ``linked_entity_type``/``linked_entity_id`` it returns the docs the entity is a
+    context REFERENCE of (provenance links — the Source-documents panel)."""
     get_storyline(db, storyline_id)
     stmt = select(ContextDocument).where(ContextDocument.storyline_id == storyline_id)
     if entity_type is not None and entity_id is not None:
         stmt = stmt.where(
             ContextDocument.entity_type == entity_type,
             ContextDocument.entity_id == entity_id,
+        )
+    if linked_entity_type is not None and linked_entity_id is not None:
+        # Docs the entity is a context REFERENCE of (provenance links) — distinct from
+        # the entity-owned scope above.
+        stmt = stmt.where(
+            ContextDocument.links.any(
+                and_(
+                    ContextDocumentLink.entity_type == linked_entity_type,
+                    ContextDocumentLink.entity_id == linked_entity_id,
+                )
+            )
         )
     return list(db.scalars(stmt.order_by(ContextDocument.position, ContextDocument.name)))
 
@@ -216,6 +238,65 @@ def _purge_entity_context_docs(db: Session, entity_type: str, entity_id: str) ->
     for doc in docs:
         db.delete(doc)
         rag_index.remove("context_document", doc.id)  # best-effort drop from the store
+
+
+def _purge_entity_document_links(db: Session, entity_type: str, entity_id: str) -> None:
+    """Drop provenance links pointing at a deleted entity (leaving the docs intact).
+
+    A linked corpus doc is NOT owned by the entity, so it must survive the entity's
+    deletion — only the dangling link is removed."""
+    for link in db.scalars(
+        select(ContextDocumentLink).where(
+            ContextDocumentLink.entity_type == entity_type,
+            ContextDocumentLink.entity_id == entity_id,
+        )
+    ):
+        db.delete(link)
+
+
+def add_document_link(
+    db: Session, doc_id: str, entity_type: str, entity_id: str
+) -> ContextDocument:
+    """Attach a document to an entity as a context reference (idempotent).
+
+    Returns the document (with its refreshed ``links``) so the caller can echo the
+    updated provenance set."""
+    doc = get_context_document(db, doc_id)
+    existing = db.scalar(
+        select(ContextDocumentLink).where(
+            ContextDocumentLink.doc_id == doc_id,
+            ContextDocumentLink.entity_type == entity_type,
+            ContextDocumentLink.entity_id == entity_id,
+        )
+    )
+    if existing is None:
+        db.add(
+            ContextDocumentLink(
+                doc_id=doc_id, entity_type=entity_type, entity_id=entity_id
+            )
+        )
+        db.commit()
+        db.refresh(doc)
+    return doc
+
+
+def remove_document_link(
+    db: Session, doc_id: str, entity_type: str, entity_id: str
+) -> ContextDocument:
+    """Detach a document from an entity (removes only the link). Idempotent."""
+    doc = get_context_document(db, doc_id)
+    link = db.scalar(
+        select(ContextDocumentLink).where(
+            ContextDocumentLink.doc_id == doc_id,
+            ContextDocumentLink.entity_type == entity_type,
+            ContextDocumentLink.entity_id == entity_id,
+        )
+    )
+    if link is not None:
+        db.delete(link)
+        db.commit()
+        db.refresh(doc)
+    return doc
 
 
 def get_context_document(db: Session, doc_id: str) -> ContextDocument:
@@ -379,6 +460,7 @@ def delete_character(db: Session, character_id: str) -> None:
         if character_id in (scenario.cast_ids or []):
             scenario.cast_ids = [cid for cid in scenario.cast_ids if cid != character_id]
     _purge_entity_context_docs(db, "character", character_id)  # drop attached docs + embeddings
+    _purge_entity_document_links(db, "character", character_id)  # drop dangling provenance links
     db.commit()
     graph_writer.remove_node(character_id)  # best-effort removal from the Story Graph
     rag_index.remove("character", character_id)  # best-effort drop from the vector store
@@ -447,6 +529,7 @@ def delete_setting(db: Session, setting_id: str) -> None:
     # Scenarios keep their (now dangling) setting_id — the frontend falls back.
     db.delete(get_setting(db, setting_id))
     _purge_entity_context_docs(db, "setting", setting_id)  # drop attached docs + embeddings
+    _purge_entity_document_links(db, "setting", setting_id)  # drop dangling provenance links
     db.commit()
     graph_writer.remove_node(setting_id)  # best-effort removal from the Story Graph
     rag_index.remove("setting", setting_id)  # best-effort drop from the vector store
@@ -525,5 +608,6 @@ def update_scenario(db: Session, scenario_id: str, data: ScenarioUpdate) -> Scen
 def delete_scenario(db: Session, scenario_id: str) -> None:
     db.delete(get_scenario(db, scenario_id))
     _purge_entity_context_docs(db, "scenario", scenario_id)  # drop attached docs + embeddings
+    _purge_entity_document_links(db, "scenario", scenario_id)  # drop dangling provenance links
     db.commit()
     rag_index.remove("scenario", scenario_id)  # best-effort drop from the vector store

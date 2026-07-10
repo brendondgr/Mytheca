@@ -64,6 +64,26 @@ def test_extract_entities_splits_a_multi_subject_doc(client, db_session, monkeyp
     assert [s.name for s in result.settings] == ["The Drowned Chapel"]
 
 
+def test_extract_entities_stamps_source_doc_name(client, db_session, monkeypatch):
+    """Every extracted subject records the document it was mined from (build lineage)."""
+    _configure_llm(client)
+    _patch_upstream(monkeypatch, lambda req: _completion(_ROSTER))
+    result = extract_agent.extract_entities(
+        db_session,
+        "Two smugglers and a cold inquisitor circle a drowned chapel...",
+        doc_name="cast.md",
+    )
+    assert all(c.source_doc_names == ["cast.md"] for c in result.characters)
+    assert all(s.source_doc_names == ["cast.md"] for s in result.settings)
+
+
+def test_extract_entities_no_doc_name_leaves_lineage_empty(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch_upstream(monkeypatch, lambda req: _completion(_ROSTER))
+    result = extract_agent.extract_entities(db_session, "A crew and a chapel.")
+    assert all(c.source_doc_names == [] for c in result.characters)
+
+
 def test_extract_entities_blank_doc_short_circuits(client, db_session, monkeypatch):
     _configure_llm(client)
 

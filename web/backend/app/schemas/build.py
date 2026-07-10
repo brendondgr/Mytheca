@@ -46,10 +46,14 @@ class ExtractedEntity(CamelModel):
 
     ``name`` labels the skeleton card; ``source`` is a focused brief for that single
     subject, handed to ``draft_character`` / ``draft_setting`` to flesh out.
+    ``source_doc_names`` records which uploaded document(s) this subject was mined from
+    (one, or several when the same subject appears across docs) — the build lineage the
+    commit turns into doc→entity provenance links.
     """
 
     name: str = ""
     source: str = ""
+    source_doc_names: list[str] = []
 
 
 class ExtractedEntities(CamelModel):
@@ -115,10 +119,17 @@ class ProposedCharacter(CharacterDraftResponse):
 
     voice_samples: list[VoiceSample] = []
     starting_stats: list[ProposedStartingStat] = []
+    # The uploaded document(s) this character was mined from (build lineage). The commit
+    # turns these into doc→entity provenance links (source doc name → persisted doc id →
+    # link to the created character).
+    source_doc_names: list[str] = []
 
 
 class ProposedSetting(SettingDraftResponse):
     """A drafted setting (same fields the setting draft endpoint returns)."""
+
+    # The uploaded document(s) this setting was mined from (build lineage).
+    source_doc_names: list[str] = []
 
 
 class ProposedWorld(CamelModel):

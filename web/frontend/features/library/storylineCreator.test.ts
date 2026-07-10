@@ -317,3 +317,68 @@ describe("storylineCreator.commitWorld edit-mode corpus reconcile", () => {
     expect(vi.mocked(api.deleteContextDocument)).not.toHaveBeenCalledWith("cd-entity");
   });
 });
+
+describe("storylineCreator.commitWorld build lineage", () => {
+  function proposedWithLineage(): ProposedWorld {
+    return {
+      storyline: { title: "W", genre: "G", tagline: "", premise: "", worldPrimer: "" },
+      stats: [],
+      characters: [
+        {
+          name: "Maerin", role: "Smuggler", traits: "", speech: "", goal: "", secret: "",
+          appearance: "", background: "", personality: "", color: "#000",
+          voiceSamples: [], startingStats: [], sourceDocNames: ["maerin.md"],
+        },
+      ],
+      settings: [
+        {
+          name: "Chapel", type: "Sacred", desc: "", atmosphere: "", features: "",
+          currentState: "", sourceDocNames: ["chapel.md"],
+        },
+      ],
+    };
+  }
+
+  it("links each created entity to the corpus doc it was mined from", async () => {
+    await commitWorld({
+      fields: { ...BLANK_FIELDS, title: "World" },
+      stats: [],
+      statsOriginal: [],
+      proposed: proposedWithLineage(),
+      docs: [
+        { name: "maerin.md", text: "smuggler", category: "character", triaged: true },
+        { name: "chapel.md", text: "shrine", category: "setting", triaged: true },
+      ],
+      generateImages: false,
+    });
+
+    const createdDocs = await vi.mocked(api.bulkCreateContextDocuments).mock.results[0].value;
+    const idByName = new Map(createdDocs.map((d: ContextDocument) => [d.name, d.id]));
+    const createdChar = await vi.mocked(api.createCharacter).mock.results[0].value;
+    const createdSetting = await vi.mocked(api.createSetting).mock.results[0].value;
+
+    expect(vi.mocked(api.addDocumentLink)).toHaveBeenCalledWith(idByName.get("maerin.md"), {
+      entityType: "character",
+      entityId: createdChar.id,
+    });
+    expect(vi.mocked(api.addDocumentLink)).toHaveBeenCalledWith(idByName.get("chapel.md"), {
+      entityType: "setting",
+      entityId: createdSetting.id,
+    });
+  });
+
+  it("creates no link when the source doc is not in the persisted corpus", async () => {
+    const proposed = proposedWithLineage();
+    proposed.settings = [];
+    await commitWorld({
+      fields: { ...BLANK_FIELDS, title: "World" },
+      stats: [],
+      statsOriginal: [],
+      proposed,
+      // The character cites maerin.md, but it was never uploaded (removed before commit).
+      docs: [{ name: "other.md", text: "x", category: "other", triaged: true }],
+      generateImages: false,
+    });
+    expect(vi.mocked(api.addDocumentLink)).not.toHaveBeenCalled();
+  });
+});
