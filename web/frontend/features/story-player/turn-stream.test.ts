@@ -21,6 +21,7 @@ import {
   foldTrace,
   graphRelationshipsToRel,
   latestContextTokens,
+  latestPov,
   mergeFrame,
   type PresenceMap,
   rehydrateFromHistory,
@@ -342,6 +343,61 @@ describe("rehydrateFromHistory", () => {
     expect(scene.presenceByChar).toEqual({ mei: "dead", kira: "left" });
     // A status change is not a transcript message.
     expect(scene.messages.some((m) => m.kind === "char")).toBe(false);
+  });
+
+  it("rehydrates a POV user_turn as a right-side player-authored character beat", () => {
+    const events: PersistedEvent[] = [
+      pe("user_turn", 0, { text: "I have nothing to say to you.", directedAt: null, pov: "mei" }),
+      pe("character_dialogue", 1, { characterId: "kira", text: '"Then leave."', done: true }),
+    ];
+    const scene = rehydrateFromHistory(events, []);
+    // The player's line wears the POV character's identity and renders on the player's side.
+    expect(scene.messages[0]).toEqual({
+      kind: "char",
+      who: "mei",
+      fromPlayer: true,
+      text: "I have nothing to say to you.",
+    });
+    // The AI's reaction stays an ordinary (left-side) character beat — not player-authored.
+    expect(scene.messages[1].kind).toBe("char");
+    expect(scene.messages[1].who).toBe("kira");
+    expect(scene.messages[1].fromPlayer).toBeUndefined();
+  });
+
+  it("keeps a user_turn without pov as a plain left-side player beat", () => {
+    const scene = rehydrateFromHistory([pe("user_turn", 0, { text: "hi", directedAt: null })], []);
+    expect(scene.messages[0]).toEqual({ kind: "player", text: "hi" });
+  });
+});
+
+describe("latestPov", () => {
+  function pe(type: string, seq: number, data: unknown, id = `ev${seq}`): PersistedEvent {
+    return {
+      type, id, seq, scenarioId: "sc", sessionId: "ps1", ts: "t",
+      visibility: "public", data: data as Record<string, unknown>,
+    };
+  }
+
+  it("returns the pov of the most recent user_turn", () => {
+    const events: PersistedEvent[] = [
+      pe("user_turn", 0, { text: "a", pov: "mei" }),
+      pe("character_dialogue", 1, { characterId: "kira", text: "x", done: true }),
+      pe("user_turn", 2, { text: "b", pov: "kira" }), // most recent wins
+    ];
+    expect(latestPov(events)).toBe("kira");
+  });
+
+  it("returns null when the latest user_turn has no pov (guide/narrator line)", () => {
+    const events: PersistedEvent[] = [
+      pe("user_turn", 0, { text: "a", pov: "mei" }),
+      pe("user_turn", 1, { text: "b", directedAt: null }), // no pov → back to narrator
+    ];
+    expect(latestPov(events)).toBeNull();
+  });
+
+  it("returns null when there are no user_turn rows", () => {
+    expect(latestPov([pe("character_dialogue", 0, { characterId: "mei", text: "x", done: true })])).toBeNull();
+    expect(latestPov([])).toBeNull();
   });
 });
 

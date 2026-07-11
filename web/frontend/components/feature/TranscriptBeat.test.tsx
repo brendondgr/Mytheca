@@ -81,4 +81,28 @@ describe("TranscriptBeat", () => {
     const strong = screen.getByText('"leave now"');
     expect(strong.tagName).toBe("STRONG"); // emphasized, quotes preserved
   });
+
+  describe("player-authored POV beat (fromPlayer)", () => {
+    it("renders on the player's side wearing the character's identity, not 'You'", () => {
+      renderBeat({ kind: "char", who: "mei", fromPlayer: true, text: "I have nothing to say." });
+      // The character's name is the identity; the "You" label is gone.
+      expect(screen.getByText("Mei")).toBeTruthy();
+      expect(screen.queryByText("You")).toBeNull();
+      // The player's line renders, right-aligned (its own turn).
+      const line = screen.getByText("I have nothing to say.");
+      expect(line.closest(".justify-end")).not.toBeNull();
+    });
+
+    it("is not the interactive left-side AI bubble (no profile button for the character)", () => {
+      renderBeat({ kind: "char", who: "mei", fromPlayer: true, text: "Fine." });
+      // CharacterMessage exposes a focusable name button; PlayerAsCharacterMessage does not.
+      expect(screen.queryByRole("button", { name: "Mei" })).toBeNull();
+    });
+
+    it("shows an optional action label alongside the identity", () => {
+      renderBeat({ kind: "char", who: "mei", fromPlayer: true, action: "steps back", text: "Enough." });
+      expect(screen.getByText("steps back")).toBeTruthy();
+      expect(screen.getByText("Enough.")).toBeTruthy();
+    });
+  });
 });

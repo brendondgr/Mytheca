@@ -20,7 +20,7 @@ from app.agents._common import extract_json, resolve_llm
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
-from app.services.assembler import TurnContext
+from app.services.assembler import CastMember, TurnContext
 
 # A who's-up decision is a cheap structural call — keep the thinking budget low.
 DIRECTOR_EFFORT = ReasoningEffort.LOW
@@ -213,6 +213,82 @@ def propose_branches(
             model,
             [
                 {"role": "system", "content": ctx.prompts.get(prompt_registry.DIRECTOR_BRANCH, _BRANCH_SYSTEM)},
+                {"role": "user", "content": user},
+            ],
+            params,
+            reasoning=DIRECTOR_EFFORT,
+        )
+        data = extract_json(raw)
+    except APIError:
+        return []
+
+    raw_choices = data.get("choices", [])
+    choices: list[dict] = []
+    for item in raw_choices if isinstance(raw_choices, list) else []:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label", "")).strip()
+        if not label:
+            continue
+        choices.append({"label": label, "outcome": str(item.get("outcome", "")).strip()})
+        if len(choices) >= want:
+            break
+    return choices
+
+
+_POV_BRANCH_SYSTEM = prompt_registry.default(prompt_registry.DIRECTOR_POV_BRANCH)
+
+
+def propose_pov_lines(
+    db: Session,
+    ctx: TurnContext,
+    turn_beats: list[dict],
+    speaker: CastMember,
+    count: int = _MAX_BRANCHES,
+) -> list[dict]:
+    """Generate ``count`` first-person candidate next lines **in the POV character's voice**.
+
+    The Player-POV counterpart to :func:`propose_branches`: instead of situation-wide moves
+    written from a general narrator's perspective, these are lines *this* character
+    (``speaker``, the character the player is speaking AS) might say next — grounded in their
+    established voice/tone and anchored to the latest beat. They flow into the composer via the
+    same ``branch_choices`` → choose → composer path, so no new event type is needed.
+    ``count`` (0–4) is the configured suggestion count; ``0`` disables (no LLM call).
+    Best-effort → ``[]``.
+    """
+    want = max(0, min(count, _MAX_BRANCHES))
+    if want == 0:
+        return []
+    try:
+        base_url, api_key, model, params = resolve_llm(db)
+    except APIError:
+        return []
+
+    sequence = _recent_sequence(ctx, turn_beats)
+    identity = f"{speaker.name}" + (f" — {speaker.role}" if speaker.role else "")
+    voice_bits = [b for b in (speaker.speech, speaker.voice_samples, speaker.disposition) if b]
+    voice_block = (
+        "This character's voice, manner, and current stance (match it):\n"
+        + "\n".join(voice_bits)
+        + "\n\n"
+        if voice_bits
+        else ""
+    )
+    user = (
+        f"The player is speaking AS this character:\n{identity}\n\n"
+        f"{voice_block}"
+        f"The scene so far (oldest to newest — the LAST line is the current moment):\n{sequence}\n\n"
+        f"Offer EXACTLY {want} distinct first-person line(s) that {speaker.name} might say NEXT, "
+        "in their own voice, continuing FORWARD from the LAST line above. Do NOT repeat, undo, or "
+        "rewind anything already shown. Keep the options distinct in intent."
+    )
+    try:
+        raw = llm.chat_complete(
+            base_url,
+            api_key,
+            model,
+            [
+                {"role": "system", "content": ctx.prompts.get(prompt_registry.DIRECTOR_POV_BRANCH, _POV_BRANCH_SYSTEM)},
                 {"role": "user", "content": user},
             ],
             params,

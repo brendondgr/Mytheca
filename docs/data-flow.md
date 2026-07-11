@@ -33,16 +33,18 @@ stream connection for the single-player case (the `GET /stream/{sessionId}` + Re
 fan-out is a deferred seam, see `api-contract.md`).
 
 ```
-Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/turn  {text, directedAt?, sessionId?}
+Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/turn  {text, directedAt?, sessionId?, povCharacterId?}
   → routes/play (pre-flight: scenario exists, text present, session valid)
   → turn_engine.run_turn:
-      events_store: resolve/create PlaySession · record user_turn (seq 0, Postgres)
       assembler.assemble_context (Band-1, read-only): ordered cast + clamped stats + loaded
         stat guidance + recent buffer (Redis, best-effort) + scenario subgraph (Neo4j,
         best-effort) + cacheable stable prefix + GATED RAG (retrieval_gate: a cheap
         model-free skip-or-fetch — off-roster entity / world-history question; on fetch,
         _common.rag_block retrieves + injects a fenced RETRIEVED LORE block, best-effort)
-      memory.buffer.push_turn (player line → recent-turn buffer, best-effort)
+      resolve Player POV member (povCharacterId → a PRESENT cast member, else None)
+      events_store: resolve/create PlaySession · record user_turn (seq 0, Postgres; data.pov = POV id | null)
+      memory.buffer.push_turn (POV → the line as the character's own beat w/ characterId;
+        else the plain player line → recent-turn buffer, best-effort)
       _pick_speaker → character_turn_agent.generate_line (ONE isolated, bookended LLM call)
         → services.llm.chat_complete (configured endpoint; reasoning budget; guided-decoding seam)
       emission.parse_emission: thin <speaker:N>/<type:…> tags → typed segments (name→id; out-of-roster drop)
@@ -69,6 +71,22 @@ per-scene controls — Max turns, Suggestions, and **Number of beats** (the cont
 actual last-N transcript beats (fed down as `beatTexts`), falling back to the flat
 `estimateBeatsTokens` average only before a scene has beats. Persisted on the scenario
 (`updateScenario` PATCH); four suggestions render as a **2×2 grid**.
+
+**Player POV.** A `povCharacterId` (the *Speaking as* select in the composer, to the right of
+the Config button) makes the player's line **that character's line**. Server-side: the line is
+seeded into `turn_beats` and the recent buffer as a **`character`** beat (so later speakers
+react to it as "Mei said X"), persisted on the `user_turn` row as `data.pov`, but the visible
+`character_dialogue` event is **withheld** (the client already shows the line — see below). The
+POV character is dropped from the planner *and* puppet rosters (`locked_id`) so the AI never
+voices a second beat for them; a defensive backstop coerces any stray `speak(<pov>)` to `end`.
+The POV character still **reflects** at end-of-turn (it is marked already-acted) so its interior
+stays current for when the AI takes it back over. Client-side: `useScenePlay` holds `pov`
+(default `null`, reset when the chosen character is no longer present), the optimistic bubble
+becomes a right-aligned **player-authored character beat** (`SceneMessage.fromPlayer`, rendered
+by `TranscriptBeat`'s `PlayerAsCharacterMessage` with the character's monogram/name/color), and
+on resume the current POV is derived from the most recent `user_turn.data.pov`;
+`rehydrateFromHistory` turns a `user_turn` row with `pov` set into that same right-side
+character beat (without `pov` it stays a left-side player beat).
 
 **Type-while-streaming:** the composer's `sendDisabled` prop (renamed from `disabled`) blocks
 only the Send button and Enter key while a turn is in-flight — the `<textarea>` remains editable

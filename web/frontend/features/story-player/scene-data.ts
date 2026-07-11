@@ -19,6 +19,13 @@ export interface SceneMessage {
   thought?: string;
   /** Streamed-event id — used to accumulate delta chunks of narration/dialogue. */
   id?: string;
+  /**
+   * Player POV: this is a `char` beat the PLAYER authored (they were speaking AS `who`).
+   * Rendered on the player's side of the transcript but wearing the character's identity
+   * (`PlayerAsCharacterMessage`). Set on the optimistic bubble and on rehydrate from a
+   * `user_turn` row with `data.pov`.
+   */
+  fromPlayer?: boolean;
 }
 
 // A branch fork the player can pick — no dice/checks (D11): label + a narrative-

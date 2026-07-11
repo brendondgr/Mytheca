@@ -63,23 +63,29 @@ def next_beat(
     acted: list[str],
     *,
     scene_opening: bool = False,
+    locked_id: str | None = None,
 ) -> BeatDecision:
     """Decide the next beat (best-effort; never raises).
 
     ``scene_opening`` marks the scene's very first beat (no committed history): a cold
     open with no direction should be narrator-led, not a character talking unprompted.
+
+    ``locked_id`` is the Player POV character id (when set): it is dropped from the
+    selectable roster so the AI never voices the character the player is speaking as —
+    the loop then ends on its own once the remaining cast is done reacting.
     """
     if not ctx.cast:
         return BeatDecision("end", reason="no cast")
     # Only PRESENT characters are selectable; a dead/departed/unconscious one stays in the
-    # cast for context but never appears on the roster, so the planner can't pick them.
-    present = [m for m in ctx.cast if m.is_present]
+    # cast for context but never appears on the roster, so the planner can't pick them. The
+    # POV character (``locked_id``) is likewise removed — the player voices them.
+    present = [m for m in ctx.cast if m.is_present and m.id != locked_id]
     if not present:
         return BeatDecision("end", reason="no one present")
     try:
         base_url, api_key, model, params = resolve_llm(db)
     except APIError:
-        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
+        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id)
 
     roster_ids = {i + 1: m.id for i, m in enumerate(present)}
     roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(present))
@@ -112,11 +118,11 @@ def next_beat(
         )
         data = extract_json(raw)
     except APIError:
-        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
+        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id)
 
     action = str(data.get("action", "")).lower()
     if action not in _ACTIONS:
-        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
+        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id)
     if action == "end":
         return BeatDecision("end", reason=str(data.get("reason", "")), needs_branch=bool(data.get("needsBranch", False)))
     if action == "narrate":
@@ -126,11 +132,11 @@ def next_beat(
         status = str(data.get("status", "")).strip().lower()
         if actor_id is None or status not in _EXIT_STATUSES:
             # Malformed exit (no valid target/status) → don't guess a removal; fall back.
-            return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
+            return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id)
         return BeatDecision("exit", actor_id=actor_id, status=status, reason=str(data.get("reason", "")))
     actor_id = roster_ids.get(_as_int(data.get("actor")) or -1)
     if actor_id is None:
-        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening)
+        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id)
     return BeatDecision(
         "speak",
         actor_id=actor_id,
@@ -145,15 +151,17 @@ def _fallback_beat(
     acted: list[str],
     *,
     scene_opening: bool = False,
+    locked_id: str | None = None,
 ) -> BeatDecision:
     """Model-free next beat: honor an explicit group/addressed target, else end.
 
     Keeps the loop sensible offline (and in tests): a broadcast walks the whole cast, an
     addressed character reacts once, freeform input mid-scene gets one responder. On a
     cold ``scene_opening`` with no direction, though, nobody is forced to speak — the
-    narrator opens the scene (handled by the engine) and the turn ends."""
+    narrator opens the scene (handled by the engine) and the turn ends. ``locked_id``
+    (the Player POV character) is never selectable, mirroring :func:`next_beat`."""
     acted_set = set(acted)
-    present = [m for m in ctx.cast if m.is_present]  # only selectable characters
+    present = [m for m in ctx.cast if m.is_present and m.id != locked_id]  # only selectable
     if not present:
         return BeatDecision("end", reason="no one present")
     if intent.scope == "all":
@@ -163,7 +171,7 @@ def _fallback_beat(
         return BeatDecision("end", reason="everyone has spoken")
     for cid in intent.addressed:
         member = ctx.cast_by_id(cid)
-        if cid not in acted_set and member is not None and member.is_present:
+        if cid != locked_id and cid not in acted_set and member is not None and member.is_present:
             return BeatDecision("speak", actor_id=cid, reason="addressed")
     if not acted and not scene_opening:  # freeform mid-scene — one character responds
         return BeatDecision("speak", actor_id=present[0].id, reason="responds")

@@ -249,7 +249,13 @@ export function rehydrateFromHistory(
 
   for (const e of events) {
     if (e.type === "user_turn") {
-      messages = [...messages, { kind: "player", text: String(e.data.text ?? "") }];
+      // Player POV: a user_turn with `data.pov` was authored by the player AS that character
+      // → a right-side player-authored character beat. Without `pov` it stays a player beat.
+      const pov = e.data.pov;
+      messages =
+        typeof pov === "string" && pov
+          ? [...messages, { kind: "char", who: pov, fromPlayer: true, text: String(e.data.text ?? "") }]
+          : [...messages, { kind: "player", text: String(e.data.text ?? "") }];
       continue;
     }
     if (e.type === "state_update") {
@@ -275,6 +281,20 @@ export function rehydrateFromHistory(
   }
 
   return { messages, stats, statsByChar, presenceByChar, traceTurns };
+}
+
+/**
+ * The current Player POV on resume — the `pov` of the most recent `user_turn` row (or `null`
+ * when the last turn was a plain guide/narrator line, or there are no turns yet). Lets a
+ * reopened scene restore the "Speaking as" selection so the next line continues in that voice.
+ */
+export function latestPov(events: PersistedEvent[]): string | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i].type !== "user_turn") continue;
+    const pov = events[i].data.pov;
+    return typeof pov === "string" && pov ? pov : null;
+  }
+  return null;
 }
 
 /** Map streamed branch options to renderable choices (no dice — D11). */

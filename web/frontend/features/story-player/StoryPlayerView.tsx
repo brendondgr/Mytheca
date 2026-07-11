@@ -74,6 +74,15 @@ export function StoryPlayerView({
   const profileChar = scene.profileId ? (byId(scene.profileId) ?? null) : null;
   const modalChar = modalId ? (byId(modalId) ?? null) : null;
 
+  // The characters the player may speak AS (Player POV) — the present cast, id + name.
+  const povOptions = useMemo(
+    () =>
+      scenario.cast
+        .filter((c) => (scene.presenceByChar[c.id] ?? "present") === "present")
+        .map((c) => ({ id: c.id, name: c.name })),
+    [scenario.cast, scene.presenceByChar],
+  );
+
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       <h1 className="sr-only">{scenario.title} — live scene</h1>
@@ -155,6 +164,9 @@ export function StoryPlayerView({
             contextBeats={scene.contextBeats}
             onContextBeatsChange={scene.setContextBeats}
             beatTexts={beatTexts}
+            pov={scene.pov}
+            onPovChange={scene.setPov}
+            povOptions={povOptions}
             usedTokens={scene.usedTokens}
             maxContextTokens={scene.maxContextTokens}
             usedTokensExact={scene.usedTokensExact}

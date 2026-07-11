@@ -94,6 +94,66 @@ describe("Composer", () => {
     expect(onSend).toHaveBeenCalledTimes(1);
   });
 
+  describe("Player POV", () => {
+    it("renders the 'Speaking as' select to the right of Config when a POV handler is given", () => {
+      render(
+        <Composer
+          value=""
+          onChange={() => {}}
+          onSend={() => {}}
+          onMaxTurnsChange={() => {}}
+          onPovChange={() => {}}
+          povOptions={[{ id: "mei", name: "Mei" }]}
+          pov={null}
+        />,
+      );
+      const config = screen.getByRole("button", { name: /scene configuration/i });
+      const pov = screen.getByRole("combobox", { name: /speaking as/i });
+      expect(pov).toBeInTheDocument();
+      // POV sits AFTER the Config button in document order (to its right).
+      expect(config.compareDocumentPosition(pov) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("omits the POV select when no POV handler is given", () => {
+      render(<Composer value="" onChange={() => {}} onSend={() => {}} />);
+      expect(screen.queryByRole("combobox", { name: /speaking as/i })).not.toBeInTheDocument();
+    });
+
+    it("placeholder reflects the active POV character", () => {
+      render(
+        <Composer
+          value=""
+          onChange={() => {}}
+          onSend={() => {}}
+          onPovChange={() => {}}
+          povOptions={[{ id: "mei", name: "Mei" }]}
+          pov="mei"
+        />,
+      );
+      expect(screen.getByRole("textbox", { name: /your message/i })).toHaveAttribute(
+        "placeholder",
+        "Speaking as Mei…",
+      );
+    });
+
+    it("keeps the default placeholder when POV is Narrator (null)", () => {
+      render(
+        <Composer
+          value=""
+          onChange={() => {}}
+          onSend={() => {}}
+          onPovChange={() => {}}
+          povOptions={[{ id: "mei", name: "Mei" }]}
+          pov={null}
+        />,
+      );
+      expect(screen.getByRole("textbox", { name: /your message/i })).toHaveAttribute(
+        "placeholder",
+        "Speak, or describe what you do…",
+      );
+    });
+  });
+
   describe("while sendDisabled", () => {
     it("the textarea is NOT disabled — typing still fires onChange", async () => {
       const onChange = vi.fn();

@@ -181,4 +181,10 @@ export interface TurnRequestBody {
    * opened with a fuller "progression" narration and played the choice out over several beats.
    */
   outcome?: string | null;
+  /**
+   * Player POV: the id of the *present* cast member the player is speaking AS. When set, the
+   * line IS that character's line — persisted on the `user_turn` row (`data.pov`) and locked
+   * out of the AI roster server-side. `null`/omitted = the default guide/narrator behavior.
+   */
+  povCharacterId?: string | null;
 }
