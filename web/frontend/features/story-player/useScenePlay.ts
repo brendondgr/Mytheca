@@ -37,6 +37,7 @@ import {
   foldTrace,
   graphRelationshipsToRel,
   latestContextTokens,
+  latestPov,
   mergeFrame,
   type PresenceMap,
   rehydrateFromHistory,
@@ -79,6 +80,10 @@ export function useScenePlay(scenario: ResolvedScenario) {
     scenario.suggestionsCount ?? 4,
   );
   const [contextBeats, setContextBeatsState] = useState<number>(scenario.contextBeats ?? 14);
+  // Player POV: the id of the character the player is speaking AS (null = the default
+  // guide/narrator behavior). Drives the "Speaking as" composer select, the optimistic
+  // bubble's identity, and the `povCharacterId` sent on the next turn.
+  const [pov, setPov] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [reveal, setReveal] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -160,6 +165,9 @@ export function useScenePlay(scenario: ResolvedScenario) {
       if (!alive) return;
       const scene = rehydrateFromHistory(history.events, history.traces, base);
       rememberSession(history.session.id);
+      // Restore the "Speaking as" selection from the most recent user_turn's pov, so the
+      // next line continues in that character's voice (null → the guide/narrator default).
+      setPov(latestPov(history.events));
       // Seed the dial with the resumed session's last real context-token count (null when
       // none was recorded → the estimate fallback is used until the next turn streams one).
       setLiveContextTokens(latestContextTokens(history.traces));
@@ -211,6 +219,12 @@ export function useScenePlay(scenario: ResolvedScenario) {
       .then((r) => setMaxContextTokens(r.maxContextTokens))
       .catch(() => {});
   }, []);
+
+  // Reset POV when the chosen character is no longer present (died/left/etc.) — you can't
+  // keep speaking as someone who has left the scene; fall back to the guide/narrator.
+  useEffect(() => {
+    if (pov && (presenceByChar[pov] ?? "present") !== "present") setPov(null);
+  }, [pov, presenceByChar]);
 
   // Manually set a character's scene presence (the cast-rail control + toast undo).
   // Optimistic; persists best-effort so the change survives reload and folds like an
@@ -285,13 +299,18 @@ export function useScenePlay(scenario: ResolvedScenario) {
       const t = text.trim();
       if (!t || sending) return; // in-flight guard
       setStreamError(null);
-      // Optimistic player bubble; clear any open branch choices.
-      setMessages((m) => [...m.filter((x) => x.kind !== "choices"), { kind: "player", text: t }]);
+      // Optimistic bubble; clear any open branch choices. Under Player POV the player's line
+      // is the character's own line — a right-side player-authored character beat (the engine
+      // withholds the visible event, so this optimistic beat is the only render of it).
+      const optimistic: SceneMessage = pov
+        ? { kind: "char", who: pov, fromPlayer: true, text: t }
+        : { kind: "player", text: t };
+      setMessages((m) => [...m.filter((x) => x.kind !== "choices"), optimistic]);
       void stream
         .run((signal) =>
           postTurn(
             scenario.id,
-            { text: t, sessionId: sessionRef.current, trace: true },
+            { text: t, sessionId: sessionRef.current, trace: true, povCharacterId: pov },
             signal,
           ),
         )
@@ -300,7 +319,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
         // "thinking". The activity feed itself is kept — it describes what just happened.
         .finally(() => setActivityByChar({}));
     },
-    [sending, scenario.id, stream],
+    [sending, scenario.id, stream, pov],
   );
 
   // Persist a per-scene control change (optimistic; best-effort write-back to the scenario).
@@ -361,6 +380,8 @@ export function useScenePlay(scenario: ResolvedScenario) {
     setSuggestionsCount,
     contextBeats,
     setContextBeats,
+    pov,
+    setPov,
     loading,
     reveal,
     sending,

@@ -328,6 +328,92 @@ describe("useScenePlay activity feed + per-character status", () => {
   });
 });
 
+describe("useScenePlay Player POV", () => {
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  it("sends povCharacterId and renders an optimistic player-authored character beat", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([])); // no server events needed here
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setPov(speaker.id));
+    act(() => result.current.setComposer("I have nothing to say."));
+    act(() => result.current.send());
+
+    // The optimistic bubble is a right-side character beat wearing the POV char's identity.
+    await waitFor(() =>
+      expect(
+        result.current.messages.some(
+          (m) =>
+            m.kind === "char" &&
+            m.fromPlayer === true &&
+            m.who === speaker.id &&
+            m.text === "I have nothing to say.",
+        ),
+      ).toBe(true),
+    );
+    // The turn request carried the POV character id.
+    expect(vi.mocked(postTurn)).toHaveBeenCalledWith(
+      scenario.id,
+      expect.objectContaining({ text: "I have nothing to say.", povCharacterId: speaker.id }),
+      expect.anything(),
+    );
+  });
+
+  it("sends povCharacterId: null and a plain player bubble when no POV is set", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setComposer("A plain line."));
+    act(() => result.current.send());
+
+    await waitFor(() =>
+      expect(result.current.messages.some((m) => m.kind === "player" && m.text === "A plain line.")).toBe(true),
+    );
+    expect(vi.mocked(postTurn)).toHaveBeenCalledWith(
+      scenario.id,
+      expect.objectContaining({ povCharacterId: null }),
+      expect.anything(),
+    );
+  });
+
+  it("resets POV to null when the chosen character is no longer present", async () => {
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setPov(speaker.id));
+    await waitFor(() => expect(result.current.pov).toBe(speaker.id));
+
+    // The POV character leaves the scene → POV falls back to the guide/narrator default.
+    act(() => result.current.setPresence(speaker.id, "left"));
+    await waitFor(() => expect(result.current.pov).toBeNull());
+  });
+
+  it("restores POV from the most recent user_turn on resume", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValueOnce({
+      sessions: [{ id: "ps_pov", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" }],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValueOnce({
+      session: { id: "ps_pov", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" },
+      events: [
+        { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_pov", ts: "t", visibility: "public", data: { text: "I say nothing.", directedAt: null, pov: speaker.id } },
+      ],
+      traces: [],
+    });
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.pov).toBe(speaker.id));
+    // …and the resumed line renders as a player-authored character beat.
+    expect(
+      result.current.messages.some((m) => m.kind === "char" && m.fromPlayer === true && m.who === speaker.id),
+    ).toBe(true);
+  });
+});
+
 describe("useScenePlay context tokens (exact vs. estimate)", () => {
   function traceFrame(step: string, n: number, data: Record<string, unknown> = {}): TurnStreamFrame {
     return { type: "trace", n, step, title: `${step} ${n}`, detail: "", data } as TurnStreamFrame;
