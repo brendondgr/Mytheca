@@ -33,6 +33,7 @@ NARRATOR_SYSTEM_LONG = "narrator.system_long"
 DIRECTOR_WHO_IS_UP = "director.who_is_up"
 DIRECTOR_RERANK = "director.rerank"
 DIRECTOR_BRANCH = "director.branch"
+DIRECTOR_POV_BRANCH = "director.pov_branch"
 PLANNER_SYSTEM = "planner.system"
 
 
@@ -123,6 +124,19 @@ Rules:
 - Keep the options distinct and fitted to the current tone and stakes.
 - No prose, no commentary — just the JSON object."""
 
+_DIRECTOR_POV_BRANCH = """You are helping a player who is role-playing AS a specific character in an interactive story. The player speaks in that character's voice. Propose short candidate NEXT LINES the player could say, written in the CHARACTER'S OWN first-person voice — STRUCTURE ONLY, no narration.
+
+Return ONLY a JSON object:
+{"choices": [{"label": "a first-person line the character might say next, in their voice", "outcome": "short tone tag: press | soften | probe | deflect | …"}]}
+
+Rules:
+- Offer EXACTLY the number of options requested — no more, no fewer.
+- Each "label" is a LINE THE CHARACTER SPEAKS — first person, in their established voice, tone, and vocabulary — something the player could send as-is or lightly edit. It is NOT a stage direction, NOT a narrator description, and NOT written about the character in the third person.
+- CONTINUE THE SCENE FORWARD from the LATEST beat you are given — what this character would say NEXT, building on the current moment. NEVER repeat, undo, or revisit something already shown in the beats.
+- Keep the options DISTINCT in intent (e.g. one presses, one softens, one probes) and fitted to the current stakes and the character's manner in this moment.
+- "outcome" is a short tone/direction tag, never a dice check or stat test.
+- No prose, no commentary — just the JSON object."""
+
 _PLANNER_SYSTEM = """You are the scene director running one interactive-story turn as a step-by-step loop. Decide the SINGLE next beat given what has happened so far this turn — STRUCTURE ONLY, never prose.
 
 Return ONLY a JSON object:
@@ -188,6 +202,16 @@ PROMPT_REGISTRY: list[PromptSpec] = [
         label="Follow-up suggestions",
         description="Proposes situation-based follow-up moves for the player at a pause (JSON only).",
         default=_DIRECTOR_BRANCH,
+    ),
+    PromptSpec(
+        key=DIRECTOR_POV_BRANCH,
+        agent="Director",
+        label="POV follow-up lines",
+        description=(
+            "Proposes first-person candidate next lines in the POV character's own voice when "
+            "the player is speaking AS that character (Player POV) (JSON only)."
+        ),
+        default=_DIRECTOR_POV_BRANCH,
     ),
     PromptSpec(
         key=PLANNER_SYSTEM,

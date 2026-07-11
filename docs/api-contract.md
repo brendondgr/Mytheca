@@ -780,7 +780,9 @@ options are generated from the **most recent line** and offered as `label` + `ou
 D11; count-driven — no longer gated on a rarely-set planner flag). Options are **situation-based**
 — what happens next in the scene from a general, story-wide perspective, not a single character's
 spoken line — and written to **match the tone/pace of the player's own recent moves**; stats inform
-which surface, never gate them. Selecting one **writes its text into the composer** for the player
+which surface, never gate them. **Under Player POV** (`povCharacterId` set) the same `branch_choices`
+event instead carries **first-person candidate next lines in the POV character's own voice** (they
+flow into the composer as the player's own next line); no new event type or client reducer is needed. Selecting one **writes its text into the composer** for the player
 to review, edit, and send as an ordinary `text` turn (it no longer auto-submits). The player's input is persisted as a
 `user_turn` event at `seq` 0 of the turn (not streamed back — the client already shows it
 optimistically), carrying `data = { text, directedAt, pov }` where `pov` is the Player-POV

@@ -44,9 +44,10 @@ def _resp(content: str) -> httpx.Response:
     return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
 
 
-def _plan_routed(monkeypatch, decisions, *, narration="A hush falls over the room.", branches=None):
+def _plan_routed(monkeypatch, decisions, *, narration="A hush falls over the room.", branches=None, pov_branches=None):
     """Route the mock by system prompt: intent → freeform, planner → scripted decisions,
-    branch → options, narrator → prose, character → an emission echoing the speaker."""
+    branch (situation-wide vs. POV in-voice) → options, narrator → prose, character → an
+    emission echoing the speaker."""
     plan = iter(decisions)
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -56,7 +57,9 @@ def _plan_routed(monkeypatch, decisions, *, narration="A hush falls over the roo
         system, user = body["messages"][0]["content"], body["messages"][1]["content"]
         if "You interpret" in system:
             return _resp(json.dumps({"kind": "freeform", "directive": "go"}))
-        if "SITUATION-BASED follow-up" in system or "in their own voice" in system:
+        if "role-playing AS a specific character" in system:  # POV in-voice follow-up lines
+            return _resp(json.dumps({"choices": pov_branches or []}))
+        if "SITUATION-BASED follow-up" in system:  # situation-wide branch
             return _resp(json.dumps({"choices": branches or []}))
         if "step-by-step loop" in system:
             try:
@@ -193,6 +196,46 @@ def test_stray_speak_pov_is_coerced_to_end(client, storyline_id, monkeypatch):
         and e.get("data", {}).get("characterId") == mei
     ]
     assert mei_beats == []
+
+
+def test_pov_suggestions_use_the_in_voice_path(client, storyline_id, monkeypatch):
+    # Under POV the end-of-turn suggestions come from the in-voice POV path (first-person
+    # lines the POV character might say), NOT the situation-wide branch path.
+    _configure_llm(client)
+    mei, kira, sid = _two(client, storyline_id)
+    scid = _scenario(client, storyline_id, [mei, kira], sid, suggestionsCount=2)
+    _plan_routed(
+        monkeypatch,
+        [{"action": "speak", "actor": 1}, {"action": "end"}],
+        branches=[{"label": "SITUATION MOVE", "outcome": "x"}],
+        pov_branches=[
+            {"label": "You already know my answer.", "outcome": "press"},
+            {"label": "What's it worth to you?", "outcome": "probe"},
+        ],
+    )
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "I say nothing.", "povCharacterId": mei})
+    )
+    branch = next(e for e in events if e["type"] == "branch_choices")
+    labels = [c["label"] for c in branch["data"]["choices"]]
+    assert labels == ["You already know my answer.", "What's it worth to you?"]  # POV path
+    assert "SITUATION MOVE" not in labels  # the situation-wide path was NOT used
+
+
+def test_non_pov_suggestions_still_use_the_situation_path(client, storyline_id, monkeypatch):
+    # Regression: without POV, the ordinary situation-wide branch path is still used.
+    _configure_llm(client)
+    mei, kira, sid = _two(client, storyline_id)
+    scid = _scenario(client, storyline_id, [mei, kira], sid, suggestionsCount=1)
+    _plan_routed(
+        monkeypatch,
+        [{"action": "speak", "actor": 1}, {"action": "end"}],
+        branches=[{"label": "SITUATION MOVE", "outcome": "x"}],
+        pov_branches=[{"label": "POV LINE", "outcome": "press"}],
+    )
+    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I press the room."}))
+    branch = next(e for e in events if e["type"] == "branch_choices")
+    assert [c["label"] for c in branch["data"]["choices"]] == ["SITUATION MOVE"]
 
 
 def test_unknown_pov_falls_back_to_narrator_behavior(client, db_session, storyline_id, monkeypatch):

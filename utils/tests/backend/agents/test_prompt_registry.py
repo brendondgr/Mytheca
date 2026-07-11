@@ -19,6 +19,7 @@ EXPECTED_KEYS = {
     "director.who_is_up",
     "director.rerank",
     "director.branch",
+    "director.pov_branch",
     "planner.system",
 }
 
@@ -42,6 +43,9 @@ def test_agents_source_their_defaults_from_the_registry_no_drift():
     assert director_agent._SYSTEM == prompt_registry.default(prompt_registry.DIRECTOR_WHO_IS_UP)
     assert director_agent._RERANK_SYSTEM == prompt_registry.default(prompt_registry.DIRECTOR_RERANK)
     assert director_agent._BRANCH_SYSTEM == prompt_registry.default(prompt_registry.DIRECTOR_BRANCH)
+    assert director_agent._POV_BRANCH_SYSTEM == prompt_registry.default(
+        prompt_registry.DIRECTOR_POV_BRANCH
+    )
     assert planner_agent._SYSTEM == prompt_registry.default(prompt_registry.PLANNER_SYSTEM)
 
 

@@ -502,7 +502,16 @@ def run_turn(
     branches: list[dict] = []
     suggestions_count = max(0, min(scenario.suggestions_count, 4))
     if suggestions_count > 0:
-        branches = director_agent.propose_branches(db, ctx, turn_beats, count=suggestions_count)
+        # Under Player POV, the follow-ups must read like something the POV character would
+        # say next (they flow into the composer as the player's own next line), so use the
+        # in-voice POV path; otherwise the situation-wide branch path. Both emit via
+        # branch_choices, so the client's choose→composer flow is unchanged.
+        if pov is not None:
+            branches = director_agent.propose_pov_lines(
+                db, ctx, turn_beats, pov, count=suggestions_count
+            )
+        else:
+            branches = director_agent.propose_branches(db, ctx, turn_beats, count=suggestions_count)
         if branches:
             yield from emitter.emit("branch_choices", {"choices": branches})
             yield from tracer.emit(
