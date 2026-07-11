@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import { SceneConfigMenu } from "@/components/feature/SceneConfigMenu";
+import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
 import { ContextUsageDial } from "@/components/feature/ContextUsageDial";
 
 /** Maximum visible height of the textarea before it becomes scrollable (~10 lines). */
@@ -28,6 +29,10 @@ export function Composer({
   contextBeats,
   onContextBeatsChange,
   beatTexts,
+  // Player POV (rendered to the right of Config when a handler is supplied).
+  pov = null,
+  onPovChange,
+  povOptions = [],
   // Context dial (rendered when the model's window size is known).
   usedTokens = 0,
   maxContextTokens = null,
@@ -51,6 +56,11 @@ export function Composer({
   onContextBeatsChange?: (value: number) => void;
   /** Real transcript beats (one string each) — feeds the config's content-real readout. */
   beatTexts?: string[];
+  /** Player POV: the id of the character the player is speaking AS (`null` = Narrator). */
+  pov?: string | null;
+  onPovChange?: (id: string | null) => void;
+  /** The present cast members the player may speak as (id + name). */
+  povOptions?: PovOption[];
   /** Used tokens for the context dial (exact when `usedTokensExact`, else the estimate). */
   usedTokens?: number;
   /** The model's context-window size; `null` hides the dial (unknown limit). */
@@ -64,6 +74,15 @@ export function Composer({
   const hasConfig = Boolean(
     onMaxTurnsChange ?? onSuggestionsCountChange ?? onContextBeatsChange,
   );
+
+  // Placeholder reflects the active POV: "Speaking as Mei…" when the player has chosen a
+  // character to voice, else the default guide/narrator prompt.
+  const povName = pov ? povOptions.find((o) => o.id === pov)?.name : undefined;
+  const placeholder = sendDisabled
+    ? "The scene responds…"
+    : povName
+      ? `Speaking as ${povName}…`
+      : "Speak, or describe what you do…";
 
   /** Resize the textarea to fit its content, capped at MAX_HEIGHT. */
   function resize(el: HTMLTextAreaElement) {
@@ -100,14 +119,14 @@ export function Composer({
           }}
           // textarea is always enabled — only send is blocked while streaming
           aria-label="Your message"
-          placeholder={sendDisabled ? "The scene responds…" : "Speak, or describe what you do…"}
+          placeholder={placeholder}
           className="composer-input block w-full resize-none bg-transparent px-[4px] pt-[2px] pb-[8px] font-body text-[14px] text-ink placeholder:text-mute2 focus:outline-none"
           style={{ overflowY: "hidden" }}
         />
 
         {/* Controls bar — sits a gap below the textarea, no dividing line. */}
         <div className="flex items-center gap-[7px]">
-          {/* Left: Config (+ blank space reserved for future options). */}
+          {/* Left: Config, then the Player POV "Speaking as" select to its right. */}
           {hasConfig ? (
             <SceneConfigMenu
               maxTurns={maxTurns}
@@ -119,6 +138,9 @@ export function Composer({
               beatTexts={beatTexts}
               openUp
             />
+          ) : null}
+          {onPovChange ? (
+            <PovSelect pov={pov} onPovChange={onPovChange} options={povOptions} />
           ) : null}
           <div className="min-w-0 flex-1" />
 

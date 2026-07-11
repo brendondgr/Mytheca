@@ -85,6 +85,15 @@ export function useScenePlay(scenario: ResolvedScenario) {
   // bubble's identity, and the `povCharacterId` sent on the next turn.
   const [pov, setPov] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Reset POV when the chosen character is no longer present (died/left/etc.) — you can't keep
+  // speaking as someone who has left the scene. Reconciled DURING RENDER (React's "adjust state
+  // when a value changes" pattern) rather than in an effect: whenever `presenceByChar` changes,
+  // re-check the POV target and drop it if it is gone. Converges (the snapshot is updated too).
+  const [povPresenceSnapshot, setPovPresenceSnapshot] = useState(presenceByChar);
+  if (presenceByChar !== povPresenceSnapshot) {
+    setPovPresenceSnapshot(presenceByChar);
+    if (pov && (presenceByChar[pov] ?? "present") !== "present") setPov(null);
+  }
   const [reveal, setReveal] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
@@ -219,12 +228,6 @@ export function useScenePlay(scenario: ResolvedScenario) {
       .then((r) => setMaxContextTokens(r.maxContextTokens))
       .catch(() => {});
   }, []);
-
-  // Reset POV when the chosen character is no longer present (died/left/etc.) — you can't
-  // keep speaking as someone who has left the scene; fall back to the guide/narrator.
-  useEffect(() => {
-    if (pov && (presenceByChar[pov] ?? "present") !== "present") setPov(null);
-  }, [pov, presenceByChar]);
 
   // Manually set a character's scene presence (the cast-rail control + toast undo).
   // Optimistic; persists best-effort so the change survives reload and folds like an

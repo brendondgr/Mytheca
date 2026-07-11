@@ -38,6 +38,50 @@ export function PlayerMessage({ text }: { text: string }) {
 }
 
 /**
+ * A player-authored character beat (Player POV) — the player's own line, but spoken AS a
+ * character. Right-aligned like {@link PlayerMessage} so it reads as *your* turn, but wearing
+ * the character's identity (monogram + name in their color) instead of "You". The bubble keeps
+ * the accent fill (guaranteed AA contrast — a character's color can be light), so only the
+ * header carries the character color.
+ */
+export function PlayerAsCharacterMessage({
+  character,
+  action,
+  text,
+}: {
+  character: Character;
+  action?: string;
+  text: string;
+}) {
+  const c = character;
+  return (
+    <div className="flex justify-end">
+      <div className="max-w-[78%]">
+        <div className="mb-[5px] flex items-center justify-end gap-[7px]">
+          {action ? (
+            <span className="font-body text-[13px] text-mute2">{action}</span>
+          ) : null}
+          <Eyebrow size={8} tracking="0.14em" color={c.color}>
+            {c.name}
+          </Eyebrow>
+          <Monogram
+            mono={c.mono}
+            color={c.color}
+            src={c.portrait ? mediaUrl(c.portrait) : undefined}
+            size={22}
+            fontSize={9}
+            ring={1.5}
+          />
+        </div>
+        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-[#F6ECDA]">
+          <QuotedText text={text} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * `character_dialogue` (+ inline `character_action` + private `thought`) — monogram +
  * name + one bubble. A character's private thinking and their speech share a SINGLE box at
  * the SAME text size (request #4): the thought reads muted + italic at the top, the spoken
@@ -173,6 +217,10 @@ export function TranscriptBeat({
     return <BranchChoices choices={choices} onChoose={onChoose} />;
   const c = charById(m.who ?? "");
   if (!c) return null;
+  // Player POV: a `char` beat the player authored (they spoke AS this character) renders on
+  // the player's side of the transcript, wearing the character's identity.
+  if (m.fromPlayer)
+    return <PlayerAsCharacterMessage character={c} action={m.action} text={m.text ?? ""} />;
   return (
     <CharacterMessage
       character={c}
