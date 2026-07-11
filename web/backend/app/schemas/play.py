@@ -48,6 +48,14 @@ class TurnRequest(CamelModel):
     narrative-direction tag of a branch/path the player selected (legacy; the engine
     opened with a fuller "progression" narration).
 
+    ``povCharacterId`` is the *Player POV* control: when set to a present cast member's
+    id, the player's line **is that character's line** — it is seeded into the turn as a
+    ``character`` beat (so later speakers react to *Mei said X*), persisted on the
+    ``user_turn`` row, and the POV character is removed from the AI's selectable roster so
+    it is never voiced by the model. ``None`` (the default) is today's guide/narrator
+    behavior. NOTE: this is orthogonal to ``mode`` — ``mode`` is a *rendering* switch
+    (narrator interstitials on/off); ``povCharacterId`` is *who the player speaks as*.
+
     A selected follow-up suggestion no longer submits a turn on its own: the story player
     writes the suggested text into the composer for the player to review/edit and send as
     an ordinary ``text`` turn (request #2), so there is no separate open-ended steer field.
@@ -59,6 +67,7 @@ class TurnRequest(CamelModel):
     mode: TurnMode = "pov"
     trace: bool = False
     outcome: str | None = None
+    pov_character_id: str | None = None
 
 
 class SessionSummary(CamelModel):

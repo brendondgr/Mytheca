@@ -56,15 +56,21 @@ def record_user_turn(
     seq: int,
     text: str,
     directed_at: str | None,
+    pov: str | None = None,
 ) -> Event:
-    """Persist the player's input as a ``user_turn`` event (not part of the output stream)."""
+    """Persist the player's input as a ``user_turn`` event (not part of the output stream).
+
+    ``pov`` is the Player POV character id the line was spoken *as* (``None`` = the
+    default guide/narrator behavior). It is carried on the row so reload can faithfully
+    reproduce the line as that character's beat rather than a left-side player beat.
+    """
     event = Event(
         type="user_turn",
         seq=seq,
         scenario_id=scenario_id,
         session_id=session_id,
         visibility="public",
-        data={"text": text, "directedAt": directed_at},
+        data={"text": text, "directedAt": directed_at, "pov": pov},
     )
     db.add(event)
     db.commit()

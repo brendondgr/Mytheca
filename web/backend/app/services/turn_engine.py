@@ -213,6 +213,23 @@ def run_turn(
     tracer = _Tracer(
         req.trace, db=db, session_id=session.id, scenario_id=scenario.id, turn=seq0
     )
+
+    # Assemble against committed history FIRST (read-only), so the Player POV member can be
+    # resolved before anything is recorded, THEN push the player's line so it becomes
+    # history for the next turn (the current line also seeds this turn's transcript, so it
+    # is present even when the buffer is disabled).
+    ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at, player_text=text)
+
+    # Player POV: the player is speaking AS this character. Resolve it to a *present* cast
+    # member (else fall back to the default guide/narrator behavior). When set, the player's
+    # line IS the character's line — seeded/buffered as a `character` beat, persisted on the
+    # user_turn row, and the character is locked out of the AI roster (below) so the model
+    # never voices a second beat for them.
+    pov = ctx.cast_by_id(req.pov_character_id) if req.pov_character_id else None
+    if pov is not None and not pov.is_present:
+        pov = None
+    pov_id = pov.id if pov is not None else None
+
     events_store.record_user_turn(
         db,
         scenario_id=scenario.id,
@@ -220,19 +237,22 @@ def run_turn(
         seq=seq0,
         text=text,
         directed_at=req.directed_at,
+        pov=pov_id,
     )
     yield from tracer.emit(
         "turn",
         "You submitted a message",
         detail=text,
-        data={"directedAt": req.directed_at, "mode": req.mode},
+        data={"directedAt": req.directed_at, "mode": req.mode, "pov": pov_id},
     )
 
-    # Assemble against committed history, THEN push the player's line so it becomes
-    # history for the next turn (the current line also seeds this turn's transcript,
-    # so it is present even when the buffer is disabled).
-    ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at, player_text=text)
-    buffer.push_turn(session.id, "player", text)
+    # Push the player's line into the recent-turn buffer as history for next turn — as the
+    # POV character's own line when POV is active (so later speakers react to "Mei said X"),
+    # else as an ordinary player line.
+    if pov is not None:
+        buffer.push_turn(session.id, "character", text, character_id=pov.id)
+    else:
+        buffer.push_turn(session.id, "player", text)
     graph_available = bool(ctx.subgraph.get("available"))
     yield from tracer.emit(
         "assemble",
@@ -265,8 +285,15 @@ def run_turn(
 
     emitter = _Emitter(db, scenario.id, session.id, start_seq=seq0 + 1)
     # The chronological this-turn transcript handed to each speaker so a later speaker
-    # genuinely reacts to its predecessor (sequential by nature — §9).
-    turn_beats: list[dict] = [{"role": "player", "text": text, "characterId": None}]
+    # genuinely reacts to its predecessor (sequential by nature — §9). Under Player POV the
+    # player's line seeds as the POV character's OWN beat (later speakers react to it as
+    # "Mei said X"); the visible character event is intentionally WITHHELD — the client
+    # already renders the player's line optimistically / on rehydrate, exactly as the plain
+    # player line is today.
+    if pov is not None:
+        turn_beats: list[dict] = [{"role": "character", "text": text, "characterId": pov.id}]
+    else:
+        turn_beats = [{"role": "player", "text": text, "characterId": None}]
 
     # Durable consequences implied by the turn (populated from state_update events in
     # the branch/stat phase); routed off the hot path by the cold-path turn-writer.
@@ -330,8 +357,13 @@ def run_turn(
         )
 
     # Puppet beats first: each directed character performs the player's direction in its
-    # OWN voice (not a reply to the player's words).
-    puppet_members = [m for cid in intent.directed_actors if (m := ctx.cast_by_id(cid)) is not None]
+    # OWN voice (not a reply to the player's words). The POV character is excluded — the
+    # player already voiced them this turn, so the AI must not perform a second beat for them.
+    puppet_members = [
+        m
+        for cid in intent.directed_actors
+        if (m := ctx.cast_by_id(cid)) is not None and m.id != pov_id
+    ]
     for speaker in puppet_members:
         yield from tracer.emit(
             "speaker",
@@ -355,6 +387,11 @@ def run_turn(
     # the entire cast (D2); TURN_MAX_BEATS is only a runaway backstop, and the ceiling
     # floors above the cast size so a large cast is never clipped.
     acted: list[str] = [m.id for m in puppet_members]
+    # The POV character has already taken their beat (the player's line), so mark them acted:
+    # a broadcast/crowd never re-selects them, and they still reflect at end-of-turn so their
+    # interior stays current for when the AI takes them back over.
+    if pov_id is not None:
+        acted.append(pov_id)
     max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
     # Per-scene hard ceiling on the beats a single player message produces (Scene Dialogue
     # Updates). The planner may still end the turn earlier; this only caps a drawn-out
@@ -375,8 +412,17 @@ def run_turn(
             )
             break
         decision = planner_agent.next_beat(
-            db, ctx, intent, turn_beats, acted, scene_opening=scene_opening and not narrated_open
+            db, ctx, intent, turn_beats, acted,
+            scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
         )
+        # Defensive backstop (decision #1): the POV character is the player's to voice, never
+        # the AI's. The planner already excludes them from the roster, but if a stray reply
+        # ever names them, treat it as the turn ending rather than voicing a duplicate beat.
+        if pov_id is not None and decision.action == "speak" and decision.actor_id == pov_id:
+            yield from tracer.emit(
+                "plan", "The turn ends", detail="The POV character is voiced by the player."
+            )
+            break
         if decision.action == "end":
             needs_branch = decision.needs_branch
             yield from tracer.emit(

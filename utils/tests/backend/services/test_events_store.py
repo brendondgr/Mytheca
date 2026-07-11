@@ -67,7 +67,21 @@ def test_record_user_turn_persists_text(db_session):
     )
     stored = db_session.get(Event, event.id)
     assert stored.type == "user_turn"
-    assert stored.data == {"text": "hi", "directedAt": "mei"}
+    # `pov` defaults to None (today's guide/narrator behavior) alongside the existing keys.
+    assert stored.data == {"text": "hi", "directedAt": "mei", "pov": None}
+
+
+def test_record_user_turn_persists_pov(db_session):
+    # Player POV: the character id the line was spoken AS is carried on the row so reload
+    # can reproduce it as that character's beat rather than a left-side player beat.
+    scenario = _world(db_session)
+    session = events_store.create_session(db_session, scenario.id)
+    event = events_store.record_user_turn(
+        db_session, scenario_id=scenario.id, session_id=session.id, seq=0,
+        text="I have nothing to say to you.", directed_at=None, pov="mei",
+    )
+    stored = db_session.get(Event, event.id)
+    assert stored.data == {"text": "I have nothing to say to you.", "directedAt": None, "pov": "mei"}
 
 
 def test_persist_story_event_preserves_id_and_camel_data(db_session):
