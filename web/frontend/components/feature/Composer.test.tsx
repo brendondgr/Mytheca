@@ -95,7 +95,9 @@ describe("Composer", () => {
   });
 
   describe("Player POV", () => {
-    it("renders the 'Speaking as' select to the right of Config when a POV handler is given", () => {
+    const POV_OPTS = [{ id: "mei", name: "Mei", mono: "M", color: "#8E2B1C", portrait: null }];
+
+    it("renders the 'Speaking as' dropdown to the right of Config when a POV handler is given", () => {
       render(
         <Composer
           value=""
@@ -103,20 +105,20 @@ describe("Composer", () => {
           onSend={() => {}}
           onMaxTurnsChange={() => {}}
           onPovChange={() => {}}
-          povOptions={[{ id: "mei", name: "Mei" }]}
+          povOptions={POV_OPTS}
           pov={null}
         />,
       );
       const config = screen.getByRole("button", { name: /scene configuration/i });
-      const pov = screen.getByRole("combobox", { name: /speaking as/i });
+      const pov = screen.getByRole("button", { name: /speaking as/i });
       expect(pov).toBeInTheDocument();
       // POV sits AFTER the Config button in document order (to its right).
       expect(config.compareDocumentPosition(pov) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
-    it("omits the POV select when no POV handler is given", () => {
+    it("omits the POV dropdown when no POV handler is given", () => {
       render(<Composer value="" onChange={() => {}} onSend={() => {}} />);
-      expect(screen.queryByRole("combobox", { name: /speaking as/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /speaking as/i })).not.toBeInTheDocument();
     });
 
     it("placeholder reflects the active POV character", () => {
@@ -126,7 +128,7 @@ describe("Composer", () => {
           onChange={() => {}}
           onSend={() => {}}
           onPovChange={() => {}}
-          povOptions={[{ id: "mei", name: "Mei" }]}
+          povOptions={POV_OPTS}
           pov="mei"
         />,
       );
@@ -143,7 +145,7 @@ describe("Composer", () => {
           onChange={() => {}}
           onSend={() => {}}
           onPovChange={() => {}}
-          povOptions={[{ id: "mei", name: "Mei" }]}
+          povOptions={POV_OPTS}
           pov={null}
         />,
       );

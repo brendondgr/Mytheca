@@ -74,12 +74,13 @@ export function StoryPlayerView({
   const profileChar = scene.profileId ? (byId(scene.profileId) ?? null) : null;
   const modalChar = modalId ? (byId(modalId) ?? null) : null;
 
-  // The characters the player may speak AS (Player POV) — the present cast, id + name.
+  // The characters the player may speak AS (Player POV) — the present cast, with the avatar
+  // data the custom dropdown renders (portrait falls back to the monogram).
   const povOptions = useMemo(
     () =>
       scenario.cast
         .filter((c) => (scene.presenceByChar[c.id] ?? "present") === "present")
-        .map((c) => ({ id: c.id, name: c.name })),
+        .map((c) => ({ id: c.id, name: c.name, mono: c.mono, color: c.color, portrait: c.portrait })),
     [scenario.cast, scene.presenceByChar],
   );
 
