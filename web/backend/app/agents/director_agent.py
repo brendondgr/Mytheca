@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.agents import prompt_registry
-from app.agents._common import extract_json, resolve_llm
+from app.agents._common import extract_json, gen_params, resolve_llm
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
@@ -81,7 +81,7 @@ def _reasoned_decision(db: Session, ctx: TurnContext) -> DirectorDecision:
                 {"role": "system", "content": ctx.prompts.get(prompt_registry.DIRECTOR_WHO_IS_UP, _SYSTEM)},
                 {"role": "user", "content": user},
             ],
-            params,
+            gen_params(params),
             reasoning=DIRECTOR_EFFORT,
         )
         data = extract_json(raw)
@@ -140,7 +140,7 @@ def rerank(db: Session, ctx: TurnContext, remaining_ids: list[str], turn_beats: 
                 {"role": "system", "content": ctx.prompts.get(prompt_registry.DIRECTOR_RERANK, _RERANK_SYSTEM)},
                 {"role": "user", "content": user},
             ],
-            params,
+            gen_params(params),
             reasoning=DIRECTOR_EFFORT,
         )
         data = extract_json(raw)
@@ -215,7 +215,7 @@ def propose_branches(
                 {"role": "system", "content": ctx.prompts.get(prompt_registry.DIRECTOR_BRANCH, _BRANCH_SYSTEM)},
                 {"role": "user", "content": user},
             ],
-            params,
+            gen_params(params),
             reasoning=DIRECTOR_EFFORT,
         )
         data = extract_json(raw)
@@ -291,7 +291,7 @@ def propose_pov_lines(
                 {"role": "system", "content": ctx.prompts.get(prompt_registry.DIRECTOR_POV_BRANCH, _POV_BRANCH_SYSTEM)},
                 {"role": "user", "content": user},
             ],
-            params,
+            gen_params(params),
             reasoning=DIRECTOR_EFFORT,
         )
         data = extract_json(raw)

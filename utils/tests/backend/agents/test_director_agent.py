@@ -108,6 +108,28 @@ def test_malformed_director_reply_falls_back(client, db_session, monkeypatch):
     assert d.speakers == ["mei"] and d.beat == "fallback"
 
 
+def test_reasoned_pick_floors_token_budget_for_reasoning_model(client, db_session, monkeypatch):
+    # The operator default max_tokens (512) starves a reasoning model — it spends the budget
+    # on hidden reasoning and returns empty content. The director must floor via gen_params so
+    # its calls don't silently degrade to fallback (and log empty completions).
+    from app.agents import _common
+
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/chat/completions"):
+            seen["max_tokens"] = json.loads(request.content)["max_tokens"]
+            return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"speakers": [1]})}}]})
+        return httpx.Response(404)
+
+    monkeypatch.setattr(
+        llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    _configure_llm(client)
+    director_agent.who_is_up(db_session, _ctx(_cast("mei", "kira")))
+    assert seen["max_tokens"] == _common.GEN_MIN_TOKENS
+
+
 def test_propose_branches_parses_label_and_outcome(client, db_session, monkeypatch):
     _configure_llm(client)
     _patch(

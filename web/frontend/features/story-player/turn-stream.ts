@@ -329,6 +329,21 @@ export interface ActivityEntry {
 const ACTIVITY_MAX = 12;
 
 /**
+ * Ensure `base` is unique within `list`. Trace frames number steps with `n`, which
+ * *orders within a turn and resets each turn* — so a `plan`/`speaker` step reusing the
+ * same `n` in a later turn would otherwise collide with an earlier entry still in the
+ * feed window and produce a duplicate React key. On collision, suffix `#2`, `#3`, … so
+ * the key stays stable within the window without inventing cross-turn turn numbers the
+ * live trace frame doesn't carry.
+ */
+function uniqueId(base: string, list: ActivityEntry[]): string {
+  if (!list.some((e) => e.id === base)) return base;
+  let k = 2;
+  while (list.some((e) => e.id === `${base}#${k}`)) k += 1;
+  return `${base}#${k}`;
+}
+
+/**
  * Fold one frame into the activity feed. Returns a **new** array (newest first,
  * capped at `ACTIVITY_MAX`) or the *same reference* when the frame is irrelevant,
  * so callers can skip re-renders cheaply.
@@ -346,7 +361,7 @@ export function applyActivity(list: ActivityEntry[], frame: TurnStreamFrame): Ac
       const name = (t.data.name as string | undefined) ?? characterId;
       if (!characterId) return list;
       const entry: ActivityEntry = {
-        id: `trace-speaker-${characterId}-${t.n}`,
+        id: uniqueId(`trace-speaker-${characterId}-${t.n}`, list),
         kind: "thinking",
         who: characterId,
         label: `${name} is about to speak`,
@@ -355,7 +370,7 @@ export function applyActivity(list: ActivityEntry[], frame: TurnStreamFrame): Ac
     }
     if (t.step === "branch") {
       const entry: ActivityEntry = {
-        id: `trace-branch-${t.n}`,
+        id: uniqueId(`trace-branch-${t.n}`, list),
         kind: "branch",
         label: "New paths offered",
         detail: t.detail || undefined,
@@ -364,7 +379,7 @@ export function applyActivity(list: ActivityEntry[], frame: TurnStreamFrame): Ac
     }
     if (t.step === "plan") {
       const entry: ActivityEntry = {
-        id: `trace-plan-${t.n}`,
+        id: uniqueId(`trace-plan-${t.n}`, list),
         kind: "plan",
         label: t.title,
         detail: t.detail || undefined,
