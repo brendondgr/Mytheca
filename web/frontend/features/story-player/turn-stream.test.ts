@@ -477,6 +477,28 @@ describe("applyActivity", () => {
     expect(feed[0].label).toBe("The narrator opens the scene");
   });
 
+  it("keeps trace ids unique when a later turn reuses the same step index n", () => {
+    // `n` orders within a turn and resets each turn; the feed is kept across turns, so a
+    // plan/speaker step reusing the same n must not collide (would be a duplicate React key).
+    let feed: ActivityEntry[] = [];
+    feed = applyActivity(feed, traceFrame("plan", 5, { title: "Plan A" }));
+    feed = applyActivity(feed, traceFrame("plan", 5, { title: "Plan B" })); // next turn, same n
+    feed = applyActivity(
+      feed,
+      traceFrame("speaker", 6, { data: { characterId: "mei", name: "Mei" } }),
+    );
+    feed = applyActivity(
+      feed,
+      traceFrame("speaker", 6, { data: { characterId: "mei", name: "Mei" } }), // next turn, same n
+    );
+    const ids = feed.map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length); // all ids unique
+    expect(ids).toContain("trace-plan-5");
+    expect(ids).toContain("trace-plan-5#2");
+    expect(ids).toContain("trace-speaker-mei-6");
+    expect(ids).toContain("trace-speaker-mei-6#2");
+  });
+
   it("first narration chunk → narration entry; subsequent chunks do NOT duplicate", () => {
     let feed: ActivityEntry[] = [];
     feed = applyActivity(feed, ev("narration", "n1", { text: "Rain ", done: false }));
