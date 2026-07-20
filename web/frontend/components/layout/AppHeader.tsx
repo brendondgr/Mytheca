@@ -36,7 +36,7 @@ export function AppHeader({
   optionsSlot?: React.ReactNode;
 }) {
   return (
-    <header className="velora-header flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] sm:px-[26px]">
+    <header className="velora-header relative z-[15] flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] shadow-[0_3px_14px_rgba(10,6,2,0.22)] sm:px-[26px]">
       <div className="flex items-center gap-[13px]">
         <span aria-hidden className="text-[16px] text-accent">
           ❖

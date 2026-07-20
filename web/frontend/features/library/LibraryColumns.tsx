@@ -25,7 +25,7 @@ function Column({
       id={`lib-panel-${tabKey}`}
       aria-labelledby={`lib-tab-${tabKey}`}
       className={cn(
-        "outline-none lg:block lg:h-full lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-hair lg:pb-[28px] lg:first:border-l-0",
+        "outline-none lg:block lg:h-full lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-hair-strong lg:pb-[28px] lg:first:border-l-0",
         active !== tabKey && "hidden",
       )}
     >
