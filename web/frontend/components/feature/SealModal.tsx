@@ -88,7 +88,7 @@ export function SealModal({
                     "flex h-[34px] w-[34px] items-center justify-center rounded-[5px] border text-[18px] leading-none focus-visible:border-accent",
                     seal === sym
                       ? "border-accent bg-card2 text-ink"
-                      : "border-cardbd bg-field text-ink-soft hover:border-accent",
+                      : "border-cardbd bg-field text-ink-soft hover:border-accent hover:bg-hover hover:text-ink",
                   )}
                 >
                   {sym}

@@ -337,7 +337,7 @@ function CastStrip({
           type="button"
           onClick={() => page(-1)}
           aria-label="Previous characters"
-          className="absolute left-[8px] top-1/2 z-[4] flex h-[30px] w-[30px] -translate-y-1/2 items-center justify-center rounded-full text-[16px] leading-none shadow-[0_2px_10px_rgba(8,5,2,0.55)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="absolute left-[8px] top-1/2 z-[4] flex h-[30px] w-[30px] -translate-y-1/2 items-center justify-center rounded-full text-[16px] leading-none shadow-[0_2px_10px_rgba(8,5,2,0.55)] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label, outlineColor: HERO.label }}
         >
           ‹
@@ -348,7 +348,7 @@ function CastStrip({
           type="button"
           onClick={() => page(1)}
           aria-label="Next characters"
-          className="absolute right-[8px] top-1/2 z-[4] flex h-[30px] w-[30px] -translate-y-1/2 items-center justify-center rounded-full text-[16px] leading-none shadow-[0_2px_10px_rgba(8,5,2,0.55)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="absolute right-[8px] top-1/2 z-[4] flex h-[30px] w-[30px] -translate-y-1/2 items-center justify-center rounded-full text-[16px] leading-none shadow-[0_2px_10px_rgba(8,5,2,0.55)] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label, outlineColor: HERO.label }}
         >
           ›
@@ -473,7 +473,7 @@ function CastCard({
           onClick={onToggleStats}
           aria-label={expanded ? `Hide statistics for ${c.name}` : `Show statistics for ${c.name}`}
           aria-expanded={expanded}
-          className="absolute right-[8px] top-[8px] z-[5] flex h-[26px] w-[26px] items-center justify-center rounded-full text-[13px] leading-none shadow-[0_2px_8px_rgba(8,5,2,0.5)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="absolute right-[8px] top-[8px] z-[5] flex h-[26px] w-[26px] items-center justify-center rounded-full text-[13px] leading-none shadow-[0_2px_8px_rgba(8,5,2,0.5)] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ background: HERO.chev, border: `1px solid ${c.color}`, color: HERO.label, outlineColor: HERO.label }}
         >
           {expanded ? "❮" : "❯"}
@@ -552,7 +552,7 @@ function CastStats({
           type="button"
           onClick={onClose}
           aria-label="Close statistics"
-          className="flex h-[20px] w-[20px] flex-none items-center justify-center rounded-full text-[12px] leading-none hover:brightness-110 focus-visible:outline focus-visible:outline-2"
+          className="flex h-[20px] w-[20px] flex-none items-center justify-center rounded-full text-[12px] leading-none hover:brightness-125 focus-visible:outline focus-visible:outline-2"
           style={{ color: OVER_ART.title, background: `${c.color}55`, outlineColor: HERO.label }}
         >
           ×

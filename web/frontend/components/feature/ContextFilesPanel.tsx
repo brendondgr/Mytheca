@@ -151,7 +151,7 @@ export function ContextFilesPanel({
                       type="button"
                       aria-label={`Select all for ${label}`}
                       onClick={() => setAllDocUse(key, true)}
-                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] text-ink-soft uppercase hover:border-accent"
+                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink"
                     >
                       All
                     </button>
@@ -159,7 +159,7 @@ export function ContextFilesPanel({
                       type="button"
                       aria-label={`Deselect all for ${label}`}
                       onClick={() => setAllDocUse(key, false)}
-                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] text-mute uppercase hover:border-accent"
+                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] text-mute uppercase hover:border-accent hover:bg-hover hover:text-ink"
                     >
                       None
                     </button>
@@ -208,7 +208,7 @@ export function ContextFilesPanel({
                           "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
                           on
                             ? "border-accent bg-card2 text-ink"
-                            : "border-cardbd bg-transparent text-mute hover:border-accent",
+                            : "border-cardbd bg-transparent text-mute hover:border-accent hover:bg-hover hover:text-ink",
                         )}
                       >
                         {on ? "✓ " : ""}

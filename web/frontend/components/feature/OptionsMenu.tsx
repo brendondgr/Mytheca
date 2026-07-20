@@ -83,7 +83,7 @@ export function OptionsMenu() {
                     aria-label={option.label}
                     aria-pressed={active}
                     title={option.label}
-                    className="flex items-center justify-center rounded-full border border-field-bd bg-field p-[6px] hover:border-accent"
+                    className="flex items-center justify-center rounded-full border border-field-bd bg-field p-[6px] hover:border-accent hover:bg-hover"
                   >
                     <span
                       className="h-[18px] w-[18px] rounded-full"

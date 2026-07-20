@@ -178,7 +178,7 @@ export function BranchChoices({
             key={ch.id}
             type="button"
             onClick={() => onChoose(ch)}
-            className="velora-row flex items-center gap-[13px] rounded-[4px] border border-field-bd bg-card p-[12px_15px] text-left hover:translate-x-[3px] hover:border-accent"
+            className="velora-row flex items-center gap-[13px] rounded-[4px] border border-field-bd bg-card p-[12px_15px] text-left hover:translate-x-[3px] hover:border-accent hover:bg-hover"
           >
             <span aria-hidden className="flex-none text-[13px] text-accent">
               ◆

@@ -136,7 +136,7 @@ export function PromptOverridesEditor({
                 "cursor-pointer rounded-[3px] border px-[12px] py-[6px] font-mono text-[11px] tracking-[0.08em] uppercase",
                 selected
                   ? "border-accent bg-card2 text-ink"
-                  : "border-cardbd bg-card text-ink-soft hover:bg-card2",
+                  : "border-cardbd bg-card text-ink-soft hover:border-hair-strong hover:bg-hover hover:text-ink",
               )}
             >
               {agent}
