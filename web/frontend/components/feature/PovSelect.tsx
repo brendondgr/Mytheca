@@ -169,7 +169,7 @@ export function PovSelect({
   }
 
   const rowClass =
-    "flex w-full items-center gap-[8px] rounded-[3px] px-[8px] py-[6px] text-left text-ink hover:bg-card2 focus:bg-card2 focus:outline-none aria-checked:text-accent";
+    "flex w-full items-center gap-[8px] rounded-[3px] px-[8px] py-[6px] text-left text-ink hover:bg-hover focus:bg-hover focus:outline-none aria-checked:text-accent";
 
   return (
     // `min-w-0` (no `flex-none`) lets the control shrink on a narrow composer row rather than
@@ -216,7 +216,7 @@ export function PovSelect({
           role="menu"
           aria-label="Speaking as"
           onKeyDown={onMenuKeyDown}
-          className="absolute bottom-[40px] left-0 z-40 flex max-h-[280px] min-w-[176px] max-w-[240px] flex-col gap-[2px] overflow-auto rounded-[6px] border border-cardbd bg-card p-[6px] shadow-[0_8px_24px_rgba(20,14,6,.18)]"
+          className="absolute bottom-[40px] left-0 z-40 flex max-h-[280px] min-w-[176px] max-w-[240px] flex-col gap-[2px] overflow-auto velora-menu p-[6px]"
         >
           <button
             type="button"

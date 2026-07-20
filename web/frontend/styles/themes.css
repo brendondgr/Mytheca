@@ -151,6 +151,16 @@
   --fs-tag:     12px;
 }
 
+/* Shared dropdown/popover surface — every menu panel (storyline switcher,
+ * Create, Options, Export, POV select, scene Config, MultiSelect) uses this so
+ * dropdowns read as one consistent, clearly-elevated layer above the page. */
+.velora-menu {
+  background-color: var(--menu-bg);
+  border: 1px solid var(--menu-bd);
+  border-radius: 4px;
+  box-shadow: 0 18px 44px rgba(10, 6, 2, 0.55), 0 2px 8px rgba(10, 6, 2, 0.28);
+}
+
 /* Gradient-backed surfaces (can't be expressed as Tailwind color utilities). */
 .velora-page {
   background-color: var(--page-bg);

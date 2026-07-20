@@ -55,7 +55,7 @@ export function CreateMenu({
         <div
           id="create-menu"
           aria-label="Create new"
-          className="absolute top-[42px] right-0 z-40 w-[236px] rounded-[4px] border border-cardbd bg-card p-[7px] shadow-[0_16px_40px_rgba(14,9,4,.45)]"
+          className="absolute top-[42px] right-0 z-40 w-[236px] velora-menu p-[7px]"
         >
           <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-tag uppercase tracking-[0.18em] text-mute">
             New in Embergate
@@ -65,7 +65,7 @@ export function CreateMenu({
               key={item.type}
               type="button"
               onClick={() => onCreate(item.type)}
-              className="flex w-full items-center gap-[11px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-card2"
+              className="flex w-full items-center gap-[11px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-hover"
             >
               <span className="w-4 text-center text-[14px] text-gold" aria-hidden>
                 {item.icon}

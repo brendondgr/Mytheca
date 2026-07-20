@@ -150,7 +150,7 @@ export function MultiSelect({
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] text-left text-[15px] focus-visible:border-accent",
+          "flex w-full items-center justify-between gap-2 rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] text-left text-[15px] hover:border-accent focus-visible:border-accent",
           (disabled || isEmpty) && "cursor-not-allowed opacity-60",
         )}
       >
@@ -207,7 +207,7 @@ export function MultiSelect({
           aria-label={label}
           aria-multiselectable={multiple || undefined}
           onKeyDown={onListKeyDown}
-          className="absolute z-40 mt-[4px] max-h-[240px] w-full overflow-auto rounded-[4px] border border-cardbd bg-card p-[5px] shadow-[0_16px_40px_rgba(20,12,4,.5)]"
+          className="absolute z-40 mt-[4px] max-h-[240px] w-full overflow-auto velora-menu p-[5px]"
         >
           {options.map((o, i) => {
             const isSelected = selectedSet.has(o.id);
@@ -223,7 +223,7 @@ export function MultiSelect({
                 onClick={() => toggle(o.id)}
                 onFocus={() => setActive(i)}
                 className={cn(
-                  "flex cursor-pointer items-center gap-[9px] rounded-[3px] px-[9px] py-[7px] text-[14px] outline-none hover:bg-card2 focus-visible:bg-card2 focus-visible:ring-1 focus-visible:ring-accent",
+                  "flex cursor-pointer items-center gap-[9px] rounded-[3px] px-[9px] py-[7px] text-[14px] outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-1 focus-visible:ring-accent",
                   isSelected && "bg-card2",
                 )}
               >
