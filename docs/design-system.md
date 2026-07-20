@@ -79,6 +79,7 @@ Three themes ship from day one, switched by a `ThemeSwitcher` and persisted (`lo
 - **Success / "now" green** `#1F8A5B`.
 - **Failure / danger** `#9A3520` (and the accent for "secret"/warning labels).
 - **Character colors** — each character carries its own accent (chosen from a **12-color palette** in `web/frontend/lib/seed-data.ts` `PALETTE`: `#8E2B1C`, `#A8762A`, `#2F7D6B`, `#3A5A78`, `#6B4A8A`, `#5A534A`, `#1F8A5B`, `#B0506A`, `#C56A1F`, `#7E8A2B`, `#2C8E8E`, `#8E3B7A`) used for its monogram ring, name, and role tag.
+- **Story-Graph node/edge colors** (`web/frontend/lib/graphColors.ts`) — the story-player **Graph view** colors nodes by type (Character `#B0492F`, Setting `#2F7D6B`, Event `#C56A1F`, Faction `#6B4A8A`, Secret `#B0506A`, Consequence `#3A5A78`) and edges by **valence family** (positive `#1F8A5B`, negative `#9A3520`, neutral slate `#5B6B7A`), theme-independent so the graph reads the same in all three themes. Any **unknown/user-defined type** is assigned a **stable color from a deterministic name hash** (mid-band HSL, clears 3:1 on both grounds) so the map keeps working as the graph grows. A **visible legend** pairs every color with its type label and an **sr-only `<table>`** lists nodes/edges — the canvas never conveys meaning by color alone (WCAG 1.4.1) and always has a text alternative (1.4.11 / 1.1.1).
 
 All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every theme** — verify Parchment, Ember, and Slate. Status and stat changes are never conveyed by color alone (pair with a label, sign, or icon).
 

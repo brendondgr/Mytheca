@@ -34,7 +34,7 @@
 
 ### Frontend (Next.js)
 
-Installed stack: **Next.js 16** (App Router, Turbopack) · React 19 · TypeScript · **Tailwind CSS v4** (CSS-first `@theme`; Velora tokens surfaced as CSS variables) · **Framer Motion** · **Vitest + React Testing Library** (tests co-located beside components, e.g. `app/page.test.tsx`). The three brand fonts (Cinzel / EB Garamond / IBM Plex Mono) load via `next/font` in `app/layout.tsx`.
+Installed stack: **Next.js 16** (App Router, Turbopack) · React 19 · TypeScript · **Tailwind CSS v4** (CSS-first `@theme`; Velora tokens surfaced as CSS variables) · **Framer Motion** · **`react-force-graph-2d`** (canvas + d3-force renderer for the story-player Graph view — lazy-loaded via `next/dynamic({ ssr:false })`, so it stays out of the initial bundle until a scene is switched to Graph mode; declares `peerDependencies: { react: '*' }`, compatible with React 19) · **Vitest + React Testing Library** (tests co-located beside components, e.g. `app/page.test.tsx`). The three brand fonts (Cinzel / EB Garamond / IBM Plex Mono) load via `next/font` in `app/layout.tsx`.
 
 Run from `web/frontend/` (or from the repo root with `python app.py frontend`):
 
