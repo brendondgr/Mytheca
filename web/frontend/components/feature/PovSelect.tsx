@@ -216,7 +216,7 @@ export function PovSelect({
           role="menu"
           aria-label="Speaking as"
           onKeyDown={onMenuKeyDown}
-          className="absolute bottom-[40px] left-0 z-40 flex max-h-[280px] min-w-[176px] max-w-[240px] flex-col gap-[2px] overflow-auto velora-menu p-[6px]"
+          className="absolute bottom-[40px] left-0 z-40 flex max-h-[280px] min-w-[176px] max-w-[240px] flex-col gap-[2px] overflow-auto mytheca-menu p-[6px]"
         >
           <button
             type="button"

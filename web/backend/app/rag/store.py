@@ -1,6 +1,6 @@
 """Qdrant collection + upsert/search/delete (brief §4).
 
-One ``velora_lore`` collection holds every entry as a point with two named
+One ``mytheca_lore`` collection holds every entry as a point with two named
 vectors — ``dense`` (bge-large) and ``bm25`` (sparse/lexical) — plus a payload
 carrying the front-matter filter fields, the body text (for LLM context), and a
 ``content_hash`` for idempotent re-indexing. Every point is tagged with its
@@ -31,7 +31,7 @@ SPARSE = "bm25"
 
 @dataclass(frozen=True)
 class StoreHit:
-    """A single retrieval hit: the Velora entry id, the channel score, the payload."""
+    """A single retrieval hit: the Mytheca entry id, the channel score, the payload."""
 
     entry_id: str
     score: float

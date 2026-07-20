@@ -10,7 +10,7 @@ describe("/{storylineId} route", () => {
       params: Promise.resolve({ storylineId: "embergate" }),
     });
     render(ui);
-    expect(screen.getByText("VELORA")).toBeInTheDocument();
+    expect(screen.getByText("MYTHECA")).toBeInTheDocument();
     expect(
       screen.getByRole("tablist", { name: /library sections/i }),
     ).toBeInTheDocument();

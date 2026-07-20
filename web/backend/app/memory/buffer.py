@@ -22,7 +22,7 @@ import redis as redis_lib
 from app.core.config import get_settings
 from app.core.redis import get_redis
 
-logger = logging.getLogger("velora.memory")
+logger = logging.getLogger("mytheca.memory")
 
 _KEY = "buffer:{session_id}"
 # Buffer entries outlive a turn but not a session; expire stale keys after a day.

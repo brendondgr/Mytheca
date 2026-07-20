@@ -23,7 +23,7 @@ describe("CharacterModal — agentic creator", () => {
       within(dialog).getByLabelText(/describe the character to draft/i),
       "A by-the-book harbor captain.",
     );
-    const draftBtn = within(dialog).getByRole("button", { name: /draft with velora/i });
+    const draftBtn = within(dialog).getByRole("button", { name: /draft with mytheca/i });
     expect(draftBtn).toBeEnabled();
     await user.click(draftBtn);
 
@@ -49,7 +49,7 @@ describe("CharacterModal — agentic creator", () => {
       within(dialog).getByLabelText(/describe the character to draft/i),
       "A by-the-book harbor captain.",
     );
-    await user.click(within(dialog).getByRole("button", { name: /draft with velora/i }));
+    await user.click(within(dialog).getByRole("button", { name: /draft with mytheca/i }));
 
     // The progress stepper appears during the draft…
     expect(
@@ -57,7 +57,7 @@ describe("CharacterModal — agentic creator", () => {
     ).toBeInTheDocument();
     // …and at some point a field carries the live "editing now" highlight.
     await waitFor(() => {
-      const active = dialog.querySelector(".velora-field-active");
+      const active = dialog.querySelector(".mytheca-field-active");
       expect(active).not.toBeNull();
     });
   });
@@ -140,7 +140,7 @@ describe("CharacterModal — agentic creator", () => {
       within(dialog).getByLabelText(/describe the character to draft/i),
       "A marsh-born scout.",
     );
-    await user.click(within(dialog).getByRole("button", { name: /draft with velora/i }));
+    await user.click(within(dialog).getByRole("button", { name: /draft with mytheca/i }));
     await waitFor(() =>
       expect(vi.mocked(api.draftCharacter)).toHaveBeenCalledWith(
         "A marsh-born scout.",
@@ -155,7 +155,7 @@ describe("CharacterModal — agentic creator", () => {
     const dialog = await openCharacterCreator(user);
 
     // With no seed typed, the Draft button is disabled.
-    const draftBtn = within(dialog).getByRole("button", { name: /draft with velora/i });
+    const draftBtn = within(dialog).getByRole("button", { name: /draft with mytheca/i });
     expect(draftBtn).toBeDisabled();
 
     // Dropping a Draft-tagged file (Draft toggle defaults ON) enables it.

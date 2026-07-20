@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-Three improvements to Velora's **New Storyline** page (`StorylineCreatorView` +
+Three improvements to Mytheca's **New Storyline** page (`StorylineCreatorView` +
 `TriagePanel`, backed by `useStorylineCreator` / `storylineCreator`), plus a small
 backend budget bump. Today every dropped file lands **Uncategorized** and the author
 re-categorizes each row by hand or runs **Triage** to classify them all. We want to

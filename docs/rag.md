@@ -1,13 +1,13 @@
-# Velora Hybrid RAG
+# Mytheca Hybrid RAG
 
-Velora's retrieval layer turns the persisted reference corpus + the world's own
+Mytheca's retrieval layer turns the persisted reference corpus + the world's own
 entities into a searchable index, and **uses** it: the authoring agents retrieve
 relevant established lore and ground their drafts in it. It is **best-effort**
 throughout — exactly like the Neo4j substrate — so CRUD and the test suite run
 with no vector store and no embedding model.
 
-Source brief: `Documents/Plans/Velora/1.velora-rag-implementation-plan.md`.
-Implementation plan: `docs/plans/velora-rag-implementation.md`.
+Source brief: `Documents/Plans/Mytheca/1.mytheca-rag-implementation-plan.md`.
+Implementation plan: `docs/plans/mytheca-rag-implementation.md`.
 
 ## Pipeline
 
@@ -63,7 +63,7 @@ model and retrieval ranking is still meaningful.
 ## Vector store (Qdrant)
 
 A Qdrant container (`web/backend/docker-compose.yml`, REST `3351` / gRPC `3352`)
-started by `app.py` like Postgres/Redis/Neo4j. One `velora_lore` collection holds
+started by `app.py` like Postgres/Redis/Neo4j. One `mytheca_lore` collection holds
 every entry as a point with **named dense + sparse vectors** and a payload
 (`type`, `name`, `tags`, `storyline_id`, `entity_type`, `entity_id`, `body`,
 `content_hash`, …). Point ids are `uuid5(namespace, "{entity_type}:{entity_id}")` —
@@ -127,7 +127,7 @@ bug). All persisted, RAG-flagged docs feed retrieval.
 | `EMBED_DEVICE` | `cpu` | `cpu` / `cuda` / `rocm` |
 | `EMBED_CACHE_DIR` | (fastembed default) | ONNX model cache |
 | `QDRANT_URL` | `http://localhost:3351` | blank disables the vector store |
-| `QDRANT_COLLECTION` | `velora_lore` | collection name |
+| `QDRANT_COLLECTION` | `mytheca_lore` | collection name |
 
 ## Deferred (brief §6, §7)
 

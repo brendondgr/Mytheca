@@ -1,6 +1,6 @@
-# Velora
+# Mytheca
 
-Velora is an AI-driven, multi-character roleplay chat engine. Users build a **storyline** (the world) with its **characters**, **settings**, and **scenarios** (live situations), then play through scenes driven by a multi-agent backend (Orchestrator/Director, Narrator, and Character agents) with a State manager and a Validator. The AI emits small, validated **story events** that stream to the UI in real time, and a near-term **stat system** (bounded, guidance-driven numeric values) gives the world continuity and consequence.
+Mytheca is an AI-driven, multi-character roleplay chat engine. Users build a **storyline** (the world) with its **characters**, **settings**, and **scenarios** (live situations), then play through scenes driven by a multi-agent backend (Orchestrator/Director, Narrator, and Character agents) with a State manager and a Validator. The AI emits small, validated **story events** that stream to the UI in real time, and a near-term **stat system** (bounded, guidance-driven numeric values) gives the world continuity and consequence.
 
 ## Documentation (source of truth)
 

@@ -24,7 +24,7 @@ from typing import TypeVar
 
 from app.core.config import get_settings
 
-logger = logging.getLogger("velora.turn")
+logger = logging.getLogger("mytheca.turn")
 
 T = TypeVar("T")
 
@@ -56,7 +56,7 @@ def run_all(
         return [_safe(t) for t in items]
 
     results: list[T | None] = [None] * len(items)
-    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="velora-turn") as pool:
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="mytheca-turn") as pool:
         futures = {pool.submit(_safe, thunk): i for i, thunk in enumerate(items)}
         for future, index in futures.items():
             results[index] = future.result()  # _safe never raises
@@ -88,7 +88,7 @@ def imap_unordered(
             yield i, _safe(thunk)
         return
 
-    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="velora-authoring") as pool:
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="mytheca-authoring") as pool:
         futures = {pool.submit(_safe, thunk): i for i, thunk in enumerate(items)}
         for future in as_completed(futures):
             yield futures[future], future.result()  # _safe never raises
@@ -111,4 +111,4 @@ def submit_background(job: Callable[[], None]) -> None:
     if not settings.turn_async_finalize or settings.is_sqlite:
         _safe(job)
         return
-    threading.Thread(target=lambda: _safe(job), name="velora-finalize", daemon=True).start()
+    threading.Thread(target=lambda: _safe(job), name="mytheca-finalize", daemon=True).start()

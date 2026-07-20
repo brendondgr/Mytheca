@@ -30,7 +30,7 @@ export function SceneHeader({
 }) {
   const meta = [`◆ ${settingName}`, genre, tone].filter(Boolean).join(" · ");
   return (
-    <header className="velora-header flex h-[50px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[24px]">
+    <header className="mytheca-header flex h-[50px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[24px]">
       <div className="flex min-w-0 items-center gap-[14px]">
         <Link
           href={backHref}

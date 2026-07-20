@@ -95,7 +95,7 @@ tests under `utils/tests/backend/`.
   text. `test_character_turn_agent.py` — `generate_line_with_usage` surfaces the
   tokens. A turn-engine/play test — a real turn emits a persisted `context` trace
   carrying `promptTokens` (and none when the endpoint omits usage).
-- **Validate:** `/home/bdgr/Agents/Velora/.venv/bin/python -m pytest
+- **Validate:** `/home/bdgr/Agents/Mytheca/.venv/bin/python -m pytest
   utils/tests/backend/services/test_llm.py
   utils/tests/backend/agents/test_character_turn_agent.py utils/tests/backend/api
   utils/tests/backend/services -q` (relevant subset), then the full backend suite.

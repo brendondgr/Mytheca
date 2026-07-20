@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-Velora already persists every visible turn event — narration, dialogue, actions, the
+Mytheca already persists every visible turn event — narration, dialogue, actions, the
 player's `user_turn`, `internal_thought` (as a `private_to_user` row), and `state_update` —
 to the Postgres `events` table per turn (`services/events_store.persist_story_event`, via the
 turn engine's `_Emitter`). What is **missing** for the user's two requests:

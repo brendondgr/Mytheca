@@ -4,7 +4,7 @@
 
 Today a storyline is created in a pop-up (`StorylineModal`): standard fields on the
 left, a detached **context-files** column (drop `.txt`/`.md`) on the right with
-per-file **Draft / RAG / KG** toggles, an agentic *Draft with Velora* seed, and a
+per-file **Draft / RAG / KG** toggles, an agentic *Draft with Mytheca* seed, and a
 *Generate primer* action. Files ground a single generation and are then thrown
 away (no persistence; RAG/KG are dead seams). Creation only ever produces the
 storyline shell — characters, settings, stats, and images are authored later, one

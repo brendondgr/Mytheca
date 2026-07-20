@@ -83,7 +83,7 @@ def test_reconcile_flags_nonnullable_column_for_manual_migration():
 
 
 def test_preflight_on_sqlite_seeds_and_passes(monkeypatch, tmp_path):
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'velora.db'}")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'mytheca.db'}")
     monkeypatch.setenv("NEO4J_URI", "")  # graph disabled — no network in this unit test
     config.get_settings.cache_clear()
     try:
@@ -101,7 +101,7 @@ def test_preflight_on_sqlite_seeds_and_passes(monkeypatch, tmp_path):
 def test_preflight_neo4j_is_optional_and_does_not_gate(monkeypatch, tmp_path):
     # Graph configured but unreachable: the check is reported, optional, and never
     # blocks startup (best-effort posture).
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'velora.db'}")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'mytheca.db'}")
     monkeypatch.setenv("NEO4J_URI", "bolt://localhost:3349")
     config.get_settings.cache_clear()
     monkeypatch.setattr(bootstrap, "neo4j_ping", lambda: False)  # no real connection
@@ -124,7 +124,7 @@ def test_preflight_migrations_skipped_on_sqlite(monkeypatch, tmp_path):
     3. Its detail says "skipped (sqlite)" — the DB URL never sent to Alembic.
     The test is idempotent: a second run produces the same result.
     """
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'velora.db'}")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'mytheca.db'}")
     monkeypatch.setenv("NEO4J_URI", "")
     config.get_settings.cache_clear()
     try:

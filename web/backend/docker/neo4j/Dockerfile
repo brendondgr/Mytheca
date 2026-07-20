@@ -1,4 +1,4 @@
-# Velora's custom Neo4j image — the Story Graph substrate.
+# Mytheca's custom Neo4j image — the Story Graph substrate.
 #
 # Built and started automatically by `python app.py` (see ensure_docker_services
 # in app.py and web/backend/docker-compose.yml). You never build this by hand.

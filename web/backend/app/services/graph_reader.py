@@ -1,6 +1,6 @@
 """The Story-Graph read path on scenario load (§7.2 templates + §7.4 read-only).
 
-The hot path is reads only (§8). When a Scenario is loaded, Velora:
+The hot path is reads only (§8). When a Scenario is loaded, Mytheca:
   1. **materializes** the scenario's cast + setting from Postgres into Neo4j —
      an idempotent upsert (so the seeded world appears in the graph on first load,
      and the present_at "who's in this scene" edges (§4.3) are drawn);
@@ -27,7 +27,7 @@ from app.core import neo4j
 from app.models import Character, Scenario, Setting
 from app.services import crud, graph_writer
 
-logger = logging.getLogger("velora.graph")
+logger = logging.getLogger("mytheca.graph")
 
 _STRUCTURAL_KEYS = {"id", "type", "label", "storyline"}
 

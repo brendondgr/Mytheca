@@ -1,4 +1,4 @@
-"""Velora Hybrid RAG package.
+"""Mytheca Hybrid RAG package.
 
 Entry-based markdown lore → structured front matter → prefix-fusion serialization
 → fastembed dense + BM25 sparse vectors in Qdrant → RRF-fused hybrid retrieval
@@ -6,7 +6,7 @@ injected into the authoring agents. Best-effort throughout (mirrors the Neo4j
 substrate): CRUD and the test suite run with no Qdrant / no embedding model.
 
 See ``docs/rag.md`` and the source brief
-``Documents/Plans/Velora/1.velora-rag-implementation-plan.md``.
+``Documents/Plans/Mytheca/1.mytheca-rag-implementation-plan.md``.
 """
 
 from __future__ import annotations

@@ -18,47 +18,47 @@ This plan upgrades that static highlight into an **animated, pulsing glow** that
 ### Phase 0: Branch / worktree setup
 
 - **Locations:** repo root.
-- **Rationale:** Isolate this UI change per Velora git workflow (branch off `main`, commit per phase, merge back at the end). A worktree also gives an isolated `.next` for a live dev-server check later (per prior sessions' `node_modules` symlink / build gotcha in project memory).
-- **Action:** Create `git worktree add ../velora-library-selection-glow -b feat/library-selection-glow` (or a plain feature branch if a worktree isn't warranted — this is a small, low-risk frontend change, but a worktree keeps `main`'s dev server undisturbed if it's running). No validation gate for this phase (no code yet); no commit.
+- **Rationale:** Isolate this UI change per Mytheca git workflow (branch off `main`, commit per phase, merge back at the end). A worktree also gives an isolated `.next` for a live dev-server check later (per prior sessions' `node_modules` symlink / build gotcha in project memory).
+- **Action:** Create `git worktree add ../mytheca-library-selection-glow -b feat/library-selection-glow` (or a plain feature branch if a worktree isn't warranted — this is a small, low-risk frontend change, but a worktree keeps `main`'s dev server undisturbed if it's running). No validation gate for this phase (no code yet); no commit.
 
 ### Phase 1: Reusable animated glow primitive
 
 - **Locations:** `web/frontend/styles/themes.css`.
 - **Rationale:** All existing pulsing/entrance motion in the project lives as named `@keyframes` in this file, applied via Tailwind's arbitrary `animate-[name_duration_easing]` syntax. A single keyframe parameterized by a CSS custom property (`--glow-color`) lets both `CharacterCard` (per-character hex) and `SettingCard` (theme accent) reuse one animation definition instead of duplicating box-shadow math.
 - **Details:**
-  - Add `@keyframes veloraGlowPulse` animating `box-shadow` between a tight/dim ring and a wider/brighter ring, both expressed in terms of `var(--glow-color)` (e.g. two-layer box-shadow: an inner solid ring + an outer soft blur, matching the existing ring math already used in `CharacterCard`/`SettingCard` today).
-  - Add a `.velora-glow` utility class that sets `animation: veloraGlowPulse 2.2s ease-in-out infinite;` and, nested under `@media (prefers-reduced-motion: reduce)`, overrides it to a static box-shadow (no `animation`) at the keyframe's brighter frame — consistent with how `docs/skills/accessibility-mobile/SKILL.md` requires reduced-motion handling for continuous/looping motion.
-  - Do not touch the existing `.velora-card` transition rule — it already animates `box-shadow` changes on hover/mount, and `.velora-glow`'s `animation` shorthand takes precedence for the ring itself.
-- **Action:** Run frontend validation for this phase — `npm run typecheck` (no TS touched, should still be a no-op pass) and `npm test` (should be unaffected, confirms nothing else broke by editing global CSS). Once green, commit: `Library Selection Glow (1/4) Complete: Added reusable veloraGlowPulse keyframe + .velora-glow utility with reduced-motion fallback.`
+  - Add `@keyframes mythecaGlowPulse` animating `box-shadow` between a tight/dim ring and a wider/brighter ring, both expressed in terms of `var(--glow-color)` (e.g. two-layer box-shadow: an inner solid ring + an outer soft blur, matching the existing ring math already used in `CharacterCard`/`SettingCard` today).
+  - Add a `.mytheca-glow` utility class that sets `animation: mythecaGlowPulse 2.2s ease-in-out infinite;` and, nested under `@media (prefers-reduced-motion: reduce)`, overrides it to a static box-shadow (no `animation`) at the keyframe's brighter frame — consistent with how `docs/skills/accessibility-mobile/SKILL.md` requires reduced-motion handling for continuous/looping motion.
+  - Do not touch the existing `.mytheca-card` transition rule — it already animates `box-shadow` changes on hover/mount, and `.mytheca-glow`'s `animation` shorthand takes precedence for the ring itself.
+- **Action:** Run frontend validation for this phase — `npm run typecheck` (no TS touched, should still be a no-op pass) and `npm test` (should be unaffected, confirms nothing else broke by editing global CSS). Once green, commit: `Library Selection Glow (1/4) Complete: Added reusable mythecaGlowPulse keyframe + .mytheca-glow utility with reduced-motion fallback.`
 
 ### Phase 2: Apply the glow to in-scene `CharacterCard`s
 
 - **Locations:** `web/frontend/components/feature/CharacterCard.tsx`, `web/frontend/components/feature/CharacterCard.test.tsx`.
 - **Rationale:** `highlighted` already identifies cast members of the featured scenario (wired from `CharacterColumn` → `LibraryColumns.tsx` → `lib.featured.castIds`). Swap the current static `boxShadow: highlighted ? "0 0 0 2px var(--accent), 0 6px 16px rgba(142,43,28,.20)" : undefined` for the new animated glow, keyed to the character's own `c.color` (not the generic accent) — this is the part of the request that explicitly asks for "the same color as their outline," and `c.color` is already the card's own border color.
 - **Details:**
-  - When `highlighted`, add `"velora-glow"` to the card's `className` and set the `--glow-color` CSS custom property inline to `c.color` (TypeScript: a `style` object typed to allow the custom property, e.g. `style={{ border: ..., ["--glow-color" as string]: c.color } as React.CSSProperties}`, matching how the codebase already inlines dynamic per-character colors elsewhere).
+  - When `highlighted`, add `"mytheca-glow"` to the card's `className` and set the `--glow-color` CSS custom property inline to `c.color` (TypeScript: a `style` object typed to allow the custom property, e.g. `style={{ border: ..., ["--glow-color" as string]: c.color } as React.CSSProperties}`, matching how the codebase already inlines dynamic per-character colors elsewhere).
   - When not `highlighted`, omit both the class and the custom property (keep the plain `2px solid ${c.color}` border, unglowed) — same behavior as before minus the old static ring.
   - Keep the existing "◆ In this scene" label untouched.
-- **Test updates:** extend the existing `"shows the cast badge only when highlighted"` case (or add a sibling case) in `CharacterCard.test.tsx` to assert the container carries the `velora-glow` class (or the `--glow-color` inline style) when `highlighted` and does not when it isn't — querying by a stable selector (e.g. the card root via `container.querySelector`, since there's no dedicated `data-testid` today; add one only if the class-based assertion proves brittle).
+- **Test updates:** extend the existing `"shows the cast badge only when highlighted"` case (or add a sibling case) in `CharacterCard.test.tsx` to assert the container carries the `mytheca-glow` class (or the `--glow-color` inline style) when `highlighted` and does not when it isn't — querying by a stable selector (e.g. the card root via `container.querySelector`, since there's no dedicated `data-testid` today; add one only if the class-based assertion proves brittle).
 - **Action:** Run `npm test` (Vitest — full suite, confirm `CharacterCard.test.tsx` green + no regressions elsewhere) and `npm run typecheck`. Once green, commit: `Library Selection Glow (2/4) Complete: CharacterCard highlighted state now uses an animated glow keyed to the character's own color.`
 
 ### Phase 3: Apply the glow to the active `SettingCard`
 
 - **Locations:** `web/frontend/components/feature/SettingCard.tsx`, `web/frontend/components/feature/SettingCard.test.tsx`.
-- **Rationale:** `active` already identifies the featured scenario's setting (wired from `SettingColumn` → `LibraryColumns.tsx` → `lib.featured.settingId`). Swap the current static `border-2 border-accent` + hardcoded `shadow-[0_6px_18px_rgba(142,43,28,.18)]` combination for the same `.velora-glow` treatment used on `CharacterCard`, keyed to `var(--accent)` (the setting's existing outline color) for parity across both sections.
+- **Rationale:** `active` already identifies the featured scenario's setting (wired from `SettingColumn` → `LibraryColumns.tsx` → `lib.featured.settingId`). Swap the current static `border-2 border-accent` + hardcoded `shadow-[0_6px_18px_rgba(142,43,28,.18)]` combination for the same `.mytheca-glow` treatment used on `CharacterCard`, keyed to `var(--accent)` (the setting's existing outline color) for parity across both sections.
 - **Details:**
-  - When `active`, add `"velora-glow"` to the card's `className` (alongside the existing `active`-branch classes) and set `--glow-color: var(--accent)` inline — since the accent already varies per theme (Parchment/Ember/Slate), no hardcoded hex is introduced.
+  - When `active`, add `"mytheca-glow"` to the card's `className` (alongside the existing `active`-branch classes) and set `--glow-color: var(--accent)` inline — since the accent already varies per theme (Parchment/Ember/Slate), no hardcoded hex is introduced.
   - Keep the `border-2 border-accent` border itself (the glow surrounds/reinforces the existing outline, it doesn't replace it) and the existing `-translate-y-[2px]` lift and `aria-current`/label logic untouched.
-  - Remove the now-redundant hardcoded static shadow (`shadow-[0_6px_18px_rgba(142,43,28,.18)]`) since `.velora-glow` supplies the ring; keep the plain hover shadow (`hover:shadow-[...]`) used by inactive cards as-is.
-- **Test updates:** extend `"marks the active setting with a label + aria-current"` (or add a sibling case) in `SettingCard.test.tsx` to assert `velora-glow` is present when `active` and absent otherwise, without breaking the existing `aria-current`/label assertions.
+  - Remove the now-redundant hardcoded static shadow (`shadow-[0_6px_18px_rgba(142,43,28,.18)]`) since `.mytheca-glow` supplies the ring; keep the plain hover shadow (`hover:shadow-[...]`) used by inactive cards as-is.
+- **Test updates:** extend `"marks the active setting with a label + aria-current"` (or add a sibling case) in `SettingCard.test.tsx` to assert `mytheca-glow` is present when `active` and absent otherwise, without breaking the existing `aria-current`/label assertions.
 - **Action:** Run `npm test` and `npm run typecheck`. Once green, commit: `Library Selection Glow (3/4) Complete: SettingCard active state now uses the same animated glow, keyed to the theme accent.`
 
 ### Phase 4: Validation gate, docs, live check, merge
 
 - **Locations:** `docs/design-system.md`, `docs/component-map.md`, `docs/checklist.md`; the running dev server for a live check.
-- **Rationale:** Velora's documentation-maintenance rule requires visual/design-token decisions to land in `design-system.md` in the same change, and `component-map.md` to reflect any changed component behavior; the checklist gets a status entry per the project's plan-tracking convention. A live check confirms the animation actually pulses (CSS animations can't be verified by Vitest/jsdom) and that reduced-motion + contrast still hold.
+- **Rationale:** Mytheca's documentation-maintenance rule requires visual/design-token decisions to land in `design-system.md` in the same change, and `component-map.md` to reflect any changed component behavior; the checklist gets a status entry per the project's plan-tracking convention. A live check confirms the animation actually pulses (CSS animations can't be verified by Vitest/jsdom) and that reduced-motion + contrast still hold.
 - **Details:**
-  - `docs/design-system.md`: add a short note (near the existing "Cast highlight" / active-setting description) documenting the `.velora-glow` utility, that it's keyed per-entity via `--glow-color`, and the reduced-motion fallback.
+  - `docs/design-system.md`: add a short note (near the existing "Cast highlight" / active-setting description) documenting the `.mytheca-glow` utility, that it's keyed per-entity via `--glow-color`, and the reduced-motion fallback.
   - `docs/component-map.md`: update the `CharacterCard`/`SettingCard` rows to mention the animated glow replacing the old static ring/shadow.
   - `docs/checklist.md`: add a "Library selection glow" entry under Follow-up Work summarizing the change, validation, and the phase-1 hero-`CastCard`-out-of-scope assumption (so it's visible if the user later wants parity there).
   - Run the full validation gate: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build` (`next build`), all from `web/frontend`. Backend is untouched → `pytest` N/A, state that explicitly in the checklist entry.
@@ -70,7 +70,7 @@ This plan upgrades that static highlight into an **animated, pulsing glow** that
 
 | Deliverable | Description | Location |
 | --- | --- | --- |
-| Glow keyframe + utility | `veloraGlowPulse` keyframes + `.velora-glow` class, reduced-motion fallback | `web/frontend/styles/themes.css` |
+| Glow keyframe + utility | `mythecaGlowPulse` keyframes + `.mytheca-glow` class, reduced-motion fallback | `web/frontend/styles/themes.css` |
 | Character glow | `CharacterCard` highlighted state → animated glow keyed to `c.color` | `web/frontend/components/feature/CharacterCard.tsx` |
 | Setting glow | `SettingCard` active state → animated glow keyed to `var(--accent)` | `web/frontend/components/feature/SettingCard.tsx` |
 | Character glow tests | Assert glow class present/absent by `highlighted` | `web/frontend/components/feature/CharacterCard.test.tsx` |

@@ -95,19 +95,19 @@ the story player changes tone without changing structure.
 
 ### Phase 3 — Dropdown/menu consistency
 
-- **Locations:** `web/frontend/styles/themes.css` (`.velora-menu` helper),
+- **Locations:** `web/frontend/styles/themes.css` (`.mytheca-menu` helper),
   `components/feature/` — `StorylineMenu.tsx`, `CreateMenu.tsx`, `OptionsMenu.tsx`,
   `ExportMenu.tsx`, `PovSelect.tsx`, `SceneConfigMenu.tsx`; `components/ui/MultiSelect.tsx`;
   `features/options/tabs/AboutTab.tsx` (now-real `bg-surface`/`hover:bg-hover`).
 - **Rationale:** menus are "hit-or-miss" because each popover hand-rolls its surface, border,
   shadow, and row hover; a shared surface class + a consistent row idiom
   (`hover:bg-hover` + accent text) makes every dropdown read the same.
-- **Work:** define `.velora-menu` (menu-bg surface, `--menu-bd` border, elevated shadow) and
+- **Work:** define `.mytheca-menu` (menu-bg surface, `--menu-bd` border, elevated shadow) and
   apply to every popover panel; normalize row hovers to `hover:bg-hover` (+
   `hover:text-accent`/`hover:text-danger` where semantically colored); normalize trigger
   hovers to the Phase-2 idiom. No behavioral/ARIA changes. Update class-asserting tests.
 - **Action:** `npx vitest run components` + typecheck. Once green, commit:
-  `Color Scheme Revamp (3/5) Complete: shared .velora-menu surface + consistent dropdown rows.`
+  `Color Scheme Revamp (3/5) Complete: shared .mytheca-menu surface + consistent dropdown rows.`
 
 ### Phase 4 — Section division on pages (non-chat)
 
@@ -118,7 +118,7 @@ the story player changes tone without changing structure.
   use it: headers cast a separating shadow; sidebars/rails sit on the rail surface instead of
   blending into the page; column dividers use the now-truly-stronger `--hair-strong`.
 - **Work:** AppHeader/Options header gain a subtle bottom shadow; the Options nav rail, the
-  StorylineCreator's two sidebars, and the Documents-page chrome sit on `velora-rail`
+  StorylineCreator's two sidebars, and the Documents-page chrome sit on `mytheca-rail`
   (or `--surface`) so the center content zone reads as the light tier; Library column
   dividers upgrade to `border-hair-strong`; sticky ColumnHeader keeps an opaque `bg-page`.
   The story player (`StoryPlayerView`, `SceneHeader`, `Composer`, rails) is **not edited** —
@@ -149,7 +149,7 @@ the story player changes tone without changing structure.
 | Token mapping | `--color-accent-hover/menu/menu-bd/hover/surface` Tailwind utilities | `web/frontend/app/globals.css` |
 | Contrast gate | WCAG-AA checker over the theme tokens, CI-runnable | `utils/scripts/check_contrast.py` |
 | Primitive polish | Decisive hover/active states | `web/frontend/components/ui/*.tsx` |
-| Menu surface | `.velora-menu` + normalized rows across all seven dropdowns | `styles/themes.css`, `components/feature/*Menu*.tsx`, `PovSelect.tsx`, `components/ui/MultiSelect.tsx` |
+| Menu surface | `.mytheca-menu` + normalized rows across all seven dropdowns | `styles/themes.css`, `components/feature/*Menu*.tsx`, `PovSelect.tsx`, `components/ui/MultiSelect.tsx` |
 | Section chrome | Rail-surfaced sidebars, header shadows, strong dividers | `components/layout/AppHeader.tsx`, `features/{options,library,documents}/…` |
 | Updated tests | Class-assertion updates where hovers/surfaces changed | co-located `*.test.tsx` |
 | Docs | Token table + layering rule; checklist entry; script command | `docs/design-system.md`, `docs/checklist.md`, `docs/workflow.md` |

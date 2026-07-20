@@ -6,9 +6,9 @@ import { AppShell } from "@/components/layout/AppShell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Velora",
+  title: "Mytheca",
   description:
-    "Velora — an AI-driven, multi-character roleplay chat engine, styled as a living manuscript.",
+    "Mytheca — an AI-driven, multi-character roleplay chat engine, styled as a living manuscript.",
 };
 
 export default function RootLayout({

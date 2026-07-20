@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
     from app.models import Character, ContextDocument, Scenario, Setting, Storyline
 
-logger = logging.getLogger("velora.rag")
+logger = logging.getLogger("mytheca.rag")
 
 
 def _content_hash(embed_text: str, bm25_text: str) -> str:

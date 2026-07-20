@@ -1,4 +1,4 @@
-# Velora — Architecture
+# Mytheca — Architecture
 
 ## Application Mode
 
@@ -99,7 +99,7 @@ Auth/session is **backend-owned** (token/session). The frontend stores credentia
 - **PostgreSQL** — core state: users, storylines, characters, settings, scenarios, events, stat definitions, stat values, and the **Story-Graph Type Registry** (`graph_type_definitions` — the semantic type system, §1.4).
 - **Redis** — live scenario state, pub/sub for streaming, and caching.
 - **Neo4j** — the **Story Graph** substrate: one knowledge graph whose node types (Character, Setting, Event, Secret, Faction) and edges carry the storyline's relational structure. Container owned by `app.py`; the driver connects lazily (scenario load / Character & Setting writes) and is **best-effort** (graph sync never blocks CRUD; disabled/down → no-op). Write path `app/services/graph_writer.py` (hooked into CRUD); read path `app/services/graph_reader.py` (read-only Cypher templates, §7.2/§7.4). See `docs/story-graph-neo4j.md`.
-- **Qdrant** — the **Hybrid RAG** vector store (`app/rag/store.py`; `core/qdrant.py` lazy best-effort client, mirrors `core/neo4j.py`). One `velora_lore` collection holds every entity and context-document as a point with named dense + sparse vectors (fastembed `BAAI/bge-large-en-v1.5`, 1024-dim + Qdrant BM25 sparse). CRUD hooks embed on save and prune on delete; `agents/_common.rag_block` retrieves via hybrid dense + BM25 + RRF and injects grounding into the character / setting / scenario authoring agents. **Best-effort**: leave `QDRANT_URL` blank or use `EMBED_PROVIDER=hash` to run with no vector server. See `docs/rag.md`.
+- **Qdrant** — the **Hybrid RAG** vector store (`app/rag/store.py`; `core/qdrant.py` lazy best-effort client, mirrors `core/neo4j.py`). One `mytheca_lore` collection holds every entity and context-document as a point with named dense + sparse vectors (fastembed `BAAI/bge-large-en-v1.5`, 1024-dim + Qdrant BM25 sparse). CRUD hooks embed on save and prune on delete; `agents/_common.rag_block` retrieves via hybrid dense + BM25 + RRF and injects grounding into the character / setting / scenario authoring agents. **Best-effort**: leave `QDRANT_URL` blank or use `EMBED_PROVIDER=hash` to run with no vector server. See `docs/rag.md`.
 - **Static config** — YAML for hand-authored storylines/characters/settings/stat definitions; Markdown for per-stat guidance. Loaded into the State manager / agent context.
 
 ## AI Layer

@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-Velora's authoring agents (triage, build-the-whole-world, and the standalone
+Mytheca's authoring agents (triage, build-the-whole-world, and the standalone
 storyline / character / setting drafters) call a local **reasoning model**. Those
 models spend most of their wall-clock on hidden *thinking* tokens before emitting
 the visible reply, so a single triage of one document takes 10–20s. We want to cap

@@ -33,9 +33,9 @@ export function SettingCard({
     <div
       aria-current={active ? "true" : undefined}
       className={cn(
-        "velora-card relative overflow-hidden rounded-[3px] border hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        "mytheca-card relative overflow-hidden rounded-[3px] border hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
         hasImage && "min-h-[118px]",
-        active ? "-translate-y-[2px] border-2 border-accent velora-glow" : "border-cardbd",
+        active ? "-translate-y-[2px] border-2 border-accent mytheca-glow" : "border-cardbd",
         !hasImage && (active ? "bg-card2" : "bg-card"),
       )}
       style={active ? ({ "--glow-color": "var(--accent)" } as CSSProperties) : undefined}

@@ -12,14 +12,14 @@ Scene Creation is structurally in place but two pieces are unfinished. First, th
 scenario editor's **Cast** and **Setting** inputs are flat `ToggleChip` grids; we
 want a compact, side-by-side pair — **Cast as a multi-select dropdown**, **Setting
 as a single-select dropdown** — built on a new reusable `MultiSelect` UI primitive.
-Second, **"Draft with Velora" for scenarios is a client-only fake**: `useLibraryState.
+Second, **"Draft with Mytheca" for scenarios is a client-only fake**: `useLibraryState.
 generate()` runs an 850 ms `setTimeout`, picks a random `AI_SCENARIOS` entry, and
 rolls dice for cast/setting. There is no `scenario_agent.py` and no `/scenarios/draft`
 endpoint, unlike characters and settings which both have real agents. We replace the
 stub with a real **agentic Scenario Creator** that selects a *valid* cast and setting
 grounded in the active world.
 
-The approach mirrors Velora's existing agent pattern exactly: a FastAPI agent
+The approach mirrors Mytheca's existing agent pattern exactly: a FastAPI agent
 (`scenario_agent.draft_scenario`) reuses `_common.world_context()` / `_common.docs_block()`
 for grounding, hands the model a numbered **roster** of the storyline's real characters
 and settings, asks for **names** back, and resolves names → IDs in Python — dropping any
@@ -192,7 +192,7 @@ No complex gaps require human intervention.
   `settingId: d.settingId`, set `_ai: true`, switch modal to manual mode; `setError` on
   failure; `finally setGenerating(false)`. Retire the scenario branch of `generate()`
   (leave `generate()` only if other types still use it; scenarios no longer do).
-- **EntityModal:** point the scenario rail's **"❖ Draft with Velora"** button at
+- **EntityModal:** point the scenario rail's **"❖ Draft with Mytheca"** button at
   `lib.draftScenario` (it's scenario-only already).
 - **Rationale:** Connects the new endpoint to the UI; depends on Phases 1–4.
 - **Tests:** the hook's `draftScenario` populates the draft (title + cast + settingId +
@@ -244,7 +244,7 @@ No complex gaps require human intervention.
 
 - Cast is a multi-select dropdown and Setting a single-select dropdown, side-by-side,
   collapsing to one column on mobile.
-- "Draft with Velora" on a scenario calls the backend; the drafted cast + setting are
+- "Draft with Mytheca" on a scenario calls the backend; the drafted cast + setting are
   **always** real members of the active storyline (no invented or dangling references).
 - New backend + frontend tests green; full validation gate passed (or deferrals recorded).
 - Docs updated in the same change; merged to `main`.
@@ -278,4 +278,4 @@ No complex gaps require human intervention.
 
 | Version | Date | Change |
 | --- | --- | --- |
-| v1.0 | 2026-06-28 | Formal Velora plan derived from the source brief, grounded in the actual codebase (agent + frontend patterns mapped). |
+| v1.0 | 2026-06-28 | Formal Mytheca plan derived from the source brief, grounded in the actual codebase (agent + frontend patterns mapped). |

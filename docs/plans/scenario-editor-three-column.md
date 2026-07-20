@@ -2,9 +2,9 @@
 
 ## 1. Introduction
 
-The `EntityModal` (scenario editor) currently uses a two-column layout — a by-hand form on the left and an agentic aside (Scene art + Draft with Velora) on the right — with no context-files upload column. `CharacterModal` and `SettingModal` both follow a richer three-column pattern: (1) main edit form, (2) image + draft aside, and (3) a detached `ContextFilesPanel` for dropping `.txt`/`.md` reference files that ground the "Draft with Velora" call.
+The `EntityModal` (scenario editor) currently uses a two-column layout — a by-hand form on the left and an agentic aside (Scene art + Draft with Mytheca) on the right — with no context-files upload column. `CharacterModal` and `SettingModal` both follow a richer three-column pattern: (1) main edit form, (2) image + draft aside, and (3) a detached `ContextFilesPanel` for dropping `.txt`/`.md` reference files that ground the "Draft with Mytheca" call.
 
-This plan restructures `EntityModal` to match that established pattern exactly. No backend or data-layer changes are needed — `draft._docFiles → draftScenario` is already wired in `useLibraryState` (lines 628–629); only the UI needs updating. The result: authors can now drop a pre-written scenario draft as a context file and use "Draft with Velora" to shape it into a fully-structured scenario.
+This plan restructures `EntityModal` to match that established pattern exactly. No backend or data-layer changes are needed — `draft._docFiles → draftScenario` is already wired in `useLibraryState` (lines 628–629); only the UI needs updating. The result: authors can now drop a pre-written scenario draft as a context file and use "Draft with Mytheca" to shape it into a fully-structured scenario.
 
 ---
 
@@ -41,7 +41,7 @@ This plan restructures `EntityModal` to match that established pattern exactly. 
 
 5. **Add `md:pr-[26px]` to the form column** — change `md:min-w-0 md:flex-1` to `md:min-w-0 md:flex-1 md:pr-[26px]` on the form column div. This takes up the removed gap.
 
-6. **Adjust agentic aside** — change aside width from `md:w-[330px]` to `md:w-[300px]` and add `mt-[18px] md:mt-0` (matching Setting/CharacterModal's aside sizing). The interior (Scene art section + Draft with Velora) stays unchanged.
+6. **Adjust agentic aside** — change aside width from `md:w-[330px]` to `md:w-[300px]` and add `mt-[18px] md:mt-0` (matching Setting/CharacterModal's aside sizing). The interior (Scene art section + Draft with Mytheca) stays unchanged.
 
 7. **Move footer outside inner flex** — extract the `<div className="mt-[22px] flex items-center justify-between gap-[10px]">` footer (delete + cancel + save) and the error `<p role="alert">` out of the form column and place them after the closing `</div>` of the `md:flex` container, wrapped in `<div className={cn(agentic && "hidden md:block")}>` (matching SettingModal's footer pattern). Adjust spacing to `mt-[20px]`.
 

@@ -1,6 +1,6 @@
-# Plan Creation Reference (Velora)
+# Plan Creation Reference (Mytheca)
 
-Guidelines for generating explicit, hierarchical, phase-by-phase implementation plans for Velora. Save finished plans in `docs/plans/<plan-name>.md`.
+Guidelines for generating explicit, hierarchical, phase-by-phase implementation plans for Mytheca. Save finished plans in `docs/plans/<plan-name>.md`.
 
 ## Trigger
 
@@ -14,7 +14,7 @@ Output the plan in clean Markdown following the structure below.
 
 ### 1. Introduction
 
-1–2 paragraphs summarizing the problem and the overall approach within Velora's architecture (Next.js frontend, FastAPI backend, multi-agent brain, Postgres/Redis).
+1–2 paragraphs summarizing the problem and the overall approach within Mytheca's architecture (Next.js frontend, FastAPI backend, multi-agent brain, Postgres/Redis).
 
 > **Example:** This plan adds the live scene event stream. The goal is to deliver narrator/character beats to the UI in real time. The approach: define the NDJSON event contract in `web/shared/contracts`, expose an SSE route in the FastAPI backend, and consume it with a React hook in the Next.js story player.
 
@@ -31,7 +31,7 @@ Output the plan in clean Markdown following the structure below.
 
 Detail the work sequentially. Each phase must enable the next. For each step include:
 
-- **Locations:** exact file names, classes, and functions — use Velora paths (`web/frontend/...`, `web/backend/app/...`, `web/shared/contracts/...`, `utils/tests/backend/...`).
+- **Locations:** exact file names, classes, and functions — use Mytheca paths (`web/frontend/...`, `web/backend/app/...`, `web/shared/contracts/...`, `utils/tests/backend/...`).
 - **Rationale:** why this step must happen here and now.
 - **NO large code blocks:** name the parts/files involved, not full implementations.
 - **Validation & Commit (end of every phase):**
@@ -56,7 +56,7 @@ After all steps, list deliverables and locations. **Tests are required** — inc
 > | Stream hook | React hook consuming the stream | `web/frontend/hooks/use-event-stream.ts` |
 > | Stream tests | Backend stream + contract tests | `utils/tests/backend/api/test_stream.py` |
 
-## Conventions (locked for Velora)
+## Conventions (locked for Mytheca)
 
 - Granularity: full phase-by-phase plans.
 - Validation: pytest (backend) + frontend component/route tests; a11y + responsive pass for web/UI.

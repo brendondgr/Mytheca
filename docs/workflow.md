@@ -1,12 +1,12 @@
-# Velora — Workflow
+# Mytheca — Workflow
 
 ## Environment
 
 - **Python:** 3.13 (`.python-version`). Manager: **`uv` only** (never pip/poetry/conda).
 - **Node:** for `web/frontend/` (Next.js). Package manager: npm (unless changed in `web/frontend/package.json`).
 - **Root launcher:** `python app.py` starts **both** the backend (preflight + uvicorn on 3345) and the frontend dev server (3346) together — it waits for the backend to report healthy before launching the frontend, and Ctrl+C stops both. `python app.py frontend` and `python app.py backend` run just one side. Every launch **forcibly frees its ports first** — any process still bound to 3345/3346 (typically a leftover `next dev` / uvicorn from a previous run) is terminated (SIGTERM, then SIGKILL) so a fresh start never dies on `EADDRINUSE`. `python app.py stop` (aliases: `kill`, `down`) does only that — ends any running frontend/backend processes and exits, leaving the Docker data containers up.
-- **Docker is handled by `app.py`** (one place — you never run `docker compose` yourself). Every backend launch first verifies Docker is installed + its daemon is running, downloads the Postgres + Redis images (only when missing — visible progress on first run), **builds the custom Neo4j image** (`web/backend/docker/neo4j/Dockerfile`), and starts the containers in `web/backend/docker-compose.yml` (`up -d --build --wait`). Missing Docker / a stopped daemon prints actionable guidance; a `sqlite://` `DATABASE_URL` or `VELORA_SKIP_DOCKER=1` skips containers entirely (external/embedded DB).
-- **Story Graph (Neo4j):** the substrate is **best-effort** — set `NEO4J_URI` (default `bolt://localhost:3349`, Browser on 3350) to enable it; leave it **blank to disable** the graph entirely (CRUD + `pytest` run with no Neo4j). `NEO4J_USER`/`NEO4J_PASSWORD` default to `neo4j`/`velora-graph`. See `docs/story-graph-neo4j.md`.
+- **Docker is handled by `app.py`** (one place — you never run `docker compose` yourself). Every backend launch first verifies Docker is installed + its daemon is running, downloads the Postgres + Redis images (only when missing — visible progress on first run), **builds the custom Neo4j image** (`web/backend/docker/neo4j/Dockerfile`), and starts the containers in `web/backend/docker-compose.yml` (`up -d --build --wait`). Missing Docker / a stopped daemon prints actionable guidance; a `sqlite://` `DATABASE_URL` or `MYTHECA_SKIP_DOCKER=1` skips containers entirely (external/embedded DB).
+- **Story Graph (Neo4j):** the substrate is **best-effort** — set `NEO4J_URI` (default `bolt://localhost:3349`, Browser on 3350) to enable it; leave it **blank to disable** the graph entirely (CRUD + `pytest` run with no Neo4j). `NEO4J_USER`/`NEO4J_PASSWORD` default to `neo4j`/`mytheca-graph`. See `docs/story-graph-neo4j.md`.
 - **Hybrid RAG (Qdrant + embeddings):** the vector store is **best-effort** — the Qdrant container (owned by `app.py`, REST port **3351** / gRPC **3352**) starts alongside Postgres/Redis/Neo4j; leave `QDRANT_URL` **blank to disable** (CRUD + `pytest` run with no Qdrant). Embeddings use **fastembed** (`BAAI/bge-large-en-v1.5`, 1024-dim, ONNX/CPU by default; deps: `fastembed` + `qdrant-client`). Set `EMBED_PROVIDER=hash` for the offline/test path — a deterministic `HashEmbedder` (no model download; the test suite forces it). See `docs/rag.md` for the full pipeline.
 - **Authoring parallelism:** the world build drafts characters/settings concurrently and a RAG re-index embeds entities concurrently, bounded by the user-facing **`authoringConcurrency`** setting (Options › Language Models; default seeded from `BUILD_MAX_CONCURRENCY`, default **3**). Set it to **1** for a single-slot llama.cpp, higher for a batching vLLM. Image generation always renders sequentially (single-GPU ComfyUI) regardless.
 - **Reasoning budget (vLLM / llama.cpp):** the backend auto-detects the local inference engine of the configured LLM endpoint and sends a backend-controlled thinking-token budget per authoring operation (Triage = Low, world build + drafts = Medium; never user-facing). `LLM_BACKEND_POLL_SECONDS` (default 30) is how often a background task re-probes so it adapts to engine swaps; `LLM_BACKEND_CACHE_TTL_SECONDS` (default 60) is the detection cache lifetime. No effect on OpenAI / unknown endpoints. See `docs/api-contract.md` (Reasoning budget) + `docs/data-flow.md`.
@@ -34,7 +34,7 @@
 
 ### Frontend (Next.js)
 
-Installed stack: **Next.js 16** (App Router, Turbopack) · React 19 · TypeScript · **Tailwind CSS v4** (CSS-first `@theme`; Velora tokens surfaced as CSS variables) · **Framer Motion** · **Vitest + React Testing Library** (tests co-located beside components, e.g. `app/page.test.tsx`). The three brand fonts (Cinzel / EB Garamond / IBM Plex Mono) load via `next/font` in `app/layout.tsx`.
+Installed stack: **Next.js 16** (App Router, Turbopack) · React 19 · TypeScript · **Tailwind CSS v4** (CSS-first `@theme`; Mytheca tokens surfaced as CSS variables) · **Framer Motion** · **Vitest + React Testing Library** (tests co-located beside components, e.g. `app/page.test.tsx`). The three brand fonts (Cinzel / EB Garamond / IBM Plex Mono) load via `next/font` in `app/layout.tsx`.
 
 Run from `web/frontend/` (or from the repo root with `python app.py frontend`):
 
@@ -68,7 +68,7 @@ Update docs in the same change that alters behavior (see `docs/skills/global-pro
 
 - Branch off `main` for feature work; don't commit features directly to `main` unless asked.
 - **Commit per phase:** each completed plan phase ends with a local commit. No automatic push or PR unless the user requests it.
-- Messages: `Velora — <area>: <what changed>`, or for plan phases `[Plan Name] (n/total) Complete: <summary>`.
+- Messages: `Mytheca — <area>: <what changed>`, or for plan phases `[Plan Name] (n/total) Complete: <summary>`.
 
 ## Supported Agent Tools
 

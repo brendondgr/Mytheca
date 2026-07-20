@@ -1,4 +1,4 @@
-// Typed client for the Velora FastAPI backend (docs/api-contract.md).
+// Typed client for the Mytheca FastAPI backend (docs/api-contract.md).
 //
 // Response/input types reuse the domain types in `@/lib/types` so the wire shape and
 // the UI model stay in lockstep. When `web/shared/contracts/` is populated these

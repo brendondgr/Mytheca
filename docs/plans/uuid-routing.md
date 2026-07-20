@@ -95,7 +95,7 @@ No complex gaps requiring further human input.
 - **Locations:**
   - `web/frontend/app/[storylineId]/page.tsx` — **new**. Reads `storylineId`
     from `params`, renders `<LibraryView initialStorylineId={storylineId} />`.
-    `generateMetadata` titles it generically (`Library · Velora`).
+    `generateMetadata` titles it generically (`Library · Mytheca`).
   - `web/frontend/app/[storylineId]/[scenarioId]/page.tsx` — **new**. Reads both
     params; resolves the scene from seed by `scenarioId` (mirrors the current
     play page), renders `<StoryPlayerView scenario={…} backHref={'/' + storylineId} />`.

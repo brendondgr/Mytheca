@@ -1,6 +1,6 @@
-# Velora — The Story Graph (Neo4j substrate)
+# Mytheca — The Story Graph (Neo4j substrate)
 
-Velora keeps **one** knowledge graph, the **Story Graph**, on Neo4j. Characters,
+Mytheca keeps **one** knowledge graph, the **Story Graph**, on Neo4j. Characters,
 Settings, Events, Secrets, and Factions are all *node types* inside it; their
 connections are edges. This document is the implementation guide for that
 substrate. The full conceptual model is `Documents/Plans/5.4_story-graph-structure-prep.md`;
@@ -83,7 +83,7 @@ rejected by the server). Returns `{ available, scenarioId, nodes[], edges[] }`.
 ```
 NEO4J_URI=bolt://localhost:3349      # blank to disable the graph entirely
 NEO4J_USER=neo4j
-NEO4J_PASSWORD=velora-graph          # matches docker-compose NEO4J_AUTH
+NEO4J_PASSWORD=mytheca-graph          # matches docker-compose NEO4J_AUTH
 ```
 
 ## Tests

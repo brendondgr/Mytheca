@@ -38,7 +38,7 @@ from app.schemas.setting import SceneArtPromptResponse
 from app.services import crud, llm
 
 _SCENE_ART_SYSTEM = (
-    "You are Velora's scene-art-prompt writer for a watercolor image model "
+    "You are Mytheca's scene-art-prompt writer for a watercolor image model "
     "(Z-Image-Turbo via ComfyUI). The model responds best to SHORT phrases "
     "separated by commas — not sentences. Given a scenario description, write the "
     "prompts for an atmospheric establishing shot of the SETTING as it appears in "
@@ -63,7 +63,7 @@ _SCENE_ART_SYSTEM = (
 _ROSTER_CAP = 40
 
 _DRAFT_SYSTEM = (
-    "You are Velora's scenario-creation assistant. Given a short scene seed for an "
+    "You are Mytheca's scenario-creation assistant. Given a short scene seed for an "
     "interactive-fiction world, assemble the present-moment 'truth object' for that "
     "scene. You are given a numbered ROSTER of the characters and settings that "
     "exist in this world; you MUST choose the cast and setting only from that "

@@ -14,7 +14,7 @@ right of **Create**. The dropdown has two items:
 
 1. **Settings Menu** → navigates to a new full-screen route **`/options`**.
 2. **Appearance** → an inline theme selector (Parchment / Ember / Slate) that
-   persists across sessions (reuses the existing `velora-theme` machinery).
+   persists across sessions (reuses the existing `mytheca-theme` machinery).
 
 `/options` replaces the full screen. It follows the existing manuscript visual
 language (tokens, fonts, glow) but a **different structure**: a centered panel at
@@ -38,7 +38,7 @@ content on the right. Tabs:
 - **Model listing & connection test go through the FastAPI backend** (a thin
   httpx proxy), not the browser — avoids CORS to `localhost:*` and keeps the key
   server-side. `httpx` is already a dependency.
-- **Appearance** stays client-side (`localStorage['velora-theme']`, already
+- **Appearance** stays client-side (`localStorage['mytheca-theme']`, already
   persistent); it is surfaced both in the header dropdown and the Appearance tab.
 
 ## Gaps / assumptions
@@ -136,8 +136,8 @@ and an **Appearance** group rendering the three theme swatches (reuse `THEMES` +
 affected Library tests.
 
 ### 2.3 Route + shell — `app/options/page.tsx` → `features/options/OptionsView.tsx`
-- `page.tsx`: `metadata.title = "Options · Velora"`, renders `<OptionsView/>`.
-- `OptionsView`: `AppShell`-style background; a slim top bar (❖ VELORA + a
+- `page.tsx`: `metadata.title = "Options · Mytheca"`, renders `<OptionsView/>`.
+- `OptionsView`: `AppShell`-style background; a slim top bar (❖ MYTHECA + a
   **"← Library"** link). Centered container **`w-full max-w-[1100px] lg:w-[66%]`**
   (66% on desktop, full-width with padding on small screens — see a11y note).
   Inside: a **vertical ARIA tablist** (left, roving tabindex + Up/Down/Home/End)

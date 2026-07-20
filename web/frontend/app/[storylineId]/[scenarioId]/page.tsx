@@ -13,7 +13,7 @@ export async function generateMetadata({
   params: Promise<{ storylineId: string; scenarioId: string }>;
 }): Promise<Metadata> {
   const { scenarioId } = await params;
-  return { title: `${seedTitle(scenarioId)} · Velora` };
+  return { title: `${seedTitle(scenarioId)} · Mytheca` };
 }
 
 // `/{storylineId}/{scenarioId}` — the live story player. The scenario id resolves

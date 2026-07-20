@@ -13,7 +13,7 @@ own bordered box with a circular icon badge, with the Secret called out in a
 distinct danger-tinted box beside the Edit action.
 
 This is a **frontend-only, single-component redesign** built with the locked
-Velora stack (Next.js + React + TypeScript + Tailwind tokens). It must stay
+Mytheca stack (Next.js + React + TypeScript + Tailwind tokens). It must stay
 theme-agnostic across Parchment / Ember / Slate, keep WCAG AA contrast, stay
 keyboard-operable, and read well at 320 / 375 / 768 / 1024 px. No backend, route,
 contract, or data-model change is involved. Because the steps build on one
@@ -32,7 +32,7 @@ glyph — robust for free-text traits — not a per-keyword icon map.
   single free-text string (`c.traits`, e.g. `"Energetic · Observant · …"`).
   Resolved: split on the `·`/`,` separators and render each token as a `◆`-led
   pill. No per-keyword icon mapping.
-- **Compass medallion in the reference:** approximated with the Velora seal
+- **Compass medallion in the reference:** approximated with the Mytheca seal
   glyph (`❖`) in a small circular badge overlapping the portrait frame's bottom
   edge — on-brand and avoids shipping new art assets. Decorative (`aria-hidden`).
 - **Drop-cap / oversized name:** the reference renders the name in large
@@ -94,7 +94,7 @@ glyph — robust for free-text traits — not a per-keyword icon map.
     text) on the narrowest widths; check 320/375/768/1024.
   - Honor reduced motion (rely on existing Modal `embPop` + `motion-reduce`;
     add no new always-on motion).
-- **Rationale:** Velora's validation gate requires a theme + a11y + responsive
+- **Rationale:** Mytheca's validation gate requires a theme + a11y + responsive
   pass for any UI change; doing it as its own phase keeps the structural diff
   reviewable.
 - **Action:** Manual a11y + responsive pass (keyboard, focus, contrast,

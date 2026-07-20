@@ -15,14 +15,14 @@ approval applies the plan through the existing validated `PATCH /storylines/{id}
 write paths; on create, approval fills the form and the human commits via the existing "Create World"
 path.
 
-The approach fits Velora's grain. Enforcement is **belt-and-suspenders**: the agent's output is shaped
+The approach fits Mytheca's grain. Enforcement is **belt-and-suspenders**: the agent's output is shaped
 by a dynamically-built response schema + prompt containing *only* the writable fields, and a
 **server-side diff guard** (the load-bearing layer, since the local stack is prompt-instructed JSON,
 not constrained decoding) rejects any change to a field outside the approved write scope. The stream
 reuses the proven **NDJSON-from-POST** transport (`postNdjson` ↔ `StreamingResponse(... x-ndjson ...)`).
 The conversation is **client-session memory** (held in React state, sent to the server each turn), with
 a one-click **New chat / reset**. The agent owns **only the storyline's own fields** — cast & settings
-keep their existing per-entity "Draft with Velora" flows.
+keep their existing per-entity "Draft with Mytheca" flows.
 
 ---
 

@@ -121,7 +121,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
         Language models
       </h2>
       <p className="mt-[4px] mb-[18px] font-body text-[14px] text-ink-soft">
-        Point Velora at any OpenAI-compatible endpoint — a local server or a hosted API.
+        Point Mytheca at any OpenAI-compatible endpoint — a local server or a hosted API.
       </p>
 
       <div className="grid gap-[16px]">

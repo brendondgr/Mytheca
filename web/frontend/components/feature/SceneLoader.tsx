@@ -28,7 +28,7 @@ export function SceneLoader({
     <div
       role="status"
       aria-label={`Loading the scene: ${s.title}`}
-      className="velora-page fixed inset-0 z-[80] flex items-center justify-center overflow-hidden p-6"
+      className="mytheca-page fixed inset-0 z-[80] flex items-center justify-center overflow-hidden p-6"
     >
       {/* Scene-art backdrop (gradient fallback when no image), behind a scrim. */}
       {hasArt ? (

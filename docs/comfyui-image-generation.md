@@ -1,6 +1,6 @@
 # ComfyUI Image Generation
 
-Velora generates images by driving a local **ComfyUI** server. ComfyUI is *not*
+Mytheca generates images by driving a local **ComfyUI** server. ComfyUI is *not*
 OpenAI-compatible — it has its own HTTP API for queuing prompts and reading
 results, plus a **WebSocket** that streams execution progress. The server-side
 client lives in [`web/backend/app/services/comfyui.py`](../web/backend/app/services/comfyui.py)

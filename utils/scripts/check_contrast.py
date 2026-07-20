@@ -1,4 +1,4 @@
-"""WCAG-AA contrast gate for Velora's theme tokens.
+"""WCAG-AA contrast gate for Mytheca's theme tokens.
 
 Parses the `.theme-*` blocks in web/frontend/styles/themes.css and asserts the
 load-bearing text/surface token pairs meet WCAG 2.2 AA in every theme:

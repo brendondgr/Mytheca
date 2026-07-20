@@ -408,7 +408,7 @@ export const SEED_STAT_DEFS: StatDefinition[] = [
   },
 ];
 
-// ---- Agentic "draft with Velora" pools (faked generation, no model call) ----
+// ---- Agentic "draft with Mytheca" pools (faked generation, no model call) ----
 
 export const AI_CHARACTERS: Omit<Character, "id" | "mono">[] = [
   {

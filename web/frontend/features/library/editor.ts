@@ -4,7 +4,7 @@ import type { ReadDoc } from "@/lib/readDocs";
 
 // Editor model shared by the create/edit modal. A single loose Draft covers all
 // three entity types; each form reads/writes the fields it cares about. Keys
-// prefixed with `_` are editor-internal (agentic prompt + "drafted by Velora").
+// prefixed with `_` are editor-internal (agentic prompt + "drafted by Mytheca").
 
 export type EntityType = "character" | "setting" | "scenario";
 export type EditorMode = "manual" | "agentic";

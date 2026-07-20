@@ -32,7 +32,7 @@ export function CharacterDossier({
   const c = character;
   return (
     <aside
-      className="velora-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block"
+      className="mytheca-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block"
       aria-label={`${c.name} — profile`}
     >
       <button

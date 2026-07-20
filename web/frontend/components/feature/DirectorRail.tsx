@@ -324,7 +324,7 @@ export function DirectorRail({
   charById?: (id: string) => { name: string; color: string } | undefined;
 }) {
   return (
-    <aside className="velora-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block">
+    <aside className="mytheca-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block">
       <Eyebrow tracking="0.16em" className="mb-[9px] block">
         Scene pulse
       </Eyebrow>

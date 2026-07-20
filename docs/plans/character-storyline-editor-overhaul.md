@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-This plan restructures Velora's create/edit modals — the agentic **Character Creator**
+This plan restructures Mytheca's create/edit modals — the agentic **Character Creator**
 (`CharacterModal.tsx`), the write-first **Storyline editor** (`StorylineModal.tsx`), and the
 shared **setting/scenario** editor (`EntityModal.tsx`) — to address a batch of UX complaints.
 The work is **frontend-only** (`web/frontend/`): no backend, schema, or API changes. We tighten
@@ -26,7 +26,7 @@ agentic draft handlers in `useLibraryState` are reused as-is; only their present
   "coming soon" hint. No state, no file reading, no persistence.
 - **Portrait "own page" (assumption):** a nested in-app **Modal** (sub-dialog, raised z-index), not a
   new route. Triggered by an **Edit image** button under a compact portrait preview that lives at the
-  top of the right column (above "Draft with Velora"). The pop-up holds the preview + positive/negative
+  top of the right column (above "Draft with Mytheca"). The pop-up holds the preview + positive/negative
   prompts + "Generate prompts" + "Generate portrait".
 - **Promoted title styling (assumption):** the eyebrow text ("Edit Character"/"New Character",
   "Edit Storyline"/"New Storyline", "Edit Setting", etc.) becomes the single modal title at the current
@@ -75,7 +75,7 @@ agentic draft handlers in `useLibraryState` are reused as-is; only their present
     positive/negative prompt `TextArea`s, "❖ Generate prompts" (uses prior context), "❖ Generate
     portrait", and the rendered-WebP/monogram preview. Controlled `open`/`onClose` from `CharacterModal`
     local state (`useState`); all generate handlers stay on `lib`.
-  - In the right column, **above** "Draft with Velora", add a compact portrait preview (full image or
+  - In the right column, **above** "Draft with Mytheca", add a compact portrait preview (full image or
     monogram placeholder) + an **Edit image** button that opens `PortraitModal`. Remove the old
     full-width Portrait section.
 - **Rationale:** the largest structural move; done after the field edits so diffs stay reviewable.
@@ -90,7 +90,7 @@ agentic draft handlers in `useLibraryState` are reused as-is; only their present
   - Collapse the header to one promoted title ("Edit Storyline"/"New Storyline"); move
     `storyline-modal-title` onto it; remove "Forge a New World"/"Edit this World".
   - Move the seal cluster (preview + symbol grid + color grid) out of the header into the right column,
-    **above** "❖ Draft with Velora", under a "Seal" `FieldLabel`.
+    **above** "❖ Draft with Mytheca", under a "Seal" `FieldLabel`.
   - Opt into `splitScroll`; main column `lg:overflow-y-auto lg:min-h-0`. Add an optional
     `scroll?: boolean` (or `className` passthrough) to `ContextFilesPanel` so it gets
     `lg:overflow-y-auto lg:min-h-0` too — used by both Storyline and Character modals.
@@ -120,7 +120,7 @@ agentic draft handlers in `useLibraryState` are reused as-is; only their present
 | Split-scroll seam | Opt-in `Modal` prop for independent column scroll | `web/frontend/components/ui/Modal.tsx` |
 | Character form | Goal/Secret removed; disabled voice-sample upload beside speech | `web/frontend/components/feature/CharacterModal.tsx` |
 | Portrait pop-up | Nested portrait prompt/render dialog + compact preview & Edit-image trigger | `web/frontend/components/feature/PortraitModal.tsx`, `CharacterModal.tsx` |
-| Storyline editor | Single title; seal picker relocated above Draft-with-Velora; split scroll | `web/frontend/components/feature/StorylineModal.tsx` |
+| Storyline editor | Single title; seal picker relocated above Draft-with-Mytheca; split scroll | `web/frontend/components/feature/StorylineModal.tsx` |
 | Context panel scroll | Optional independent-scroll classes on the shared panel | `web/frontend/components/feature/ContextFilesPanel.tsx` |
 | Entity editor | Single promoted title for setting/scenario | `web/frontend/components/feature/EntityModal.tsx` |
 | Tests | Updated character modal + editors tests for the new structure | `web/frontend/features/library/CharacterModal.test.tsx`, `LibraryView.editors.test.tsx` |

@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from app.core import neo4j
 from app.services import graph_writer
 
-logger = logging.getLogger("velora.turn")
+logger = logging.getLogger("mytheca.turn")
 
 
 @dataclass

@@ -1,4 +1,4 @@
-// Velora's core domain objects (see docs/documentation.md):
+// Mytheca's core domain objects (see docs/documentation.md):
 // Storyline → Characters + Settings → Scenarios (with branches). For this
 // frontend pass the data is in-memory seed data; the shapes mirror the
 // eventual backend contracts.
@@ -305,7 +305,7 @@ export interface ContextDocument {
   name: string;
   content: string;
   category: DocCategory;
-  /** Grounds Velora's drafting (world-setting docs). */
+  /** Grounds Mytheca's drafting (world-setting docs). */
   includeDraft: boolean;
   /** Member of the retrieval corpus (embedded into Qdrant on save). */
   includeRag: boolean;

@@ -55,7 +55,7 @@ export function CreateMenu({
         <div
           id="create-menu"
           aria-label="Create new"
-          className="absolute top-[42px] right-0 z-40 w-[236px] velora-menu p-[7px]"
+          className="absolute top-[42px] right-0 z-40 w-[236px] mytheca-menu p-[7px]"
         >
           <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-tag uppercase tracking-[0.18em] text-mute">
             New in Embergate

@@ -2,13 +2,13 @@
 
 ## 1. Introduction
 
-Two related editor changes to the Velora Library, both centered on the **Storyline** editor (`web/frontend/components/feature/StorylineModal.tsx`) and its backend stat seam.
+Two related editor changes to the Mytheca Library, both centered on the **Storyline** editor (`web/frontend/components/feature/StorylineModal.tsx`) and its backend stat seam.
 
 **(A) Seal overhaul.** The storyline seal is currently a cramped inline picker (8 shapes, ~9 colors) living in the agentic aside. We move it into its own focused pop-up (mirroring the Character creator's `PortraitModal`): the main editor shows a compact **Seal** summary row with an **Edit** button that opens a `SealModal` offering **~2–3× more shapes**, a larger color palette, and a **custom color wheel** (`<input type="color">`). Separately, the **character accent palette grows from 8 → 12** colors (the user's stated per-character cap).
 
 **(B) Storyline statistics.** The backend stat seam already exists end-to-end (`StatDefinition` per storyline, clamped `CharacterStat`, and a `propose_starting_stats` agent that reads the definitions) — but there is **no UI to define the universal stats** and **no concept of what a value range *means***. This plan adds, **inline under the World Primer** in `StorylineModal`, a Statistics editor where the author defines the world's universal stats (used by every character). Each stat gains **labeled bands ("tickers")** — e.g. Health `0–20` = "nearly dead", `81–100` = "very healthy" — persisted on the definition and fed into the agent so future state-extraction can name a character's condition from a number. The Character creator's existing "Propose" flow is updated to be band-aware.
 
-The approach stays within Velora's stack: extend the FastAPI stat model/schema/service/routes (Postgres), thread the new shape through `lib/api.ts` + `lib/types.ts`, hold the editable stats on the `Draft`, persist a create/update/delete diff in `useLibraryState`, and render the editors in React/Tailwind matching the existing modal idiom.
+The approach stays within Mytheca's stack: extend the FastAPI stat model/schema/service/routes (Postgres), thread the new shape through `lib/api.ts` + `lib/types.ts`, hold the editable stats on the `Draft`, persist a create/update/delete diff in `useLibraryState`, and render the editors in React/Tailwind matching the existing modal idiom.
 
 ---
 
@@ -66,7 +66,7 @@ No complex gaps requiring further human intervention.
 
 ### Phase 6 — Docs, full validation, merge to main
 - **Locations:** `docs/api-contract.md` (StatDefinition gains `bands`; new DELETE stat route; relaxed update), `docs/data-flow.md` (stat authoring + band-aware proposal), `docs/design-system.md` (seal shapes/colors/wheel; 12-color palette), `docs/documentation.md` (status note), `docs/checklist.md` (new "done" entry + any deferred live a11y pass), `docs/component-map.md` (`SealModal`, `StatsEditor`).
-- **Rationale:** Velora requires docs updated in the same change that alters behavior; the validation gate must pass before "done".
+- **Rationale:** Mytheca requires docs updated in the same change that alters behavior; the validation gate must pass before "done".
 - **Action:** Run the **full** suites — `uv run pytest` (all backend) + `npm test`/`typecheck`/`lint`/`build` (frontend). Once green, commit: `Seal & Stats (6/6) Complete: Docs updated; full validation green.` Then **merge the feature branch into `main`** (resolving any incompatibilities) per the user's request. Do not push.
 
 ---

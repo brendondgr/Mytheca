@@ -1,8 +1,8 @@
-# Auto-Propose Starting Stats on Draft with Velora
+# Auto-Propose Starting Stats on Draft with Mytheca
 
 ## 1. Introduction
 
-When a user clicks "❖ Draft with Velora" in the Character Creator, the backend `draft_character()` agent fills in the character's base-identity fields (name, role, traits, appearance, background, personality, speech, goal, secret, color). However, starting-stat proposals are a separate, explicit action — the user must click a second "❖ Propose" button in the Starting Stats section. This means every agentic character creation requires two separate LLM round-trips that the user must initiate manually, even though all the information needed for stat proposals (character fields + storyline stat schema) is already available after the first call.
+When a user clicks "❖ Draft with Mytheca" in the Character Creator, the backend `draft_character()` agent fills in the character's base-identity fields (name, role, traits, appearance, background, personality, speech, goal, secret, color). However, starting-stat proposals are a separate, explicit action — the user must click a second "❖ Propose" button in the Starting Stats section. This means every agentic character creation requires two separate LLM round-trips that the user must initiate manually, even though all the information needed for stat proposals (character fields + storyline stat schema) is already available after the first call.
 
 The fix is entirely frontend-side: after `draftCharacter()` completes successfully in `useLibraryState.ts`, automatically chain a `proposeStartingStats()` call using the newly drafted fields. The backend is unchanged (both endpoints already exist and work independently). The auto-proposal is best-effort — if no stats are defined for the storyline, or if the proposal call fails, the draft still succeeds and the Starting Stats section remains empty. One phase covers the hook change, UI indicator, and test updates; it ends with a commit.
 
@@ -12,7 +12,7 @@ The fix is entirely frontend-side: after `draftCharacter()` completes successful
 
 - **Should the user be able to tell stats were auto-proposed vs. manually proposed?** No distinction needed — the UI already shows the proposals the same way regardless of trigger. The "❖ Redo" button remains available for re-proposing. *(Assumption: treat it as identical to a manual propose.)*
 - **If stat proposal fails mid-draft, should the error surface?** No — silent degradation. The draft succeeds; the Starting Stats section stays empty with the normal "No stats proposed yet" message. *(Assumption: errors in the chained propose call are swallowed, not re-thrown.)*
-- **What if the user clicks "❖ Draft with Velora" a second time on a character that already has proposed stats?** The second draft will re-propose stats, overwriting the prior proposals — same behaviour as clicking "❖ Redo" manually. *(Assumption: acceptable; no special guard needed.)*
+- **What if the user clicks "❖ Draft with Mytheca" a second time on a character that already has proposed stats?** The second draft will re-propose stats, overwriting the prior proposals — same behaviour as clicking "❖ Redo" manually. *(Assumption: acceptable; no special guard needed.)*
 
 ---
 
@@ -51,7 +51,7 @@ This is a **single-phase** plan. The backend is untouched. All work is in the fr
 
 - **Important:** `generatingStats` is already the spinner flag for `proposeStartingStats()`. Since we're calling `proposeStartingStats()` (the existing hook method), the spinner state will be set/cleared automatically — the Starting Stats section in the modal will show a loading state while stats are being proposed.
 - **Alternative approach (simpler and avoids duplication):** Instead of duplicating the API call, just call `this.proposeStartingStats()` (or the equivalent inner call) using the drafted fields directly. Check whether `proposeStartingStats()` reads fields from `draft` state or accepts parameters — if it reads from state, the `setDraft()` call must complete before invoking it. Since React state updates are batched, use the drafted fields directly from the response rather than relying on state.
-- **Rationale:** A single click on "❖ Draft with Velora" now produces both a complete character identity and a ready-to-review stat proposal, fulfilling the user request.
+- **Rationale:** A single click on "❖ Draft with Mytheca" now produces both a complete character identity and a ready-to-review stat proposal, fulfilling the user request.
 
 ---
 
@@ -90,7 +90,7 @@ This is a **single-phase** plan. The backend is untouched. All work is in the fr
   - `npm run lint` — no ESLint errors.
 - **Accessibility/responsive:** No new interactive surfaces were added (the stats section and its loading spinner already existed); the auto-proposal flows through the existing UI. Deferred in-browser pass applies (same standing constraint: shared dev server on 3346).
 - **Action:** Once all checks are green, commit locally:
-  > `[Draft with Velora Auto-Stats] (1/1) Complete: draftCharacter() now auto-proposes starting stats after a successful character draft.`
+  > `[Draft with Mytheca Auto-Stats] (1/1) Complete: draftCharacter() now auto-proposes starting stats after a successful character draft.`
 
 ---
 

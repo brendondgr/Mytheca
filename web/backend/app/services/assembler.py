@@ -36,7 +36,7 @@ from app.services import (
     stats,
 )
 
-logger = logging.getLogger("velora.turn")
+logger = logging.getLogger("mytheca.turn")
 
 # How many of a character's most-recent lines to keep as in-voice anchors.
 _ANCHOR_LINES = 2

@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-Scenarios are the "live truth object" for each scene in Velora, but unlike Characters (which carry a portrait) and Settings (which carry an establishing image), they have no visual art. This plan adds a full scene-art pipeline to Scenarios that mirrors the pattern already proven for Settings: the author can generate a watercolor establishing image — grounded in the scenario's title, genre, tone, goal, opening prose, and the referenced setting — using the existing ComfyUI workflow. The resulting WebP is persisted on the server and linked back to the scenario row.
+Scenarios are the "live truth object" for each scene in Mytheca, but unlike Characters (which carry a portrait) and Settings (which carry an establishing image), they have no visual art. This plan adds a full scene-art pipeline to Scenarios that mirrors the pattern already proven for Settings: the author can generate a watercolor establishing image — grounded in the scenario's title, genre, tone, goal, opening prose, and the referenced setting — using the existing ComfyUI workflow. The resulting WebP is persisted on the server and linked back to the scenario row.
 
 The work spans five phases: a data-layer expansion of the `Scenario` model (new nullable `image`, `scene_art_positive`, and `scene_art_negative` columns); a new agent function + backend routes for prompt generation and image rendering; a frontend data-path update (types, API client, `useLibraryState` handlers, submit wiring); a UI integration that adds a compact scene-art preview and an `SceneArtModal` pop-up inside `EntityModal`; and a final docs + validation pass that confirms green suites and records the change across all affected docs. Every phase ends with a local commit and no push.
 
@@ -230,11 +230,11 @@ The work spans five phases: a data-layer expansion of the `Scenario` model (new 
 - **Changes:**
   - Import `useState` (to track `sceneArtOpen`) and `SceneArtModal` + `mediaUrl`.
   - Add `const [sceneArtOpen, setSceneArtOpen] = useState(false)` **before** the early `if (!m || m.type !== "scenario") return null` guard (rules-of-hooks).
-  - In the agentic aside column, **above** the "Draft with Velora" section, insert a scene-art panel mirroring `SettingModal`'s aside section:
+  - In the agentic aside column, **above** the "Draft with Mytheca" section, insert a scene-art panel mirroring `SettingModal`'s aside section:
     - A `FieldLabel` "Scene art".
     - A compact `aspect-[16/9]` preview box: shows the rendered `<img>` when `imageUrl` is set, otherwise the empty-state `◇` / "No scene art yet" placeholder.
     - An "✎ Edit image" `Button` that sets `sceneArtOpen(true)`.
-    - A divider `<div>` between this and the Draft with Velora section.
+    - A divider `<div>` between this and the Draft with Mytheca section.
   - Compute helpers (before the return):
     - `const imageUrl = d.image ? mediaUrl(d.image) : null`
     - `const hasDescription = Boolean((d.title || d.goal || d.opening || "").toString().trim())`

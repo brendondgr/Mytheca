@@ -1,6 +1,6 @@
 """Scene presence — who is in the scene, derived from the event log.
 
-Velora's cast (``Scenario.cast_ids``) is static, but a scene is *live*: a character can
+Mytheca's cast (``Scenario.cast_ids``) is static, but a scene is *live*: a character can
 die, be knocked out, or leave. This module gives the turn loop a first-class notion of
 **presence** without a new table or a Redis dependency — presence is the fold of the
 session's ``character_status_change`` events (latest per character wins, default

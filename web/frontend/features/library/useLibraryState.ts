@@ -37,7 +37,7 @@ function prefersReducedMotion(): boolean {
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/** The *visible* by-hand character fields, in the order Velora "writes" them —
+/** The *visible* by-hand character fields, in the order Mytheca "writes" them —
  * these get the paced field-by-field highlight. goal/secret are drafted too but
  * have no input in the modal, so they're set immediately (no highlight pause). */
 const CHARACTER_REVEAL_KEYS = [

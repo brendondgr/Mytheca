@@ -1,4 +1,4 @@
-# Velora — Storyline World Primer + Agentic Creation (no RAG)
+# Mytheca — Storyline World Primer + Agentic Creation (no RAG)
 
 ## 1. Introduction
 
@@ -8,14 +8,14 @@ The single most important new artifact is the **World Primer** — an
 agent-facing, several-paragraph world-context prose block, generated at creation
 time from the one-sentence seed + premise (+ an optional overview of dropped
 reference files), then **editable by the author** and stored on the storyline.
-Alongside it we wire the existing-but-inert **"Draft with Velora"** creation
+Alongside it we wire the existing-but-inert **"Draft with Mytheca"** creation
 seam so a one-sentence seed can draft the storyline's metadata fields.
 
 Scope is deliberately bounded: **the RAG system (Part 2 / Part 4 of the source
 doc) is NOT built here** — no chunking, embeddings, BM25, RRF, retrieval, or
 lore graph, and **dropped reference files are not persisted or indexed.** They
 are read client-side only to *ground a single generation call* and then
-discarded. Architecturally this follows Velora's existing layering: a new
+discarded. Architecturally this follows Mytheca's existing layering: a new
 `world_primer` column on `Storyline` (mirroring the `premise`/seal precedent), a
 backend authoring agent over the already-built LLM proxy + settings store, two
 thin authoring routes, and the Next.js `StorylineModal` extended to draft, edit,
@@ -25,7 +25,7 @@ and approve the primer.
 
 - **Two agent operations, not one (assumption).** "Building the storyline" via
   the agent covers both (a) drafting the human-facing **metadata** (title /
-  genre / tagline / premise) from a one-sentence seed — the "Draft with Velora"
+  genre / tagline / premise) from a one-sentence seed — the "Draft with Mytheca"
   seam already in the UI — and (b) generating the agent-facing **World Primer**
   from seed + premise. Both ship here; they are complementary.
 - **Dropped files = non-persistent grounding only (assumption).** The source doc
@@ -123,7 +123,7 @@ LLM, reusing the existing proxy + settings store.
   `ruff` + `mypy`. Once green, commit:
   `[Storyline World Primer] (2/4) Complete: authoring agent + draft/primer endpoints + mock-backed tests.`
 
-### Phase 3 — Frontend: World Primer field + agentic Draft-with-Velora wiring
+### Phase 3 — Frontend: World Primer field + agentic Draft-with-Mytheca wiring
 
 Make the `StorylineModal` draft, edit, and approve — turning the inert seams live.
 
@@ -143,7 +143,7 @@ Make the `StorylineModal` draft, edit, and approve — turning the inert seams l
     `generatePrimer()` (uses current premise + seed, fills `draft.worldPrimer`).
     Expose both + a `generatingPrimer` flag from the hook.
   - `web/frontend/components/feature/StorylineModal.tsx` —
-    (a) bind the "Draft with Velora" seed `TextArea` to `draft._prompt`, enable
+    (a) bind the "Draft with Mytheca" seed `TextArea` to `draft._prompt`, enable
     the button → `lib.draftStoryline()` with a spinner/disabled state, drop the
     "Coming soon"; (b) add an editable **World Primer** `TextArea` to the form
     column with a **"Generate primer"** action (uses seed + premise) and a
@@ -160,7 +160,7 @@ Make the `StorylineModal` draft, edit, and approve — turning the inert seams l
   lint`, `npm run build`; **a11y + responsive pass** at 320/375/768/1024
   (keyboard reachability of the new controls, visible focus, the modal stays
   scrollable and non-overflowing, live status for "Generating…"). Once green,
-  commit: `[Storyline World Primer] (3/4) Complete: primer field + live Draft-with-Velora wiring + tests + a11y pass.`
+  commit: `[Storyline World Primer] (3/4) Complete: primer field + live Draft-with-Mytheca wiring + tests + a11y pass.`
 
 ### Phase 4 — Context-file grounding (non-persistent) + finalize
 
@@ -208,7 +208,7 @@ square the docs and merge.
 | Backend tests | Agent + endpoint tests via `httpx.MockTransport` (no network) | `utils/tests/backend/agents/test_storyline_agent.py` |
 | API client methods | `draftStoryline`, `generateWorldPrimer` + types | `web/frontend/lib/api.ts` |
 | Editor/state wiring | `worldPrimer` draft field, draft + primer actions | `web/frontend/features/library/{editor.ts,useLibraryState.ts}` |
-| Modal authoring UI | Live Draft-with-Velora, editable World Primer, file grounding | `web/frontend/components/feature/StorylineModal.tsx` |
+| Modal authoring UI | Live Draft-with-Mytheca, editable World Primer, file grounding | `web/frontend/components/feature/StorylineModal.tsx` |
 | Doc-read helper | Client-side `.txt`/`.md` read + concatenate + cap | `web/frontend/lib/readDocs.ts` |
 | Frontend tests | Modal + state + helper tests (api mocked) | `web/frontend/components/feature/StorylineModal.test.tsx`, `web/frontend/lib/readDocs.test.ts` |
 | Docs | api-contract, data-flow, structure, documentation, checklist updates | `docs/` |

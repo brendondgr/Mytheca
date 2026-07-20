@@ -60,7 +60,7 @@ export function ExportMenu({
           id="export-menu"
           role="menu"
           aria-label="Export conversation"
-          className="absolute top-[38px] right-0 z-40 w-[240px] velora-menu p-[7px]"
+          className="absolute top-[38px] right-0 z-40 w-[240px] mytheca-menu p-[7px]"
         >
           {ITEMS.map((item) => (
             <button

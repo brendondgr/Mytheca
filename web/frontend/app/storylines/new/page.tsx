@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { StorylineCreatorView } from "@/features/library/StorylineCreatorView";
 
 export const metadata: Metadata = {
-  title: "New Storyline · Velora",
+  title: "New Storyline · Mytheca",
 };
 
 // `/storylines/new` — the dedicated New Storyline page (also the empty-state default

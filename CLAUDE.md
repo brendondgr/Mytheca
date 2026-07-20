@@ -1,6 +1,6 @@
-# Velora — Claude Code Entry Point
+# Mytheca — Claude Code Entry Point
 
-Velora is an AI-driven, multi-character roleplay chat engine (Next.js frontend + FastAPI multi-agent backend). This file exists to **route you directly to the right file** — check the tables below before grepping or globbing the repo.
+Mytheca is an AI-driven, multi-character roleplay chat engine (Next.js frontend + FastAPI multi-agent backend). This file exists to **route you directly to the right file** — check the tables below before grepping or globbing the repo.
 
 ## Read First (always)
 

@@ -35,7 +35,7 @@ const SETTING_DRAFT_STEPS: ProcessStep[] = [
 /**
  * Agentic Setting Creator modal — the setting counterpart to CharacterModal.
  *
- * The author writes a place here (by hand or by prompting Velora), fleshing out
+ * The author writes a place here (by hand or by prompting Mytheca), fleshing out
  * the by-hand fields (name / type / description) plus the §4.1 node metadata
  * (Atmosphere / Features / Current state). A Scene-art section turns the
  * description into watercolor ComfyUI prompts and renders a persisted WebP
@@ -65,7 +65,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
   const canRenderSceneArt = Boolean((d._sceneArtPositive ?? "").trim());
   const timeline = d.timeline ?? [];
   const fieldClass = (key: string) =>
-    lib.activeField === key ? "velora-field-active" : undefined;
+    lib.activeField === key ? "mytheca-field-active" : undefined;
 
   return (
     <Modal
@@ -117,7 +117,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
           </div>
           <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
-          {/* Live draft progress — which field Velora is writing right now. */}
+          {/* Live draft progress — which field Mytheca is writing right now. */}
           {lib.generating ? (
             <ProcessProgress
               className="mb-[16px]"
@@ -127,7 +127,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
             />
           ) : null}
 
-          {/* By-hand form (left) + agentic Draft with Velora (right). */}
+          {/* By-hand form (left) + agentic Draft with Mytheca (right). */}
           <div className="md:flex md:items-stretch">
             <div className={cn("md:min-w-0 md:flex-1 md:pr-[26px]", agentic && "hidden md:block")}>
               {d._ai ? (
@@ -136,7 +136,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                     ❖
                   </span>
                   <span className="font-body text-[13.5px] text-ink">
-                    Drafted by Velora — review &amp; refine, then save.
+                    Drafted by Mytheca — review &amp; refine, then save.
                   </span>
                 </div>
               ) : null}
@@ -197,7 +197,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
               />
             </div>
 
-            {/* Agentic draft panel — describe the place; Velora drafts it. */}
+            {/* Agentic draft panel — describe the place; Mytheca drafts it. */}
             <aside
               className={cn(
                 "mt-[18px] md:mt-0 md:w-[300px] md:shrink-0 md:border-l md:border-hair-strong md:pl-[26px]",
@@ -236,11 +236,11 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
               </div>
 
               <Eyebrow tracking="0.2em" color="#A8762A" className="mb-[10px] block">
-                ❖ Draft with Velora
+                ❖ Draft with Mytheca
               </Eyebrow>
               <p className="mb-[10px] font-body text-[14px] text-ink">
                 Describe the place in a sentence —{" "}
-                <span className="text-ink-soft italic">Velora drafts the rest.</span>
+                <span className="text-ink-soft italic">Mytheca drafts the rest.</span>
               </p>
               <TextArea
                 aria-label="Describe the place to draft"
@@ -254,7 +254,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 disabled={!canDraft || lib.generating}
                 className="mt-[12px] w-full"
               >
-                {lib.generating ? "Drafting…" : "❖ Draft with Velora"}
+                {lib.generating ? "Drafting…" : "❖ Draft with Mytheca"}
               </Button>
               <Button
                 variant="ghost"

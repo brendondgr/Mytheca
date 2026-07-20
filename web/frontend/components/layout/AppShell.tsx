@@ -9,7 +9,7 @@ import { ToastProvider } from "@/components/layout/ToastProvider";
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="velora-themed velora-page flex min-h-dvh flex-col text-ink">
+    <div className="mytheca-themed mytheca-page flex min-h-dvh flex-col text-ink">
       <MotionProvider>
         <ToastProvider>{children}</ToastProvider>
       </MotionProvider>

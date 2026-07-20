@@ -1,4 +1,4 @@
-// Velora font-size preset model. Four presets ship from day one, each
+// Mytheca font-size preset model. Four presets ship from day one, each
 // expressed as a CSS class (.fs-*) on <html> that overrides the --fs-*
 // custom properties defined in styles/themes.css. The active preset is
 // persisted to localStorage so it survives reloads — same pattern as
@@ -13,7 +13,7 @@ export const FONT_SIZE_KEYS: readonly FontSize[] = [
   "large",
 ];
 export const DEFAULT_FONT_SIZE: FontSize = "default";
-export const FONT_SIZE_STORAGE_KEY = "velora-font-size";
+export const FONT_SIZE_STORAGE_KEY = "mytheca-font-size";
 
 export const FONT_SIZES: {
   key: FontSize;

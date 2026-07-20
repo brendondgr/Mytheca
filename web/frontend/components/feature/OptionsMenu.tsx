@@ -8,7 +8,7 @@ import { THEMES } from "@/lib/theme";
 /**
  * The "Options ▾" header dropdown (sits to the right of Create). Two entries:
  * a **Settings Menu** link to `/options`, and a quick **Appearance** theme
- * selector (persisted across sessions via the `velora-theme` machinery).
+ * selector (persisted across sessions via the `mytheca-theme` machinery).
  * Closes on outside-click and Escape, mirroring `CreateMenu`.
  */
 export function OptionsMenu() {
@@ -48,7 +48,7 @@ export function OptionsMenu() {
         <div
           id="options-menu"
           aria-label="Options"
-          className="absolute top-[42px] right-0 z-40 w-[244px] velora-menu p-[7px]"
+          className="absolute top-[42px] right-0 z-40 w-[244px] mytheca-menu p-[7px]"
         >
           <Link
             href="/options"

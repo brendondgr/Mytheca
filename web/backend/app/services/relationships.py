@@ -22,7 +22,7 @@ from app.core.errors import APIError
 from app.models import Character, Scenario
 from app.services import graph_reader, graph_writer
 
-logger = logging.getLogger("velora.graph")
+logger = logging.getLogger("mytheca.graph")
 
 # Bio fields folded into the extractor's view of a character (authored, not stats).
 _BIO_FIELDS = ("role", "background", "personality", "traits", "secret", "goal")

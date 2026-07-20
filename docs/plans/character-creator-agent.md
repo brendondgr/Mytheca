@@ -1,4 +1,4 @@
-# Velora — Agentic Character Creator (prep phase)
+# Mytheca — Agentic Character Creator (prep phase)
 
 ## 1. Introduction
 
@@ -188,7 +188,7 @@ No remaining questions require human intervention.
   mirroring `StorylineModal.tsx`): main column with the by-hand form (name, role,
   traits, speech, goal, secret + **Appearance**, **Background**, **Personality**
   textareas) and the accent/portrait header (Monogram preview OR the WebP portrait
-  when set); an agentic **"❖ Draft with Velora"** seed box + button
+  when set); an agentic **"❖ Draft with Mytheca"** seed box + button
   (`lib.draftCharacter`); a detached **context-files** rail reusing the
   `readDocs`/drop-zone + per-file Draft/RAG/KG toggle pattern from `StorylineModal`;
   a **Portrait** section (Generate prompts → editable positive/negative → "Generate

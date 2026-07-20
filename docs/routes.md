@@ -1,4 +1,4 @@
-# Velora — Route Map
+# Mytheca — Route Map
 
 Planned routes for the Next.js frontend. Routes are not yet implemented; this is the agreed map. Update it whenever a route is added or changed. For each route: path, purpose, auth, data, ownership, backend endpoints, and required UI states.
 

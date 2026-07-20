@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { StorylineCreatorView } from "@/features/library/StorylineCreatorView";
 
 export const metadata: Metadata = {
-  title: "Edit Storyline · Velora",
+  title: "Edit Storyline · Mytheca",
 };
 
 // `/storylines/[id]/edit` — the storyline editor (same page as create, prefilled).

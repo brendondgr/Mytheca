@@ -1,4 +1,4 @@
-// Velora theme model. Three themes ship from day one (docs/design-system.md):
+// Mytheca theme model. Three themes ship from day one (docs/design-system.md):
 // Parchment (light), Ember (dark), Slate. The active theme is a class on <html>
 // and is persisted to localStorage so it survives reloads.
 
@@ -6,7 +6,7 @@ export type Theme = "light" | "dark" | "slate";
 
 export const THEME_KEYS: readonly Theme[] = ["light", "dark", "slate"];
 export const DEFAULT_THEME: Theme = "light";
-export const THEME_STORAGE_KEY = "velora-theme";
+export const THEME_STORAGE_KEY = "mytheca-theme";
 
 /** Switcher metadata: label + the swatch color shown in the picker dot. */
 export const THEMES: { key: Theme; label: string; swatch: string }[] = [

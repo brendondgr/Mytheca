@@ -1,9 +1,9 @@
 ---
 name: ui-frontend
-description: Use this skill when designing or implementing Velora's frontend UI — components, pages, the streaming narrative renderer, responsive layouts, the visual system, motion, and interaction quality on the locked Next.js + React + TypeScript + Tailwind + Framer Motion stack.
+description: Use this skill when designing or implementing Mytheca's frontend UI — components, pages, the streaming narrative renderer, responsive layouts, the visual system, motion, and interaction quality on the locked Next.js + React + TypeScript + Tailwind + Framer Motion stack.
 ---
 
-# Velora Frontend Design & UI System
+# Mytheca Frontend Design & UI System
 
 ## Structural Dependency
 
@@ -23,7 +23,7 @@ Always pair with:
 
 Do not add packages speculatively. Every library needs a recorded job in `docs/architecture.md`, `docs/workflow.md`, or `docs/design-system.md`.
 
-## Velora-Specific UI Surfaces
+## Mytheca-Specific UI Surfaces
 
 These are first-class and must be designed with real states, not placeholders:
 
@@ -35,7 +35,7 @@ These are first-class and must be designed with real states, not placeholders:
 
 ## Design Quality Standard
 
-The UI must feel human-designed and Velora-specific — an interactive-fiction / narrative product, not a generic SaaS dashboard. Use real narrative artifacts (a live scene, a narrator card, an event timeline) as the meaningful imagery near the top of key pages. Use concrete domain vocabulary in copy: scene, character, event, beat, memory, turn.
+The UI must feel human-designed and Mytheca-specific — an interactive-fiction / narrative product, not a generic SaaS dashboard. Use real narrative artifacts (a live scene, a narrator card, an event timeline) as the meaningful imagery near the top of key pages. Use concrete domain vocabulary in copy: scene, character, event, beat, memory, turn.
 
 Follow `ui/design-quality.md` as the operating standard and review checklist.
 

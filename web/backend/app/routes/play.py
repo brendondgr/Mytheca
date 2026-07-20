@@ -195,7 +195,7 @@ def export_session(
         body = session_export.render_json(scenario, session, events, traces, names)
         media_type, ext = "application/json; charset=utf-8", "json"
 
-    filename = f"velora-{scenario_id}-{session_id}.{ext}"
+    filename = f"mytheca-{scenario_id}-{session_id}.{ext}"
     return Response(
         content=body,
         media_type=media_type,

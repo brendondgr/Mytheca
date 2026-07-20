@@ -47,11 +47,11 @@ describe("CharacterCard", () => {
   it("glows in the character's own color only when highlighted", () => {
     const { container, rerender } = render(<CharacterCard character={base} onPreview={() => {}} />);
     const card = container.firstElementChild as HTMLElement;
-    expect(card.className).not.toContain("velora-glow");
+    expect(card.className).not.toContain("mytheca-glow");
     expect(card.style.getPropertyValue("--glow-color")).toBe("");
 
     rerender(<CharacterCard character={base} onPreview={() => {}} highlighted />);
-    expect(card.className).toContain("velora-glow");
+    expect(card.className).toContain("mytheca-glow");
     expect(card.style.getPropertyValue("--glow-color")).toBe(base.color);
   });
 

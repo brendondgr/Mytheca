@@ -32,7 +32,7 @@ export function ScenarioCard({
   return (
     <div
       className={cn(
-        "velora-card relative overflow-hidden rounded-[4px] hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        "mytheca-card relative overflow-hidden rounded-[4px] hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
         hasImage && "min-h-[176px]",
         featured
           ? "border-2 border-accent shadow-[0_6px_18px_rgba(142,43,28,.16)]"

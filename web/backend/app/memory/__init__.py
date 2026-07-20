@@ -1,1 +1,1 @@
-"""Velora backend: memory. See docs/skills/repository-structure/SKILL.md."""
+"""Mytheca backend: memory. See docs/skills/repository-structure/SKILL.md."""

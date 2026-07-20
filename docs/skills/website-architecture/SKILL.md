@@ -1,11 +1,11 @@
 ---
 name: website-architecture
-description: Use this skill when planning, scaffolding, restructuring, or documenting Velora's web surface — its locked Next.js + FastAPI stack, route map, real-time event streaming boundary, data flow, and the design-quality gate that must pass before UI is built.
+description: Use this skill when planning, scaffolding, restructuring, or documenting Mytheca's web surface — its locked Next.js + FastAPI stack, route map, real-time event streaming boundary, data flow, and the design-quality gate that must pass before UI is built.
 ---
 
-# Velora Website Architecture
+# Mytheca Website Architecture
 
-This skill owns the structural phase that happens before UI code is generated. It sits between `repository-structure` and `ui-frontend`. For Velora the high-level stack is **already decided** (below); use this skill to keep the route map, data flow, frontend/backend boundary, and design-quality brief current — not to re-pick the framework.
+This skill owns the structural phase that happens before UI code is generated. It sits between `repository-structure` and `ui-frontend`. For Mytheca the high-level stack is **already decided** (below); use this skill to keep the route map, data flow, frontend/backend boundary, and design-quality brief current — not to re-pick the framework.
 
 All web code lives under `web/` (`web/frontend`, `web/backend`, `web/shared`). Documentation lives under `docs/`. Pair this skill with `ui-frontend`, `accessibility-mobile`, and `ada-compliance`.
 
@@ -13,7 +13,7 @@ All web code lives under `web/` (`web/frontend`, `web/backend`, `web/shared`). D
 
 Do not generate isolated visual pages until routes, data flow, the streaming contract, and the design-quality requirements are defined and recorded in `docs/`.
 
-## Locked Stack (Velora)
+## Locked Stack (Mytheca)
 
 - **Application mode:** API + separate frontend (Mode G), real-time/streaming-first.
 - **Frontend:** Next.js (App Router), React, **TypeScript**, Tailwind CSS, Framer Motion. Rendering: mostly client/SSR app shell with streamed content; static where it fits (marketing/landing).
@@ -62,9 +62,9 @@ Document where each piece of data originates and how it moves: static content, P
 
 ## Design-Quality Planning Gate
 
-Before UI implementation, `docs/design-system.md` must define: Velora's specific visual motif, color/type/radius/shadow/icon/spacing rules, the real narrative artifacts shown near the top of key pages (a live scene, a narrator card, an event timeline — not abstract orbs), concrete domain vocabulary for copy (scene, character, event, memory, beat), at least one Velora-specific layout decision, and the required UI states (loading, empty, error, partial-data, success, permission, mobile, reduced-motion).
+Before UI implementation, `docs/design-system.md` must define: Mytheca's specific visual motif, color/type/radius/shadow/icon/spacing rules, the real narrative artifacts shown near the top of key pages (a live scene, a narrator card, an event timeline — not abstract orbs), concrete domain vocabulary for copy (scene, character, event, memory, beat), at least one Mytheca-specific layout decision, and the required UI states (loading, empty, error, partial-data, success, permission, mobile, reduced-motion).
 
-UI must follow `docs/skills/ui-frontend/ui/design-quality.md`. Remove generic AI-site patterns (vague productivity copy, glowing gradients, fake metrics, abstract orbs, repeated identical card grids) unless Velora specifically justifies them.
+UI must follow `docs/skills/ui-frontend/ui/design-quality.md`. Remove generic AI-site patterns (vague productivity copy, glowing gradients, fake metrics, abstract orbs, repeated identical card grids) unless Mytheca specifically justifies them.
 
 ## Setup Questionnaire
 

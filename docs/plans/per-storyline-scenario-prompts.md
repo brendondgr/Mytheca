@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-Velora's turn-loop "writing" agents (Character, Narrator, Director, Planner) each carry their
+Mytheca's turn-loop "writing" agents (Character, Narrator, Director, Planner) each carry their
 system prompt as a hard-coded module-level constant (`character_turn_agent._OUTPUT_CONTRACT`,
 `narrator_agent._SYSTEM`/`_SYSTEM_LONG`, `director_agent._SYSTEM`/`_RERANK_SYSTEM`/`_BRANCH_SYSTEM`,
 `planner_agent._SYSTEM`). There is no way for an author to influence the tone, phrasing, or

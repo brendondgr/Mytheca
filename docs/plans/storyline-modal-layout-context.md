@@ -2,12 +2,12 @@
 
 ## 1. Introduction
 
-The create/edit-world modal (`web/frontend/components/feature/StorylineModal.tsx`) currently stacks every authoring field in a single left column (Seal → Title → Genre → Tagline → Premise → World Primer) with a narrow right rail holding the context-files drop zone and the "Draft with Velora" seed. The author has asked for a wider, better-balanced layout and a richer context model:
+The create/edit-world modal (`web/frontend/components/feature/StorylineModal.tsx`) currently stacks every authoring field in a single left column (Seal → Title → Genre → Tagline → Premise → World Primer) with a narrow right rail holding the context-files drop zone and the "Draft with Mytheca" seed. The author has asked for a wider, better-balanced layout and a richer context model:
 
 - **Wider modal** with a two-column authoring head and a **full-width World Primer row** at the very bottom.
 - **Seal + color picker** relocated to the header, right-justified on the "Edit this World" title row.
 - **Title + Genre** on one row; **Tagline** full-width below; **Premise** below that.
-- The drop zone keeps its drag-and-drop behavior, but each dropped context becomes a **showcased, selectable item** with toggles for the three downstream uses: **Draft** (grounds Velora's drafting), **RAG** (retrieval corpus), and **KG** (knowledge-graph source document).
+- The drop zone keeps its drag-and-drop behavior, but each dropped context becomes a **showcased, selectable item** with toggles for the three downstream uses: **Draft** (grounds Mytheca's drafting), **RAG** (retrieval corpus), and **KG** (knowledge-graph source document).
 
 This is a **frontend-only** change. The RAG and KG systems are deferred (per `docs/checklist.md`), so their per-file toggles are **forward-looking seams** stored on the in-memory draft and **not yet persisted or wired** to a backend — exactly the pattern already used for the context files (which ground a single generation and are never uploaded). Only the **Draft** toggle is functional: it filters which dropped files ground the `draftStoryline` / `generatePrimer` calls that already exist.
 
@@ -40,7 +40,7 @@ The approach: first extend the in-memory context model (`ReadDoc` usage flags + 
   - **Width:** widen the modal panel (e.g. `sm:w-[560px] md:w-[980px] lg:w-[1100px]`).
   - **Header:** keep the eyebrow + title on the left; move the **Seal preview + symbol grid + color swatches** into a right-justified cluster on the same row, with the `CloseButton` pinned top-right. The cluster wraps below the title on narrow widths.
   - **Authoring form column (left of the upper body):** Title + Genre in a two-up row (`grid grid-cols-1 sm:grid-cols-2`), then full-width Tagline, then full-width Premise (taller).
-  - **Right rail (context column):** "Draft with Velora" seed + button (kept), then the **Context files** drop zone (drag-and-drop unchanged), then the **showcased context list** — each item shows the file name + three toggle chips (Draft / RAG / KG) with `aria-pressed`, plus the existing remove control. Drop zone + list sit side-by-side at `lg`, stacked below.
+  - **Right rail (context column):** "Draft with Mytheca" seed + button (kept), then the **Context files** drop zone (drag-and-drop unchanged), then the **showcased context list** — each item shows the file name + three toggle chips (Draft / RAG / KG) with `aria-pressed`, plus the existing remove control. Drop zone + list sit side-by-side at `lg`, stacked below.
   - **World Primer:** move out of the left column into its **own full-width row** spanning the modal beneath both columns (eyebrow + Generate button + description + a taller `TextArea`).
   - **Footer:** error + Cancel / Create World, full-width and right-justified.
   - **Toggle handler:** add a small `setDocFlag(name, key)` in the modal that flips the flag on the matching `_docFiles` entry via `lib.setDraft`. `addFiles` seeds new docs with all three flags ON.

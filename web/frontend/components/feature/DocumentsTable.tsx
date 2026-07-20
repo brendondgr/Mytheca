@@ -9,7 +9,7 @@ import type { EntityLabeler } from "@/features/documents/useDocuments";
 // "Draft" grounds generation, "RAG" is the retrieval corpus, "Extract" opts the doc into
 // build-time mining. Each maps to a persisted ContextDocument flag.
 const USES: { key: "includeDraft" | "includeRag" | "includeExtract"; label: string; title: string }[] = [
-  { key: "includeDraft", label: "Draft", title: "Ground Velora's drafting" },
+  { key: "includeDraft", label: "Draft", title: "Ground Mytheca's drafting" },
   { key: "includeRag", label: "RAG", title: "Include in the retrieval corpus" },
   { key: "includeExtract", label: "Extract", title: "Mine for cast/settings on Build the whole world" },
 ];

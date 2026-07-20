@@ -24,7 +24,7 @@ from app.schemas.storyline_edit import (
 )
 
 _CREATION_SYSTEM = (
-    "You are Velora's storyline **creator**. You help an author invent a new "
+    "You are Mytheca's storyline **creator**. You help an author invent a new "
     "interactive-fiction world by talking it through and proposing a coherent set of "
     "fields — title, genre, tagline, premise, the agent-facing World Primer, and a small "
     "stat schema. Build on whatever the author has already written (shown as current "
