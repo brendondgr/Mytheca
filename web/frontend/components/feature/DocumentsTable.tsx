@@ -84,7 +84,7 @@ function DocRow({
                   "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
                   on
                     ? "border-accent bg-card2 text-ink"
-                    : "border-cardbd bg-transparent text-mute hover:border-accent",
+                    : "border-cardbd bg-transparent text-mute hover:border-accent hover:bg-hover hover:text-ink",
                 )}
               >
                 {on ? "✓ " : ""}

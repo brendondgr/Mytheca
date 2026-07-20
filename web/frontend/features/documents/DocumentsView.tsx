@@ -96,7 +96,7 @@ export function DocumentsView({ storylineId }: { storylineId: string }) {
                     "cursor-pointer rounded-full border px-[11px] py-[4px] font-mono text-[10.5px] tracking-[0.08em] uppercase focus-visible:border-accent",
                     filter === f.key
                       ? "border-accent bg-card2 text-ink"
-                      : "border-cardbd bg-transparent text-mute hover:border-accent",
+                      : "border-cardbd bg-transparent text-mute hover:border-accent hover:bg-hover hover:text-ink",
                   )}
                 >
                   {f.label}
@@ -104,7 +104,7 @@ export function DocumentsView({ storylineId }: { storylineId: string }) {
               ))}
             </div>
             <label
-              className="flex cursor-pointer items-center gap-[6px] rounded-[4px] border border-dashed border-accent/60 bg-field px-[12px] py-[7px] font-mono text-[10.5px] tracking-[0.08em] text-accent uppercase hover:bg-card2"
+              className="flex cursor-pointer items-center gap-[6px] rounded-[4px] border border-dashed border-accent/60 bg-field px-[12px] py-[7px] font-mono text-[10.5px] tracking-[0.08em] text-accent uppercase hover:bg-hover"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();

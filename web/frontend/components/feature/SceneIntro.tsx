@@ -100,7 +100,7 @@ export function SceneIntro({
                 onClick={() => onProfile(c.id)}
                 aria-label={`View ${c.name}`}
                 title={c.name}
-                className="flex items-center gap-[8px] rounded-[3px] hover:opacity-80"
+                className="flex items-center gap-[8px] rounded-[3px] px-[4px] py-[2px] hover:bg-hover"
               >
                 {inner}
               </button>

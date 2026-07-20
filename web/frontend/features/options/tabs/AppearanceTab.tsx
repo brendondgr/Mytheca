@@ -35,7 +35,7 @@ export function AppearanceTab() {
                 onClick={() => setTheme(option.key)}
                 className={cn(
                   "flex items-center justify-center rounded-[4px] border p-[16px]",
-                  active ? "border-accent bg-card2" : "border-cardbd bg-card hover:bg-card2",
+                  active ? "border-accent bg-card2" : "border-cardbd bg-card hover:border-hair-strong hover:bg-hover",
                 )}
               >
                 <span
@@ -77,7 +77,7 @@ export function AppearanceTab() {
                 onClick={() => setFontSize(option.key)}
                 className={cn(
                   "flex min-w-[120px] flex-col rounded-[4px] border px-[14px] py-[12px] text-left",
-                  active ? "border-accent bg-card2" : "border-cardbd bg-card hover:bg-card2",
+                  active ? "border-accent bg-card2" : "border-cardbd bg-card hover:border-hair-strong hover:bg-hover",
                 )}
               >
                 <span className="font-display text-[15px] font-semibold text-ink">
