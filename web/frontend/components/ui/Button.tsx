@@ -4,10 +4,12 @@ import type { ComponentPropsWithoutRef } from "react";
 type ButtonVariant = "primary" | "secondary" | "ghost";
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-[#F6ECDA] border border-accent hover:brightness-[1.08]",
+  primary:
+    "bg-accent text-[#F6ECDA] border border-accent-hover hover:bg-accent-hover hover:-translate-y-[1px] hover:shadow-[0_5px_14px_rgba(10,6,3,.3)] active:translate-y-0 active:shadow-none",
   secondary:
-    "bg-card text-accent border border-accent hover:bg-accent hover:text-[#F6ECDA]",
-  ghost: "bg-transparent text-ink-soft border border-field-bd hover:bg-card",
+    "bg-card text-accent border border-accent hover:bg-accent hover:text-[#F6ECDA] hover:-translate-y-[1px] hover:shadow-[0_5px_14px_rgba(10,6,3,.25)] active:translate-y-0 active:shadow-none",
+  ghost:
+    "bg-transparent text-ink-soft border border-field-bd hover:bg-hover hover:text-ink hover:border-hair-strong",
 };
 
 /** Mono, uppercase action button — Begin / Send / Create / Submit / Cancel. */

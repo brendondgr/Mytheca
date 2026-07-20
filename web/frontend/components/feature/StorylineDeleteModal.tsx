@@ -80,7 +80,7 @@ export function StorylineDeleteModal({
             type="button"
             onClick={onConfirm}
             disabled={pending}
-            className="inline-flex cursor-pointer items-center justify-center rounded-[2px] px-[18px] py-[10px] font-mono text-[11px] tracking-[0.08em] text-[#F6ECDA] uppercase hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex cursor-pointer items-center justify-center rounded-[2px] px-[18px] py-[10px] font-mono text-[11px] tracking-[0.08em] text-[#F6ECDA] uppercase hover:brightness-[1.3] disabled:cursor-not-allowed disabled:opacity-60"
             style={{ background: "#9A3520" }}
           >
             {pending ? "Deleting…" : "Delete World"}

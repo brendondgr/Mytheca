@@ -156,7 +156,7 @@ export function Composer({
             onClick={onSend}
             disabled={sendDisabled}
             aria-label="Send"
-            className="flex flex-none items-center gap-[5px] rounded-[8px] bg-accent px-[11px] py-[5px] font-mono text-[10px] tracking-[0.08em] text-[#F6ECDA] uppercase transition-[filter] hover:brightness-110 disabled:opacity-50 disabled:hover:brightness-100"
+            className="flex flex-none items-center gap-[5px] rounded-[8px] bg-accent px-[11px] py-[5px] font-mono text-[10px] tracking-[0.08em] text-[#F6ECDA] uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
           >
             Send
             {/* Right-arrow — matches the reference "Send →". */}

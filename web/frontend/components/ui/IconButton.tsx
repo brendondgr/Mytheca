@@ -4,8 +4,9 @@ import type { ComponentPropsWithoutRef } from "react";
 type IconButtonVariant = "card" | "field";
 
 const VARIANT: Record<IconButtonVariant, string> = {
-  card: "border border-cardbd bg-card2 text-mute2 hover:bg-accent hover:text-[#F6ECDA]",
-  field: "border border-field-bd bg-field text-accent hover:border-accent",
+  card: "border border-cardbd bg-card2 text-mute2 hover:border-accent hover:bg-accent hover:text-[#F6ECDA]",
+  field:
+    "border border-field-bd bg-field text-accent hover:border-accent hover:bg-hover",
 };
 
 /** Small square icon button (edit ✎, delete ×, roll die). `label` is required

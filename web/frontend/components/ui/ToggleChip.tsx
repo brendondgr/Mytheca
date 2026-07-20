@@ -20,8 +20,8 @@ export function ToggleChip({
       className={cn(
         "inline-flex cursor-pointer items-center gap-[7px] rounded-full border px-3 py-[5px] text-left",
         selected
-          ? "border-[1.5px] border-accent bg-card2 font-semibold text-accent"
-          : "border-field-bd bg-field text-ink-soft",
+          ? "border-[1.5px] border-accent bg-card2 font-semibold text-accent hover:bg-hover"
+          : "border-field-bd bg-field text-ink-soft hover:border-hair-strong hover:bg-hover hover:text-ink",
         className,
       )}
     >
