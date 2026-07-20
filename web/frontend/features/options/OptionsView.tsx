@@ -47,7 +47,7 @@ export function OptionsView() {
 
   return (
     <AppShell>
-      <header className="velora-header flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] sm:px-[26px]">
+      <header className="velora-header relative z-[15] flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] shadow-[0_3px_14px_rgba(10,6,2,0.22)] sm:px-[26px]">
         <div className="flex items-center gap-[13px]">
           <span aria-hidden className="text-[16px] text-accent">
             ❖
@@ -62,7 +62,7 @@ export function OptionsView() {
         </div>
         <Link
           href="/"
-          className="rounded-[2px] border border-field-bd bg-field px-[13px] py-[7px] font-mono text-[10.5px] tracking-[0.1em] text-ink uppercase hover:border-accent"
+          className="rounded-[2px] border border-field-bd bg-field px-[13px] py-[7px] font-mono text-[10.5px] tracking-[0.1em] text-ink uppercase hover:border-accent hover:bg-hover hover:text-accent"
         >
           ← Library
         </Link>
@@ -96,7 +96,7 @@ export function OptionsView() {
             role="tablist"
             aria-label="Options sections"
             aria-orientation="vertical"
-            className="flex flex-none gap-[6px] overflow-x-auto lg:w-[210px] lg:flex-col lg:overflow-visible"
+            className="flex flex-none gap-[6px] overflow-x-auto rounded-[6px] lg:w-[210px] lg:flex-col lg:self-start lg:overflow-visible lg:border lg:border-cardbd lg:bg-surface lg:p-[10px]"
           >
             {TABS.map((tab, index) => {
               const selected = tab.key === active;
@@ -117,7 +117,7 @@ export function OptionsView() {
                     "flex flex-none cursor-pointer flex-col gap-[2px] rounded-[3px] border px-[13px] py-[10px] text-left whitespace-nowrap lg:whitespace-normal",
                     selected
                       ? "border-accent bg-card2 text-ink"
-                      : "border-cardbd bg-card text-ink-soft hover:bg-card2",
+                      : "border-cardbd bg-card text-ink-soft hover:border-hair-strong hover:bg-hover hover:text-ink",
                   )}
                 >
                   <span className="font-display text-[14.5px] font-semibold">{tab.label}</span>

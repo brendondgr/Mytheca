@@ -149,7 +149,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute -top-[13px] -right-[13px] z-10 flex h-[33px] w-[33px] items-center justify-center rounded-full text-[19px] leading-none text-[#F8E9DC] shadow-[0_4px_14px_rgba(14,9,4,.5)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C24A33] focus-visible:ring-offset-2"
+            className="absolute -top-[13px] -right-[13px] z-10 flex h-[33px] w-[33px] items-center justify-center rounded-full text-[19px] leading-none text-[#F8E9DC] shadow-[0_4px_14px_rgba(14,9,4,.5)] transition hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C24A33] focus-visible:ring-offset-2"
             style={{ background: "#A8321F", border: "1px solid #C24A33" }}
           >
             ×

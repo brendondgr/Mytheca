@@ -40,7 +40,7 @@ export function OptionsMenu() {
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls="options-menu"
-        className="rounded-[2px] border border-field-bd bg-field px-[15px] py-[8px] font-mono text-[10.5px] tracking-[0.1em] text-ink uppercase hover:border-accent"
+        className="rounded-[2px] border border-field-bd bg-field px-[15px] py-[8px] font-mono text-[10.5px] tracking-[0.1em] text-ink uppercase hover:border-accent hover:bg-hover hover:text-accent aria-expanded:border-accent aria-expanded:text-accent"
       >
         Options ▾
       </button>
@@ -48,12 +48,12 @@ export function OptionsMenu() {
         <div
           id="options-menu"
           aria-label="Options"
-          className="absolute top-[42px] right-0 z-40 w-[244px] rounded-[4px] border border-cardbd bg-card p-[7px] shadow-[0_16px_40px_rgba(14,9,4,.45)]"
+          className="absolute top-[42px] right-0 z-40 w-[244px] velora-menu p-[7px]"
         >
           <Link
             href="/options"
             onClick={() => setOpen(false)}
-            className="flex w-full items-center gap-[11px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-card2"
+            className="flex w-full items-center gap-[11px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-hover"
           >
             <span className="w-4 text-center text-[14px] text-gold" aria-hidden>
               ❖

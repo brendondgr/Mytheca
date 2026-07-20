@@ -102,7 +102,7 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
         onEdit={lib.editScenario}
       />
 
-      <div className="mt-[16px] flex min-h-0 flex-1 flex-col">
+      <div className="mt-[16px] flex min-h-0 flex-1 flex-col border-t border-hair-strong">
         <LibraryColumns lib={lib} />
       </div>
 

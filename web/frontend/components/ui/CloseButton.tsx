@@ -14,7 +14,7 @@ export function CloseButton({
       onClick={onClose}
       aria-label="Close"
       className={cn(
-        "cursor-pointer text-[20px] leading-none text-mute2 hover:text-accent",
+        "cursor-pointer text-[20px] leading-none text-mute hover:scale-110 hover:text-accent",
         className,
       )}
     >

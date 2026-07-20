@@ -46,6 +46,7 @@ Run from `web/frontend/` (or from the repo root with `python app.py frontend`):
 | Tests | `npm test` (Vitest, run once) / `npm run test:watch` |
 | Lint | `npm run lint` |
 | Type check | `npm run typecheck` (`tsc --noEmit`) |
+| Theme contrast gate | `uv run python utils/scripts/check_contrast.py` (from the repo root) — parses `styles/themes.css` and asserts the WCAG-AA token pairs for all three themes |
 
 ## Validation Gate (before "done")
 
@@ -53,6 +54,7 @@ Required:
 - Backend: `uv run pytest` passes for affected areas.
 - Frontend: component/route tests pass.
 - **Web/UI changes also require** an accessibility + responsive pass per `docs/skills/accessibility-mobile/SKILL.md` and `docs/skills/ada-compliance/SKILL.md`: keyboard operability, visible focus, contrast (AA), live-region announcements for streamed content, and layout checks at 320 / 375 / 768 / 1024 px.
+- **Theme-token changes also require** `uv run python utils/scripts/check_contrast.py` to pass (the WCAG-AA pair gate over `styles/themes.css`).
 
 Recommended hygiene: ruff + mypy (backend), ESLint + tsc (frontend).
 

@@ -161,7 +161,7 @@ export function StorylineMenu({
         aria-expanded={open}
         aria-controls={menuId}
         title="Switch storyline"
-        className="group flex items-center gap-[9px] rounded-[3px] border border-cardbd bg-card px-[12px] py-[5px] hover:border-accent hover:bg-card2 focus-visible:border-accent"
+        className="group flex items-center gap-[9px] rounded-[3px] border border-cardbd bg-card px-[12px] py-[5px] hover:border-accent hover:bg-hover focus-visible:border-accent"
       >
         <span
           aria-hidden
@@ -195,7 +195,7 @@ export function StorylineMenu({
         <div
           id={menuId}
           aria-label="Switch storyline"
-          className="absolute top-[38px] left-0 z-40 w-[280px] rounded-[4px] border border-cardbd bg-card p-[7px] shadow-[0_16px_40px_rgba(20,12,4,.5)]"
+          className="absolute top-[38px] left-0 z-40 w-[280px] velora-menu p-[7px]"
         >
           <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-[11px] uppercase tracking-[0.18em] text-mute2">
             Storylines
@@ -205,7 +205,7 @@ export function StorylineMenu({
             return (
               <div
                 key={s.id}
-                className={cn("rounded-[3px] hover:bg-card2", isActive && "bg-card2")}
+                className={cn("rounded-[3px] hover:bg-hover", isActive && "bg-hover")}
               >
                 {/* Title row: checkmark + symbol + title + edit/delete right-aligned */}
                 <div className="flex items-center gap-[10px] px-[11px] pt-[9px] pb-[3px]">
@@ -247,7 +247,7 @@ export function StorylineMenu({
                         onConfigurePrompts(s.id);
                         setOpen(false);
                       }}
-                      className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-accent focus-visible:text-accent"
+                      className="rounded-[3px] p-[6px] text-mute hover:bg-hover hover:text-accent focus-visible:text-accent"
                     >
                       <GearIcon />
                     </button>
@@ -259,7 +259,7 @@ export function StorylineMenu({
                         onDocuments(s.id);
                         setOpen(false);
                       }}
-                      className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-accent focus-visible:text-accent"
+                      className="rounded-[3px] p-[6px] text-mute hover:bg-hover hover:text-accent focus-visible:text-accent"
                     >
                       <DocsIcon />
                     </button>
@@ -271,7 +271,7 @@ export function StorylineMenu({
                         onEdit(s.id);
                         setOpen(false);
                       }}
-                      className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-accent focus-visible:text-accent"
+                      className="rounded-[3px] p-[6px] text-mute hover:bg-hover hover:text-accent focus-visible:text-accent"
                     >
                       <PencilIcon />
                     </button>
@@ -283,7 +283,7 @@ export function StorylineMenu({
                         onDelete(s.id);
                         setOpen(false);
                       }}
-                      className="rounded-[3px] p-[6px] text-mute hover:bg-field hover:text-danger focus-visible:text-danger"
+                      className="rounded-[3px] p-[6px] text-mute hover:bg-hover hover:text-danger focus-visible:text-danger"
                     >
                       <TrashIcon />
                     </button>
@@ -301,7 +301,7 @@ export function StorylineMenu({
               onCreate();
               setOpen(false);
             }}
-            className="flex w-full items-center gap-[10px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-card2"
+            className="flex w-full items-center gap-[10px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-hover"
           >
             <span aria-hidden className="w-3 flex-none text-center text-[14px] text-gold">
               ＋

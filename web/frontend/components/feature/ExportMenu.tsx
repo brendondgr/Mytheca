@@ -60,7 +60,7 @@ export function ExportMenu({
           id="export-menu"
           role="menu"
           aria-label="Export conversation"
-          className="absolute top-[38px] right-0 z-40 w-[240px] rounded-[4px] border border-cardbd bg-card p-[7px] shadow-[0_16px_40px_rgba(14,9,4,.45)]"
+          className="absolute top-[38px] right-0 z-40 w-[240px] velora-menu p-[7px]"
         >
           {ITEMS.map((item) => (
             <button
@@ -71,7 +71,7 @@ export function ExportMenu({
                 onExport(item.format);
                 setOpen(false);
               }}
-              className="flex w-full flex-col gap-[2px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-card2"
+              className="flex w-full flex-col gap-[2px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-hover"
             >
               <span className="font-display text-[13px] font-semibold text-ink">{item.label}</span>
               <span className="font-mono text-tag tracking-[0.04em] text-mute">{item.sub}</span>

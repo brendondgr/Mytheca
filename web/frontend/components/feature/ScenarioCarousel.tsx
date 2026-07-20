@@ -190,7 +190,7 @@ export function ScenarioCarousel({
                   <button
                     type="button"
                     onClick={() => onBegin(s.id)}
-                    className="mt-[10px] w-full rounded-[2px] px-[4px] py-[8px] font-mono text-label uppercase tracking-[0.09em] hover:brightness-110"
+                    className="mt-[10px] w-full rounded-[2px] px-[4px] py-[8px] font-mono text-label uppercase tracking-[0.09em] hover:-translate-y-[1px] hover:brightness-[1.18] hover:shadow-[0_5px_14px_rgba(10,6,3,.35)] active:translate-y-0"
                     style={{ background: HERO.label, color: "#1f160c" }}
                   >
                     Begin Scene ▸

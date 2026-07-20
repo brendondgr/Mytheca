@@ -7,70 +7,95 @@
  * color utilities via `@theme inline` in app/globals.css.
  * ------------------------------------------------------------------ */
 
+/* Each theme is a three-tier lightness system so sections divide cleanly:
+ *   chrome (header/rail gradients + shell surfaces) — the darkest tier;
+ *   page ground (--page-bg) — the middle tier;
+ *   content (--card-bg/--card-bg2/--field-bg/--menu-bg) — the lifted tier.
+ * Interaction tokens: --accent-hover (always darker than --accent, so light
+ * text keeps contrast on hover), --hover-bg (visible row-hover tint),
+ * --menu-bg/--menu-bd (elevated popover surface), --surface (raised panel
+ * ground between page and card). Values are gated by
+ * utils/scripts/check_contrast.py — adjust there and here together. */
+
 .theme-light {
-  --page-bg: #e7dbc2;
-  --page-img: radial-gradient(at 16% 6%, rgba(255, 250, 235, 0.7), transparent 50%),
-    radial-gradient(at 88% 96%, rgba(120, 90, 40, 0.08), transparent 52%);
+  --page-bg: #dccca8;
+  --page-img: radial-gradient(at 16% 6%, rgba(255, 250, 235, 0.75), transparent 50%),
+    radial-gradient(at 88% 96%, rgba(110, 80, 35, 0.14), transparent 52%);
   --card-bg: #f4ecda;
-  --card-bg2: #f8f1e0;
-  --card-bd: #d8c7a0;
-  --hair: #e0d2ae;
-  --hair-strong: #cbb78e;
-  --ink: #2a2016;
-  --ink-soft: #6b5b45;
-  --mute: #8e7a56;
-  --mute2: #9a875f;
+  --card-bg2: #faf3e1;
+  --card-bd: #c2ac7e;
+  --hair: #d2c093;
+  --hair-strong: #a98f5d;
+  --ink: #241b10;
+  --ink-soft: #59492f;
+  --mute: #55452c;
+  --mute2: #6e5b3c;
   --field-bg: #fbf6ea;
-  --field-bd: #cbb78e;
-  --header-grad: linear-gradient(#efe5cf, #e8dcc3);
-  --rail-grad: linear-gradient(#ebe0c8, #e6dac0);
-  --modal-bg: #eee3cc;
+  --field-bd: #a98f5d;
+  --header-grad: linear-gradient(#d6c49a, #c9b586);
+  --rail-grad: linear-gradient(#d9c8a0, #cfbd8f);
+  --modal-bg: #f1e8d3;
   --accent: #8e2b1c;
-  --tab-ink: #6b5b45;
+  --accent-hover: #6e1f12;
+  --menu-bg: #faf3e1;
+  --menu-bd: #a98f5d;
+  --hover-bg: #ecdfbc;
+  --surface: #ede2c6;
+  --tab-ink: #59492f;
 }
 
 .theme-dark {
-  --page-bg: #14100a;
-  --page-img: radial-gradient(at 16% 6%, rgba(90, 66, 32, 0.22), transparent 55%),
-    radial-gradient(at 88% 96%, rgba(130, 74, 32, 0.16), transparent 55%);
+  --page-bg: #0d0a05;
+  --page-img: radial-gradient(at 16% 6%, rgba(90, 66, 32, 0.2), transparent 55%),
+    radial-gradient(at 88% 96%, rgba(130, 74, 32, 0.14), transparent 55%);
   --card-bg: #241c13;
   --card-bg2: #2e2417;
-  --card-bd: #463a24;
-  --hair: #3a2e1e;
-  --hair-strong: #3a2e1e;
+  --card-bd: #52422a;
+  --hair: #332818;
+  --hair-strong: #5c4a2b;
   --ink: #f1e5cc;
-  --ink-soft: #c3b191;
-  --mute: #9c875d;
-  --mute2: #8c774f;
-  --field-bg: #1d160f;
-  --field-bd: #463a24;
-  --header-grad: linear-gradient(#221a11, #1a140c);
-  --rail-grad: linear-gradient(#1f1810, #1a140d);
-  --modal-bg: #221a11;
-  --accent: #cc5a41;
-  --tab-ink: #a8966f;
+  --ink-soft: #c8b694;
+  --mute: #a9946b;
+  --mute2: #93805c;
+  --field-bg: #16100a;
+  --field-bd: #52422a;
+  --header-grad: linear-gradient(#191208, #0f0b05);
+  --rail-grad: linear-gradient(#150f08, #0f0b06);
+  --modal-bg: #261d12;
+  --accent: #d3694f;
+  --accent-hover: #b0492f;
+  --menu-bg: #2b2214;
+  --menu-bd: #5c4a2b;
+  --hover-bg: #382c1a;
+  --surface: #1b1509;
+  --tab-ink: #b09a6f;
 }
 
 .theme-slate {
-  --page-bg: #0f141a;
-  --page-img: radial-gradient(at 16% 6%, rgba(70, 100, 140, 0.12), transparent 55%),
-    radial-gradient(at 88% 96%, rgba(60, 84, 120, 0.12), transparent 55%);
+  --page-bg: #0a0e13;
+  --page-img: radial-gradient(at 16% 6%, rgba(70, 100, 140, 0.14), transparent 55%),
+    radial-gradient(at 88% 96%, rgba(60, 84, 120, 0.14), transparent 55%);
   --card-bg: #1a2129;
   --card-bg2: #222b35;
-  --card-bd: #303c47;
-  --hair: #2a333c;
-  --hair-strong: #2a333c;
+  --card-bd: #3c4a57;
+  --hair: #232c35;
+  --hair-strong: #465667;
   --ink: #e7edf3;
-  --ink-soft: #a0b1bf;
-  --mute: #6f8495;
-  --mute2: #5f7384;
-  --field-bg: #141a21;
-  --field-bd: #303c47;
-  --header-grad: linear-gradient(#1a222b, #141a21);
-  --rail-grad: linear-gradient(#161d25, #11171e);
-  --modal-bg: #1a2129;
-  --accent: #e0654a;
-  --tab-ink: #afc0ce;
+  --ink-soft: #a9bac8;
+  --mute: #8a9fb1;
+  --mute2: #6e8496;
+  --field-bg: #10151c;
+  --field-bd: #3c4a57;
+  --header-grad: linear-gradient(#121820, #0b0f15);
+  --rail-grad: linear-gradient(#10161d, #0b0f14);
+  --modal-bg: #1d2630;
+  --accent: #dc634a;
+  --accent-hover: #ba4a32;
+  --menu-bg: #28323e;
+  --menu-bd: #465667;
+  --hover-bg: #2e3945;
+  --surface: #141b22;
+  --tab-ink: #b7c7d4;
 }
 
 /* ------------------------------------------------------------------ *
@@ -124,6 +149,16 @@
   --fs-body-sm: 16px;
   --fs-body:    17px;
   --fs-tag:     12px;
+}
+
+/* Shared dropdown/popover surface — every menu panel (storyline switcher,
+ * Create, Options, Export, POV select, scene Config, MultiSelect) uses this so
+ * dropdowns read as one consistent, clearly-elevated layer above the page. */
+.velora-menu {
+  background-color: var(--menu-bg);
+  border: 1px solid var(--menu-bd);
+  border-radius: 4px;
+  box-shadow: 0 18px 44px rgba(10, 6, 2, 0.55), 0 2px 8px rgba(10, 6, 2, 0.28);
 }
 
 /* Gradient-backed surfaces (can't be expressed as Tailwind color utilities). */
