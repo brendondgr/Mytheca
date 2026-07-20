@@ -43,24 +43,34 @@ The active preset is stored in `localStorage` key `velora-font-size` (default: `
 
 Three themes ship from day one, switched by a `ThemeSwitcher` and persisted (`localStorage` key `velora-theme`). Themes are CSS-variable token sets on a root class (`.theme-light` / `.theme-dark` / `.theme-slate`); Tailwind colors reference the variables so components are theme-agnostic.
 
+**Three-tier layering rule.** Every theme is built as three distinct lightness tiers so sections divide cleanly instead of blending: **chrome** (header/rail gradients — the darkest tier per theme), **page ground** (`--page-bg`, the middle tier), and **content** (`--card-bg`/`--card-bg2`/`--menu-bg` — the lifted tier that holds text). Inputs (`--field-bg`) sit slightly *recessed* from cards in the dark themes and slightly *raised* in Parchment. New surfaces should pick a tier deliberately; a panel that frames content (sidebar, nav rail) belongs on the chrome tier (`velora-rail`/`--surface`), never on the card tier.
+
+**Contrast gate.** `utils/scripts/check_contrast.py` parses these token sets and asserts the load-bearing WCAG-AA pairs (hard-fails the build script on regressions). Adjust tokens and the script's pair list together.
+
 | Token | Parchment (`light`) | Ember (`dark`) | Slate (`slate`) | Purpose |
 | --- | --- | --- | --- | --- |
-| `--page-bg` | `#E7DBC2` | `#14100A` | `#0F141A` | App background |
+| `--page-bg` | `#DCCCA8` | `#0D0A05` | `#0A0E13` | App background (middle tier) |
 | `--page-img` | warm radial wash | ember radial wash | cool radial wash | Subtle page glow (two `radial-gradient`s) |
-| `--card-bg` | `#F4ECDA` | `#241C13` | `#1A2129` | Card / bubble surface |
-| `--card-bg2` | `#F8F1E0` | `#2E2417` | `#222B35` | Selected / raised surface |
-| `--card-bd` | `#D8C7A0` | `#463A24` | `#303C47` | Card border |
-| `--hair` | `#E0D2AE` | `#3A2E1E` | `#2A333C` | Hairline divider |
-| `--hair-strong` | `#CBB78E` | `#3A2E1E` | `#2A333C` | Stronger divider / rail edge |
-| `--ink` | `#2A2016` | `#F1E5CC` | `#E7EDF3` | Primary text |
-| `--ink-soft` | `#6B5B45` | `#C3B191` | `#A0B1BF` | Secondary text |
-| `--mute` | `#8E7A56` | `#9C875D` | `#6F8495` | Muted labels |
-| `--mute2` | `#9A875F` | `#8C774F` | `#5F7384` | Faint labels / placeholders |
-| `--field-bg` | `#FBF6EA` | `#1D160F` | `#141A21` | Inputs / icon buttons |
-| `--field-bd` | `#CBB78E` | `#463A24` | `#303C47` | Input border |
-| `--header-grad` | `linear-gradient(#EFE5CF,#E8DCC3)` | `linear-gradient(#221A11,#1A140C)` | `linear-gradient(#1A222B,#141A21)` | Header / composer bar |
-| `--rail-grad` | `linear-gradient(#EBE0C8,#E6DAC0)` | `linear-gradient(#1F1810,#1A140D)` | `linear-gradient(#161D25,#11171E)` | Side rails |
-| `--accent` | `#8E2B1C` | `#CC5A41` | `#E0654A` | Primary accent (ember) |
+| `--card-bg` | `#F4ECDA` | `#241C13` | `#1A2129` | Card / bubble surface (lifted tier) |
+| `--card-bg2` | `#FAF3E1` | `#2E2417` | `#222B35` | Selected / raised surface |
+| `--card-bd` | `#C2AC7E` | `#52422A` | `#3C4A57` | Card border |
+| `--hair` | `#D2C093` | `#332818` | `#232C35` | Hairline divider |
+| `--hair-strong` | `#A98F5D` | `#5C4A2B` | `#465667` | Stronger divider / rail edge (now visibly heavier than `--hair` in every theme) |
+| `--ink` | `#241B10` | `#F1E5CC` | `#E7EDF3` | Primary text |
+| `--ink-soft` | `#59492F` | `#C8B694` | `#A9BAC8` | Secondary text |
+| `--mute` | `#55452C` | `#A9946B` | `#8A9FB1` | Muted labels (AA on page, card, menu, chrome) |
+| `--mute2` | `#6E5B3C` | `#93805C` | `#6E8496` | Faint labels / placeholders (AA on `--field-bg`) |
+| `--field-bg` | `#FBF6EA` | `#16100A` | `#10151C` | Inputs / icon buttons |
+| `--field-bd` | `#A98F5D` | `#52422A` | `#3C4A57` | Input border |
+| `--header-grad` | `linear-gradient(#D6C49A,#C9B586)` | `linear-gradient(#191208,#0F0B05)` | `linear-gradient(#121820,#0B0F15)` | Header / composer bar (chrome tier) |
+| `--rail-grad` | `linear-gradient(#D9C8A0,#CFBD8F)` | `linear-gradient(#150F08,#0F0B06)` | `linear-gradient(#10161D,#0B0F14)` | Side rails (chrome tier) |
+| `--modal-bg` | `#F1E8D3` | `#261D12` | `#1D2630` | Modal surface |
+| `--accent` | `#8E2B1C` | `#D3694F` | `#DC634A` | Primary accent (ember); AA as text on page/card/field |
+| `--accent-hover` | `#6E1F12` | `#B0492F` | `#BA4A32` | Hover fill for accent controls — always **darker** than `--accent`, so `#F6ECDA` text gains contrast on hover |
+| `--menu-bg` | `#FAF3E1` | `#2B2214` | `#28323E` | Dropdown/popover surface (elevated above cards) |
+| `--menu-bd` | `#A98F5D` | `#5C4A2B` | `#465667` | Dropdown/popover border |
+| `--hover-bg` | `#ECDFBC` | `#382C1A` | `#2E3945` | Row/ghost hover tint — visible against page, card, and menu surfaces |
+| `--surface` | `#EDE2C6` | `#1B1509` | `#141B22` | Raised panel ground between page and card (sidebar/nav chrome) |
 
 **Theme-agnostic semantic colors** (used across all themes):
 
@@ -72,7 +82,7 @@ Three themes ship from day one, switched by a `ThemeSwitcher` and persisted (`lo
 
 All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every theme** — verify Parchment, Ember, and Slate. Status and stat changes are never conveyed by color alone (pair with a label, sign, or icon).
 
-**Frontend implementation.** The three token sets live in `web/frontend/styles/themes.css` as `.theme-light` / `.theme-dark` / `.theme-slate`; the active class sits on `<html>`, applied pre-paint by a no-flash inline script (`themeInitScript` in `lib/theme.ts`). `app/globals.css` maps the variables to Tailwind utilities via `@theme inline` — e.g. `bg-page`, `bg-card`, `bg-card2`, `text-ink`, `text-ink-soft`, `text-mute`, `border-cardbd`, `border-hair`, `text-accent`, plus theme-agnostic `text-gold` / `text-narrator` / `text-success` / `text-danger`. Gradient surfaces (page glow, header, rails) use the `.velora-page` / `.velora-header` / `.velora-rail` helper classes. The current theme is read via `useTheme()` (a `useSyncExternalStore` over the `<html>` class + `localStorage['velora-theme']`, so no provider is needed) and toggled by `ThemeSwitcher`.
+**Frontend implementation.** The three token sets live in `web/frontend/styles/themes.css` as `.theme-light` / `.theme-dark` / `.theme-slate`; the active class sits on `<html>`, applied pre-paint by a no-flash inline script (`themeInitScript` in `lib/theme.ts`). `app/globals.css` maps the variables to Tailwind utilities via `@theme inline` — e.g. `bg-page`, `bg-card`, `bg-card2`, `text-ink`, `text-ink-soft`, `text-mute`, `border-cardbd`, `border-hair`, `text-accent`, and the interaction tokens `bg-accent-hover`, `bg-menu` / `border-menu-bd`, `bg-hover`, `bg-surface`, plus theme-agnostic `text-gold` / `text-narrator` / `text-success` / `text-danger`. Gradient surfaces (page glow, header, rails) use the `.velora-page` / `.velora-header` / `.velora-rail` helper classes. The current theme is read via `useTheme()` (a `useSyncExternalStore` over the `<html>` class + `localStorage['velora-theme']`, so no provider is needed) and toggled by `ThemeSwitcher`.
 
 ## Geometry, Elevation, Icon, Spacing
 

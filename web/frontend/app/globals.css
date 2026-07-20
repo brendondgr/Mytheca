@@ -29,6 +29,11 @@
   --color-field-bd: var(--field-bd);
   --color-modal: var(--modal-bg);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-menu: var(--menu-bg);
+  --color-menu-bd: var(--menu-bd);
+  --color-hover: var(--hover-bg);
+  --color-surface: var(--surface);
   --color-tab-ink: var(--tab-ink);
 
   /* Theme-agnostic semantic colors (same across all three themes). */
