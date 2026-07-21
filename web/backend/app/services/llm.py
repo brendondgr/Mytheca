@@ -20,7 +20,7 @@ from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmModelsResponse, LlmParams, LlmTestResponse
 
-logger = logging.getLogger("velora.llm")
+logger = logging.getLogger("mytheca.llm")
 
 # Listing models / the connection test are quick; generation (especially slow
 # local or reasoning models that think for many tokens) needs a far longer read

@@ -37,7 +37,7 @@ const CHARACTER_DRAFT_STEPS: ProcessStep[] = [
 /**
  * Agentic Character Creator modal — the character counterpart to the storyline creator.
  *
- * The author writes a character here (by hand or by prompting Velora), fleshing
+ * The author writes a character here (by hand or by prompting Mytheca), fleshing
  * out the by-hand fields plus the base-identity prose (Appearance / Background /
  * Personality). A Portrait section turns the description into watercolor ComfyUI
  * prompts and renders a persisted WebP avatar; a Starting-stats section proposes
@@ -68,10 +68,10 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
   const canRenderPortrait = Boolean((d._portraitPositive ?? "").trim());
   const voiceSamples = d._voiceSamples ?? [];
   const stats = d._startingStats ?? [];
-  // Live highlight for the field Velora is writing right now, and whether an
+  // Live highlight for the field Mytheca is writing right now, and whether an
   // agentic draft flow is currently running (drives the progress stepper).
   const fieldClass = (key: string) =>
-    lib.activeField === key ? "velora-field-active" : undefined;
+    lib.activeField === key ? "mytheca-field-active" : undefined;
   const drafting = lib.generating || lib.generatingVoice || lib.generatingStats;
 
   function setStatValue(key: string, raw: string) {
@@ -162,7 +162,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
           </div>
           <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
-          {/* Live draft progress — which stage Velora is on right now. */}
+          {/* Live draft progress — which stage Mytheca is on right now. */}
           {drafting ? (
             <ProcessProgress
               className="mb-[16px]"
@@ -172,7 +172,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
             />
           ) : null}
 
-          {/* By-hand form (left) + agentic Draft with Velora (right). */}
+          {/* By-hand form (left) + agentic Draft with Mytheca (right). */}
           <div className="md:flex md:items-stretch">
             <div className={cn("md:min-w-0 md:flex-1 md:pr-[26px]", agentic && "hidden md:block")}>
               {d._ai ? (
@@ -181,7 +181,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                     ❖
                   </span>
                   <span className="font-body text-[13.5px] text-ink">
-                    Drafted by Velora — review &amp; refine, then save.
+                    Drafted by Mytheca — review &amp; refine, then save.
                   </span>
                 </div>
               ) : null}
@@ -263,7 +263,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
               />
             </div>
 
-            {/* Agentic draft panel — describe the character; Velora drafts it. */}
+            {/* Agentic draft panel — describe the character; Mytheca drafts it. */}
             <aside
               className={cn(
                 "mt-[18px] md:mt-0 md:w-[300px] md:shrink-0 md:border-l md:border-hair-strong md:pl-[26px]",
@@ -271,7 +271,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
               )}
             >
               {/* Portrait — compact preview + Edit-image trigger (the editor is a
-                  pop-up). Sits above Draft with Velora in this column. */}
+                  pop-up). Sits above Draft with Mytheca in this column. */}
               <div className="mb-[18px] border-b border-hair-strong pb-[16px]">
                 <FieldLabel>Portrait</FieldLabel>
                 <div
@@ -304,11 +304,11 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
               </div>
 
               <Eyebrow tracking="0.2em" color="#A8762A" className="mb-[10px] block">
-                ❖ Draft with Velora
+                ❖ Draft with Mytheca
               </Eyebrow>
               <p className="mb-[10px] font-body text-[14px] text-ink">
                 Describe the character in a sentence —{" "}
-                <span className="text-ink-soft italic">Velora drafts the rest.</span>
+                <span className="text-ink-soft italic">Mytheca drafts the rest.</span>
               </p>
               <TextArea
                 aria-label="Describe the character to draft"
@@ -322,7 +322,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 disabled={!canDraft || lib.generating}
                 className="mt-[12px] w-full"
               >
-                {lib.generating ? "Drafting…" : "❖ Draft with Velora"}
+                {lib.generating ? "Drafting…" : "❖ Draft with Mytheca"}
               </Button>
               <Button
                 variant="ghost"

@@ -4,7 +4,7 @@
 
 Today the header storyline switcher's **"＋ New Storyline"** action calls `useLibraryState.createStoryline()`, which immediately POSTs an "Untitled Storyline" with default genre/tagline and switches to it — an empty world with nothing authored. This plan replaces that one-shot create with a **pop-up creation modal** (mirroring the existing `EntityModal` used for characters/settings/scenarios) where the author writes the storyline before it is created: a **title**, **genre**, a one-line **tagline**, and a new **multi-paragraph premise/description** of what the world is and what it's about.
 
-The modal is also the forward-looking home for two seams the user wants visible now but wired later: a **drag-and-drop "context files" zone** (drop reference docs to ground the world) and an **agentic "Draft with Velora" panel** (describe the world in a sentence and let the brain draft the rest), matching the two-column manual/agentic layout `EntityModal` already uses. Both ship in this plan as **visible but non-functional** seams.
+The modal is also the forward-looking home for two seams the user wants visible now but wired later: a **drag-and-drop "context files" zone** (drop reference docs to ground the world) and an **agentic "Draft with Mytheca" panel** (describe the world in a sentence and let the brain draft the rest), matching the two-column manual/agentic layout `EntityModal` already uses. Both ship in this plan as **visible but non-functional** seams.
 
 Scope spans both layers: a small additive backend change (a nullable `premise` column on `Storyline`, exposed through the existing `/storylines` CRUD contract), then the Next.js modal, state wiring, and the future seams. Work lands on a dedicated branch, isolated from the in-progress Options-Menu Phase 2 changes currently in the tree.
 
@@ -51,7 +51,7 @@ Assumptions (simple gaps, proceeding):
 - **Locations:**
   - `web/frontend/components/feature/StorylineModal.tsx` — adopt the `EntityModal` two-column responsive shape: manual form left, an `<aside>` right rail on `md+` (tab-switched on mobile via the same `✎ By hand / ❖ Agentically` toggle pattern + `lib.setMode`). Add:
     - **Context files drop zone** — a dashed drop area ("Drag context files here to ground the world — coming soon") that is visibly disabled: `aria-disabled`, no drop handler wired, helper copy marking it non-functional.
-    - **Agentic panel** — prompt `TextArea` + "❖ Draft with Velora" button rendered disabled/"coming soon" (no fake generate, no model call), mirroring the `EntityModal` agentic rail styling.
+    - **Agentic panel** — prompt `TextArea` + "❖ Draft with Mytheca" button rendered disabled/"coming soon" (no fake generate, no model call), mirroring the `EntityModal` agentic rail styling.
   - `web/frontend/components/feature/StorylineModal.test.tsx` — extend: the drop zone and agentic controls render and are non-interactive (disabled/`aria-disabled`); the mobile toggle switches columns.
 - **Rationale:** Establishing the final layout now means the later wiring (file ingest + agentic draft-into-fields) is a fill-in, not a redesign, and the user sees the intended direction immediately.
 - **Action:** Run `npm run typecheck`, `npm run lint`, `npm test`. Repeat the a11y + responsive pass (toggle keyboard-operable, disabled seams correctly announced, 320/375/768/1024). Note the deferred wiring in `docs/checklist.md`. Once green, commit: `Storyline Create Modal (3/3) Complete: Added visible non-functional context-files drop zone + agentic draft seam to the storyline modal.`

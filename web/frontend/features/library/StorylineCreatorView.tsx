@@ -74,7 +74,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
     // lg they stack (the form leads via `order-1`; the two sidebars become bounded strips).
     <main className="flex h-dvh min-h-0 flex-col overflow-hidden lg:flex-row">
       {/* ── Left sidebar — the Assistant (own scroll; StorylineAgentPanel is the landmark) ── */}
-      <div className="velora-rail order-2 flex max-h-[50dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong lg:order-1 lg:max-h-none lg:w-[380px] lg:border-t-0 lg:border-r lg:self-stretch">
+      <div className="mytheca-rail order-2 flex max-h-[50dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong lg:order-1 lg:max-h-none lg:w-[380px] lg:border-t-0 lg:border-r lg:self-stretch">
         <StorylineAgentPanel agent={agent} mode={c.isEdit ? "edit" : "create"} />
       </div>
 
@@ -234,7 +234,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
       </div>
 
       {/* ── Right sidebar — Context files (own scroll; TriagePanel is the landmark) ──── */}
-      <div className="velora-rail order-3 flex max-h-[42dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong lg:max-h-none lg:w-[340px] lg:border-t-0 lg:border-l lg:self-stretch">
+      <div className="mytheca-rail order-3 flex max-h-[42dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong lg:max-h-none lg:w-[340px] lg:border-t-0 lg:border-l lg:self-stretch">
         <TriagePanel
           embedded
           docs={c.docs}

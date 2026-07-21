@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-Velora's UI uses heavily-hardcoded font sizes scattered across components, many of which are uncomfortably small — the `Eyebrow` component defaults to 10px and is frequently called at `size={8.5}` or `size={9}` (metadata labels, card eyebrows, "❖ Draft with Velora" section headers). The `Tag` component sits at `text-[9.5px]` and the `Button` text is `text-[11px]` uppercase — all technically valid for a dense manuscript aesthetic but routinely forcing users to squint. The body text on cards (`text-[14px]`) is workable but not generous.
+Mytheca's UI uses heavily-hardcoded font sizes scattered across components, many of which are uncomfortably small — the `Eyebrow` component defaults to 10px and is frequently called at `size={8.5}` or `size={9}` (metadata labels, card eyebrows, "❖ Draft with Mytheca" section headers). The `Tag` component sits at `text-[9.5px]` and the `Button` text is `text-[11px]` uppercase — all technically valid for a dense manuscript aesthetic but routinely forcing users to squint. The body text on cards (`text-[14px]`) is workable but not generous.
 
 The fix is two-layered: **(1)** introduce a CSS variable typography scale (`--fs-eyebrow`, `--fs-label`, `--fs-ui`, `--fs-body-sm`, `--fs-body`, `--fs-tag`) with four size presets (Compact / Default / Comfortable / Large) stored on `<html>` alongside the theme class and persisted to `localStorage`; **(2)** update the handful of primitive components (`Eyebrow`, `Tag`, `Button`) and the key card/modal call sites to consume those variables instead of hardcoded px values. Default preset ships at sizes that are visibly more readable than today's hardcoded values. The AppearanceTab in Options gains a font-size preset picker so users can choose their preferred density.
 
@@ -14,7 +14,7 @@ This is a **frontend-only** change (no backend, no schema, no API contract chang
 
 - **Default preset values** — the user wants "not huge, just not squinting." Default ships at `--fs-eyebrow: 11px` (up from 8.5–9px hardcoded), `--fs-ui: 12px`, `--fs-body-sm: 14px`, `--fs-body: 15px`, `--fs-tag: 10.5px`. This is a conservative bump; Comfortable adds another ~1–2px. Assumption is this is acceptable — user can adjust via the picker if not.
 - **Display/heading sizes** — Cinzel headings (`text-[16px]`, `text-[19px]`, `text-[26px]`) are not part of the complaint and are already readable. They are **excluded** from the scale for now.
-- **"Draft with Velora" label** — currently rendered as `<Eyebrow size={8.5}>` (8.5px uppercase mono). Will be fixed by removing the explicit `size` override so it inherits `--fs-eyebrow` (~11px). No need to change the element type.
+- **"Draft with Mytheca" label** — currently rendered as `<Eyebrow size={8.5}>` (8.5px uppercase mono). Will be fixed by removing the explicit `size` override so it inherits `--fs-eyebrow` (~11px). No need to change the element type.
 - **Worktree** — a dedicated worktree at `.claude/worktrees/typography-scale/` is recommended to avoid conflict with any other session on `main`.
 
 ---
@@ -63,7 +63,7 @@ This is a **frontend-only** change (no backend, no schema, no API contract chang
 - **Location:** `web/frontend/lib/font-size.ts` (new file).
 - **What:**
   - Export `type FontSize = "compact" | "default" | "comfortable" | "large"`.
-  - `FONT_SIZE_KEYS`, `DEFAULT_FONT_SIZE = "default"`, `FONT_SIZE_STORAGE_KEY = "velora-font-size"`.
+  - `FONT_SIZE_KEYS`, `DEFAULT_FONT_SIZE = "default"`, `FONT_SIZE_STORAGE_KEY = "mytheca-font-size"`.
   - `FONT_SIZES` metadata array: `{ key: FontSize; label: string; description: string }[]` — labels are "Compact", "Default", "Comfortable", "Large"; short descriptions ("Dense labels, more on screen" / "Balanced readability" / "Relaxed spacing" / "Maximum legibility").
   - `isFontSize(value): value is FontSize` — type guard.
   - `fontSizeClass(fs: FontSize): string` → `"fs-" + fs`.
@@ -139,8 +139,8 @@ Remove the explicit `size={8.5}` and `size={9}` props (and any other 8–10px ov
 - `CharacterCard.tsx` — `<Eyebrow size={9} ...>{c.role}</Eyebrow>`
 - `ScenarioCard.tsx` — `<Eyebrow size={9} ...>{s.genre} · {s.tone}</Eyebrow>`
 - `SettingCard.tsx` — `<Eyebrow size={9} ...>{s.type}</Eyebrow>`
-- `CharacterModal.tsx` — `<Eyebrow size={8.5} ...>❖ Draft with Velora</Eyebrow>`, plus the `size={8.5}` "Try" prompt label
-- `EntityModal.tsx` — both `<Eyebrow size={8.5} ...>❖ Draft with Velora</Eyebrow>` and the `size={8.5}` "Try" label
+- `CharacterModal.tsx` — `<Eyebrow size={8.5} ...>❖ Draft with Mytheca</Eyebrow>`, plus the `size={8.5}` "Try" prompt label
+- `EntityModal.tsx` — both `<Eyebrow size={8.5} ...>❖ Draft with Mytheca</Eyebrow>` and the `size={8.5}` "Try" label
 - `SettingModal.tsx` — same pattern
 - Any other `size={8.5}` or `size={9}` Eyebrow calls found in the scan
 
@@ -180,7 +180,7 @@ Remove the explicit `size={8.5}` and `size={9}` props (and any other 8–10px ov
 - Add a **Typography Scale** subsection under the existing Typography section describing:
   - The six `--fs-*` CSS variables and their Default values.
   - The four `.fs-*` preset classes and their purpose.
-  - The storage key (`velora-font-size`) and how it coexists with `velora-theme`.
+  - The storage key (`mytheca-font-size`) and how it coexists with `mytheca-theme`.
   - The `lib/font-size.ts` module and `useFontSize()` hook as the API surface.
 
 #### Step 5.2: Record deferred items in `docs/checklist.md`

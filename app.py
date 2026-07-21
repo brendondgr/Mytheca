@@ -1,6 +1,6 @@
-"""Velora root launcher.
+"""Mytheca root launcher.
 
-Single entry point for running Velora locally:
+Single entry point for running Mytheca locally:
 
     python app.py             # default → BOTH backend + frontend together
     uv run python app.py      # same, inside the uv environment (recommended)
@@ -26,7 +26,7 @@ is installed and its daemon is running, downloads the Postgres + Redis images an
 builds the custom Neo4j image (only when missing — visible progress on first run),
 and starts the containers defined in ``web/backend/docker-compose.yml``. You never
 run ``docker compose`` yourself. Set ``DATABASE_URL`` to a SQLite URL (or export
-``VELORA_SKIP_DOCKER=1``) to skip the containers and use an external/embedded
+``MYTHECA_SKIP_DOCKER=1``) to skip the containers and use an external/embedded
 database instead.
 """
 
@@ -55,14 +55,14 @@ HEALTH_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}/health"
 
 # When run_all has already brought the containers up in the parent process, the
 # spawned `app.py backend` skips re-doing it (idempotent, but avoids the noise).
-SKIP_DOCKER_ENV = "VELORA_SKIP_DOCKER"
+SKIP_DOCKER_ENV = "MYTHECA_SKIP_DOCKER"
 
 
 def _load_dotenv() -> None:
     """Best-effort load of the repo-root ``.env`` into ``os.environ``.
 
     ``app.py`` reads a couple of vars directly (``DATABASE_URL`` for the
-    SQLite/Docker decision, ``VELORA_SKIP_DOCKER``), so it must honor ``.env`` the
+    SQLite/Docker decision, ``MYTHECA_SKIP_DOCKER``), so it must honor ``.env`` the
     same way the backend's pydantic ``Settings`` does. Real environment variables
     win (``setdefault``); pydantic still reads ``.env`` itself, so values stay
     consistent. Deliberately tiny + dependency-free (the frontend path has no deps).
@@ -110,7 +110,7 @@ def _images_present(docker: str, compose: list[str]) -> bool:
 def ensure_docker_services() -> bool:
     """Verify Docker, download the images, and start Postgres + Redis.
 
-    The single home for Velora's container handling. Returns ``False`` only on a
+    The single home for Mytheca's container handling. Returns ``False`` only on a
     hard failure (Docker is present and usable but the pull/up command failed) so
     the caller can abort. Missing Docker / a stopped daemon prints loud, actionable
     guidance and returns ``True`` — the backend preflight's DB-connectivity check
@@ -129,7 +129,7 @@ def ensure_docker_services() -> bool:
     if docker is None:
         print(
             "\n⚠  Docker is not installed (no `docker` on PATH).\n"
-            "   Velora's Postgres + Redis run as Docker containers. Install Docker:\n"
+            "   Mytheca's Postgres + Redis run as Docker containers. Install Docker:\n"
             "       https://docs.docker.com/get-docker/\n"
             "   …then re-launch. (Or point DATABASE_URL/REDIS_URL at services you\n"
             "   already run, or use a sqlite:// DATABASE_URL, to skip Docker.)\n",
@@ -169,7 +169,7 @@ def ensure_docker_services() -> bool:
     else:
         print("Docker ✓  Container images already present.")
 
-    print("Starting Velora data containers (Postgres + Redis + Neo4j + Qdrant)…")
+    print("Starting Mytheca data containers (Postgres + Redis + Neo4j + Qdrant)…")
     # `--build` builds the custom Neo4j image (cached/near-instant when unchanged)
     # before bringing everything up; `--wait` blocks on each service's healthcheck.
     if subprocess.run(compose + ["up", "-d", "--build", "--wait"]).returncode != 0:
@@ -203,7 +203,7 @@ def run_frontend() -> int:
         return 1
     _free_port(FRONTEND_PORT, "frontend")  # kill any leftover next dev
 
-    print(f"Starting Velora frontend — npm run dev (http://localhost:{FRONTEND_PORT})\n")
+    print(f"Starting Mytheca frontend — npm run dev (http://localhost:{FRONTEND_PORT})\n")
     return subprocess.run([npm, "run", "dev"], cwd=FRONTEND).returncode
 
 
@@ -242,7 +242,7 @@ def run_backend() -> int:
 
     _free_port(BACKEND_PORT, "backend")  # kill any leftover uvicorn on the port
 
-    print(f"\nStarting Velora backend — uvicorn (http://{BACKEND_HOST}:{BACKEND_PORT})\n")
+    print(f"\nStarting Mytheca backend — uvicorn (http://{BACKEND_HOST}:{BACKEND_PORT})\n")
     uvicorn.run(
         "app.main:create_app",
         factory=True,
@@ -337,7 +337,7 @@ def _kill_pid(pid: int, sig: int) -> None:
 def _free_port(port: int, label: str) -> None:
     """Forcibly stop whatever is bound to ``host:port`` — SIGTERM, then SIGKILL.
 
-    Velora launches free their ports first so a leftover ``next dev`` / uvicorn
+    Mytheca launches free their ports first so a leftover ``next dev`` / uvicorn
     from a previous run never blocks a fresh start (EADDRINUSE).
     """
     if not _port_in_use(port):
@@ -412,7 +412,7 @@ def run_all() -> int:
     npm = shutil.which("npm")
     if npm is None:
         print(
-            "npm not found on PATH. Install Node.js (https://nodejs.org) to run Velora.",
+            "npm not found on PATH. Install Node.js (https://nodejs.org) to run Mytheca.",
             file=sys.stderr,
         )
         return 1
@@ -434,7 +434,7 @@ def run_all() -> int:
     backend: subprocess.Popen | None = None
     frontend: subprocess.Popen | None = None
     try:
-        print("Starting Velora backend (preflight + uvicorn)…\n")
+        print("Starting Mytheca backend (preflight + uvicorn)…\n")
         backend = subprocess.Popen(
             [sys.executable, str(ROOT / "app.py"), "backend"],
             start_new_session=new_session,
@@ -468,7 +468,7 @@ def run_all() -> int:
                 return frontend.returncode or 0
             time.sleep(0.5)
     except KeyboardInterrupt:
-        print("\nShutting down Velora…")
+        print("\nShutting down Mytheca…")
         return 0
     finally:
         _terminate(frontend)
@@ -476,12 +476,12 @@ def run_all() -> int:
 
 
 def stop_all() -> int:
-    """Forcibly end any running Velora frontend/backend processes (free both ports).
+    """Forcibly end any running Mytheca frontend/backend processes (free both ports).
 
     Leaves the Docker data containers running — this only stops the app processes
     bound to the backend (3345) and frontend (3346) ports.
     """
-    print("Stopping any running Velora frontend/backend processes…")
+    print("Stopping any running Mytheca frontend/backend processes…")
     busy = _port_in_use(BACKEND_PORT) or _port_in_use(FRONTEND_PORT)
     _free_port(BACKEND_PORT, "backend")
     _free_port(FRONTEND_PORT, "frontend")
@@ -490,7 +490,7 @@ def stop_all() -> int:
 
 
 def main(argv: list[str]) -> int:
-    _load_dotenv()  # so DATABASE_URL / VELORA_SKIP_DOCKER from .env are honored here
+    _load_dotenv()  # so DATABASE_URL / MYTHECA_SKIP_DOCKER from .env are honored here
     target = (argv[1] if len(argv) > 1 else "all").lower()
     if target in {"all", "both", ""}:
         return run_all()

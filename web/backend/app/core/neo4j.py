@@ -1,6 +1,6 @@
 """Neo4j driver factory and health helper — the Story Graph substrate.
 
-Velora keeps **one** knowledge graph, the Story Graph, on Neo4j (see
+Mytheca keeps **one** knowledge graph, the Story Graph, on Neo4j (see
 ``Documents/Plans/5.4_story-graph-structure-prep.md`` §6). This module is the
 lazy, *graceful* client for it, mirroring ``app/core/redis.py``:
 

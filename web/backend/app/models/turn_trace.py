@@ -3,7 +3,7 @@
 The turn engine streams opt-in :class:`~app.events.stream.TurnTraceFrame`s (the
 Inspector's step-by-step "what the loop did and why" — intent, RAG/lore look-up,
 speaker choice, hidden thinking, stat clamps, the graph ``commit``/``relationships``
-writes, reflection). Those frames are transport-only on the wire, but Velora also
+writes, reflection). Those frames are transport-only on the wire, but Mytheca also
 **persists a copy here** so a reopened scene can be reviewed and exported in full
 after the fact — including the graph and RAG activity that would otherwise be lost.
 

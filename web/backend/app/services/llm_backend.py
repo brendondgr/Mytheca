@@ -1,6 +1,6 @@
 """Inference-engine detection + reasoning-budget injection.
 
-Velora supports two local engines today — **vLLM** and **llama.cpp** — and each
+Mytheca supports two local engines today — **vLLM** and **llama.cpp** — and each
 carries the thinking-token budget under a *different* request key. They also expose
 distinct non-OpenAI probe endpoints, so the engine can be auto-detected from its
 base URL:

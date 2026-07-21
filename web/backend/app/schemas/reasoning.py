@@ -1,7 +1,7 @@
 """Reasoning-effort vocabulary — the backend-controlled thinking budget.
 
 Local reasoning models spend most of their wall-clock on hidden *thinking* tokens
-before the visible reply. Velora caps that thinking on a **per-operation** basis so
+before the visible reply. Mytheca caps that thinking on a **per-operation** basis so
 quick classifications (triage) finish fast while richer authoring calls keep a
 little more room. The effort is always set on the **backend** at the call-site — it
 is never exposed to the user for Storyline / Character / Setting creation.

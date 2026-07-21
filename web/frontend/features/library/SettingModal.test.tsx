@@ -23,7 +23,7 @@ describe("SettingModal — agentic creator", () => {
       within(dialog).getByLabelText(/describe the place to draft/i),
       "A flooded smugglers' market.",
     );
-    const draftBtn = within(dialog).getByRole("button", { name: /draft with velora/i });
+    const draftBtn = within(dialog).getByRole("button", { name: /draft with mytheca/i });
     expect(draftBtn).toBeEnabled();
     await user.click(draftBtn);
 
@@ -51,13 +51,13 @@ describe("SettingModal — agentic creator", () => {
       within(dialog).getByLabelText(/describe the place to draft/i),
       "A flooded smugglers' market.",
     );
-    await user.click(within(dialog).getByRole("button", { name: /draft with velora/i }));
+    await user.click(within(dialog).getByRole("button", { name: /draft with mytheca/i }));
 
     expect(
       await within(dialog).findByRole("group", { name: /setting draft progress/i }),
     ).toBeInTheDocument();
     await waitFor(() => {
-      expect(dialog.querySelector(".velora-field-active")).not.toBeNull();
+      expect(dialog.querySelector(".mytheca-field-active")).not.toBeNull();
     });
   });
 
@@ -129,7 +129,7 @@ describe("SettingModal — agentic creator", () => {
       within(dialog).getByLabelText(/describe the place to draft/i),
       "A reef-built harbor.",
     );
-    await user.click(within(dialog).getByRole("button", { name: /draft with velora/i }));
+    await user.click(within(dialog).getByRole("button", { name: /draft with mytheca/i }));
     await waitFor(() =>
       expect(vi.mocked(api.draftSetting)).toHaveBeenCalledWith(
         "A reef-built harbor.",
@@ -144,7 +144,7 @@ describe("SettingModal — agentic creator", () => {
     const dialog = await openSettingCreator(user);
 
     // With no seed typed, the Draft button is disabled.
-    const draftBtn = within(dialog).getByRole("button", { name: /draft with velora/i });
+    const draftBtn = within(dialog).getByRole("button", { name: /draft with mytheca/i });
     expect(draftBtn).toBeDisabled();
 
     // Dropping a Draft-tagged file (Draft toggle defaults ON) enables it.

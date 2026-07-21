@@ -39,7 +39,7 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
     // h-dvh + overflow-hidden makes the Library self-contained: the page never
     // scrolls, and the three columns each scroll within the remaining height.
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
-      <h1 className="sr-only">Velora — Library</h1>
+      <h1 className="sr-only">Mytheca — Library</h1>
       <AppHeader
         query={lib.query}
         onQuery={lib.setQuery}

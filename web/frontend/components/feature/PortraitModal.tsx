@@ -100,7 +100,7 @@ export function PortraitModal({
               placeholder="Short comma-separated phrases — subject & species first, then features, attire, expression, then watercolor style."
               value={positive}
               onChange={(e) => onPositiveChange(e.target.value)}
-              className={activeField === "_portraitPositive" ? "velora-field-active" : undefined}
+              className={activeField === "_portraitPositive" ? "mytheca-field-active" : undefined}
             />
             <TextArea
               label="Negative prompt"
@@ -111,7 +111,7 @@ export function PortraitModal({
               onChange={(e) => onNegativeChange(e.target.value)}
               className={cn(
                 "mt-[12px]",
-                activeField === "_portraitNegative" && "velora-field-active",
+                activeField === "_portraitNegative" && "mytheca-field-active",
               )}
             />
             <Button

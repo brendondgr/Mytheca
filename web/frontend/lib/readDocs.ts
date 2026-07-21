@@ -16,7 +16,7 @@ export interface ReadDoc {
   // drop not yet persisted.
   id?: string;
   // Per-context usage selection (set when a file enters a create modal's draft).
-  // `useDraft` grounds Velora's drafting/primer generation and is wired today.
+  // `useDraft` grounds Mytheca's drafting/primer generation and is wired today.
   // `useRag` marks the retrieval corpus; on the New Storyline page it is persisted
   // (as `ContextDocument.includeRag`), though retrieval itself is still a later plan.
   // (The former `useKg` knowledge-graph toggle was removed — documents triaged into
@@ -49,7 +49,7 @@ export async function readDocFiles(files: File[]): Promise<ReadDoc[]> {
 }
 
 /**
- * Files the author has kept enabled for grounding Velora's drafting/primer
+ * Files the author has kept enabled for grounding Mytheca's drafting/primer
  * generation. `useDraft` undefined counts as ON, so files added before usage
  * flags existed (and any not-yet-flagged file) still ground generation.
  */

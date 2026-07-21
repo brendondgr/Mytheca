@@ -119,7 +119,7 @@ function CastMemberStats({
 
 /**
  * Animated three-dot typing indicator. Uses the `embDots` keyframe defined in
- * themes.css. The `.velora-themed *` reduced-motion rule strips `animation` globally,
+ * themes.css. The `.mytheca-themed *` reduced-motion rule strips `animation` globally,
  * so the dots need a visible static base — they render as "…" text by default and
  * animate via inline styles only when motion is available (no separate media query needed:
  * the global rule handles it). Each dot uses an explicit non-zero opacity as baseline so
@@ -186,7 +186,7 @@ function CastMemberRow({
           type="button"
           onClick={() => onProfile(c.id)}
           title="View profile"
-          className="velora-row flex min-w-0 flex-1 items-center gap-[10px] text-left hover:translate-x-[2px]"
+          className="mytheca-row flex min-w-0 flex-1 items-center gap-[10px] text-left hover:translate-x-[2px]"
         >
           <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={34} fontSize={13} />
           <span className="min-w-0 flex-1">
@@ -260,7 +260,7 @@ export function CastRail({
   const away = cast.filter((c) => statusOf(c.id) !== "present");
 
   return (
-    <aside className="velora-rail hidden w-[236px] flex-none overflow-auto border-r border-hair-strong p-[18px_16px] lg:block">
+    <aside className="mytheca-rail hidden w-[236px] flex-none overflow-auto border-r border-hair-strong p-[18px_16px] lg:block">
       <Eyebrow tracking="0.16em" className="mb-3 block">
         In the Scene
       </Eyebrow>

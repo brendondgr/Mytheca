@@ -26,7 +26,7 @@ from app.services import llm
 from app.services.assembler import CastMember, TurnContext
 from app.services.stat_render import render_character_stats
 
-logger = logging.getLogger("velora.turn")
+logger = logging.getLogger("mytheca.turn")
 
 # The visible <thinking> block is a real, in-voice deliberation (a short paragraph — a
 # person thinks through a situation before speaking), so the character needs room to

@@ -6,7 +6,7 @@
 
 ## Context
 
-Velora's frontend Library is fully built but runs entirely on **in-memory seed data** (`web/frontend/lib/seed-data.ts` via `web/frontend/features/library/useLibraryState.ts`): create/edit/delete mutate React state and reset on reload. The backend is a stub — `web/backend/app/main.py` has only a `/health` route and every `app/*` package is an empty `__init__.py`.
+Mytheca's frontend Library is fully built but runs entirely on **in-memory seed data** (`web/frontend/lib/seed-data.ts` via `web/frontend/features/library/useLibraryState.ts`): create/edit/delete mutate React state and reset on reload. The backend is a stub — `web/backend/app/main.py` has only a `/health` route and every `app/*` package is an empty `__init__.py`.
 
 This plan stands up the **FastAPI + Postgres data layer** so storylines, characters, settings, and scenarios can be created/edited/deleted and **persist**, then **wires the existing Library UI to that backend** so frontend and backend work together. It also lays a per-storyline **stat schema seam** (definitions on the storyline, clamped values on characters — surfaced on scene pages later, not in the Library yet) and **chat scaffolding as data structures only** (event + play-session tables and the NDJSON event envelope types — no streaming, agents, or turn logic).
 

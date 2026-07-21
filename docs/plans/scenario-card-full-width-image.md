@@ -28,12 +28,12 @@ The card `div` currently sets `p-[16px]` (normal) or `p-[15px]` (featured). Remo
 
 Before:
 ```
-"velora-card relative rounded-[4px] ..."
+"mytheca-card relative rounded-[4px] ..."
 featured ? "border-2 border-accent bg-card2 p-[15px] ..." : "border border-cardbd bg-card p-[16px]"
 ```
 After:
 ```
-"velora-card relative overflow-hidden rounded-[4px] ..."
+"mytheca-card relative overflow-hidden rounded-[4px] ..."
 featured ? "border-2 border-accent bg-card2 ..." : "border border-cardbd bg-card"
 ```
 

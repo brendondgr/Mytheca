@@ -95,7 +95,7 @@ export function SceneArtModal({
             placeholder="Short comma-separated phrases — the place & its kind first, then features, materials, light, weather, mood, then watercolor style."
             value={positive}
             onChange={(e) => onPositiveChange(e.target.value)}
-            className={activeField === "_sceneArtPositive" ? "velora-field-active" : undefined}
+            className={activeField === "_sceneArtPositive" ? "mytheca-field-active" : undefined}
           />
           <TextArea
             label="Negative prompt"
@@ -106,7 +106,7 @@ export function SceneArtModal({
             onChange={(e) => onNegativeChange(e.target.value)}
             className={cn(
               "mt-[12px]",
-              activeField === "_sceneArtNegative" && "velora-field-active",
+              activeField === "_sceneArtNegative" && "mytheca-field-active",
             )}
           />
           <Button

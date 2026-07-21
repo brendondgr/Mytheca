@@ -112,7 +112,7 @@ export function SceneConfigMenu({
           role="dialog"
           aria-label="Scene configuration"
           tabIndex={-1}
-          className={`absolute left-0 z-40 flex w-[264px] flex-col gap-[13px] velora-menu p-[14px] focus:outline-none ${
+          className={`absolute left-0 z-40 flex w-[264px] flex-col gap-[13px] mytheca-menu p-[14px] focus:outline-none ${
             openUp ? "bottom-[38px]" : "top-[38px]"
           }`}
         >

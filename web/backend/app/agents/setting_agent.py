@@ -42,7 +42,7 @@ from app.services import llm
 _SETTING_TYPES = "Social Hub, Exploration, Fortress, Black Market, Sacred, Wilderness"
 
 _DRAFT_SYSTEM = (
-    "You are Velora's setting-creation assistant. Given a short description of a "
+    "You are Mytheca's setting-creation assistant. Given a short description of a "
     "place for an interactive-fiction world, flesh it out as a location the story "
     "will return to. Respond with ONLY a JSON object — no prose, no markdown, no "
     'code fences — with exactly these string keys: "name" (an evocative place '
@@ -57,7 +57,7 @@ _DRAFT_SYSTEM = (
 )
 
 _SCENE_ART_SYSTEM = (
-    "You are Velora's scene-art-prompt writer for a watercolor image model "
+    "You are Mytheca's scene-art-prompt writer for a watercolor image model "
     "(Z-Image-Turbo via ComfyUI). The model responds best to SHORT phrases "
     "separated by commas — not sentences. Given a place description, write the "
     "prompts for an atmospheric establishing shot of the LOCATION ITSELF — a vista "

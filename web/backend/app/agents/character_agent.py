@@ -53,7 +53,7 @@ from app.services import stats as stat_service
 _GUIDANCE_TRIM = 400
 
 _DRAFT_SYSTEM = (
-    "You are Velora's character-creation assistant. Given a short description of a "
+    "You are Mytheca's character-creation assistant. Given a short description of a "
     "character for an interactive-fiction world, flesh them out. Respond with ONLY "
     "a JSON object — no prose, no markdown, no code fences — with exactly these "
     'string keys: "name" (a fitting proper name), "role" (a short archetype label, '
@@ -72,7 +72,7 @@ _DRAFT_SYSTEM = (
 )
 
 _PORTRAIT_SYSTEM = (
-    "You are Velora's portrait-prompt writer for a watercolor image model "
+    "You are Mytheca's portrait-prompt writer for a watercolor image model "
     "(Z-Image-Turbo via ComfyUI). The model responds best to SHORT phrases "
     "separated by commas — not sentences. Given a character description, write the "
     "prompts for a flattering character portrait. Respond with ONLY a JSON object "
@@ -93,7 +93,7 @@ _PORTRAIT_SYSTEM = (
 )
 
 _STATS_SYSTEM = (
-    "You are Velora's character-creation assistant proposing a character's STARTING "
+    "You are Mytheca's character-creation assistant proposing a character's STARTING "
     "statistics for a world. You are given the world's stat definitions (key, name, "
     "range, default, and any labeled value bands) and a character description. Each "
     "band names what a sub-range MEANS (e.g. health 0-20 = 'nearly dead', 81-100 = "
@@ -111,7 +111,7 @@ _STATS_SYSTEM = (
 _VOICE_SAMPLES_CAP = 4
 
 _VOICE_SYSTEM = (
-    "You are Velora's character-voice assistant. Your job is to PROVE, not "
+    "You are Mytheca's character-voice assistant. Your job is to PROVE, not "
     "describe, how a character talks.\n"
     "First, think through this specific character's actual voice — grounded in "
     "the background, personality, traits, and speech style given below: their "

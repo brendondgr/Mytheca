@@ -2,8 +2,8 @@
 @import "../styles/themes.css";
 
 /* ------------------------------------------------------------------ *
- * Velora global base + Tailwind token mapping.
- * `@theme inline` maps Velora's CSS variables to Tailwind color/font
+ * Mytheca global base + Tailwind token mapping.
+ * `@theme inline` maps Mytheca's CSS variables to Tailwind color/font
  * utilities. `inline` makes utilities resolve the live variable (e.g.
  * `bg-card` -> background-color: var(--card-bg)), so switching the
  * `.theme-*` class on <html> re-themes every utility automatically.

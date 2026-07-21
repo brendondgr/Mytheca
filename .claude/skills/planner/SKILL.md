@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Use when asked to create/refine an implementation plan or roadmap. Velora plans are full phase-by-phase, commit-per-phase, validated with pytest + frontend tests.
+description: Use when asked to create/refine an implementation plan or roadmap. Mytheca plans are full phase-by-phase, commit-per-phase, validated with pytest + frontend tests.
 ---
 
 # Plan Creation

@@ -1,4 +1,4 @@
-# Velora — Deployment
+# Mytheca — Deployment
 
 Deployment is not yet configured; this records the intended approach and required configuration. Update as infrastructure is chosen.
 
@@ -6,7 +6,7 @@ Deployment is not yet configured; this records the intended approach and require
 
 - **Backend:** FastAPI (ASGI) served by Uvicorn, started from root `app.py`.
 - **Frontend:** Next.js app in `web/frontend/`.
-- **Data:** PostgreSQL + Redis + **Neo4j** (the Story Graph substrate — a custom `neo4j:5.26-community` image with APOC, `web/backend/docker/neo4j/Dockerfile`) + **Qdrant** (the hybrid RAG vector store — standard `qdrant/qdrant` image, REST 3351 / gRPC 3352, volume `velora_qdrantdata`; best-effort, see `docs/rag.md`).
+- **Data:** PostgreSQL + Redis + **Neo4j** (the Story Graph substrate — a custom `neo4j:5.26-community` image with APOC, `web/backend/docker/neo4j/Dockerfile`) + **Qdrant** (the hybrid RAG vector store — standard `qdrant/qdrant` image, REST 3351 / gRPC 3352, volume `mytheca_qdrantdata`; best-effort, see `docs/rag.md`).
 
 ## Local Development
 
@@ -25,13 +25,13 @@ Container handling lives in **one place**: `app.py`'s `ensure_docker_services()`
 2. downloads the Postgres + Redis images **only when missing** (`docker compose pull --ignore-buildable`, with visible first-run progress; `--ignore-buildable` skips the custom Neo4j service, which is built rather than pulled; image refs come from the compose file via `compose config --images`, so the tags aren't duplicated), and
 3. **builds** the custom Neo4j image and starts the containers, blocking on their healthchecks (`docker compose up -d --build --wait`).
 
-A pull/up failure aborts startup. Missing Docker or a stopped daemon prints actionable guidance and continues (the preflight DB check is the real gate, so external/embedded DBs still work). On `python app.py` the bring-up runs in the **parent** process — visible first-run download, and the spawned backend (passed `VELORA_SKIP_DOCKER=1`) doesn't repeat it or race the health-wait. Skip containers with a `sqlite://` `DATABASE_URL` or `VELORA_SKIP_DOCKER=1`.
+A pull/up failure aborts startup. Missing Docker or a stopped daemon prints actionable guidance and continues (the preflight DB check is the real gate, so external/embedded DBs still work). On `python app.py` the bring-up runs in the **parent** process — visible first-run download, and the spawned backend (passed `MYTHECA_SKIP_DOCKER=1`) doesn't repeat it or race the health-wait. Skip containers with a `sqlite://` `DATABASE_URL` or `MYTHECA_SKIP_DOCKER=1`.
 
 ### Backend startup preflight
 
 After the containers are up, `python app.py backend` runs `app/core/bootstrap.run_preflight()` before serving. It:
 
-1. waits for the database, pings Redis, and pings **Qdrant** (advisory — ensures the `velora_lore` collection),
+1. waits for the database, pings Redis, and pings **Qdrant** (advisory — ensures the `mytheca_lore` collection),
 2. ensures the schema (`Base.metadata.create_all`),
 3. **reconciles additive columns** — `create_all` makes missing *tables* but never ALTERs existing ones, so a persistent dev DB drifts behind the models on every new column. The preflight self-heals the safe case (new **nullable** columns) with an idempotent `ADD COLUMN`; non-nullable additions on a populated table are *reported*, not attempted,
 4. **applies Alembic migrations** (non-SQLite only) — the versioned path for non-additive schema changes. On a DB with no `alembic_version` table it **stamps** `head` (adopts the existing `create_all` schema without re-running the baseline); otherwise it **upgrades to head**. Best-effort: failures are logged + reported but never block startup. Skipped entirely under SQLite (the test/embedded path). See `docs/workflow.md` (Migrations) for the author-side commands, and
@@ -39,7 +39,7 @@ After the containers are up, `python app.py backend` runs `app/core/bootstrap.ru
 
 It prints a pass/fail report; a failed **required** check (the database) aborts startup with remediation. Redis, the additive reconciliation, and the Alembic step are advisory. The schema/seed run here, **not** in the FastAPI lifespan (which only does a connection check), so Uvicorn `--reload` stays fast.
 
-Postgres is published on host port **3347** (a dedicated port so Velora coexists with any Postgres already on 5432); Redis on **3348**; Neo4j Bolt on **3349** and the Neo4j Browser on **3350** (coexisting with any Neo4j on 7687/7474); **Qdrant REST on 3351 and gRPC on 3352**. The frontend dev server runs on **3346** and the backend API on **3345**. Tests run on in-memory SQLite and `QdrantClient(":memory:")` — no Docker, Postgres, Neo4j, or Qdrant server needed.
+Postgres is published on host port **3347** (a dedicated port so Mytheca coexists with any Postgres already on 5432); Redis on **3348**; Neo4j Bolt on **3349** and the Neo4j Browser on **3350** (coexisting with any Neo4j on 7687/7474); **Qdrant REST on 3351 and gRPC on 3352**. The frontend dev server runs on **3346** and the backend API on **3345**. Tests run on in-memory SQLite and `QdrantClient(":memory:")` — no Docker, Postgres, Neo4j, or Qdrant server needed.
 
 ## Build
 
@@ -56,7 +56,7 @@ Copy `.env.example` → `.env` (gitignored). Document every new variable here an
 | `REDIS_URL` | Redis connection string |
 | `NEO4J_URI` | Story Graph (Neo4j) Bolt URL (default `bolt://localhost:3349`); **blank to disable the graph** (CRUD + tests run with no Neo4j) |
 | `NEO4J_USER` | Neo4j username (default `neo4j`) |
-| `NEO4J_PASSWORD` | Neo4j password (default `velora-graph`; matches `docker-compose` `NEO4J_AUTH`) |
+| `NEO4J_PASSWORD` | Neo4j password (default `mytheca-graph`; matches `docker-compose` `NEO4J_AUTH`) |
 | `LLM_PROVIDER` | `openai` or `local` |
 | `OPENAI_API_KEY` | OpenAI key (if provider = openai) |
 | `LOCAL_LLM_BASE_URL` | Base URL for a local model server (if provider = local) |
@@ -73,7 +73,7 @@ Copy `.env.example` → `.env` (gitignored). Document every new variable here an
 | `EMBED_DEVICE` | Execution device: `cpu` (default) / `cuda` / `rocm` |
 | `EMBED_CACHE_DIR` | ONNX model cache directory (defaults to fastembed's platform cache) |
 | `QDRANT_URL` | Qdrant REST URL (default `http://localhost:3351`); **blank to disable** the vector store (CRUD + tests run without Qdrant) |
-| `QDRANT_COLLECTION` | Qdrant collection name (default `velora_lore`) |
+| `QDRANT_COLLECTION` | Qdrant collection name (default `mytheca_lore`) |
 
 ## Deployment Target
 

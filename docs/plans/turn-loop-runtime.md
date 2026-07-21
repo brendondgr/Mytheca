@@ -1,13 +1,13 @@
-# Velora — Turn-Loop Runtime: Implementation Plan
+# Mytheca — Turn-Loop Runtime: Implementation Plan
 
-> Companion to the design doc `Documents/Plans/Velora/2.velora-turn-loop-plan.md` (v0.3,
-> §16 "Phased commits" P1–P11). This plan translates that design into Velora's
+> Companion to the design doc `Documents/Plans/Mytheca/2.mytheca-turn-loop-plan.md` (v0.3,
+> §16 "Phased commits" P1–P11). This plan translates that design into Mytheca's
 > phase-by-phase, commit-per-phase engineering format and records the locked decisions
 > for the build.
 
 ## 1. Introduction
 
-This plan builds Velora's **runtime turn loop** — the path from a human player's message to
+This plan builds Mytheca's **runtime turn loop** — the path from a human player's message to
 the bot's streamed, validated story output — replacing the story player's scripted seed
 (`useScenePlay`) with a real, agent-driven, NDJSON-streamed engine. It implements the
 four bands of the design: **Assemble** (read-only context), **Produce** (the per-character

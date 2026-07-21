@@ -1,9 +1,9 @@
 ---
 name: global-project-rules
-description: Read this first before any work in Velora. Universal rules: required reading, stack, environment, validation gate, docs maintenance, git workflow.
+description: Read this first before any work in Mytheca. Universal rules: required reading, stack, environment, validation gate, docs maintenance, git workflow.
 ---
 
-# Velora Global Project Rules
+# Mytheca Global Project Rules
 
 Pointer only — canonical instructions live in `docs/`. Read before acting:
 

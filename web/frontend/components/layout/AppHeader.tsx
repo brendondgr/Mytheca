@@ -18,7 +18,7 @@ function SearchIcon() {
 }
 
 /**
- * Top app bar: ❖ VELORA wordmark, the storyline switcher slot, library search,
+ * Top app bar: the Mytheca emblem + wordmark, the storyline switcher slot, library search,
  * and slots for the Create and Options controls. (Theme switching now lives in
  * the Options dropdown / the Options page Appearance tab.)
  */
@@ -36,13 +36,14 @@ export function AppHeader({
   optionsSlot?: React.ReactNode;
 }) {
   return (
-    <header className="velora-header relative z-[15] flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] shadow-[0_3px_14px_rgba(10,6,2,0.22)] sm:px-[26px]">
+    <header className="mytheca-header relative z-[15] flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] shadow-[0_3px_14px_rgba(10,6,2,0.22)] sm:px-[26px]">
       <div className="flex items-center gap-[13px]">
-        <span aria-hidden className="text-[16px] text-accent">
-          ❖
-        </span>
+        <span
+          aria-hidden
+          className="mytheca-brandmark h-[30px] w-[27px] flex-none"
+        />
         <span className="font-display text-[20px] font-bold leading-none tracking-[0.2em] text-ink">
-          VELORA
+          MYTHECA
         </span>
         {storylineSlot ? (
           <>

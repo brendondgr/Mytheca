@@ -1,6 +1,6 @@
 ---
 name: repository-structure
-description: Use when setting up, restructuring, documenting, or enforcing Velora's repo layout (web/ split, root app.py, contracts, utils/libs).
+description: Use when setting up, restructuring, documenting, or enforcing Mytheca's repo layout (web/ split, root app.py, contracts, utils/libs).
 ---
 
 # Repository Structure

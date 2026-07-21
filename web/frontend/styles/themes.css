@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------ *
- * Velora — three-theme token sets (Parchment / Ember / Slate).
+ * Mytheca — three-theme token sets (Parchment / Ember / Slate).
  * Values are the locked design tokens from docs/design-system.md,
  * derived from docs/CharacterFrontpage/. The active theme class lives on
  * <html> (set by the no-flash script in app/layout.tsx); every token is a
@@ -154,7 +154,7 @@
 /* Shared dropdown/popover surface — every menu panel (storyline switcher,
  * Create, Options, Export, POV select, scene Config, MultiSelect) uses this so
  * dropdowns read as one consistent, clearly-elevated layer above the page. */
-.velora-menu {
+.mytheca-menu {
   background-color: var(--menu-bg);
   border: 1px solid var(--menu-bd);
   border-radius: 4px;
@@ -162,32 +162,47 @@
 }
 
 /* Gradient-backed surfaces (can't be expressed as Tailwind color utilities). */
-.velora-page {
+.mytheca-page {
   background-color: var(--page-bg);
   background-image: var(--page-img);
 }
-.velora-header {
+.mytheca-header {
   background: var(--header-grad);
 }
-.velora-rail {
+
+/* Theme-aware brand emblem in the header. The dark-ink icon reads on the light
+ * Parchment theme; the cream icon takes over on the dark Ember/Slate themes.
+ * A CSS background swap keyed on the pre-paint `.theme-*` class avoids any
+ * hydration flash and needs no JS. */
+.mytheca-brandmark {
+  background-image: url("/brand/basic.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+.theme-dark .mytheca-brandmark,
+.theme-slate .mytheca-brandmark {
+  background-image: url("/brand/basic-light.svg");
+}
+.mytheca-rail {
   background: var(--rail-grad);
 }
 
 /* Theme cross-fade lives on the page surface; interactive cards/rows and
  * buttons carry their own (snappier) hover transitions so micro-interactions
  * don't inherit the slow 0.6s color fade. */
-.velora-page {
+.mytheca-page {
   transition: background-color 0.6s ease;
 }
-.velora-card {
+.mytheca-card {
   transition: transform 0.14s ease, box-shadow 0.14s ease,
     background-color 0.6s ease, border-color 0.6s ease;
 }
-.velora-row {
+.mytheca-row {
   transition: transform 0.14s ease, background-color 0.6s ease,
     border-color 0.6s ease;
 }
-.velora-themed button {
+.mytheca-themed button {
   transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease,
     transform 0.12s ease, box-shadow 0.16s ease, filter 0.16s ease;
 }
@@ -227,9 +242,9 @@
  * card to the entity's own outline color: a character's `color`, or the
  * theme accent for a setting) so the "in this scene" cards draw the eye.
  * The base box-shadow (outside the keyframes) is the brighter frame, so the
- * global `.velora-themed *` reduced-motion rule below — which kills the
+ * global `.mytheca-themed *` reduced-motion rule below — which kills the
  * `animation` but not the box-shadow — leaves a static glow instead of none. */
-@keyframes veloraGlowPulse {
+@keyframes mythecaGlowPulse {
   0%, 100% {
     box-shadow: 0 0 0 2px var(--glow-color), 0 0 5px 1px var(--glow-color);
   }
@@ -237,18 +252,18 @@
     box-shadow: 0 0 0 3px var(--glow-color), 0 0 11px 3px var(--glow-color);
   }
 }
-.velora-glow {
+.mytheca-glow {
   box-shadow: 0 0 0 3px var(--glow-color), 0 0 11px 3px var(--glow-color);
-  animation: veloraGlowPulse 2.2s ease-in-out infinite;
+  animation: mythecaGlowPulse 2.2s ease-in-out infinite;
 }
 
 /* Active-field highlight — marks the field an agent is authoring *right now*
- * (the real-time editing feedback). Same `--glow-color` idiom as `.velora-glow`
+ * (the real-time editing feedback). Same `--glow-color` idiom as `.mytheca-glow`
  * (defaults to the theme accent), tighter + quicker so it reads as "writing
  * here". The base box-shadow lives outside the keyframes, so the global
- * `.velora-themed *` reduced-motion rule below — which strips `animation` but
+ * `.mytheca-themed *` reduced-motion rule below — which strips `animation` but
  * not `box-shadow` — leaves a static ring instead of nothing. */
-@keyframes veloraFieldPulse {
+@keyframes mythecaFieldPulse {
   0%, 100% {
     box-shadow: 0 0 0 1px var(--glow-color), 0 0 4px 0 var(--glow-color);
   }
@@ -256,19 +271,19 @@
     box-shadow: 0 0 0 2px var(--glow-color), 0 0 10px 2px var(--glow-color);
   }
 }
-.velora-field-active {
+.mytheca-field-active {
   --glow-color: var(--accent);
   border-radius: 3px;
   box-shadow: 0 0 0 2px var(--glow-color), 0 0 10px 2px var(--glow-color);
-  animation: veloraFieldPulse 1.4s ease-in-out infinite;
+  animation: mythecaFieldPulse 1.4s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .velora-themed,
-  .velora-themed *,
-  .velora-page,
-  .velora-header,
-  .velora-rail {
+  .mytheca-themed,
+  .mytheca-themed *,
+  .mytheca-page,
+  .mytheca-header,
+  .mytheca-rail {
     transition: none !important;
     animation: none !important;
     scroll-behavior: auto !important;

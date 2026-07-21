@@ -51,7 +51,7 @@ class ContextDocument(Base):
     # "other". Stored as a plain string; the schema constrains the value set.
     category: Mapped[str] = mapped_column(String, default="other")
     # Inclusion tiers chosen at triage. ``include_draft`` ⇒ world-setting docs that
-    # ground Velora's drafting; ``include_rag`` ⇒ the retrieval corpus (default on);
+    # ground Mytheca's drafting; ``include_rag`` ⇒ the retrieval corpus (default on);
     # ``include_extract`` ⇒ OPT-IN: mine this doc for named characters/settings during
     # **Build the whole world** (default OFF — a new storyline never auto-extracts).
     # Non-null with a server default so existing rows backfill and the additive-column

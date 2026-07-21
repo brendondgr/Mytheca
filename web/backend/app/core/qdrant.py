@@ -1,6 +1,6 @@
 """Qdrant client factory — the Hybrid RAG vector store.
 
-The lazy, *graceful* client for Velora's vector store, mirroring
+The lazy, *graceful* client for Mytheca's vector store, mirroring
 ``app/core/neo4j.py``:
 
 - the **container** is owned by ``app.py`` (brought up with Postgres/Redis/Neo4j);

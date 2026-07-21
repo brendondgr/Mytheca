@@ -25,7 +25,7 @@ import redis as redis_lib
 from app.core.config import get_settings
 from app.core.redis import get_redis
 
-logger = logging.getLogger("velora.memory")
+logger = logging.getLogger("mytheca.memory")
 
 _KEY = "interior:{session_id}:{character_id}"
 # Interior state outlives a turn but not a session; expire stale keys after a day.

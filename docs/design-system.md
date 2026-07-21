@@ -1,12 +1,25 @@
-# Velora — Design System & Design-Quality Brief
+# Mytheca — Design System & Design-Quality Brief
 
 This is the design gate that must be satisfied before broad UI implementation. It follows `docs/skills/ui-frontend/ui/design-quality.md`. The visual language below is **locked** — it is derived from the reference designs in `docs/CharacterFrontpage/` (the "Embergate" front page, home, and live scene). Implement it with the project stack (Next.js + React + TypeScript + **Tailwind CSS** + **Framer Motion**); the tokens here are the source of truth, surfaced to Tailwind as CSS variables.
 
 ## Visual Motif
 
-Velora is a **multi-character roleplay chat engine** styled as **a living manuscript — an illuminated codex / tome**. The reading surface is warm parchment; the chrome reads like the cover and rails of an old book; streamed story beats appear like a play script or annotated transcript. Narrator beats are set apart as marginalia/quotes, character lines as bubbles with wax-seal monogram avatars, the player's voice as an inked reply. Avoid sci-fi "AI" clichés entirely.
+Mytheca is a **multi-character roleplay chat engine** styled as **a living manuscript — an illuminated codex / tome**. The reading surface is warm parchment; the chrome reads like the cover and rails of an old book; streamed story beats appear like a play script or annotated transcript. Narrator beats are set apart as marginalia/quotes, character lines as bubbles with wax-seal monogram avatars, the player's voice as an inked reply. Avoid sci-fi "AI" clichés entirely.
 
-The recurring identity marks are the **❖ glyph** (`&#10070;`, the "Velora seal") and the **◆ diamond** (`&#9670;`) used as the bullet for branches, settings, and choices. Each **storyline** also carries a **customizable seal** — a simple shape glyph + hex color chosen in a dedicated **seal pop-up** (`SealModal`, opened from a compact Seal row in `StorylineModal`) — rendered left of its name in the switcher. The pop-up offers ~24 shapes, a curated color palette, and a native **color wheel** for any custom hex; the shape/color sets live in `web/frontend/lib/seals.ts` (default: gold `◆`).
+### Brand mark & logo assets
+
+The **Mytheca logo** ("Myth" + Greek *Bibliotheca* = "Library of Myths") ships as SVGs in `images/` (canonical brand kit) and `web/frontend/public/brand/`. It is **theme-aware**: the dark-ink icon reads on the light Parchment theme; the cream icon takes over on the dark Ember/Slate themes.
+
+| Asset | File | Use |
+| --- | --- | --- |
+| Icon — dark | `web/frontend/public/brand/basic.svg` | Header emblem on the **light** theme; also the app **favicon** (`web/frontend/app/icon.svg`) |
+| Icon — cream | `web/frontend/public/brand/basic-light.svg` | Header emblem on the **dark / slate** themes |
+| Wordmark — dark text | `images/DarkText.svg` | README (GitHub light mode) |
+| Wordmark — light text | `images/LightText.svg` | README (GitHub dark mode) |
+
+The header emblem (`.mytheca-brandmark`, in `AppHeader.tsx`) is a decorative `aria-hidden` span whose `background-image` is swapped by a CSS rule keyed on the `.theme-dark` / `.theme-slate` ancestor class (`styles/themes.css`) — no JS, no hydration flash. The `MYTHECA` Cinzel wordmark beside it remains the accessible name.
+
+The recurring identity marks are the **❖ glyph** (`&#10070;`, the "Mytheca seal") and the **◆ diamond** (`&#9670;`) used as the bullet for branches, settings, and choices. Each **storyline** also carries a **customizable seal** — a simple shape glyph + hex color chosen in a dedicated **seal pop-up** (`SealModal`, opened from a compact Seal row in `StorylineModal`) — rendered left of its name in the switcher. The pop-up offers ~24 shapes, a curated color palette, and a native **color wheel** for any custom hex; the shape/color sets live in `web/frontend/lib/seals.ts` (default: gold `◆`).
 
 ## Domain Vocabulary (use in copy)
 
@@ -30,20 +43,20 @@ Text sizes are driven by six CSS custom properties defined in `styles/themes.css
 
 | CSS variable | Default | Compact | Comfortable | Large | Used for |
 | --- | --- | --- | --- | --- | --- |
-| `--fs-eyebrow` | 11px | 9px | 12.5px | 14px | `Eyebrow` component (role tags, section kickers, "❖ Draft with Velora" labels) |
+| `--fs-eyebrow` | 11px | 9px | 12.5px | 14px | `Eyebrow` component (role tags, section kickers, "❖ Draft with Mytheca" labels) |
 | `--fs-label` | 12px | 11px | 13px | 14px | `FieldLabel` headings, form section labels |
 | `--fs-ui` | 12px | 11px | 13px | 14px | `Button` text, tab labels |
 | `--fs-body-sm` | 14px | 13px | 15px | 16px | Card descriptions, modal body prose |
 | `--fs-body` | 15px | 14px | 16px | 17px | Input fields, longer reading text |
 | `--fs-tag` | 10.5px | 9px | 11.5px | 12.5px | `Tag` chips (genre, tone, role pills) |
 
-The active preset is stored in `localStorage` key `velora-font-size` (default: `"default"`) and applied as a class on `<html>` (e.g., `.fs-comfortable`) by `lib/font-size.ts`'s no-flash inline script in `app/layout.tsx`. The hook is `useFontSize()` in `hooks/use-font-size.ts`. Tailwind utilities `text-eyebrow`, `text-label`, `text-ui`, `text-body-sm`, `text-body`, `text-tag` resolve from the live CSS variable via `@theme inline` in `globals.css`.
+The active preset is stored in `localStorage` key `mytheca-font-size` (default: `"default"`) and applied as a class on `<html>` (e.g., `.fs-comfortable`) by `lib/font-size.ts`'s no-flash inline script in `app/layout.tsx`. The hook is `useFontSize()` in `hooks/use-font-size.ts`. Tailwind utilities `text-eyebrow`, `text-label`, `text-ui`, `text-body-sm`, `text-body`, `text-tag` resolve from the live CSS variable via `@theme inline` in `globals.css`.
 
 ## Themes & Color Tokens
 
-Three themes ship from day one, switched by a `ThemeSwitcher` and persisted (`localStorage` key `velora-theme`). Themes are CSS-variable token sets on a root class (`.theme-light` / `.theme-dark` / `.theme-slate`); Tailwind colors reference the variables so components are theme-agnostic.
+Three themes ship from day one, switched by a `ThemeSwitcher` and persisted (`localStorage` key `mytheca-theme`). Themes are CSS-variable token sets on a root class (`.theme-light` / `.theme-dark` / `.theme-slate`); Tailwind colors reference the variables so components are theme-agnostic.
 
-**Three-tier layering rule.** Every theme is built as three distinct lightness tiers so sections divide cleanly instead of blending: **chrome** (header/rail gradients — the darkest tier per theme), **page ground** (`--page-bg`, the middle tier), and **content** (`--card-bg`/`--card-bg2`/`--menu-bg` — the lifted tier that holds text). Inputs (`--field-bg`) sit slightly *recessed* from cards in the dark themes and slightly *raised* in Parchment. New surfaces should pick a tier deliberately; a panel that frames content (sidebar, nav rail) belongs on the chrome tier (`velora-rail`/`--surface`), never on the card tier.
+**Three-tier layering rule.** Every theme is built as three distinct lightness tiers so sections divide cleanly instead of blending: **chrome** (header/rail gradients — the darkest tier per theme), **page ground** (`--page-bg`, the middle tier), and **content** (`--card-bg`/`--card-bg2`/`--menu-bg` — the lifted tier that holds text). Inputs (`--field-bg`) sit slightly *recessed* from cards in the dark themes and slightly *raised* in Parchment. New surfaces should pick a tier deliberately; a panel that frames content (sidebar, nav rail) belongs on the chrome tier (`mytheca-rail`/`--surface`), never on the card tier.
 
 **Contrast gate.** `utils/scripts/check_contrast.py` parses these token sets and asserts the load-bearing WCAG-AA pairs (hard-fails the build script on regressions). Adjust tokens and the script's pair list together.
 
@@ -82,7 +95,7 @@ Three themes ship from day one, switched by a `ThemeSwitcher` and persisted (`lo
 
 All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every theme** — verify Parchment, Ember, and Slate. Status and stat changes are never conveyed by color alone (pair with a label, sign, or icon).
 
-**Frontend implementation.** The three token sets live in `web/frontend/styles/themes.css` as `.theme-light` / `.theme-dark` / `.theme-slate`; the active class sits on `<html>`, applied pre-paint by a no-flash inline script (`themeInitScript` in `lib/theme.ts`). `app/globals.css` maps the variables to Tailwind utilities via `@theme inline` — e.g. `bg-page`, `bg-card`, `bg-card2`, `text-ink`, `text-ink-soft`, `text-mute`, `border-cardbd`, `border-hair`, `text-accent`, and the interaction tokens `bg-accent-hover`, `bg-menu` / `border-menu-bd`, `bg-hover`, `bg-surface`, plus theme-agnostic `text-gold` / `text-narrator` / `text-success` / `text-danger`. Gradient surfaces (page glow, header, rails) use the `.velora-page` / `.velora-header` / `.velora-rail` helper classes. The current theme is read via `useTheme()` (a `useSyncExternalStore` over the `<html>` class + `localStorage['velora-theme']`, so no provider is needed) and toggled by `ThemeSwitcher`.
+**Frontend implementation.** The three token sets live in `web/frontend/styles/themes.css` as `.theme-light` / `.theme-dark` / `.theme-slate`; the active class sits on `<html>`, applied pre-paint by a no-flash inline script (`themeInitScript` in `lib/theme.ts`). `app/globals.css` maps the variables to Tailwind utilities via `@theme inline` — e.g. `bg-page`, `bg-card`, `bg-card2`, `text-ink`, `text-ink-soft`, `text-mute`, `border-cardbd`, `border-hair`, `text-accent`, and the interaction tokens `bg-accent-hover`, `bg-menu` / `border-menu-bd`, `bg-hover`, `bg-surface`, plus theme-agnostic `text-gold` / `text-narrator` / `text-success` / `text-danger`. Gradient surfaces (page glow, header, rails) use the `.mytheca-page` / `.mytheca-header` / `.mytheca-rail` helper classes. The current theme is read via `useTheme()` (a `useSyncExternalStore` over the `<html>` class + `localStorage['mytheca-theme']`, so no provider is needed) and toggled by `ThemeSwitcher`.
 
 ## Geometry, Elevation, Icon, Spacing
 
@@ -105,7 +118,7 @@ A three-zone "open book": a **left cast rail** (At the table · turn order, port
 
 **Scene pulse (Director rail).** The static Scene Goal, TensionMeter, and Relationships sections were replaced by a **"Scene pulse"** live feed: a `role="log"` `aria-live="polite"` scrollable region (`max-h` capped, newest entry first) of up to 12 `ActivityEntry` items. Each entry is a compact line with character-colored name, a status verb, and optional detail text; entries animate in with the transcript beat-entrance idiom (opacity + 8 px rise, `motion-reduce` safe). An idle empty state reads **"The scene is quiet — your move."**. The `StateChips` scene-state block is kept beneath the feed.
 
-**Character activity indicators (Cast rail).** Each cast-row shows an animated **three-dot typing indicator** (`embDots` keyframe, `static "…"` base style so reduced motion degrades gracefully per the `.velora-themed *` global rule) plus a **"Thinking"** label while a character is processing, and a **"Speaking"** label while their dialogue is streaming. Both states clear to idle when the turn ends. Status is never conveyed by motion alone — the text label ("Thinking"/"Speaking") is always present alongside the dots or accent treatment.
+**Character activity indicators (Cast rail).** Each cast-row shows an animated **three-dot typing indicator** (`embDots` keyframe, `static "…"` base style so reduced motion degrades gracefully per the `.mytheca-themed *` global rule) plus a **"Thinking"** label while a character is processing, and a **"Speaking"** label while their dialogue is streaming. Both states clear to idle when the turn ends. Status is never conveyed by motion alone — the text label ("Thinking"/"Speaking") is always present alongside the dots or accent treatment.
 
 ### Event → component mapping (visual contract)
 
@@ -140,7 +153,7 @@ Read-only — the panel never changes the scene.
 
 The Library makes the **Storyline** the organizing object. The header wordmark is followed
 by a prominent **storyline switcher** — an outlined button rendering the active storyline in
-large Cinzel small-caps (echoing the `VELORA` wordmark) with a ◆ seal and a rotating chevron,
+large Cinzel small-caps (echoing the `MYTHECA` wordmark) with a ◆ seal and a rotating chevron,
 so it reads unmistakably as a dropdown. It lists every storyline (✓ active, with per-storyline
 counts) plus "New Storyline"; switching swaps the whole working set. Below the recent-scenario
 hero, the body is **three open columns** — **Scenarios** (one per row) · **Characters** (three
@@ -180,12 +193,12 @@ radial glow (`--page-img`) is never allowed to show through behind the scrolling
 
 Selecting a scenario in the Scenarios column drives the rest: the hero reflects it, its
 **cast lights up** in the Characters column (an **animated pulsing glow** keyed to each
-character's own color — `.velora-glow` / `veloraGlowPulse` in `styles/themes.css`, driven by
+character's own color — `.mytheca-glow` / `mythecaGlowPulse` in `styles/themes.css`, driven by
 a `--glow-color` custom property set inline per card), and its **active setting is brought
 forward** in the Settings column (2px accent border + the same animated glow keyed to
 `var(--accent)`) **and scrolled into view** within that column. The glow's own box-shadow
 (outside the keyframes) is the animation's brighter frame, so the existing app-wide
-`prefers-reduced-motion` rule — which strips `animation` under `.velora-themed *` — leaves a
+`prefers-reduced-motion` rule — which strips `animation` under `.mytheca-themed *` — leaves a
 static glow rather than none. Per the not-color-alone rule, both
 highlights also carry a mono **"◆ In this scene"** label, and the active setting sets
 `aria-current`. A storyline with no scenarios
@@ -215,13 +228,13 @@ Purposeful only, and always with a near-instant `prefers-reduced-motion` fallbac
 - **Hover affordances:** cards lift `translateY(-2px)`; rows nudge `translateX(2–3px)`.
 - **Scenario load:** a full-screen **establishing "curtain"** (`SceneLoader`) that carries the scenario's context — an optional scene-art backdrop behind `CARD_SCRIM` (gradient fallback), the storyline/genre kicker, scenario title, setting + genre/tone, a cast portrait row, the scene goal, and a ❖ "Conjuring the scene…" progress line — then dissolves into the content reveal. Rendered as a plain conditional on the loading flag (the reveal-into-scene continuity comes from the transcript's own opacity/transform transition); navigation between library/scene may use the page-flip transition from the reference (optional, reduced-motion → instant).
 
-**Implementation.** Framer Motion drives the signature **transcript beat entrances** (`StoryPlayerView`, opacity + 8px rise), wrapped in a `MotionConfig reducedMotion="user"` (`components/layout/MotionProvider`) so motion is dropped under `prefers-reduced-motion`. Simpler/continuous motion uses CSS keyframes from `styles/themes.css` — the modal (`embPop`/`embDim`, via Tailwind `motion-reduce:animate-none`), the scene loader (`embSpin`/`embDots`), the theme cross-fade (`.velora-page`/`.velora-card`/`.velora-row`), and the carousel slide. Keyboard focus is shown app-wide via a `:focus-visible` outline in `globals.css`. The full 3D page-flip is deferred.
+**Implementation.** Framer Motion drives the signature **transcript beat entrances** (`StoryPlayerView`, opacity + 8px rise), wrapped in a `MotionConfig reducedMotion="user"` (`components/layout/MotionProvider`) so motion is dropped under `prefers-reduced-motion`. Simpler/continuous motion uses CSS keyframes from `styles/themes.css` — the modal (`embPop`/`embDim`, via Tailwind `motion-reduce:animate-none`), the scene loader (`embSpin`/`embDots`), the theme cross-fade (`.mytheca-page`/`.mytheca-card`/`.mytheca-row`), and the carousel slide. Keyboard focus is shown app-wide via a `:focus-visible` outline in `globals.css`. The full 3D page-flip is deferred.
 
 ### Real-time agentic authoring feedback
 
 Every agentic authoring flow (drafting/editing a Character or Setting/Scenario, and generating voice samples, starting stats, or portrait/scene-art prompts) shows **which field is being written at that exact moment**, where the process is, and any error:
 
-- **Active-field highlight** — `.velora-field-active` (`styles/themes.css`) rings the field being authored now (`veloraFieldPulse` on the `--glow-color`, defaulting to `--accent`); the base `box-shadow` lives outside the keyframes so the app-wide `prefers-reduced-motion` rule leaves a **static** ring instead of nothing (same idiom as `.velora-glow`).
+- **Active-field highlight** — `.mytheca-field-active` (`styles/themes.css`) rings the field being authored now (`mythecaFieldPulse` on the `--glow-color`, defaulting to `--accent`); the base `box-shadow` lives outside the keyframes so the app-wide `prefers-reduced-motion` rule leaves a **static** ring instead of nothing (same idiom as `.mytheca-glow`).
 - **Choreographed reveal** — for the draft endpoints that return the whole result at once, `hooks/use-field-reveal.ts` (and the inline reveal loops in `useLibraryState`) fill fields **one at a time** on a ~150 ms cadence so the author watches them populate; under reduced motion everything appears at once.
 - **Process progress** — `components/feature/ProcessProgress.tsx` is a compact done/active/pending stepper with a live `aria-live` "Now … · Next …" line, shown during a draft (character Identity → Voice & tone → Starting stats; setting fields as steps).
 - **Notifications** — `components/ui/Toast.tsx` + `components/layout/ToastProvider.tsx` (`useToast`) render **top-right, stacking** toasts in a portal; errors are `role="alert"`, info/success `role="status"`, entrance via `embMsg` with `motion-reduce:animate-none`. Agentic errors across all surfaces raise an error toast (alongside the existing inline `role="alert"` copy). A toast may carry one optional **action button** (e.g. "Undo" for an auto scene-presence change), rendered before the dismiss control.

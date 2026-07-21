@@ -84,7 +84,7 @@ def test_llm(data: LlmTestRequest, db: Session = Depends(get_db)):
 def llm_backend_info(db: Session = Depends(get_db)):
     """Report the auto-detected inference engine + the reasoning-budget map.
 
-    Read-only diagnostics: confirms whether Velora sees vLLM / llama.cpp (and is
+    Read-only diagnostics: confirms whether Mytheca sees vLLM / llama.cpp (and is
     therefore sending the thinking budget) for the configured endpoint. Uses the
     cached detection (the background poller keeps it warm).
     """

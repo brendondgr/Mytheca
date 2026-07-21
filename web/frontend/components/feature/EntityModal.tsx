@@ -27,7 +27,7 @@ const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor
  * handled elsewhere.
  *
  * Layout matches CharacterModal / SettingModal: three columns at lg+ —
- * (1) by-hand form, (2) scene-art + Draft-with-Velora aside, (3) ContextFilesPanel.
+ * (1) by-hand form, (2) scene-art + Draft-with-Mytheca aside, (3) ContextFilesPanel.
  * On mobile a By-hand / Agentically toggle swaps columns; the context-files
  * column is only visible in agentic mode on small screens.
  *
@@ -102,7 +102,7 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
                     ❖
                   </span>
                   <span className="font-body text-[13.5px] text-ink">
-                    Drafted by Velora — review &amp; refine, then save.
+                    Drafted by Mytheca — review &amp; refine, then save.
                   </span>
                 </div>
               ) : null}
@@ -115,7 +115,7 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
               />
             </div>
 
-            {/* Agentic aside — scene art + Draft with Velora. */}
+            {/* Agentic aside — scene art + Draft with Mytheca. */}
             <aside
               className={cn(
                 "mt-[18px] md:mt-0 md:w-[300px] md:shrink-0 md:border-l md:border-hair-strong md:pl-[26px]",
@@ -158,11 +158,11 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
                 color="#A8762A"
                 className="mb-[10px] block"
               >
-                ❖ Draft with Velora
+                ❖ Draft with Mytheca
               </Eyebrow>
               <p className="mb-[10px] font-body text-[14px] text-ink">
                 Describe it in a sentence or two —{" "}
-                <span className="text-ink-soft italic">Velora drafts the rest.</span>
+                <span className="text-ink-soft italic">Mytheca drafts the rest.</span>
               </p>
               <TextArea
                 aria-label="Describe what to draft"
@@ -191,7 +191,7 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
                 disabled={lib.generating}
                 className="mt-[12px] w-full"
               >
-                {lib.generating ? "Drafting…" : "❖ Draft with Velora"}
+                {lib.generating ? "Drafting…" : "❖ Draft with Mytheca"}
               </Button>
               <Button
                 variant="ghost"

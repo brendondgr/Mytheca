@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:3346"
 
     # Core data stores.
-    database_url: str = "postgresql+psycopg://velora:velora@localhost:3347/velora"
+    database_url: str = "postgresql+psycopg://mytheca:mytheca@localhost:3347/mytheca"
     redis_url: str = "redis://localhost:3348/0"
 
     # --- Turn loop (the runtime story engine) ---
@@ -77,11 +77,11 @@ class Settings(BaseSettings):
     # The Story Graph substrate (Neo4j). The container is owned by ``app.py`` like
     # Postgres/Redis; the driver connects lazily (on scenario load / character &
     # setting writes) and degrades gracefully when unset/unreachable. Bolt is
-    # published on host port 3349 (HTTP browser on 3350) so Velora coexists with
+    # published on host port 3349 (HTTP browser on 3350) so Mytheca coexists with
     # any Neo4j already on 7687/7474. See ``app/core/neo4j.py``.
     neo4j_uri: str = "bolt://localhost:3349"
     neo4j_user: str = "neo4j"
-    neo4j_password: str = "velora-graph"
+    neo4j_password: str = "mytheca-graph"
 
     # AI provider selection (the provider-agnostic interface lands in a later phase).
     llm_provider: str = "openai"
@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     # connects lazily and degrades gracefully when unset/unreachable (CRUD and the
     # test suite run with no Qdrant). Blank disables the vector store entirely.
     qdrant_url: str = "http://localhost:3351"
-    qdrant_collection: str = "velora_lore"
+    qdrant_collection: str = "mytheca_lore"
 
     # Generated media (character portraits, etc.), served read-only at ``/media``.
     media_dir: Path = REPO_ROOT / "media"

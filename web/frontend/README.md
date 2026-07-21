@@ -1,6 +1,6 @@
-# Velora Frontend (Next.js)
+# Mytheca Frontend (Next.js)
 
-This is the Velora web UI: Next.js (App Router) · React · TypeScript · Tailwind CSS · Framer Motion.
+This is the Mytheca web UI: Next.js (App Router) · React · TypeScript · Tailwind CSS · Framer Motion.
 
 Scaffolded with Next.js 16 (App Router, Turbopack), React 19, Tailwind CSS v4 (CSS-first `@theme`), and Framer Motion. Brand fonts (Cinzel / EB Garamond / IBM Plex Mono) load via `next/font` in `app/layout.tsx`. Tests use Vitest + React Testing Library and are co-located beside components (`*.test.tsx`).
 

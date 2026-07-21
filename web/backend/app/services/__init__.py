@@ -1,1 +1,1 @@
-"""Velora backend: services. See docs/skills/repository-structure/SKILL.md."""
+"""Mytheca backend: services. See docs/skills/repository-structure/SKILL.md."""

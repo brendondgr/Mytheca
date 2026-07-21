@@ -49,7 +49,7 @@ This plan overhauls both, **frontend-only**, with **pseudo-seeded** data: the re
 
 - **Locations:** `docs/component-map.md`, `docs/design-system.md`, `docs/routes.md` (story-player row note), `docs/documentation.md` (status), `docs/checklist.md` (new entry).
 - **Work:** update the docs for the new loader + player structure and the pseudo-seed/stat-schema decisions; record any deferred a11y/responsive item; run the full validation gate; merge the worktree branch to `main`, fixing any conflicts.
-- **Rationale:** the Velora definition of done requires docs in the same change and a clean validation gate; the task also requires merging the worktree to main.
+- **Rationale:** the Mytheca definition of done requires docs in the same change and a clean validation gate; the task also requires merging the worktree to main.
 - **Action:** Run the full gate — `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` (frontend-only → backend `pytest` N/A, note it); a11y/responsive reasoning at 320/375/768/1024 across all three themes. Commit: `[Scene Overhaul] (5/5) Complete: Docs + validation; merged the scene loader + chat overhaul.` Then merge to `main`.
 
 ## 4. Deliverables Table

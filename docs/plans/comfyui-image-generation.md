@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-This plan adds an image-generation system to Velora that drives a local **ComfyUI** server (OpenAI-style, but Comfy's own HTTP + WebSocket protocol). The goal is a server-side ComfyUI client that loads a saved workflow (`utils/workflows/ZiT-Workflow.json`), patches the prompt/params, queues the job, waits for completion over the Comfy WebSocket, and downloads the rendered image — plus an **Options menu** surface to configure the endpoint/workflow/params and run a connection (status) check.
+This plan adds an image-generation system to Mytheca that drives a local **ComfyUI** server (OpenAI-style, but Comfy's own HTTP + WebSocket protocol). The goal is a server-side ComfyUI client that loads a saved workflow (`utils/workflows/ZiT-Workflow.json`), patches the prompt/params, queues the job, waits for completion over the Comfy WebSocket, and downloads the rendered image — plus an **Options menu** surface to configure the endpoint/workflow/params and run a connection (status) check.
 
 The approach mirrors the existing **Options / Language Models** slice end-to-end: a backend service (`services/comfyui.py`, the analogue of `services/llm.py`) with an injectable HTTP/WS client for offline tests; settings persisted through `settings_store` into the `app_settings` row; routes under the `/options` prefix; and a new **Image Generation** tab in `features/options/` that parallels `LanguageModelsTab`. The full generate pipeline is implemented and validated end-to-end against the live ComfyUI; per the product decision the Options tab's *test* button is a **status check only** (no GPU spend in the UI), while the generate capability lives in the service for the story engine and is proven during validation.
 

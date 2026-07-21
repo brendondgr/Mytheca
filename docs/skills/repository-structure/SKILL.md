@@ -1,18 +1,18 @@
 ---
 name: repository-structure
-description: Use this skill when setting up, restructuring, documenting, or enforcing Velora's repository layout — the web/ split (Next.js frontend + FastAPI backend), root app.py entrypoint, shared contracts, utils/libs, and the docs/ source of truth.
+description: Use this skill when setting up, restructuring, documenting, or enforcing Mytheca's repository layout — the web/ split (Next.js frontend + FastAPI backend), root app.py entrypoint, shared contracts, utils/libs, and the docs/ source of truth.
 ---
 
-# Velora Repository Structure Standard
+# Mytheca Repository Structure Standard
 
-This skill defines and enforces Velora's file layout. It is paired with `website-architecture` (which owns routes, stack, data flow, and the design-quality gate) and the `ui-frontend`, `accessibility-mobile`, and `ada-compliance` skills for the web surface.
+This skill defines and enforces Mytheca's file layout. It is paired with `website-architecture` (which owns routes, stack, data flow, and the design-quality gate) and the `ui-frontend`, `accessibility-mobile`, and `ada-compliance` skills for the web surface.
 
 `docs/` is the documentation source of truth. All runtime web code lives under `web/`. The repository was initialized with the **"everything under `web/`"** layout: a Next.js frontend and a FastAPI backend both under `web/`, with a thin root `app.py` that launches the backend.
 
 ## Canonical Tree
 
 ```text
-velora/
+mytheca/
 ├── app.py                  # Root entrypoint: imports & runs web/backend FastAPI app
 ├── pyproject.toml          # uv-managed Python project (backend, tooling)
 ├── .python-version         # 3.13
@@ -77,7 +77,7 @@ Tests live under `utils/tests/` (alongside `utils/scripts/`). Keep them small an
 
 ## Reference Structures
 
-Alternate layouts are documented in `structures/` for reference only — Velora uses the `web/` split above:
+Alternate layouts are documented in `structures/` for reference only — Mytheca uses the `web/` split above:
 
 - [Web Interfaces](structures/web-interfaces.md)
 - [LangGraph Structure](structures/langgraph.md)

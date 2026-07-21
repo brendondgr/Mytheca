@@ -1,6 +1,6 @@
 """FastAPI application factory.
 
-Builds the Velora API: CORS for the frontend origin, the contract error envelope,
+Builds the Mytheca API: CORS for the frontend origin, the contract error envelope,
 a health check, and the CRUD routers under the ``/api`` prefix. The multi-agent
 brain and event stream are added in later phases (see docs/checklist.md).
 """
@@ -34,7 +34,7 @@ from app.routes import (
 )
 from app.services import llm_backend
 
-logger = logging.getLogger("velora")
+logger = logging.getLogger("mytheca")
 
 
 def _refresh_backend_once() -> None:
@@ -98,9 +98,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    """Build and return the Velora FastAPI application."""
+    """Build and return the Mytheca FastAPI application."""
     config = get_settings()
-    app = FastAPI(title="Velora", version="0.0.0", lifespan=lifespan)
+    app = FastAPI(title="Mytheca", version="0.0.0", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,

@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-Whenever Velora's agentic authoring runs — the New Storyline "Build the whole world"
+Whenever Mytheca's agentic authoring runs — the New Storyline "Build the whole world"
 flow, drafting or editing a Character or Setting, or generating voice samples,
 starting stats, and portrait/scene-art prompts — the interface should clearly
 showcase **which field is being written at that exact moment**, where we are in the
@@ -20,7 +20,7 @@ world-build page drives the choreography from its real NDJSON stream events; the
 all-at-once Character/Setting drafts drive it from a client-side staged reveal (the
 decision locked with the user). **No backend change is required** — the build stream
 and its `BuildStatusEvent.stage` vocabulary already exist, and the draft endpoints
-stay plain JSON. The work reuses the existing `veloraGlowPulse`/`.velora-glow`
+stay plain JSON. The work reuses the existing `mythecaGlowPulse`/`.mytheca-glow`
 pattern, the `embMsg`/`embFade` keyframes, the global reduced-motion rule, and the
 established `aria-live` conventions rather than introducing new dependencies.
 
@@ -43,7 +43,7 @@ Assumptions (simple gaps — proceeding):
   run only to confirm no regression (expected N/A).
 - **Reduced motion:** the field-reveal cadence collapses to an instant, all-at-once
   fill and the glow becomes a static border under `prefers-reduced-motion`, matching
-  the app's existing global rule (`.velora-themed *` strips `animation`, keeps
+  the app's existing global rule (`.mytheca-themed *` strips `animation`, keeps
   `box-shadow`). No per-feature media query needed.
 - **Reveal cadence:** a short per-field interval (~120–180 ms, tunable constant) that
   reads as "being typed in" without feeling slow; fully skippable and non-blocking
@@ -63,9 +63,9 @@ Build the reusable layer once, with no surface wired yet, so later phases only
 compose it.
 
 - **Locations:**
-  - `web/frontend/styles/themes.css` — add a `@keyframes veloraFieldFill` (a brief
-    accent wash/settle) and a `.velora-field-active` utility (active-field highlight
-    built on the existing `--glow-color` / `veloraGlowPulse` idiom, defaulting
+  - `web/frontend/styles/themes.css` — add a `@keyframes mythecaFieldFill` (a brief
+    accent wash/settle) and a `.mytheca-field-active` utility (active-field highlight
+    built on the existing `--glow-color` / `mythecaGlowPulse` idiom, defaulting
     `--glow-color: var(--accent)`); confirm the existing reduced-motion block already
     neutralizes both.
   - `web/frontend/hooks/use-field-reveal.ts` — the choreography engine: given an
@@ -102,11 +102,11 @@ Wire the real NDJSON stream into the primitives.
     `activeEntity { type, index }` (from `character`/`setting` events), plus a
     structured `stage` for the stepper; route build `error` events to a toast.
   - `web/frontend/features/library/StorylineCreatorView.tsx` — apply
-    `.velora-field-active` to the currently-written left-pane `TextField`/`TextArea`;
+    `.mytheca-field-active` to the currently-written left-pane `TextField`/`TextArea`;
     render `ProcessProgress` for the build stages (metadata → primer → blueprint →
     extract → characters → settings → done) with current + next.
   - `web/frontend/components/feature/WorldBuildPanel.tsx` — glow the card at the active
-    entity index (and the active pending concept) using `.velora-field-active`,
+    entity index (and the active pending concept) using `.mytheca-field-active`,
     keeping the existing skeleton/render pulses.
 - **Rationale:** this surface already streams, so it proves the primitives against real
   events and delivers the highest-value target first.
@@ -126,7 +126,7 @@ Wire the real NDJSON stream into the primitives.
     through the existing sequential voice-samples and starting-stats sub-steps as named
     stages; expose `activeField` + a `stage` descriptor; route `error` to a toast.
     `proposeVoiceSamples` / `proposeStartingStats` reveal their rows as they populate.
-  - `web/frontend/components/feature/CharacterModal.tsx` — apply `.velora-field-active`
+  - `web/frontend/components/feature/CharacterModal.tsx` — apply `.mytheca-field-active`
     to the active field; render `ProcessProgress` ("Drafting identity → Voice & tone →
     Starting stats → Portrait"); highlight the voice/stat rows as they fill; surface
     errors via toast (replacing the bare inline `role="alert"` line, or in addition).
@@ -163,7 +163,7 @@ Wire the real NDJSON stream into the primitives.
 ### Phase 5 — Docs, full validation, merge
 
 - **Locations:**
-  - `docs/design-system.md` — the `veloraFieldFill` keyframe + `.velora-field-active`
+  - `docs/design-system.md` — the `mythecaFieldFill` keyframe + `.mytheca-field-active`
     utility, the toast system, and the `ProcessProgress` pattern (with reduced-motion
     behavior).
   - `docs/component-map.md` — new components (`Toast`/`ToastProvider`,
@@ -186,7 +186,7 @@ Wire the real NDJSON stream into the primitives.
 
 | Deliverable | Description | Location |
 | --- | --- | --- |
-| Field-active styles | `veloraFieldFill` keyframe + `.velora-field-active` utility (reduced-motion safe) | `web/frontend/styles/themes.css` |
+| Field-active styles | `mythecaFieldFill` keyframe + `.mytheca-field-active` utility (reduced-motion safe) | `web/frontend/styles/themes.css` |
 | Field-reveal hook | Choreography engine: ordered field reveal with active-key + done state | `web/frontend/hooks/use-field-reveal.ts` |
 | Toast system | Portal, top-right, stacking notifications (info/alert), reduced-motion safe | `web/frontend/components/ui/Toast.tsx`, `web/frontend/components/layout/ToastProvider.tsx`, `web/frontend/hooks/use-toast.ts` |
 | Process progress | Compact stepper: current + next major step, `aria-live` | `web/frontend/components/feature/ProcessProgress.tsx` |

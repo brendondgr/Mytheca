@@ -1,6 +1,6 @@
 ---
 name: website-architecture
-description: Use when planning/scaffolding/documenting Velora's web surface: stack, routes, streaming boundary, data flow, design-quality gate.
+description: Use when planning/scaffolding/documenting Mytheca's web surface: stack, routes, streaming boundary, data flow, design-quality gate.
 ---
 
 # Website Architecture

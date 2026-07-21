@@ -1,6 +1,6 @@
 """Entity → lore entry adapters (brief §0.1 "one entry = one chunk").
 
-Each Velora entity (and each persisted context document) becomes exactly one
+Each Mytheca entity (and each persisted context document) becomes exactly one
 ``LoreEntry``: structured front matter built from its fields plus a body built
 from its descriptive prose. Pure functions over already-loaded ORM objects — no
 DB access, no embedding — so they stay trivially testable.

@@ -207,7 +207,7 @@ export function MultiSelect({
           aria-label={label}
           aria-multiselectable={multiple || undefined}
           onKeyDown={onListKeyDown}
-          className="absolute z-40 mt-[4px] max-h-[240px] w-full overflow-auto velora-menu p-[5px]"
+          className="absolute z-40 mt-[4px] max-h-[240px] w-full overflow-auto mytheca-menu p-[5px]"
         >
           {options.map((o, i) => {
             const isSelected = selectedSet.has(o.id);

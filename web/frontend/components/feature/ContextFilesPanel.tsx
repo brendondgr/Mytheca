@@ -5,10 +5,10 @@ import { cn } from "@/lib/cn";
 import { readDocFiles, type DocUse, type ReadDoc } from "@/lib/readDocs";
 
 // Per-context usage toggles shown on each dropped reference file. "Draft" grounds
-// Velora's drafting + generation (wired); "RAG" marks the retrieval corpus (the New
+// Mytheca's drafting + generation (wired); "RAG" marks the retrieval corpus (the New
 // Storyline page persists it; retrieval itself is a later plan).
 const DOC_USES: { key: DocUse; label: string; title: string }[] = [
-  { key: "useDraft", label: "Draft", title: "Ground Velora's drafting" },
+  { key: "useDraft", label: "Draft", title: "Ground Mytheca's drafting" },
   { key: "useRag", label: "RAG", title: "Include in the retrieval corpus" },
 ];
 
@@ -222,7 +222,7 @@ export function ContextFilesPanel({
           </ul>
         ) : (
           <p className="font-body text-[12.5px] text-mute">
-            Dropped contexts appear here — choose which feed Velora&apos;s drafting,
+            Dropped contexts appear here — choose which feed Mytheca&apos;s drafting,
             the retrieval corpus, and the knowledge graph.
           </p>
         )}

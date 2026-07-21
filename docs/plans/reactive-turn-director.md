@@ -1,4 +1,4 @@
-# Velora — Reactive Turn Director (ReAct planning + graph-aware characters)
+# Mytheca — Reactive Turn Director (ReAct planning + graph-aware characters)
 
 > Overhauls the runtime turn loop's **Produce** band. The P1–P11 loop stands up transport,
 > per-character generation, stats, cold-path, and reflection — but the *director* is a

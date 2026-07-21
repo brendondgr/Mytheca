@@ -32,7 +32,7 @@ from app.models import Character, Setting
 from app.models.graph_type import KIND_EDGE, KIND_NODE
 from app.services import type_registry
 
-logger = logging.getLogger("velora.graph")
+logger = logging.getLogger("mytheca.graph")
 
 # Base label every node carries (§6.1) so generic machinery has one handle.
 BASE_LABEL = "Node"

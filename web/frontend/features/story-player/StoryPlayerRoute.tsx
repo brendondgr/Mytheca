@@ -28,7 +28,7 @@ export function StoryPlayerRoute({
       <div
         role="status"
         aria-label="Loading the scene"
-        className="velora-page flex min-h-dvh flex-1 flex-col items-center justify-center gap-5"
+        className="mytheca-page flex min-h-dvh flex-1 flex-col items-center justify-center gap-5"
       >
         <div className="relative h-[54px] w-[54px]">
           <div className="absolute inset-0 animate-[embSpin_1s_linear_infinite] rounded-full border-[3px] border-cardbd border-t-accent motion-reduce:animate-none" />
@@ -48,7 +48,7 @@ export function StoryPlayerRoute({
 
   if (scene.status === "error") {
     return (
-      <div className="velora-page flex min-h-dvh flex-1 flex-col items-center justify-center gap-5 p-6 text-center">
+      <div className="mytheca-page flex min-h-dvh flex-1 flex-col items-center justify-center gap-5 p-6 text-center">
         <div className="max-w-[420px]">
           <Eyebrow tracking="0.2em" color="var(--danger)" className="block">
             The scene could not be raised

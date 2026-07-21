@@ -46,7 +46,7 @@ _TOTAL_CAP = 32000
 _VALID_CATEGORIES = {"character", "setting", "other"}
 
 _TRIAGE_SYSTEM = (
-    "You are Velora's worldbuilding triage assistant. You are given several "
+    "You are Mytheca's worldbuilding triage assistant. You are given several "
     "reference documents for an interactive-fiction world. Classify EACH document "
     "and recommend how it should be used. Respond with ONLY a JSON object — no "
     "prose, no markdown, no code fences — of the form "
@@ -76,7 +76,7 @@ _TRIAGE_SYSTEM = (
 # Single-document variant for the live (per-file) triage stream — one LLM call
 # per file so each row can be classified in front of the author.
 _TRIAGE_ONE_SYSTEM = (
-    "You are Velora's worldbuilding triage assistant. Classify the SINGLE "
+    "You are Mytheca's worldbuilding triage assistant. Classify the SINGLE "
     "reference document below for an interactive-fiction world and recommend how "
     "it should be used. Respond with ONLY a JSON object — no prose, no markdown, "
     "no code fences — of the form "

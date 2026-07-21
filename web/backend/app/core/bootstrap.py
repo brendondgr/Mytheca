@@ -264,7 +264,7 @@ def run_preflight(*, seed: bool = True) -> PreflightReport:
 
 
 def format_report(report: PreflightReport) -> str:
-    lines = ["Velora preflight:"]
+    lines = ["Mytheca preflight:"]
     for c in report.checks:
         mark = "OK " if c.ok else "!! "
         opt = "" if c.required else " (optional)"

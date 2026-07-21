@@ -31,7 +31,7 @@ function prefersReducedMotion(): boolean {
  * Choreographs a field-by-field reveal of an already-final result (the "filling
  * in this field, then that field" animation). `start(fields)` walks the ordered
  * list one tick at a time, exposing `values` (populated so far), `activeKey`
- * (the field being written now, for a `.velora-field-active` highlight), and
+ * (the field being written now, for a `.mytheca-field-active` highlight), and
  * `done`. Under `prefers-reduced-motion` — or an empty list — everything is
  * revealed at once. A new `start` or unmount cancels any in-flight reveal.
  *

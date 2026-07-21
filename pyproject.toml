@@ -1,7 +1,7 @@
 [project]
-name = "velora"
+name = "mytheca"
 version = "0.0.0"
-description = "Velora — an AI-driven interactive narrative engine (FastAPI backend)."
+description = "Mytheca — an AI-driven interactive narrative engine (FastAPI backend)."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

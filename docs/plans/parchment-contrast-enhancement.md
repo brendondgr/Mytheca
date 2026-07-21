@@ -11,7 +11,7 @@ The approach: (1) strengthen card borders and hair dividers across the board —
 - **Rail tone selection**: Ember's rail is `#1F1810` (near-black). We target `linear-gradient(#7A5A38, #6A4C2C)` — medium dark warm brown (luminance ≈ 0.09–0.13). Body text directly on this rail background requires light chrome-ink tokens (≥ 4.5:1). *Assumption: this level is acceptable and mirrors how Ember handles its rails.*
 - **Accent color on dark header**: `--accent: #8E2B1C` (dark red) is invisible on the new dark header. The ❖ decorative seal and "‹ Library" button currently use `text-accent` in header contexts. These are changed to `text-chrome-ink` for base state; hover accent fills are preserved as-is. *No change to `--accent` itself — it works fine on parchment card surfaces.*
 - **Modal bg**: `--modal-bg` is the modal panel background (not the overlay). Modal content uses `text-ink`/`text-ink-soft` extensively, so it must remain light. New value: `#E8D9BA` (slightly richer amber tan, still light).
-- **Composer**: Uses `velora-header` as a bottom tray. All interactive elements inside it have explicit `bg-field`/`bg-accent` backgrounds. No bare text sits on the header background — *no component changes needed for Composer.*
+- **Composer**: Uses `mytheca-header` as a bottom tray. All interactive elements inside it have explicit `bg-field`/`bg-accent` backgrounds. No bare text sits on the header background — *no component changes needed for Composer.*
 
 ---
 
@@ -69,13 +69,13 @@ This surfaces `text-chrome-ink` and `text-chrome-ink-soft` as Tailwind utilities
 
 - `--header-grad`: `linear-gradient(#EFE5CF, #E8DCC3)` → `linear-gradient(#3E2C18, #302110)`
 
-### 2b. Component updates — velora-header surfaces
+### 2b. Component updates — mytheca-header surfaces
 
 All four header-bearing components need their on-header text classes updated (Composer is excluded — see Gaps).
 
 **`web/frontend/components/layout/AppHeader.tsx`**
 - ❖ seal (decorative, `text-accent`) → `text-chrome-ink`
-- VELORA wordmark (`text-ink`) → `text-chrome-ink`
+- MYTHECA wordmark (`text-ink`) → `text-chrome-ink`
 - Search icon is inside a `bg-field` input container — no change needed.
 
 **`web/frontend/components/layout/SceneHeader.tsx`**
@@ -88,7 +88,7 @@ All four header-bearing components need their on-header text classes updated (Co
 
 **`web/frontend/features/options/OptionsView.tsx`** (header block only, ~lines 48–58)
 - ❖ seal (`text-accent`) → `text-chrome-ink`
-- VELORA wordmark (`text-ink`) → `text-chrome-ink`
+- MYTHECA wordmark (`text-ink`) → `text-chrome-ink`
 - "Options" label (`text-mute`) → `text-chrome-ink-soft`
 
 **Validation & Commit**
@@ -173,9 +173,9 @@ Update the **Themes & Color Tokens** table (the markdown table starting "| Token
 | Theme token updates | Stronger borders/hair, richer page-img, dark header-grad, dark rail-grad, modal-bg | `web/frontend/styles/themes.css` |
 | Chrome-ink tokens | `--chrome-ink` + `--chrome-ink-soft` in all three themes | `web/frontend/styles/themes.css` |
 | Tailwind utility additions | `text-chrome-ink`, `text-chrome-ink-soft` mapped from tokens | `web/frontend/app/globals.css` |
-| AppHeader chrome | VELORA wordmark + ❖ seal on dark header | `web/frontend/components/layout/AppHeader.tsx` |
+| AppHeader chrome | MYTHECA wordmark + ❖ seal on dark header | `web/frontend/components/layout/AppHeader.tsx` |
 | SceneHeader chrome | Scene title, setting subtitle, ‹ Library button on dark header | `web/frontend/components/layout/SceneHeader.tsx` |
-| OptionsView chrome | VELORA wordmark, ❖ seal, "Options" label on dark header | `web/frontend/features/options/OptionsView.tsx` |
+| OptionsView chrome | MYTHECA wordmark, ❖ seal, "Options" label on dark header | `web/frontend/features/options/OptionsView.tsx` |
 | CastRail chrome | Section eyebrow labels on dark rail | `web/frontend/components/feature/CastRail.tsx` |
 | DirectorRail chrome | Goal text, tension label, relationship text, all eyebrows on dark rail | `web/frontend/components/feature/DirectorRail.tsx` |
 | Design system docs | Updated token table + chrome-ink entries + frontend impl note | `docs/design-system.md` |

@@ -1,4 +1,4 @@
-# Velora — API & Event Contract
+# Mytheca — API & Event Contract
 
 The contract between the Next.js frontend and the FastAPI backend. Request/response schemas are owned by the backend (Pydantic, `web/backend/app/schemas/`); shared types and the event schema live in `web/shared/contracts/`. This document and those files must stay in sync.
 
@@ -347,7 +347,7 @@ the Options tab exposes config + the status check only.
 ## Reasoning budget (backend-controlled thinking cap)
 
 Local reasoning models spend most of their wall-clock on hidden *thinking* tokens.
-Velora caps that **per authoring operation** so quick work finishes fast. The effort
+Mytheca caps that **per authoring operation** so quick work finishes fast. The effort
 is set on the **backend** at each call-site and is **never exposed to the user** for
 Storyline / Character / Setting creation — there is no request field or settings
 toggle for it.
@@ -416,7 +416,7 @@ The agent that **replaced "Build the whole world"** on both `/storylines/new` an
 **write scope** (which of the storyline's own fields the agent may change), chats
 with it, and reviews a proposed **plan** before anything is written. The agent owns
 only the storyline's own fields — cast and settings keep their existing per-entity
-"Draft with Velora" flows. Conversation history is **client-session memory**: held
+"Draft with Mytheca" flows. Conversation history is **client-session memory**: held
 in the page's React state and sent back to the server every turn (`messages[]`); a
 **New chat / reset** clears it. Run over the configured LLM.
 

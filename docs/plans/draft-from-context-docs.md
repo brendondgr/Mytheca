@@ -4,12 +4,12 @@
 
 When an author opens the **Character** or **Setting** editor in agentic mode, drops a `.txt`/`.md`
 reference file into the **Context files** panel, and leaves its **Draft** toggle on, they expect
-"❖ Draft with Velora" to ground the draft on that file. Today it does not: drafting is gated on a
+"❖ Draft with Mytheca" to ground the draft on that file. Today it does not: drafting is gated on a
 typed **seed sentence** in three independent places, so with no sentence the button is disabled and
 the request never fires — the uploaded file is effectively ignored.
 
 This plan removes the *seed-only* requirement and makes a Draft-tagged context file a valid grounding
-source on its own. After the change, "Draft with Velora" is enabled when there is **either** a seed
+source on its own. After the change, "Draft with Mytheca" is enabled when there is **either** a seed
 sentence **or** at least one Draft-tagged context file, and the backend `draft_character` /
 `draft_setting` agents draft from whichever is present (seed, docs, or both), only erroring when
 *both* are empty. The fix spans the FastAPI authoring agents (`web/backend/app/agents/`), the two
@@ -78,7 +78,7 @@ API client, and `ContextFilesPanel` data flow already carry the doc text and nee
   `_docFiles` entry (and still disabled when the only doc has `useDraft: false`); add a hook test that
   `draftCharacter` calls `api.draftCharacter` with the concatenated doc text when the seed is empty.
 - **Action:** Run `npm test` (Vitest) + `npm run typecheck` + `npm run lint` in `web/frontend`. Once
-  green, commit: `Draft From Context Docs (2/3) Complete: enable Draft with Velora from a Draft-tagged context file alone.`
+  green, commit: `Draft From Context Docs (2/3) Complete: enable Draft with Mytheca from a Draft-tagged context file alone.`
 
 ### Phase 3 — Docs, full validation, merge
 

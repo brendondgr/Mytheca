@@ -195,7 +195,7 @@ export function StorylineMenu({
         <div
           id={menuId}
           aria-label="Switch storyline"
-          className="absolute top-[38px] left-0 z-40 w-[280px] velora-menu p-[7px]"
+          className="absolute top-[38px] left-0 z-40 w-[280px] mytheca-menu p-[7px]"
         >
           <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-[11px] uppercase tracking-[0.18em] text-mute2">
             Storylines

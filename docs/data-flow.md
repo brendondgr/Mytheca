@@ -1,6 +1,6 @@
-# Velora — Data Flow
+# Mytheca — Data Flow
 
-How data originates and moves through Velora. The streaming/event path is first-class.
+How data originates and moves through Mytheca. The streaming/event path is first-class.
 
 > **Current implementation.** The **Library** is now backend-backed: it reads from and writes to the FastAPI CRUD API via `web/frontend/lib/api.ts` (hand-rolled fetch, await-then-apply), so storylines/characters/settings/scenarios **persist** in Postgres. The backend is seeded with the Embergate world (`web/backend/app/core/seed.py`) so the app looks the same. The **Story player** streams live turns over the backend and **persists every play-through**: each turn's events (incl. hidden thoughts) and the diagnostic trace are saved, so reopening a scenario **resumes its most recent session** with the full history and continues forward (see *Scene Persistence, Resume & Export* below). The seed data (`web/frontend/features/story-player/scene-data.ts`) is now only the fallback opening for a never-played scene. (TanStack Query is still deferred; the hand-rolled client suffices for this CRUD surface.)
 
@@ -361,7 +361,7 @@ Same **creation-time, no-RAG** rules as storyline authoring. Everything produced
 is a character's **own base identity** (§1 node properties) — no graph structure
 is built here. Portrait generation is an explicit, opt-in step (it spends GPU
 time on the local ComfyUI server); starting stats are **proposal-only** until the
-author saves them. **"Draft with Velora" fires on a seed sentence, a Draft-tagged
+author saves them. **"Draft with Mytheca" fires on a seed sentence, a Draft-tagged
 context file, or both** — the modal enables the button (and the backend accepts
 the request) whenever either is present, and only refuses when both are empty.
 
@@ -388,7 +388,7 @@ Same **creation-time, no-RAG** rules. Everything produced is a setting's **own
 base description + current state** (§4.1 Setting-node properties) — never the
 play-accrued **event timeline** (ships empty, written async once play exists) and
 never graph edges. Scene art is an explicit, opt-in step (it spends GPU time on
-the local ComfyUI server). As with characters, **"Draft with Velora" accepts a
+the local ComfyUI server). As with characters, **"Draft with Mytheca" accepts a
 seed sentence, a Draft-tagged context file, or both** (only both-empty is
 refused).
 
@@ -536,7 +536,7 @@ Edit mode: approve(pendingPlan)
 
 This is a **one-time, per-approval** cost (like the old build), not a per-turn one, and
 **persists nothing before Approve**. The agent owns only the storyline's own fields —
-cast, settings, and scenarios keep their existing per-entity "Draft with Velora" flows
+cast, settings, and scenarios keep their existing per-entity "Draft with Mytheca" flows
 untouched. **No new DB column:** the stale-read check is a content hash recomputed from
 the current row on read, not a `version`/`updated_at` column on `Storyline`.
 

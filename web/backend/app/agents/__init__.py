@@ -1,1 +1,1 @@
-"""Velora backend: agents. See docs/skills/repository-structure/SKILL.md."""
+"""Mytheca backend: agents. See docs/skills/repository-structure/SKILL.md."""

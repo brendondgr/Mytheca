@@ -1,9 +1,9 @@
-# Velora — Repository Structure
+# Mytheca — Repository Structure
 
 `docs/` is the source of truth. All runtime web code lives under `web/`. The root `app.py` launches the FastAPI backend. Keep this file updated whenever the tree changes.
 
 ```text
-velora/
+mytheca/
 ├── CLAUDE.md                # Claude Code entry point — routing tables to docs/ and web/ files, avoids blind search
 ├── app.py                  # Root launcher — `python app.py` → backend + frontend together; `python app.py frontend|backend` → one side
 ├── pyproject.toml          # uv-managed Python project (backend + tooling)

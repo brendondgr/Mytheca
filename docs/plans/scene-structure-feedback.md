@@ -11,7 +11,7 @@ short (5–10 words, not ~20); (5) the Turn **Inspector** should be more readabl
 auto-collapsing completed turns, per-entry dropdowns, color-coded dots); and (6) the name-prefix
 label and narrator prose should **not be italic** (the muted color stays).
 
-Within Velora's architecture the work splits cleanly: the backend generation/flow (FastAPI
+Within Mytheca's architecture the work splits cleanly: the backend generation/flow (FastAPI
 turn engine, planner, narrator + character agents, the play request schema) drives areas 1–4's
 server side; the Next.js story player (scene seed, the turn-stream reducer, `TranscriptBeat`,
 `TurnInspectorPanel`) drives areas 1, 4, 5, 6's client side. All changes stay **best-effort** —

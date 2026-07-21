@@ -1,15 +1,15 @@
 ---
 name: global-project-rules
-description: Read this skill first, before any other work in the Velora repository. It defines required reading, the tech stack, environment/runtime rules, documentation maintenance duties, validation gates, and the definition of done for every AI agent and engineer.
+description: Read this skill first, before any other work in the Mytheca repository. It defines required reading, the tech stack, environment/runtime rules, documentation maintenance duties, validation gates, and the definition of done for every AI agent and engineer.
 ---
 
-# Velora — Global Project Rules
+# Mytheca — Global Project Rules
 
 This is the universal skill every agent (Claude Code, OpenAI Codex, Cursor, or any other tool) must read before making changes in this repository. `docs/` is the single source of truth. Agent-specific folders (`.claude/`, `.agents/`, `.cursor/`) contain only pointers back to this file and the canonical skills under `docs/skills/`.
 
-## What Velora Is
+## What Mytheca Is
 
-Velora is an AI-driven interactive narrative engine. Users create and play through scenes with AI characters; a multi-agent backend (Narrator, Character, Rules, Memory agents) drives the story, and narrative output is streamed to the UI as events. Core domain entities: **users, characters, scenes, events, and memories**.
+Mytheca is an AI-driven interactive narrative engine. Users create and play through scenes with AI characters; a multi-agent backend (Narrator, Character, Rules, Memory agents) drives the story, and narrative output is streamed to the UI as events. Core domain entities: **users, characters, scenes, events, and memories**.
 
 ## Required Reading Before Any Change
 
@@ -76,7 +76,7 @@ If a check is skipped, say so explicitly and record why in `docs/checklist.md`.
 
 - Branch off `main`; do not commit directly to `main` for feature work unless the user asks.
 - **Commit per phase**: each completed plan phase ends with a local commit. No automatic push or PR unless the user requests it.
-- Commit messages: `Velora — <area>: <what changed>`; for plan phases use `[Plan Name] (n/total) Complete: <summary>`.
+- Commit messages: `Mytheca — <area>: <what changed>`; for plan phases use `[Plan Name] (n/total) Complete: <summary>`.
 
 ## Cleanup & Sources of Truth
 

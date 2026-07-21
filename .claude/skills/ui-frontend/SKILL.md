@@ -1,6 +1,6 @@
 ---
 name: ui-frontend
-description: Use when designing or building Velora frontend UI on Next.js/React/TS/Tailwind/Framer Motion: components, story player, responsive layout, motion, a11y polish.
+description: Use when designing or building Mytheca frontend UI on Next.js/React/TS/Tailwind/Framer Motion: components, story player, responsive layout, motion, a11y polish.
 ---
 
 # Frontend UI

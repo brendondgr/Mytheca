@@ -3,7 +3,7 @@
 > Source brief: `Documents/Plans/5.4_story-graph-structure-prep.md` (the authoritative
 > Story-Graph spec). This plan implements the **substrate realization** (§6), the
 > **Type Registry** (§1.4), the **write path** (§6.5 / §8 authoring side), and the
-> **template read path** (§7.2 + §7.4) — committing Velora to **Neo4j** as the one
+> **template read path** (§7.2 + §7.4) — committing Mytheca to **Neo4j** as the one
 > Story Graph. The async turn-writer (§8 cold path), vector entry-point (§7.1), and
 > Text2Cypher (§7.3) are built as **documented seams**, not live, because their
 > prerequisites (a turn loop / story engine and an embedding stack) do not exist yet.
@@ -53,10 +53,10 @@ fake Neo4j session (the `comfyui.get_http_client` injectable pattern).
   **APOC** plugin and dynamic-label/security config + a healthcheck. `app.py`'s
   Docker handling is extended to **build** that image (`compose up -d --build --wait`,
   `pull --ignore-buildable`).
-- **Host ports** follow Velora's coexistence convention: **3349→7687 (bolt)**,
+- **Host ports** follow Mytheca's coexistence convention: **3349→7687 (bolt)**,
   **3350→7474 (http)**. Auth `neo4j` / a password from `NEO4J_PASSWORD` (default
-  `velora-graph` in `.env.example`, matching the Postgres/Redis "documented default"
-  style). Named volume `velora_neo4jdata`.
+  `mytheca-graph` in `.env.example`, matching the Postgres/Redis "documented default"
+  style). Named volume `mytheca_neo4jdata`.
 - **Registry scope:** built-in seed types are **global** (`storyline_id = NULL`,
   `status = built_in`) so every storyline shares them; user-defined types are
   **per-storyline**. Built-ins are seeded idempotently in preflight, independent of
@@ -83,7 +83,7 @@ fake Neo4j session (the `comfyui.get_http_client` injectable pattern).
   3349/3350 note), `web/backend/docker/neo4j/Dockerfile` (**new** — custom image
   `FROM neo4j:5.26-community`, APOC + dynamic-label/security config + healthcheck
   helper), `web/backend/docker-compose.yml` (new `neo4j` service: `build:` the custom
-  image, `image: velora-neo4j:local`, ports 3349/3350, `NEO4J_AUTH`, named volume,
+  image, `image: mytheca-neo4j:local`, ports 3349/3350, `NEO4J_AUTH`, named volume,
   `healthcheck`), `app.py` (`ensure_docker_services` → build the custom image:
   `pull --ignore-buildable` + `up -d --build --wait`; keep messaging), new
   `web/backend/app/core/neo4j.py` (lazy `get_driver()` lru_cache singleton, injectable

@@ -31,7 +31,7 @@ from app.schemas.storyline import StorylineDraftResponse
 from app.services import llm
 
 _DRAFT_SYSTEM = (
-    "You are Velora's worldbuilding assistant. Given a one-sentence seed for an "
+    "You are Mytheca's worldbuilding assistant. Given a one-sentence seed for an "
     "interactive-fiction world, draft its library metadata. Respond with ONLY a "
     "JSON object — no prose, no markdown, no code fences — with exactly these "
     'string keys: "title" (evocative, 1-4 words), "genre" (a short genre label, '
@@ -41,7 +41,7 @@ _DRAFT_SYSTEM = (
 )
 
 _PRIMER_SYSTEM = (
-    "You are Velora's worldbuilding assistant writing a World Primer: agent-facing "
+    "You are Mytheca's worldbuilding assistant writing a World Primer: agent-facing "
     "runtime context injected into every scene so the model can play immediately "
     "without looking things up. Write tight prose, one to four short paragraphs. "
     "Front-load the always-true, frequently-needed facts: the setting, era, and "

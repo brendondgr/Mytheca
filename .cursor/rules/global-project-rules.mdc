@@ -1,5 +1,5 @@
 ---
-description: Read this first before any work in Velora. Universal rules: required reading, stack, environment, validation gate, docs maintenance, git workflow.
+description: Read this first before any work in Mytheca. Universal rules: required reading, stack, environment, validation gate, docs maintenance, git workflow.
 globs: ["**/*"]
 alwaysApply: true
 ---

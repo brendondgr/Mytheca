@@ -1,8 +1,8 @@
-"""RAG constants (the attached brief's appendix, adapted to Velora).
+"""RAG constants (the attached brief's appendix, adapted to Mytheca).
 
 Single source for the embedding/retrieval knobs so the embedder, store, indexer,
 and retriever cannot drift. See ``docs/rag.md`` and
-``Documents/Plans/Velora/1.velora-rag-implementation-plan.md``.
+``Documents/Plans/Mytheca/1.mytheca-rag-implementation-plan.md``.
 """
 
 from __future__ import annotations
@@ -31,6 +31,6 @@ CONTEXT_N = 8  # final entries injected into an agent prompt
 RERANK_MODEL = "BAAI/bge-reranker-v2-m3"
 
 # Deterministic namespace so an entry's Qdrant point id is stable across runs.
-# Qdrant point ids must be uint/UUID; Velora ids are prefixed strings, so every
+# Qdrant point ids must be uint/UUID; Mytheca ids are prefixed strings, so every
 # entry maps id → uuid5(NAMESPACE, f"{entity_type}:{entity_id}").
 POINT_NAMESPACE = uuid.UUID("5e10a0a6-1d2c-4b3a-9f80-0a60ad000001")

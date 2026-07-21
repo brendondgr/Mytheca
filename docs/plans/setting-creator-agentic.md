@@ -1,4 +1,4 @@
-# Velora — Agentic Setting Creator + Setting-node prep
+# Mytheca — Agentic Setting Creator + Setting-node prep
 
 ## 1. Introduction
 
@@ -118,7 +118,7 @@ the Character prep added base-identity material it "will later connect."
 
 - **Locations:** `web/frontend/components/feature/SettingModal.tsx` (new — mirrors
   `CharacterModal`: header with name + type chips, by-hand form for `desc` /
-  `atmosphere` / `features` / `currentState`, agentic **Draft with Velora** panel,
+  `atmosphere` / `features` / `currentState`, agentic **Draft with Mytheca** panel,
   a **Scene art** compact preview + "Edit image" trigger, a read-only **Event
   timeline** seam section, the shared `ContextFilesPanel`, sticky footer actions).
   `web/frontend/components/feature/SceneArtModal.tsx` (new — the `PortraitModal`
@@ -149,7 +149,7 @@ the Character prep added base-identity material it "will later connect."
   (`agents/` now lists `setting_agent`; `services/` gains `media`/`scene_art`;
   `media/scenes/`), `docs/component-map.md` (`SettingModal`/`SceneArtModal`),
   `docs/checklist.md` (new completed entry + any deferred items).
-- **Rationale:** Velora's definition of done requires docs to track behavior in the
+- **Rationale:** Mytheca's definition of done requires docs to track behavior in the
   same change; `docs/` is the single source of truth.
 - **Action:** Re-run the full backend + frontend suites once more for a clean
   end-to-end gate. Once green, commit: `[Setting Creator] (5/5) Complete: docs + checklist updated; full validation green.`

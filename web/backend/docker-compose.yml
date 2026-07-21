@@ -1,4 +1,4 @@
-# Local data stores for the Velora backend. `python app.py backend` brings these
+# Local data stores for the Mytheca backend. `python app.py backend` brings these
 # up automatically (if Docker is available) as part of preflight. Credentials
 # match the default DATABASE_URL / REDIS_URL in .env.example.
 
@@ -6,17 +6,17 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: velora
-      POSTGRES_PASSWORD: velora
-      POSTGRES_DB: velora
-    # Published on a dedicated host port (3347) so Velora coexists with any other
+      POSTGRES_USER: mytheca
+      POSTGRES_PASSWORD: mytheca
+      POSTGRES_DB: mytheca
+    # Published on a dedicated host port (3347) so Mytheca coexists with any other
     # Postgres already using 5432 on the machine. Container port stays 5432.
     ports:
       - "3347:5432"
     volumes:
-      - velora_pgdata:/var/lib/postgresql/data
+      - mytheca_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U velora"]
+      test: ["CMD-SHELL", "pg_isready -U mytheca"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -26,7 +26,7 @@ services:
     ports:
       - "3348:6379"
     volumes:
-      - velora_redisdata:/data
+      - mytheca_redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -35,21 +35,21 @@ services:
 
   # The Story Graph substrate — a custom Neo4j 5.26 image (APOC + dynamic labels;
   # see docker/neo4j/Dockerfile). Bolt is published on host port 3349 and the
-  # browser/HTTP on 3350 (dedicated ports so Velora coexists with any Neo4j
+  # browser/HTTP on 3350 (dedicated ports so Mytheca coexists with any Neo4j
   # already on 7687/7474). `python app.py` builds this image and starts it; the
   # backend connects lazily and degrades gracefully when it's down.
   neo4j:
     build:
       context: ./docker/neo4j
-    image: velora-neo4j:local
+    image: mytheca-neo4j:local
     environment:
       # user/password — match NEO4J_USER / NEO4J_PASSWORD in .env.example.
-      NEO4J_AUTH: neo4j/velora-graph
+      NEO4J_AUTH: neo4j/mytheca-graph
     ports:
       - "3349:7687"  # bolt (driver)
       - "3350:7474"  # http (Neo4j Browser)
     volumes:
-      - velora_neo4jdata:/data
+      - mytheca_neo4jdata:/data
     healthcheck:
       # Dependency-free readiness gate: succeeds once the bolt port accepts TCP.
       # The backend's verify_connectivity / preflight ping is the query-level gate.
@@ -59,7 +59,7 @@ services:
       retries: 20
 
   # The Hybrid RAG vector store — Qdrant. REST is published on host port 3351 and
-  # gRPC on 3352 (dedicated ports so Velora coexists with any Qdrant already on
+  # gRPC on 3352 (dedicated ports so Mytheca coexists with any Qdrant already on
   # 6333/6334). `python app.py` starts it; the backend connects lazily and degrades
   # gracefully when it's down (CRUD + tests run with no Qdrant). No healthcheck — the
   # image ships no shell/curl, so `--wait` treats it as started; the lazy client +
@@ -70,10 +70,10 @@ services:
       - "3351:6333"  # rest (http)
       - "3352:6334"  # grpc
     volumes:
-      - velora_qdrantdata:/qdrant/storage
+      - mytheca_qdrantdata:/qdrant/storage
 
 volumes:
-  velora_pgdata:
-  velora_redisdata:
-  velora_neo4jdata:
-  velora_qdrantdata:
+  mytheca_pgdata:
+  mytheca_redisdata:
+  mytheca_neo4jdata:
+  mytheca_qdrantdata:

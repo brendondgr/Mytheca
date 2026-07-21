@@ -109,7 +109,7 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
         Image generation
       </h2>
       <p className="mt-[4px] mb-[18px] font-body text-[14px] text-ink-soft">
-        Point Velora at a local ComfyUI server. Workflows are loaded from{" "}
+        Point Mytheca at a local ComfyUI server. Workflows are loaded from{" "}
         <code className="font-mono text-[12px] text-ink">utils/workflows/</code>.
       </p>
 
