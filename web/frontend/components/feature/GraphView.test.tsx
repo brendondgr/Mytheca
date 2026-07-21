@@ -8,12 +8,40 @@ vi.mock("@/lib/api", () => ({
   getScenarioGraph: (...args: unknown[]) => getScenarioGraph(...args),
 }));
 
-// Stub the heavy canvas renderer — GraphView's contract is the state machine +
-// accessible table + legend, not the canvas drawing.
+// Stub the heavy canvas renderer — GraphView's contract is the state machine,
+// the accessible table, and wiring selection to the inspector, not the drawing.
+// The stub exposes the current selection (data-*) and buttons that fire the
+// selection callbacks, so we can drive selection without a real canvas.
 vi.mock("@/components/feature/GraphCanvas", () => ({
-  GraphCanvas: ({ nodes, edges }: { nodes: unknown[]; edges: unknown[] }) => (
-    <div data-testid="graph-canvas">
+  edgeKey: (e: { source: string; target: string; type: string }) => `${e.source}|${e.target}|${e.type}`,
+  GraphCanvas: ({
+    nodes,
+    edges,
+    onNodeSelect,
+    onEdgeSelect,
+    onBackgroundClick,
+    selectedNodeId,
+    selectedEdgeKey,
+  }: {
+    nodes: { id: string }[];
+    edges: unknown[];
+    onNodeSelect?: (n: unknown) => void;
+    onEdgeSelect?: (e: unknown) => void;
+    onBackgroundClick?: () => void;
+    selectedNodeId?: string | null;
+    selectedEdgeKey?: string | null;
+  }) => (
+    <div data-testid="graph-canvas" data-selected-node={selectedNodeId ?? ""} data-selected-edge={selectedEdgeKey ?? ""}>
       canvas:{nodes.length}:{edges.length}
+      <button type="button" onClick={() => onNodeSelect?.(nodes[0])}>
+        select-node
+      </button>
+      <button type="button" onClick={() => onEdgeSelect?.(edges[0])}>
+        select-edge
+      </button>
+      <button type="button" onClick={() => onBackgroundClick?.()}>
+        bg-click
+      </button>
     </div>
   ),
 }));
@@ -26,10 +54,10 @@ function graph(partial: Partial<ScenarioGraph>): ScenarioGraph {
 
 const POPULATED = graph({
   nodes: [
-    { id: "c1", type: "Character", label: "Mei", storyline: "s1", metadata: {} },
+    { id: "c1", type: "Character", label: "Mei", storyline: "s1", metadata: { mood: "wary" } },
     { id: "st1", type: "Setting", label: "Blackwood Tavern", storyline: "s1", metadata: {} },
   ],
-  edges: [{ source: "c1", target: "st1", type: "present_at", metadata: {} }],
+  edges: [{ source: "c1", target: "st1", type: "present_at", metadata: { visibility: "public" } }],
 });
 
 describe("GraphView", () => {
@@ -46,36 +74,62 @@ describe("GraphView", () => {
     expect(await screen.findByTestId("graph-canvas")).toBeInTheDocument();
   });
 
-  it("renders the canvas, legend, and an accessible node/edge table when populated", async () => {
+  it("renders the canvas, the inspector breakdown, and an accessible table when populated", async () => {
     getScenarioGraph.mockResolvedValue(POPULATED);
     render(<GraphView scenarioId="sc1" />);
 
     expect(await screen.findByTestId("graph-canvas")).toHaveTextContent("canvas:2:1");
 
-    // Legend labels every type (color is never the only signal).
-    const legend = within(screen.getByTestId("graph-legend"));
-    expect(legend.getByText("Character")).toBeInTheDocument();
-    expect(legend.getByText("Setting")).toBeInTheDocument();
-    expect(legend.getByText("present_at")).toBeInTheDocument();
+    // The inspector overview labels every type (color is never the only signal).
+    const inspector = within(screen.getByTestId("graph-inspector"));
+    expect(inspector.getByText("Character")).toBeInTheDocument();
+    expect(inspector.getByText("Setting")).toBeInTheDocument();
+    expect(inspector.getByText("present_at")).toBeInTheDocument();
 
     // Accessible tables list nodes and name-resolved edges.
     const nodeTable = screen.getByRole("table", { name: /story-graph nodes/i });
     expect(nodeTable).toHaveTextContent("Mei");
-    expect(nodeTable).toHaveTextContent("Blackwood Tavern");
     const edgeTable = screen.getByRole("table", { name: /story-graph connections/i });
-    expect(edgeTable).toHaveTextContent("Mei");
     expect(edgeTable).toHaveTextContent("present_at");
-    expect(edgeTable).toHaveTextContent("Blackwood Tavern");
 
-    // The canvas region is labeled for screen readers.
     expect(screen.getByRole("img", { name: /story graph with 2 nodes and 1 connection/i })).toBeInTheDocument();
   });
 
-  it("passes onNodeSelect through to the canvas", async () => {
+  it("selecting a node shows its properties and marks it selected on the canvas", async () => {
     getScenarioGraph.mockResolvedValue(POPULATED);
-    const onNodeSelect = vi.fn();
-    render(<GraphView scenarioId="sc1" onNodeSelect={onNodeSelect} />);
-    expect(await screen.findByTestId("graph-canvas")).toBeInTheDocument();
+    render(<GraphView scenarioId="sc1" />);
+    await screen.findByTestId("graph-canvas");
+
+    await userEvent.click(screen.getByRole("button", { name: "select-node" }));
+
+    const inspector = within(screen.getByTestId("graph-inspector"));
+    expect(inspector.getByRole("heading", { name: "Mei" })).toBeInTheDocument();
+    expect(inspector.getByText(/id: c1/i)).toBeInTheDocument();
+    expect(inspector.getByText("mood")).toBeInTheDocument();
+    expect(inspector.getByText("wary")).toBeInTheDocument();
+    // Selection propagates back to the canvas for highlighting.
+    expect(screen.getByTestId("graph-canvas")).toHaveAttribute("data-selected-node", "c1");
+
+    // Back returns to the overview.
+    await userEvent.click(inspector.getByRole("button", { name: /overview/i }));
+    expect(within(screen.getByTestId("graph-inspector")).getByText(/node types/i)).toBeInTheDocument();
+  });
+
+  it("selecting an edge shows its properties and marks it selected on the canvas", async () => {
+    getScenarioGraph.mockResolvedValue(POPULATED);
+    render(<GraphView scenarioId="sc1" />);
+    await screen.findByTestId("graph-canvas");
+
+    await userEvent.click(screen.getByRole("button", { name: "select-edge" }));
+
+    const inspector = within(screen.getByTestId("graph-inspector"));
+    expect(inspector.getByText("present_at")).toBeInTheDocument();
+    expect(inspector.getByText("visibility")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-canvas")).toHaveAttribute("data-selected-edge", "c1|st1|present_at");
+
+    // Clicking the background clears back to the overview.
+    await userEvent.click(screen.getByRole("button", { name: "bg-click" }));
+    expect(within(screen.getByTestId("graph-inspector")).getByText(/node types/i)).toBeInTheDocument();
   });
 
   it("shows a calm offline state when the graph is unavailable", async () => {

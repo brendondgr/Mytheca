@@ -99,7 +99,7 @@ export function StoryPlayerView({
         onViewModeChange={setViewMode}
         onExport={onExport}
         canExport={Boolean(scene.sessionId)}
-        onToggleInspector={() => setInspectorOpen((o) => !o)}
+        onToggleInspector={viewMode === "graph" ? undefined : () => setInspectorOpen((o) => !o)}
         inspectorOpen={inspectorOpen}
       />
 
@@ -118,8 +118,9 @@ export function StoryPlayerView({
         />
 
         {viewMode === "graph" ? (
-          <GraphView scenarioId={scenario.id} onNodeSelect={scene.openProfile} />
+          <GraphView scenarioId={scenario.id} />
         ) : (
+        <>
         <div className="flex min-w-0 flex-1 flex-col">
           <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto p-[20px_16px_10px] sm:p-[24px_30px_10px]">
             <div
@@ -180,7 +181,6 @@ export function StoryPlayerView({
             usedTokensExact={scene.usedTokensExact}
           />
         </div>
-        )}
 
         {profileChar ? (
           <CharacterDossier
@@ -205,6 +205,8 @@ export function StoryPlayerView({
           onClose={() => setInspectorOpen(false)}
           turns={scene.traceTurns}
         />
+        </>
+        )}
       </div>
 
       <SceneLoader scenario={scenario} storylineName={storylineName} visible={scene.loading} />

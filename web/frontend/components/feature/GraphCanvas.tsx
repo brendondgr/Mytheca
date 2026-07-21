@@ -9,10 +9,13 @@ import { useTheme } from "@/hooks/use-theme";
 
 // The renderer mutates node objects (adds x/y/vx/vy) and rewrites link
 // source/target into node refs, so we feed it fresh copies keyed by name/type.
+// Each carries its source `GraphNode`/`GraphEdge` so click handlers can report
+// the full element (with its metadata) without a lookup.
 interface RFNode {
   id: string;
   name: string;
   type: string | null;
+  node: GraphNode;
   x?: number;
   y?: number;
 }
@@ -20,6 +23,12 @@ interface RFLink {
   source: string;
   target: string;
   type: string;
+  edge: GraphEdge;
+}
+
+/** A stable identity for an edge (there can be several between two nodes). */
+export function edgeKey(e: { source: string; target: string; type: string }): string {
+  return `${e.source}|${e.target}|${e.type}`;
 }
 
 // react-force-graph-2d reads `window` at import time, so it can only load in the
@@ -48,16 +57,27 @@ function cssVar(name: string, fallback: string): string {
  * The force-directed canvas itself. Isolated so the heavy library stays lazy and
  * so `GraphView` (and its tests) never touch the canvas. Nodes are colored by
  * type, labels are drawn in the live theme ink color, edges by relationship
- * valence. Clicking a Character node calls `onNodeSelect`.
+ * valence. Clicking a node/edge reports the full element (`onNodeSelect`/
+ * `onEdgeSelect`); clicking the background clears (`onBackgroundClick`). The
+ * currently-selected node/edge (`selectedNodeId`/`selectedEdgeKey`) is drawn
+ * emphasized.
  */
 export function GraphCanvas({
   nodes,
   edges,
   onNodeSelect,
+  onEdgeSelect,
+  onBackgroundClick,
+  selectedNodeId = null,
+  selectedEdgeKey = null,
 }: {
   nodes: GraphNode[];
   edges: GraphEdge[];
-  onNodeSelect?: (id: string) => void;
+  onNodeSelect?: (node: GraphNode) => void;
+  onEdgeSelect?: (edge: GraphEdge) => void;
+  onBackgroundClick?: () => void;
+  selectedNodeId?: string | null;
+  selectedEdgeKey?: string | null;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
@@ -90,8 +110,13 @@ export function GraphCanvas({
 
   const data = useMemo(
     () => ({
-      nodes: nodes.map<RFNode>((n) => ({ id: n.id, name: n.label ?? n.id, type: n.type })),
-      links: edges.map<RFLink>((e) => ({ source: e.source, target: e.target, type: e.type })),
+      nodes: nodes.map<RFNode>((n) => ({ id: n.id, name: n.label ?? n.id, type: n.type, node: n })),
+      links: edges.map<RFLink>((e) => ({
+        source: e.source,
+        target: e.target,
+        type: e.type,
+        edge: e,
+      })),
     }),
     [nodes, edges],
   );
@@ -107,7 +132,7 @@ export function GraphCanvas({
           nodeRelSize={5}
           nodeLabel={(n: RFNode) => `${n.name}${n.type ? ` — ${n.type}` : ""}`}
           linkColor={(l: RFLink) => edgeColor(l.type)}
-          linkWidth={1}
+          linkWidth={(l: RFLink) => (edgeKey(l.edge) === selectedEdgeKey ? 3 : 1)}
           warmupTicks={20}
           cooldownTicks={120}
           cooldownTime={4000}
@@ -115,7 +140,13 @@ export function GraphCanvas({
             hoverId.current = n?.id ?? null;
           }}
           onNodeClick={(n: RFNode) => {
-            if (n.type === "Character" && onNodeSelect) onNodeSelect(n.id);
+            onNodeSelect?.(n.node);
+          }}
+          onLinkClick={(l: RFLink) => {
+            onEdgeSelect?.(l.edge);
+          }}
+          onBackgroundClick={() => {
+            onBackgroundClick?.();
           }}
           nodeCanvasObjectMode={() => "replace"}
           nodeCanvasObject={(n: RFNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -123,12 +154,14 @@ export function GraphCanvas({
             const y = n.y ?? 0;
             const r = 5;
             const fill = nodeColor(n.type);
-            // Selection/hover ring in a constant screen thickness.
-            if (hoverId.current === n.id) {
+            const selected = n.id === selectedNodeId;
+            // A persistent selection ring (thicker), or a lighter hover ring —
+            // both a constant screen thickness regardless of zoom.
+            if (selected || hoverId.current === n.id) {
               ctx.beginPath();
-              ctx.arc(x, y, r + 3 / globalScale, 0, Math.PI * 2);
+              ctx.arc(x, y, r + (selected ? 4 : 3) / globalScale, 0, Math.PI * 2);
               ctx.strokeStyle = fill;
-              ctx.lineWidth = 1.5 / globalScale;
+              ctx.lineWidth = (selected ? 2.5 : 1.5) / globalScale;
               ctx.stroke();
             }
             ctx.beginPath();
