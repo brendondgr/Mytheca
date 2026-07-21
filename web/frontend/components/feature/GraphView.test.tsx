@@ -71,13 +71,6 @@ describe("GraphView", () => {
     expect(screen.getByRole("img", { name: /story graph with 2 nodes and 1 connection/i })).toBeInTheDocument();
   });
 
-  it("passes onNodeSelect through to the canvas", async () => {
-    getScenarioGraph.mockResolvedValue(POPULATED);
-    const onNodeSelect = vi.fn();
-    render(<GraphView scenarioId="sc1" onNodeSelect={onNodeSelect} />);
-    expect(await screen.findByTestId("graph-canvas")).toBeInTheDocument();
-  });
-
   it("shows a calm offline state when the graph is unavailable", async () => {
     getScenarioGraph.mockResolvedValue(graph({ available: false }));
     render(<GraphView scenarioId="sc1" />);

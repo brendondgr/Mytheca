@@ -15,16 +15,9 @@ type Status = "loading" | "error" | "ready";
  * Fetches `getScenarioGraph` on mount, so nothing is requested (and the force
  * library's chunk is not loaded) until a scene is actually switched to Graph
  * mode. Degrades to a friendly state when Neo4j is off (`available:false`) or
- * the subgraph is empty. Clicking a Character node calls `onNodeSelect` (the
- * story player opens that character's dossier).
+ * the subgraph is empty.
  */
-export function GraphView({
-  scenarioId,
-  onNodeSelect,
-}: {
-  scenarioId: string;
-  onNodeSelect?: (id: string) => void;
-}) {
+export function GraphView({ scenarioId }: { scenarioId: string }) {
   const [status, setStatus] = useState<Status>("loading");
   const [graph, setGraph] = useState<ScenarioGraph | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -186,7 +179,7 @@ export function GraphView({
         className="relative m-0 min-h-0 flex-1 focus-visible:outline-none"
         tabIndex={0}
       >
-        <GraphCanvas nodes={nodes} edges={edges} onNodeSelect={onNodeSelect} />
+        <GraphCanvas nodes={nodes} edges={edges} />
       </figure>
 
       {/* Visible legend — type label + swatch, never color alone. */}

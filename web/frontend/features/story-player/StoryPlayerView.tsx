@@ -118,7 +118,7 @@ export function StoryPlayerView({
         />
 
         {viewMode === "graph" ? (
-          <GraphView scenarioId={scenario.id} onNodeSelect={scene.openProfile} />
+          <GraphView scenarioId={scenario.id} />
         ) : (
         <div className="flex min-w-0 flex-1 flex-col">
           <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto p-[20px_16px_10px] sm:p-[24px_30px_10px]">
