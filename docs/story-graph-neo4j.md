@@ -76,7 +76,7 @@ rejected by the server). Returns `{ available, scenarioId, nodes[], edges[] }`.
 - **§8 async turn-writer** — cold-path consequence extraction; needs a turn loop / story engine.
 - **§7.1 vector entry-point** — needs an embedding stack + a native vector index.
 - **§7.3 Text2Cypher** — `schema_blob` is compiled and ready; live generation awaits a hot-path consumer (staged per §10).
-- **Graph visualization UI** — the API-client + types seam exists (`web/frontend/lib/api.ts`, `lib/types.ts`); no graph-viz component yet.
+- **Graph visualization UI** — *implemented*. The story player's **Graph view** (`components/feature/GraphView.tsx` + `GraphCanvas.tsx`, reached by the `SceneHeader` Chat ⇄ Graph switch) renders this endpoint's subgraph as a `react-force-graph-2d` canvas, colored by type via `lib/graphColors.ts`, with a legend + sr-only table. Degrades to a calm "offline" state when this read path returns `available:false`.
 
 ## Environment
 
