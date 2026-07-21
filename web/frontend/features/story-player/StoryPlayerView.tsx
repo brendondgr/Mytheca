@@ -6,8 +6,9 @@ import { exportSessionUrl } from "@/lib/api";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 import type { ExportFormat } from "@/components/feature/ExportMenu";
 import { useScenePlay } from "./useScenePlay";
-import { SceneHeader } from "@/components/layout/SceneHeader";
+import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
 import { CastRail } from "@/components/feature/CastRail";
+import { GraphView } from "@/components/feature/GraphView";
 import { DirectorRail } from "@/components/feature/DirectorRail";
 import { Composer } from "@/components/feature/Composer";
 import { SceneLoader } from "@/components/feature/SceneLoader";
@@ -49,6 +50,7 @@ export function StoryPlayerView({
   );
   const [modalId, setModalId] = useState<string | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<SceneViewMode>("chat");
   const byId = (id: string): Character | undefined =>
     scenario.cast.find((c) => c.id === id);
 
@@ -93,6 +95,8 @@ export function StoryPlayerView({
         genre={scenario.genre}
         tone={scenario.tone}
         backHref={backHref}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
         onExport={onExport}
         canExport={Boolean(scene.sessionId)}
         onToggleInspector={() => setInspectorOpen((o) => !o)}
@@ -113,6 +117,9 @@ export function StoryPlayerView({
           activityByChar={scene.activityByChar}
         />
 
+        {viewMode === "graph" ? (
+          <GraphView scenarioId={scenario.id} onNodeSelect={scene.openProfile} />
+        ) : (
         <div className="flex min-w-0 flex-1 flex-col">
           <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto p-[20px_16px_10px] sm:p-[24px_30px_10px]">
             <div
@@ -173,6 +180,7 @@ export function StoryPlayerView({
             usedTokensExact={scene.usedTokensExact}
           />
         </div>
+        )}
 
         {profileChar ? (
           <CharacterDossier
