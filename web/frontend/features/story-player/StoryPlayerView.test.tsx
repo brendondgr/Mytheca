@@ -202,14 +202,20 @@ describe("StoryPlayerView", () => {
     expect(screen.getByText(/Lamplight gutters across the Saltworn/i)).toBeInTheDocument();
     expect(screen.queryByTestId("graph-view-stub")).not.toBeInTheDocument();
 
-    // Flip to Graph — the transcript is replaced by the graph view.
+    // Chat mode shows the chat-only Inspector toggle.
+    expect(screen.getByRole("button", { name: /inspector/i })).toBeInTheDocument();
+
+    // Flip to Graph — the transcript is replaced by the graph view, and the
+    // chat-only controls (Turn Inspector toggle) drop away.
     await user.click(screen.getByRole("button", { name: /^graph$/i }));
     expect(screen.getByTestId("graph-view-stub")).toBeInTheDocument();
     expect(screen.queryByText(/Lamplight gutters across the Saltworn/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /inspector/i })).not.toBeInTheDocument();
 
-    // Flip back to Chat — the transcript returns.
+    // Flip back to Chat — the transcript and the Inspector toggle return.
     await user.click(screen.getByRole("button", { name: /^chat$/i }));
     expect(screen.getByText(/Lamplight gutters across the Saltworn/i)).toBeInTheDocument();
     expect(screen.queryByTestId("graph-view-stub")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /inspector/i })).toBeInTheDocument();
   });
 });

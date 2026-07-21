@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getScenarioGraph } from "@/lib/api";
 import type { ScenarioGraph } from "@/lib/types";
-import { graphLegend } from "@/lib/graphColors";
-import { GraphCanvas } from "@/components/feature/GraphCanvas";
+import { GraphCanvas, edgeKey } from "@/components/feature/GraphCanvas";
+import { GraphInspectorPanel, type GraphSelection } from "@/components/feature/GraphInspectorPanel";
 
 type Status = "loading" | "error" | "ready";
 
@@ -21,6 +21,7 @@ export function GraphView({ scenarioId }: { scenarioId: string }) {
   const [status, setStatus] = useState<Status>("loading");
   const [graph, setGraph] = useState<ScenarioGraph | null>(null);
   const [nonce, setNonce] = useState(0);
+  const [selection, setSelection] = useState<GraphSelection>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,10 +52,9 @@ export function GraphView({ scenarioId }: { scenarioId: string }) {
     return map;
   }, [graph]);
 
-  const legend = useMemo(
-    () => graphLegend(graph?.nodes ?? [], graph?.edges ?? []),
-    [graph],
-  );
+  const clearSelection = useCallback(() => setSelection(null), []);
+  const selectedNodeId = selection?.kind === "node" ? selection.node.id : null;
+  const selectedEdgeKey = selection?.kind === "edge" ? edgeKey(selection.edge) : null;
 
   const shell = "flex min-w-0 flex-1 flex-col bg-page";
 
@@ -126,6 +126,7 @@ export function GraphView({ scenarioId }: { scenarioId: string }) {
 
   const descId = "story-graph-desc";
   return (
+    <>
     <section aria-label="Story graph" className={shell}>
       {/* Screen-reader + keyboard alternative: a summary and a full node/edge table. */}
       <p id={descId} className="sr-only">
@@ -179,29 +180,20 @@ export function GraphView({ scenarioId }: { scenarioId: string }) {
         className="relative m-0 min-h-0 flex-1 focus-visible:outline-none"
         tabIndex={0}
       >
-        <GraphCanvas nodes={nodes} edges={edges} />
+        <GraphCanvas
+          nodes={nodes}
+          edges={edges}
+          selectedNodeId={selectedNodeId}
+          selectedEdgeKey={selectedEdgeKey}
+          onNodeSelect={(node) => setSelection({ kind: "node", node })}
+          onEdgeSelect={(edge) => setSelection({ kind: "edge", edge })}
+          onBackgroundClick={clearSelection}
+        />
       </figure>
-
-      {/* Visible legend — type label + swatch, never color alone. */}
-      <div
-        data-testid="graph-legend"
-        className="flex flex-none flex-wrap items-center gap-x-4 gap-y-2 border-t border-hair-strong bg-surface px-4 py-[10px]"
-      >
-        <span className="font-mono text-[9px] tracking-[0.16em] text-mute2 uppercase">Legend</span>
-        {legend.map((item) => (
-          <span
-            key={`${item.kind}:${item.type}`}
-            className="flex items-center gap-[6px] font-mono text-[10px] tracking-[0.08em] text-ink-soft"
-          >
-            <span
-              aria-hidden
-              className={item.kind === "node" ? "h-[10px] w-[10px] rounded-full" : "h-[3px] w-[14px] rounded-full"}
-              style={{ background: item.color }}
-            />
-            {item.type}
-          </span>
-        ))}
-      </div>
     </section>
+
+    {/* Right rail: the type breakdown, or the selected node/edge's properties. */}
+    <GraphInspectorPanel nodes={nodes} edges={edges} selection={selection} onClear={clearSelection} />
+    </>
   );
 }
