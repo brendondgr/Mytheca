@@ -153,3 +153,42 @@ export function graphLegend(
     }));
   return [...nodeItems, ...edgeItems];
 }
+
+export interface TypeCount {
+  /** The node label or edge relationship type. */
+  type: string;
+  /** The color it is drawn in. */
+  color: string;
+  /** How many nodes/edges of this type are present. */
+  count: number;
+}
+
+/**
+ * A per-type breakdown of a graph — one entry per distinct node type and per
+ * distinct edge type, each with its color and how many are present, sorted by
+ * count (descending) then name. Untyped nodes/edges fold into an "Untyped"
+ * bucket. Powers the inspector's overview.
+ */
+export function graphTypeCounts(
+  nodes: { type: string | null | undefined }[],
+  edges: { type: string | null | undefined }[],
+): { nodes: TypeCount[]; edges: TypeCount[] } {
+  const tally = (
+    items: { type: string | null | undefined }[],
+    color: (t: string | null) => string,
+  ): TypeCount[] => {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      const type = item.type || "Untyped";
+      counts.set(type, (counts.get(type) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([type, count]) => ({
+        type,
+        count,
+        color: color(type === "Untyped" ? null : type),
+      }))
+      .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type));
+  };
+  return { nodes: tally(nodes, nodeColor), edges: tally(edges, edgeColor) };
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { edgeColor, graphLegend, nodeColor } from "@/lib/graphColors";
+import { edgeColor, graphLegend, graphTypeCounts, nodeColor } from "@/lib/graphColors";
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
@@ -49,6 +49,27 @@ describe("graphColors", () => {
       "edge:present_at",
     ]);
     legend.forEach((l) => expect(l.color).toMatch(HEX));
+  });
+
+  it("counts types, sorted by count then name, with matching colors", () => {
+    const { nodes, edges } = graphTypeCounts(
+      [{ type: "Character" }, { type: "Setting" }, { type: "Character" }, { type: "Character" }],
+      [{ type: "present_at" }, { type: "knows" }, { type: "present_at" }],
+    );
+    expect(nodes).toEqual([
+      { type: "Character", color: nodeColor("Character"), count: 3 },
+      { type: "Setting", color: nodeColor("Setting"), count: 1 },
+    ]);
+    expect(edges).toEqual([
+      { type: "present_at", color: edgeColor("present_at"), count: 2 },
+      { type: "knows", color: edgeColor("knows"), count: 1 },
+    ]);
+  });
+
+  it("folds untyped elements into an 'Untyped' count bucket", () => {
+    const { nodes } = graphTypeCounts([{ type: null }, { type: undefined }, { type: "Character" }], []);
+    const untyped = nodes.find((n) => n.type === "Untyped");
+    expect(untyped?.count).toBe(2);
   });
 
   it("folds untyped nodes/edges into a single 'Untyped' legend entry", () => {
