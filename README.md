@@ -1,53 +1,104 @@
-# Mytheca
+<div align="center">
 
-Mytheca is an AI-driven, multi-character roleplay chat engine. Users build a **storyline** (the world) with its **characters**, **settings**, and **scenarios** (live situations), then play through scenes driven by a multi-agent backend (Orchestrator/Director, Narrator, and Character agents) with a State manager and a Validator. The AI emits small, validated **story events** that stream to the UI in real time, and a near-term **stat system** (bounded, guidance-driven numeric values) gives the world continuity and consequence.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/LightText.svg">
+  <img alt="Mytheca" src="images/DarkText.svg" width="460">
+</picture>
 
-## Documentation (source of truth)
+### A Library of Myths — an AI-driven, multi-character roleplay engine
 
-All durable documentation lives in [`docs/`](docs/). Start here:
+*Build a world, cast its characters, and play through scenes narrated in real time by a multi-agent story engine — styled as a living, illuminated manuscript.*
 
-- [docs/documentation.md](docs/documentation.md) — purpose, stack, decisions, status
-- [docs/structure.md](docs/structure.md) — repository layout
-- [docs/workflow.md](docs/workflow.md) — commands, environment, validation, git
-- [docs/architecture.md](docs/architecture.md) — modes, auth, boundary, data layer
+`Next.js` · `React` · `TypeScript` · `Tailwind` · `FastAPI` · `Python 3.13` · `PostgreSQL` · `Redis` · `Neo4j` · `Qdrant`
+
+</div>
+
+---
+
+## What is Mytheca?
+
+**Mytheca** — from *Myth* + the Greek *Bibliotheca* ("library") — is a **library of myths**: a place to author interactive worlds and then live inside them. You create a **storyline** (the world) with its **characters**, **settings**, and **scenarios** (live situations), then play through scenes where AI characters converse with one another and with you, while a persistent **Narrator** describes the world around them. The central chat reads like a scene, not a flat message thread.
+
+The story is driven by a **multi-agent backend** that emits **small, typed, validated story events**. The AI decides *what happens*; the UI decides *how it looks* — the model never dictates layout. A bounded, guidance-driven **stat system** (trust, patience, suspicion, health…) gives the world continuity and consequence over time.
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Storyline<br/>world + stat schema] --> B[Characters · Settings · Scenarios]
+    B --> C{Turn Engine}
+    C -->|who's up + branches| D[Director]
+    C -->|think → speak| E[Character agents]
+    C -->|interstitials| F[Narrator]
+    D & E & F --> G[Validator<br/>stat clamp + presence]
+    G -->|typed story events| H[NDJSON event stream]
+    H --> I[Story Player UI<br/>living-manuscript renderer]
+```
+
+Each turn, the **Director** decides who acts and what branches are open, **Character** agents think then speak, and the **Narrator** fills the interstitials. A **Validator** clamps stats and enforces scene presence, then the result is streamed to the browser as a line-delimited (NDJSON) event stream and rendered beat by beat.
+
+## Key features
+
+- **Multi-agent turn loop** — Director / Character / Narrator agents with a state manager and validator, streaming deltas as they generate.
+- **Living-manuscript UI** — an illuminated-codex design with three themes (Parchment, Ember, Slate), warm parchment reading surfaces, wax-seal avatars, and reduced-motion-aware animation.
+- **Bounded stat system** — per-storyline stat schemas with Markdown guidance drive continuity and consequence instead of free-floating numbers.
+- **Conversational authoring** — a scope-aware storyline agent edits your world through chat, with a transactional diff guard.
+- **Hybrid retrieval** — a hybrid RAG pipeline (Qdrant + fastembed) plus a Neo4j **Story Graph** substrate for durable world lore.
+- **Local- or cloud-LLM** — a provider-agnostic interface runs against OpenAI-compatible endpoints or a local reasoning model.
+
+## Tech stack
+
+| Layer | Choice |
+| --- | --- |
+| **Frontend** | Next.js (App Router) · React · TypeScript · Tailwind CSS · Framer Motion — `web/frontend/` |
+| **Backend** | FastAPI (Python 3.13, managed by `uv`) — `web/backend/`, launched from the root `app.py` |
+| **Data** | PostgreSQL (core state) · Redis (live scene/cache) · Neo4j (Story Graph) · Qdrant (vector RAG) |
+| **AI** | Provider-agnostic LLMs (OpenAI-compatible or local), multi-agent orchestration |
+| **Streaming** | SSE / WebSocket carrying an NDJSON story-event stream |
+
+## Quickstart
+
+> **Prerequisites:** Python 3.13 + [`uv`](https://docs.astral.sh/uv/), Node.js, and Docker (for the Postgres/Redis/Neo4j/Qdrant data stores, which `app.py` starts for you).
+
+```bash
+git clone <this-repo> && cd Mytheca
+cp .env.example .env          # then fill in values (LLM endpoint, secrets)
+
+uv run python app.py          # [default] backend + frontend together
+                              #   UI  → http://localhost:3346
+                              #   API → http://127.0.0.1:3345
+```
+
+`python app.py` runs both sides: it brings up the data containers, runs backend preflight (schema + seed), waits for health, then starts the frontend; `Ctrl+C` stops both. Run a single side with `uv run python app.py backend` or `python app.py frontend`. Equivalent direct commands:
+
+```bash
+cd web/frontend && npm install && npm run dev   # frontend only  → :3346
+uv sync && uv run python app.py backend          # backend only   → :3345
+uv run pytest                                    # backend tests
+cd web/frontend && npm test                      # frontend tests
+```
+
+## Project layout
+
+```
+app.py            # root launcher — runs backend + frontend together (owns Docker data stores)
+web/frontend/     # Next.js app (Library + Story player)
+web/backend/      # FastAPI app — routes, agents, services, content, events, models
+web/shared/       # shared FE↔BE contracts
+docs/             # documentation (source of truth) + canonical skills
+utils/            # helpers + tests (pytest + Vitest) + scripts
+images/           # Mytheca brand kit (logos, wordmarks)
+```
+
+## Documentation
+
+All durable documentation lives in [`docs/`](docs/) — the single source of truth. Start here:
+
+- [docs/documentation.md](docs/documentation.md) — purpose, domain model, stack, status
+- [docs/architecture.md](docs/architecture.md) — modes, boundaries, data layer, decisions
+- [docs/workflow.md](docs/workflow.md) — commands, environment, ports, validation gate
+- [docs/structure.md](docs/structure.md) — full repository layout
+- [docs/data-flow.md](docs/data-flow.md) · [docs/api-contract.md](docs/api-contract.md) — streaming + event contract
 - [docs/checklist.md](docs/checklist.md) — current status and next steps
 
-Agents must read [docs/skills/global-project-rules/SKILL.md](docs/skills/global-project-rules/SKILL.md) first. Canonical skills live under [docs/skills/](docs/skills/); the `.claude/`, `.agents/`, and `.cursor/` folders contain only pointers to them.
-
-## Stack
-
-- **Frontend:** Next.js (App Router) · React · TypeScript · Tailwind CSS · Framer Motion — in `web/frontend/`
-- **Backend:** FastAPI (Python 3.13, `uv`) — in `web/backend/`, launched from root `app.py`
-- **Data:** PostgreSQL (core) · Redis (live scenario/cache) · Vector DB (deferred) — plus YAML config + Markdown stat guidance
-- **AI:** LLMs via OpenAI or local, multi-agent · **Streaming:** SSE/WebSocket NDJSON event stream (5 event types)
-
-## Layout
-
-```
-app.py            # root launcher → `python app.py` runs backend + frontend together; `python app.py frontend|backend` runs one side
-web/frontend/     # Next.js app
-web/backend/      # FastAPI app (routes, agents, services, content, events, models)
-web/shared/       # shared FE↔BE contracts
-docs/             # documentation + canonical skills
-utils/            # helpers + utils/tests (pytest + frontend) + utils/scripts
-```
-
-## Getting Started
-
-The frontend (Library + Story player) is built. Run everything from the repo root through `app.py`:
-
-```bash
-python app.py             # [default] backend + frontend together → http://localhost:3346 (UI), http://127.0.0.1:3345 (API)
-python app.py frontend    # frontend dev server only (npm run dev) → http://localhost:3346
-python app.py backend     # FastAPI API only via uvicorn → http://127.0.0.1:3345  (after `uv sync`)
-```
-
-The default runs both: it starts the backend (preflight: Postgres/Redis + schema + seed), waits for it to report healthy, then launches the frontend; Ctrl+C stops both. Use `uv run python app.py` so the backend's Python deps are available. `app.py` installs the frontend deps on first run. Equivalent direct commands:
-
-```bash
-cd web/frontend && npm install && npm run dev   # frontend
-uv sync && uv run python app.py backend          # backend
-uv run pytest                                    # backend tests
-```
-
-Copy `.env.example` to `.env` and fill in values before running.
+Contributors and coding agents should read [docs/skills/global-project-rules/SKILL.md](docs/skills/global-project-rules/SKILL.md) first. Canonical skills live under [docs/skills/](docs/skills/); the `.claude/`, `.agents/`, and `.cursor/` folders contain only pointers to them.
