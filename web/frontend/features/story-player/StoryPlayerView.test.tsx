@@ -28,6 +28,14 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   getLlmContextWindow: vi.fn(async () => ({ maxContextTokens: 16384, source: "configured" as const })),
 }));
 
+// The graph view is exercised in its own test; here we only verify the switch
+// swaps it into the center column, so stub it (also avoids a real graph fetch).
+vi.mock("@/components/feature/GraphView", () => ({
+  GraphView: ({ scenarioId }: { scenarioId: string }) => (
+    <div data-testid="graph-view-stub">graph:{scenarioId}</div>
+  ),
+}));
+
 function streamOf(...frames: TurnStreamFrame[]) {
   return async function* () {
     for (const f of frames) yield f;
@@ -185,5 +193,23 @@ describe("StoryPlayerView", () => {
     // The four choices share a 2-column grid container (a 2×2 layout).
     expect(choice.parentElement?.className).toMatch(/grid-cols-2/);
     expect(screen.getByRole("button", { name: /Delta/i })).toBeInTheDocument();
+  });
+
+  it("switches the center column between the chat and the story graph", async () => {
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    // Starts in chat: transcript is present, no graph.
+    expect(screen.getByText(/Lamplight gutters across the Saltworn/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-view-stub")).not.toBeInTheDocument();
+
+    // Flip to Graph — the transcript is replaced by the graph view.
+    await user.click(screen.getByRole("button", { name: /^graph$/i }));
+    expect(screen.getByTestId("graph-view-stub")).toBeInTheDocument();
+    expect(screen.queryByText(/Lamplight gutters across the Saltworn/i)).not.toBeInTheDocument();
+
+    // Flip back to Chat — the transcript returns.
+    await user.click(screen.getByRole("button", { name: /^chat$/i }));
+    expect(screen.getByText(/Lamplight gutters across the Saltworn/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-view-stub")).not.toBeInTheDocument();
   });
 });

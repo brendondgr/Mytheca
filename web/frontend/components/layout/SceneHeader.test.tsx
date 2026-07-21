@@ -33,6 +33,38 @@ describe("SceneHeader export control", () => {
   });
 });
 
+describe("SceneHeader view switch (chat ⇄ graph)", () => {
+  it("renders the Chat/Graph switch to the left of Export and fires the handler", async () => {
+    const onViewModeChange = vi.fn();
+    render(
+      <SceneHeader
+        title="Standoff"
+        settingName="Hearth"
+        viewMode="chat"
+        onViewModeChange={onViewModeChange}
+        onExport={vi.fn()}
+        canExport
+      />,
+    );
+    const group = screen.getByRole("group", { name: /scene view/i });
+    const exportBtn = screen.getByRole("button", { name: /export/i });
+    // The switch precedes Export in the DOM (to its left).
+    expect(group.compareDocumentPosition(exportBtn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Active state reflects the current mode.
+    expect(screen.getByRole("button", { name: /chat/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /graph/i })).toHaveAttribute("aria-pressed", "false");
+
+    await userEvent.click(screen.getByRole("button", { name: /graph/i }));
+    expect(onViewModeChange).toHaveBeenCalledWith("graph");
+  });
+
+  it("omits the switch when no handler is given", () => {
+    render(<SceneHeader title="Standoff" settingName="Hearth" onExport={vi.fn()} canExport />);
+    expect(screen.queryByRole("group", { name: /scene view/i })).not.toBeInTheDocument();
+  });
+});
+
 describe("SceneHeader config control (relocated to the composer)", () => {
   it("no longer renders the Config control in the header", () => {
     // Scene Config now lives in the composer's bottom-left controls row, not the header.

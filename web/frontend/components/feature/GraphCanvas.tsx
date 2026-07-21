@@ -70,13 +70,19 @@ export function GraphCanvas({
   const ink = theme ? cssVar("--ink", "#241b10") : "#241b10";
   const halo = theme ? cssVar("--card-bg", "#f4ecda") : "#f4ecda";
 
-  // Measure the wrapper — the canvas needs explicit pixel dimensions.
+  // Measure the wrapper — the canvas needs explicit pixel dimensions. Take an
+  // initial synchronous measurement (so the canvas mounts even if the first
+  // ResizeObserver callback is delayed), then track later resizes with RO.
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
+    const measure = (w: number, h: number) => {
+      if (w > 0 && h > 0) setDims((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    measure(Math.round(el.clientWidth), Math.round(el.clientHeight));
     const ro = new ResizeObserver((entries) => {
       const box = entries[0]?.contentRect;
-      if (box) setDims({ w: Math.round(box.width), h: Math.round(box.height) });
+      if (box) measure(Math.round(box.width), Math.round(box.height));
     });
     ro.observe(el);
     return () => ro.disconnect();
