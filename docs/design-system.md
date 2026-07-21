@@ -6,6 +6,19 @@ This is the design gate that must be satisfied before broad UI implementation. I
 
 Mytheca is a **multi-character roleplay chat engine** styled as **a living manuscript — an illuminated codex / tome**. The reading surface is warm parchment; the chrome reads like the cover and rails of an old book; streamed story beats appear like a play script or annotated transcript. Narrator beats are set apart as marginalia/quotes, character lines as bubbles with wax-seal monogram avatars, the player's voice as an inked reply. Avoid sci-fi "AI" clichés entirely.
 
+### Brand mark & logo assets
+
+The **Mytheca logo** ("Myth" + Greek *Bibliotheca* = "Library of Myths") ships as SVGs in `images/` (canonical brand kit) and `web/frontend/public/brand/`. It is **theme-aware**: the dark-ink icon reads on the light Parchment theme; the cream icon takes over on the dark Ember/Slate themes.
+
+| Asset | File | Use |
+| --- | --- | --- |
+| Icon — dark | `web/frontend/public/brand/basic.svg` | Header emblem on the **light** theme; also the app **favicon** (`web/frontend/app/icon.svg`) |
+| Icon — cream | `web/frontend/public/brand/basic-light.svg` | Header emblem on the **dark / slate** themes |
+| Wordmark — dark text | `images/DarkText.svg` | README (GitHub light mode) |
+| Wordmark — light text | `images/LightText.svg` | README (GitHub dark mode) |
+
+The header emblem (`.mytheca-brandmark`, in `AppHeader.tsx`) is a decorative `aria-hidden` span whose `background-image` is swapped by a CSS rule keyed on the `.theme-dark` / `.theme-slate` ancestor class (`styles/themes.css`) — no JS, no hydration flash. The `MYTHECA` Cinzel wordmark beside it remains the accessible name.
+
 The recurring identity marks are the **❖ glyph** (`&#10070;`, the "Mytheca seal") and the **◆ diamond** (`&#9670;`) used as the bullet for branches, settings, and choices. Each **storyline** also carries a **customizable seal** — a simple shape glyph + hex color chosen in a dedicated **seal pop-up** (`SealModal`, opened from a compact Seal row in `StorylineModal`) — rendered left of its name in the switcher. The pop-up offers ~24 shapes, a curated color palette, and a native **color wheel** for any custom hex; the shape/color sets live in `web/frontend/lib/seals.ts` (default: gold `◆`).
 
 ## Domain Vocabulary (use in copy)

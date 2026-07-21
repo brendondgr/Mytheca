@@ -169,6 +169,21 @@
 .mytheca-header {
   background: var(--header-grad);
 }
+
+/* Theme-aware brand emblem in the header. The dark-ink icon reads on the light
+ * Parchment theme; the cream icon takes over on the dark Ember/Slate themes.
+ * A CSS background swap keyed on the pre-paint `.theme-*` class avoids any
+ * hydration flash and needs no JS. */
+.mytheca-brandmark {
+  background-image: url("/brand/basic.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+.theme-dark .mytheca-brandmark,
+.theme-slate .mytheca-brandmark {
+  background-image: url("/brand/basic-light.svg");
+}
 .mytheca-rail {
   background: var(--rail-grad);
 }
