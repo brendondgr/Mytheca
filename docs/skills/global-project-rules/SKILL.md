@@ -1,87 +1,99 @@
 ---
 name: global-project-rules
-description: Read this skill first, before any other work in the Mytheca repository. It defines required reading, the tech stack, environment/runtime rules, documentation maintenance duties, validation gates, and the definition of done for every AI agent and engineer.
+description: Read this skill first, before any other work in the Mytheca repository. It defines required reading, the tech stack, environment and runtime rules, documentation duties, the validation gate, and the definition of done for every AI agent and engineer.
 ---
 
 # Mytheca — Global Project Rules
 
-This is the universal skill every agent (Claude Code, OpenAI Codex, Cursor, or any other tool) must read before making changes in this repository. `docs/` is the single source of truth. Agent-specific folders (`.claude/`, `.agents/`, `.cursor/`) contain only pointers back to this file and the canonical skills under `docs/skills/`.
+The universal skill every agent (Claude Code, OpenAI Codex, Cursor, or anything else) must read before making changes. **`docs/` is the single source of truth.** Agent folders (`.claude/`, `.agents/`, `.cursor/`) contain only pointers back to this file and the canonical skills under `docs/skills/`.
 
 ## What Mytheca Is
 
-Mytheca is an AI-driven interactive narrative engine. Users create and play through scenes with AI characters; a multi-agent backend (Narrator, Character, Rules, Memory agents) drives the story, and narrative output is streamed to the UI as events. Core domain entities: **users, characters, scenes, events, and memories**.
+An AI-driven, multi-character roleplay chat engine. You author a world and its cast, then play through scenes where several AI characters talk to you and to each other while a Narrator sets the scene. The player can also speak *as* a cast member (POV mode).
+
+The backend emits small, typed, validated story events; the frontend maps each type to a component. The model decides what happens, never how it looks.
+
+**Core domain objects: Storyline · Character · Setting · Scenario**, plus the Story Event abstraction and the Stat system. There is **no user model and no authentication** — do not write code that assumes either.
 
 ## Required Reading Before Any Change
 
-1. `docs/skills/global-project-rules/SKILL.md` (this file)
-2. `docs/documentation.md` — project purpose, stack, status
+1. This file
+2. `docs/documentation.md` — purpose, domain model, stack, status
 3. `docs/structure.md` — repository layout and ownership
-4. `docs/workflow.md` — commands, environment, validation, git rules
-5. `docs/checklist.md` — active work and open follow-ups
+4. `docs/workflow.md` — commands, environment, validation, git
+5. `docs/checklist.md` — genuinely-open work
 6. The canonical skill(s) under `docs/skills/` relevant to the task
 
-For any web/UI/API work, also read:
-- `docs/architecture.md`, `docs/routes.md`, `docs/data-flow.md`, `docs/api-contract.md`
-- `docs/design-system.md` and `docs/skills/ui-frontend/ui/design-quality.md`
-- `docs/skills/accessibility-mobile/SKILL.md` and `docs/skills/ada-compliance/SKILL.md`
+For any web/UI/API work, also read `docs/architecture.md`, `docs/routes.md`, `docs/data-flow.md`, `docs/api-contract.md`, `docs/design-system.md`, and the `accessibility-mobile` + `ada-compliance` skills.
 
 ## Tech Stack (authoritative)
 
-- **Frontend:** Next.js (App Router) + React + TypeScript + Tailwind CSS + Framer Motion. Lives in `web/frontend/`.
-- **Backend:** FastAPI (Python). Lives in `web/backend/`. Launched via the root `app.py`.
-- **Multi-agent brain:** Agent Orchestrator, Event Engine, Rules Engine, Memory System, KG Builder. Narrator + Character + Rules + Memory agents.
-- **Data layer:** PostgreSQL (core state: users, characters, scenes, events), Redis (live/cache state). Vector DB (semantic memory) and Neo4j graph DB (advanced knowledge graph) are planned for later phases — design with seams for them, do not implement until scheduled.
-- **AI layer:** LLMs via OpenAI or local models, behind a provider-agnostic interface.
-- **Streaming layer:** SSE / WebSockets carrying an NDJSON event stream to the UI renderer (chat UI, narrator cards, side panels, graph visualizations).
+- **Frontend** — Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 · Framer Motion 12 · `react-force-graph-2d`. Lives in `web/frontend/`. **Framer Motion is the animation library — GSAP is not installed and must not be introduced.**
+- **Backend** — FastAPI, Python 3.13, `uv`, SQLAlchemy 2.0, Alembic. Lives in `web/backend/`, launched from the root `app.py`.
+- **Agents** — the real set in `web/backend/app/agents/`: turn loop (`planner_agent`, `character_turn_agent`, `narrator_agent`, `intent_agent`, `director_agent`, `reflection_agent`, `relationship_agent`) and authoring (`storyline_agent`, `storyline_edit/`, `character_agent`, `setting_agent`, `scenario_agent`, `triage_agent`), plus `prompt_registry.py` and `_common.py`. There is no "Orchestrator", "Rules Engine", "Memory System", or "KG Builder" — do not reference components that don't exist.
+- **Data** — PostgreSQL (13 tables, core state) · Redis (recent-turn buffer, interior state) · **Neo4j 5.26** (the Story Graph, implemented) · **Qdrant + fastembed** (hybrid RAG, implemented). The last three are **best-effort**: each degrades to a no-op, and CRUD plus the full test suite run with none of them.
+- **AI** — one OpenAI-compatible proxy (`services/llm.py`) serving cloud OpenAI, vLLM, and llama.cpp alike.
+- **Streaming** — NDJSON, streamed directly in the turn POST response. There is no separate `GET /stream` endpoint.
 
-Do not add libraries speculatively. Every dependency must have a defined job and be recorded in `docs/architecture.md` (purpose) and `docs/workflow.md` (commands).
+Do not add libraries speculatively. Every dependency needs a defined job and a record in `docs/architecture.md` and `docs/workflow.md`.
 
 ## Environment & Runtime Rules
 
-- **Python:** use `uv` as the only package/environment manager. Python 3.13 (`.python-version`). Install: `uv sync`. Run a script/test: `uv run ...`. Add deps: `uv add ...`. Never use pip/poetry/conda directly.
-- **Node/Frontend:** managed under `web/frontend/` with its own `package.json`. Use the package manager declared there (npm unless changed).
-- **Root launcher:** `python app.py` runs **both** the backend (preflight + uvicorn) and the frontend dev server (`npm run dev`) together, default. `python app.py frontend` / `python app.py backend` run a single side.
-- **Secrets:** never commit real secrets. Copy `.env.example` to `.env` (gitignored). Document any new variable in `.env.example` and `docs/deployment.md`.
+- **Python** — `uv` only (`uv sync`, `uv add`, `uv run`). Never pip/poetry/conda. Python 3.13.
+- **Node** — npm, under `web/frontend/`.
+- **Launcher** — `python app.py` runs both sides; `… backend` / `… frontend` run one; `… stop` ends both. It owns Docker; never run `docker compose` yourself.
+- **Secrets** — never commit real secrets. Copy `.env.example` → `.env`. Document every new variable in `.env.example` **and** `docs/deployment.md`.
 
 ## File & Code Guidelines
 
-- Max file length 800 lines; aim under 500. Favor modularity — split oversized files into focused modules.
+- Max file length 800 lines; aim under 500. Split oversized files into focused modules.
 - Python sub-packages need `__init__.py`.
-- Small helpers go directly in `utils/`; larger ones get their own sub-folder. Shared internal packages go in `libs/`.
-- Frontend ownership: primitives in `web/frontend/components/ui/`, chrome in `components/layout/`, domain UI in `components/feature/` or `features/`, hooks in `hooks/`, helpers in `lib/`.
-- Shared frontend↔backend types/OpenAPI/contracts live in `web/shared/contracts/`.
+- Small helpers go in `utils/`; larger shared packages in `libs/`.
+- Frontend ownership: primitives in `components/ui/`, chrome in `components/layout/`, domain UI in `components/feature/`, route-level modules in `features/`, hooks in `hooks/`, helpers in `lib/`.
+- **Backend tests** live in `utils/tests/backend/{api,agents,services,rag,data}/` as `test_<behavior>.py`.
+- **Frontend tests are co-located** beside what they test (`Foo.tsx` → `Foo.test.tsx`). `utils/tests/frontend/` is empty and must stay that way.
+- `web/shared/contracts/` is **empty**. The FE↔BE event contract is hand-mirrored in `web/frontend/lib/events.ts` and `lib/types.ts` against `web/backend/app/events/envelope.py`. Changing the envelope means updating the mirror in the same change.
 
 ## Documentation Maintenance (required)
 
 Update docs in the same change that alters behavior:
-- New/changed top-level dir → update `docs/structure.md`.
-- New route/page → update `docs/routes.md` and `docs/component-map.md`.
-- New/changed API endpoint or contract → update `docs/api-contract.md` and `docs/data-flow.md`.
-- New dependency, command, or env var → update `docs/workflow.md` (+ `docs/architecture.md` / `docs/deployment.md`).
-- Visual/design-token decisions → update `docs/design-system.md`.
-- Stack/architecture decisions or status changes → update `docs/documentation.md`.
-- Plans and handoffs live in `docs/plans/` using the `planner` skill format.
 
-## Validation Gate (definition of "done")
+| Change | Update |
+| --- | --- |
+| Top-level directory | `docs/structure.md` |
+| Route or page | `docs/routes.md` + `docs/component-map.md` |
+| API endpoint or event contract | `docs/api-contract.md` + `docs/data-flow.md` |
+| Dependency, command, env var | `docs/workflow.md` + `docs/deployment.md` (+ `architecture.md`) |
+| Visual token or theme | `docs/design-system.md` |
+| Architecture decision or status | `docs/documentation.md` + `docs/architecture.md` |
+| Deferred or blocked work | `docs/checklist.md` |
 
-Before marking work complete, run the applicable checks (see `docs/workflow.md` for exact commands):
-- **Backend:** `pytest` (in `utils/tests/backend/`) passes.
-- **Frontend:** component/route tests pass.
-- **Web/UI changes additionally require:** an accessibility + responsive pass per `docs/skills/accessibility-mobile/SKILL.md` and `docs/skills/ada-compliance/SKILL.md` (keyboard, focus, contrast, 320/375/768/1024 viewports). Document any intentionally deferred a11y item in `docs/checklist.md`.
-- Recommended (not required) hygiene: `ruff` + `mypy` (backend), `tsc` + ESLint (frontend).
+Plans and handoffs go in `docs/plans/` using the `planner` skill format.
+
+**Write documentation that will still be true next month.** Describe what the code does, not what a phase intended. If you remove or supersede something, delete the sentence that described it — do not leave it beside its replacement. The docs were rebuilt on 2026-08-04 precisely because per-phase prose accumulated without ever being reconciled.
+
+## Validation Gate (definition of done)
+
+- **Backend:** `uv run pytest` passes (784 cases today).
+- **Frontend:** `npm test` passes in `web/frontend/`.
+- **UI changes also require** an accessibility + responsive pass per the `accessibility-mobile` and `ada-compliance` skills: keyboard operability, visible focus, AA contrast, live-region announcements for streamed content, and layout at 320 / 375 / 768 / 1024 px.
+- **Theme-token changes also require** `uv run python utils/scripts/check_contrast.py`.
+
+Recommended hygiene: ruff + mypy (backend), ESLint + tsc (frontend).
 
 If a check is skipped, say so explicitly and record why in `docs/checklist.md`.
 
 ## Git Workflow
 
-- Branch off `main`; do not commit directly to `main` for feature work unless the user asks.
-- **Commit per phase**: each completed plan phase ends with a local commit. No automatic push or PR unless the user requests it.
-- Commit messages: `Mytheca — <area>: <what changed>`; for plan phases use `[Plan Name] (n/total) Complete: <summary>`.
+- Branch off `main`; don't commit feature work directly to `main` unless asked.
+- **Commit per phase.** No push or PR unless the user requests it.
+- Messages: `Mytheca — <area>: <what changed>`, or `[Plan Name] (n/total) Complete: <summary>`.
+- Delete worktrees and branches when their work merges. Eleven stale worktrees are currently outstanding — don't add a twelfth.
 
 ## Cleanup & Sources of Truth
 
-Never maintain two competing copies of an instruction. Canonical content lives under `docs/`; agent folders only point to it. Remove dead placeholders and empty generated folders as the project matures.
+Never maintain two competing copies of an instruction. Canonical content lives under `docs/`; agent folders only point to it. Remove dead placeholders as the project matures.
 
 ## Completion Standard
 
-A task is not done until the Validation Gate above passes (or deferrals are documented), the relevant `docs/` files are updated, and remaining gaps are listed in `docs/checklist.md`.
+A task is not done until the validation gate passes (or deferrals are documented), the relevant `docs/` files are updated in the same change, and remaining gaps are listed in `docs/checklist.md`.

@@ -26,6 +26,6 @@ Follow the planning format and quality rules in [planner.md](planner.md). The co
 ## Output Expectations
 
 - Clean Markdown: introduction, gaps & unanswered questions, hierarchical steps, deliverables table.
-- Concrete locations: exact files, classes, functions, and directories (use Mytheca's `web/frontend`, `web/backend/app`, `web/shared/contracts`, `utils/tests/` paths).
+- Concrete locations: exact files, classes, functions, and directories (use Mytheca's real `web/frontend`, `web/backend/app`, and `utils/tests/backend/` paths; frontend tests are co-located).
 - State assumptions for simple gaps; explicitly flag complex gaps that need human input.
 - End every phase with the validation + commit action line (see planner.md).

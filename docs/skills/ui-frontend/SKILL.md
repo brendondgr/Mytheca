@@ -1,79 +1,91 @@
 ---
 name: ui-frontend
-description: Use this skill when designing or implementing Mytheca's frontend UI — components, pages, the streaming narrative renderer, responsive layouts, the visual system, motion, and interaction quality on the locked Next.js + React + TypeScript + Tailwind + Framer Motion stack.
+description: Use this skill when designing or implementing Mytheca's frontend UI — components, pages, the streaming narrative renderer, responsive layouts, the visual system, motion, and interaction quality on the locked Next.js + React + TypeScript + Tailwind v4 + Framer Motion stack.
 ---
 
 # Mytheca Frontend Design & UI System
 
 ## Structural Dependency
 
-For any full page, panel, or app surface, first follow `website-architecture` (routes, data flow, streaming contract, design-quality brief) and `repository-structure` (where components live). This skill handles the visual design, responsive behavior, accessibility polish, and interaction quality on top of that structure.
+For any full page or app surface, first follow `website-architecture` (routes, data flow, streaming contract) and `repository-structure` (where components live). This skill covers visual design, responsive behavior, accessibility polish, and interaction quality on top of that.
 
-Always pair with:
-- `accessibility-mobile` — responsive viewport, touch, mobile performance, mobile SEO.
-- `ada-compliance` — WCAG 2.2 AA accessibility.
+Always pair with `accessibility-mobile` and `ada-compliance`.
+
+**The concrete token values, theme definitions, and component specs live in `docs/design-system.md`.** That file is the source of truth for anything numeric. This skill is the judgment layer.
 
 ## Locked Stack
 
-- **Framework:** Next.js (App Router), React, **TypeScript**.
-- **Styling:** Tailwind CSS (utility-first). Design tokens recorded in `docs/design-system.md`.
-- **Motion:** Framer Motion — purposeful only (entrances of narrator cards, event-stream reveals, transitions). Respect `prefers-reduced-motion`.
-- **Primitives:** native HTML first; add Radix UI / shadcn-style copy-owned components in `web/frontend/components/ui/` only when accessible headless behavior is needed.
-- **Optional, by job only:** TanStack Query (server-state caching), TanStack Table (dense tables), React Hook Form + Zod (complex character/scene editors).
+- **Framework:** Next.js 16 (App Router, Turbopack), React 19, **TypeScript**.
+- **Styling:** Tailwind CSS **v4**, CSS-first. Theme tokens are CSS variables in `web/frontend/styles/themes.css`, mapped to utilities via `@theme inline` in `app/globals.css`. **Never hardcode a hex value in a component** — use a token.
+- **Motion:** **Framer Motion 12**, purposeful only. GSAP is not installed and must not be introduced.
+- **Graph rendering:** `react-force-graph-2d`, imported **only** by `components/feature/GraphCanvas.tsx` via `next/dynamic({ ssr: false })` — it reads `window` at import and must stay out of the initial bundle.
+- **Primitives:** native HTML, with accessible behavior hand-written in `components/ui/`. No headless component library is installed.
+- **Tests:** Vitest + React Testing Library, **co-located** beside each component.
 
-Do not add packages speculatively. Every library needs a recorded job in `docs/architecture.md`, `docs/workflow.md`, or `docs/design-system.md`.
+Do not add packages speculatively. Every library needs a recorded job in `docs/architecture.md` or `docs/design-system.md`.
 
-## Mytheca-Specific UI Surfaces
+## The Visual Language
 
-These are first-class and must be designed with real states, not placeholders:
+Mytheca is an **illuminated manuscript**, not a SaaS dashboard. Warm parchment reading surfaces, wax-seal avatars, small-caps Cinzel headings, EB Garamond body prose, IBM Plex Mono for micro-captions and diagnostics.
 
-- **Chat / story player:** the running scene — user turns, character turns, and narrator beats streamed in via the NDJSON event stream. Must handle streaming-in-progress, partial messages, reconnect, and stalled-stream states.
-- **Narrator cards:** structured story beats (scene changes, rules outcomes, memory recalls) rendered as distinct cards, not plain chat bubbles.
-- **Side panels:** character sheets, scene state, active memories/knowledge — collapsible and mobile-aware.
-- **Graph visualizations:** relationship/knowledge-graph views (planned alongside the graph DB) — provide an accessible text alternative.
-- **Editors:** character and scene creation/editing forms (validation, autosave/draft, error states).
+Three themes, all first-class — every change must be checked in all three:
 
-## Design Quality Standard
+| Theme | Class | Character |
+| --- | --- | --- |
+| Parchment | `.theme-light` | Warm aged paper, the default reading experience |
+| Ember | `.theme-dark` | Dark, firelit, warm-shadowed |
+| Slate | `.theme-slate` | Dark, cool, blue-grey |
 
-The UI must feel human-designed and Mytheca-specific — an interactive-fiction / narrative product, not a generic SaaS dashboard. Use real narrative artifacts (a live scene, a narrator card, an event timeline) as the meaningful imagery near the top of key pages. Use concrete domain vocabulary in copy: scene, character, event, beat, memory, turn.
+Four font-size presets (`.fs-compact` / `.fs-default` / `.fs-comfortable` / `.fs-large`) scale six `--fs-*` variables. Type sizes come from those variables, not from arbitrary Tailwind text classes, so the user's preference actually applies.
 
-Follow `ui/design-quality.md` as the operating standard and review checklist.
+## Mytheca-Specific Surfaces
+
+First-class, designed with real states rather than placeholders:
+
+- **Story player** — the running scene. Turns stream in as NDJSON story events. Must handle streaming-in-progress, partial messages, stalled streams, resumed sessions, and reconnect.
+- **Transcript beats** — `TranscriptBeat` routes each event type to exactly one renderer. A character's hidden thinking folds into the *same* bubble as their speech, separated by a hairline rule; it is never a separate beat.
+- **Rails** — `CastRail` (presence, live stats, thinking/speaking indicators), `DirectorRail` (scene pulse feed, state chips), `CharacterDossier` (takes over the right rail when a character is clicked).
+- **Graph view** — force-directed canvas plus an inspector rail, swapped in from the scene header. **A canvas is invisible to assistive tech**: the required text alternative is an `sr-only` description plus a node/edge `<table>`, and a visible legend.
+- **Authoring surfaces** — the storyline creator with its conversational Assistant, and the character/setting/scenario modals. These show live agentic progress: a field-active ring, a choreographed reveal, a step progress line, and error toasts.
 
 ## Core Principles
 
-- Project specificity: motifs, copy, empty states, and examples come from the narrative domain.
-- Concrete copy: replace vague claims with exact user actions and outcomes.
-- Design-system consistency: define palette, typography, spacing, radius, shadows, icon style, and motion behavior in `docs/design-system.md` before building many sections.
-- Layout variety: avoid repeated identical card grids; use the story timeline, scene state panels, character sheets, and graph views where they fit.
-- Real states: design loading, empty, error, partial-data (mid-stream), success, permission, long-content, dense-data, mobile, and reduced-motion.
-- Animation restraint: motion explains, guides, or responds to streamed events — it must not merely decorate.
-- Accessibility & mobile: streamed/updating content must use polite ARIA live regions; the story player must be keyboard- and screen-reader-usable; mobile must feel intentionally designed, not just stacked.
+- **Project specificity.** Motifs, copy, empty states, and examples come from the narrative domain — storyline, scenario, cast, beat, turn, stat, narrator.
+- **Concrete copy.** Exact user actions and outcomes; empty states say what to do next ("The scene is quiet — your move").
+- **Real states.** Design loading, empty, error, partial-data (mid-stream), success, long-content, dense-data, mobile, and reduced-motion. Not just the happy path.
+- **Motion explains.** Entrances for arriving beats, reveals for streamed fields, transitions that show causality. Motion that merely decorates gets cut.
+- **Never color alone.** Every meaning carried by color also carries text or shape — the graph legend, the inspector tags, the presence badges, the context dial tooltip.
+- **Layout variety.** Avoid repeating one card grid everywhere; the transcript, rails, columns, and hero carousel are deliberately different shapes.
+
+## Motion Rules
+
+- Respect `prefers-reduced-motion` everywhere. The global rule in `themes.css` already kills all `animation` under `.mytheca-themed *` when reduced motion is set, so a new keyframe needs a sensible **static base style**, not a separate media query.
+- Framer `MotionConfig` handles component-level reduction; CSS `motion-reduce:` utilities handle the rest.
+- Choreographed reveals collapse to instant under reduced motion.
+- Never convey information through motion alone — the typing indicator is paired with a literal "Thinking" / "Speaking" label.
+
+## Accessibility Baseline
+
+- Streamed and updating regions use polite ARIA live regions (`role="log"` for the transcript and scene pulse, `role="status"` for progress, `role="alert"` for errors).
+- Everything is keyboard-operable: modals trap focus and close on Escape, menus support arrow-key roving focus, popovers close on outside click.
+- Visible `:focus-visible` indication everywhere. The composer textarea deliberately opts out of the global outline in favor of the panel's `focus-within` border — that is the one documented exception.
+- All token pairs meet WCAG AA and are enforced by `utils/scripts/check_contrast.py`. Run it after any theme-token change.
 
 ## Patterns To Avoid
 
-- Default blue/purple neon gradients, glassmorphism decoration, glowing orbs, mesh backgrounds.
-- Generic AI brain / network-node / chat-bubble / sparkle iconography as the brand.
+- Neon gradients, glassmorphism, glowing orbs, mesh backgrounds. Mytheca is warm and papery — none of these belong, and none appear in the codebase today.
+- Generic AI brain / network-node / sparkle iconography as brand.
 - Fake dashboards and unverifiable metrics.
-- Perfectly centered heroes with no product-specific detail.
-- Vague phrases ("AI-powered storytelling", "unlock your imagination") not followed by concrete behavior.
-- Every section reusing the same card grid, heading width, and spacing.
+- Vague phrases ("AI-powered storytelling") not followed by concrete behavior.
+- Hardcoded colors, or type sizes that bypass the `--fs-*` scale.
 
-## Component & Asset Index
+## Index
 
-- [Design Quality and Anti-Generic Rules](ui/design-quality.md)
-- [Colors and Themes](ui/colors.md)
-- [Typography](ui/typography.md)
-- [Layout and Geometry](ui/geometry.md)
-- [Motion and Animations](ui/motion.md)
-- [Buttons and Interactive Elements](ui/buttons.md)
-- [Dropdowns and Selects](ui/dropdowns.md)
-- [Modals and Popups](ui/modals.md)
-- [Icons System](ui/icons.md)
-- [Data Visualization and Graphs](ui/data-viz.md)
+- [Design Quality and Anti-Generic Rules](ui/design-quality.md) — the operating standard and review checklist.
+- `docs/design-system.md` — the authoritative token, theme, typography, and component reference.
+- `docs/component-map.md` — what every existing component is and where it lives.
 
 ## Related Skills
 
 - [Mobile Accessibility and Responsive UX](../accessibility-mobile/SKILL.md)
 - [ADA and WCAG Compliance](../ada-compliance/SKILL.md)
-
-The original UI questionnaire is preserved in [SETUP.md](SETUP.md) for planning new surfaces.

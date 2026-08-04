@@ -31,7 +31,7 @@ Output the plan in clean Markdown following the structure below.
 
 Detail the work sequentially. Each phase must enable the next. For each step include:
 
-- **Locations:** exact file names, classes, and functions — use Mytheca paths (`web/frontend/...`, `web/backend/app/...`, `web/shared/contracts/...`, `utils/tests/backend/...`).
+- **Locations:** exact file names, classes, and functions — use real Mytheca paths (`web/frontend/...`, `web/backend/app/...`, `utils/tests/backend/...`). Note that `web/shared/contracts/` is empty; the FE↔BE contract mirror lives in `web/frontend/lib/{events,types}.ts`.
 - **Rationale:** why this step must happen here and now.
 - **NO large code blocks:** name the parts/files involved, not full implementations.
 - **Validation & Commit (end of every phase):**
@@ -47,7 +47,7 @@ Detail the work sequentially. Each phase must enable the next. For each step inc
 
 ### 4. Deliverables Table
 
-After all steps, list deliverables and locations. **Tests are required** — include small, focused tests under `utils/tests/backend/...` or `utils/tests/frontend/...` exercising the new behavior.
+After all steps, list deliverables and locations. **Tests are required** — include small, focused tests exercising the new behavior. Backend tests go under `utils/tests/backend/{api,agents,services,rag,data}/`; **frontend tests are co-located** beside the component (`Foo.tsx` → `Foo.test.tsx`), never under `utils/tests/frontend/`, which is empty by design.
 
 > | Deliverable | Description | Location |
 > | --- | --- | --- |
