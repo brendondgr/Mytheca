@@ -8,7 +8,7 @@ How data originates and moves through Mytheca. The streaming/event path is first
 
 | Source | Examples | Where it lives |
 | --- | --- | --- |
-| PostgreSQL (core state) | users, storylines, characters, settings, scenarios, events, stat definitions, stat values | `web/backend/app/models/` |
+| PostgreSQL (core state) | storylines, characters, settings, scenarios, stat definitions, character stats, events, play sessions, turn traces, context documents (+ links), app settings, graph type definitions | `web/backend/app/models/` |
 | Redis (live/cache) | active scenario state, stream pub/sub, cached reads | `web/backend/app/core/` (client), used by `services/` |
 | Neo4j (Story Graph) | character/setting nodes + their edges (the one knowledge graph); instances only — the type system lives in Postgres | `app/core/neo4j.py` (client), `app/services/graph_{writer,reader}.py` |
 | YAML config | hand-authored storylines, characters, settings, stat definitions | loaded by `app/core/` → `services/` (State manager) |
@@ -45,13 +45,34 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
       events_store: resolve/create PlaySession · record user_turn (seq 0, Postgres; data.pov = POV id | null)
       memory.buffer.push_turn (POV → the line as the character's own beat w/ characterId;
         else the plain player line → recent-turn buffer, best-effort)
-      _pick_speaker → character_turn_agent.generate_line (ONE isolated, bookended LLM call)
-        → services.llm.chat_complete (configured endpoint; reasoning budget; guided-decoding seam)
-      emission.parse_emission: thin <speaker:N>/<type:…> tags → typed segments (name→id; out-of-roster drop)
-      _Emitter: assign per-session seq · validate (build_event) · persist (Postgres) · push buffer
-        · internal_thought → private_to_user (streams as the thought bubble; NOT pushed to
-          turn_beats, so later speakers never see it) · yield visible events
+      intent_agent.interpret: classify the player's line — narrate / address / puppet /
+        whole-group — and, for a puppet, which cast member is directed
+      puppet beats (if any): the directed character performs it in-voice, up front
+      ReAct loop — planner_agent.next_beat re-decides after every beat, bounded by
+        scenario.max_turns (hard per-scene ceiling on every emitted beat) and a runaway
+        backstop max(TURN_MAX_BEATS, 2*cast+6); only `present` cast members are
+        selectable and the POV character is locked out of the AI roster:
+          decision.action == "speak" →
+            graph_reader.relationship_context (via turn_engine._relationship_note) →
+            character_turn_agent.generate_line (bookended LLM call, relationship note
+              folded into the prompt) → services.llm.chat_complete
+            emission.parse_emission: thin <speaker:N>/<type:…> tags → typed segments
+              (name→id; out-of-roster drop)
+            consistency.review (only once >1 cast member and a prior beat exists this
+              turn; regenerates once on a clear contradiction, best-effort)
+            validator: parse → validate (incl. stat clamping) → repair/retry
+            _Emitter: assign per-session seq · persist (Postgres) · push buffer
+              · internal_thought → private_to_user (NOT pushed to turn_beats, so later
+                speakers never see it) · yield visible events
+          decision.action == "narrate" → narrator_agent interstitial, same emit path
+          decision.action in ("exit", "end") → loop stops
+      follow-up suggestions: director_agent.propose_pov_lines (POV mode) or
+        propose_branches (otherwise), emitted as branch_choices
+      cold path (post-stream / background): turn_writer.write_turn persists the turn's
+        graph-relevant facts to Neo4j
   → StreamingResponse NDJSON ──▶ client
+  → read-time: reflection.dispatch_reflection updates cast disposition; on a session's
+    first turn, relationships.ensure_seeded seeds graph edges from cast bios
 ```
 
 On the client, `useScenePlay` (via the generic `useEventStream` hook + `postTurn`) consumes
@@ -230,7 +251,11 @@ not just a count: the `commit` step lists each durable `Consequence.summary` (e.
 +12: old guilt"), and the first-turn `relationships` step lists the seeded edges
 (`ensure_seeded` returns one `"A <type> B — reason"` summary per edge).
 
-The event schema is shared via `web/shared/contracts/` and documented in `docs/api-contract.md`. Keep all three in sync.
+The event schema's live TypeScript mirror is hand-maintained in `web/frontend/lib/events.ts` and
+`web/frontend/lib/types.ts`, kept in sync with `web/backend/app/events/envelope.py` by hand, and
+documented in `docs/api-contract.md`. `web/shared/contracts/` is a reserved-but-empty seam (only a
+`.gitkeep`) — not where the mirror actually lives today. Keep the backend schema, the frontend
+mirror, and the docs in sync.
 
 ## Settings Flow (Options menu)
 
@@ -268,14 +293,19 @@ Per-turn assemble_context (Band-1, read-only):
        blank / unknown keys ignored)
   → character_turn_agent reads ctx.prompts["character.output_contract"]
   → narrator_agent     reads ctx.prompts["narrator.system"] / "narrator.system_long"
-  → director_agent     reads ctx.prompts["director.who_is_up"] / "director.rerank" / "director.branch"
+  → director_agent     reads ctx.prompts["director.who_is_up"] / "director.rerank" / "director.branch" / "director.pov_branch"
   → planner_agent      reads ctx.prompts["planner.system"]
   (each falls back to prompt_registry.default(key) when the key is absent from ctx.prompts)
 ```
 
+**`director.who_is_up` and `director.rerank` are inert on the live turn path**: `director_agent.who_is_up`
+and `director_agent.rerank` are dead code, called only from `utils/tests/backend/agents/test_director_agent.py` —
+the per-beat decision on a real turn is made by `planner_agent.next_beat`. The keys that actually affect a
+live turn are `director.branch`, `director.pov_branch`, and `planner.system`.
+
 The **prompt registry** (`web/backend/app/agents/prompt_registry.py`) is the single source of
 truth for the four writing agents' system prompts. It defines `PromptSpec` (key, agent, label,
-description, default) and `PROMPT_REGISTRY` with exactly seven keys. `resolve_prompts(*layers)`
+description, default) and `PROMPT_REGISTRY` with exactly eight keys. `resolve_prompts(*layers)`
 folds the layers left-to-right; an empty/None value at any layer is skipped. The global layer is
 stored in `app_settings` (a `PROMPTS_KEY` namespace) via `settings_store.get_prompts_overrides` /
 `set_prompts_overrides`. Per-storyline and per-scenario overrides are nullable JSONB columns
@@ -625,6 +655,15 @@ The **Type Registry** (`graph_type_definitions` in Postgres) is the semantic
 source of truth — what node/edge types exist, their field schema, and edge valence
 (§1.4); Neo4j holds the instances. Built-in types (§5) are global + immutable; users
 add per-storyline types via `POST /storylines/{id}/graph/types`.
+
+**The graph reaches the LLM prompt, but not via `ctx.subgraph`.** Band-1 assembly builds
+`TurnContext.subgraph` (the scenario read above) every turn, but its only consumer is
+`turn_engine.py`'s trace step, which reads `ctx.subgraph.get("available")` as a boolean for
+diagnostics — `character_turn_agent.py` never references `ctx.subgraph` at all. What actually
+conditions a character's generation is `graph_reader.relationship_context(speaker_id, other_ids)`
+(direct char↔char edges + 2-hop indirect links), called from `turn_engine._relationship_note()`
+and folded into the character's prompt as a plain-language relationship note (see the Reactive
+Turn Director section below).
 
 The **cold-path turn-writer** (§8) now runs after a turn streams (`services/turn_writer.py`,
 called by `turn_engine.run_turn` once the last event is yielded — never blocks the player):

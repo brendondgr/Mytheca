@@ -32,6 +32,36 @@ on the app root, *not* under `/api`), and that relative URL is stored on the
 character's `portrait` column. The ComfyUI client and bundled workflow are left
 untouched — conversion happens at the edge. Endpoint: `POST /api/characters/portrait`.
 
+## Scene art (WebP)
+
+[`web/backend/app/services/scene_art.py`](../web/backend/app/services/scene_art.py)
+is the setting/scenario counterpart to `portraits.py`: it drives the same
+`comfyui.generate(...)` pipeline, but renders a **landscape 1024×576 (16:9)**
+establishing shot (vs. the portrait's 832×1216) with a **fresh random seed on
+every call** (so re-rendering always re-executes rather than serving a cached
+result). The PNG is converted to WebP and written under `MEDIA_DIR`
+(`<repo>/media/scenes/`, gitignored), served at `/media/scenes/<uuid>.webp`. It
+backs **four** endpoints — prompt-drafting + generation for both settings and
+scenarios:
+
+- `POST /settings/scene-art-prompts` / `POST /settings/scene-art`
+- `POST /scenarios/scene-art-prompts` / `POST /scenarios/scene-art`
+
+## Orphaned-media cleanup
+
+Generated portrait/scene-art WebPs are written to disk immediately, but
+cancelled drafts and deleted entities can leave files behind with no DB row
+referencing them.
+[`web/backend/app/services/media_cleanup.py`](../web/backend/app/services/media_cleanup.py)
+(`scan_orphans` / `delete_orphans`) cross-references the on-disk `*.webp` files
+under `portraits_dir`/`scenes_dir` against every `Character.portrait`,
+`Setting.image`, and `Scenario.image` value in the DB, and deletes only the
+unreferenced files older than a grace period (`min_age_hours`, default **24**)
+so in-flight drafts (generated but not yet saved) are never touched. Backed by
+`GET /options/media/orphans` (dry-run scan) and `POST /options/media/cleanup`
+(delete), surfaced in the Options → **About** tab's **Maintenance** section
+(scan → review counts/bytes → confirm delete).
+
 ## The pipeline (7 steps)
 
 `services/comfyui.py` implements the full flow; `generate(...)` chains it:

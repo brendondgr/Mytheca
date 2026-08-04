@@ -1,21 +1,59 @@
 # Mytheca — Workflow
 
+Commands, environment, validation gate, git rules.
+
 ## Environment
 
-- **Python:** 3.13 (`.python-version`). Manager: **`uv` only** (never pip/poetry/conda).
-- **Node:** for `web/frontend/` (Next.js). Package manager: npm (unless changed in `web/frontend/package.json`).
-- **Root launcher:** `python app.py` starts **both** the backend (preflight + uvicorn on 3345) and the frontend dev server (3346) together — it waits for the backend to report healthy before launching the frontend, and Ctrl+C stops both. `python app.py frontend` and `python app.py backend` run just one side. Every launch **forcibly frees its ports first** — any process still bound to 3345/3346 (typically a leftover `next dev` / uvicorn from a previous run) is terminated (SIGTERM, then SIGKILL) so a fresh start never dies on `EADDRINUSE`. `python app.py stop` (aliases: `kill`, `down`) does only that — ends any running frontend/backend processes and exits, leaving the Docker data containers up.
-- **Docker is handled by `app.py`** (one place — you never run `docker compose` yourself). Every backend launch first verifies Docker is installed + its daemon is running, downloads the Postgres + Redis images (only when missing — visible progress on first run), **builds the custom Neo4j image** (`web/backend/docker/neo4j/Dockerfile`), and starts the containers in `web/backend/docker-compose.yml` (`up -d --build --wait`). Missing Docker / a stopped daemon prints actionable guidance; a `sqlite://` `DATABASE_URL` or `MYTHECA_SKIP_DOCKER=1` skips containers entirely (external/embedded DB).
-- **Story Graph (Neo4j):** the substrate is **best-effort** — set `NEO4J_URI` (default `bolt://localhost:3349`, Browser on 3350) to enable it; leave it **blank to disable** the graph entirely (CRUD + `pytest` run with no Neo4j). `NEO4J_USER`/`NEO4J_PASSWORD` default to `neo4j`/`mytheca-graph`. See `docs/story-graph-neo4j.md`.
-- **Hybrid RAG (Qdrant + embeddings):** the vector store is **best-effort** — the Qdrant container (owned by `app.py`, REST port **3351** / gRPC **3352**) starts alongside Postgres/Redis/Neo4j; leave `QDRANT_URL` **blank to disable** (CRUD + `pytest` run with no Qdrant). Embeddings use **fastembed** (`BAAI/bge-large-en-v1.5`, 1024-dim, ONNX/CPU by default; deps: `fastembed` + `qdrant-client`). Set `EMBED_PROVIDER=hash` for the offline/test path — a deterministic `HashEmbedder` (no model download; the test suite forces it). See `docs/rag.md` for the full pipeline.
-- **Authoring parallelism:** the world build drafts characters/settings concurrently and a RAG re-index embeds entities concurrently, bounded by the user-facing **`authoringConcurrency`** setting (Options › Language Models; default seeded from `BUILD_MAX_CONCURRENCY`, default **3**). Set it to **1** for a single-slot llama.cpp, higher for a batching vLLM. Image generation always renders sequentially (single-GPU ComfyUI) regardless.
-- **Reasoning budget (vLLM / llama.cpp):** the backend auto-detects the local inference engine of the configured LLM endpoint and sends a backend-controlled thinking-token budget per authoring operation (Triage = Low, world build + drafts = Medium; never user-facing). `LLM_BACKEND_POLL_SECONDS` (default 30) is how often a background task re-probes so it adapts to engine swaps; `LLM_BACKEND_CACHE_TTL_SECONDS` (default 60) is the detection cache lifetime. No effect on OpenAI / unknown endpoints. See `docs/api-contract.md` (Reasoning budget) + `docs/data-flow.md`.
-- **Migrations (Alembic):** Alembic (`web/backend/alembic/`, config `web/backend/alembic.ini`) is the versioned-migration path for **non-additive** schema changes (dropped/renamed columns, type changes, new NOT NULL columns, indexes/constraints). It **coexists** with `create_all` + the additive reconciler rather than replacing them: `create_all` still builds missing tables and the reconciler still self-heals new nullable columns (and the SQLite test path uses `create_all` directly — Alembic is skipped there). On a real (Postgres) DB, preflight **stamps** an existing `create_all`-built schema to `head` on first run (adopting it without re-creating) and **upgrades to head** thereafter; the step is best-effort (logged + reported, never blocks startup). The DB URL is supplied at runtime from `app.core.config` — `alembic.ini` holds no secret. After changing a model, run the "New migration" command, review the script, commit it.
-- **Secrets:** copy `.env.example` → `.env` (gitignored). Document every new variable in `.env.example` and `docs/deployment.md`.
+- **Python 3.13** (`.python-version`), managed by **`uv` only** — never pip/poetry/conda.
+- **Node** for `web/frontend/`, managed by **npm**.
+- **Ports:** backend API **3345** · frontend dev **3346** · Postgres **3347** · Redis **3348** · Neo4j Bolt **3349** / Browser **3350** · Qdrant REST **3351** / gRPC **3352**. Non-default ports so Mytheca coexists with anything already running.
+
+### The launcher
+
+`python app.py` starts **both** sides: it brings up Docker, runs backend preflight, waits for health, then starts `next dev`. Ctrl+C stops both.
+
+| Command | Effect |
+| --- | --- |
+| `uv run python app.py` | Backend + frontend (default; also `all`, `both`) |
+| `uv run python app.py backend` | Backend only (also `be`, `api`) |
+| `uv run python app.py frontend` | Frontend only (also `fe`, `dev`, `web`, `ui`) |
+| `uv run python app.py stop` | Kill running frontend/backend and exit (also `kill`, `down`); leaves containers up |
+
+Every launch **forcibly frees its ports first** — anything still bound to 3345/3346 is terminated (SIGTERM, then SIGKILL), so a fresh start never dies on `EADDRINUSE`.
+
+### Docker (owned by `app.py`)
+
+You never run `docker compose` yourself. `ensure_docker_services()` verifies Docker + a live daemon, pulls the Postgres/Redis/Qdrant images when missing (`--ignore-buildable` skips the custom Neo4j service), builds the Neo4j image from `web/backend/docker/neo4j/Dockerfile`, and starts all four containers with `up -d --build --wait`.
+
+Skip containers entirely with `MYTHECA_SKIP_DOCKER=1` or a `sqlite://` `DATABASE_URL`. Missing Docker prints guidance and continues — the preflight DB check is the real gate, so an external DB still works.
+
+### Optional substrates
+
+All three degrade to a no-op; CRUD and `pytest` run with none of them.
+
+- **Neo4j (Story Graph)** — set `NEO4J_URI` (default `bolt://localhost:3349`) to enable; **blank disables**. Credentials default to `neo4j` / `mytheca-graph`. See `story-graph-neo4j.md`.
+- **Qdrant (Hybrid RAG)** — `QDRANT_URL` (default `http://localhost:3351`); **blank disables**. Embeddings via fastembed `BAAI/bge-large-en-v1.5` (1024-dim, ONNX/CPU); set `EMBED_PROVIDER=hash` for the offline/test path (the test suite forces it). See `rag.md`.
+- **ComfyUI (images)** — `COMFYUI_BASE_URL` (default `http://localhost:8199`); workflow JSON in `utils/workflows/`. See `comfyui-image-generation.md`.
+
+### Runtime knobs worth knowing
+
+- **`authoringConcurrency`** (Options › Language Models, seeded from `BUILD_MAX_CONCURRENCY`, default 3) bounds concurrent authoring drafts and RAG re-indexing. Set **1** for a single-slot llama.cpp, higher for a batching vLLM. Image generation is always sequential (single-GPU ComfyUI).
+- **Reasoning budget** — the backend probes the configured LLM endpoint (`GET /version` → vLLM, `GET /props` → llama.cpp) and injects a per-call thinking-token budget. Never user-facing. `LLM_BACKEND_POLL_SECONDS` (30) re-probes; `LLM_BACKEND_CACHE_TTL_SECONDS` (60) caches. No effect on OpenAI or unrecognized endpoints — note that **Ollama is not a detected engine**.
+- **`TURN_BUFFER_SIZE`** (default 100) is the Redis recent-turn buffer. It must be ≥ the largest per-scene `context_beats` (max 100), or the scene asks for more history than the buffer retains.
+
+### Migrations (Alembic)
+
+Alembic (`web/backend/alembic/`, config `web/backend/alembic.ini`) is the versioned path for **non-additive** schema changes — dropped/renamed columns, type changes, new NOT NULL columns, indexes, constraints. 12 migrations exist today.
+
+It **coexists** with `create_all` + an additive reconciler rather than replacing them: `create_all` builds missing tables, the reconciler self-heals new *nullable* columns, and the SQLite test path skips Alembic. On Postgres, preflight **stamps** an existing `create_all` schema to `head` on first run, then **upgrades to head** thereafter — best-effort, never blocking startup. The DB URL comes from `app.core.config`, so `alembic.ini` holds no secret.
+
+After changing a model, run the "New migration" command below, review the generated script, and commit it.
+
+### Secrets
+
+Copy `.env.example` → `.env` (gitignored). Document every new variable in **both** `.env.example` and `deployment.md`.
 
 ## Commands
-
-> The frontend (`web/frontend/`) is scaffolded and these commands run today. Backend commands still depend on app code added in a later phase.
 
 ### Backend (Python / uv)
 
@@ -23,20 +61,19 @@
 | --- | --- |
 | Install deps | `uv sync` |
 | Add a dependency | `uv add <pkg>` |
-| Start Postgres + Redis + Neo4j + Qdrant | Automatic — `python app.py` (or `… backend`) checks Docker, pulls/builds the images, and starts them. Manual fallback: `docker compose -f web/backend/docker-compose.yml up -d --build` |
-| Run the API (dev) | `uv run python app.py backend` — ensures Docker + containers, runs preflight (check DB+Redis, create schema, reconcile, **Alembic stamp/upgrade**, seed), then Uvicorn |
-| New migration | `uv run alembic -c web/backend/alembic.ini revision --autogenerate -m "<msg>"` — diffs the models against the configured DB and writes a versioned script under `web/backend/alembic/versions/` (review it before committing) |
-| Apply migrations | `uv run alembic -c web/backend/alembic.ini upgrade head` — preflight also does this automatically on a non-SQLite DB; the DB URL comes from `app.core.config` (no secret in `alembic.ini`) |
-| Tests | `uv run pytest` (in-memory SQLite — no Postgres/Docker needed; Alembic is skipped under SQLite) |
+| Run the API | `uv run python app.py backend` |
+| Tests | `uv run pytest` — in-memory SQLite, no Docker needed (784 cases) |
+| New migration | `uv run alembic -c web/backend/alembic.ini revision --autogenerate -m "<msg>"` |
+| Apply migrations | `uv run alembic -c web/backend/alembic.ini upgrade head` |
 | Lint (recommended) | `uv run ruff check .` |
 | Format (recommended) | `uv run ruff format .` |
 | Type check (recommended) | `uv run mypy web/backend` |
 
 ### Frontend (Next.js)
 
-Installed stack: **Next.js 16** (App Router, Turbopack) · React 19 · TypeScript · **Tailwind CSS v4** (CSS-first `@theme`; Mytheca tokens surfaced as CSS variables) · **Framer Motion** · **`react-force-graph-2d`** (canvas + d3-force renderer for the story-player Graph view — lazy-loaded via `next/dynamic({ ssr:false })`, so it stays out of the initial bundle until a scene is switched to Graph mode; declares `peerDependencies: { react: '*' }`, compatible with React 19) · **Vitest + React Testing Library** (tests co-located beside components, e.g. `app/page.test.tsx`). The three brand fonts (Cinzel / EB Garamond / IBM Plex Mono) load via `next/font` in `app/layout.tsx`.
+Installed: **Next.js 16.2.9** (App Router, Turbopack) · React 19.2.4 · TypeScript 5 · **Tailwind CSS v4** (CSS-first `@theme`) · **Framer Motion 12** · **`react-force-graph-2d`** (lazy-loaded via `next/dynamic({ ssr:false })` for the story-player Graph view) · **Vitest 4 + React Testing Library** (tests co-located beside components). Fonts (Cinzel / EB Garamond / IBM Plex Mono) load via `next/font` in `app/layout.tsx`.
 
-Run from `web/frontend/` (or from the repo root with `python app.py frontend`):
+Run from `web/frontend/`:
 
 | Action | Command |
 | --- | --- |
@@ -45,35 +82,49 @@ Run from `web/frontend/` (or from the repo root with `python app.py frontend`):
 | Build | `npm run build` |
 | Tests | `npm test` (Vitest, run once) / `npm run test:watch` |
 | Lint | `npm run lint` |
-| Type check | `npm run typecheck` (`tsc --noEmit`) |
-| Theme contrast gate | `uv run python utils/scripts/check_contrast.py` (from the repo root) — parses `styles/themes.css` and asserts the WCAG-AA token pairs for all three themes |
+| Type check | `npm run typecheck` |
 
-## Validation Gate (before "done")
+Theme-contrast gate, run from the repo root:
+
+```bash
+uv run python utils/scripts/check_contrast.py
+```
+
+It parses `web/frontend/styles/themes.css` and asserts the WCAG-AA token pairs across all three themes.
+
+## Validation Gate (definition of "done")
 
 Required:
-- Backend: `uv run pytest` passes for affected areas.
-- Frontend: component/route tests pass.
-- **Web/UI changes also require** an accessibility + responsive pass per `docs/skills/accessibility-mobile/SKILL.md` and `docs/skills/ada-compliance/SKILL.md`: keyboard operability, visible focus, contrast (AA), live-region announcements for streamed content, and layout checks at 320 / 375 / 768 / 1024 px.
-- **Theme-token changes also require** `uv run python utils/scripts/check_contrast.py` to pass (the WCAG-AA pair gate over `styles/themes.css`).
+
+- `uv run pytest` passes.
+- Frontend tests pass (`npm test` in `web/frontend/`).
+- **UI changes also require** an accessibility + responsive pass per `skills/accessibility-mobile/SKILL.md` and `skills/ada-compliance/SKILL.md`: keyboard operability, visible focus, AA contrast, live-region announcements for streamed content, and layout at 320 / 375 / 768 / 1024 px.
+- **Theme-token changes also require** `check_contrast.py` to pass.
 
 Recommended hygiene: ruff + mypy (backend), ESLint + tsc (frontend).
 
-If a check is skipped, say so and record why in `docs/checklist.md`.
+If a check is skipped, say so and record why in `checklist.md`.
 
 ## Documentation Maintenance
 
-Update docs in the same change that alters behavior (see `docs/skills/global-project-rules/SKILL.md` for the full map). At minimum: structure changes → `structure.md`; routes → `routes.md` + `component-map.md`; API/contract → `api-contract.md` + `data-flow.md`; deps/commands/env → this file + `architecture.md`/`deployment.md`; visual tokens → `design-system.md`; status/decisions → `documentation.md`.
+Update docs in the same change that alters behavior:
+
+| Change | Update |
+| --- | --- |
+| Top-level layout | `structure.md` |
+| Frontend route | `routes.md` + `component-map.md` |
+| API endpoint or event | `api-contract.md` + `data-flow.md` |
+| Dependency, command, env var | `workflow.md` + `deployment.md` |
+| Visual token / theme | `design-system.md` |
+| Architecture decision or status | `documentation.md` + `architecture.md` |
+| Anything deferred | `checklist.md` |
 
 ## Git Workflow
 
-- Branch off `main` for feature work; don't commit features directly to `main` unless asked.
-- **Commit per phase:** each completed plan phase ends with a local commit. No automatic push or PR unless the user requests it.
-- Messages: `Mytheca — <area>: <what changed>`, or for plan phases `[Plan Name] (n/total) Complete: <summary>`.
+- Branch off `main`; don't commit feature work directly to `main` unless asked.
+- **Commit per phase** — each completed plan phase ends with a local commit. No push or PR unless requested.
+- Messages: `Mytheca — <area>: <what changed>`, or `[Plan Name] (n/total) Complete: <summary>` for plan phases.
 
 ## Supported Agent Tools
 
-Claude Code (`.claude/skills/`), OpenAI Codex (`.agents/skills/`), Cursor (`.cursor/rules/`). All pointer files reference `docs/skills/global-project-rules/SKILL.md` plus the relevant canonical skill. Do not duplicate instructions into agent folders.
-
-## Handoff
-
-Leave `docs/checklist.md` current, ensure docs reflect the change, and record any deferred work before ending a session.
+Claude Code (`.claude/skills/`), OpenAI Codex (`.agents/skills/`), Cursor (`.cursor/rules/`). All three hold **pointers only** — canonical instructions live in `docs/skills/`. Never duplicate instructions into agent folders.

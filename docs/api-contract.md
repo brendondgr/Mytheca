@@ -1,8 +1,8 @@
 # Mytheca — API & Event Contract
 
-The contract between the Next.js frontend and the FastAPI backend. Request/response schemas are owned by the backend (Pydantic, `web/backend/app/schemas/`); shared types and the event schema live in `web/shared/contracts/`. This document and those files must stay in sync.
+The contract between the Next.js frontend and the FastAPI backend. Request/response schemas are owned by the backend (Pydantic, `web/backend/app/schemas/`). The live TypeScript mirror of the event schema and API types is hand-maintained in `web/frontend/lib/events.ts` and `web/frontend/lib/types.ts`, kept in sync with `web/backend/app/events/envelope.py` by hand; `web/shared/contracts/` is a reserved-but-empty seam (only a `.gitkeep`) for eventually formalizing that mirror. This document and those files must stay in sync.
 
-**Status:** the Storyline / Character / Setting / Scenario CRUD groups, the stat endpoints, the **Options** (global settings + LLM endpoint proxy) group, the **Story Graph** (Type Registry + scenario subgraph read), and the **Hybrid RAG** (status, reindex stream, query) are **implemented** (`web/backend/app/routes/`, served under `/api`). Auth, Play, Stream, and Admin remain **planned**. Wire payloads are camelCase (`castIds`, `settingId`, `displayName`) to match `web/frontend/lib/types.ts`.
+**Status:** the Storyline / Character / Setting / Scenario CRUD groups, the stat endpoints, the **Options** (global settings + LLM endpoint proxy) group, the **Story Graph** (Type Registry + scenario subgraph read), the **Hybrid RAG** (status, reindex stream, query), and **Play** (turn streaming, presence, relationships, sessions) are **implemented** (`web/backend/app/routes/`, served under `/api`). Auth, the separate `GET /stream` fan-out seam, and Admin remain **planned**. Wire payloads are camelCase (`castIds`, `settingId`, `displayName`) to match `web/frontend/lib/types.ts`.
 
 **Identifiers:** the two **URL-facing** ids are short, bare hex (no prefix) so they read cleanly in `/{storylineId}/{scenarioId}` — **Storyline = 8-hex** (`1a2b3c4d`), **Scenario = 4-hex** (`9f8e`), both collision-checked at create time (`services/crud.py`). All other entities keep prefixed ids (`c_…`, `s_…`, `stat_…`, `ev_…`). Ids are string primary keys, so hand-authored seed slugs (`embergate`, `maerin`) and any client-supplied id still pass through unchanged.
 
@@ -18,7 +18,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 
 - Validation errors return 422 with field-level details. Auth failures return 401; permission failures 403.
 
-## Endpoint Groups (planned)
+## Endpoint Groups
 
 | Group | Endpoints | Notes |
 | --- | --- | --- |
@@ -295,9 +295,14 @@ key is **write-only**: it is stored server-side and never returned in clear.
 
 **Writing-Agent Prompt Overrides** — the global layer of the four-layer resolution chain. The
 `prompts` field on `GET /options` contains:
-- `catalog` — the full registry of the seven overridable prompt keys, each with `key`, `agent`
+- `catalog` — the full registry of the eight overridable prompt keys, each with `key`, `agent`
   (which agent owns it), `label`, `description`, and `default` (the built-in text). Keys: `character.output_contract`,
-  `narrator.system`, `narrator.system_long`, `director.who_is_up`, `director.rerank`, `director.branch`, `planner.system`.
+  `narrator.system`, `narrator.system_long`, `director.who_is_up`, `director.rerank`, `director.branch`,
+  `director.pov_branch` (POV-mode follow-up suggestions, `director_agent.propose_pov_lines`), `planner.system`.
+  **`director.who_is_up` and `director.rerank` are inert on the live turn path** — `director_agent.who_is_up`
+  and `director_agent.rerank` are dead code, called only from `utils/tests/backend/agents/test_director_agent.py`;
+  the per-beat decision on a real turn is made by `planner_agent.next_beat`. Overriding either key has no
+  effect on actual play.
 - `overrides` — the current global overrides map (`{registryKey: text}`); only keys with active
   overrides appear.
 
@@ -826,4 +831,4 @@ char/4 estimate only until a real `promptTokens` is known.
 
 ## Shared Contracts Location
 
-TypeScript types for events and API payloads live in `web/shared/contracts/`. When an endpoint, event, or stat shape changes, update: the Pydantic schema, the shared contract type, and this document.
+TypeScript types for events and API payloads are hand-maintained in `web/frontend/lib/events.ts` and `web/frontend/lib/types.ts`, kept in sync with `web/backend/app/events/envelope.py` by hand. `web/shared/contracts/` holds only a `.gitkeep` — it is a reserved-but-empty seam, not where the mirror actually lives today. When an endpoint, event, or stat shape changes, update: the Pydantic schema, the frontend type mirror, and this document.

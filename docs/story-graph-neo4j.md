@@ -15,6 +15,7 @@ the implementation plan is `docs/plans/story-graph-neo4j-substrate.md`.
 | Type Registry | `app/models/graph_type.py`, `app/services/type_registry.py`, `app/content/graph_registry.py`, `app/routes/graph.py` | §1.4 — the semantic type system in Postgres; built-in seed catalogue (§5). |
 | Write path | `app/services/graph_writer.py` (hooked into `services/crud.py`) | §6 — node/edge upsert with dynamic labels, `:Consequence` reification, registry validation; best-effort. |
 | Read path | `app/services/graph_reader.py`, `GET /api/scenarios/{id}/graph` | §7.2 — read-only Cypher templates over the scenario subgraph; materialize-on-load. |
+| Turn-loop read consumer | `graph_reader.relationship_context`, called from `services/turn_engine.py`'s `_relationship_note()` | Direct + 2-hop character↔character edges, folded into the character-turn LLM prompt (§7.2 — the graph's actual influence on generated dialogue). |
 
 ## Connection lifecycle (the operating boundary, §8)
 
@@ -60,8 +61,13 @@ On Character/Setting create/edit/delete, `services/crud.py` calls best-effort
 instance against the registry, then `MERGE`s a `:Node` keyed on the Postgres id,
 adds the dynamic type label, and sets metadata properties (clearing a field
 removes the property via `+=` null). The recurring consequence record is reified
-as a shared `:Consequence` node (§6.4) — provided as the machinery the async
-cold-path writer (§8, deferred) will use.
+as a shared `:Consequence` node (§6.4); edges and `:Consequence` nodes are written
+today, on the cold path, by `services/turn_writer.py` — after every turn with
+durable consequences it routes each one by the "…toward whom?" rule (a relational
+target becomes an `upsert_edge` + `attach_consequence`; a non-relational change was
+already applied as a stat on the hot path and is recorded here only for audit) and
+appends an `:Event` node. This is separate from `crud.py`'s `sync_*` hooks, which
+only mirror Character/Setting *nodes* on create/edit/delete.
 
 ## Read path (§7.2 + §7.4)
 
@@ -69,11 +75,31 @@ cold-path writer (§8, deferred) will use.
 Postgres into Neo4j (idempotent `MERGE`, drawing `present_at` edges — so the seeded
 world appears on first load), then **reads** the subgraph through pre-written,
 parameterized Cypher templates in a **read-only** transaction (a stray write is
-rejected by the server). Returns `{ available, scenarioId, nodes[], edges[] }`.
+rejected by the server). Returns `{ available, scenarioId, nodes[], edges[] }`. This
+is the **visualization** read path only (the story player's Graph view, below) —
+it does not feed the LLM.
+
+### Turn-loop read path — the graph's actual influence on dialogue
+
+`services/turn_engine.py`'s `_relationship_note()` calls
+`graph_reader.relationship_context(speaker_id, other_ids)` for every character beat:
+direct char↔char edges plus 2-hop indirect ("you and X are both connected to Y")
+links, best-effort (empty when the graph is off/unreachable). The result is folded
+into a plain-language sentence and injected straight into the character-turn LLM
+prompt — this, not the visualization endpoint, is the mechanism by which the Story
+Graph actually shapes generated dialogue.
+
+By contrast, `assembler.py` assembles `TurnContext.subgraph` (the scenario subgraph)
+on every turn, but nothing renders it into a prompt — its only consumer is the
+boolean `available` flag folded into the diagnostic trace (`graph_available` in
+`turn_engine.py`).
+
+**Unused query templates.** `graph_reader.presence_casting` and
+`graph_reader.secret_reachability` are defined Cypher templates with no callers
+anywhere in the codebase today — reserved for future use, not currently live.
 
 ## Deferred seams (prerequisites don't exist yet)
 
-- **§8 async turn-writer** — cold-path consequence extraction; needs a turn loop / story engine.
 - **§7.1 vector entry-point** — needs an embedding stack + a native vector index.
 - **§7.3 Text2Cypher** — `schema_blob` is compiled and ready; live generation awaits a hot-path consumer (staged per §10).
 - **Graph visualization UI** — *implemented*. The story player's **Graph view** (`components/feature/GraphView.tsx` + `GraphCanvas.tsx`, reached by the `SceneHeader` Chat ⇄ Graph switch) renders this endpoint's subgraph as a `react-force-graph-2d` canvas, colored by type via `lib/graphColors.ts`, with a legend + sr-only table. Degrades to a calm "offline" state when this read path returns `available:false`.

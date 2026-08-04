@@ -102,10 +102,12 @@ per-single-save `sync_*` hooks stay inline (one embed each).
 
 `agents/_common.rag_block(db, storyline_id, query)` retrieves the top entries for a
 seed and folds them into a bounded grounding block. It is wired into the
-**character / setting / scenario** draft agents (the world-genesis storyline agent
-has no corpus to retrieve, so it is unwired). Retrieved lore sits alongside the
-transient `docs_block` (dropped-file text), so a draft is grounded in both the
-established world and any just-dropped references.
+**character / setting / scenario** draft agents and the **storyline-edit** agent
+(`agents/storyline_edit/core.py`, the conversational agent that edits an existing
+storyline) — the world-genesis storyline agent has no corpus to retrieve yet, so it
+alone is unwired. Retrieved lore sits alongside the transient `docs_block`
+(dropped-file text), so a draft is grounded in both the established world and any
+just-dropped references.
 
 ## Entity-scoped context documents
 

@@ -43,12 +43,12 @@ Text sizes are driven by six CSS custom properties defined in `styles/themes.css
 
 | CSS variable | Default | Compact | Comfortable | Large | Used for |
 | --- | --- | --- | --- | --- | --- |
-| `--fs-eyebrow` | 11px | 9px | 12.5px | 14px | `Eyebrow` component (role tags, section kickers, "❖ Draft with Mytheca" labels) |
+| `--fs-eyebrow` | 10px | 9px | 12px | 13.5px | `Eyebrow` component (role tags, section kickers, "❖ Draft with Mytheca" labels) |
 | `--fs-label` | 12px | 11px | 13px | 14px | `FieldLabel` headings, form section labels |
 | `--fs-ui` | 12px | 11px | 13px | 14px | `Button` text, tab labels |
 | `--fs-body-sm` | 14px | 13px | 15px | 16px | Card descriptions, modal body prose |
 | `--fs-body` | 15px | 14px | 16px | 17px | Input fields, longer reading text |
-| `--fs-tag` | 10.5px | 9px | 11.5px | 12.5px | `Tag` chips (genre, tone, role pills) |
+| `--fs-tag` | 9.5px | 9px | 11px | 12px | `Tag` chips (genre, tone, role pills) |
 
 The active preset is stored in `localStorage` key `mytheca-font-size` (default: `"default"`) and applied as a class on `<html>` (e.g., `.fs-comfortable`) by `lib/font-size.ts`'s no-flash inline script in `app/layout.tsx`. The hook is `useFontSize()` in `hooks/use-font-size.ts`. Tailwind utilities `text-eyebrow`, `text-label`, `text-ui`, `text-body-sm`, `text-body`, `text-tag` resolve from the live CSS variable via `@theme inline` in `globals.css`.
 
@@ -84,6 +84,7 @@ Three themes ship from day one, switched by a `ThemeSwitcher` and persisted (`lo
 | `--menu-bd` | `#A98F5D` | `#5C4A2B` | `#465667` | Dropdown/popover border |
 | `--hover-bg` | `#ECDFBC` | `#382C1A` | `#2E3945` | Row/ghost hover tint — visible against page, card, and menu surfaces |
 | `--surface` | `#EDE2C6` | `#1B1509` | `#141B22` | Raised panel ground between page and card (sidebar/nav chrome) |
+| `--tab-ink` | `#59492F` | `#B09A6F` | `#B7C7D4` | Tab label text (`LibraryTabs`) |
 
 **Theme-agnostic semantic colors** (used across all themes):
 
@@ -96,7 +97,7 @@ Three themes ship from day one, switched by a `ThemeSwitcher` and persisted (`lo
 
 All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every theme** — verify Parchment, Ember, and Slate. Status and stat changes are never conveyed by color alone (pair with a label, sign, or icon).
 
-**Frontend implementation.** The three token sets live in `web/frontend/styles/themes.css` as `.theme-light` / `.theme-dark` / `.theme-slate`; the active class sits on `<html>`, applied pre-paint by a no-flash inline script (`themeInitScript` in `lib/theme.ts`). `app/globals.css` maps the variables to Tailwind utilities via `@theme inline` — e.g. `bg-page`, `bg-card`, `bg-card2`, `text-ink`, `text-ink-soft`, `text-mute`, `border-cardbd`, `border-hair`, `text-accent`, and the interaction tokens `bg-accent-hover`, `bg-menu` / `border-menu-bd`, `bg-hover`, `bg-surface`, plus theme-agnostic `text-gold` / `text-narrator` / `text-success` / `text-danger`. Gradient surfaces (page glow, header, rails) use the `.mytheca-page` / `.mytheca-header` / `.mytheca-rail` helper classes. The current theme is read via `useTheme()` (a `useSyncExternalStore` over the `<html>` class + `localStorage['mytheca-theme']`, so no provider is needed) and toggled by `ThemeSwitcher`.
+**Frontend implementation.** The three token sets live in `web/frontend/styles/themes.css` as `.theme-light` / `.theme-dark` / `.theme-slate`; the active class sits on `<html>`, applied pre-paint by a no-flash inline script (`themeInitScript` in `lib/theme.ts`). `app/globals.css` maps the variables to Tailwind utilities via `@theme inline` — e.g. `bg-page`, `bg-card`, `bg-card2`, `text-ink`, `text-ink-soft`, `text-mute`, `border-cardbd`, `border-hair`, `text-accent`, and the interaction tokens `bg-accent-hover`, `bg-menu` / `border-menu-bd`, `bg-hover`, `bg-surface`, `text-tab-ink`, plus theme-agnostic `text-gold` / `text-narrator` / `text-success` / `text-danger`. Gradient surfaces (page glow, header, rails) use the `.mytheca-page` / `.mytheca-header` / `.mytheca-rail` helper classes. The current theme is read via `useTheme()` (a `useSyncExternalStore` over the `<html>` class + `localStorage['mytheca-theme']`, so no provider is needed) and toggled by `ThemeSwitcher`.
 
 ## Geometry, Elevation, Icon, Spacing
 

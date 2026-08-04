@@ -1,84 +1,102 @@
 # Mytheca — Repository Structure
 
-`docs/` is the source of truth. All runtime web code lives under `web/`. The root `app.py` launches the FastAPI backend. Keep this file updated whenever the tree changes.
+`docs/` is the source of truth. All runtime code lives under `web/`. The root `app.py` launches both sides. Update this file whenever the tree changes.
 
 ```text
 mytheca/
-├── CLAUDE.md                # Claude Code entry point — routing tables to docs/ and web/ files, avoids blind search
-├── app.py                  # Root launcher — `python app.py` → backend + frontend together; `python app.py frontend|backend` → one side
-├── pyproject.toml          # uv-managed Python project (backend + tooling)
-├── .python-version         # 3.13
-├── .env.example            # Documented environment variables
-├── .gitignore
+├── app.py                  # Root launcher — backend + frontend; owns the Docker data stores
+├── CLAUDE.md               # Claude Code entry point — routing tables into docs/ and web/
 ├── README.md
+├── pyproject.toml          # uv-managed Python project (backend + tooling)
+├── uv.lock                 # Fully pinned Python deps
+├── .python-version         # 3.13
+├── .env.example            # Every environment variable, documented
+├── line_counter.py         # Standalone LOC-counting utility (not part of the app)
+├── images/                 # Brand kit — Basic.svg, Basic-Light.svg, DarkText.svg, LightText.svg
+├── media/                  # Generated WebP output (portraits/, scenes/) — gitignored, served at /media
+├── libs/                   # Internal shared packages — currently empty (.gitkeep)
 ├── docs/                   # Source of truth
-│   ├── skills/             # Canonical skills (read by every agent tool)
-│   ├── plans/              # Implementation & handoff plans (planner skill)
-│   ├── documentation.md    # Project purpose, stack, decisions, status
+│   ├── documentation.md    # Purpose, domain model, stack, status
 │   ├── structure.md        # This file
 │   ├── workflow.md         # Commands, environment, validation, git
-│   ├── checklist.md        # Active work + open follow-ups
-│   ├── architecture.md     # Modes, auth, boundary, decisions
-│   ├── routes.md           # Route map
+│   ├── checklist.md        # Active work + genuinely-open follow-ups
+│   ├── architecture.md     # Boundaries, data layer, decisions
+│   ├── routes.md           # Frontend route map
 │   ├── component-map.md    # Component ownership
-│   ├── data-flow.md        # Data origins + the streaming/event path
+│   ├── data-flow.md        # Data origins + the turn/streaming path
 │   ├── deployment.md       # Build, run, env, deploy targets
-│   ├── design-system.md    # Visual motif, tokens, UI states
+│   ├── design-system.md    # Themes, tokens, UI states
 │   ├── api-contract.md     # API + NDJSON event contract
-│   └── rag.md              # Hybrid RAG: pipeline, components, embedding, Qdrant, utilization
+│   ├── rag.md              # Hybrid RAG pipeline
+│   ├── story-graph-neo4j.md    # Neo4j Story Graph
+│   ├── comfyui-image-generation.md  # Image generation
+│   ├── skills/             # Canonical skills, read by every agent tool
+│   ├── plans/              # Implementation & handoff plans (planner skill)
+│   ├── briefings/          # Original product briefing
+│   ├── research/           # Standalone research/audit reports
+│   └── CharacterFrontpage/ # Locked-in visual reference mockups (HTML)
 ├── web/
-│   ├── frontend/           # Live Next.js 16 app (App Router, Turbopack) + React 19 + TS + Tailwind v4 + Framer Motion
-│   │   ├── app/            # Routes, layouts, route handlers (+ co-located *.test.tsx)
-│   │   ├── components/{ui,layout,feature}/
-│   │   ├── features/       # Feature modules (story player, library, options, documents)
-│   │   ├── hooks/          # Shared hooks (event-stream consumer, etc.)
-│   │   ├── lib/            # Frontend helpers, API client
-│   │   ├── styles/         # Global styles / Tailwind target
+│   ├── frontend/           # Next.js 16 app (App Router, Turbopack) + React 19 + TS + Tailwind v4
+│   │   ├── app/            # 8 routes (see docs/routes.md) + root layout
+│   │   ├── components/{ui,layout,feature}/   # 17 / 6 / 47 components
+│   │   ├── features/       # Route-level modules: story-player, library, options, documents
+│   │   ├── hooks/          # use-event-stream, use-field-reveal, use-font-size, use-theme
+│   │   ├── lib/            # API client, types, events, theme, helpers (14 files)
+│   │   ├── styles/         # themes.css — the only stylesheet besides app/globals.css
 │   │   ├── public/         # Static assets
 │   │   ├── test/           # Vitest setup (jsdom, jest-dom)
-│   │   └── *config*        # package.json, next.config.ts, tsconfig.json, vitest.config.ts, eslint/postcss configs
-│   ├── backend/            # FastAPI "brain"
-│   │   ├── docker/neo4j/   # Custom Neo4j 5.26 image (APOC) — the Story Graph substrate, built by app.py
-│   │   ├── docker-compose.yml  # Postgres + Redis + Neo4j + Qdrant containers (started by app.py)
-│   │   ├── alembic.ini     # Alembic config (no secret — DB URL injected at runtime from app.core.config)
-│   │   ├── alembic/        # Migrations: env.py (→ Base.metadata + settings) + versions/ (baseline = current schema). Non-additive migration path; coexists with create_all/reconciler (preflight stamps/upgrades on Postgres, skips SQLite)
+│   │   └── *config*        # package.json, next.config.ts, tsconfig.json, vitest.config.ts, eslint/postcss
+│   ├── backend/            # FastAPI brain
+│   │   ├── docker-compose.yml   # Postgres · Redis · Neo4j · Qdrant (started by app.py)
+│   │   ├── docker/neo4j/   # Custom Neo4j 5.26 image (APOC)
+│   │   ├── alembic.ini     # DB URL injected at runtime from app.core.config — no secret
+│   │   ├── alembic/        # env.py + versions/ (12 migrations)
 │   │   └── app/
-│   │       ├── routes/     # API + NDJSON streaming endpoints — incl. play.py (POST /play/{id}/turn streams the turn); (+ graph: Story-Graph Type Registry + scenario subgraph)
-│   │       ├── services/   # Turn loop: turn_engine (POV loop + delta streaming; persists the diagnostic trace), assembler (Band-1 context), retrieval_gate, emission (thin-tag parse), validator (stat clamp + presence), presence (scene-presence fold from the event log), events_store (seq/persist + session list/history/close), session_export (JSON/Markdown record), turn_writer (cold-path consequences); event engine; stat_guidance; stat_render (current-band + {Character} substitution into the character prompt); storyline_apply.py (agentic-edit diff guard + transactional validated writes + content-hash stale reconcile); media_cleanup; Story Graph: type_registry, graph_writer, graph_reader
-│   │       ├── agents/     # LLM agents — authoring (storyline/character/setting/scenario, triage, shared _common); storyline_edit/ (scope.py — dynamic response schema + diff guard, core.py — shared converse engine, editor.py — existing-storyline agent, creation.py — blank/partial-draft agent) is the conversational, scope-aware agent that replaced build/extract; turn loop: character_turn_agent (think→speak), director_agent (who's-up + branches), narrator_agent (interstitials), planner_agent (ReAct beat planner); prompt_registry.py (single source of truth for the four writing agents' system prompts — PromptSpec + PROMPT_REGISTRY [7 keys] + resolve_prompts four-layer fold)
-│   │       ├── content/    # Authored content — the built-in Story-Graph type catalogue (graph_registry.py) + per-stat Markdown guidance (stats/*.md, loaded by services/stat_guidance.py); YAML config later
-│   │       ├── rag/        # Entry-based hybrid RAG: schema.py (LoreEntry) · serializer.py (prefix-fusion) · tokens.py (512-token guard) · entries.py (entity→entry adapters) · embedder.py (fastembed bge-large + HashEmbedder fallback) · store.py (Qdrant) · indexer.py (embed-on-save/delete hooks + reindex progress) · retriever.py (dense+BM25+RRF+pre-filter) · const.py
-│   │       ├── memory/     # Live turn state (Redis, best-effort): buffer.py (recent-turn buffer); interior state + prefetch are later-phase seams
-│   │       ├── events/     # Story-event envelope (6 types incl. internal_thought) + stream.py (build_event/to_ndjson_line/chunk_text)
-│   │       ├── models/     # PostgreSQL models (storylines, characters, settings, scenarios, play_sessions, events, turn_traces, stats, app_settings, graph_type_definitions, context_documents, context_document_links)
-│   │       ├── schemas/    # Pydantic request/response + event schemas (stat clamping, rag.py); storyline_edit.py (FieldScope/ScopeState, FieldChange, StatChange, StoryPlan, agent stream frames)
-│   │       └── core/       # Config, db/redis/neo4j/qdrant.py clients, LLM provider interface, YAML/Markdown loaders
+│   │       ├── main.py     # App factory; every router mounted under /api; /media static mount
+│   │       ├── routes/     # characters · context_documents · graph · options · play · rag
+│   │       │               #   scenarios · settings · stats · storylines
+│   │       ├── services/   # Turn loop, CRUD, graph, RAG glue, media, LLM proxy (29 modules)
+│   │       ├── agents/     # LLM agents — authoring + turn loop + prompt_registry + storyline_edit/
+│   │       ├── content/    # graph_registry.py (type catalogue) + stats/*.md guidance
+│   │       ├── rag/        # schema · serializer · tokens · entries · embedder · store · indexer
+│   │       │               #   · retriever · const
+│   │       ├── memory/     # buffer.py (Redis recent-turn buffer) · interior.py
+│   │       ├── events/     # envelope.py (7 story events) · stream.py (NDJSON + trace/error frames)
+│   │       ├── models/     # 13 SQLAlchemy tables
+│   │       ├── schemas/    # Pydantic request/response + event schemas
+│   │       └── core/       # config · db · redis · neo4j · qdrant · bootstrap · seed · errors · ids
 │   └── shared/
-│       └── contracts/      # Shared FE↔BE types / OpenAPI / event schemas
-├── utils/                  # Small standalone helpers
-│   ├── tests/              # pytest + frontend tests, grouped by area
-│   │   ├── backend/{api,agents,data}/
-│   │   └── frontend/
-│   └── scripts/            # Dev/build/ops scripts
-├── libs/                   # Internal shared packages
-└── docs/                   # (see above)
+│       └── contracts/      # Intended FE↔BE contract home — currently EMPTY (.gitkeep)
+├── utils/
+│   ├── tests/
+│   │   ├── backend/{api,agents,services,rag,data}/  # pytest, grouped by area + conftest.py
+│   │   └── frontend/       # EMPTY (__init__.py only) — frontend tests are co-located
+│   ├── scripts/            # check_contrast.py (WCAG-AA token gate)
+│   └── workflows/          # ZiT-Workflow.json — the ComfyUI workflow loaded by services/comfyui.py
+├── .claude/                # Claude Code — skill pointers + launch.json + worktrees/
+├── .agents/                # OpenAI Codex — skill pointers
+└── .cursor/                # Cursor — rule pointers (.mdc)
 ```
+
+## Two things that trip people up
+
+1. **Frontend tests are co-located**, next to what they test (`Foo.tsx` → `Foo.test.tsx`) — 84 files across `app/`, `components/`, `features/`, `hooks/`, `lib/`. `utils/tests/frontend/` holds only an `__init__.py` and should be ignored.
+2. **`web/shared/contracts/` is empty.** The live FE↔BE event and entity types are hand-written in `web/frontend/lib/events.ts` and `lib/types.ts`, kept in sync with `web/backend/app/events/envelope.py` by hand.
 
 ## Top-Level Path Purpose
 
 | Path | Why it exists |
 | --- | --- |
-| `CLAUDE.md` | Auto-loaded by Claude Code at session start. Not a source of truth (`docs/` is) — a condensed routing index into it: which skill for which task, and concrete file paths per backend/frontend layer, so agents route directly instead of grepping. Keep in sync with this file and `docs/skills/global-project-rules/SKILL.md` when top-level layout changes. |
-| `app.py` | Single root launcher: `python app.py` starts **both** the backend (preflight + uvicorn, `web/backend`) and the frontend dev server (`npm run dev` in `web/frontend`), waiting for backend health before the frontend and stopping both on Ctrl+C; `python app.py frontend` / `python app.py backend` run a single side; `python app.py stop` forcibly ends any running frontend/backend processes and exits. **Forcibly frees its ports** — every launch terminates whatever still holds 3345/3346 (a leftover `next dev` / uvicorn) via SIGTERM→SIGKILL before starting, so a fresh run never hits `EADDRINUSE` (`_free_port`/`_pids_on_port`/`_kill_pid`). **Owns Docker** — `ensure_docker_services()` verifies Docker + daemon, pulls the Postgres/Redis images when missing, **builds the custom Neo4j image** (`docker/neo4j/Dockerfile`), and starts all four containers (Postgres · Redis · Neo4j · **Qdrant**) before the backend (`up -d --build --wait`; you never run `docker compose` yourself). |
-| `docs/` | All durable documentation and canonical skills — the source of truth. |
-| `web/frontend/` | The Next.js UI: story player, narrator cards, character bubbles, stats/branch side panels. |
-| `web/backend/` | The FastAPI brain: routes, multi-agent logic, the stat system, events, validation, persistence. |
-| `web/shared/contracts/` | Types/contracts shared by both layers (events, API shapes). |
-| `utils/` | Small standalone Python helpers; also holds `utils/tests/` and `utils/scripts/`. |
-| `utils/tests/` | pytest + frontend tests, grouped by area. |
-| `utils/scripts/` | Dev/build/ops scripts. |
-| `utils/workflows/` | Saved ComfyUI workflow JSON (e.g. `ZiT-Workflow.json`) loaded by `services/comfyui.py` for image generation. |
-| `media/` | Generated media (character portraits under `portraits/`, setting scene art under `scenes/`, all WebP), written by `services/portraits.py` / `services/scene_art.py` (shared WebP helpers in `services/media.py`) and served read-only at `/media`. Path is `MEDIA_DIR` (default `<repo>/media`); gitignored. |
-| `libs/` | Internal shared packages that grow beyond a single helper. |
+| `app.py` | Single launcher. `python app.py` runs backend + frontend; `… backend` / `… frontend` run one side; `… stop` (aliases `kill`, `down`) ends both. Frees ports 3345/3346 (SIGTERM→SIGKILL) before starting, and owns Docker via `ensure_docker_services()` — verify daemon → pull missing images → build the custom Neo4j image → `up -d --build --wait`. |
+| `CLAUDE.md` | Auto-loaded routing index for Claude Code. Not a source of truth — keep it in sync with this file. |
+| `docs/` | All durable documentation and the canonical skills. |
+| `web/frontend/` | The Next.js UI: library, storyline creator, story player, options. |
+| `web/backend/` | The FastAPI brain: routes, agents, services, events, persistence. |
+| `utils/` | Standalone helpers: `tests/`, `scripts/`, `workflows/`. |
+| `libs/` | Reserved for internal shared packages; empty today. |
+| `media/` | Generated WebP portraits and scene art. Path is `MEDIA_DIR` (default `<repo>/media`); gitignored, served read-only at `/media`. |
+| `images/` | Brand SVGs used by the README and the app header. |
 
-Agent-tool pointer folders (`.claude/`, `.agents/`, `.cursor/`) contain only pointers to `docs/skills/` and are intentionally not the source of truth.
+Agent-tool folders (`.claude/`, `.agents/`, `.cursor/`) contain only pointers to `docs/skills/` and are deliberately not a source of truth.
+
+**No LICENSE file exists.** Absent one, the code is all-rights-reserved by default — add one before any public release.

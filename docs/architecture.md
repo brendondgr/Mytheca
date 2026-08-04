@@ -1,135 +1,132 @@
 # Mytheca — Architecture
 
+Boundaries, data layer, and the decisions behind them. For the turn walkthrough see `data-flow.md`; for endpoints and event payloads see `api-contract.md`.
+
 ## Application Mode
 
-API + separate frontend (streaming-first). The Next.js frontend is the UI renderer; the FastAPI backend is the "brain" that runs the multi-agent system and streams story events to the UI.
+API + separate frontend, streaming-first. The Next.js app is the renderer; the FastAPI app is the brain that runs the multi-agent turn loop and streams story events.
 
-## Core Architectural Principle
+## Core Principle
 
 **The AI generates validated story events; the UI renders them. The AI never decides UI layout.**
 
-The model emits small, typed events (one unit of story progress each), the backend validates them (including stat clamping), and the frontend maps each event type to a visual component. This keeps the frontend "dumb" and the agent framework "smart," and avoids the model returning one large blob of prose.
-
-```
-User Input → Orchestrator → Scenario State → Character/Narrator agents
-→ Structured Event Output → Validator → Event Stream → Frontend Renderer
-```
+The model emits small typed events, the backend validates them (including stat clamping), and the frontend maps each event type to a component. This keeps the model out of presentation and avoids one large blob of prose.
 
 ## Domain Model
 
-Four canonical objects define the world; everything else hangs off them.
-
 ```
-Storyline (the world, owns the baseline stat schema)
- ├── Characters (the people, each holding stat values)
+Storyline (the world; owns the baseline stat schema)
+ ├── Characters (each holding stat values)
  ├── Settings (the places)
- └── Scenarios (the live situations being acted out — many, ever-changing,
-                may add their own stats)
+ └── Scenarios (the live situations)
 ```
 
-- **Storyline** — title, genre, world setting, atmosphere/tone, history, ongoing situations, persistent world flags, and the **baseline stat definitions**. Container that owns its characters, settings, and scenarios.
-- **Character** — id, display name, role, avatar/accent color, personality (traits, speech style, tone), goals, secrets, relationship values, and a **stat block** (current values, always within range). Belongs to a storyline.
-- **Setting** — id, name, description, atmosphere, time/weather, who/what is present, notable features, current state. Belongs to a storyline; a scenario points at the setting it takes place in.
-- **Scenario** — the live truth object: which storyline/setting it belongs to, active characters, turn order, current turn index, goals with status, tone (primary + intensity), world flags in play, and any **scenario-specific stat additions or range overrides**.
-- **Story Event** — the central abstraction. Every visible thing in the chat is an event with a base envelope plus type-specific fields (see `docs/api-contract.md`).
+Exact column lists live in `documentation.md`. Two things worth stating here because earlier docs got them wrong:
 
-## Rendering Model
+- **There is no `User` model and no auth.** Postgres holds no users table; nothing in `app/` implements login, sessions, or tokens.
+- **Character relationships are not Postgres columns.** They exist only as Neo4j graph edges, written by `services/relationships.py` (first-turn seeding from bios) and `services/turn_writer.py` (cold path).
 
-- App shell and interactive surfaces: Next.js App Router (client + SSR as appropriate).
-- Live story content: pushed from the backend over SSE/WebSocket as an NDJSON event stream and rendered incrementally — narrator cards, character bubbles, action cards, and side-panel updates.
-- Static/marketing surfaces (landing, docs): static/SSG where it fits.
+## Backend Components
 
-## Frontend Stack
+FastAPI, Python 3.13, `uv`.
 
-Next.js (App Router), React, TypeScript, Tailwind CSS, Framer Motion. The visual language is defined in `docs/design-system.md`. Optional, adopted only when a real need appears: TanStack Query (server-state caching), TanStack Table (dense tables), React Hook Form + Zod (complex editors), Radix UI / shadcn-style copy-owned primitives (`web/frontend/components/ui/`).
+| Concern | Where it actually lives |
+| --- | --- |
+| Turn loop / coordination | `app/services/turn_engine.py` |
+| Who acts next | `app/agents/planner_agent.py` (`next_beat`) — a per-beat ReAct decision |
+| Voicing one character | `app/agents/character_turn_agent.py` (think → speak, one isolated call) |
+| Narration interstitials | `app/agents/narrator_agent.py` |
+| Player-intent reading | `app/agents/intent_agent.py` |
+| Follow-up suggestions | `app/agents/director_agent.py` (`propose_branches`, `propose_pov_lines`) |
+| Context assembly | `app/services/assembler.py` |
+| Emission parsing | `app/services/emission.py` |
+| Validation / clamping | `app/services/validator.py` |
+| Within-turn continuity | `app/services/consistency.py` |
+| Event envelope + NDJSON | `app/events/` |
+| Persistence | `app/models/`, `app/services/events_store.py`, `crud.py` |
+| Config, clients, preflight | `app/core/` |
 
-## Backend Stack
+There is no "Orchestrator", "Rules Engine", "Memory System", or "KG Builder" module — earlier docs named components that were never built. The list above is the real set.
 
-FastAPI (Python 3.13, `uv`). Components:
+### Dead code, kept deliberately
 
-- **Orchestrator / Director** (`app/services/`) — decides what happens next, who speaks, whether narration is needed, pacing, scenario transitions, and **what stat changes a turn's events imply** (reading each stat's guidance).
-- **Event Engine** (`app/events/`, `app/services/`) — produces the NDJSON event stream.
-- **State Manager** (`app/services/`, `app/models/`) — canonical source of truth for the storyline, characters, settings, the active scenario, and all stat values.
-- **Validator** (`app/services/`, `app/schemas/`) — rejects invalid event types, unknown character/setting IDs, malformed JSON, impossible state changes, unauthorized knowledge leaks, and **stat changes that reference undefined stats or fall outside the defined range** (it clamps rather than crashes).
-- **Agents** (`app/agents/`) — Narrator + Character agents (Orchestrator/Director above coordinates them).
-- **Core** (`app/core/`) — config, Postgres/Redis clients, provider-agnostic LLM interface, config/guidance loaders (YAML + Markdown).
+`director_agent.who_is_up` and `director_agent.rerank` are the **superseded one-shot speaker picker**. They are called only from `utils/tests/backend/agents/test_director_agent.py`; no production path invokes them. Their prompt-registry keys (`director.who_is_up`, `director.rerank`) are still exposed through the Options API, so an operator can edit prompts for an agent that never runs. Either remove both, or leave them and treat this paragraph as the warning.
 
-## Agent Roles
+## Agent Roles (as built)
 
-A multi-agent split rather than one monolithic model:
+1. **`intent_agent`** — is the player narrating, addressing someone, directing a character to act, or speaking to the group?
+2. **`planner_agent`** — the ReAct loop. One beat at a time: `speak` / `narrate` / `exit` / `end`, chosen only from **present** cast members, with the POV character locked out.
+3. **`character_turn_agent`** — one isolated LLM call per beat. Emits a visible in-voice `<thinking>` block, then speech, in a thin tagged format the backend parses.
+4. **`narrator_agent`** — scene-setting and interstitials.
+5. **`director_agent`** — end-of-turn follow-up suggestions (situation branches, or first-person lines when POV is active).
+6. **`reflection_agent`** / **`relationship_agent`** — off-hot-path interior state and graph edges.
 
-1. **Orchestrator / Director** — sequencing, pacing, scenario transitions, and implied stat changes per turn.
-2. **Narrator agent** — turns resolved events into descriptive prose and reflects stat states in the world (a wounded character moves stiffly).
-3. **Character agents** — each carries personality, goals, memory, relationships, secrets, emotional state, and its own stat values, which color behavior.
-4. **State manager** — canonical state for storyline/characters/settings/scenario and all stat values.
-5. **Validator** — enforces the event/stat contract and clamps out-of-range values.
+Authoring-time agents (`storyline_agent`, `storyline_edit/`, `character_agent`, `setting_agent`, `scenario_agent`, `triage_agent`) are separate from the turn loop.
 
-An explicit **agent output contract** instructs the model to emit only valid structured events — every spoken line as `character_dialogue`, every description as `narration`, every movement as `character_action`, every world/stat change as `state_update`, branch options as `branch_choices` — and to never invent character/setting IDs or stat keys.
+## Structured Side Effects Are Proposals
+
+A character may propose a stat change, a relationship edge, or its own scene exit. Each is parsed tolerantly and then checked server-side by `validator.py`:
+
+- `validate_stat` — unknown key dropped; value resolved from `value` or `delta`; result clamped to `[min, max]`; free-text `reason` kept as an audit trail.
+- `validate_relationship` — type must be in the registry; target must resolve to a real cast member (exact match, then substring fallback); self-directed edges dropped.
+- `validate_presence` — status must normalize and the transition must be legal (no exit from `dead`).
+
+The model can therefore never push a value out of bounds or invent a stat key.
 
 ## Stat System
 
-A **stat** is a bounded numeric value attached to a character (or, relationally, between characters) that the AI reads and updates as the story unfolds. Health, strength, trust, suspicion, morale are all the same object.
+A stat is a bounded numeric value on a character. Health, trust, suspicion, patience are all the same object.
 
-- The **Storyline** defines the baseline stat schema (key, display name, description, `min`/`max`, default, visibility, guidance file). **Scenarios** may add scenario-specific stats or tighten/override a range while active.
-- Each **stat definition** points at a **Markdown guidance file** (what raises it, what lowers it, magnitude guidance, meaningful bands, and how each band should affect behavior and narration). Relevant guidance files are injected into agent context each turn.
-- The **range and starting value are locked at creation** and enforced by the validator: every incoming stat change is clamped to `[min, max]`, so the AI can never push a value out of bounds.
-- Stat changes ride on `state_update` events (carrying character, stat key, new value or delta, and a short **reason** — a free audit trail). A dedicated `stat_update` event can be promoted later for bespoke rendering.
-- **Visibility** (`public`, `private_to_user`, `private_to_character`, `hidden`) controls what the player sees vs. what only affects agent reasoning (e.g. a hidden "suspicion" value).
+- The **Storyline** defines the baseline schema (key, label, description, `min`/`max`, default, visibility, optional guidance file). Bands ("tickers") name what ranges *mean*.
+- Guidance is Markdown under `app/content/stats/`, loaded by `services/stat_guidance.py` and rendered into the character prompt by `services/stat_render.py` (current band + `{Character}` substitution).
+- Changes ride on `state_update` events and are clamped by the validator.
+- **Scenario-level stat additions and range overrides are not implemented** — the `Scenario` model has no such field. Earlier docs described this; treat it as unbuilt.
 
-See `docs/briefings/storyline-chat-briefing.md` §9 for the full stat design and `docs/api-contract.md` for the event payloads.
+## Presence
 
-## User Roles & Auth
+Runtime scene presence is **derived from the session's event log** — `character_status_change` events folded by `services/presence.py` (latest per character, default `present`). No extra table, survives reload. Five statuses: `present` · `unconscious` · `departed` · `left` · `dead`. Only `present` members are selectable by the planner.
 
-| Role | Access |
-| --- | --- |
-| Public | Landing/marketing, sign-up, sign-in. |
-| Authenticated user | Own storylines, characters, settings, scenarios, play sessions. |
-| Admin (future) | Moderation, global content management. |
-
-Auth/session is **backend-owned** (token/session). The frontend stores credentials and guards protected routes; the backend is the source of truth and validates every request. The exact mechanism (JWT vs. session cookie, provider) is to be finalized before auth is built — tracked in `docs/checklist.md`.
+Four detection paths, all automatic: a `health`-keyed stat clamped to its floor; the planner's `exit` beat; a character's self-declared `presence_change` block; and a manual override (`POST /play/{id}/presence`), which is not bound by the transition guard so the player may resurrect.
 
 ## Frontend/Backend Boundary
 
-- Frontend owns frontend routing and UX-level validation (Zod); backend owns API + streaming routes and authoritative validation (Pydantic, `app/schemas/`).
-- Shared request/response and event types live in `web/shared/contracts/` and mirror `docs/api-contract.md`.
-- Backend owns errors, retries, caching (Redis), the streaming lifecycle, and stat clamping; the frontend owns reconnect behavior. **Library CRUD uses await-then-apply** (await the mutation, splice the returned entity, surface errors) rather than optimistic UI; optimistic UI is reserved for the story-player turn submission. The Library client is a hand-rolled `fetch` in `web/frontend/lib/api.ts`; TanStack Query is the deferred home for caching once the authenticated multi-storyline routes need it.
+- Frontend owns routing and UX-level validation; backend owns the API, the streaming lifecycle, authoritative validation (Pydantic), errors, retries, and stat clamping.
+- **`web/shared/contracts/` is empty.** The live TypeScript mirror of the event and entity contract is hand-maintained in `web/frontend/lib/events.ts` and `lib/types.ts`. Keeping it in sync with `app/events/envelope.py` is a manual step.
+- Library CRUD uses **await-then-apply** (await the mutation, splice the returned entity, surface errors) — not optimistic UI. Optimistic UI is reserved for story-player turn submission. The client is a hand-rolled `fetch` in `lib/api.ts`.
 
 ## Data Layer
 
-- **PostgreSQL** — core state: users, storylines, characters, settings, scenarios, events, stat definitions, stat values, and the **Story-Graph Type Registry** (`graph_type_definitions` — the semantic type system, §1.4).
-- **Redis** — live scenario state, pub/sub for streaming, and caching.
-- **Neo4j** — the **Story Graph** substrate: one knowledge graph whose node types (Character, Setting, Event, Secret, Faction) and edges carry the storyline's relational structure. Container owned by `app.py`; the driver connects lazily (scenario load / Character & Setting writes) and is **best-effort** (graph sync never blocks CRUD; disabled/down → no-op). Write path `app/services/graph_writer.py` (hooked into CRUD); read path `app/services/graph_reader.py` (read-only Cypher templates, §7.2/§7.4). See `docs/story-graph-neo4j.md`.
-- **Qdrant** — the **Hybrid RAG** vector store (`app/rag/store.py`; `core/qdrant.py` lazy best-effort client, mirrors `core/neo4j.py`). One `mytheca_lore` collection holds every entity and context-document as a point with named dense + sparse vectors (fastembed `BAAI/bge-large-en-v1.5`, 1024-dim + Qdrant BM25 sparse). CRUD hooks embed on save and prune on delete; `agents/_common.rag_block` retrieves via hybrid dense + BM25 + RRF and injects grounding into the character / setting / scenario authoring agents. **Best-effort**: leave `QDRANT_URL` blank or use `EMBED_PROVIDER=hash` to run with no vector server. See `docs/rag.md`.
-- **Static config** — YAML for hand-authored storylines/characters/settings/stat definitions; Markdown for per-stat guidance. Loaded into the State manager / agent context.
+- **PostgreSQL** — 13 tables covering the four canonical objects, stats, events, play sessions, turn traces, context documents, app settings, and the Story-Graph type registry. Sync SQLAlchemy 2.0 + psycopg3; camelCase over the wire; string PKs; branches as JSON, stats normalized.
+- **Redis** — recent-turn buffer (`memory/buffer.py`) and per-character interior state (`memory/interior.py`). Best-effort.
+- **Neo4j** — the Story Graph. Node `type` → label, edge `type` → relationship type, every node also `:Node`; dynamic labels bound as parameters (`MERGE (n:Node {id}) SET n:$($type)`, 5.26+). The Type Registry in Postgres is the semantic source of truth; Neo4j holds instances. Consequences are reified `:Consequence` nodes. Best-effort — never blocks CRUD.
+- **Qdrant** — one `mytheca_lore` collection with named dense + sparse vectors (fastembed `BAAI/bge-large-en-v1.5` 1024-dim + BM25), fused by RRF. Embed-on-save, prune-on-delete. Best-effort.
 
-## AI Layer
-
-LLMs via OpenAI or local models behind a provider-agnostic interface in `app/core/`. The multi-agent system composes Orchestrator/Director + Narrator + Character agents per turn, with the active scenario state, current stat values, and the relevant stat guidance files injected into context.
+**How the graph actually reaches the model:** not through `TurnContext.subgraph`. That object is assembled every turn but its only consumer is a boolean `available` flag in the diagnostic trace — `character_turn_agent.py` never reads it. What conditions generation is `graph_reader.relationship_context()`, a direct 2-hop Cypher read folded into a plain-language relationship note in the character prompt.
 
 ## Streaming Layer
 
-SSE or WebSockets carry an **NDJSON** event stream (one JSON object per line). Two streaming modes:
+NDJSON, one JSON object per line, streamed **directly in the turn POST response** (`POST /api/play/{scenarioId}/turn`). A separate `GET /stream` with Redis pub/sub fan-out remains an unbuilt seam.
 
-- **Full events** — send only complete events; easy to validate and render. **Used for state and stat updates.**
-- **Delta streaming** — `message_start` → repeated `message_delta` → `message_end`; gives a live-typing feel. **Used for visible messages** (narration, dialogue). The frontend renders deltas as they arrive, then finalizes on `message_end`.
+Two modes:
 
-Pipeline: `AI output → parse → validate (incl. stat clamping) → repair/retry if invalid → stream to UI`.
+- **Full events** — used for state and stat updates.
+- **Delta streaming** — used for visible prose. The **same story event** (identical `id` and `seq`) is re-emitted with incremental `text` and `done: false → true`. There is **no** `message_start` / `message_delta` / `message_end` frame set; earlier docs claimed one.
 
-## Optional Later Layer: Dice-Based Resolution
+Two transport-only frames exist alongside story events: `TurnErrorFrame` (`{type:"error", message}`) and `TurnTraceFrame` (`{type:"trace", n, step, title, detail, data}`).
 
-How uncertain outcomes get resolved is the genuinely optional layer. Default (in scope now) is **narrative resolution**: the Director decides the outcome and stat change directly, guided by the stat files. **Dice-based resolution** (later) layers a roll-and-threshold pattern (`check_request` → `roll_result` → `consequence` → `state_update`) on top of the existing stats and ranges — dice just become the function that decides the delta. The design system already renders a "check" card for this.
+## Auth (not built)
+
+There is no authentication of any kind: no user model, no auth routes, no session or token handling. Everything is single-tenant and unauthenticated. Roles, protected routes, and the JWT-vs-cookie decision are open items in `checklist.md`. Do not describe auth as "backend-owned and decided" — it is undesigned.
 
 ## Key Decisions Log
 
-- Event-driven model: AI emits validated typed events; UI renders. Five event types to start.
-- Domain model: Storyline / Character / Setting / Scenario + Story Event + Stat system.
-- "Everything under `web/`" layout with root `app.py` backend entrypoint.
-- `uv`-only Python tooling, Python 3.13.
-- Format split: YAML config · Markdown stat guidance · JSON/NDJSON streaming · JSON Schema/Zod validation.
-- Provider-agnostic LLM interface from day one.
-- Persistence: sync SQLAlchemy 2.0 + Postgres (psycopg3); camelCase Pydantic over the wire; string PKs (client-id-or-generated); branches as JSON, stats normalized. Tests run on in-memory SQLite (no Postgres/Docker). `python app.py` owns Docker (`ensure_docker_services`: verify daemon → pull images when missing → `compose up -d --wait`), then the backend preflight runs DB/Redis checks + schema + seed before serving. Alembic deferred (idempotent `create_all` for now).
-- Library wiring: backend-backed CRUD via a hand-rolled fetch client (await-then-apply); TanStack Query deferred.
-- **Story Graph on Neo4j** (`docs/story-graph-neo4j.md`): one graph; node `type` → label, edge `type` → relationship type, every node also `:Node` (§6.1); dynamic labels via bound params (5.26+, §6.2); the Type Registry is the semantic source of truth in Postgres, Neo4j holds instances (§1.4); the consequence record is a reified `:Consequence` node (§6.4). Decided: **graceful/best-effort** (graph never blocks CRUD; optional preflight check; tests run with no Neo4j); **substrate + sync + template read** now, with the async turn-writer (§8), vector entry-point (§7.1), and Text2Cypher (§7.3) as documented seams; user-defined types are **staged** (`status` gates the hot path, §10).
-- **Story-Graph visualization** (`react-force-graph-2d`, canvas + d3-force): the story player's Graph view renders the scenario subgraph (`GET /scenarios/{id}/graph`). Library chosen for its canvas engine (scales as the graph grows to interconnect many more entity types) and `react:*` peer range (React-19 safe). Isolated in `components/feature/GraphCanvas.tsx` and lazy-loaded via `next/dynamic({ ssr:false })` (reads `window` at import; also keeps it out of the initial bundle until Graph mode is entered). Node/edge colors come from a theme-independent type→color map with a deterministic hash fallback (`lib/graphColors.ts`) so new/user-defined types get stable distinct colors; a visible legend + an sr-only `<table>` provide the WCAG text alternative for the canvas.
-- Dice-based resolution deferred; design seam only.
-- **Hybrid RAG on Qdrant + fastembed** — implemented; best-effort (same pattern as Neo4j). Cross-encoder rerank and Neo4j KG edges deferred. See `docs/rag.md`.
+- Event-driven rendering; **7** event types.
+- Per-beat ReAct planner replaced the one-shot director; the old arm survives only in tests.
+- One isolated LLM call per speaker, to hold voices apart.
+- Server-side clamping of every proposed side effect.
+- Best-effort substrates throughout (Neo4j / Qdrant / Redis / ComfyUI down → degrade, never block).
+- **No dice** — narrative resolution only; `branch_choices` carry `label` + `outcome` and the check card was retired.
+- **Alembic adopted** — 12 migrations, coexisting with `create_all` + an additive reconciler. (Earlier docs said "Alembic deferred"; that is wrong.)
+- Persistence: sync SQLAlchemy 2.0 + Postgres; tests on in-memory SQLite.
+- Story-Graph visualization via `react-force-graph-2d` (canvas + d3-force), isolated in `components/feature/GraphCanvas.tsx`, lazy-loaded with `next/dynamic({ ssr:false })`. Deterministic type→color map (`lib/graphColors.ts`) plus a visible legend and an `sr-only` table as the canvas text alternative.
+- Provider-agnostic LLM access is one OpenAI-compatible proxy (`services/llm.py`) serving cloud OpenAI, vLLM, and llama.cpp alike.
