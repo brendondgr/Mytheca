@@ -12,8 +12,12 @@ the full text). ``character_action`` streams as one full event; ``internal_thoug
 but is kept OUT of ``turn_beats`` — later speakers never condition on it. ``_Emitter``
 centralizes the seq + persist + buffer + withhold-hidden plumbing every phase reuses.
 
-This phase (P3) generates a single speaker (the addressed cast member, else the first);
-the reasoned Director / multi-speaker queue replaces ``_pick_speaker`` in later phases.
+Speaker selection is a **per-beat ReAct loop**: ``planner_agent.next_beat`` decides one
+beat at a time (``speak`` / ``narrate`` / ``exit`` / ``end``) from the *present* roster,
+with the POV character locked out. The loop is bounded by the scene's ``max_turns`` and a
+runaway backstop of ``max(TURN_MAX_BEATS, 2 * len(cast) + 6)``. This replaced the earlier
+one-shot director (``director_agent.who_is_up`` / ``rerank``), which is now dead code kept
+only for its unit tests.
 """
 
 from __future__ import annotations

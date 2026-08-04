@@ -14,9 +14,11 @@ Two load-bearing techniques from the brief:
     validated against the Type Registry (required fields present; an edge's type is
     known and carries a valence). The registry's field schema *is* the validation.
 
-The reified ``:Consequence`` node (§6.4) and the edge writer are provided here as
-the machinery the async cold-path writer (§8) will use; this phase wires node sync
-into CRUD and leaves edge/consequence authoring to that later consumer.
+Two consumers write through this module. ``services/crud.py`` syncs Character and
+Setting **nodes** on create/edit/delete (the authoring path above). ``services/
+turn_writer.py`` writes **edges** and the reified ``:Consequence`` node (§6.4) on
+the cold path after each turn, and ``services/relationships.py`` seeds character
+edges on a session's first turn.
 """
 
 from __future__ import annotations

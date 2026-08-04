@@ -1,8 +1,9 @@
 """FastAPI application factory.
 
 Builds the Mytheca API: CORS for the frontend origin, the contract error envelope,
-a health check, and the CRUD routers under the ``/api`` prefix. The multi-agent
-brain and event stream are added in later phases (see docs/checklist.md).
+a health check, the ``/media`` static mount, and every router under the ``/api``
+prefix — CRUD plus the turn loop (``routes/play.py``), which streams NDJSON story
+events directly in the turn response.
 """
 
 from __future__ import annotations

@@ -84,4 +84,4 @@ Implemented and exercised end to end:
 
 Not built: authentication (no user model, no auth routes), a standalone `GET /stream` transport, admin surfaces, dice resolution, and any evaluation/benchmark harness. Open items: `checklist.md`.
 
-**Validation baseline:** 784 backend pytest cases pass; 84 co-located frontend test files run under Vitest.
+**Validation baseline:** 784 backend pytest cases and 540 Vitest cases across 84 co-located frontend test files, all passing.

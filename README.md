@@ -27,34 +27,37 @@ The story is driven by a **multi-agent backend** that emits **small, typed, vali
 flowchart LR
     A[Storyline<br/>world + stat schema] --> B[Characters · Settings · Scenarios]
     B --> C{Turn Engine}
-    C -->|who's up + branches| D[Director]
-    C -->|think → speak| E[Character agents]
-    C -->|interstitials| F[Narrator]
-    D & E & F --> G[Validator<br/>stat clamp + presence]
+    C -->|who acts next, one beat at a time| D[Planner]
+    D -->|think → speak| E[Character agents]
+    D -->|interstitials| F[Narrator]
+    E & F --> G[Validator<br/>stat clamp + presence]
     G -->|typed story events| H[NDJSON event stream]
     H --> I[Story Player UI<br/>living-manuscript renderer]
 ```
 
-Each turn, the **Director** decides who acts and what branches are open, **Character** agents think then speak, and the **Narrator** fills the interstitials. A **Validator** clamps stats and enforces scene presence, then the result is streamed to the browser as a line-delimited (NDJSON) event stream and rendered beat by beat.
+Each turn runs a **ReAct loop**: a planner decides one beat at a time — who speaks, whether the narrator cuts in, whether someone leaves, or whether the turn ends — choosing only from characters actually present in the scene. Each chosen character gets **its own isolated LLM call** (a visible in-voice deliberation, then speech), so voices stay distinct. A **validator** clamps every proposed stat change and enforces scene presence, and the result streams to the browser as line-delimited JSON, rendered beat by beat.
 
 ## Key features
 
-- **Multi-agent turn loop** — Director / Character / Narrator agents with a state manager and validator, streaming deltas as they generate.
+- **Multi-agent turn loop** — a per-beat ReAct planner over Character, Narrator, and Intent agents, with a server-side validator, streaming token deltas as they generate.
+- **Play as anyone** — POV mode lets you speak *as* a cast member instead of as yourself, with follow-up suggestions written in that character's voice.
 - **Living-manuscript UI** — an illuminated-codex design with three themes (Parchment, Ember, Slate), warm parchment reading surfaces, wax-seal avatars, and reduced-motion-aware animation.
-- **Bounded stat system** — per-storyline stat schemas with Markdown guidance drive continuity and consequence instead of free-floating numbers.
-- **Conversational authoring** — a scope-aware storyline agent edits your world through chat, with a transactional diff guard.
-- **Hybrid retrieval** — a hybrid RAG pipeline (Qdrant + fastembed) plus a Neo4j **Story Graph** substrate for durable world lore.
-- **Local- or cloud-LLM** — a provider-agnostic interface runs against OpenAI-compatible endpoints or a local reasoning model.
+- **Bounded stat system** — per-storyline stat schemas with labeled bands and Markdown guidance drive continuity and consequence. The model proposes; the server clamps.
+- **Scene presence** — characters who die, collapse, or walk out actually leave the scene, and the planner stops calling on them.
+- **Conversational authoring** — a scope-aware storyline agent edits your world through chat, gated by a write scope and a transactional diff guard.
+- **Hybrid retrieval** — a Qdrant + fastembed RAG pipeline behind a conservative retrieval gate, plus a Neo4j **Story Graph** whose relationship edges condition how characters speak to each other.
+- **Durable sessions** — every turn and its diagnostic trace persist; reopening a scene resumes it, and any session exports as JSON or Markdown.
+- **Local- or cloud-LLM** — one OpenAI-compatible interface serving cloud OpenAI, vLLM, or llama.cpp, with an auto-detected reasoning budget.
 
 ## Tech stack
 
 | Layer | Choice |
 | --- | --- |
-| **Frontend** | Next.js (App Router) · React · TypeScript · Tailwind CSS · Framer Motion — `web/frontend/` |
-| **Backend** | FastAPI (Python 3.13, managed by `uv`) — `web/backend/`, launched from the root `app.py` |
-| **Data** | PostgreSQL (core state) · Redis (live scene/cache) · Neo4j (Story Graph) · Qdrant (vector RAG) |
-| **AI** | Provider-agnostic LLMs (OpenAI-compatible or local), multi-agent orchestration |
-| **Streaming** | SSE / WebSocket carrying an NDJSON story-event stream |
+| **Frontend** | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · Framer Motion — `web/frontend/` |
+| **Backend** | FastAPI (Python 3.13, managed by `uv`) · SQLAlchemy 2.0 · Alembic — `web/backend/`, launched from the root `app.py` |
+| **Data** | PostgreSQL (core state) · Redis (live scene state) · Neo4j (Story Graph) · Qdrant (vector RAG) — the last three are best-effort and degrade to no-ops |
+| **AI** | One OpenAI-compatible interface (cloud OpenAI, vLLM, or llama.cpp), multi-agent orchestration |
+| **Streaming** | NDJSON story events, streamed directly in the turn response |
 
 ## Quickstart
 
@@ -82,13 +85,15 @@ cd web/frontend && npm test                      # frontend tests
 
 ```
 app.py            # root launcher — runs backend + frontend together (owns Docker data stores)
-web/frontend/     # Next.js app (Library + Story player)
-web/backend/      # FastAPI app — routes, agents, services, content, events, models
-web/shared/       # shared FE↔BE contracts
-docs/             # documentation (source of truth) + canonical skills
-utils/            # helpers + tests (pytest + Vitest) + scripts
+web/frontend/     # Next.js app (Library · Storyline creator · Story player · Options)
+web/backend/      # FastAPI app — routes, agents, services, rag, events, models, migrations
+docs/             # documentation (source of truth) + canonical skills + plans
+utils/            # backend tests (pytest), scripts, ComfyUI workflows
 images/           # Mytheca brand kit (logos, wordmarks)
+media/            # generated portraits + scene art (gitignored, served at /media)
 ```
+
+Frontend tests live beside the components they test, not under `utils/`.
 
 ## Documentation
 
@@ -99,6 +104,6 @@ All durable documentation lives in [`docs/`](docs/) — the single source of tru
 - [docs/workflow.md](docs/workflow.md) — commands, environment, ports, validation gate
 - [docs/structure.md](docs/structure.md) — full repository layout
 - [docs/data-flow.md](docs/data-flow.md) · [docs/api-contract.md](docs/api-contract.md) — streaming + event contract
-- [docs/checklist.md](docs/checklist.md) — current status and next steps
+- [docs/checklist.md](docs/checklist.md) — genuinely-open work and known gaps
 
 Contributors and coding agents should read [docs/skills/global-project-rules/SKILL.md](docs/skills/global-project-rules/SKILL.md) first. Canonical skills live under [docs/skills/](docs/skills/); the `.claude/`, `.agents/`, and `.cursor/` folders contain only pointers to them.

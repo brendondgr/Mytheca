@@ -38,10 +38,10 @@ Detail the work sequentially. Each phase must enable the next. For each step inc
   > *Action: Run the validation for this phase — `uv run pytest` for affected backend areas and the relevant frontend component/route tests; for web/UI changes also run an accessibility + responsive pass (keyboard, focus, contrast, 320/375/768/1024). Once green, commit locally: `[Plan Name] (Current/Total) Complete: <one sentence on what was done>`. Do not push or open a PR unless the user asks.*
 
 > **Example:**
-> #### Step 1: Define the event contract
-> - **Locations:** `web/shared/contracts/events.ts`, `web/backend/app/events/schema.py`.
-> - **Rationale:** Frontend and backend must agree on the NDJSON event shape before either side streams.
-> - **Action:** Run validation for this phase (pytest for `utils/tests/backend/data`, frontend type check). Once green, commit: `Event Stream (1/4) Complete: Defined shared NDJSON event contract.`
+> #### Step 1: Add the `scene_transition` story event
+> - **Locations:** `web/backend/app/events/envelope.py` (new variant on the `StoryEvent` union), `web/frontend/lib/events.ts` (the hand-maintained mirror), `web/frontend/components/feature/TranscriptBeat.tsx` (renderer).
+> - **Rationale:** The envelope and its TypeScript mirror must agree before either side can stream the new beat; `docs/api-contract.md` is updated in the same step.
+> - **Action:** Run validation for this phase (`uv run pytest utils/tests/backend/services`, plus `npm test` for the touched components and `npm run typecheck`). Once green, commit: `Scene Transitions (1/4) Complete: Added the scene_transition event to the envelope and its frontend mirror.`
 
 ---
 
@@ -51,10 +51,12 @@ After all steps, list deliverables and locations. **Tests are required** — inc
 
 > | Deliverable | Description | Location |
 > | --- | --- | --- |
-> | Event contract | Shared NDJSON event types | `web/shared/contracts/events.ts` |
-> | SSE route | FastAPI streaming endpoint | `web/backend/app/routes/stream.py` |
-> | Stream hook | React hook consuming the stream | `web/frontend/hooks/use-event-stream.ts` |
-> | Stream tests | Backend stream + contract tests | `utils/tests/backend/api/test_stream.py` |
+> | Event variant | New typed story event on the union | `web/backend/app/events/envelope.py` |
+> | Emission | Engine emits it on the turn path | `web/backend/app/services/turn_engine.py` |
+> | TS mirror | Hand-maintained frontend contract | `web/frontend/lib/events.ts` |
+> | Renderer | Beat component for the new type | `web/frontend/components/feature/TranscriptBeat.tsx` |
+> | Backend tests | Envelope + engine coverage | `utils/tests/backend/services/test_turn_engine_events.py` |
+> | Frontend test | Renderer coverage, co-located | `web/frontend/components/feature/TranscriptBeat.test.tsx` |
 
 ## Conventions (locked for Mytheca)
 

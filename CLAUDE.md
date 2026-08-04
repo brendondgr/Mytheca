@@ -1,94 +1,107 @@
 # Mytheca — Claude Code Entry Point
 
-Mytheca is an AI-driven, multi-character roleplay chat engine (Next.js frontend + FastAPI multi-agent backend). This file exists to **route you directly to the right file** — check the tables below before grepping or globbing the repo.
+Mytheca is an AI-driven, multi-character roleplay chat engine (Next.js frontend + FastAPI multi-agent backend). This file **routes you to the right file** — check the tables below before grepping or globbing.
 
 ## Read First (always)
 
-1. `docs/skills/global-project-rules/SKILL.md` — stack, environment rules, validation gate, git workflow, docs-maintenance duties. **Read this before any change.**
-2. `docs/checklist.md` — active work, open follow-ups.
-3. The one canonical skill under `docs/skills/` matching your task (table below).
+1. `docs/skills/global-project-rules/SKILL.md` — stack, environment, validation gate, git workflow, docs duties. **Read this before any change.**
+2. `docs/checklist.md` — genuinely-open work.
+3. The one canonical skill under `docs/skills/` matching your task.
 
-`docs/` is the single source of truth. `.claude/skills/` only points back to it — don't duplicate instructions there.
+`docs/` is the single source of truth. `.claude/skills/` only points back to it — never duplicate instructions there.
+
+## Facts that override stale assumptions
+
+These trip people up because older prose said otherwise. All verified 2026-08-04:
+
+- **No authentication exists.** No `User` model, no auth routes, no sessions or tokens. Nothing is gated.
+- **7 story-event types**, not 5: `narration` · `character_dialogue` · `character_action` · `internal_thought` · `state_update` · `branch_choices` · `character_status_change`.
+- **Streaming is NDJSON in the turn POST response.** No SSE endpoint, no WebSocket for story events, no `message_start`/`message_delta`/`message_end` frames — delta streaming re-emits the *same* event `id`+`seq` with growing `text` and `done: false → true`.
+- **Alembic is in use** (12 migrations), coexisting with `create_all` + an additive reconciler.
+- **`director_agent.who_is_up` and `rerank` are dead code** — tests only. `planner_agent.next_beat` makes the real per-beat decision.
+- **The graph reaches the prompt via `graph_reader.relationship_context()`**, not `TurnContext.subgraph` (which is diagnostics-only).
+- **`web/shared/contracts/` is empty.** The FE↔BE contract is hand-mirrored in `web/frontend/lib/events.ts` + `lib/types.ts`.
+- **Frontend tests are co-located** (`Foo.tsx` → `Foo.test.tsx`). `utils/tests/frontend/` is empty.
+- **Framer Motion, not GSAP.** No headless UI library, no TanStack, no Zod.
 
 ## Which skill for which task
 
 | Task | Skill |
 | --- | --- |
-| Repo layout, where a new file should live | `docs/skills/repository-structure/SKILL.md` |
-| Routes, API contract, data flow, design-quality gate | `docs/skills/website-architecture/SKILL.md` |
-| Frontend UI/component/motion work | `docs/skills/ui-frontend/SKILL.md` |
+| Where a new file should live | `docs/skills/repository-structure/SKILL.md` |
+| Routes, API contract, data flow | `docs/skills/website-architecture/SKILL.md` |
+| Frontend UI / component / motion work | `docs/skills/ui-frontend/SKILL.md` |
 | Accessibility / mobile pass | `docs/skills/accessibility-mobile/SKILL.md` |
 | ADA compliance | `docs/skills/ada-compliance/SKILL.md` |
-| Writing/refining an implementation plan | `docs/skills/planner/SKILL.md` |
+| Writing an implementation plan | `docs/skills/planner/SKILL.md` |
 
-## Docs — go straight to the file, don't search
+## Docs — go straight to the file
 
 | Need | File |
 | --- | --- |
-| Project purpose, domain model, tech stack | `docs/documentation.md` |
-| Full repo tree + path ownership table | `docs/structure.md` |
-| Commands, env vars, ports, validation gate | `docs/workflow.md` |
-| Active work / open items | `docs/checklist.md` |
-| Modes, auth, boundaries, architecture decisions | `docs/architecture.md` |
-| Frontend route map | `docs/routes.md` |
-| Component ownership map | `docs/component-map.md` |
-| Data origins + streaming/event path | `docs/data-flow.md` |
-| Build/run/deploy targets | `docs/deployment.md` |
-| Visual tokens, themes, UI states | `docs/design-system.md` |
+| Purpose, domain model, stack, status | `docs/documentation.md` |
+| Full repo tree + path ownership | `docs/structure.md` |
+| Commands, env, ports, validation gate | `docs/workflow.md` |
+| Open work | `docs/checklist.md` |
+| Boundaries, data layer, decisions | `docs/architecture.md` |
+| Frontend route map (8 real routes) | `docs/routes.md` |
+| Component ownership | `docs/component-map.md` |
+| Data origins + the turn/streaming path | `docs/data-flow.md` |
+| Build/run/deploy + every env var | `docs/deployment.md` |
+| Themes, tokens, UI states | `docs/design-system.md` |
 | API + NDJSON event contract | `docs/api-contract.md` |
-| Hybrid RAG pipeline (Qdrant/fastembed) | `docs/rag.md` |
-| Story Graph (Neo4j) substrate | `docs/story-graph-neo4j.md` |
+| Hybrid RAG (Qdrant/fastembed) | `docs/rag.md` |
+| Story Graph (Neo4j) | `docs/story-graph-neo4j.md` |
 | ComfyUI image generation | `docs/comfyui-image-generation.md` |
-| Original product briefing (domain objects, event types) | `docs/briefings/storyline-chat-briefing.md` |
-| Visual design reference (locked-in HTML mockups) | `docs/CharacterFrontpage/` |
-| Feature plans / handoffs | `docs/plans/<feature-name>.md` — `ls docs/plans/` to find one by name |
+| Original product briefing | `docs/briefings/storyline-chat-briefing.md` |
+| Locked visual reference mockups | `docs/CharacterFrontpage/` |
+| Feature plans / handoffs | `docs/plans/<feature-name>.md` — `ls docs/plans/` to find one |
+| Standalone research/audit reports | `docs/research/` |
 
 ## Backend — `web/backend/app/`
 
-One file per concern; go straight to it instead of grepping the whole `app/` tree.
-
 | Layer | Path | Files |
 | --- | --- | --- |
-| API routes | `routes/` | `characters.py` `storylines.py` `scenarios.py` `settings.py` `stats.py` `play.py` (turn streaming) `context_documents.py` `rag.py` `graph.py` `options.py` |
-| Turn loop / orchestration | `services/` | `turn_engine.py` (POV loop+delta stream) `assembler.py` (context) `retrieval_gate.py` `emission.py` `validator.py` (stat clamp + presence) `presence.py` (scene-presence fold) `events_store.py` `turn_writer.py` `crud.py` `consistency.py` `reflection.py` `relationships.py` `type_registry.py` `stat_guidance.py` `stat_render.py` (current-band + {Character} substitution) `storyline_apply.py` (agentic-edit diff guard + transactional writes + stale reconcile) `settings_store.py` `llm.py`/`llm_backend.py` `media.py`/`media_cleanup.py`/`portraits.py`/`scene_art.py`/`comfyui.py` `graph_reader.py`/`graph_writer.py` `concurrency.py` |
-| LLM agents | `agents/` | `character_turn_agent.py` (think→speak) `director_agent.py` (who's-up+branches) `narrator_agent.py` (interstitials) — authoring: `storyline_agent.py` `character_agent.py` `setting_agent.py` `scenario_agent.py` `triage_agent.py` `storyline_edit/` (`scope.py` `core.py` `editor.py` `creation.py` — conversational scope-aware storyline agent) `planner_agent.py` `intent_agent.py` `reflection_agent.py` `relationship_agent.py` `_common.py` (shared) |
-| Story-Graph content | `content/` | `graph_registry.py` (type catalogue) + `stats/*.md` (per-stat guidance: `health.md` `patience.md` `suspicion.md` `trust.md`) |
-| Hybrid RAG | `rag/` | `schema.py` (LoreEntry) `serializer.py` `tokens.py` `entries.py` `embedder.py` `store.py` `indexer.py` `retriever.py` `const.py` |
+| API routes (all mounted under `/api`) | `routes/` | `characters.py` `context_documents.py` `graph.py` `options.py` `play.py` (turn streaming) `rag.py` `scenarios.py` `settings.py` `stats.py` `storylines.py` |
+| Turn loop / orchestration | `services/` | `turn_engine.py` (the loop) `assembler.py` (context) `retrieval_gate.py` `emission.py` `validator.py` `consistency.py` `presence.py` `events_store.py` `turn_writer.py` `session_export.py` `reflection.py` `relationships.py` `crud.py` `stats.py` `stat_guidance.py` `stat_render.py` `type_registry.py` `storyline_apply.py` `settings_store.py` `llm.py` `llm_backend.py` `graph_reader.py` `graph_writer.py` `concurrency.py` `media.py` `media_cleanup.py` `portraits.py` `scene_art.py` `comfyui.py` |
+| LLM agents | `agents/` | Turn loop: `planner_agent.py` (ReAct next-beat) `character_turn_agent.py` (think→speak) `narrator_agent.py` `intent_agent.py` `director_agent.py` (branch/POV suggestions; `who_is_up`+`rerank` are dead) `reflection_agent.py` `relationship_agent.py`. Authoring: `storyline_agent.py` `storyline_edit/` (`scope.py` `core.py` `editor.py` `creation.py`) `character_agent.py` `setting_agent.py` `scenario_agent.py` `triage_agent.py`. Shared: `_common.py` `prompt_registry.py` (8 overridable prompt keys) |
+| Authored content | `content/` | `graph_registry.py` (6 node + 16 edge built-in types) + `stats/*.md` (`health` `patience` `suspicion` `trust`) |
+| Hybrid RAG | `rag/` | `schema.py` `serializer.py` `tokens.py` `entries.py` `embedder.py` `store.py` `indexer.py` `retriever.py` `const.py` |
 | Live turn state | `memory/` | `buffer.py` (Redis recent-turn buffer) `interior.py` |
-| Event stream | `events/` | `envelope.py` `stream.py` (build_event/to_ndjson_line) |
-| DB models | `models/` | `storyline.py` `character.py` `setting.py` `scenario.py` `event.py` `stat.py` `session.py` `context_document.py` `graph_type.py` `app_setting.py` |
-| Pydantic schemas | `schemas/` | mirrors `models/` + `build.py` `play.py` `rag.py` `reasoning.py` `settings.py` |
+| Event stream | `events/` | `envelope.py` (7 story events) `stream.py` (NDJSON + trace/error frames) |
+| DB models (13 tables) | `models/` | `storyline.py` `character.py` `setting.py` `scenario.py` `event.py` `stat.py` (StatDefinition + CharacterStat) `session.py` `turn_trace.py` `context_document.py` (Doc + Link) `graph_type.py` `app_setting.py` |
+| Pydantic schemas | `schemas/` | `base.py` + mirrors of `models/` + `play.py` `rag.py` `reasoning.py` `settings.py` `storyline_edit.py` |
 | Config/clients | `core/` | `config.py` `db.py` `redis.py` `neo4j.py` `qdrant.py` `bootstrap.py` (preflight) `seed.py` `errors.py` `ids.py` |
-| Migrations | `web/backend/alembic/` | `env.py` + `versions/` (non-additive schema changes only) |
-| Docker | `web/backend/docker-compose.yml`, `web/backend/docker/neo4j/` | Postgres/Redis/Neo4j/Qdrant, started by root `app.py` |
+| Migrations | `web/backend/alembic/` | `env.py` + `versions/` (12 migrations; non-additive changes only) |
+| Docker | `web/backend/docker-compose.yml`, `docker/neo4j/` | Postgres · Redis · Neo4j · Qdrant, started by root `app.py` |
 
 ## Frontend — `web/frontend/`
 
 | Layer | Path | Notes |
 | --- | --- | --- |
-| Routes | `app/` | `page.tsx` (home/library) · `storylines/new/`, `storylines/[id]/edit/` · `[storylineId]/`, `[storylineId]/[scenarioId]/` (story player) · `play/[scenarioId]/` · `options/` |
-| Feature modules (route logic + state) | `features/` | `story-player/` (`StoryPlayerRoute.tsx`, `StoryPlayerView.tsx`, `useScenePlay.ts`, `turn-stream.ts`, `scene-data.ts`) · `library/` (`LibraryView.tsx`, `LibraryColumns.tsx`, `useLibraryState.ts`, `storylineCreator.ts`, `entityDocs.ts`, `storylineAgent.ts`, `useStorylineAgent.ts`) · `options/` (`OptionsView.tsx`, `useOptionsSettings.ts`, `tabs/*`) · `documents/` (`DocumentsView.tsx`, `useDocuments.ts`) |
-| Domain UI components | `components/feature/` | Columns: `CharacterColumn.tsx` `SettingColumn.tsx` `ScenarioColumn.tsx` · Cards: `CharacterCard.tsx` `SettingCard.tsx` `ScenarioCard.tsx` · Modals: `CharacterModal.tsx` `SettingModal.tsx` `EntityModal.tsx` `SealModal.tsx` `PortraitModal.tsx` `SceneArtModal.tsx` `CharacterProfileModal.tsx` `BeginSceneModal.tsx` `StorylineDeleteModal.tsx` · Story player: `TranscriptBeat.tsx` `SceneIntro.tsx` `SceneLoader.tsx` `Composer.tsx` `CastRail.tsx` `DirectorRail.tsx` `CharacterDossier.tsx` `ContextUsageDial.tsx` · Editing: `StatsEditor.tsx` `VoiceSamplesEditor.tsx` `ScenarioForm.tsx` · Panels: `TriagePanel.tsx` `StorylineAgentPanel.tsx` `TurnInspectorPanel.tsx` `ContextFilesPanel.tsx` `ContextBudgetMeter.tsx` `DocumentsTable.tsx` `SourceDocumentsPanel.tsx` · Misc: `LibraryTabs.tsx` `CreateMenu.tsx` `StorylineMenu.tsx` `ColumnChrome.tsx` `ProcessProgress.tsx` `OptionsMenu.tsx` `ScenarioCarousel.tsx` |
-| Reusable primitives | `components/ui/` | `Button.tsx` `Modal.tsx` `TextField.tsx` `TextArea.tsx` `Chip.tsx` `ToggleChip.tsx` `Tag.tsx` `MultiSelect.tsx` `IconButton.tsx` `CloseButton.tsx` `FieldLabel.tsx` `SectionHeader.tsx` `Eyebrow.tsx` `Monogram.tsx` `Toast.tsx` |
-| App chrome | `components/layout/` | `AppShell.tsx` `AppHeader.tsx` `SceneHeader.tsx` `MotionProvider.tsx` `ThemeSwitcher.tsx` `ToastProvider.tsx` |
-| Shared hooks | `hooks/` | `use-event-stream.ts` (NDJSON consumer) `use-field-reveal.ts` `use-font-size.ts` `use-theme.tsx` |
-| Helpers / API client | `lib/` | `api.ts` `types.ts` `events.ts` `theme.ts` `fonts.ts` `font-size.ts` `contextBudget.ts` `cardArt.ts` `monogram.ts` `readDocs.ts` `seals.ts` `cn.ts` `seed-data.ts` |
-| Global styles | `styles/`, `app/globals.css` | Tailwind v4 `@theme` tokens |
-| Shared FE↔BE contracts | `web/shared/contracts/` | currently empty (`.gitkeep`) |
+| Routes (8) | `app/` | `page.tsx` (`/`) · `[storylineId]/` · `[storylineId]/[scenarioId]/` (story player) · `play/[scenarioId]/` (legacy redirect) · `storylines/new/` · `storylines/[id]/edit/` · `storylines/[id]/documents/` · `options/`. One root `layout.tsx`; no route handlers. |
+| Feature modules | `features/` | `story-player/` (`StoryPlayerRoute` `StoryPlayerView` `useSceneData` `useScenePlay` `turn-stream.ts` `scene-data.ts`) · `library/` (`LibraryView` `LibraryColumns` `useLibraryState` `StorylineCreatorView` `useStorylineCreator` `storylineCreator.ts` `useStorylineAgent` `storylineAgent.ts` `entityDocs.ts` `editor.ts`) · `options/` (`OptionsView` `useOptionsSettings` `tabs/*`) · `documents/` (`DocumentsView` `useDocuments`) |
+| Domain UI (47) | `components/feature/` | Columns: `CharacterColumn` `SettingColumn` `ScenarioColumn` `ColumnChrome` `LibraryTabs` · Cards: `CharacterCard` `SettingCard` `ScenarioCard` `ScenarioCarousel` · Modals: `CharacterModal` `SettingModal` `EntityModal` `SealModal` `PortraitModal` `SceneArtModal` `CharacterProfileModal` `BeginSceneModal` `StorylineDeleteModal` `PromptOverridesModal` · Story player: `TranscriptBeat` `SceneIntro` `SceneLoader` `Composer` `CastRail` `DirectorRail` `CharacterDossier` `ContextUsageDial` `PovSelect` `SceneConfigMenu` `ExportMenu` · Graph: `GraphView` `GraphCanvas` `GraphInspectorPanel` · Editing: `StatsEditor` `VoiceSamplesEditor` `ScenarioForm` `PromptOverridesEditor` · Panels: `TriagePanel` `StorylineAgentPanel` `TurnInspectorPanel` `ContextFilesPanel` `ContextBudgetMeter` `DocumentsTable` `SourceDocumentsPanel` `ProcessProgress` · Menus: `CreateMenu` `StorylineMenu` `OptionsMenu` |
+| Primitives (17) | `components/ui/` | `Button` `Modal` `TextField` `TextArea` `Chip` `ToggleChip` `Tag` `MultiSelect` `IconButton` `CloseButton` `FieldLabel` `SectionHeader` `Eyebrow` `Monogram` `Toast` `QuotedText` `SceneControlSelect` |
+| App chrome (6) | `components/layout/` | `AppShell` `AppHeader` `SceneHeader` `MotionProvider` `ThemeSwitcher` `ToastProvider` |
+| Hooks (4) | `hooks/` | `use-event-stream.ts` (NDJSON consumer) `use-field-reveal.ts` `use-font-size.ts` `use-theme.tsx` |
+| Helpers (14) | `lib/` | `api.ts` `types.ts` `events.ts` `theme.ts` `fonts.ts` `font-size.ts` `contextBudget.ts` `cardArt.ts` `graphColors.ts` `monogram.ts` `readDocs.ts` `seals.ts` `seed-data.ts` `cn.ts` |
+| Styles | `styles/themes.css`, `app/globals.css` | Three themes + `--fs-*` scale; Tailwind v4 `@theme inline` mapping |
 
-**Frontend tests are co-located** next to what they test (`Foo.tsx` → `Foo.test.tsx`), *not* under `utils/tests/frontend/` (that dir is effectively empty — ignore it despite what older docs imply).
+**Frontend tests are co-located** (`Foo.tsx` → `Foo.test.tsx`) — 84 files. `utils/tests/frontend/` is empty; ignore it.
 
 ## Backend tests — `utils/tests/backend/`
 
-Grouped by area: `api/` `agents/` `services/` `rag/` `data/`, plus shared `conftest.py`. Add new tests under the matching subfolder as `test_<behavior>.py`.
+Five area folders: `api/` `agents/` `services/` `rag/` `data/`, plus a shared `conftest.py`. Add new tests to the matching folder as `test_<behavior>.py`. 784 cases pass today.
 
 ## Root-level essentials
 
 | File | Purpose |
 | --- | --- |
-| `app.py` | Launches backend+frontend together (`python app.py`), or one side (`... frontend`\|`backend`), or stops both (`... stop`). Owns Docker (Postgres/Redis/Neo4j/Qdrant). |
+| `app.py` | Launches backend + frontend (`python app.py`), one side (`… backend`\|`frontend`), or stops both (`… stop`). Frees ports 3345/3346 first and owns Docker. |
 | `pyproject.toml` / `.python-version` | uv-managed backend project, Python 3.13 |
-| `.env.example` | Documented env vars — copy to `.env` |
+| `.env.example` | Every env var, documented — copy to `.env` |
+| `line_counter.py` | Standalone LOC utility, not part of the app |
 
 ## Fast command reference
 
@@ -100,11 +113,12 @@ uv run pytest                     # backend tests (in-memory SQLite, no Docker n
 cd web/frontend && npm run dev    # frontend dev server (port 3346)
 cd web/frontend && npm test       # frontend tests (Vitest)
 cd web/frontend && npm run typecheck && npm run lint
+uv run python utils/scripts/check_contrast.py   # WCAG-AA theme gate
 ```
 
-## Non-negotiable rules (full detail in `docs/skills/global-project-rules/SKILL.md`)
+## Non-negotiable rules
 
-- `uv` only for Python (never pip/poetry/conda); npm for frontend.
-- Update the relevant `docs/*.md` in the **same change** that alters behavior (see table above for which file owns what).
-- Branch off `main`; commit per completed plan phase; no push/PR unless asked.
+- `uv` only for Python (never pip/poetry/conda); npm for the frontend.
+- Update the relevant `docs/*.md` in the **same change** that alters behavior.
+- Branch off `main`; commit per completed plan phase; no push or PR unless asked.
 - Validation gate before calling anything done: `uv run pytest` + frontend tests, plus an accessibility/responsive pass for UI changes.
