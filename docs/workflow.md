@@ -62,12 +62,33 @@ Copy `.env.example` → `.env` (gitignored). Document every new variable in **bo
 | Install deps | `uv sync` |
 | Add a dependency | `uv add <pkg>` |
 | Run the API | `uv run python app.py backend` |
-| Tests | `uv run pytest` — in-memory SQLite, no Docker needed (784 cases) |
+| Tests | `uv run pytest` — in-memory SQLite, no Docker needed (826 cases) |
 | New migration | `uv run alembic -c web/backend/alembic.ini revision --autogenerate -m "<msg>"` |
 | Apply migrations | `uv run alembic -c web/backend/alembic.ini upgrade head` |
 | Lint (recommended) | `uv run ruff check .` |
 | Format (recommended) | `uv run ruff format .` |
 | Type check (recommended) | `uv run mypy web/backend` |
+
+**Dependency groups.** `dev` (pytest, ruff, mypy) and `research` (`pyyaml` — the
+experiment manifest format; `matplotlib` — figure generators must emit `.svg` **and**
+`.pdf`). Neither is in the runtime `dependencies` list; the backend is unaffected.
+Install with `uv sync --group research` when working on `docs/research/`.
+
+### Research record (`make`)
+
+A root `Makefile` carries the research-record targets. It does **not** replace
+`app.py`, which still owns Docker and both dev servers.
+
+| Action | Command |
+| --- | --- |
+| Scaffold an experiment | `make new-experiment SLUG=<slug>` |
+| Enforce the contract | `make validate-research` |
+| Regenerate `INDEX.md` | `make research-index` |
+| Regenerate figures | `make figures` |
+| Tooling tests only | `make test` |
+
+Contract: `research/AGENT_INSTRUCTIONS.md`. There is deliberately **no CI and no
+pre-commit hook** — see `research/DECISIONS.md` D-005 and `checklist.md`.
 
 ### Frontend (Next.js)
 
@@ -100,6 +121,9 @@ Required:
 - Frontend tests pass (`npm test` in `web/frontend/`).
 - **UI changes also require** an accessibility + responsive pass per `skills/accessibility-mobile/SKILL.md` and `skills/ada-compliance/SKILL.md`: keyboard operability, visible focus, AA contrast, live-region announcements for streamed content, and layout at 320 / 375 / 768 / 1024 px.
 - **Theme-token changes also require** `check_contrast.py` to pass.
+- **Any experiment, benchmark, baseline, ablation or evaluation run also requires**
+  `make validate-research` to pass, with the run recorded under
+  `research/experiments/`. Failed runs are recorded, not deleted.
 
 Recommended hygiene: ruff + mypy (backend), ESLint + tsc (frontend).
 
@@ -118,6 +142,7 @@ Update docs in the same change that alters behavior:
 | Visual token / theme | `design-system.md` |
 | Architecture decision or status | `documentation.md` + `architecture.md` |
 | Anything deferred | `checklist.md` |
+| An experiment or evaluation run | `research/experiments/<EXP-ID>/` + `research/CLAIMS.md` |
 
 ## Git Workflow
 

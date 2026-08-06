@@ -84,4 +84,6 @@ Implemented and exercised end to end:
 
 Not built: authentication (no user model, no auth routes), a standalone `GET /stream` transport, admin surfaces, dice resolution, and any evaluation/benchmark harness. Open items: `checklist.md`.
 
-**Validation baseline:** 784 backend pytest cases and 540 Vitest cases across 84 co-located frontend test files, all passing.
+**Validation baseline:** 826 backend pytest cases and 540 Vitest cases across 84 co-located frontend test files, all passing.
+
+**Research status:** Mytheca has **no evaluation results** — no benchmark, baseline, ablation, metric or human study. That is recorded, not glossed: `docs/research/` is the single research record, all seven claims in `research/CLAIMS.md` are `unsupported`, and `research/mytheca-research-audit.md` is the external audit that established it.

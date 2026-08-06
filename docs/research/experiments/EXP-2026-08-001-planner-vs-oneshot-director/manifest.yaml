@@ -1,0 +1,76 @@
+id: EXP-2026-08-001
+slug: planner-vs-oneshot-director
+title: ReAct per-beat planner vs. the one-shot speaker-set director
+status: failed
+date_started: 2026-08-06
+date_completed: '2026-08-06'
+authors:
+- brendondgr
+purpose: 'Does the shipped ReAct per-beat planner produce different multi-party turn structure than the
+  one-shot speaker-set director it replaced? Tests claim C-005. Both arms already exist in the repository
+  and are already tested, so this is the cheapest genuine experiment available; the baseline is the design
+  that actually shipped first, not a strawman written for the occasion.
+
+  '
+hypothesis: 'The per-beat planner produces more beats and more distinct speakers per turn than the one-shot
+  director, which commits to a speaker set up front and is capped at three. No difference is predicted
+  on addressed-character response rate, since both arms short-circuit a directed address.
+
+  '
+code:
+  commit: e94b80f9aa6c3aae5562c09046d18dcbd707c543
+  branch: claude/research-record-planning-6032a7
+  entrypoint: uv run python -m utils.scripts.research.run_scene --arm both --seeds 0,1,2 --experiment
+    docs/research/experiments/EXP-2026-08-001-planner-vs-oneshot-director
+  dirty: true
+config:
+  path: utils/scripts/research/run_scene.py
+  hash: null
+data:
+  name: Embergate (shipped seed world)
+  version: repo-tracked; no independent version
+  split: first scenario, 3 scripted player turns
+  n_examples: 3
+  dvc_path: null
+  hash: null
+seeds:
+- 0
+- 1
+- 2
+n_runs: 18
+environment:
+  python: '3.13'
+  lockfile: env/requirements.lock
+  container: null
+compute:
+  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
+  wall_clock_hours: 0.0003
+  estimated_cost_usd: 0.0
+llm:
+  model: none reachable — no endpoint configured
+  temperature: 0.0
+  top_p: 1.0
+  max_tokens: null
+  prompt_files:
+  - web/backend/app/agents/prompt_registry.py
+  prompt_hash: null
+  tool_schema_hash: null
+  total_input_tokens: 0
+  total_output_tokens: 0
+  nondeterminism_note: 'Provider-side nondeterminism remains even at temperature 0; results are reported
+    as mean +/- std over n_runs. Both arms share the same model and sampling parameters, so nondeterminism
+    affects them equally.
+
+    '
+metrics:
+  primary: null
+  values: {}
+baselines_compared:
+- director_agent.who_is_up (one-shot, 3-speaker cap)
+statistical_test: none — no usable measurements to test
+supports_claims:
+- C-005
+figures: []
+supersedes: null
+superseded_by: null
+related: []

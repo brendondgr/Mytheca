@@ -55,8 +55,9 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 | ComfyUI image generation | `docs/comfyui-image-generation.md` |
 | Original product briefing | `docs/briefings/storyline-chat-briefing.md` |
 | Locked visual reference mockups | `docs/CharacterFrontpage/` |
-| Feature plans / handoffs | `docs/plans/<feature-name>.md` — `ls docs/plans/` to find one |
-| Standalone research/audit reports | `docs/research/` |
+| Active feature plans | `docs/plans/<feature-name>.md` — 5 files; `ls docs/plans/` to find one |
+| Shipped-feature plans (historical — **do not read while routing**) | `docs/plans/archive/` |
+| **Research record** — experiments, claims, figures, findings | `docs/research/` — contract: `docs/research/AGENT_INSTRUCTIONS.md` |
 
 ## Backend — `web/backend/app/`
 
@@ -101,6 +102,8 @@ Five area folders: `api/` `agents/` `services/` `rag/` `data/`, plus a shared `c
 | `app.py` | Launches backend + frontend (`python app.py`), one side (`… backend`\|`frontend`), or stops both (`… stop`). Frees ports 3345/3346 first and owns Docker. |
 | `pyproject.toml` / `.python-version` | uv-managed backend project, Python 3.13 |
 | `.env.example` | Every env var, documented — copy to `.env` |
+| `Makefile` | Research-record targets only (`new-experiment` `validate-research` `research-index` `figures`). Does **not** replace `app.py`. |
+| `CONTRIBUTING.md` | Validation gate + how to run an experiment |
 | `line_counter.py` | Standalone LOC utility, not part of the app |
 
 ## Fast command reference
@@ -114,6 +117,8 @@ cd web/frontend && npm run dev    # frontend dev server (port 3346)
 cd web/frontend && npm test       # frontend tests (Vitest)
 cd web/frontend && npm run typecheck && npm run lint
 uv run python utils/scripts/check_contrast.py   # WCAG-AA theme gate
+make validate-research            # enforce the research record contract
+make new-experiment SLUG=x        # scaffold an experiment folder
 ```
 
 ## Non-negotiable rules
@@ -122,3 +127,17 @@ uv run python utils/scripts/check_contrast.py   # WCAG-AA theme gate
 - Update the relevant `docs/*.md` in the **same change** that alters behavior.
 - Branch off `main`; commit per completed plan phase; no push or PR unless asked.
 - Validation gate before calling anything done: `uv run pytest` + frontend tests, plus an accessibility/responsive pass for UI changes.
+
+## Research record (mandatory)
+
+- Any experiment, benchmark, baseline, ablation, or evaluation run MUST be
+  recorded under `docs/research/experiments/` following
+  `docs/research/AGENT_INSTRUCTIONS.md`.
+- Never report a metric in chat or a commit message without also writing it to
+  the corresponding `manifest.yaml` and `RESULTS.md`.
+- Never hand-edit a figure. Never hardcode a number in a plotting script.
+- Failed and abandoned runs are recorded, not deleted.
+- If asked to "just quickly check" a number, still create the experiment folder.
+- **Never aggregate over the surviving runs of a partially-failed experiment.**
+  Survivors are not a random subsample; report per-run rows and no aggregate.
+  `EXP-2026-08-001` is the worked example of getting this wrong and catching it.

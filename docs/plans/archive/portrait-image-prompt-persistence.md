@@ -94,7 +94,7 @@ All columns are nullable `String`, so the additive reconciler (`core/bootstrap._
   - `docs/api-contract.md` — add the two new fields to the Character and Setting read/write shapes.
   - `docs/data-flow.md` — note the portrait/scene-art prompt fields now persist (parity with Scenario).
   - `docs/documentation.md` (Current Status) + `docs/checklist.md` — record the fix.
-  - `docs/plans/portrait-image-prompt-persistence.md` — this file (mark done).
+  - `docs/plans/archive/portrait-image-prompt-persistence.md` — this file (mark done).
 - **Rationale:** Docs must change in the same body of work per the global rules; this also runs the full gate before merge.
 - **Action:** Run the **full** `uv run pytest` and the **full** frontend gate (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`). Once green, commit: `Portrait/Image Prompt Persistence (5/5) Complete: docs + full validation.` Then merge the branch into `main`, resolving any conflicts, and re-run the gate on `main`. Do not push or open a PR unless asked.
 

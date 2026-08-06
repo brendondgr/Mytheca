@@ -125,3 +125,12 @@ yarn-error.log*
 *.swp
 # Claude preview launch config (local dev only)
 .claude/launch.json
+
+# Research record — large run artifacts never enter docs/research/.
+# The experiment stores a pointer + hash in data/POINTERS.md instead; the directory
+# must stay cloneable in seconds. See docs/research/AGENT_INSTRUCTIONS.md §7.6.
+docs/research/**/*.ckpt
+docs/research/**/*.pt
+docs/research/**/*.parquet
+docs/research/**/*.jsonl
+docs/research/**/logs/raw/

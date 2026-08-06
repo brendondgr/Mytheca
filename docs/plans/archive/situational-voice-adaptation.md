@@ -114,7 +114,7 @@ registry.
 
 - **Locations:** `docs/data-flow.md` (the character-turn prompt/behavior description, if present),
   `docs/checklist.md` (record the deferred scene-appraisal follow-up + this feature done),
-  `docs/plans/situational-voice-adaptation.md` (this file — mark complete).
+  `docs/plans/archive/situational-voice-adaptation.md` (this file — mark complete).
 - **Rationale:** Global rules require docs updated in the same change that alters behavior.
 - **Validation:** Full backend suite `uv run pytest` (backend-only change; frontend untouched, but note
   `main` carries unrelated frontend edits — do not run/entangle them). No UI change, so no a11y pass.

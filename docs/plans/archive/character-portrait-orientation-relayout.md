@@ -143,7 +143,7 @@ column carries **Appearance + Background**, 2×2 below carries Personality / Voi
 | Portrait preview ratio | 2:3 preview box | `web/frontend/components/feature/PortraitModal.tsx` |
 | Frontend tests | Profile modal + card coverage | `web/frontend/components/feature/CharacterProfileModal.test.tsx` (+ card) |
 | Docs | component-map / design-system / checklist | `docs/` |
-| This plan | Phase-by-phase plan | `docs/plans/character-portrait-orientation-relayout.md` |
+| This plan | Phase-by-phase plan | `docs/plans/archive/character-portrait-orientation-relayout.md` |
 
 ## 5. Validation Gate
 

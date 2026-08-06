@@ -1,0 +1,19 @@
+addressed_responded,arm,beats,bystander_first,character_beats,distinct_speakers,error,narrator_beats,seed,turn,wall_clock_seconds
+,planner,1,,0,0,,1,0,0,0.02
+0,planner,0,0,0,0,APIError: Configure a model endpoint in Options first.,0,0,1,0.006
+,planner,1,,0,0,,1,0,2,0.008
+,planner,1,,0,0,,1,1,0,0.011
+0,planner,0,0,0,0,APIError: Configure a model endpoint in Options first.,0,1,1,0.005
+,planner,1,,0,0,,1,1,2,0.007
+,planner,1,,0,0,,1,2,0,0.011
+0,planner,0,0,0,0,APIError: Configure a model endpoint in Options first.,0,2,1,0.006
+,planner,1,,0,0,,1,2,2,0.007
+,director,0,,0,0,APIError: Configure a model endpoint in Options first.,0,0,0,0.01
+0,director,0,0,0,0,APIError: Configure a model endpoint in Options first.,0,0,1,0.005
+,director,0,,0,0,APIError: Configure a model endpoint in Options first.,0,0,2,0.006
+,director,0,,0,0,APIError: Configure a model endpoint in Options first.,0,1,0,0.009
+0,director,0,0,0,0,APIError: Configure a model endpoint in Options first.,0,1,1,0.005
+,director,0,,0,0,APIError: Configure a model endpoint in Options first.,0,1,2,0.006
+,director,0,,0,0,APIError: Configure a model endpoint in Options first.,0,2,0,0.01
+0,director,0,0,0,0,APIError: Configure a model endpoint in Options first.,0,2,1,0.005
+,director,0,,0,0,APIError: Configure a model endpoint in Options first.,0,2,2,0.007

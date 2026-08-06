@@ -21,6 +21,13 @@
 
 The story is driven by a **multi-agent backend** that emits **small, typed, validated story events**. The AI decides *what happens*; the UI decides *how it looks* — the model never dictates layout. A bounded, guidance-driven **stat system** (trust, patience, suspicion, health…) gives the world continuity and consequence over time.
 
+## Research record
+
+This is also a research repository. All experiments, results, figures, and findings
+live in [`docs/research/`](docs/research/). Nothing that will appear in a paper is
+recorded anywhere else. Before running an experiment, read
+[`docs/research/AGENT_INSTRUCTIONS.md`](docs/research/AGENT_INSTRUCTIONS.md).
+
 ## How it works
 
 ```mermaid

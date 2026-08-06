@@ -131,7 +131,7 @@ available" when none.
 | Transparent cast cards + stats panel | Column-card style + per-card arrow → inline pushing stats panel | `web/frontend/components/feature/ScenarioCarousel.tsx` |
 | Tests | Carousel stats/arrow + profile coverage | `web/frontend/components/feature/ScenarioCarousel.test.tsx`, `CharacterProfileModal.test.tsx` |
 | Docs | component-map / design-system / checklist | `docs/` |
-| This plan | Phase-by-phase plan | `docs/plans/cast-cards-reorg.md` |
+| This plan | Phase-by-phase plan | `docs/plans/archive/cast-cards-reorg.md` |
 
 ## 5. Validation Gate
 

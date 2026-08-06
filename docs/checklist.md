@@ -50,6 +50,34 @@ Verified against the code on 2026-08-04.
 - The storyline switcher is hidden below `md`, so mobile cannot switch worlds.
 - At the 320px floor the scene-header Inspector icon clips ~7px. There is no page-level horizontal overflow at any width, and everything fits at 375+.
 
+## Research record — deliberate gaps
+
+The retrofit landed on 2026-08-06 (`docs/plans/research-record-retrofit.md`). These
+are **decisions, not oversights**, recorded here so they are not mistaken for drift.
+
+- **No CI and no pre-commit hook.** The contract's §7.4/§7.5 mandate both; enforcement
+  here is `make validate-research` run by hand. Owner decision — Mytheca has never had
+  a `.github/` directory. **This is the one acceptance criterion in §10 left unmet**,
+  and the contract's own §7 warns that "convention without enforcement decays".
+  Revisit if a second experiment lands without the validator having been run.
+  (`docs/research/DECISIONS.md` D-005.)
+- **EXP-2026-08-001 is recorded `failed`.** The planner-vs-director ablation could not
+  run: no OpenAI-compatible endpoint is configured for this checkout, so every agent
+  fell back or raised. 0 LLM calls. `C-005` stays `unsupported`. The harness is built
+  and the protocol pre-registered — it is a re-run, not a rebuild.
+- **Six of seven claims have no experiment at all.** `docs/research/CLAIMS.md` is the
+  backlog; it is meant to look uncomfortable.
+- **The audit's P1 study is not started.** 10–14 weeks, critical path 8–11
+  (`docs/research/paper/OUTLINE.md`).
+- **Degradation mismatch on the turn path.** `director_agent.who_is_up` propagates
+  `APIError` where `planner_agent.next_beat` catches it and falls back, though both
+  docstrings promise "best-effort; never raises". Found incidentally by the runner,
+  not by a test. **Do not delete the dead director code while EXP-2026-08-001 is
+  open** — it is the baseline arm.
+- **The 2025 Wordplay accepted-paper list is unread.** ~30 papers on exactly this
+  topic; the audit names it as the most likely place for a scoop it missed, and both
+  remaining novelty claims rest on absence of evidence.
+
 ## Housekeeping
 
 - **11 stale git worktrees** under `.claude/worktrees/`, all registered in `git worktree list`, each 25+ days idle with a merged-looking final commit. Prune them along with the ~45 leftover local branches.
