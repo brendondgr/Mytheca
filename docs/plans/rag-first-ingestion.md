@@ -1,6 +1,6 @@
 # RAG-First Ingestion + On-Demand ReAct Lookups (world build)
 
-> **Status: not yet implemented — follow-up to `docs/plans/build-extract-stage-fix.md`.**
+> **Status: not yet implemented — follow-up to `docs/plans/archive/build-extract-stage-fix.md`.**
 > The "Reading Docs" hang / invalid-JSON bug was fixed first (that plan, merged). This
 > plan captures the agreed architecture for the larger redesign so it's ready to pick
 > up. Decisions locked with the user are in §2.

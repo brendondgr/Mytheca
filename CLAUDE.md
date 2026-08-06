@@ -55,7 +55,8 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 | ComfyUI image generation | `docs/comfyui-image-generation.md` |
 | Original product briefing | `docs/briefings/storyline-chat-briefing.md` |
 | Locked visual reference mockups | `docs/CharacterFrontpage/` |
-| Feature plans / handoffs | `docs/plans/<feature-name>.md` — `ls docs/plans/` to find one |
+| Active feature plans | `docs/plans/<feature-name>.md` — 5 files; `ls docs/plans/` to find one |
+| Shipped-feature plans (historical — **do not read while routing**) | `docs/plans/archive/` |
 | Standalone research/audit reports | `docs/research/` |
 
 ## Backend — `web/backend/app/`

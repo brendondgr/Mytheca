@@ -139,7 +139,7 @@ glyph — robust for free-text traits — not a per-keyword icon map.
 | Updated component tests | Prose/portrait/traits-as-pills/empty-skip/Secret/Edit coverage | `web/frontend/components/feature/CharacterProfileModal.test.tsx` |
 | Design-system note | Short note recording the bolder profile treatment | `docs/design-system.md` |
 | Checklist update | Any deferred a11y/responsive item recorded | `docs/checklist.md` |
-| This plan | Phase-by-phase implementation plan | `docs/plans/character-profile-bolder-structure.md` |
+| This plan | Phase-by-phase implementation plan | `docs/plans/archive/character-profile-bolder-structure.md` |
 
 ## 5. Validation Gate
 

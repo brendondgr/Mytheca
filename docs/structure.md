@@ -31,7 +31,8 @@ mytheca/
 │   ├── story-graph-neo4j.md    # Neo4j Story Graph
 │   ├── comfyui-image-generation.md  # Image generation
 │   ├── skills/             # Canonical skills, read by every agent tool
-│   ├── plans/              # Implementation & handoff plans (planner skill)
+│   ├── plans/              # Active implementation & handoff plans (planner skill)
+│   │   └── archive/        # Shipped-feature plans — historical provenance, not routing
 │   ├── briefings/          # Original product briefing
 │   ├── research/           # Standalone research/audit reports
 │   └── CharacterFrontpage/ # Locked-in visual reference mockups (HTML)
