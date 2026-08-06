@@ -4,9 +4,6 @@
 
 Every experiment on record. `make validate-research` fails if this file is stale.
 
-_No experiments recorded yet._
-
-This is not the same as "no experiments have been run" — see
-[`README.md`](README.md). Mytheca had no evaluation of any kind before this record
-existed, so there was nothing to back-fill. Every claim in
-[`CLAIMS.md`](CLAIMS.md) is currently unsupported.
+| ID | Started | Title | Status | Primary metric | Claims | Link |
+|----|---------|-------|--------|----------------|--------|------|
+| EXP-2026-08-001 | 2026-08-06 | ReAct per-beat planner vs. the one-shot speaker-set director | `planned` | beats (pending) | C-005 | [EXP-2026-08-001-planner-vs-oneshot-director](experiments/EXP-2026-08-001-planner-vs-oneshot-director/) |
