@@ -11,6 +11,8 @@ mytheca/
 ├── uv.lock                 # Fully pinned Python deps
 ├── .python-version         # 3.13
 ├── .env.example            # Every environment variable, documented
+├── Makefile                # Research-record targets only — does NOT replace app.py
+├── CONTRIBUTING.md         # Validation gate + how to run an experiment
 ├── line_counter.py         # Standalone LOC-counting utility (not part of the app)
 ├── images/                 # Brand kit — Basic.svg, Basic-Light.svg, DarkText.svg, LightText.svg
 ├── media/                  # Generated WebP output (portraits/, scenes/) — gitignored, served at /media
@@ -34,7 +36,12 @@ mytheca/
 │   ├── plans/              # Active implementation & handoff plans (planner skill)
 │   │   └── archive/        # Shipped-feature plans — historical provenance, not routing
 │   ├── briefings/          # Original product briefing
-│   ├── research/           # Standalone research/audit reports
+│   ├── research/           # THE research record — see AGENT_INSTRUCTIONS.md
+│   │   ├── experiments/    # The unit of record: one dir per experiment, fixed contract
+│   │   ├── templates/      # Copied wholesale by `make new-experiment`
+│   │   ├── figures/        # Publication-ready ONLY, promoted from experiments
+│   │   ├── tables/ datasets/ paper/
+│   │   └── mytheca-research-audit.md   # External audit (3 Aug 2026); ledger provenance
 │   └── CharacterFrontpage/ # Locked-in visual reference mockups (HTML)
 ├── web/
 │   ├── frontend/           # Next.js 16 app (App Router, Turbopack) + React 19 + TS + Tailwind v4
@@ -71,8 +78,10 @@ mytheca/
 ├── utils/
 │   ├── tests/
 │   │   ├── backend/{api,agents,services,rag,data}/  # pytest, grouped by area + conftest.py
-│   │   └── frontend/       # EMPTY (__init__.py only) — frontend tests are co-located
+│   │   ├── frontend/       # EMPTY (__init__.py only) — frontend tests are co-located
+│   │   └── tools/          # Research-record tooling tests (validator, scaffolder, capture)
 │   ├── scripts/            # check_contrast.py (WCAG-AA token gate)
+│   │   └── research/       # new_experiment · validate_research · gen_index · record · run_scene
 │   └── workflows/          # ZiT-Workflow.json — the ComfyUI workflow loaded by services/comfyui.py
 ├── .claude/                # Claude Code — skill pointers + launch.json + worktrees/
 ├── .agents/                # OpenAI Codex — skill pointers
@@ -93,7 +102,7 @@ mytheca/
 | `docs/` | All durable documentation and the canonical skills. |
 | `web/frontend/` | The Next.js UI: library, storyline creator, story player, options. |
 | `web/backend/` | The FastAPI brain: routes, agents, services, events, persistence. |
-| `utils/` | Standalone helpers: `tests/`, `scripts/`, `workflows/`. |
+| `utils/` | Standalone helpers: `tests/`, `scripts/`, `workflows/`. Research tooling lives in `scripts/research/`, its tests in `tests/tools/`. |
 | `libs/` | Reserved for internal shared packages; empty today. |
 | `media/` | Generated WebP portraits and scene art. Path is `MEDIA_DIR` (default `<repo>/media`); gitignored, served read-only at `/media`. |
 | `images/` | Brand SVGs used by the README and the app header. |

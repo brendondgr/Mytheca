@@ -67,6 +67,7 @@ Update docs in the same change that alters behavior:
 | Visual token or theme | `docs/design-system.md` |
 | Architecture decision or status | `docs/documentation.md` + `docs/architecture.md` |
 | Deferred or blocked work | `docs/checklist.md` |
+| **An experiment, benchmark, ablation or evaluation run** | `docs/research/experiments/<EXP-ID>/` + `docs/research/CLAIMS.md` — contract: `docs/research/AGENT_INSTRUCTIONS.md` |
 
 Plans and handoffs go in `docs/plans/` using the `planner` skill format.
 
@@ -78,6 +79,9 @@ Plans and handoffs go in `docs/plans/` using the `planner` skill format.
 - **Frontend:** `npm test` passes in `web/frontend/`.
 - **UI changes also require** an accessibility + responsive pass per the `accessibility-mobile` and `ada-compliance` skills: keyboard operability, visible focus, AA contrast, live-region announcements for streamed content, and layout at 320 / 375 / 768 / 1024 px.
 - **Theme-token changes also require** `uv run python utils/scripts/check_contrast.py`.
+- **Experiment/evaluation runs also require** `make validate-research`. Never report
+  a metric without writing it to the experiment's `manifest.yaml` and `RESULTS.md`;
+  failed runs are recorded, not deleted.
 
 Recommended hygiene: ruff + mypy (backend), ESLint + tsc (frontend).
 
