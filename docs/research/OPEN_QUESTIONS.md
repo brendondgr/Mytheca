@@ -144,4 +144,19 @@ data even when the specific characters are not). See `DECISIONS.md` D-006.
 
 ## Follow-ups from experiments
 
-Appended as each `RESULTS.md` §7 is written. None yet.
+Appended as each `RESULTS.md` §7 is written.
+
+### From EXP-2026-08-001 (`failed` — no LLM endpoint reachable)
+
+- [ ] **Re-run the C-005 protocol once a model endpoint is configured.** The harness
+      is built and the protocol is pre-registered; this is a re-run, not a rebuild.
+      → `experiments/EXP-2026-08-001-planner-vs-oneshot-director/PROTOCOL.md`
+- [ ] **Reconcile the degradation mismatch on the turn path.**
+      `planner_agent.next_beat` catches `APIError` and falls back to a heuristic;
+      `director_agent.who_is_up` propagates it. Both docstrings promise "best-effort;
+      never raises". One of them does raise. Found incidentally, not by a test.
+- [ ] **Make the runner assert LLM reachability before the first turn** and refuse to
+      start, rather than emitting rows that have to be interpreted afterwards.
+- [ ] **Decide whether a zero-LLM-call run should be a hard validator error.** An
+      experiment whose manifest carries an `llm` block but records 0 calls is
+      structurally suspect, and the current validator accepts it.

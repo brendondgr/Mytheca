@@ -327,7 +327,20 @@ def main(argv: list[str] | None = None) -> int:
 
     experiment = args.experiment.resolve()
     usable = [r for r in rows if not r["error"]]
-    values = aggregate(usable, ["beats", "character_beats", "distinct_speakers"])
+
+    # A survivorship-biased aggregate is worse than no number. If ANY turn failed, the
+    # surviving rows are not a random subsample — here, a missing LLM endpoint kills
+    # every director-arm turn while leaving the planner arm's non-LLM fallback beat
+    # intact, so aggregating the survivors yields a clean-looking mean over one arm's
+    # heuristic. Publish per-run rows and totals, publish no aggregate.
+    if failures:
+        values: dict[str, Any] = {}
+        record.note(
+            f"{len(failures)}/{len(rows)} turns failed; metrics.values left empty rather than "
+            "aggregated over the surviving rows, which are not a random subsample"
+        )
+    else:
+        values = aggregate(usable, ["beats", "character_beats", "distinct_speakers"])
 
     write_metrics(experiment, record, values)
     write_environment(experiment, record)
@@ -344,9 +357,13 @@ def main(argv: list[str] | None = None) -> int:
                 "wall_clock_hours": round(record.wall_clock_seconds / 3600, 4),
                 "estimated_cost_usd": 0.0,
             },
-            "metrics": {"primary": "beats", "values": values},
+            "metrics": {"primary": "beats" if values else None, "values": values},
         },
     )
+    if record.notes:
+        print("\nnotes for ISSUES.md:")
+        for note in record.notes:
+            print(f"  - {note}")
     print(f"wrote metrics into {experiment}")
     return 1 if failures else 0
 
