@@ -1,0 +1,14 @@
+# Research record artifact handling — see docs/research/AGENT_INSTRUCTIONS.md §7.6.
+#
+# SVG is the authoring format for every figure and diagram: text, diffable, and
+# reviewable in a PR. PDF is the LaTeX-facing export of the same figure and is
+# binary — never the source of truth, and never the only copy.
+
+*.svg   text eol=lf diff
+*.pdf   binary
+*.png   binary
+
+# Small machine-readable results stay in git and must diff cleanly.
+docs/research/**/*.json  text eol=lf diff
+docs/research/**/*.csv   text eol=lf diff
+docs/research/**/*.yaml  text eol=lf diff
