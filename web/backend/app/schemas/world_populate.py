@@ -70,6 +70,9 @@ class WorldPopulateRequest(CamelModel):
     """What to build. ``docs_overview`` is the author's Draft-selected file text."""
 
     docs_overview: str | None = None
+    # Resume point: attach to a run already in flight and replay from this frame
+    # onward. 0 (the default) is a fresh watch from the first frame.
+    from_seq: int = 0
     source: RosterSource = "auto"
     max_characters: int = Field(default=DEFAULT_MAX_CHARACTERS, ge=0, le=MAX_CHARACTERS_CAP)
     max_settings: int = Field(default=DEFAULT_MAX_SETTINGS, ge=0, le=MAX_SETTINGS_CAP)
@@ -83,7 +86,19 @@ class WorldPopulateRequest(CamelModel):
 PopulateStage = Literal["roster", "character", "setting"]
 
 
-class PopulatePlanFrame(CamelModel):
+class PopulateFrame(CamelModel):
+    """Base for every populate frame.
+
+    ``seq`` is the frame's position in the run's log, stamped by the run registry. The
+    client echoes the last one it saw as ``fromSeq`` when it re-attaches, so a dropped
+    connection resumes exactly where it left off. Keep-alive frames (emitted by the
+    route, not the log) carry ``-1`` and are never resumed from.
+    """
+
+    seq: int = -1
+
+
+class PopulatePlanFrame(PopulateFrame):
     """What the run is about to build, named, before it starts building it.
 
     Emitted once, after the roster is settled — so the author sees the cast list (and
@@ -99,7 +114,7 @@ class PopulatePlanFrame(CamelModel):
     note: str = ""
 
 
-class PopulateStatusFrame(CamelModel):
+class PopulateStatusFrame(PopulateFrame):
     """Progress heartbeat: which stage, and which item of how many."""
 
     type: Literal["status"] = "status"
@@ -110,7 +125,7 @@ class PopulateStatusFrame(CamelModel):
     total: int = 0
 
 
-class PopulateEntityFrame(CamelModel):
+class PopulateEntityFrame(PopulateFrame):
     """One persisted entity — the proof the generated content reached the database."""
 
     type: Literal["entity"] = "entity"
@@ -123,7 +138,7 @@ class PopulateEntityFrame(CamelModel):
     image: str | None = None
 
 
-class PopulateErrorFrame(CamelModel):
+class PopulateErrorFrame(PopulateFrame):
     """A non-fatal failure (one draft, one render) — the run continues after it."""
 
     type: Literal["error"] = "error"
@@ -131,7 +146,7 @@ class PopulateErrorFrame(CamelModel):
     fatal: bool = False
 
 
-class PopulateDoneFrame(CamelModel):
+class PopulateDoneFrame(PopulateFrame):
     type: Literal["done"] = "done"
     characters: int = 0
     settings: int = 0
