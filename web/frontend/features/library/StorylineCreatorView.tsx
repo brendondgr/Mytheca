@@ -292,6 +292,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
         build={c.build}
         defaults={DEFAULT_POPULATE}
         worldTitle={c.fields.title}
+        sourceFiles={c.sourceFiles}
         onCancel={cancelBuild}
         onConfirm={(options) => void onBuild(options)}
         onStop={c.stopBuild}

@@ -40,7 +40,13 @@ function messageOf(e: unknown): string {
  * What the Build-world dialog offers by default: build the cast + settings, but no
  * artwork — every image is a ComfyUI render, so it stays an explicit opt-in.
  */
-export const DEFAULT_POPULATE: PopulateOptions = { enabled: true, withArtwork: false };
+export const DEFAULT_POPULATE: PopulateOptions = {
+  enabled: true,
+  withArtwork: false,
+  // Resolved by the dialog from what the author actually uploaded: "auto" means the
+  // server builds from their classified files when there are any.
+  source: "auto",
+};
 
 /**
  * State for the New Storyline page (`StorylineCreatorView`). Holds the by-hand
@@ -315,6 +321,16 @@ export function useStorylineCreator(editId?: string) {
     () => budgetFor({ worldPrimer: fields.worldPrimer, draftDocs: draftDocTexts(docs) }),
     [fields.worldPrimer, docs],
   );
+  // What the author's context files are classified as — the dialog says which people
+  // and places the build will make from them, so nothing is a surprise.
+  const sourceFiles = useMemo(
+    () => ({
+      characters: docs.filter((d) => d.category === "character" && d.text).length,
+      settings: docs.filter((d) => d.category === "setting" && d.text).length,
+      lore: docs.filter((d) => !["character", "setting"].includes(d.category) && d.text).length,
+    }),
+    [docs],
+  );
   const statsOriginalKeys = useMemo(
     () => new Set(statsOriginal.map((s) => s.key)),
     [statsOriginal],
@@ -365,6 +381,7 @@ export function useStorylineCreator(editId?: string) {
     /** The Draft-selected context files as one bounded grounding string (or undefined). */
     docsOverview: () => draftGrounding(docs),
     budget,
+    sourceFiles,
     isValid: isCreatorValid(fields),
     loading,
     generatingPrimer,
