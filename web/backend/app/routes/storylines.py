@@ -234,6 +234,7 @@ def populate_storyline_stream(
         db,
         storyline_id,
         docs_overview=data.docs_overview,
+        source=data.source,
         max_characters=data.max_characters,
         max_settings=data.max_settings,
         with_artwork=data.with_artwork,

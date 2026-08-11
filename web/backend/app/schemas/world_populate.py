@@ -39,10 +39,19 @@ class ExtractedEntities(CamelModel):
 
 
 class RosterEntry(CamelModel):
-    """One proposed cast member or place: a name plus the seed line drafting uses."""
+    """One cast member or place the build is going to make.
+
+    Either invented (``seed`` — a one-line brief from the roster agent) or taken from
+    one of the author's own documents (``source`` — the self-contained paragraph the
+    extraction agent drew from ``doc_name``). ``doc_id`` is kept so the created entity
+    can be linked back to the file it came from.
+    """
 
     name: str
     seed: str = ""
+    source: str = ""
+    doc_id: str | None = None
+    doc_name: str = ""
 
 
 class RosterProposal(CamelModel):
@@ -50,10 +59,18 @@ class RosterProposal(CamelModel):
     settings: list[RosterEntry] = []
 
 
+# Where the roster comes from. ``documents`` builds exactly the characters and places
+# the author's uploaded files name; ``invent`` makes them up from the premise;
+# ``auto`` (the default) uses the documents when the world has any and only invents
+# when it has none.
+RosterSource = Literal["auto", "documents", "invent"]
+
+
 class WorldPopulateRequest(CamelModel):
     """What to build. ``docs_overview`` is the author's Draft-selected file text."""
 
     docs_overview: str | None = None
+    source: RosterSource = "auto"
     max_characters: int = Field(default=DEFAULT_MAX_CHARACTERS, ge=0, le=MAX_CHARACTERS_CAP)
     max_settings: int = Field(default=DEFAULT_MAX_SETTINGS, ge=0, le=MAX_SETTINGS_CAP)
     # Artwork is opt-in and best-effort: every image is a ComfyUI render, so a run
@@ -64,6 +81,22 @@ class WorldPopulateRequest(CamelModel):
 # ---- stream frames ----------------------------------------------------------
 
 PopulateStage = Literal["roster", "character", "setting"]
+
+
+class PopulatePlanFrame(CamelModel):
+    """What the run is about to build, named, before it starts building it.
+
+    Emitted once, after the roster is settled — so the author sees the cast list (and
+    which of their files each name came from) rather than watching entities appear
+    from nowhere.
+    """
+
+    type: Literal["plan"] = "plan"
+    source: RosterSource
+    characters: list[RosterEntry] = []
+    settings: list[RosterEntry] = []
+    # Documents read but naming nothing, and anything else worth saying up front.
+    note: str = ""
 
 
 class PopulateStatusFrame(CamelModel):
@@ -105,5 +138,9 @@ class PopulateDoneFrame(CamelModel):
 
 
 PopulateEvent = (
-    PopulateStatusFrame | PopulateEntityFrame | PopulateErrorFrame | PopulateDoneFrame
+    PopulateStatusFrame
+    | PopulatePlanFrame
+    | PopulateEntityFrame
+    | PopulateErrorFrame
+    | PopulateDoneFrame
 )
