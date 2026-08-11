@@ -231,28 +231,56 @@ export interface CommitArgs {
  * the author's work. `finishBuild` is what makes a truncated stream a failure instead
  * of a silent success.
  */
+/** How many times a dropped stream is silently re-attached before giving up. */
+export const RECONNECT_ATTEMPTS = 4;
+const RECONNECT_DELAY_MS = 1500;
+
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 export async function runPopulate(
   storylineId: string,
   opts: PopulateOptions,
   docsOverview: string | undefined,
   onState: (state: BuildState) => void,
   signal?: AbortSignal,
+  /** Pause between re-attach attempts (0 in tests). */
+  retryDelayMs: number = RECONNECT_DELAY_MS,
 ): Promise<BuildState> {
   let state: BuildState = { ...emptyBuild(), phase: "building", step: "Planning the world…" };
   onState(state);
-  try {
-    for await (const frame of api.populateWorldStream(
-      storylineId,
-      { docsOverview, withArtwork: opts.withArtwork },
-      signal,
-    )) {
-      state = foldPopulateFrame(state, frame);
+
+  // The build runs server-side, so a dropped socket is only a lost *view* of it: we
+  // re-attach from the last frame we saw and carry on. Without this the author lost a
+  // ten-minute build to a blip and was told "Lost the connection while the server was
+  // still working." — which was true, and useless.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      for await (const frame of api.populateWorldStream(
+        storylineId,
+        {
+          docsOverview,
+          source: opts.source,
+          withArtwork: opts.withArtwork,
+          fromSeq: state.lastSeq + 1,
+        },
+        signal,
+      )) {
+        state = foldPopulateFrame(state, frame);
+        onState(state);
+      }
+      state = finishBuild(state);
+      break;
+    } catch (e) {
+      if (signal?.aborted || attempt >= RECONNECT_ATTEMPTS) {
+        state = finishBuild(state, e);
+        break;
+      }
+      state = { ...state, step: "Lost the connection — picking the build back up…" };
       onState(state);
+      await wait(retryDelayMs);
     }
-    state = finishBuild(state);
-  } catch (e) {
-    state = finishBuild(state, e);
   }
+
   onState(state);
   return state;
 }

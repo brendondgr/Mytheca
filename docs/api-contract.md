@@ -417,20 +417,40 @@ over the same generator).
 
 ### World Population Stream (NDJSON)
 
-`POST /storylines/{id}/populate/stream` — fill a **newly-created** world with a
-generated cast and set of places. The New Storyline page runs this immediately after
-`commitWorld`, once the author confirms in the Build-world dialog, so the redirect
-lands them in a populated Library instead of an empty one. Body:
+`POST /storylines/{id}/populate/stream` — fill a **newly-created** world with its cast
+and places. The New Storyline page runs this immediately after `commitWorld`, once the
+author confirms in the Build-world dialog, so the redirect lands them in a populated
+Library instead of an empty one. Body:
 
 ```json
-{ "docsOverview": "…", "maxCharacters": 5, "maxSettings": 3, "withArtwork": false }
+{ "docsOverview": "…", "source": "auto", "maxCharacters": 5, "maxSettings": 3,
+  "withArtwork": false, "fromSeq": 0 }
 ```
 
-`maxCharacters` is 0–8 (default 5) and `maxSettings` 0–6 (default 3) — out-of-range
-values are a `422`. `docsOverview` is the same Draft-selected file text the authoring
-agents already take. `withArtwork` is **opt-in**: every image is a full ComfyUI render,
-so it defaults off, is gated on one up-front reachability probe, and a failed render
-never costs the entity.
+**`source`** decides whose people get built. `documents` builds exactly the characters
+and places the author's own context files name; `invent` makes them up from the premise;
+`auto` (the default) uses the documents when the world has any and only invents when it
+has none. `documents` with no usable files builds nothing and says so — it never falls
+back to inventing.
+
+`maxCharacters` (0–8, default 5) and `maxSettings` (0–6, default 3) bound **invention
+only**; out-of-range values are a `422`. The author's own files are never capped —
+dropping their seventh character file would be the same defect as inventing one.
+`docsOverview` is the same Draft-selected file text the authoring agents take.
+`withArtwork` is **opt-in**: every image is a full ComfyUI render, so it defaults off, is
+gated on one up-front reachability probe, and a failed render never costs the entity.
+**`fromSeq`** re-attaches to a run already in flight (see *Resumable* below).
+
+**Where the roster comes from.** The build reads the world's storyline-level context
+documents and sorts them by the author's own classification: `character` and `setting`
+docs are mined by `agents/extract_agent.py` for the subjects they **explicitly name and
+profile** (strictly scoped — a Character doc can never yield a phantom setting), and each
+extracted subject is drafted from its own paragraph and linked back to its source file
+(`ContextDocumentLink`). `other` docs are lore: they ground every draft and become
+nothing. A corpus where *nothing* is classified is mined for either kind, since an
+untriaged file persists as `other` and ignoring it would silently discard the upload. A
+classified file that names nobody still becomes one entity — the author filed it under
+Characters, so it is about someone.
 
 The run plans a roster (`agents/roster_agent.py`), then builds each entry through the
 *same* agents the per-entity creators use and persists it through the normal CRUD path —
@@ -465,10 +485,28 @@ Frames:
 server, a proxy cutting an idle socket — as a failed build and says so, rather than
 walking the author into a half-built world.
 
+Plus, once the roster is settled and before anything is drafted:
+
+- `{ "type": "plan", "source": "documents"|"invent", "characters": [RosterEntry],
+  "settings": [RosterEntry], "note" }` — what the run is about to build, named. Each
+  `RosterEntry` carries `name`, `source` (the paragraph it was drawn from), and
+  `docId`/`docName` when it came from one of the author's files.
+
+**Resumable.** The run lives server-side (`services/world_populate_runs.py`): a background
+thread with its own Session, appending **sequenced** frames to an in-memory log. This
+endpoint only *watches* it. Every frame carries `seq`; a client whose connection drops
+re-attaches with `fromSeq = lastSeq + 1` and the endpoint replays what it missed before
+following live. A `fromSeq > 0` request **never starts a build** — it attaches to the
+existing run or, if the process restarted and there is none, returns a terminal `error`
+frame. That is what stops a reconnect from building the world twice. Requesting a fresh
+watch (`fromSeq: 0`) for a world already building attaches to that run rather than
+starting a second one. The registry is in-process and non-durable: a backend restart ends
+a run, and the client reports it honestly.
+
 **Pre-flight** failures return the usual error envelope before the `200`: `404` unknown
 storyline, `400` unconfigured LLM. A failure *after* the stream opens cannot change the
 status, so it arrives as a terminal `error` frame with `fatal: true`. Long gaps between
-entities are filled with `status` keep-alive frames (see the keep-alive contract).
+entities are filled with `status` keep-alive frames (`seq: -1`, never resumed from).
 
 ## Storyline Agent Shapes (conversational, scope-aware editor)
 

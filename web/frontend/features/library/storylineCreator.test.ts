@@ -7,6 +7,7 @@ import {
   draftDocTexts,
   fromContextDocument,
   persistStatsDiff,
+  RECONNECT_ATTEMPTS,
   runPopulate,
   toCreatorDoc,
 } from "./storylineCreator";
@@ -169,14 +170,14 @@ describe("storylineCreator.runPopulate", () => {
     const seen: BuildState[] = [];
     const final = await runPopulate(
       "w1",
-      { enabled: true, withArtwork: false },
+      { enabled: true, withArtwork: false, source: "auto" },
       DOCS,
       (s) => seen.push(s),
     );
 
     expect(vi.mocked(api.populateWorldStream)).toHaveBeenCalledWith(
       "w1",
-      { docsOverview: DOCS, withArtwork: false },
+      { docsOverview: DOCS, source: "auto", withArtwork: false, fromSeq: 0 },
       undefined,
     );
     expect(final.phase).toBe("done");
@@ -203,7 +204,7 @@ describe("storylineCreator.runPopulate", () => {
       };
     } as never);
 
-    const final = await runPopulate("w1", { enabled: true, withArtwork: false }, DOCS, () => {});
+    const final = await runPopulate("w1", { enabled: true, withArtwork: false, source: "auto" }, DOCS, () => {});
 
     expect(final.phase).toBe("failed");
     expect(final.error).toMatch(/only partly built/i);
@@ -224,7 +225,7 @@ describe("storylineCreator.runPopulate", () => {
       yield { type: "done" as const, characters: 0, settings: 1 };
     } as never);
 
-    const final = await runPopulate("w1", { enabled: true, withArtwork: false }, DOCS, () => {});
+    const final = await runPopulate("w1", { enabled: true, withArtwork: false, source: "auto" }, DOCS, () => {});
 
     expect(final.phase).toBe("done");
     expect(final.problems).toEqual(["Could not write Maerin."]);
@@ -236,21 +237,75 @@ describe("storylineCreator.runPopulate", () => {
       yield { type: "error" as const, message: "Choose a model in Options first.", fatal: true };
     } as never);
 
-    const final = await runPopulate("w1", { enabled: true, withArtwork: false }, DOCS, () => {});
+    const final = await runPopulate("w1", { enabled: true, withArtwork: false, source: "auto" }, DOCS, () => {});
 
     expect(final.phase).toBe("failed");
     expect(final.error).toBe("Choose a model in Options first.");
   });
 
-  it("never throws when the connection drops", async () => {
-    vi.mocked(api.populateWorldStream).mockImplementationOnce(async function* () {
+  // The build lives on the server now, so a dropped socket is a lost view of it —
+  // the client re-attaches from the last frame it saw instead of losing the run.
+  it("re-attaches after a dropped connection and picks up where it left off", async () => {
+    const seen: BuildState[] = [];
+    vi.mocked(api.populateWorldStream)
+      .mockImplementationOnce(async function* () {
+        yield {
+          seq: 0,
+          type: "entity" as const,
+          stage: "character" as const,
+          id: "c1",
+          name: "Maerin",
+          role: "Smuggler",
+          image: null,
+        };
+        throw new Error("Lost the connection while the server was still working.");
+      } as never)
+      .mockImplementationOnce(async function* () {
+        yield {
+          seq: 1,
+          type: "entity" as const,
+          stage: "setting" as const,
+          id: "s1",
+          name: "The Wharf",
+          role: "Social Hub",
+          image: null,
+        };
+        yield { seq: 2, type: "done" as const, characters: 1, settings: 1 };
+      } as never);
+
+    const final = await runPopulate(
+      "w1",
+      { enabled: true, withArtwork: false, source: "auto" },
+      DOCS,
+      (s) => seen.push(s),
+      undefined,
+      0,
+    );
+
+    expect(final.phase).toBe("done");
+    expect(final.entities.map((e) => e.name)).toEqual(["Maerin", "The Wharf"]);
+    // It resumed from the frame after the last one it folded — no gap, no replay.
+    expect(vi.mocked(api.populateWorldStream).mock.calls[1][1]).toMatchObject({ fromSeq: 1 });
+    expect(seen.some((s) => s.step.includes("picking the build back up"))).toBe(true);
+  });
+
+  it("gives up honestly once re-attaching is exhausted", async () => {
+    vi.mocked(api.populateWorldStream).mockImplementation(async function* () {
       throw new Error("Could not reach the server.");
     } as never);
 
-    const final = await runPopulate("w1", { enabled: true, withArtwork: false }, DOCS, () => {});
+    const final = await runPopulate(
+      "w1",
+      { enabled: true, withArtwork: false, source: "auto" },
+      DOCS,
+      () => {},
+      undefined,
+      0,
+    );
 
     expect(final.phase).toBe("failed");
     expect(final.error).toBe("Could not reach the server.");
+    expect(vi.mocked(api.populateWorldStream)).toHaveBeenCalledTimes(RECONNECT_ATTEMPTS + 1);
   });
 });
 

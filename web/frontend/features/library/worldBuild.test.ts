@@ -5,22 +5,32 @@ import {
   emptyBuild,
   finishBuild,
   foldPopulateFrame,
+  plannedCount,
   willBuild,
   type BuildState,
 } from "./worldBuild";
 import type { PopulateEvent } from "@/lib/types";
 
-const fold = (frames: PopulateEvent[], from: BuildState = emptyBuild()) =>
-  frames.reduce(foldPopulateFrame, from);
+// `Omit` over a union collapses it to the shared keys, so distribute it by hand.
+type Unsequenced<T> = T extends unknown ? Omit<T, "seq"> : never;
+type Frame = Unsequenced<PopulateEvent>;
 
-const character = (name: string, image: string | null = null): PopulateEvent => ({
-  type: "entity",
-  stage: "character",
-  id: `c-${name}`,
-  name,
-  role: "Smuggler",
-  image,
-});
+/** Stamp sequence numbers the way the server's run log does, then fold. */
+const fold = (frames: Frame[], from: BuildState = emptyBuild()) =>
+  frames.reduce<BuildState>(
+    (state, frame, i) => foldPopulateFrame(state, { ...frame, seq: i } as PopulateEvent),
+    from,
+  );
+
+const character = (name: string, image: string | null = null) =>
+  ({
+    type: "entity",
+    stage: "character",
+    id: `c-${name}`,
+    name,
+    role: "Smuggler",
+    image,
+  }) as Frame;
 
 describe("worldBuild.foldPopulateFrame", () => {
   it("tracks the current step and its position", () => {
@@ -116,14 +126,75 @@ describe("worldBuild summaries", () => {
     const state = fold([
       character("Maerin"),
       character("Cael"),
-      { type: "entity", stage: "setting", id: "s1", name: "Wharf", role: "Social Hub", image: null },
+      {
+        type: "entity",
+        stage: "setting",
+        id: "s1",
+        name: "Wharf",
+        role: "Social Hub",
+        image: null,
+      } as Frame,
     ]);
     expect(buildSummary(state)).toBe("2 characters · 1 setting");
     expect(buildSummary(emptyBuild())).toBe("0 characters · 0 settings");
   });
 
   it("knows when there is nothing to build", () => {
-    expect(willBuild({ enabled: true, withArtwork: false })).toBe(true);
-    expect(willBuild({ enabled: false, withArtwork: true })).toBe(false);
+    expect(willBuild({ enabled: true, withArtwork: false, source: "auto" })).toBe(true);
+    expect(willBuild({ enabled: false, withArtwork: true, source: "auto" })).toBe(false);
+  });
+});
+
+
+// A reconnect replays frames the client may already have folded; the sequence numbers
+// are what make that lossless in both directions.
+describe("worldBuild resume", () => {
+  it("tracks the last sequence it folded", () => {
+    const state = fold([
+      { type: "status", stage: "roster", message: "Planning…", name: "", index: 0, total: 0 },
+      character("Maerin"),
+    ]);
+    expect(state.lastSeq).toBe(1);
+    expect(emptyBuild().lastSeq).toBe(-1);
+  });
+
+  it("ignores a replayed frame it has already seen", () => {
+    const first = fold([character("Maerin")]);
+    const replayed = foldPopulateFrame(first, { ...character("Maerin"), seq: 0 } as PopulateEvent);
+    expect(replayed).toBe(first);
+    expect(replayed.entities).toHaveLength(1);
+  });
+
+  it("folds a frame that continues past the last one seen", () => {
+    const first = fold([character("Maerin")]);
+    const next = foldPopulateFrame(first, { ...character("Cael"), seq: 1 } as PopulateEvent);
+    expect(next.entities.map((e) => e.name)).toEqual(["Maerin", "Cael"]);
+    expect(next.lastSeq).toBe(1);
+  });
+});
+
+describe("worldBuild plan", () => {
+  it("keeps the roster the run said it would build, and where it came from", () => {
+    const entry = (name: string, docName: string) => ({
+      name,
+      seed: "",
+      source: "",
+      docId: `cd-${name}`,
+      docName,
+    });
+    const state = fold([
+      {
+        type: "plan",
+        source: "documents",
+        characters: [entry("Maerin Voss", "maerin.md")],
+        settings: [entry("The Salt Wharf", "wharf.md")],
+        note: "Built from 2 of your files.",
+      } as Frame,
+    ]);
+
+    expect(state.plan?.source).toBe("documents");
+    expect(state.plan?.characters[0].docName).toBe("maerin.md");
+    expect(plannedCount(state)).toBe(2);
+    expect(plannedCount(emptyBuild())).toBe(0);
   });
 });

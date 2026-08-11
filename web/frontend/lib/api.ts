@@ -22,6 +22,7 @@ import type {
   EntityScope,
   GraphTypeDefinition,
   PopulateEvent,
+  RosterSource,
   Scenario,
   ScenarioGraph,
   Setting,
@@ -488,9 +489,12 @@ export const triageDocumentsStream = (
 
 export interface PopulateWorldBody {
   docsOverview?: string;
+  source?: RosterSource;
   maxCharacters?: number;
   maxSettings?: number;
   withArtwork?: boolean;
+  /** Re-attach to a run already in flight and replay from this frame onward. */
+  fromSeq?: number;
 }
 
 /** Stream a world's population — `status` / `entity` / `error` frames, then `done`. */

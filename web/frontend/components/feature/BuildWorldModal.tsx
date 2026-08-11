@@ -8,7 +8,17 @@ import { Eyebrow } from "@/components/ui/Eyebrow";
 import * as api from "@/lib/api";
 import { API_BASE } from "@/lib/api";
 import { buildSummary, type BuildState } from "@/features/library/worldBuild";
-import type { PopulateOptions } from "@/lib/types";
+import type { PopulateOptions, RosterSource } from "@/lib/types";
+
+/** "6 character files · 3 setting files · 2 lore files" */
+function describeFiles(files: { characters: number; settings: number; lore: number }): string {
+  const parts = [
+    files.characters ? `${files.characters} character file${files.characters === 1 ? "" : "s"}` : "",
+    files.settings ? `${files.settings} setting file${files.settings === 1 ? "" : "s"}` : "",
+    files.lore ? `${files.lore} lore file${files.lore === 1 ? "" : "s"}` : "",
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
 
 /** `/media/...` is served by the backend host, not the Next app. */
 function mediaSrc(url: string): string {
@@ -32,6 +42,7 @@ export function BuildWorldModal({
   build,
   defaults,
   worldTitle,
+  sourceFiles,
   onCancel,
   onConfirm,
   onStop,
@@ -41,6 +52,8 @@ export function BuildWorldModal({
   build: BuildState;
   defaults: PopulateOptions;
   worldTitle?: string;
+  /** The author's context files, counted by what they were classified as. */
+  sourceFiles: { characters: number; settings: number; lore: number };
   onCancel: () => void;
   onConfirm: (options: PopulateOptions) => void;
   onStop: () => void;
@@ -48,6 +61,16 @@ export function BuildWorldModal({
 }) {
   const [enabled, setEnabled] = useState(defaults.enabled);
   const [withArtwork, setWithArtwork] = useState(defaults.withArtwork);
+  // Files win by default: if the author uploaded and classified any, the build makes
+  // *those* people and places. Inventing is a deliberate choice, never a surprise.
+  const hasFiles = sourceFiles.characters + sourceFiles.settings + sourceFiles.lore > 0;
+  // Derived, not initialised-once: this component stays mounted while closed, so a
+  // `useState` default captured on first mount kept saying "invent" even after the
+  // author uploaded and classified files — precisely the surprise being fixed. Until
+  // they choose for themselves, the default follows what they actually have.
+  const [chosenSource, setChosenSource] = useState<RosterSource | null>(null);
+  const source: RosterSource = chosenSource ?? (hasFiles ? "documents" : "invent");
+  const setSource = setChosenSource;
   // Artwork is only worth offering when the render server answers, so the checkbox
   // defaults to what ComfyUI actually is right now rather than to a guess.
   const [comfy, setComfy] = useState<"probing" | "up" | "down">("probing");
@@ -118,11 +141,55 @@ export function BuildWorldModal({
         {asking ? (
           <>
             <p className="font-body text-[14.5px] leading-[1.5] text-ink">
-              Mytheca will write this world’s starting cast and the places your scenes
-              return to — each character fleshed out with their voice and starting stats —
-              grounded in the premise, the World Primer, and the context files you
-              selected for Draft. You’ll watch it happen here.
+              Mytheca will write this world’s cast and the places your scenes return to —
+              each character fleshed out with their voice and starting stats. You’ll
+              watch it happen here.
             </p>
+
+            <fieldset className="mt-[16px] flex flex-col gap-[10px] border-0 p-0">
+              <legend className="mb-[2px] font-mono text-[10px] tracking-[0.12em] text-mute uppercase">
+                Who gets built
+              </legend>
+
+              <label className="flex cursor-pointer items-start gap-[10px]">
+                <input
+                  type="radio"
+                  name="build-source"
+                  checked={source === "documents"}
+                  disabled={!hasFiles}
+                  onChange={() => setSource("documents")}
+                  className="mt-[3px] h-[14px] w-[14px] shrink-0 accent-[var(--accent)] disabled:opacity-40"
+                />
+                <span
+                  className={
+                    hasFiles
+                      ? "font-body text-[14px] leading-[1.45] text-ink"
+                      : "font-body text-[14px] leading-[1.45] text-mute"
+                  }
+                >
+                  The people and places in my files
+                  <span className="block font-body text-[12.5px] text-ink-soft">
+                    {hasFiles ? describeFiles(sourceFiles) : "No context files uploaded."}
+                  </span>
+                </span>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-[10px]">
+                <input
+                  type="radio"
+                  name="build-source"
+                  checked={source === "invent"}
+                  onChange={() => setSource("invent")}
+                  className="mt-[3px] h-[14px] w-[14px] shrink-0 accent-[var(--accent)]"
+                />
+                <span className="font-body text-[14px] leading-[1.45] text-ink">
+                  Invent a cast from the premise
+                  <span className="block font-body text-[12.5px] text-ink-soft">
+                    Mytheca makes up who lives here. Your files still ground the writing.
+                  </span>
+                </span>
+              </label>
+            </fieldset>
 
             <fieldset className="mt-[18px] flex flex-col gap-[12px] border-0 p-0">
               <legend className="sr-only">What to build</legend>
@@ -181,13 +248,17 @@ export function BuildWorldModal({
               </Button>
               <Button
                 variant="secondary"
-                onClick={() => onConfirm({ enabled: false, withArtwork: false })}
+                onClick={() => onConfirm({ enabled: false, withArtwork: false, source })}
               >
                 Just the world
               </Button>
               <Button
                 onClick={() =>
-                  onConfirm({ enabled, withArtwork: enabled && withArtwork && comfy === "up" })
+                  onConfirm({
+                    enabled,
+                    withArtwork: enabled && withArtwork && comfy === "up",
+                    source,
+                  })
                 }
               >
                 {enabled ? "Create & Build" : "Create World"}
@@ -253,6 +324,24 @@ function BuildConsole({ build }: { build: BuildState }) {
         <p role="alert" className="mt-[10px] font-body text-[13px] text-danger">
           {build.error}
         </p>
+      ) : null}
+
+      {/* What the run said it would build, before it built it — so the author sees the
+          roster (and that it came from their files) rather than entities appearing from
+          nowhere. */}
+      {build.plan ? (
+        <div className="mt-[14px] rounded-[4px] border border-hair-strong bg-field px-[12px] py-[10px]">
+          <span className="font-mono text-[10px] tracking-[0.12em] text-mute uppercase">
+            {build.plan.source === "documents" ? "From your files" : "Invented"}
+          </span>
+          <p className="mt-[4px] font-body text-[13px] leading-[1.45] text-ink">
+            {[...build.plan.characters, ...build.plan.settings].map((e) => e.name).join(" · ") ||
+              "Nothing to build."}
+          </p>
+          {build.plan.note ? (
+            <p className="mt-[4px] font-body text-[12px] text-ink-soft">{build.plan.note}</p>
+          ) : null}
+        </div>
       ) : null}
 
       <EntityList label="Characters" entities={characters} />

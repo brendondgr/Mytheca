@@ -40,7 +40,7 @@ from app.schemas.world_populate import (
     PopulateStatusFrame,
     WorldPopulateRequest,
 )
-from app.services import crud, storyline_apply, world_populate
+from app.services import crud, storyline_apply, world_populate, world_populate_runs
 
 router = APIRouter(prefix="/storylines", tags=["storylines"])
 
@@ -224,33 +224,41 @@ def populate_storyline_stream(
     item), ``entity`` (one per persisted character/setting), ``error`` (a non-fatal
     per-item failure — the run continues), then ``done`` with the real counts.
 
+    The run itself lives server-side (``services/world_populate_runs``): this endpoint
+    starts it (or attaches to the one already building this world) and streams its
+    sequenced frame log from ``fromSeq``. A dropped connection therefore does not stop
+    the build — the client re-attaches from the last ``seq`` it saw and misses nothing.
+
     Fatal cases are validated before the stream opens so they surface as a normal
     error envelope: 404 for an unknown storyline, 400 for an unconfigured LLM.
     """
     crud.get_storyline(db, storyline_id)  # 404 pre-flight
     resolve_llm(db)  # 400 when the operator has not configured a model
 
-    events = world_populate.populate_world(
-        db,
-        storyline_id,
-        docs_overview=data.docs_overview,
-        max_characters=data.max_characters,
-        max_settings=data.max_settings,
-        with_artwork=data.with_artwork,
+    # The build runs server-side; this response only *watches* it. `fromSeq` re-attaches
+    # to a run already in flight and replays what the last connection missed, so a
+    # dropped socket costs the author nothing and never starts a second build.
+    run = world_populate_runs.start_or_attach(
+        db, storyline_id, data, world_populate.populate_world
     )
 
     def _lines() -> Iterator[str]:
+        if run is None:
+            # A reconnect with nothing to reconnect to (the server restarted). Say so
+            # rather than starting a second build behind the author's back.
+            yield PopulateErrorFrame(
+                message="The build is no longer running — reload the world to see what was built.",
+                fatal=True,
+            ).model_dump_json(by_alias=True) + "\n"
+            return
         try:
-            # Drafting one entity is a whole generation; without keep-alive frames the
-            # socket would sit silent for minutes between entities.
+            # A single entity is minutes of generation; without keep-alive frames the
+            # socket would sit silent long enough for something in between to reap it.
             for event in with_keepalive(
-                events, lambda: PopulateStatusFrame(stage="roster", message="Still writing…")
+                run.follow(data.from_seq),
+                lambda: PopulateStatusFrame(stage="roster", message="Still writing…"),
             ):
                 yield event.model_dump_json(by_alias=True) + "\n"
-        except APIError as exc:
-            yield PopulateErrorFrame(
-                message=exc.message, fatal=True
-            ).model_dump_json(by_alias=True) + "\n"
         except Exception:  # never leak a stack trace into the stream
             yield PopulateErrorFrame(
                 message="Populating the world failed unexpectedly.", fatal=True

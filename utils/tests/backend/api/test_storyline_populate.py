@@ -10,6 +10,7 @@ Asserting only on the stream frames would pass even if nothing were persisted.
 from __future__ import annotations
 
 import json
+import time
 
 import httpx
 import pytest
@@ -18,14 +19,21 @@ from app.agents import roster_agent
 from app.schemas.character import CharacterDraftResponse
 from app.schemas.setting import SettingDraftResponse
 from app.schemas.world_populate import RosterEntry, RosterProposal
-from app.services import llm, llm_backend, world_populate
+from app.services import llm, llm_backend, world_populate, world_populate_runs
 
 
 @pytest.fixture(autouse=True)
 def _clear_detection_cache():
     llm_backend.clear_cache()
+    world_populate_runs.clear()
     yield
     llm_backend.clear_cache()
+    world_populate_runs.clear()
+
+
+def _last(frames: list[dict]) -> dict:
+    """The terminal frame without its sequence number (asserted separately)."""
+    return {k: v for k, v in frames[-1].items() if k != "seq"}
 
 
 def _configure_llm(client):
@@ -100,7 +108,9 @@ def test_populated_world_is_readable_through_the_library_endpoints(
     assert res.status_code == 200
 
     frames = _frames(res)
-    assert frames[-1] == {"type": "done", "characters": 2, "settings": 1}
+    assert _last(frames) == {"type": "done", "characters": 2, "settings": 1}
+    # Every frame is sequenced, in order, so a reconnect can resume from the last one.
+    assert [f["seq"] for f in frames] == list(range(len(frames)))
     entities = [f for f in frames if f["type"] == "entity"]
     assert [f["name"] for f in entities] == [
         "Maerin Voss",
@@ -142,7 +152,7 @@ def test_bounds_are_honoured_and_clamped(client, storyline_id, monkeypatch):
 
     assert res.status_code == 200
     assert seen == {"characters": 2, "settings": 1}
-    assert _frames(res)[-1] == {"type": "done", "characters": 0, "settings": 0}
+    assert _last(_frames(res)) == {"type": "done", "characters": 0, "settings": 0}
 
     over = client.post(
         f"/api/storylines/{storyline_id}/populate/stream", json={"maxCharacters": 99}
@@ -197,7 +207,7 @@ def test_a_failed_entity_is_reported_without_losing_the_others(
 
     errors = [f for f in frames if f["type"] == "error"]
     assert len(errors) == 1 and errors[0]["fatal"] is False
-    assert frames[-1] == {"type": "done", "characters": 1, "settings": 0}
+    assert _last(frames) == {"type": "done", "characters": 1, "settings": 0}
     assert [c["name"] for c in client.get(
         f"/api/storylines/{storyline_id}/characters"
     ).json()] == ["Cael"]
@@ -226,3 +236,48 @@ def test_mid_stream_failure_is_a_terminal_fatal_error_frame(client, storyline_id
     assert res.status_code == 200
     last = _frames(res)[-1]
     assert last["type"] == "error" and last["fatal"] is True
+
+
+# The build must survive the connection watching it: a dropped socket used to end the
+# run and leave a half-built world with no way back in.
+def test_a_reconnect_replays_only_what_it_missed(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    _stub_drafts(monkeypatch, ["Maerin Voss", "Harbormaster Cael"], ["The Salt Wharf"])
+
+    first = client.post(f"/api/storylines/{storyline_id}/populate/stream", json={})
+    frames = _frames(first)
+    resume_from = frames[3]["seq"]
+
+    # Re-attaching to the same world does not rebuild it — it replays the log.
+    again = client.post(
+        f"/api/storylines/{storyline_id}/populate/stream", json={"fromSeq": resume_from}
+    )
+    replayed = _frames(again)
+
+    assert [f["seq"] for f in replayed] == [f["seq"] for f in frames[resume_from:]]
+    assert _last(replayed) == {"type": "done", "characters": 2, "settings": 1}
+    # Still two characters and one setting — the reconnect built nothing extra.
+    assert len(client.get(f"/api/storylines/{storyline_id}/characters").json()) == 2
+    assert len(client.get(f"/api/storylines/{storyline_id}/settings").json()) == 1
+
+
+def test_the_run_survives_a_client_that_walks_away(client, storyline_id, monkeypatch):
+    """Nobody reads the first response to completion; the build finishes regardless."""
+    _configure_llm(client)
+    _stub_drafts(monkeypatch, ["Maerin Voss"], [])
+
+    with client.stream(
+        "POST", f"/api/storylines/{storyline_id}/populate/stream", json={}
+    ) as response:
+        next(response.iter_lines())  # read one frame, then abandon the stream
+
+    run = world_populate_runs.get_run(storyline_id)
+    assert run is not None
+    deadline = 0.0
+    while not run.finished and deadline < 5.0:
+        time.sleep(0.02)
+        deadline += 0.02
+    assert run.finished
+    assert [c["name"] for c in client.get(
+        f"/api/storylines/{storyline_id}/characters"
+    ).json()] == ["Maerin Voss"]

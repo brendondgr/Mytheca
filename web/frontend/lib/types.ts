@@ -351,8 +351,25 @@ export type TriageEvent =
 /** What the population run is doing right now. */
 export type PopulateStage = "roster" | "character" | "setting";
 
+/** Where the build's roster came from (or should come from). */
+export type RosterSource = "auto" | "documents" | "invent";
+
+/** One entity the build is going to make, and which of the author's files it came from. */
+export interface RosterEntry {
+  name: string;
+  seed: string;
+  source: string;
+  docId: string | null;
+  docName: string;
+}
+
+/**
+ * Every frame carries `seq` — its position in the run's server-side log. The client
+ * echoes the last one it saw as `fromSeq` to re-attach after a dropped connection.
+ */
 export type PopulateEvent =
   | {
+      seq: number;
       type: "status";
       stage: PopulateStage;
       message: string;
@@ -360,8 +377,18 @@ export type PopulateEvent =
       index: number;
       total: number;
     }
+  /** What the run is about to build, named, before it starts. */
+  | {
+      seq: number;
+      type: "plan";
+      source: RosterSource;
+      characters: RosterEntry[];
+      settings: RosterEntry[];
+      note: string;
+    }
   /** One entity that was actually persisted — the proof it reached the world. */
   | {
+      seq: number;
       type: "entity";
       stage: "character" | "setting";
       id: string;
@@ -371,8 +398,8 @@ export type PopulateEvent =
       image: string | null;
     }
   /** `fatal: false` = one item failed and the run continued. */
-  | { type: "error"; message: string; fatal: boolean }
-  | { type: "done"; characters: number; settings: number };
+  | { seq: number; type: "error"; message: string; fatal: boolean }
+  | { seq: number; type: "done"; characters: number; settings: number };
 
 /** What the author chose in the Build-world dialog. */
 export interface PopulateOptions {
@@ -380,6 +407,11 @@ export interface PopulateOptions {
   enabled: boolean;
   /** Also render portraits / scene art (opt-in; each is a ComfyUI render). */
   withArtwork: boolean;
+  /**
+   * Where the roster comes from. `documents` builds exactly the people and places the
+   * author's classified files name; `invent` makes them up from the premise.
+   */
+  source: RosterSource;
 }
 
 // ---- The Story Graph (Neo4j substrate) --------------------------------------

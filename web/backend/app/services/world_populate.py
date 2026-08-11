@@ -1,11 +1,17 @@
 """World population — draft and persist a new world's starting cast and places.
 
-The create-time phase that fills a freshly-committed storyline. It plans a roster
-(``agents.roster_agent``), then drafts every entry through the *same* agents the
-by-hand creators use (``character_agent.draft_character`` /
-``setting_agent.draft_setting``) and persists each one through ``services.crud`` —
-so a populated world is indistinguishable from a hand-authored one and picks up the
-same graph + RAG sync for free.
+The create-time phase that fills a freshly-committed storyline. **The author's own
+files come first**: every context document they classified as Characters or Settings
+is mined by ``agents.extract_agent`` for the subjects it explicitly names, and the
+build makes exactly those — one entity per subject, drafted from that document's own
+text and linked back to it. ``other``-bucket files are lore: they ground every draft
+and become nothing. Only a world with no such files (or an author who explicitly asks)
+gets an invented roster from ``agents.roster_agent``.
+
+Each entry is then built through the *same* agents the by-hand creators use
+(``character_agent.draft_character`` / ``setting_agent.draft_setting``) and persisted
+through ``services.crud`` — so a populated world is indistinguishable from a
+hand-authored one and picks up the same graph + RAG sync for free.
 
 Two failure postures, deliberately different:
 
@@ -26,24 +32,33 @@ from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 
-from app.agents import character_agent, roster_agent, setting_agent
+from app.agents import character_agent, extract_agent, roster_agent, setting_agent
+from app.agents._common import resolve_llm
 from app.core.errors import APIError
 from app.schemas.character import CharacterCreate
 from app.schemas.setting import SettingCreate
 from app.schemas.world_populate import (
     PopulateDoneFrame,
+    PopulatePlanFrame,
     PopulateEntityFrame,
     PopulateErrorFrame,
     PopulateEvent,
     PopulateStatusFrame,
     RosterEntry,
 )
-from app.services import comfyui, crud, portraits, scene_art, settings_store
+from app.services import comfyui, concurrency, crud, portraits, scene_art, settings_store
 from app.services import stats as stat_service
 
 
 def _seed_of(entry: RosterEntry) -> str:
-    """The one-line brief handed to the drafting agent."""
+    """The brief handed to the drafting agent.
+
+    For an entry taken from one of the author's files that is the paragraph the
+    extractor drew from it — so the character written is *their* character, not a
+    fresh invention that merely shares a name.
+    """
+    if entry.source:
+        return f"{entry.name}\n\n{entry.source}"
     return f"{entry.name} — {entry.seed}" if entry.seed else entry.name
 
 
@@ -74,6 +89,82 @@ def _unique_name(taken: set[str], drafted: str, proposed: str, qualifier: str = 
     while f"{base} {n}".casefold() in taken:
         n += 1
     return f"{base} {n}"
+
+
+# ---- where the roster comes from -------------------------------------------
+
+
+def _storyline_docs(db: Session, storyline_id: str) -> list:
+    """The world's storyline-level corpus (entity-scoped docs belong to an entity)."""
+    return [
+        d
+        for d in crud.list_context_documents(db, storyline_id)
+        if not d.entity_type and (d.content or "").strip()
+    ]
+
+
+def _sort_sources(docs: list) -> tuple[list, list, list, list]:
+    """Split the corpus into (character, setting, mine-either, lore) documents.
+
+    The author's **classification is the opt-in**: a file they (or Triage) put in the
+    Characters bucket is a character source, full stop — asking for a second per-file
+    checkbox is the friction that made the build ignore their uploads in the first
+    place. ``other`` is lore: it grounds the drafts and yields no entities.
+
+    The one nuance: an untriaged corpus persists entirely as ``other`` (the wire schema
+    has no "uncategorized"), and treating a world whose every file is unclassified as
+    "all lore, build nothing" would silently ignore the uploads. So when *nothing* is
+    classified, every file is mined for either kind.
+    """
+    characters = [d for d in docs if d.category == "character"]
+    settings = [d for d in docs if d.category == "setting"]
+    rest = [d for d in docs if d.category not in ("character", "setting")]
+    if not characters and not settings:
+        return [], [], rest, []
+    return characters, settings, [], rest
+
+
+def _entries_from(found, docs: list, kind: str) -> list[RosterEntry]:
+    """Extracted subjects → roster entries, tagged with the file they came from."""
+    entries: list[RosterEntry] = []
+    for doc, entities in zip(docs, found, strict=True):
+        subjects = [] if entities is None else getattr(entities, kind)
+        for subject in subjects:
+            entries.append(
+                RosterEntry(
+                    name=subject.name,
+                    source=subject.source,
+                    doc_id=doc.id,
+                    doc_name=doc.name,
+                )
+            )
+    return entries
+
+
+def _fallback_entry(doc) -> RosterEntry:
+    """A classified file that named nothing still becomes its own entity.
+
+    The author put this file in the Characters (or Settings) bucket, so it is about
+    somebody: dropping it because the extractor found no proper name would lose their
+    upload — the exact failure this whole path exists to prevent.
+    """
+    return RosterEntry(
+        name=doc.name.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").strip()
+        or doc.name,
+        source=(doc.content or "")[:4000],
+        doc_id=doc.id,
+        doc_name=doc.name,
+    )
+
+
+def _link_source(db: Session, entry: RosterEntry, entity_type: str, entity_id: str) -> None:
+    """Record which of the author's files an entity came from (best-effort)."""
+    if not entry.doc_id:
+        return
+    try:
+        crud.add_document_link(db, entry.doc_id, entity_type, entity_id)
+    except Exception:  # provenance is a nicety; never cost the entity over it
+        db.rollback()
 
 
 def _artwork_enabled(db: Session, requested: bool) -> tuple[bool, str | None]:
@@ -239,6 +330,7 @@ def _populate_characters(
             yield PopulateErrorFrame(message=f"Could not write {entry.name}: {_message_of(exc)}")
             continue
         taken.add(char.name.casefold())
+        _link_source(db, entry, "character", char.id)
 
         # The rest of the character, in the order the retired world build used: voice
         # from the prose, then stats keyed to who they turned out to be, then the
@@ -312,6 +404,7 @@ def _populate_settings(
             yield PopulateErrorFrame(message=f"Could not build {entry.name}: {_message_of(exc)}")
             continue
         taken.add(setting.name.casefold())
+        _link_source(db, entry, "setting", setting.id)
 
         image = None
         if artwork:
@@ -330,11 +423,147 @@ def _populate_settings(
         )
 
 
+def _read_documents(
+    db: Session, storyline_id: str, docs: list
+) -> Iterator[PopulateEvent | tuple]:
+    """Mine the author's classified files for the subjects they name.
+
+    Yields progress frames, then a terminal ``(characters, settings, lore, unreadable)``
+    tuple. Extraction runs concurrently (bounded by ``authoringConcurrency``) with a
+    pre-resolved LLM connection, so the worker threads never touch the request Session,
+    and is failure-isolated per document.
+    """
+    char_docs, setting_docs, either_docs, lore_docs = _sort_sources(docs)
+    jobs = (
+        [(d, "character") for d in char_docs]
+        + [(d, "setting") for d in setting_docs]
+        + [(d, "both") for d in either_docs]
+    )
+    lore = "\n\n".join((d.content or "") for d in lore_docs)
+    if not jobs:
+        yield ([], [], lore, [])
+        return
+
+    conn = resolve_llm(db)
+    workers = settings_store.get_llm(db).authoring_concurrency
+    yield PopulateStatusFrame(
+        stage="roster",
+        total=len(jobs),
+        message=f"Reading {len(jobs)} of your files for the people and places they name…",
+    )
+
+    found: list = [None] * len(jobs)
+    read = 0
+    thunks = [
+        (
+            lambda d=doc, k=kind: extract_agent.extract_entities(
+                db, d.content or "", None, doc_name=d.name, kind=k, conn=conn
+            )
+        )
+        for doc, kind in jobs
+    ]
+    for i, entities in concurrency.imap_unordered(thunks, max_workers=workers):
+        read += 1
+        found[i] = entities
+        yield PopulateStatusFrame(
+            stage="roster",
+            index=read,
+            total=len(jobs),
+            name=jobs[i][0].name,
+            message=f"Read {read}/{len(jobs)}: {jobs[i][0].name}",
+        )
+
+    docs_in_order = [doc for doc, _ in jobs]
+    characters = _entries_from(found, docs_in_order, "characters")
+    settings = _entries_from(found, docs_in_order, "settings")
+
+    # A classified file that named nothing (or wouldn't parse) still becomes its own
+    # entity — the author's upload is never silently dropped. An *unclassified* file
+    # that names nothing is genuinely lore and yields nothing.
+    unreadable: list[str] = []
+    used = {e.doc_id for e in characters} | {e.doc_id for e in settings}
+    for (doc, kind), entities in zip(jobs, found, strict=True):
+        if doc.id in used:
+            continue
+        if entities is None:
+            unreadable.append(doc.name)
+        if kind == "character":
+            characters.append(_fallback_entry(doc))
+        elif kind == "setting":
+            settings.append(_fallback_entry(doc))
+
+    yield (characters, settings, lore, unreadable)
+
+
+def _resolve_roster(
+    db: Session,
+    storyline_id: str,
+    *,
+    source: str,
+    docs_overview: str | None,
+    max_characters: int,
+    max_settings: int,
+) -> Iterator[PopulateEvent | tuple]:
+    """Settle what will be built, and announce it. Yields frames then ``(plan, lore)``.
+
+    Documents win: when the world has files the author classified as Characters or
+    Settings, the build makes exactly those. Invention only happens when they asked for
+    it, or when there is nothing else to go on.
+    """
+    docs = _storyline_docs(db, storyline_id) if source != "invent" else []
+
+    characters: list[RosterEntry] = []
+    settings: list[RosterEntry] = []
+    lore = ""
+    unreadable: list[str] = []
+    if docs:
+        for event in _read_documents(db, storyline_id, docs):
+            if isinstance(event, tuple):
+                characters, settings, lore, unreadable = event
+            else:
+                yield event
+
+    used_documents = bool(characters or settings)
+    note = ""
+    if used_documents:
+        note = f"Built from {len({e.doc_id for e in characters + settings})} of your files."
+        if unreadable:
+            shown = ", ".join(unreadable[:5]) + ("…" if len(unreadable) > 5 else "")
+            note += f" {len(unreadable)} could not be read cleanly ({shown})."
+    elif source == "documents":
+        # Asked for documents and there are none to build from: say so and build
+        # nothing rather than quietly inventing a cast the author never asked for.
+        yield PopulateErrorFrame(
+            message=(
+                "No character or setting files to build from — classify some context "
+                "files as Characters or Settings, or choose to invent a cast."
+            )
+        )
+    else:
+        yield PopulateStatusFrame(stage="roster", message="Inventing a cast and places…")
+        invented = roster_agent.propose_roster(
+            db,
+            storyline_id=storyline_id,
+            docs_overview=docs_overview,
+            max_characters=max_characters,
+            max_settings=max_settings,
+        )
+        characters, settings = invented.characters, invented.settings
+        note = "Invented from the premise — no character or setting files were attached."
+
+    resolved: str = "documents" if used_documents else "invent"
+    yield PopulatePlanFrame(
+        source=resolved, characters=characters, settings=settings, note=note
+    )
+    yield (characters, settings, lore)
+
+
 def populate_world(
     db: Session,
     storyline_id: str,
     *,
     docs_overview: str | None = None,
+    source: str = "auto",
     max_characters: int = 5,
     max_settings: int = 3,
     with_artwork: bool = False,
@@ -347,14 +576,26 @@ def populate_world(
     """
     crud.get_storyline(db, storyline_id)  # 404 pre-flight
 
-    yield PopulateStatusFrame(stage="roster", message="Planning the cast and places…")
-    roster = roster_agent.propose_roster(
+    yield PopulateStatusFrame(stage="roster", message="Working out what to build…")
+    characters: list[RosterEntry] = []
+    settings: list[RosterEntry] = []
+    lore = ""
+    for event in _resolve_roster(
         db,
-        storyline_id=storyline_id,
+        storyline_id,
+        source=source,
         docs_overview=docs_overview,
         max_characters=max_characters,
         max_settings=max_settings,
-    )
+    ):
+        if isinstance(event, tuple):
+            characters, settings, lore = event
+        else:
+            yield event
+
+    # Lore-bucket files never become entities, but they DO ground every draft so the
+    # cast stays consistent with the world the author described.
+    grounding = "\n\n".join(p for p in (docs_overview or "", lore) if p.strip()) or None
 
     artwork, artwork_note = _artwork_enabled(db, with_artwork)
     if artwork_note:
@@ -365,11 +606,9 @@ def populate_world(
     made = {"character": 0, "setting": 0}
     stages = (
         _populate_characters(
-            db, storyline_id, roster.characters, docs_overview=docs_overview, artwork=artwork
+            db, storyline_id, characters, docs_overview=grounding, artwork=artwork
         ),
-        _populate_settings(
-            db, storyline_id, roster.settings, docs_overview=docs_overview, artwork=artwork
-        ),
+        _populate_settings(db, storyline_id, settings, docs_overview=grounding, artwork=artwork),
     )
     for stage in stages:
         for event in stage:

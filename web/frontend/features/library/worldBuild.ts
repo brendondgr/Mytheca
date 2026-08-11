@@ -5,7 +5,7 @@
 // is in, the step it is on, what has landed so far, and what went wrong. The author
 // only leaves for the new world when `phase === "done"`.
 
-import type { PopulateEvent, PopulateOptions } from "@/lib/types";
+import type { PopulateEvent, PopulateOptions, RosterEntry, RosterSource } from "@/lib/types";
 
 /** An entity the run actually persisted (the `entity` frame, kept for display). */
 export interface BuiltEntity {
@@ -31,6 +31,13 @@ export type BuildPhase =
 
 export interface BuildState {
   phase: BuildPhase;
+  /**
+   * The last frame sequence this state has folded. The runner re-attaches from
+   * `lastSeq + 1`, so a dropped connection resumes without replaying or losing a frame.
+   */
+  lastSeq: number;
+  /** What the run said it would build, before it built it. */
+  plan: { source: RosterSource; characters: RosterEntry[]; settings: RosterEntry[]; note: string } | null;
   /** What is happening right now, for the live region. */
   step: string;
   /** Position within the current stage (`0/0` when not applicable). */
@@ -46,6 +53,8 @@ export interface BuildState {
 export function emptyBuild(): BuildState {
   return {
     phase: "ask",
+    lastSeq: -1,
+    plan: null,
     step: "",
     index: 0,
     total: 0,
@@ -61,6 +70,10 @@ export function countOf(state: BuildState, kind: BuiltEntity["kind"]): number {
 
 /** Fold one populate frame into the build state. */
 export function foldPopulateFrame(state: BuildState, frame: PopulateEvent): BuildState {
+  // Frames replayed on a re-attach are folded exactly once: the log is append-only and
+  // sequenced, so anything at or below what we have already seen is a duplicate.
+  if (frame.seq >= 0 && frame.seq <= state.lastSeq) return state;
+  state = frame.seq >= 0 ? { ...state, lastSeq: frame.seq } : state;
   switch (frame.type) {
     case "status":
       return {
@@ -69,6 +82,17 @@ export function foldPopulateFrame(state: BuildState, frame: PopulateEvent): Buil
         step: frame.message,
         index: frame.index,
         total: frame.total,
+      };
+    case "plan":
+      return {
+        ...state,
+        phase: "building",
+        plan: {
+          source: frame.source,
+          characters: frame.characters,
+          settings: frame.settings,
+          note: frame.note,
+        },
       };
     case "entity":
       return {
@@ -126,4 +150,9 @@ export function buildSummary(state: BuildState): string {
 /** Nothing to build → don't open a stream at all. */
 export function willBuild(options: PopulateOptions): boolean {
   return options.enabled;
+}
+
+/** How many entities the run said it would make (0 before the plan arrives). */
+export function plannedCount(state: BuildState): number {
+  return state.plan ? state.plan.characters.length + state.plan.settings.length : 0;
 }

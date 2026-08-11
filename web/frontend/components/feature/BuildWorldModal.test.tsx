@@ -4,12 +4,13 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 import { BuildWorldModal } from "./BuildWorldModal";
 import * as api from "@/lib/api";
 import { emptyBuild, type BuildState } from "@/features/library/worldBuild";
+import type { PopulateOptions } from "@/lib/types";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
 beforeEach(() => vi.clearAllMocks());
 
-const DEFAULTS = { enabled: true, withArtwork: false };
+const DEFAULTS: PopulateOptions = { enabled: true, withArtwork: false, source: "auto" };
 
 function show(build: BuildState = emptyBuild(), props: Record<string, unknown> = {}) {
   const handlers = {
@@ -24,6 +25,7 @@ function show(build: BuildState = emptyBuild(), props: Record<string, unknown> =
       build={build}
       defaults={DEFAULTS}
       worldTitle="Embergate"
+      sourceFiles={{ characters: 0, settings: 0, lore: 0 }}
       {...handlers}
       {...props}
     />,
@@ -74,7 +76,11 @@ describe("BuildWorldModal — asking", () => {
     );
     expect(screen.getByText(/No ComfyUI server is answering/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /create & build/i }));
-    expect(h.onConfirm).toHaveBeenCalledWith({ enabled: true, withArtwork: false });
+    expect(h.onConfirm).toHaveBeenCalledWith({
+      enabled: true,
+      withArtwork: false,
+      source: "invent",
+    });
   });
 
   it("confirms with the author's choices", async () => {
@@ -86,17 +92,118 @@ describe("BuildWorldModal — asking", () => {
 
     await user.click(screen.getByRole("button", { name: /create & build/i }));
 
-    expect(h.onConfirm).toHaveBeenCalledWith({ enabled: true, withArtwork: true });
+    expect(h.onConfirm).toHaveBeenCalledWith({
+      enabled: true,
+      withArtwork: true,
+      source: "invent",
+    });
   });
 
   it("creates the world alone when the cast is declined", async () => {
     const h = show();
     await userEvent.click(screen.getByRole("button", { name: /just the world/i }));
-    expect(h.onConfirm).toHaveBeenCalledWith({ enabled: false, withArtwork: false });
+    expect(h.onConfirm).toHaveBeenCalledWith({
+      enabled: false,
+      withArtwork: false,
+      source: "invent",
+    });
+  });
+});
+
+// The complaint this answers: "it's making up its own shit without telling me what
+// it's doing". The dialog names the files it found and defaults to building from them.
+describe("BuildWorldModal — whose people get built", () => {
+  const FILES = { characters: 6, settings: 3, lore: 2 };
+
+  it("defaults to the author's files and says how many it found", async () => {
+    const h = show(emptyBuild(), { sourceFiles: FILES });
+
+    expect(screen.getByRole("radio", { name: /people and places in my files/i })).toBeChecked();
+    expect(
+      screen.getByText("6 character files · 3 setting files · 2 lore files"),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /create & build/i }));
+    expect(h.onConfirm).toHaveBeenCalledWith(expect.objectContaining({ source: "documents" }));
+  });
+
+  it("only invents when the author picks it", async () => {
+    const user = userEvent.setup();
+    const h = show(emptyBuild(), { sourceFiles: FILES });
+
+    await user.click(screen.getByRole("radio", { name: /invent a cast/i }));
+    await user.click(screen.getByRole("button", { name: /create & build/i }));
+
+    expect(h.onConfirm).toHaveBeenCalledWith(expect.objectContaining({ source: "invent" }));
+  });
+
+  it("re-resolves the default when files arrive after the dialog first mounted", async () => {
+    // The dialog stays mounted while closed, so its default cannot be captured once:
+    // an author who uploads files after opening it the first time must still get them.
+    const { rerender } = render(
+      <BuildWorldModal
+        open={false}
+        build={emptyBuild()}
+        defaults={DEFAULTS}
+        sourceFiles={{ characters: 0, settings: 0, lore: 0 }}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        onStop={vi.fn()}
+        onEnter={vi.fn()}
+      />,
+    );
+    rerender(
+      <BuildWorldModal
+        open
+        build={emptyBuild()}
+        defaults={DEFAULTS}
+        sourceFiles={FILES}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        onStop={vi.fn()}
+        onEnter={vi.fn()}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: /in my files/i })).toBeChecked(),
+    );
+  });
+
+  it("falls back to inventing when there are no files to build from", () => {
+    show(emptyBuild(), { sourceFiles: { characters: 0, settings: 0, lore: 0 } });
+
+    expect(screen.getByRole("radio", { name: /invent a cast/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /in my files/i })).toBeDisabled();
+    expect(screen.getByText(/No context files uploaded/i)).toBeInTheDocument();
   });
 });
 
 describe("BuildWorldModal — building", () => {
+  it("names the roster it is about to build, and where it came from", () => {
+    const entry = (name: string, docName: string) => ({
+      name,
+      seed: "",
+      source: "",
+      docId: `cd-${name}`,
+      docName,
+    });
+    show(
+      building({
+        plan: {
+          source: "documents",
+          characters: [entry("Maerin Voss", "maerin.md")],
+          settings: [entry("The Salt Wharf", "wharf.md")],
+          note: "Built from 2 of your files.",
+        },
+      }),
+    );
+
+    expect(screen.getByText(/from your files/i)).toBeInTheDocument();
+    expect(screen.getByText("Maerin Voss · The Salt Wharf")).toBeInTheDocument();
+    expect(screen.getByText("Built from 2 of your files.")).toBeInTheDocument();
+  });
+
   it("shows the step in progress and every entity as it lands", () => {
     show(building({ entities: [MAERIN] }));
 

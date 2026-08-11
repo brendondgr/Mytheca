@@ -23,6 +23,7 @@ from app.schemas.setting import SceneArtPromptResponse, SettingDraftResponse
 from app.schemas.storyline import StorylineCreate
 from app.schemas.world_populate import (
     PopulateDoneFrame,
+    PopulatePlanFrame,
     PopulateStatusFrame,
     PopulateEntityFrame,
     PopulateErrorFrame,
@@ -417,3 +418,227 @@ def test_settings_are_disambiguated_too(db_session, world, monkeypatch):
 
     names = [s.name for s in crud.list_settings(db_session, world)]
     assert len(names) == 2 and len(set(names)) == 2
+
+
+# ---- building from the author's own files -----------------------------------
+#
+# The reported failure: an author uploads and classifies character/setting files and
+# the build ignores them, inventing strangers instead. These are the guards that the
+# author's own people are what get built.
+
+
+def _doc(db, storyline_id, name, content, category="character"):
+    from app.schemas.context_document import ContextDocumentCreate
+
+    return crud.create_context_document(
+        db,
+        storyline_id,
+        ContextDocumentCreate(name=name, content=content, category=category),
+    )
+
+
+def _stub_drafts(monkeypatch, character=None, setting=None):
+    """Stub only the per-entity generations (the roster comes from the documents)."""
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "draft_character",
+        character or (lambda db, seed, *a, **k: _character_draft()),
+    )
+    monkeypatch.setattr(
+        world_populate.setting_agent,
+        "draft_setting",
+        setting or (lambda db, seed, *a, **k: _setting_draft()),
+    )
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "propose_voice_samples",
+        lambda *a, **k: VoiceSamplesResponse(samples=[]),
+    )
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "propose_starting_stats",
+        lambda *a, **k: StartingStatsResponse(proposals=[]),
+    )
+
+
+def _stub_extract(monkeypatch, by_doc: dict):
+    """Map doc name → ExtractedEntities (the real prompt is covered in agent tests)."""
+    from app.schemas.world_populate import ExtractedEntities
+
+    def fake(db, text, grounding=None, *, doc_name="", kind="both", conn=None):
+        return by_doc.get(doc_name, ExtractedEntities())
+
+    monkeypatch.setattr(world_populate.extract_agent, "extract_entities", fake)
+    monkeypatch.setattr(world_populate, "resolve_llm", lambda db: ("u", "k", "m", None))
+
+
+def _entities(characters=(), settings=()):
+    from app.schemas.world_populate import ExtractedEntities, ExtractedEntity
+
+    return ExtractedEntities(
+        characters=[ExtractedEntity(name=n, source=f"{n} is from the file.") for n in characters],
+        settings=[ExtractedEntity(name=n, source=f"{n} is from the file.") for n in settings],
+    )
+
+
+def test_builds_the_characters_the_authors_files_name(db_session, world, monkeypatch):
+    _doc(db_session, world, "maerin.md", "Maerin Voss, a smuggler.")
+    _doc(db_session, world, "cael.md", "Harbormaster Cael keeps the ledger.")
+    _stub_extract(
+        monkeypatch,
+        {"maerin.md": _entities(["Maerin Voss"]), "cael.md": _entities(["Harbormaster Cael"])},
+    )
+    invented: list[int] = []
+    monkeypatch.setattr(
+        world_populate.roster_agent,
+        "propose_roster",
+        lambda *a, **k: invented.append(1) or RosterProposal(),
+    )
+    seeds: list[str] = []
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "draft_character",
+        lambda db, seed, *a, **k: seeds.append(seed) or _character_draft(seed.split("\n")[0]),
+    )
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "propose_voice_samples",
+        lambda *a, **k: VoiceSamplesResponse(samples=[]),
+    )
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "propose_starting_stats",
+        lambda *a, **k: StartingStatsResponse(proposals=[]),
+    )
+
+    frames = _run(db_session, world)
+
+    # Exactly the author's people — and nothing was invented.
+    assert sorted(c.name for c in crud.list_characters(db_session, world)) == [
+        "Harbormaster Cael",
+        "Maerin Voss",
+    ]
+    assert invented == []
+    # Each was drafted from its own file's text, not from a one-line invention.
+    assert all("is from the file." in s for s in seeds)
+    plan = next(f for f in frames if isinstance(f, PopulatePlanFrame))
+    assert plan.source == "documents"
+    assert sorted(e.name for e in plan.characters) == ["Harbormaster Cael", "Maerin Voss"]
+    assert plan.characters[0].doc_name.endswith(".md")
+
+
+def test_lore_files_ground_the_drafts_but_never_become_entities(db_session, world, monkeypatch):
+    _doc(db_session, world, "maerin.md", "Maerin Voss, a smuggler.", category="character")
+    _doc(db_session, world, "history.md", "The tide wars lasted a century.", category="other")
+    _stub_extract(monkeypatch, {"maerin.md": _entities(["Maerin Voss"])})
+    grounding: list[str | None] = []
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "draft_character",
+        lambda db, seed, docs_overview=None, *a, **k: grounding.append(docs_overview)
+        or _character_draft("Maerin Voss"),
+    )
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "propose_voice_samples",
+        lambda *a, **k: VoiceSamplesResponse(samples=[]),
+    )
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "propose_starting_stats",
+        lambda *a, **k: StartingStatsResponse(proposals=[]),
+    )
+
+    _run(db_session, world)
+
+    assert [c.name for c in crud.list_characters(db_session, world)] == ["Maerin Voss"]
+    assert "tide wars" in (grounding[0] or "")
+
+
+def test_setting_files_become_settings(db_session, world, monkeypatch):
+    _doc(db_session, world, "wharf.md", "The Salt Wharf.", category="setting")
+    _stub_extract(monkeypatch, {"wharf.md": _entities(settings=["The Salt Wharf"])})
+    _stub_drafts(monkeypatch)
+
+    _run(db_session, world)
+
+    assert [s.name for s in crud.list_settings(db_session, world)] == ["The Salt Wharf"]
+    assert crud.list_characters(db_session, world) == []
+
+
+def test_an_untriaged_corpus_is_still_read(db_session, world, monkeypatch):
+    """Every file persists as `other` until Triage runs — that is not a reason to ignore them."""
+    _doc(db_session, world, "notes.md", "Maerin Voss and the Salt Wharf.", category="other")
+    _stub_extract(monkeypatch, {"notes.md": _entities(["Maerin Voss"], ["The Salt Wharf"])})
+    _stub_drafts(monkeypatch)
+
+    frames = _run(db_session, world)
+
+    assert [c.name for c in crud.list_characters(db_session, world)] == ["Maerin Voss"]
+    assert [s.name for s in crud.list_settings(db_session, world)] == ["The Salt Wharf"]
+    assert next(f for f in frames if isinstance(f, PopulatePlanFrame)).source == "documents"
+
+
+def test_a_classified_file_that_names_nobody_still_becomes_its_entity(
+    db_session, world, monkeypatch
+):
+    """The author filed it under Characters, so it is about someone — never drop it."""
+    _doc(db_session, world, "the_watcher.md", "A figure who never gives a name.")
+    _stub_extract(monkeypatch, {})  # extraction finds no proper name
+    _stub_drafts(monkeypatch)
+
+    _run(db_session, world)
+
+    assert [c.name for c in crud.list_characters(db_session, world)] == ["Maerin Voss"]
+    # …drafted from that file, and linked back to it.
+    doc = crud.list_context_documents(db_session, world)[0]
+    assert [(l.entity_type) for l in doc.links] == ["character"]
+
+
+def test_files_are_never_capped(db_session, world, monkeypatch):
+    """Dropping the author's seventh character file is the same bug as inventing one."""
+    names = [f"Char{i}" for i in range(7)]
+    for n in names:
+        _doc(db_session, world, f"{n}.md", f"{n} exists.")
+    _stub_extract(monkeypatch, {f"{n}.md": _entities([n]) for n in names})
+    _stub_drafts(
+        monkeypatch, character=lambda db, seed, *a, **k: _character_draft(seed.split("\n")[0])
+    )
+
+    _run(db_session, world, max_characters=2)
+
+    assert len(crud.list_characters(db_session, world)) == 7
+
+
+def test_invention_only_when_asked_for(db_session, world, monkeypatch):
+    _doc(db_session, world, "maerin.md", "Maerin Voss, a smuggler.")
+    _stub_extract(monkeypatch, {"maerin.md": _entities(["Maerin Voss"])})
+    monkeypatch.setattr(
+        world_populate.roster_agent, "propose_roster", lambda *a, **k: _roster(("Invented",), ())
+    )
+    _stub_drafts(monkeypatch)
+
+    frames = _run(db_session, world, source="invent")
+
+    assert next(f for f in frames if isinstance(f, PopulatePlanFrame)).source == "invent"
+    assert [e.name for e in next(f for f in frames if isinstance(f, PopulatePlanFrame)).characters] == [
+        "Invented"
+    ]
+
+
+def test_documents_only_never_falls_back_to_inventing(db_session, world, monkeypatch):
+    """Asked for their files and there are none: say so, build nothing, invent nothing."""
+    invented: list[int] = []
+    monkeypatch.setattr(
+        world_populate.roster_agent,
+        "propose_roster",
+        lambda *a, **k: invented.append(1) or RosterProposal(),
+    )
+
+    frames = _run(db_session, world, source="documents")
+
+    assert invented == []
+    assert crud.list_characters(db_session, world) == []
+    errors = [f.message for f in frames if isinstance(f, PopulateErrorFrame)]
+    assert len(errors) == 1 and "No character or setting files" in errors[0]
+    assert frames[-1].characters == 0

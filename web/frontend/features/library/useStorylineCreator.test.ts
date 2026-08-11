@@ -136,7 +136,7 @@ describe("useStorylineCreator", () => {
 
     let outcome: { id: string | null; state: { phase: string } } | null = null;
     await act(async () => {
-      outcome = await result.current.createAndBuild({ enabled: true, withArtwork: true });
+      outcome = await result.current.createAndBuild({ enabled: true, withArtwork: true, source: "auto" });
     });
 
     expect(outcome!.id).toBeTruthy();
@@ -165,7 +165,7 @@ describe("useStorylineCreator", () => {
 
     let outcome: { id: string | null; state: { phase: string } } | null = null;
     await act(async () => {
-      outcome = await result.current.createAndBuild({ enabled: true, withArtwork: false });
+      outcome = await result.current.createAndBuild({ enabled: true, withArtwork: false, source: "auto" });
     });
 
     // The world exists — the author is not stranded — but the run is not a success.
@@ -180,7 +180,7 @@ describe("useStorylineCreator", () => {
 
     let outcome: { id: string | null; state: { phase: string } } | null = null;
     await act(async () => {
-      outcome = await result.current.createAndBuild({ enabled: false, withArtwork: false });
+      outcome = await result.current.createAndBuild({ enabled: false, withArtwork: false, source: "auto" });
     });
 
     expect(vi.mocked(api.populateWorldStream)).not.toHaveBeenCalled();
@@ -195,7 +195,7 @@ describe("useStorylineCreator", () => {
 
     let outcome: { id: string | null; state: { phase: string } } | null = null;
     await act(async () => {
-      outcome = await result.current.createAndBuild({ enabled: true, withArtwork: false });
+      outcome = await result.current.createAndBuild({ enabled: true, withArtwork: false, source: "auto" });
     });
 
     expect(outcome!.id).toBeNull();
