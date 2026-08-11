@@ -49,6 +49,15 @@ Verified against the code on 2026-08-04.
   `42dvh` strip, leaving the doc list ~34px of scroll at 320×720 and 375×812 (134px at
   768). Functional — the list scrolls and the page does not overflow — but poor; part of
   the unbuilt mobile-drawer work under *Known UI limitations*.
+- **The blocking generation POSTs still hold a silent socket.** `/storylines/primer`,
+  `/storylines/draft`, `/storylines/triage`, and the character/setting/scenario draft +
+  art endpoints send **no bytes at all** until generation finishes (measured 7.1 s for
+  the primer; minutes on a large local model). The agent *streams* got keep-alive frames
+  on 2026-08-11 and the client now retries a connect-time failure once, but a hard idle
+  timeout shorter than the generation would still kill these. The fix is to convert them
+  to NDJSON streams with keep-alives, mirroring the existing `/triage` + `/triage/stream`
+  pair. Not started — waiting on confirmation of which control actually fails in the
+  field, since the work is a new endpoint plus UI per call site.
 - **No LICENSE file.** The repository is all-rights-reserved by default.
 
 ## Deferred verification

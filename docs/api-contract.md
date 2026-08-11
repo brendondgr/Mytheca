@@ -495,6 +495,14 @@ every other NDJSON stream in this contract.
   appended to that grounding. The terminal `plan` frame carries `baseVersion`. `404` if the
   storyline is missing; `400` if the LLM is unconfigured or the last message has no user
   turn. No writes.
+**Keep-alive frames.** Both agent streams emit a `status` frame every **10 idle
+seconds** while the model is generating. The agent produces nothing until its LLM call
+returns, so without them the response sends headers immediately (measured 4–16 ms) and
+then holds a byte-for-byte silent socket for the whole generation (measured 24 s for one
+turn; minutes on a large local reasoning model), which any idle-connection reaping takes
+down mid-thought. `status` frames carry no state — **clients must ignore frame types
+they do not handle**, exactly as `foldAgentFrame` already does.
+
 **Stat changes in a plan.** A `statChanges` entry's `after` is the *full* stat
 definition. Its `bands` must be a list of **objects** (`{min, max, label,
 description?}`), never bare thresholds — both the prompt contract and the `guided_json`

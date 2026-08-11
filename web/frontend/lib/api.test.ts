@@ -176,3 +176,107 @@ describe("api client", () => {
     expect(JSON.parse(init?.body as string).name).toBe("Fenwick");
   });
 });
+
+// ---- connect-time retry + failure taxonomy ---------------------------------
+// "Could not reach the server." can only come from a rejected fetch(), i.e. no
+// response headers ever arrived. A connection that dies *after* headers is a
+// different failure with a different remedy, and used to surface as a bare
+// "network error" from the stream reader.
+
+describe("connect-time retry", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("retries a generation POST once on a fresh connection and succeeds", async () => {
+    let calls = 0;
+    const spy = vi.fn(() => {
+      calls += 1;
+      if (calls === 1) return Promise.reject(new TypeError("Failed to fetch"));
+      return Promise.resolve(new Response(JSON.stringify({ worldPrimer: "ok" }), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", spy);
+    const { generateWorldPrimer } = await import("@/lib/api");
+    await expect(generateWorldPrimer({ premise: "p" })).resolves.toEqual({ worldPrimer: "ok" });
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up after one retry and reports the server as unreachable", async () => {
+    const spy = vi.fn(() => Promise.reject(new TypeError("Failed to fetch")));
+    vi.stubGlobal("fetch", spy);
+    const { generateWorldPrimer } = await import("@/lib/api");
+    await expect(generateWorldPrimer({ premise: "p" })).rejects.toMatchObject({
+      code: "network_error",
+      message: "Could not reach the server.",
+    });
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("never retries a call that writes — a retried create is a duplicate row", async () => {
+    const spy = vi.fn(() => Promise.reject(new TypeError("Failed to fetch")));
+    vi.stubGlobal("fetch", spy);
+    const { createStoryline } = await import("@/lib/api");
+    await expect(createStoryline({ title: "W" })).rejects.toMatchObject({
+      code: "network_error",
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries the storyline agent stream, which performs no writes", async () => {
+    let calls = 0;
+    const spy = vi.fn(() => {
+      calls += 1;
+      if (calls === 1) return Promise.reject(new TypeError("Failed to fetch"));
+      return Promise.resolve(streamResponse(['{"type":"status","message":"hi"}\n']));
+    });
+    vi.stubGlobal("fetch", spy);
+    const { storylineAgentCreateStream } = await import("@/lib/api");
+    const frames = await collect(
+      storylineAgentCreateStream({ scope: {}, messages: [], fields: {} }),
+    );
+    expect(frames).toEqual([{ type: "status", message: "hi" }]);
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry an aborted request", async () => {
+    const spy = vi.fn(() =>
+      Promise.reject(new DOMException("The user aborted a request.", "AbortError")),
+    );
+    vi.stubGlobal("fetch", spy);
+    const { generateWorldPrimer } = await import("@/lib/api");
+    await expect(generateWorldPrimer({ premise: "p" })).rejects.toBeTruthy();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a connection lost mid-stream is not reported as an unreachable server", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("names the failure and keeps the frames already delivered", async () => {
+    const enc = new TextEncoder();
+    let pulls = 0;
+    const body = new ReadableStream<Uint8Array>({
+      // Deliver one frame, then drop the connection — the shape of a keep-alive
+      // arriving before an intermediary reaps the idle socket.
+      pull(controller) {
+        pulls += 1;
+        if (pulls === 1) {
+          controller.enqueue(enc.encode('{"type":"status","message":"working"}\n'));
+          return;
+        }
+        controller.error(new TypeError("network error"));
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(body, { status: 200 }))));
+
+    const seen: unknown[] = [];
+    const gen = postNdjson("/x", {});
+    await expect(
+      (async () => {
+        for await (const frame of gen) seen.push(frame);
+      })(),
+    ).rejects.toMatchObject({
+      code: "connection_lost",
+      message: "Lost the connection while the server was still working.",
+    });
+    expect(seen).toEqual([{ type: "status", message: "working" }]);
+  });
+});

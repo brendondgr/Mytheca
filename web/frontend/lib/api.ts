@@ -68,15 +68,52 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * One automatic re-attempt on a *connect-time* failure, for calls that write nothing.
+ *
+ * A rejected `fetch()` means no response was ever received — the classic case being a
+ * pooled keep-alive connection the server closes at the same moment the browser reuses
+ * it (RFC 7230 §6.3.1 permits retrying that). Browsers do not retry a POST themselves,
+ * because a POST may have been processed. For our generation endpoints it cannot have
+ * been: they write nothing, so the worst case of a second attempt is a second
+ * generation. Never set `retry` on a CRUD writer — a retried create is a duplicate row.
+ */
+export interface CallOptions {
+  retry?: boolean;
+}
+
+/** True for a rejected `fetch()` that the caller did not abort. */
+function isConnectFailure(cause: unknown): boolean {
+  return !(cause instanceof DOMException && cause.name === "AbortError");
+}
+
+async function fetchOnce(url: string, init: RequestInit, retry: boolean): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (cause) {
+    if (!retry || !isConnectFailure(cause)) throw cause;
+    // Fresh connection; if this fails too the server really is unreachable.
+    return await fetch(url, init);
+  }
+}
+
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  opts: CallOptions = {},
+): Promise<T> {
   const { headers, ...rest } = init ?? {};
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
-      credentials: "include",
-      headers: { "Content-Type": "application/json", ...headers },
-      ...rest,
-    });
+    res = await fetchOnce(
+      `${API_BASE}${path}`,
+      {
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...headers },
+        ...rest,
+      },
+      Boolean(opts.retry),
+    );
   } catch (cause) {
     throw new ApiError(0, "network_error", "Could not reach the server.", cause);
   }
@@ -102,6 +139,14 @@ const post = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "POST", body: JSON.stringify(body) });
 
 /**
+ * A POST that only *generates* — it persists nothing, so a connect-time failure can be
+ * re-attempted on a fresh connection. Use this instead of `post` for LLM-backed
+ * authoring calls; never for anything that writes.
+ */
+const generation = <T>(path: string, body: unknown) =>
+  request<T>(path, { method: "POST", body: JSON.stringify(body) }, { retry: true });
+
+/**
  * POST `body` and yield each NDJSON line of the streamed response as a parsed
  * object. The backend streaming endpoints (`/storylines/build/stream`,
  * `/triage/stream`) send `application/x-ndjson` — one JSON event per line — so the
@@ -112,17 +157,23 @@ export async function* postNdjson<T>(
   path: string,
   body: unknown,
   signal?: AbortSignal,
+  opts: CallOptions = {},
 ): AsyncGenerator<T> {
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal,
-    });
+    res = await fetchOnce(
+      `${API_BASE}${path}`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal,
+      },
+      Boolean(opts.retry),
+    );
   } catch (cause) {
+    if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
     throw new ApiError(0, "network_error", "Could not reach the server.", cause);
   }
 
@@ -148,7 +199,23 @@ export async function* postNdjson<T>(
   let buf = "";
   try {
     for (;;) {
-      const { done, value } = await reader.read();
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch (cause) {
+        // The response *started* — the server accepted the request and was working —
+        // and then the connection died. That is a different problem from never
+        // reaching the server, and it must not be reported as if the server were
+        // down. Retrying here is not safe: we cannot know how far the work got.
+        if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
+        throw new ApiError(
+          0,
+          "connection_lost",
+          "Lost the connection while the server was still working.",
+          cause,
+        );
+      }
+      const { done, value } = chunk;
       if (done) break;
       buf += decoder.decode(value, { stream: true });
       let nl: number;
@@ -286,11 +353,16 @@ export const storylineAgentEditStream = (
   id: string,
   body: StorylineAgentBody,
   signal?: AbortSignal,
-) => postNdjson<AgentEditFrame>(`/storylines/${id}/agent/edit/stream`, body, signal);
+) =>
+  // No writes on this path (approval is a separate POST), so a connect-time failure
+  // is safe to re-attempt on a fresh connection.
+  postNdjson<AgentEditFrame>(`/storylines/${id}/agent/edit/stream`, body, signal, {
+    retry: true,
+  });
 
 /** Converse with the storyline **creation** agent from a blank/partial start (NDJSON). */
 export const storylineAgentCreateStream = (body: StorylineAgentBody, signal?: AbortSignal) =>
-  postNdjson<AgentEditFrame>(`/storylines/agent/create/stream`, body, signal);
+  postNdjson<AgentEditFrame>(`/storylines/agent/create/stream`, body, signal, { retry: true });
 
 export interface StorylineApplyBody {
   scope: StorylineScope;
@@ -319,7 +391,7 @@ export const generateWorldPrimer = (body: {
   premise?: string;
   seed?: string;
   docsOverview?: string;
-}) => post<WorldPrimerResult>("/storylines/primer", body);
+}) => generation<WorldPrimerResult>("/storylines/primer", body);
 
 // ---- triage (the New Storyline page) ----
 // Triage classifies dropped docs into Characters/Settings/Other + Draft/RAG. It does
@@ -332,14 +404,17 @@ export interface TriageResult {
 export const triageDocuments = (
   docs: { name: string; text: string }[],
   storylineId?: string,
-) => post<TriageResult>("/storylines/triage", { docs, storylineId });
+) => generation<TriageResult>("/storylines/triage", { docs, storylineId });
 
 /** Live (per-file) triage — yields a `status` + `item` per doc, then `done`. */
 export const triageDocumentsStream = (
   docs: { name: string; text: string }[],
   storylineId?: string,
   signal?: AbortSignal,
-) => postNdjson<TriageEvent>("/storylines/triage/stream", { docs, storylineId }, signal);
+) =>
+  postNdjson<TriageEvent>("/storylines/triage/stream", { docs, storylineId }, signal, {
+    retry: true,
+  });
 
 // ---- context documents (the persisted RAG corpus) ----
 export type ContextDocumentInput = {
