@@ -115,7 +115,8 @@ def test_persists_the_roster_as_real_rows(db_session, world, monkeypatch):
 
     characters = crud.list_characters(db_session, world)
     settings = crud.list_settings(db_session, world)
-    assert [c.name for c in characters] == ["Maerin Voss", "Maerin Voss"]
+    # The second draft returns the same invented name; it is disambiguated (below).
+    assert [c.name for c in characters] == ["Maerin Voss", "Cael"]
     assert [s.name for s in settings] == ["The Salt Wharf"]
     assert all(c.appearance and c.background and c.personality for c in characters)
     assert settings[0].atmosphere and settings[0].current_state
@@ -369,3 +370,50 @@ def test_entity_frames_carry_what_landed(db_session, world, monkeypatch):
         ("character", "Maerin Voss", "Smuggler"),
         ("setting", "The Salt Wharf", "Social Hub"),
     ]
+
+
+# Two draft agents can independently invent the same name — a real run produced two
+# characters called "Kaelen Thorne". The turn loop resolves speakers BY NAME, so a
+# duplicate makes them indistinguishable to the engine.
+def test_a_repeated_drafted_name_is_disambiguated(db_session, world, monkeypatch):
+    roles = iter(["Silt-Runner", "Chief Inquisitor"])
+    _stub_agents(
+        monkeypatch,
+        roster=_roster(("Kaelen", "Thorne"), ()),
+        character=lambda *a, **k: CharacterDraftResponse(
+            name="Kaelen Thorne", role=next(roles)
+        ),
+    )
+
+    _run(db_session, world)
+
+    names = [c.name for c in crud.list_characters(db_session, world)]
+    assert names[0] == "Kaelen Thorne"
+    assert names[1] != names[0]
+    assert len(set(names)) == 2
+
+
+def test_names_are_unique_against_the_world_that_already_exists(db_session, world, monkeypatch):
+    """A run pointed at a non-empty world must not collide with what is already there."""
+    from app.schemas.character import CharacterCreate
+
+    crud.create_character(db_session, world, CharacterCreate(name="Maerin Voss"))
+    _stub_agents(monkeypatch, roster=_roster(("Maerin",), ()))
+
+    _run(db_session, world)
+
+    names = [c.name for c in crud.list_characters(db_session, world)]
+    assert len(names) == 2 and len(set(names)) == 2
+
+
+def test_settings_are_disambiguated_too(db_session, world, monkeypatch):
+    _stub_agents(
+        monkeypatch,
+        roster=_roster((), ("Wharf", "Docks")),
+        setting=lambda *a, **k: _setting_draft("The Salt Wharf"),
+    )
+
+    _run(db_session, world)
+
+    names = [s.name for s in crud.list_settings(db_session, world)]
+    assert len(names) == 2 and len(set(names)) == 2

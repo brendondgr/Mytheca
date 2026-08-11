@@ -51,6 +51,31 @@ def _message_of(exc: Exception) -> str:
     return exc.message if isinstance(exc, APIError) else str(exc) or exc.__class__.__name__
 
 
+def _unique_name(taken: set[str], drafted: str, proposed: str, qualifier: str = "") -> str:
+    """A name no other entity in this world already has.
+
+    The roster de-duplicates the names it *proposes*, but each draft agent invents its
+    own name from the seed and two of them can land on the same one — a real run
+    produced two separate characters called "Kaelen Thorne". Duplicate names are not
+    cosmetic here: the turn loop resolves speakers and relationships **by name**, so a
+    collision makes two characters indistinguishable to the engine.
+
+    Preference order: the drafted name, then the name the roster proposed, then the
+    drafted name qualified by its role/type, then a numeric suffix as the backstop.
+    """
+    candidates = [drafted, proposed]
+    if qualifier:
+        candidates.append(f"{drafted} ({qualifier})")
+    for candidate in candidates:
+        if candidate and candidate.casefold() not in taken:
+            return candidate
+    base = drafted or proposed
+    n = 2
+    while f"{base} {n}".casefold() in taken:
+        n += 1
+    return f"{base} {n}"
+
+
 def _artwork_enabled(db: Session, requested: bool) -> tuple[bool, str | None]:
     """Whether artwork can actually be rendered, plus why not when it cannot.
 
@@ -178,6 +203,9 @@ def _populate_characters(
 ) -> Iterator[PopulateEvent]:
     """Draft + persist each cast member (one ``entity`` frame per one that landed)."""
     total = len(entries)
+    # Names already spoken for in this world (pre-existing rows included, since a run
+    # can be pointed at a world that is not empty).
+    taken = {c.name.casefold() for c in crud.list_characters(db, storyline_id)}
     for index, entry in enumerate(entries, start=1):
         yield PopulateStatusFrame(
             stage="character",
@@ -190,11 +218,12 @@ def _populate_characters(
             draft = character_agent.draft_character(
                 db, _seed_of(entry), docs_overview, storyline_id
             )
+            name = _unique_name(taken, draft.name, entry.name, draft.role)
             char = crud.create_character(
                 db,
                 storyline_id,
                 CharacterCreate(
-                    name=draft.name or entry.name,
+                    name=name,
                     role=draft.role or "Character",
                     color=draft.color or "#8E2B1C",
                     traits=draft.traits,
@@ -209,6 +238,7 @@ def _populate_characters(
         except Exception as exc:
             yield PopulateErrorFrame(message=f"Could not write {entry.name}: {_message_of(exc)}")
             continue
+        taken.add(char.name.casefold())
 
         # The rest of the character, in the order the retired world build used: voice
         # from the prose, then stats keyed to who they turned out to be, then the
@@ -254,6 +284,7 @@ def _populate_settings(
 ) -> Iterator[PopulateEvent]:
     """Draft + persist each place (one ``entity`` frame per one that landed)."""
     total = len(entries)
+    taken = {s.name.casefold() for s in crud.list_settings(db, storyline_id)}
     for index, entry in enumerate(entries, start=1):
         yield PopulateStatusFrame(
             stage="setting",
@@ -264,11 +295,12 @@ def _populate_settings(
         )
         try:
             draft = setting_agent.draft_setting(db, _seed_of(entry), docs_overview, storyline_id)
+            name = _unique_name(taken, draft.name, entry.name, draft.type)
             setting = crud.create_setting(
                 db,
                 storyline_id,
                 SettingCreate(
-                    name=draft.name or entry.name,
+                    name=name,
                     type=draft.type or "Social Hub",
                     desc=draft.desc or "A place yet to be described.",
                     atmosphere=draft.atmosphere,
@@ -279,6 +311,7 @@ def _populate_settings(
         except Exception as exc:
             yield PopulateErrorFrame(message=f"Could not build {entry.name}: {_message_of(exc)}")
             continue
+        taken.add(setting.name.casefold())
 
         image = None
         if artwork:

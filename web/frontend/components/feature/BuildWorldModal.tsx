@@ -55,7 +55,9 @@ export function BuildWorldModal({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setComfy("probing");
+    // No synchronous reset to "probing" here: the state already starts there, and on a
+    // re-open the last known status is a better thing to show than a flash of unknown
+    // (a sync setState in an effect also cascades a render).
     void api
       .checkComfyStatus({})
       .then((res) => {
