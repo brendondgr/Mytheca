@@ -353,6 +353,33 @@ reference files *in the browser* and passed inline for that one call only — th
 files are never uploaded, persisted, or indexed (the corpus/RAG layer is a later
 plan). The agent reuses the same stored LLM config as the Options menu.
 
+### Why the long generations stream keep-alives
+
+Every LLM-backed authoring call holds a connection open with **nothing on it** for the
+whole generation. Measured on this checkout:
+
+| Path | Time to first byte | During generation |
+| --- | --- | --- |
+| `POST /storylines/agent/create/stream` | 4–16 ms | headers, then **0 bytes for 24 489 ms**, then the body in one burst |
+| `POST /storylines/primer` (blocking) | **7 112 ms = the total** | **no bytes at all** until done |
+
+`core.converse` runs its LLM call to completion before the first `yield`, so streaming
+alone does not put anything on the wire. Idle sockets get reaped, and because the
+blocking endpoints have not sent headers yet, the browser reports that as a rejected
+`fetch()` — *"Could not reach the server."* — while the model is still generating.
+
+`events/stream.with_keepalive` fixes this for the agent streams: the source runs on a
+daemon worker thread feeding a queue while the request thread emits an `AgentStatusFrame`
+every 10 idle seconds. On the client, `lib/api.ts` retries a connect-time failure once on
+a fresh connection for the calls that write nothing, and reports a post-headers drop as
+`connection_lost` rather than as an unreachable server.
+
+**Still open:** the blocking generation POSTs (`/storylines/primer`, `/storylines/draft`,
+`/storylines/triage`, and the character/setting/scenario draft + art endpoints) have no
+keep-alive because they are not streams. The retry covers a sporadic drop; a hard idle
+timeout shorter than the generation would need them converted to NDJSON streams, mirroring
+the existing `/triage` + `/triage/stream` pair. See `docs/checklist.md`.
+
 ### Context files → the storyline assistant
 
 The New / Edit Storyline page carries the same `docsOverview` grounding into the
