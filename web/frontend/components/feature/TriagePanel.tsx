@@ -300,8 +300,15 @@ export function TriagePanel({
         ) : null}
       </div>
 
-      {/* ── Scrollable body: doc list + budget meter ─────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto p-[18px_20px] pt-[16px]">
+      {/* ── Scrollable body: doc list + budget meter ─────────────────────────
+          `relative` is load-bearing, not cosmetic: each DocRow renders an `sr-only`
+          label, and Tailwind's `sr-only` is `position: absolute`. Without a positioned
+          ancestor their containing block is the *initial* containing block, so they
+          escape every `overflow: hidden` ancestor and grow the ROOT scroller to the
+          full un-scrolled list height (measured: 6212px of blank page for 28 files
+          against a 720px viewport). Making this scroller their containing block brings
+          them back under its own clipping. */}
+      <div className="relative flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto p-[18px_20px] pt-[16px]">
         {docs.length === 0 ? (
           <p className="font-body text-[13px] text-ink-soft">
             Drop reference files, then use Self-Triage to categorize each one manually —

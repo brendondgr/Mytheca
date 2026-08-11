@@ -107,6 +107,22 @@ describe("TriagePanel self-triage", () => {
     expect(onToggleUse).toHaveBeenCalledWith("hero.md", "useExtract");
   });
 
+  it("keeps the doc list inside its own scroll container", () => {
+    // Regression: every DocRow renders an `sr-only` label, and `sr-only` is
+    // `position: absolute`. Without a positioned ancestor those labels resolve
+    // against the initial containing block, escape the page shell's
+    // `overflow-hidden`, and grow the ROOT scroller by the full list height —
+    // measured at 6212px of blank page for 28 files in a 720px viewport. jsdom
+    // has no layout, so the invariant is asserted structurally.
+    const docs = [toCreatorDoc({ name: "hero.md", text: "A person." })];
+    const { container } = render(<TriagePanel {...baseProps} docs={docs} triaging={false} />);
+    const label = container.querySelector("label.sr-only");
+    expect(label).not.toBeNull();
+    const scroller = label!.closest(".overflow-y-auto");
+    expect(scroller).not.toBeNull();
+    expect(scroller).toHaveClass("relative");
+  });
+
   it("switches to grouped view once a doc is manually categorized", () => {
     const categorized = { ...toCreatorDoc({ name: "hero.md", text: "A person." }), category: "character" as const };
     const uncategorized = toCreatorDoc({ name: "place.md", text: "A place." });
