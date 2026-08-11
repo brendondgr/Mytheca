@@ -87,13 +87,47 @@ function isConnectFailure(cause: unknown): boolean {
   return !(cause instanceof DOMException && cause.name === "AbortError");
 }
 
-async function fetchOnce(url: string, init: RequestInit, retry: boolean): Promise<Response> {
+/**
+ * What a transport failure looked like, attached to the thrown `ApiError.details`
+ * and logged once.
+ *
+ * `elapsedMs` is the diagnostic that matters: the browser reports every transport
+ * failure as an opaque `TypeError`, so *how long the request survived* is the only
+ * signal that separates the possible causes. Near-zero means the connection was
+ * refused or a pooled socket was dead — the server was never reached. Tens of
+ * seconds means it was reached, worked, and something cut the connection; a value
+ * that repeats at the same number across failures is an idle timeout naming itself.
+ */
+export interface TransportFailure {
+  path: string;
+  elapsedMs: number;
+  attempts: number;
+  cause: string;
+  phase: "connect" | "stream";
+}
+
+function describe(cause: unknown): string {
+  return cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause);
+}
+
+function reportTransportFailure(info: TransportFailure): TransportFailure {
+  // Logged, not swallowed: the panel shows a sentence, but diagnosing this needs the
+  // timing. One line, only on failure.
+  console.warn("[mytheca] request failed", info);
+  return info;
+}
+
+async function fetchOnce(
+  url: string,
+  init: RequestInit,
+  retry: boolean,
+): Promise<{ res: Response; attempts: number }> {
   try {
-    return await fetch(url, init);
+    return { res: await fetch(url, init), attempts: 1 };
   } catch (cause) {
     if (!retry || !isConnectFailure(cause)) throw cause;
     // Fresh connection; if this fails too the server really is unreachable.
-    return await fetch(url, init);
+    return { res: await fetch(url, init), attempts: 2 };
   }
 }
 
@@ -103,9 +137,10 @@ async function request<T>(
   opts: CallOptions = {},
 ): Promise<T> {
   const { headers, ...rest } = init ?? {};
+  const startedAt = Date.now();
   let res: Response;
   try {
-    res = await fetchOnce(
+    ({ res } = await fetchOnce(
       `${API_BASE}${path}`,
       {
         credentials: "include",
@@ -113,9 +148,20 @@ async function request<T>(
         ...rest,
       },
       Boolean(opts.retry),
-    );
+    ));
   } catch (cause) {
-    throw new ApiError(0, "network_error", "Could not reach the server.", cause);
+    throw new ApiError(
+      0,
+      "network_error",
+      "Could not reach the server.",
+      reportTransportFailure({
+        path,
+        elapsedMs: Date.now() - startedAt,
+        attempts: opts.retry ? 2 : 1,
+        cause: describe(cause),
+        phase: "connect",
+      }),
+    );
   }
 
   if (res.status === 204) return undefined as T;
@@ -159,9 +205,10 @@ export async function* postNdjson<T>(
   signal?: AbortSignal,
   opts: CallOptions = {},
 ): AsyncGenerator<T> {
+  const startedAt = Date.now();
   let res: Response;
   try {
-    res = await fetchOnce(
+    ({ res } = await fetchOnce(
       `${API_BASE}${path}`,
       {
         method: "POST",
@@ -171,10 +218,21 @@ export async function* postNdjson<T>(
         signal,
       },
       Boolean(opts.retry),
-    );
+    ));
   } catch (cause) {
     if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
-    throw new ApiError(0, "network_error", "Could not reach the server.", cause);
+    throw new ApiError(
+      0,
+      "network_error",
+      "Could not reach the server.",
+      reportTransportFailure({
+        path,
+        elapsedMs: Date.now() - startedAt,
+        attempts: opts.retry ? 2 : 1,
+        cause: describe(cause),
+        phase: "connect",
+      }),
+    );
   }
 
   if (!res.ok) {
@@ -212,7 +270,13 @@ export async function* postNdjson<T>(
           0,
           "connection_lost",
           "Lost the connection while the server was still working.",
-          cause,
+          reportTransportFailure({
+            path,
+            elapsedMs: Date.now() - startedAt,
+            attempts: 1,
+            cause: describe(cause),
+            phase: "stream",
+          }),
         );
       }
       const { done, value } = chunk;

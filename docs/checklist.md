@@ -49,6 +49,20 @@ Verified against the code on 2026-08-04.
   `42dvh` strip, leaving the doc list ~34px of scroll at 320×720 and 375×812 (134px at
   768). Functional — the list scrolls and the page does not overflow — but poor; part of
   the unbuilt mobile-drawer work under *Known UI limitations*.
+- **An unreproduced connect failure on the storyline Assistant.** Reported as
+  "Could not reach the server." on `/storylines/new` → Assistant → Send, on plain
+  localhost with nothing in between, while the local LLM was still generating. That
+  string can only come from a rejected `fetch()`, i.e. no response headers ever
+  arrived — but the agent stream returns headers in 4–16 ms, so the request must be
+  failing at connect time. **Ruled out empirically on 2026-08-11:** backend timeouts
+  (300 s, never reached), connect failures under load (60 POSTs at load average 5.3 →
+  0 failures), the uvicorn keep-alive boundary race (a sweep across 4.3–5.6 s idle →
+  0 rejections), and the dev-server reloader (its supervisor holds the listening
+  socket, so a restart neither refuses new connects nor killed an in-flight stream in
+  testing). Not reproduced locally. `lib/api.ts` now attaches `TransportFailure`
+  (`path`, `elapsedMs`, `attempts`, `cause`, `phase`) to the thrown error and logs it
+  — `elapsedMs` is the discriminator, since the browser reports every transport
+  failure as an opaque `TypeError`. **Next occurrence: capture that console line.**
 - **The blocking generation POSTs still hold a silent socket.** `/storylines/primer`,
   `/storylines/draft`, `/storylines/triage`, and the character/setting/scenario draft +
   art endpoints send **no bytes at all** until generation finishes (measured 7.1 s for

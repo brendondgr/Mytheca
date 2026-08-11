@@ -280,3 +280,49 @@ describe("a connection lost mid-stream is not reported as an unreachable server"
     expect(seen).toEqual([{ type: "status", message: "working" }]);
   });
 });
+
+describe("transport failures carry their timing", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("records elapsed time, attempts and phase on a connect failure", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
+    const { generateWorldPrimer } = await import("@/lib/api");
+    const err = await generateWorldPrimer({ premise: "p" }).catch((e) => e);
+    // elapsedMs is the signal that separates "never reached the server" (near zero)
+    // from "worked for a while, then the connection died" (tens of seconds).
+    expect(err.details).toMatchObject({
+      path: "/storylines/primer",
+      attempts: 2,
+      phase: "connect",
+      cause: "TypeError: Failed to fetch",
+    });
+    expect(typeof err.details.elapsedMs).toBe("number");
+    expect(console.warn).toHaveBeenCalledWith("[mytheca] request failed", expect.anything());
+  });
+
+  it("marks a mid-stream drop as the stream phase", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const enc = new TextEncoder();
+    let pulls = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        if (pulls === 1) return void controller.enqueue(enc.encode('{"type":"status"}\n'));
+        controller.error(new TypeError("network error"));
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(body, { status: 200 }))));
+    const err = await (async () => {
+      try {
+        for await (const _ of postNdjson("/x", {})) void _;
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect((err as ApiError).details).toMatchObject({ phase: "stream", attempts: 1 });
+  });
+});
