@@ -137,6 +137,39 @@ describe("BuildWorldModal — whose people get built", () => {
     expect(h.onConfirm).toHaveBeenCalledWith(expect.objectContaining({ source: "invent" }));
   });
 
+  it("re-resolves the default when files arrive after the dialog first mounted", async () => {
+    // The dialog stays mounted while closed, so its default cannot be captured once:
+    // an author who uploads files after opening it the first time must still get them.
+    const { rerender } = render(
+      <BuildWorldModal
+        open={false}
+        build={emptyBuild()}
+        defaults={DEFAULTS}
+        sourceFiles={{ characters: 0, settings: 0, lore: 0 }}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        onStop={vi.fn()}
+        onEnter={vi.fn()}
+      />,
+    );
+    rerender(
+      <BuildWorldModal
+        open
+        build={emptyBuild()}
+        defaults={DEFAULTS}
+        sourceFiles={FILES}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        onStop={vi.fn()}
+        onEnter={vi.fn()}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: /in my files/i })).toBeChecked(),
+    );
+  });
+
   it("falls back to inventing when there are no files to build from", () => {
     show(emptyBuild(), { sourceFiles: { characters: 0, settings: 0, lore: 0 } });
 

@@ -64,7 +64,13 @@ export function BuildWorldModal({
   // Files win by default: if the author uploaded and classified any, the build makes
   // *those* people and places. Inventing is a deliberate choice, never a surprise.
   const hasFiles = sourceFiles.characters + sourceFiles.settings + sourceFiles.lore > 0;
-  const [source, setSource] = useState<RosterSource>(hasFiles ? "documents" : "invent");
+  // Derived, not initialised-once: this component stays mounted while closed, so a
+  // `useState` default captured on first mount kept saying "invent" even after the
+  // author uploaded and classified files — precisely the surprise being fixed. Until
+  // they choose for themselves, the default follows what they actually have.
+  const [chosenSource, setChosenSource] = useState<RosterSource | null>(null);
+  const source: RosterSource = chosenSource ?? (hasFiles ? "documents" : "invent");
+  const setSource = setChosenSource;
   // Artwork is only worth offering when the render server answers, so the checkbox
   // defaults to what ComfyUI actually is right now rather than to a guess.
   const [comfy, setComfy] = useState<"probing" | "up" | "down">("probing");

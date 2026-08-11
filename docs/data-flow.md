@@ -421,24 +421,35 @@ StorylineCreatorView → Create World
          1. POST /api/storylines                        (the world)
          2. POST /api/storylines/{id}/stats             (its stat schema)
          3. POST /api/storylines/{id}/context-docs/bulk (the triaged corpus)
-       storylineCreator.runPopulate
-         4. POST /api/storylines/{id}/populate/stream {docsOverview, withArtwork}
-              → routes/storylines → services/world_populate.populate_world
-                   → agents/roster_agent.propose_roster      (names + one-line seeds)
+       storylineCreator.runPopulate  (re-attaches from lastSeq if the socket drops)
+         4. POST /api/storylines/{id}/populate/stream {docsOverview, source, withArtwork, fromSeq}
+              → routes/storylines → services/world_populate_runs (background run + frame log)
+                   → services/world_populate.populate_world
+                   → THE AUTHOR'S FILES FIRST:
+                       character/setting docs → agents/extract_agent.extract_entities
+                         → one entity per NAMED subject, drafted from its own paragraph
+                         → crud.add_document_link (provenance back to the file)
+                       other docs → lore grounding only, never entities
+                   → only if there are none (or source="invent"):
+                       agents/roster_agent.propose_roster    (names + one-line seeds)
                    → per character: draft_character → crud.create_character
                                     → propose_voice_samples  → update
                                     → propose_starting_stats → services/stats
                                     → [artwork] services/portraits
                    → per setting:   draft_setting  → crud.create_setting
                                     → [artwork] services/scene_art
-              ← NDJSON: status (per step) · entity (per persisted row) · error · done
+              ← NDJSON: status · plan (the named roster) · entity (per persisted row)
+                        · error · done — every frame sequenced
               → foldPopulateFrame → BuildState → rendered live in the dialog
   → only on `done`: router.push(`/{id}`) → LibraryView loads GET …/characters + …/settings
 ```
 
-The dialog **is** the progress report: it stays open for the whole run, lists each
-character and place as it lands (with its portrait once painted), and cannot be
-dismissed by backdrop or Escape while building — Stop is the only exit. The author is
+The dialog **is** the progress report: it asks whose people to build (its counts come
+from the author's classified files), names the roster before drafting starts, lists each
+character and place as it lands (with its portrait once painted), and cannot be dismissed
+by backdrop or Escape while building — Stop is the only exit. The run itself lives on the
+server, so a dropped connection is only a lost view: the client re-attaches from the last
+frame it saw and the build never restarts or double-builds. The author is
 taken into the new world only when the run finishes; a failed, stopped, or truncated run
 leaves the dialog up with what was built and an explicit way in.
 
