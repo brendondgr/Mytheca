@@ -46,6 +46,25 @@ _VOICE_TOP_P = 0.92
 _VOICE_FREQUENCY_PENALTY = 0.4
 _VOICE_PRESENCE_PENALTY = 0.3
 
+# Per-register sampler tuning: (top_p, frequency_penalty, presence_penalty).
+#
+# Frequency and presence penalties push the model toward tokens it has NOT used yet —
+# toward novelty and flourish, which is exactly the quip-seeking behavior that reads as
+# a character performing instead of reacting. So they come DOWN as the moment gets
+# graver, letting plain, direct, even repetitive language through (people repeat
+# themselves when frightened), and up in a light moment where banter should stay varied.
+# ``top_p`` narrows alongside them so a grave beat stays on the obvious, sincere word.
+#
+# A beat with no register (planner fallback, puppet beat, test context) resolves to the
+# module defaults above — byte-identical to the pre-register behavior. Temperature and
+# max_tokens stay under the operator's config either way.
+_REGISTER_SAMPLER = {
+    "light": (0.95, 0.45, 0.35),
+    "neutral": (0.92, 0.40, 0.30),
+    "tense": (0.88, 0.30, 0.20),
+    "grave": (0.85, 0.20, 0.15),
+}
+
 # Per-register performance directives, stated in the recency TAIL as an established fact
 # about the situation rather than a question the speaker has to answer for itself. The
 # register comes from ``planner_agent.next_beat`` (which already runs once per beat, so
@@ -78,13 +97,20 @@ _REGISTER_DIRECTIVES = {
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
 
 
-def _voice_params(params: LlmParams) -> LlmParams:
-    """Floor max_tokens (reasoning headroom) and apply the voice-tuned sampler fields."""
+def _voice_params(params: LlmParams, register: str | None = None) -> LlmParams:
+    """Floor max_tokens (reasoning headroom) and apply the voice-tuned sampler fields.
+
+    The sampler tracks the beat's ``register`` (see ``_REGISTER_SAMPLER``); an absent or
+    unrecognized register keeps the module defaults.
+    """
+    top_p, frequency, presence = _REGISTER_SAMPLER.get(
+        register or "", (_VOICE_TOP_P, _VOICE_FREQUENCY_PENALTY, _VOICE_PRESENCE_PENALTY)
+    )
     return gen_params(params).model_copy(
         update={
-            "top_p": _VOICE_TOP_P,
-            "frequency_penalty": _VOICE_FREQUENCY_PENALTY,
-            "presence_penalty": _VOICE_PRESENCE_PENALTY,
+            "top_p": top_p,
+            "frequency_penalty": frequency,
+            "presence_penalty": presence,
         }
     )
 
@@ -159,7 +185,7 @@ def generate_line_with_usage(
         api_key,
         model,
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        _voice_params(params),
+        _voice_params(params, register),
         reasoning=reasoning,
     )
 

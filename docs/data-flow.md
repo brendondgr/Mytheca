@@ -818,7 +818,11 @@ work the moment out for itself. `planner_agent.next_beat` returns `register` (`l
 runs once per beat, so this costs no extra LLM call — and the turn engine threads both into the
 character prompt's recency TAIL, where a per-register directive states the situation as fact
 (`grave` explicitly revokes the habitual act: no wit, no cocky deflection). The register also
-**selects which voice samples** are injected and **tunes the sampler** (see below). It is always
+**selects which voice samples** are injected (above) and **tunes the sampler**: frequency
+and presence penalties push the model toward tokens it has not used yet — toward novelty
+and flourish — so they come down as the moment gets graver (`grave` = `top_p 0.85`,
+`freq 0.20`, `presence 0.15`) and up when it is light (`0.95 / 0.45 / 0.35`), with the
+register-less path keeping the original `0.92 / 0.40 / 0.30`. It is always
 optional: a planner fallback, a puppet beat, or a directly-constructed `TurnContext` yields
 `register=None`, and the TAIL then falls back to the generic "read the moment" cue. The
 `<thinking>` step still appraises the moment first, and the output contract's manner-adaptation rule

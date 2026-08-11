@@ -523,3 +523,59 @@ def test_unmatched_register_keeps_the_whole_profile(client, db_session, monkeypa
         register="grave",
     )
     assert "Coin first." in json.loads(capture["body"])["messages"][1]["content"]
+
+
+def _sampler(capture: dict) -> tuple[float, float, float]:
+    body = json.loads(capture["body"])
+    return body["top_p"], body["frequency_penalty"], body["presence_penalty"]
+
+
+def test_grave_beat_damps_the_novelty_penalties(client, db_session, monkeypatch):
+    # Frequency/presence penalties push the model toward unused tokens — toward flourish
+    # and quips. A grave beat wants the plain, sincere, even repetitive word instead.
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        register="grave",
+    )
+    top_p, frequency, presence = _sampler(capture)
+    assert top_p == 0.85 and frequency == 0.20 and presence == 0.15
+
+
+def test_light_beat_keeps_banter_varied(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        register="light",
+    )
+    top_p, frequency, presence = _sampler(capture)
+    assert top_p == 0.95 and frequency == 0.45 and presence == 0.35
+
+
+def test_registerless_beat_keeps_the_original_sampler(client, db_session, monkeypatch):
+    # The no-register path must stay byte-identical to the pre-register behavior.
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    assert _sampler(capture) == (0.92, 0.4, 0.3)
+    # An unrecognized register lands on the same defaults rather than a partial update.
+    capture.clear()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        register="apocalyptic",
+    )
+    assert _sampler(capture) == (0.92, 0.4, 0.3)
