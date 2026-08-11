@@ -414,28 +414,41 @@ Characters and Settings columns. **Create World** now finishes the job.
 
 ```
 StorylineCreatorView → Create World
-  → BuildWorldModal  {enabled, withArtwork}   ← the author is asked, never surprised
-  → storylineCreator.commitWorld
-       1. POST /api/storylines                     (the world)
-       2. POST /api/storylines/{id}/stats          (its stat schema)
-       3. POST /api/storylines/{id}/context-docs/bulk   (the triaged corpus)
-       4. POST /api/storylines/{id}/populate/stream {docsOverview, withArtwork}
-            → routes/storylines → services/world_populate.populate_world
-                 → agents/roster_agent.propose_roster        (names + one-line seeds)
-                 → agents/character_agent.draft_character  → crud.create_character
-                 → agents/setting_agent.draft_setting      → crud.create_setting
-                 → [withArtwork] services/portraits · services/scene_art  (best-effort)
-            ← NDJSON: status · entity (per persisted row) · error · done
-  → router.push(`/{id}`) → LibraryView loads GET …/characters + …/settings
+  → BuildWorldModal  {enabled, withArtwork}   ← asked, with artwork pre-checked only
+    (probes POST /api/options/comfy/status)      when a ComfyUI server answers
+  → useStorylineCreator.createAndBuild
+       storylineCreator.commitWorld
+         1. POST /api/storylines                        (the world)
+         2. POST /api/storylines/{id}/stats             (its stat schema)
+         3. POST /api/storylines/{id}/context-docs/bulk (the triaged corpus)
+       storylineCreator.runPopulate
+         4. POST /api/storylines/{id}/populate/stream {docsOverview, withArtwork}
+              → routes/storylines → services/world_populate.populate_world
+                   → agents/roster_agent.propose_roster      (names + one-line seeds)
+                   → per character: draft_character → crud.create_character
+                                    → propose_voice_samples  → update
+                                    → propose_starting_stats → services/stats
+                                    → [artwork] services/portraits
+                   → per setting:   draft_setting  → crud.create_setting
+                                    → [artwork] services/scene_art
+              ← NDJSON: status (per step) · entity (per persisted row) · error · done
+              → foldPopulateFrame → BuildState → rendered live in the dialog
+  → only on `done`: router.push(`/{id}`) → LibraryView loads GET …/characters + …/settings
 ```
+
+The dialog **is** the progress report: it stays open for the whole run, lists each
+character and place as it lands (with its portrait once painted), and cannot be
+dismissed by backdrop or Escape while building — Stop is the only exit. The author is
+taken into the new world only when the run finishes; a failed, stopped, or truncated run
+leaves the dialog up with what was built and an explicit way in.
 
 Population runs **last, against the persisted world**, so the roster is grounded in
 the saved storyline and corpus and each entity is written straight into it (picking up
 the usual graph + RAG sync through `crud`). Two failure postures: the roster is fatal
-(nothing to build), every entity is not — one failed draft or render emits an `error`
-frame, the run continues, and the world is never rolled back. `commitWorld` therefore
-always returns the id: a population problem surfaces as a warning on a world that
-exists, never as a lost create.
+(nothing to build), every entity is not — one failed draft, proposal, or render emits an
+`error` frame, the run continues, and the world is never rolled back. The world's id is
+held by the hook throughout, so a failed build is always a world that exists and can be
+entered — never a lost create.
 
 ## Character Authoring Flow (creation-time agent + portrait)
 
