@@ -11,11 +11,19 @@ from __future__ import annotations
 import pytest
 
 from app.core.errors import APIError
-from app.schemas.character import CharacterDraftResponse, PortraitPromptResponse
+from app.schemas.character import (
+    CharacterDraftResponse,
+    PortraitPromptResponse,
+    StartingStatProposal,
+    StartingStatsResponse,
+    VoiceSample,
+    VoiceSamplesResponse,
+)
 from app.schemas.setting import SceneArtPromptResponse, SettingDraftResponse
 from app.schemas.storyline import StorylineCreate
 from app.schemas.world_populate import (
     PopulateDoneFrame,
+    PopulateStatusFrame,
     PopulateEntityFrame,
     PopulateErrorFrame,
     RosterEntry,
@@ -64,9 +72,24 @@ def _setting_draft(name: str = "The Salt Wharf") -> SettingDraftResponse:
     )
 
 
-def _stub_agents(monkeypatch, *, roster, character=None, setting=None):
+def _stub_agents(monkeypatch, *, roster, character=None, setting=None, voice=None, stats=None):
+    """Stub every generation the run makes; persistence stays real.
+
+    Voice + starting stats are stubbed to no-ops by default so the tests that are about
+    drafting/artwork stay about that; the tests below that *are* about them override.
+    """
     monkeypatch.setattr(
         world_populate.roster_agent, "propose_roster", lambda *a, **k: roster
+    )
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "propose_voice_samples",
+        voice or (lambda *a, **k: VoiceSamplesResponse(samples=[])),
+    )
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "propose_starting_stats",
+        stats or (lambda *a, **k: StartingStatsResponse(proposals=[])),
     )
     monkeypatch.setattr(
         world_populate.character_agent,
@@ -258,3 +281,91 @@ def test_roster_failure_is_fatal(db_session, world, monkeypatch):
         _run(db_session, world)
 
     assert exc.value.status_code == 400
+
+
+# The character build is not just the draft — the retired world build also gave every
+# character a voice profile and starting stats, and losing them was the regression.
+def test_characters_get_their_voice_and_starting_stats(db_session, world, monkeypatch):
+    from app.schemas.stat import StatDefinitionCreate
+    from app.services import stats as stat_service
+
+    stat_service.create_stat_definition(
+        db_session,
+        world,
+        StatDefinitionCreate(key="trust", display_name="Trust", min=0, max=10, default=5),
+    )
+    _stub_agents(
+        monkeypatch,
+        roster=_roster(("Maerin",), ()),
+        voice=lambda *a, **k: VoiceSamplesResponse(
+            samples=[VoiceSample(situation="Cornered on the wharf.", sample="Try me.")]
+        ),
+        stats=lambda *a, **k: StartingStatsResponse(
+            proposals=[
+                StartingStatProposal(
+                    key="trust",
+                    display_name="Trust",
+                    value=2,
+                    min=0,
+                    max=10,
+                    rationale="Guarded.",
+                )
+            ]
+        ),
+    )
+
+    frames = _run(db_session, world)
+
+    char = crud.list_characters(db_session, world)[0]
+    assert [s["sample"] for s in char.voice_samples] == ["Try me."]
+    assert stat_service.get_character_stats(db_session, char.id) == {"trust": 2}
+    assert [f for f in frames if isinstance(f, PopulateErrorFrame)] == []
+    # Each sub-step announces itself so the build console can show it happening.
+    messages = [f.message for f in frames if isinstance(f, PopulateStatusFrame)]
+    assert any("voice" in m for m in messages)
+    assert any("starting stats" in m for m in messages)
+
+
+def test_a_failed_voice_or_stat_proposal_keeps_the_character(db_session, world, monkeypatch):
+    def boom(*_a, **_k):
+        raise APIError(502, "upstream_error", "The model did not return valid JSON.")
+
+    _stub_agents(monkeypatch, roster=_roster(("Maerin",), ()), voice=boom, stats=boom)
+
+    frames = _run(db_session, world)
+
+    char = crud.list_characters(db_session, world)[0]
+    assert char.name == "Maerin Voss" and char.voice_samples == []
+    errors = [f.message for f in frames if isinstance(f, PopulateErrorFrame)]
+    assert len(errors) == 2
+    assert any("voice" in m for m in errors) and any("starting stats" in m for m in errors)
+    assert frames[-1].characters == 1
+
+
+def test_a_world_with_no_stat_schema_proposes_nothing(db_session, world, monkeypatch):
+    """No definitions → the proposal is skipped, not failed (and costs no LLM call)."""
+    _stub_agents(monkeypatch, roster=_roster(("Maerin",), ()))
+    calls: list[int] = []
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "propose_starting_stats",
+        lambda db, sid, **k: calls.append(1)
+        or StartingStatsResponse(proposals=[]),
+    )
+
+    frames = _run(db_session, world)
+
+    assert len(calls) == 1  # asked once; it returns empty without an LLM call of its own
+    assert [f for f in frames if isinstance(f, PopulateErrorFrame)] == []
+
+
+def test_entity_frames_carry_what_landed(db_session, world, monkeypatch):
+    """The console needs the role/type to show what was built without re-fetching."""
+    _stub_agents(monkeypatch, roster=_roster(("Maerin",), ("The Wharf",)))
+
+    entities = [f for f in _run(db_session, world) if isinstance(f, PopulateEntityFrame)]
+
+    assert [(e.stage, e.name, e.role) for e in entities] == [
+        ("character", "Maerin Voss", "Smuggler"),
+        ("setting", "The Salt Wharf", "Social Hub"),
+    ]

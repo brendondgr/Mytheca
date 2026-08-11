@@ -68,6 +68,9 @@ class PopulateEntityFrame(CamelModel):
     stage: Literal["character", "setting"]
     id: str
     name: str
+    # The character's role, or the setting's type — enough for the build console to
+    # show what landed without re-fetching the entity.
+    role: str = ""
     image: str | None = None
 
 

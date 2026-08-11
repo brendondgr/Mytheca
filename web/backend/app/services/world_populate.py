@@ -39,6 +39,7 @@ from app.schemas.world_populate import (
     RosterEntry,
 )
 from app.services import comfyui, crud, portraits, scene_art, settings_store
+from app.services import stats as stat_service
 
 
 def _seed_of(entry: RosterEntry) -> str:
@@ -67,6 +68,60 @@ def _artwork_enabled(db: Session, requested: bool) -> tuple[bool, str | None]:
     except Exception:
         return False, f"ComfyUI is not reachable at {base} — the world was built without artwork."
     return True, None
+
+
+def _write_voice(db: Session, char) -> str | None:
+    """Best-effort voice & tone profile for a persisted character. Returns an error.
+
+    Runs *before* the starting stats, matching the order the retired world build used:
+    a character's voice is derived from their prose, and the stats are keyed to who
+    they turn out to be.
+    """
+    try:
+        voice = character_agent.propose_voice_samples(
+            db,
+            name=char.name,
+            role=char.role,
+            traits=char.traits,
+            speech=char.speech,
+            background=char.background,
+            personality=char.personality,
+            storyline_id=char.storyline_id,
+        )
+        if not voice.samples:
+            return None
+        char.voice_samples = [s.model_dump() for s in voice.samples]
+        db.commit()
+        return None
+    except Exception as exc:  # a voiceless character is still a character
+        db.rollback()
+        return f"Could not find {char.name}'s voice: {_message_of(exc)}"
+
+
+def _write_starting_stats(db: Session, char) -> str | None:
+    """Best-effort starting stat values keyed to the world's schema. Returns an error.
+
+    A world with no stat definitions costs nothing — ``propose_starting_stats`` makes
+    no LLM call and returns no proposals.
+    """
+    try:
+        proposal = character_agent.propose_starting_stats(
+            db,
+            char.storyline_id,
+            name=char.name,
+            role=char.role,
+            traits=char.traits,
+            personality=char.personality,
+            background=char.background,
+        )
+        values = {p.key: p.value for p in proposal.proposals}
+        if not values:
+            return None
+        stat_service.set_character_stats(db, char.id, values)
+        return None
+    except Exception as exc:
+        db.rollback()
+        return f"Could not set {char.name}'s starting stats: {_message_of(exc)}"
 
 
 def _render_portrait(db: Session, char) -> tuple[str | None, str | None]:
@@ -155,6 +210,23 @@ def _populate_characters(
             yield PopulateErrorFrame(message=f"Could not write {entry.name}: {_message_of(exc)}")
             continue
 
+        # The rest of the character, in the order the retired world build used: voice
+        # from the prose, then stats keyed to who they turned out to be, then the
+        # portrait. Each step is best-effort and announces itself so the author can
+        # watch the character being finished rather than staring at one long pause.
+        def _step(message: str, run) -> Iterator[PopulateEvent]:
+            yield PopulateStatusFrame(
+                stage="character", name=char.name, index=index, total=total, message=message
+            )
+            err = run()
+            if err:
+                yield PopulateErrorFrame(message=err)
+
+        yield from _step(f"Finding {char.name}'s voice…", lambda: _write_voice(db, char))
+        yield from _step(
+            f"Setting {char.name}'s starting stats…", lambda: _write_starting_stats(db, char)
+        )
+
         image = None
         if artwork:
             yield PopulateStatusFrame(
@@ -167,7 +239,9 @@ def _populate_characters(
             image, err = _render_portrait(db, char)
             if err:
                 yield PopulateErrorFrame(message=err)
-        yield PopulateEntityFrame(stage="character", id=char.id, name=char.name, image=image)
+        yield PopulateEntityFrame(
+            stage="character", id=char.id, name=char.name, role=char.role, image=image
+        )
 
 
 def _populate_settings(
@@ -218,7 +292,9 @@ def _populate_settings(
             image, err = _render_scene_art(db, setting)
             if err:
                 yield PopulateErrorFrame(message=err)
-        yield PopulateEntityFrame(stage="setting", id=setting.id, name=setting.name, image=image)
+        yield PopulateEntityFrame(
+            stage="setting", id=setting.id, name=setting.name, role=setting.type, image=image
+        )
 
 
 def populate_world(
