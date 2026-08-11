@@ -1,5 +1,12 @@
 # Character Dialogue Flexibility
 
+> **Shipped 2026-08-11**, all six phases. Two deviations from the plan as written:
+> the voice-sample field is called **`moment`**, not `register` — a pydantic field named
+> `register` shadows `ABCMeta.register` on the model base — and reflection effort stayed
+> `LOW` (see §2). The live in-browser a11y pass for the new Moment select could not run:
+> `next/font/google` cannot reach Google Fonts in this sandbox, so the page never renders.
+> Recorded in `docs/checklist.md` under *Deferred verification*.
+
 ## 1. Introduction
 
 Characters currently speak from a fixed script. Their prompt head carries `speech`,

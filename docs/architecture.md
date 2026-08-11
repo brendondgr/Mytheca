@@ -124,6 +124,7 @@ There is no authentication of any kind: no user model, no auth routes, no sessio
 - Event-driven rendering; **7** event types.
 - Per-beat ReAct planner replaced the one-shot director; the old arm survives only in tests.
 - One isolated LLM call per speaker, to hold voices apart.
+- The beat's **register** rides on the planner's existing reply (no second appraisal call) and drives the character prompt's tail, voice-sample selection, and sampler.
 - Server-side clamping of every proposed side effect.
 - Best-effort substrates throughout (Neo4j / Qdrant / Redis / ComfyUI down → degrade, never block).
 - **No dice** — narrative resolution only; `branch_choices` carry `label` + `outcome` and the check card was retired.

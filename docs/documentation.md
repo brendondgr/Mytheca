@@ -64,6 +64,7 @@ Detail: `architecture.md` (decisions), `data-flow.md` (the turn walkthrough), `a
 - **Event-driven rendering** — the AI emits typed events, the backend validates, the frontend renders. 7 event types.
 - **Per-beat ReAct planner** — `planner_agent.next_beat` decides one beat at a time from the present roster. It replaced the older one-shot `director_agent.who_is_up` / `rerank`, which are now **dead code kept only for their unit tests**.
 - **One isolated LLM call per speaker** — no shared multi-POV prompt, to keep voices distinct.
+- **Situational adaptation is computed, not requested** — `planner_agent.next_beat` returns the beat's **register** (`light`/`neutral`/`tense`/`grave`) and **stakes** on the call it was already making. The register is stated as fact in the character prompt's recency tail, selects which voice samples the speaker is shown, and tunes the sampler. Telling a character in prose to "adapt to the moment" loses to the concrete voice samples proving how it sounds at rest; giving it a different set of samples does not.
 - **Server-side clamping** — proposed stat / relationship / presence changes are proposals; `validator.py` clamps or drops them.
 - **Best-effort substrates** — Neo4j, Qdrant, Redis and ComfyUI each degrade to a no-op when absent. CRUD and the full test suite run with none of them.
 - **No dice** — narrative resolution only; `branch_choices` carry `label` + `outcome`.
