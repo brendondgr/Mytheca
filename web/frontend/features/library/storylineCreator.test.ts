@@ -126,13 +126,14 @@ describe("storylineCreator helpers", () => {
 
 describe("storylineCreator.commitWorld create mode", () => {
   it("creates the storyline, its stats, then the triaged corpus", async () => {
-    const id = await commitWorld({
+    const { id, warning } = await commitWorld({
       fields: { ...BLANK_FIELDS, title: "World" },
       stats: [HEALTH],
       statsOriginal: [],
       docs: [{ name: "lore.md", text: "x", category: "other", triaged: true }],
     });
     expect(id).toBeTruthy();
+    expect(warning).toBeNull();
     expect(vi.mocked(api.createStoryline)).toHaveBeenCalledWith(
       expect.objectContaining({ title: "World" }),
     );
@@ -144,6 +145,91 @@ describe("storylineCreator.commitWorld create mode", () => {
       expect.any(String),
       [expect.objectContaining({ name: "lore.md" })],
     );
+  });
+
+  it("does not populate the world unless the author asked for it", async () => {
+    await commitWorld({
+      fields: { ...BLANK_FIELDS, title: "World" },
+      stats: [],
+      statsOriginal: [],
+      docs: [],
+    });
+    expect(vi.mocked(api.populateWorldStream)).not.toHaveBeenCalled();
+  });
+});
+
+// The regression guard for "the new world comes up empty": creating a world with
+// population on must actually run the build against the world that was just created,
+// after its corpus is saved, and report what landed.
+describe("storylineCreator.commitWorld population", () => {
+  const CREATE_ARGS = {
+    fields: { ...BLANK_FIELDS, title: "World" },
+    stats: [],
+    statsOriginal: [],
+    docs: [
+      { name: "lore.md", text: "The tide charts.", category: "other" as const, triaged: true, useDraft: true },
+    ],
+  };
+
+  it("populates the created world, grounded in the Draft docs, after the corpus is saved", async () => {
+    const progress: string[] = [];
+    const { id, warning } = await commitWorld(
+      { ...CREATE_ARGS, populate: { enabled: true, withArtwork: false } },
+      (m) => progress.push(m),
+    );
+
+    expect(warning).toBeNull();
+    expect(vi.mocked(api.populateWorldStream)).toHaveBeenCalledWith(
+      id,
+      expect.objectContaining({
+        withArtwork: false,
+        docsOverview: expect.stringContaining("The tide charts."),
+      }),
+    );
+    // Ordering matters: the roster is grounded in the saved corpus.
+    const docsCall = vi.mocked(api.bulkCreateContextDocuments).mock.invocationCallOrder[0];
+    const popCall = vi.mocked(api.populateWorldStream).mock.invocationCallOrder[0];
+    expect(docsCall).toBeLessThan(popCall);
+    // The author sees each entity land.
+    expect(progress).toContain("Added Maerin Voss.");
+    expect(progress).toContain("Added The Salt Wharf.");
+  });
+
+  it("passes the artwork opt-in through", async () => {
+    await commitWorld({ ...CREATE_ARGS, populate: { enabled: true, withArtwork: true } });
+    expect(vi.mocked(api.populateWorldStream)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ withArtwork: true }),
+    );
+  });
+
+  it("reports a non-fatal frame as a warning but keeps the world", async () => {
+    vi.mocked(api.populateWorldStream).mockImplementationOnce(async function* () {
+      yield { type: "error" as const, message: "Could not write Maerin.", fatal: false };
+      yield { type: "done" as const, characters: 0, settings: 0 };
+    } as never);
+
+    const { id, warning } = await commitWorld({
+      ...CREATE_ARGS,
+      populate: { enabled: true, withArtwork: false },
+    });
+
+    expect(id).toBeTruthy();
+    expect(warning).toBe("Could not write Maerin.");
+  });
+
+  it("never loses the world when population throws", async () => {
+    vi.mocked(api.populateWorldStream).mockImplementationOnce(async function* () {
+      throw new Error("Could not reach the server.");
+    } as never);
+
+    const { id, warning } = await commitWorld({
+      ...CREATE_ARGS,
+      populate: { enabled: true, withArtwork: false },
+    });
+
+    expect(id).toBeTruthy();
+    expect(warning).toBe("Could not reach the server.");
   });
 });
 

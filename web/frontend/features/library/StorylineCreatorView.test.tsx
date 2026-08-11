@@ -68,11 +68,50 @@ describe("StorylineCreatorView", () => {
 
     await user.type(screen.getByLabelText(/^title$/i), "Manual World");
     await user.click(screen.getByRole("button", { name: /create world/i }));
+    // Creating asks what to build before it writes anything.
+    expect(vi.mocked(api.createStoryline)).not.toHaveBeenCalled();
+    await user.click(await screen.findByRole("button", { name: /just the world/i }));
 
     expect(vi.mocked(api.createStoryline)).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Manual World" }),
     );
+    expect(vi.mocked(api.populateWorldStream)).not.toHaveBeenCalled();
     await waitFor(() => expect(push).toHaveBeenCalledWith(expect.stringMatching(/^\/sl-test/)));
+  });
+
+  it("builds the cast and settings into the world it just created, then navigates", async () => {
+    const { useRouter } = await import("next/navigation");
+    const push = vi.mocked(useRouter().push);
+    push.mockClear();
+    const user = userEvent.setup();
+    render(<StorylineCreatorView />);
+
+    await user.type(screen.getByLabelText(/^title$/i), "Populated World");
+    await user.click(screen.getByRole("button", { name: /create world/i }));
+    await user.click(await screen.findByRole("button", { name: /create & build/i }));
+
+    // Population targets the id that was just created — the world the author lands in.
+    await waitFor(() => expect(vi.mocked(api.populateWorldStream)).toHaveBeenCalled());
+    const createdId = (await vi.mocked(api.createStoryline).mock.results[0].value).id;
+    expect(vi.mocked(api.populateWorldStream)).toHaveBeenCalledWith(
+      createdId,
+      expect.objectContaining({ withArtwork: false }),
+    );
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/${createdId}`));
+  });
+
+  it("saves an edit without asking about population", async () => {
+    const user = userEvent.setup();
+    render(<StorylineCreatorView editId="embergate" />);
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /edit storyline/i })).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(screen.queryByRole("dialog", { name: /build the cast/i })).not.toBeInTheDocument();
+    expect(vi.mocked(api.populateWorldStream)).not.toHaveBeenCalled();
+    await waitFor(() => expect(vi.mocked(api.updateStoryline)).toHaveBeenCalled());
   });
 
   it("loads an existing storyline in edit mode", async () => {

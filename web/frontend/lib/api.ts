@@ -21,6 +21,7 @@ import type {
   DocCategory,
   EntityScope,
   GraphTypeDefinition,
+  PopulateEvent,
   Scenario,
   ScenarioGraph,
   Setting,
@@ -477,6 +478,28 @@ export const triageDocumentsStream = (
   signal?: AbortSignal,
 ) =>
   postNdjson<TriageEvent>("/storylines/triage/stream", { docs, storylineId }, signal, {
+    retry: true,
+  });
+
+// ---- world population (the New Storyline page's build step) ----
+// Fills a freshly-created world with a generated cast + settings. Run AFTER the
+// storyline, its stats, and its corpus are persisted — the roster is grounded in
+// the saved world, and the entities are written straight to it.
+
+export interface PopulateWorldBody {
+  docsOverview?: string;
+  maxCharacters?: number;
+  maxSettings?: number;
+  withArtwork?: boolean;
+}
+
+/** Stream a world's population — `status` / `entity` / `error` frames, then `done`. */
+export const populateWorldStream = (
+  storylineId: string,
+  body: PopulateWorldBody = {},
+  signal?: AbortSignal,
+) =>
+  postNdjson<PopulateEvent>(`/storylines/${storylineId}/populate/stream`, body, signal, {
     retry: true,
   });
 

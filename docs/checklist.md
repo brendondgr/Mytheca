@@ -14,6 +14,8 @@ Verified against the code on 2026-08-04.
 
 ## Unbuilt capabilities
 
+- **Re-running world population on an existing world.** `POST /storylines/{id}/populate/stream` is only wired to the create flow (`BuildWorldModal` → `commitWorld`). A world created before the feature, or one whose population partly failed, has no in-app way to top up its cast — the author adds the rest by hand. The endpoint itself is id-scoped and would work; it needs a Library-side entry point (and a decision about whether it appends to, or dedupes against, the existing roster).
+- **Population never proposes scenarios.** It writes characters and settings only; the first scenario is still authored by hand.
 - **Relationship / mood stats** — extend the stat machinery to values with a relational target. Relationships currently live only in the graph.
 - **Scenario-level stat additions and range overrides** — described in old docs, never implemented; `Scenario` has no such column.
 - **Separate `GET /stream` transport** — the turn POST streams NDJSON directly. A standalone stream endpoint with Redis pub/sub fan-out is a seam, not a plan.

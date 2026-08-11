@@ -11,9 +11,14 @@ import { StatsEditor } from "@/components/feature/StatsEditor";
 import { SealModal } from "@/components/feature/SealModal";
 import { TriagePanel } from "@/components/feature/TriagePanel";
 import { StorylineAgentPanel } from "@/components/feature/StorylineAgentPanel";
-import { useStorylineCreator } from "@/features/library/useStorylineCreator";
+import { BuildWorldModal } from "@/components/feature/BuildWorldModal";
+import {
+  DEFAULT_POPULATE,
+  useStorylineCreator,
+} from "@/features/library/useStorylineCreator";
 import { useStorylineAgent } from "@/features/library/useStorylineAgent";
 import type { AppliedFields } from "@/features/library/storylineAgent";
+import type { PopulateOptions } from "@/lib/types";
 
 /**
  * The dedicated New / Edit Storyline page (routes `/storylines/new` +
@@ -26,6 +31,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
   const c = useStorylineCreator(editId);
   const router = useRouter();
   const [sealOpen, setSealOpen] = useState(false);
+  const [buildOpen, setBuildOpen] = useState(false);
 
   const canGeneratePrimer = Boolean(c.fields.premise.trim());
 
@@ -56,8 +62,20 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
     onApplied,
   });
 
+  // Creating a world asks what to build first (the population step is minutes of
+  // generation, so it is never a surprise). Editing saves straight away.
   async function onCommit() {
+    if (!c.isEdit) {
+      setBuildOpen(true);
+      return;
+    }
     const id = await c.commit();
+    if (id) router.push(`/${id}`);
+  }
+
+  async function onBuild(options: PopulateOptions) {
+    setBuildOpen(false);
+    const id = await c.commit(options);
     if (id) router.push(`/${id}`);
   }
 
@@ -256,6 +274,13 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
           budget={c.budget}
         />
       </div>
+
+      <BuildWorldModal
+        open={buildOpen}
+        defaults={DEFAULT_POPULATE}
+        onCancel={() => setBuildOpen(false)}
+        onConfirm={(options) => void onBuild(options)}
+      />
 
       <SealModal
         open={sealOpen}

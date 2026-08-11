@@ -343,6 +343,43 @@ export type TriageEvent =
   | { type: "done" }
   | { type: "error"; message: string };
 
+// ---- World population stream events (NDJSON) --------------------------------
+// Mirror the backend frame union (app/schemas/world_populate.py).
+// `/storylines/{id}/populate/stream` emits one of these per line while a freshly
+// created world is filled with its generated cast + settings.
+
+/** What the population run is doing right now. */
+export type PopulateStage = "roster" | "character" | "setting";
+
+export type PopulateEvent =
+  | {
+      type: "status";
+      stage: PopulateStage;
+      message: string;
+      name: string;
+      index: number;
+      total: number;
+    }
+  /** One entity that was actually persisted — the proof it reached the world. */
+  | {
+      type: "entity";
+      stage: "character" | "setting";
+      id: string;
+      name: string;
+      image: string | null;
+    }
+  /** `fatal: false` = one item failed and the run continued. */
+  | { type: "error"; message: string; fatal: boolean }
+  | { type: "done"; characters: number; settings: number };
+
+/** What the author chose in the Build-world dialog. */
+export interface PopulateOptions {
+  /** Generate the cast + settings at all. */
+  enabled: boolean;
+  /** Also render portraits / scene art (opt-in; each is a ComfyUI render). */
+  withArtwork: boolean;
+}
+
 // ---- The Story Graph (Neo4j substrate) --------------------------------------
 // One knowledge graph over the storyline's entities. Characters/Settings are
 // node types; their connections are edges. The graph is read live on scenario

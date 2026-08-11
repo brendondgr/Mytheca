@@ -406,6 +406,37 @@ file dropped mid-conversation applies from the next message onward. This is tran
 prompt context only — the corpus is persisted separately by `commitWorld` through
 `…/context-docs/bulk` (see *Context Document Flow* below).
 
+## World Population Flow (create → populate → redirect)
+
+Creating a world used to stop at the container: the storyline, its stats, and its
+corpus were persisted and the author was redirected into a Library with empty
+Characters and Settings columns. **Create World** now finishes the job.
+
+```
+StorylineCreatorView → Create World
+  → BuildWorldModal  {enabled, withArtwork}   ← the author is asked, never surprised
+  → storylineCreator.commitWorld
+       1. POST /api/storylines                     (the world)
+       2. POST /api/storylines/{id}/stats          (its stat schema)
+       3. POST /api/storylines/{id}/context-docs/bulk   (the triaged corpus)
+       4. POST /api/storylines/{id}/populate/stream {docsOverview, withArtwork}
+            → routes/storylines → services/world_populate.populate_world
+                 → agents/roster_agent.propose_roster        (names + one-line seeds)
+                 → agents/character_agent.draft_character  → crud.create_character
+                 → agents/setting_agent.draft_setting      → crud.create_setting
+                 → [withArtwork] services/portraits · services/scene_art  (best-effort)
+            ← NDJSON: status · entity (per persisted row) · error · done
+  → router.push(`/{id}`) → LibraryView loads GET …/characters + …/settings
+```
+
+Population runs **last, against the persisted world**, so the roster is grounded in
+the saved storyline and corpus and each entity is written straight into it (picking up
+the usual graph + RAG sync through `crud`). Two failure postures: the roster is fatal
+(nothing to build), every entity is not — one failed draft or render emits an `error`
+frame, the run continues, and the world is never rolled back. `commitWorld` therefore
+always returns the id: a population problem surfaces as a warning on a world that
+exists, never as a lost create.
+
 ## Character Authoring Flow (creation-time agent + portrait)
 
 ```
