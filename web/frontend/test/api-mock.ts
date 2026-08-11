@@ -147,6 +147,34 @@ export function makeApiMock() {
       yield { type: "done" as const };
     }),
 
+    // World population — the create-time cast + settings build. Streams the same
+    // frames the backend does: a roster status, one `entity` per persisted row, `done`.
+    populateWorldStream: vi.fn(async function* (
+      _storylineId: string,
+      body: { withArtwork?: boolean } = {},
+    ) {
+      yield { type: "status" as const, stage: "roster" as const, message: "Planning…", name: "", index: 0, total: 0 };
+      for (const [i, name] of ["Maerin Voss", "Harbormaster Cael"].entries()) {
+        yield { type: "status" as const, stage: "character" as const, message: `Writing ${name}…`, name, index: i + 1, total: 2 };
+        yield {
+          type: "entity" as const,
+          stage: "character" as const,
+          id: nid("c"),
+          name,
+          image: body.withArtwork ? "/media/portraits/mock.webp" : null,
+        };
+      }
+      yield { type: "status" as const, stage: "setting" as const, message: "Building The Salt Wharf…", name: "The Salt Wharf", index: 1, total: 1 };
+      yield {
+        type: "entity" as const,
+        stage: "setting" as const,
+        id: nid("s"),
+        name: "The Salt Wharf",
+        image: body.withArtwork ? "/media/scenes/mock.webp" : null,
+      };
+      yield { type: "done" as const, characters: 2, settings: 1 };
+    }),
+
     // ---- context documents (the persisted triaged RAG corpus) ----
     listContextDocuments: vi.fn(async () => [] as unknown[]),
     bulkCreateContextDocuments: vi.fn(

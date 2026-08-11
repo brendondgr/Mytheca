@@ -7,8 +7,14 @@
 
 import * as api from "@/lib/api";
 import type { ContextDocumentInput } from "@/lib/api";
-import type { ContextDocument, DocCategory, StatDefinition, Storyline } from "@/lib/types";
-import type { ReadDoc } from "@/lib/readDocs";
+import type {
+  ContextDocument,
+  DocCategory,
+  PopulateOptions,
+  StatDefinition,
+  Storyline,
+} from "@/lib/types";
+import { concatDocs, type ReadDoc } from "@/lib/readDocs";
 import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 
 /** A dropped reference doc plus its triage classification (creator-only state). */
@@ -121,6 +127,11 @@ export function draftDocTexts(docs: CreatorDoc[]): string[] {
   return docs.filter((d) => d.useDraft && d.text).map((d) => d.text);
 }
 
+/** The Draft-included docs as one bounded grounding string (or undefined). */
+export function draftGrounding(docs: CreatorDoc[]): string | undefined {
+  return concatDocs(docs.filter((d) => d.useDraft));
+}
+
 /** Merge Triage results into the dropped docs by name. */
 export function applyTriage(
   docs: CreatorDoc[],
@@ -202,6 +213,47 @@ export interface CommitArgs {
   docs: CreatorDoc[];
   /** Already-persisted docs (edit mode) — skipped so we don't duplicate them. */
   existingDocs?: ContextDocument[];
+  /** Create mode: what the author chose in the Build-world dialog. */
+  populate?: PopulateOptions;
+}
+
+/**
+ * Fill the just-created world with a generated cast + settings, reporting progress.
+ *
+ * Runs last in the create sequence, against the *persisted* world: the roster is
+ * grounded in the saved storyline and corpus, and each entity is written straight to
+ * it. Failures are reported and swallowed — the world already exists, so a failed
+ * population must never strand the author on the create page or lose their work.
+ * Returns the non-fatal message to surface, or `null` when everything landed.
+ */
+export async function populateWorld(
+  storylineId: string,
+  opts: PopulateOptions,
+  docsOverview?: string,
+  onProgress?: (msg: string) => void,
+): Promise<string | null> {
+  let problem: string | null = null;
+  try {
+    for await (const ev of api.populateWorldStream(storylineId, {
+      docsOverview,
+      withArtwork: opts.withArtwork,
+    })) {
+      if (ev.type === "status") {
+        onProgress?.(
+          ev.total > 1 ? `${ev.message} (${ev.index} / ${ev.total})` : ev.message,
+        );
+      } else if (ev.type === "entity") {
+        onProgress?.(`Added ${ev.name}.`);
+      } else if (ev.type === "error") {
+        // Non-fatal frames report one item; a fatal one ends the run. Either way the
+        // world stands, so the last message is what the author sees.
+        problem = ev.message;
+      }
+    }
+  } catch (e) {
+    problem = e instanceof Error ? e.message : "Could not build the cast and settings.";
+  }
+  return problem;
 }
 
 function coreInput(f: CreatorFields, clearable: boolean): api.StorylineInput {
@@ -218,15 +270,23 @@ function coreInput(f: CreatorFields, clearable: boolean): api.StorylineInput {
   };
 }
 
+/** The outcome of a commit: the world's id, plus anything worth telling the author. */
+export interface CommitResult {
+  id: string;
+  /** A non-fatal problem (population failed / partly failed); the world still exists. */
+  warning: string | null;
+}
+
 /**
- * Persist an approved world. Returns the storyline id. In edit mode it updates the
- * core + stats (+ reconciles the storyline-level corpus). In create mode it creates
- * the storyline, its stats, then the triaged corpus — reporting progress per step.
+ * Persist an approved world. In edit mode it updates the core + stats (+ reconciles
+ * the storyline-level corpus). In create mode it creates the storyline, its stats,
+ * the triaged corpus, and — when the author asked for it in the Build-world dialog —
+ * generates and persists the cast + settings, reporting progress per step.
  */
 export async function commitWorld(
   args: CommitArgs,
   onProgress?: (msg: string) => void,
-): Promise<string> {
+): Promise<CommitResult> {
   const { editId, fields, stats, statsOriginal, docs } = args;
 
   if (editId) {
@@ -244,7 +304,7 @@ export async function commitWorld(
     await Promise.all(
       slExisting.filter((d) => !keepNames.has(d.name)).map((d) => api.deleteContextDocument(d.id)),
     );
-    return editId;
+    return { id: editId, warning: null };
   }
 
   onProgress?.("Creating the world…");
@@ -262,5 +322,12 @@ export async function commitWorld(
     await api.bulkCreateContextDocuments(id, corpus.map(docToContextInput));
   }
 
-  return id;
+  // Population runs last, against the persisted world: the roster is grounded in the
+  // saved storyline + corpus, and the cast/settings are written straight into it.
+  let warning: string | null = null;
+  if (args.populate?.enabled) {
+    warning = await populateWorld(id, args.populate, draftGrounding(docs), onProgress);
+  }
+
+  return { id, warning };
 }

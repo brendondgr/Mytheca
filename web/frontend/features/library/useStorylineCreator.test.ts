@@ -130,6 +130,48 @@ describe("useStorylineCreator", () => {
     expect(vi.mocked(api.bulkCreateContextDocuments)).toHaveBeenCalled();
   });
 
+  it("commit forwards the author's Build-world choices to the population step", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    act(() => result.current.setField("title", "A World"));
+
+    let newId: string | null = null;
+    await act(async () => {
+      newId = await result.current.commit({ enabled: true, withArtwork: true });
+    });
+
+    expect(newId).toBeTruthy();
+    expect(vi.mocked(api.populateWorldStream)).toHaveBeenCalledWith(
+      newId,
+      expect.objectContaining({ withArtwork: true }),
+    );
+  });
+
+  it("surfaces a population problem as an error without losing the world", async () => {
+    vi.mocked(api.populateWorldStream).mockImplementationOnce(async function* () {
+      yield { type: "error" as const, message: "Could not write Maerin.", fatal: false };
+      yield { type: "done" as const, characters: 0, settings: 0 };
+    } as never);
+    const { result } = renderHook(() => useStorylineCreator());
+    act(() => result.current.setField("title", "A World"));
+
+    let newId: string | null = null;
+    await act(async () => {
+      newId = await result.current.commit({ enabled: true, withArtwork: false });
+    });
+
+    expect(newId).toBeTruthy();
+    await waitFor(() => expect(result.current.error).toBe("Could not write Maerin."));
+  });
+
+  it("skips population entirely when the author declines it", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    act(() => result.current.setField("title", "A World"));
+    await act(async () => {
+      await result.current.commit({ enabled: false, withArtwork: false });
+    });
+    expect(vi.mocked(api.populateWorldStream)).not.toHaveBeenCalled();
+  });
+
   it("loads an existing storyline + stats + corpus in edit mode", async () => {
     vi.mocked(api.getStoryline).mockResolvedValueOnce({
       id: "embergate",

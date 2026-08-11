@@ -2,9 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "@/lib/api";
-import { concatDocs, readDocFiles, type DocUse } from "@/lib/readDocs";
+import { readDocFiles, type DocUse } from "@/lib/readDocs";
 import { budgetFor } from "@/lib/contextBudget";
-import type { ContextDocument, DocCategory, StatDefinition } from "@/lib/types";
+import type {
+  ContextDocument,
+  DocCategory,
+  PopulateOptions,
+  StatDefinition,
+} from "@/lib/types";
 import {
   applyTriage,
   BLANK_FIELDS,
@@ -12,6 +17,7 @@ import {
   type CreatorDoc,
   type CreatorFields,
   draftDocTexts,
+  draftGrounding,
   fieldsFromStoryline,
   fromContextDocument,
   isCreatorValid,
@@ -24,10 +30,11 @@ function messageOf(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong.";
 }
 
-/** Draft-included docs as one bounded grounding string (or undefined). */
-function draftGrounding(docs: CreatorDoc[]): string | undefined {
-  return concatDocs(docs.filter((d) => d.useDraft));
-}
+/**
+ * What the Build-world dialog offers by default: build the cast + settings, but no
+ * artwork — every image is a ComfyUI render, so it stays an explicit opt-in.
+ */
+export const DEFAULT_POPULATE: PopulateOptions = { enabled: true, withArtwork: false };
 
 /**
  * State for the New Storyline page (`StorylineCreatorView`). Holds the by-hand
@@ -220,35 +227,45 @@ export function useStorylineCreator(editId?: string) {
   }, [fields.premise, docs]);
 
   // ---- commit ----
-  const commit = useCallback(async (): Promise<string | null> => {
-    if (!isCreatorValid(fields)) {
-      setError("Give the world a title first.");
-      return null;
-    }
-    setCommitting(true);
-    setError(null);
-    setProgress(null);
-    try {
-      const id = await commitWorld(
-        {
-          editId,
-          fields,
-          stats,
-          statsOriginal,
-          docs,
-          existingDocs,
-        },
-        setProgress,
-      );
-      return id;
-    } catch (e) {
-      setError(messageOf(e));
-      return null;
-    } finally {
-      setCommitting(false);
+  // `populate` is what the author chose in the Build-world dialog (create mode only).
+  // A population problem is a warning, not a failure: the world exists either way, so
+  // the caller still gets the id and navigates.
+  const commit = useCallback(
+    async (populate: PopulateOptions = { enabled: false, withArtwork: false }): Promise<
+      string | null
+    > => {
+      if (!isCreatorValid(fields)) {
+        setError("Give the world a title first.");
+        return null;
+      }
+      setCommitting(true);
+      setError(null);
       setProgress(null);
-    }
-  }, [editId, fields, stats, statsOriginal, docs, existingDocs]);
+      try {
+        const { id, warning } = await commitWorld(
+          {
+            editId,
+            fields,
+            stats,
+            statsOriginal,
+            docs,
+            existingDocs,
+            populate,
+          },
+          setProgress,
+        );
+        if (warning) setError(warning);
+        return id;
+      } catch (e) {
+        setError(messageOf(e));
+        return null;
+      } finally {
+        setCommitting(false);
+        setProgress(null);
+      }
+    },
+    [editId, fields, stats, statsOriginal, docs, existingDocs],
+  );
 
   const budget = useMemo(
     () => budgetFor({ worldPrimer: fields.worldPrimer, draftDocs: draftDocTexts(docs) }),
