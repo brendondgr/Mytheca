@@ -244,6 +244,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
           onAddFiles={(files, opts) => void c.addFiles(files, opts)}
           onRemove={c.removeDoc}
           onToggleUse={c.toggleDocUse}
+          onSetAllUse={c.setAllDocUse}
           onSetCategory={c.setDocCategory}
           onTriage={c.triage}
           triaging={c.triaging}

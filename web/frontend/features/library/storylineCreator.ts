@@ -77,17 +77,21 @@ export interface UploadDefaults {
 }
 
 /**
- * A freshly-dropped doc. By default it is Uncategorized ("select"), RAG on, Draft off,
- * Extract off (extraction is opt-in — a new storyline never auto-mines docs for cast/
- * settings). When the author picked an upload target (category / Draft / RAG / Extract),
- * those are applied so a whole batch lands pre-categorized — no Triage needed for it. A
- * doc dropped into a real category counts as already triaged (Triage sweeps the rest).
+ * A freshly-dropped doc. By default it is Uncategorized ("select"), **Draft on**, RAG
+ * on, Extract off (extraction is opt-in — a new storyline never auto-mines docs for
+ * cast/settings). Draft-on is the default because an uploaded file that the assistant
+ * cannot see is the surprising case: the author dropped it in to be used. The volume is
+ * bounded by `DOCS_CHAR_CAP`, shown live by the context-budget meter, and reversible in
+ * one click via the panel's De-select All. When the author picked an upload target
+ * (category / Draft / RAG / Extract), those are applied so a whole batch lands
+ * pre-categorized — no Triage needed for it. A doc dropped into a real category counts
+ * as already triaged (Triage sweeps the rest).
  */
 export function toCreatorDoc(doc: ReadDoc, opts: UploadDefaults = {}): CreatorDoc {
   const category = opts.category ?? "select";
   return {
     ...doc,
-    useDraft: opts.useDraft ?? doc.useDraft ?? false,
+    useDraft: opts.useDraft ?? doc.useDraft ?? true,
     useRag: opts.useRag ?? doc.useRag ?? true,
     useExtract: opts.useExtract ?? doc.useExtract ?? false,
     category,
