@@ -26,8 +26,10 @@ from app.schemas.storyline import (
     WorldPrimerRequest,
     WorldPrimerResponse,
 )
+from app.events.stream import with_keepalive
 from app.schemas.storyline_edit import (
     AgentErrorFrame,
+    AgentStatusFrame,
     StorylineAgentRequest,
     StorylineApplyRequest,
     StorylineApplyResponse,
@@ -99,11 +101,18 @@ def triage_documents_stream(data: TriageRequest, db: Session = Depends(get_db)):
 
 
 def _agent_stream(events: Iterator) -> StreamingResponse:
-    """Wrap an agent event generator as an NDJSON stream with a terminal error frame."""
+    """Wrap an agent event generator as an NDJSON stream with a terminal error frame.
+
+    An agent turn produces nothing until the LLM call returns, so the response would
+    otherwise hold a silent socket for the whole generation. ``with_keepalive`` fills
+    that gap with ``status`` frames — a frame type the client already folds to a no-op.
+    """
 
     def _lines() -> Iterator[str]:
         try:
-            for event in events:
+            for event in with_keepalive(
+                events, lambda: AgentStatusFrame(message="Still thinking…")
+            ):
                 yield event.model_dump_json(by_alias=True) + "\n"
         except APIError as exc:
             yield AgentErrorFrame(message=exc.message).model_dump_json(by_alias=True) + "\n"

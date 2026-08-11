@@ -12,6 +12,9 @@ full events.
 
 from __future__ import annotations
 
+import queue
+import threading
+from collections.abc import Callable, Iterable, Iterator
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -91,6 +94,62 @@ def chunk_text(text: str, max_chunk_chars: int = _DELTA_CHUNK_CHARS) -> list[str
         chunks.append(text[start:end])
         start = end
     return chunks
+
+
+# How long a stream may stay silent before a keep-alive frame goes out. Well under
+# any conventional idle-connection reaping (proxies commonly reap at 30-60s) and far
+# too coarse to matter as traffic.
+KEEPALIVE_INTERVAL_SECONDS = 10.0
+
+
+def with_keepalive(
+    source: Iterable[Any],
+    keepalive: Callable[[], Any],
+    interval: float = KEEPALIVE_INTERVAL_SECONDS,
+) -> Iterator[Any]:
+    """Yield from ``source``, emitting ``keepalive()`` every ``interval`` idle seconds.
+
+    An agent turn calls the LLM to completion *before* its first ``yield``, so the
+    response holds a socket that is byte-for-byte silent for the whole generation —
+    measured at 24s for one storyline turn, and minutes on a large local reasoning
+    model. Response headers go out immediately, so nothing on the wire says the work
+    is still alive, and any idle-connection reaping between browser and server takes
+    the stream down mid-thought.
+
+    ``source`` runs on a daemon worker thread feeding a queue; this generator polls
+    with a timeout and fills the gaps. The worker owns the request's ``Session``
+    exclusively while the request thread blocks on the queue, so the two never touch
+    SQLAlchemy concurrently. Items and exceptions are relayed **in order**, leaving
+    the caller's error handling (e.g. an ``APIError`` becoming a terminal error frame)
+    exactly as it was without the wrapper.
+    """
+    done = object()
+    relay: queue.Queue = queue.Queue()
+
+    def pump() -> None:
+        try:
+            for item in source:
+                relay.put((None, item))
+        except BaseException as exc:  # relayed and re-raised on the consumer thread
+            relay.put((exc, None))
+        finally:
+            relay.put((None, done))
+
+    # Daemon: if the client disconnects, the worker finishes its in-flight LLM call
+    # (bounded by the generation timeout) and exits rather than holding shutdown.
+    threading.Thread(target=pump, name="stream-keepalive", daemon=True).start()
+
+    while True:
+        try:
+            exc, item = relay.get(timeout=interval)
+        except queue.Empty:
+            yield keepalive()
+            continue
+        if exc is not None:
+            raise exc
+        if item is done:
+            return
+        yield item
 
 
 class TurnErrorFrame(CamelModel):
