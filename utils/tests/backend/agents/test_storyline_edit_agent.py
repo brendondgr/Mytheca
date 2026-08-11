@@ -189,3 +189,22 @@ def test_stat_changes_accepts_snake_case_key():
     raw = {"stat_changes": [{"key": "trust", "changeType": "remove"}]}
     plan = core._plan_from_raw(raw, _scope({"statistics"}), snap)
     assert plan is not None and plan.stat_changes[0].change_type == "remove"
+
+
+# ---- context-file grounding in the system prompt ----------------------------
+
+
+def test_build_system_folds_in_the_selected_context_files():
+    from app.agents._common import docs_block
+
+    grounding = docs_block("### tide-charts.md\nThe harbour drowns at every ninth bell.")
+    system = core._build_system("persona", _scope({"title"}), StorylineFieldsSnapshot(), grounding)
+    assert "ninth bell" in system
+    assert "tide-charts.md" in system
+
+
+def test_build_system_omits_the_grounding_block_when_no_files_are_selected():
+    from app.agents._common import docs_block
+
+    system = core._build_system("persona", _scope({"title"}), StorylineFieldsSnapshot(), docs_block(""))
+    assert "Reference notes from dropped files" not in system

@@ -41,6 +41,7 @@ def storyline_editor_agent(
     scope: ScopeState,
     messages: list[AgentMessage],
     fields: StorylineFieldsSnapshot,
+    docs_overview: str | None = None,
     reasoning: ReasoningEffort = core.DEFAULT_AUTHORING_EFFORT,
 ) -> Iterator[AgentMessageFrame | AgentPlanFrame]:
     return core.converse(
@@ -51,5 +52,6 @@ def storyline_editor_agent(
         messages=messages,
         fields=fields,
         low_temp=True,
+        docs_overview=docs_overview,
         reasoning=reasoning,
     )

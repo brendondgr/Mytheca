@@ -49,6 +49,10 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
       worldPrimer: c.fields.worldPrimer,
       stats: c.stats,
     }),
+    // The context files the author kept selected for Draft ground every assistant
+    // turn, so a generated title/genre/tagline/premise/primer/stat set is built on
+    // the material they uploaded rather than on the form fields alone.
+    getDocsOverview: c.docsOverview,
     onApplied,
   });
 
@@ -72,7 +76,10 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
     // at lg+ — the **Assistant** left sidebar, the world fields in the center, and the
     // **Context** files right sidebar, each owning an independent vertical scroll. Below
     // lg they stack (the form leads via `order-1`; the two sidebars become bounded strips).
-    <main className="flex h-dvh min-h-0 flex-col overflow-hidden lg:flex-row">
+    // `relative` makes this shell the containing block for absolutely-positioned
+    // descendants (notably `sr-only` labels) so none of them can escape `overflow-hidden`
+    // and inflate the root scroller with blank page below the fold.
+    <main className="relative flex h-dvh min-h-0 flex-col overflow-hidden lg:flex-row">
       {/* ── Left sidebar — the Assistant (own scroll; StorylineAgentPanel is the landmark) ── */}
       <div className="mytheca-rail order-2 flex max-h-[50dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong lg:order-1 lg:max-h-none lg:w-[380px] lg:border-t-0 lg:border-r lg:self-stretch">
         <StorylineAgentPanel agent={agent} mode={c.isEdit ? "edit" : "create"} />
@@ -241,6 +248,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
           onAddFiles={(files, opts) => void c.addFiles(files, opts)}
           onRemove={c.removeDoc}
           onToggleUse={c.toggleDocUse}
+          onSetAllUse={c.setAllDocUse}
           onSetCategory={c.setDocCategory}
           onTriage={c.triage}
           triaging={c.triaging}

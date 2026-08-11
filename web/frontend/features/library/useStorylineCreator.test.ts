@@ -20,7 +20,7 @@ describe("useStorylineCreator", () => {
       await result.current.addFiles([file("a.md", "A person."), file("b.md", "A place.")]);
     });
     expect(result.current.docs).toHaveLength(2);
-    // Untriaged default: Draft off, RAG on, "select" (uncategorized).
+    // Untriaged default: Draft on, RAG on, "select" (uncategorized).
     expect(result.current.docs[0].category).toBe("select");
     expect(result.current.docs[0].triaged).toBe(false);
 
@@ -34,6 +34,44 @@ describe("useStorylineCreator", () => {
     expect(result.current.docs.every((d) => d.triaged)).toBe(true);
     // The per-file indicator clears once the stream completes.
     expect(result.current.triageActive).toBeNull();
+  });
+
+  it("drops dropped docs Draft-on and bulk-clears/restores them via setAllDocUse", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    await act(async () => {
+      await result.current.addFiles([file("a.md", "A person."), file("b.md", "A place.")]);
+    });
+    expect(result.current.docs.every((d) => d.useDraft)).toBe(true);
+
+    act(() => result.current.setAllDocUse("useDraft", false));
+    expect(result.current.docs.every((d) => d.useDraft === false)).toBe(true);
+    // RAG is untouched by a Draft-only bulk change.
+    expect(result.current.docs.every((d) => d.useRag)).toBe(true);
+
+    act(() => result.current.setAllDocUse("useDraft", true));
+    expect(result.current.docs.every((d) => d.useDraft)).toBe(true);
+  });
+
+  it("exposes only the Draft-selected docs as the assistant's grounding", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    await act(async () => {
+      await result.current.addFiles([
+        file("keep.md", "The harbour drowns at every ninth bell."),
+        file("drop.md", "An unrelated shopping list."),
+      ]);
+    });
+    // Both are Draft-on by default, so both ground the assistant.
+    expect(result.current.docsOverview()).toContain("ninth bell");
+    expect(result.current.docsOverview()).toContain("shopping list");
+
+    act(() => result.current.toggleDocUse("drop.md", "useDraft"));
+    const grounding = result.current.docsOverview();
+    expect(grounding).toContain("ninth bell");
+    expect(grounding).not.toContain("shopping list");
+
+    // Clearing every selection drops the field entirely rather than sending "".
+    act(() => result.current.setAllDocUse("useDraft", false));
+    expect(result.current.docsOverview()).toBeUndefined();
   });
 
   it("adds a whole batch pre-categorized when an upload target is chosen", async () => {

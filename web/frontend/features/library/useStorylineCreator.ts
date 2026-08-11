@@ -151,6 +151,13 @@ export function useStorylineCreator(editId?: string) {
       ),
     [],
   );
+  // Bulk select/deselect one use across every doc — the only workable control once a
+  // batch of dozens is in the panel.
+  const setAllDocUse = useCallback(
+    (key: DocUse, value: boolean) =>
+      setDocs((prev) => prev.map((d) => ({ ...d, [key]: value }))),
+    [],
+  );
   const setDocCategory = useCallback(
     (name: string, category: DocCategory) =>
       setDocs((prev) => prev.map((d) => (d.name === name ? { ...d, category } : d))),
@@ -292,7 +299,10 @@ export function useStorylineCreator(editId?: string) {
     addFiles,
     removeDoc,
     toggleDocUse,
+    setAllDocUse,
     setDocCategory,
+    /** The Draft-selected context files as one bounded grounding string (or undefined). */
+    docsOverview: () => draftGrounding(docs),
     budget,
     isValid: isCreatorValid(fields),
     loading,

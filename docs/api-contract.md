@@ -477,14 +477,22 @@ every other NDJSON stream in this contract.
 
 - `POST /storylines/agent/create/stream` — the **creation** agent, for a blank/partial
   draft on `/storylines/new`. Body: `{ scope: ScopeState, messages: AgentMessage[],
-  fields: <current in-progress field values> }` (`AgentMessage { role: "user"|"assistant",
-  content }`). Streams `message` + an optional terminal `plan` (no `baseVersion` — there
-  is no persisted row yet). No writes; unconfigured LLM or an empty last user message →
-  `400 bad_request`.
+  fields: <current in-progress field values>, docsOverview?: string }`
+  (`AgentMessage { role: "user"|"assistant", content }`). `docsOverview` is the inline
+  text of the context files the author kept selected for **Draft** in `TriagePanel`,
+  concatenated client-side by `concatDocs` and re-capped server-side at `DOCS_CAP`
+  (32 000 chars); it grounds the turn through `_common.docs_block` — the same block the
+  `/draft` and `/primer` endpoints use — and is re-read per turn, so a file dropped
+  mid-conversation is picked up by the next message. It is optional: omit it and the
+  agent reasons from `fields` alone. The corpus itself is persisted separately via the
+  context-document CRUD; this field carries no ids and writes nothing. Streams `message`
+  + an optional terminal `plan` (no `baseVersion` — there is no persisted row yet). No
+  writes; unconfigured LLM or an empty last user message → `400 bad_request`.
 - `POST /storylines/{id}/agent/edit/stream` — the **editor** agent, scoped to an existing
-  storyline. Same body shape as create, plus the storyline is loaded server-side to ground
-  the conversation (world context + best-effort RAG over its own corpus, restricted to
-  `readable_keys(scope)`). The terminal `plan` frame carries `baseVersion`. `404` if the
+  storyline. Same body shape as create — including `docsOverview` — plus the storyline is
+  loaded server-side to ground the conversation (world context + best-effort RAG over its
+  own corpus, restricted to `readable_keys(scope)`); the selected context files are
+  appended to that grounding. The terminal `plan` frame carries `baseVersion`. `404` if the
   storyline is missing; `400` if the LLM is unconfigured or the last message has no user
   turn. No writes.
 - `POST /storylines/{id}/agent/apply` — approves and writes a plan. Body:

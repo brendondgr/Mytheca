@@ -161,6 +161,11 @@ class StorylineAgentRequest(CamelModel):
     scope: ScopeState = Field(default_factory=dict)
     messages: list[AgentMessage] = Field(default_factory=list)
     fields: StorylineFieldsSnapshot = Field(default_factory=StorylineFieldsSnapshot)
+    # Inline text of the context files the author kept selected for **Draft** in the
+    # panel, concatenated client-side. It grounds this turn only — the corpus itself is
+    # persisted separately via the context-document CRUD. Optional and bounded server-
+    # side by ``_common.DOCS_CAP``; omitting it leaves the agent ungrounded as before.
+    docs_overview: str = ""
 
 
 # ---- Stream frames (NDJSON-from-POST) ---------------------------------------

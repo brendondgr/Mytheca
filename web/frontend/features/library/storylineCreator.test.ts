@@ -57,11 +57,13 @@ describe("storylineCreator.persistStatsDiff", () => {
 });
 
 describe("storylineCreator helpers", () => {
-  it("a fresh doc starts untriaged: Select (uncategorized), RAG on, Draft off, Extract off", () => {
+  it("a fresh doc starts untriaged: Select (uncategorized), Draft on, RAG on, Extract off", () => {
     const d = toCreatorDoc({ name: "a.md", text: "x" });
     expect(d.category).toBe("select");
     expect(d.triaged).toBe(false);
-    expect(d.useDraft).toBe(false);
+    // Draft is ON by default — an uploaded file the assistant cannot see is the
+    // surprising case. Bounded by DOCS_CHAR_CAP and reversible via De-select All.
+    expect(d.useDraft).toBe(true);
     expect(d.useRag).toBe(true);
     // Extraction is opt-in — a new doc is never auto-mined.
     expect(d.useExtract).toBe(false);

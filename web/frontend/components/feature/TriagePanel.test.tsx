@@ -83,9 +83,9 @@ describe("TriagePanel self-triage", () => {
     const user = userEvent.setup();
     const onAddFiles = vi.fn();
     render(<TriagePanel {...baseProps} docs={[]} triaging={false} onAddFiles={onAddFiles} />);
-    // Pick "Character" as the upload target and flip Draft + Extract defaults on.
+    // Pick "Character" as the upload target and flip the Extract default on (Draft and
+    // RAG are already on by default).
     await user.selectOptions(screen.getByRole("combobox", { name: /add as/i }), "character");
-    await user.click(screen.getByRole("button", { name: /default draft for uploads/i }));
     await user.click(screen.getByRole("button", { name: /default extract for uploads/i }));
     // Browse a file → it carries the chosen target.
     const input = document.getElementById("creator-docs-input") as HTMLInputElement;
@@ -105,6 +105,57 @@ describe("TriagePanel self-triage", () => {
     );
     await user.click(screen.getByRole("button", { name: /extract for hero\.md/i }));
     expect(onToggleUse).toHaveBeenCalledWith("hero.md", "useExtract");
+  });
+
+  it("offers De-select All while any doc grounds the draft, and clears them in one click", async () => {
+    const user = userEvent.setup();
+    const onSetAllUse = vi.fn();
+    const docs = [
+      toCreatorDoc({ name: "a.md", text: "x" }),
+      toCreatorDoc({ name: "b.md", text: "y" }),
+    ];
+    render(
+      <TriagePanel {...baseProps} docs={docs} triaging={false} onSetAllUse={onSetAllUse} />,
+    );
+    expect(screen.getByText("2/2")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /de-select all/i }));
+    expect(onSetAllUse).toHaveBeenCalledWith("useDraft", false);
+  });
+
+  it("offers Re-select All once nothing grounds the draft", async () => {
+    const user = userEvent.setup();
+    const onSetAllUse = vi.fn();
+    const docs = [
+      toCreatorDoc({ name: "a.md", text: "x" }, { useDraft: false }),
+      toCreatorDoc({ name: "b.md", text: "y" }, { useDraft: false }),
+    ];
+    render(
+      <TriagePanel {...baseProps} docs={docs} triaging={false} onSetAllUse={onSetAllUse} />,
+    );
+    expect(screen.getByText("0/2")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /re-select all/i }));
+    expect(onSetAllUse).toHaveBeenCalledWith("useDraft", true);
+  });
+
+  it("hides the bulk Draft control while there are no docs", () => {
+    render(<TriagePanel {...baseProps} docs={[]} triaging={false} />);
+    expect(screen.queryByRole("button", { name: /select all/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the doc list inside its own scroll container", () => {
+    // Regression: every DocRow renders an `sr-only` label, and `sr-only` is
+    // `position: absolute`. Without a positioned ancestor those labels resolve
+    // against the initial containing block, escape the page shell's
+    // `overflow-hidden`, and grow the ROOT scroller by the full list height —
+    // measured at 6212px of blank page for 28 files in a 720px viewport. jsdom
+    // has no layout, so the invariant is asserted structurally.
+    const docs = [toCreatorDoc({ name: "hero.md", text: "A person." })];
+    const { container } = render(<TriagePanel {...baseProps} docs={docs} triaging={false} />);
+    const label = container.querySelector("label.sr-only");
+    expect(label).not.toBeNull();
+    const scroller = label!.closest(".overflow-y-auto");
+    expect(scroller).not.toBeNull();
+    expect(scroller).toHaveClass("relative");
   });
 
   it("switches to grouped view once a doc is manually categorized", () => {

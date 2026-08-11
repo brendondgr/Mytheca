@@ -35,6 +35,20 @@ Verified against the code on 2026-08-04.
 - **`validate_relationship` substring fallback** will mis-bind on nested cast names ("Aldous" vs "Brother Aldous").
 - **Ollama is not a detected engine.** `LOCAL_LLM_BASE_URL` defaults to `http://localhost:11434` — Ollama's port — but `services/llm_backend.py` detects only vLLM (`GET /version`) and llama.cpp (`GET /props`). An Ollama user silently gets no reasoning budget.
 - **`web/shared/contracts/` is empty** while both layers hand-maintain their own copy of the event contract. Either populate it or drop the directory and document the manual mirror as the intended design.
+- **`sr-only` inside a clipping container is a repo-wide latent bug.** Tailwind's
+  `sr-only` is `position: absolute`; with no positioned ancestor its containing block is
+  the *initial* containing block, so it is **not** clipped by an `overflow: hidden`
+  ancestor and instead grows the **root** scroller. `TriagePanel`'s doc list hit this
+  hard (6212px of blank page below the fold for 28 files) and was fixed on 2026-08-11 by
+  making the scroller `relative`. **The rest of the tree has not been swept** — any
+  `sr-only` (or other absolutely-positioned) element inside a long scrolling list within
+  a `h-dvh`/`overflow-hidden` shell can reproduce it. The symptom is
+  `documentElement.scrollHeight > clientHeight` while `document.body` is viewport-sized.
+- **The context rail is very cramped below `lg`.** With the rails stacked, `TriagePanel`'s
+  sticky header (upload target + drop zone + Triage button) consumes almost the whole
+  `42dvh` strip, leaving the doc list ~34px of scroll at 320×720 and 375×812 (134px at
+  768). Functional — the list scrolls and the page does not overflow — but poor; part of
+  the unbuilt mobile-drawer work under *Known UI limitations*.
 - **No LICENSE file.** The repository is all-rights-reserved by default.
 
 ## Deferred verification

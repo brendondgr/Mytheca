@@ -129,7 +129,11 @@ def storyline_agent_create_stream(data: StorylineAgentRequest, db: Session = Dep
     storyline_edit_core.validate_inputs(db, data.messages)
     return _agent_stream(
         creation_agent.storyline_creation_agent(
-            db, scope=data.scope, messages=data.messages, fields=data.fields
+            db,
+            scope=data.scope,
+            messages=data.messages,
+            fields=data.fields,
+            docs_overview=data.docs_overview,
         )
     )
 
@@ -189,6 +193,7 @@ def storyline_agent_edit_stream(
             scope=data.scope,
             messages=data.messages,
             fields=data.fields,
+            docs_overview=data.docs_overview,
         )
     )
 

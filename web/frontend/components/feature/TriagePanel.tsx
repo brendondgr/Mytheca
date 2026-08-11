@@ -47,6 +47,7 @@ export function TriagePanel({
   onAddFiles,
   onRemove,
   onToggleUse,
+  onSetAllUse,
   onSetCategory,
   onTriage,
   triaging,
@@ -59,6 +60,8 @@ export function TriagePanel({
   onAddFiles: (files: FileList | File[] | null, opts?: UploadDefaults) => void;
   onRemove: (name: string) => void;
   onToggleUse: (name: string, key: DocUse) => void;
+  /** Bulk-set one use across every doc (drives De-select All / Re-select All). */
+  onSetAllUse?: (key: DocUse, value: boolean) => void;
   onSetCategory: (name: string, category: DocCategory) => void;
   onTriage: () => void;
   triaging: boolean;
@@ -78,7 +81,7 @@ export function TriagePanel({
   // triage. Extract defaults OFF (opt-in — a new storyline never auto-mines docs).
   const [uploadCategory, setUploadCategory] = useState<DocCategory>("select");
   const [uploadUses, setUploadUses] = useState<Record<DocUse, boolean>>({
-    useDraft: false,
+    useDraft: true,
     useRag: true,
     useExtract: false,
   });
@@ -91,6 +94,11 @@ export function TriagePanel({
 
   // Triage now sweeps only what's still Uncategorized; pre-bucketed docs are left alone.
   const uncategorizedCount = docs.filter((d) => d.category === "select").length;
+
+  // The bulk Draft control is a single toggle: it clears the selection while anything
+  // is still selected, and restores everything once nothing is.
+  const draftCount = docs.filter((d) => d.useDraft).length;
+  const allDraftSelected = docs.length > 0 && draftCount > 0;
 
   function DocRow({ doc }: { doc: CreatorDoc }) {
     const classifying = triaging && triageActive?.name === doc.name;
@@ -300,8 +308,43 @@ export function TriagePanel({
         ) : null}
       </div>
 
-      {/* ── Scrollable body: doc list + budget meter ─────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto p-[18px_20px] pt-[16px]">
+      {/* ── Draft selection strip: always reachable, never scrolls away ─────
+          Draft is the use that decides what grounds the Assistant and the primer, so
+          it gets one bulk control. A thin fixed row (rather than a slot in the sticky
+          header) keeps the scarce vertical space on the stacked mobile layout. */}
+      {docs.length > 0 ? (
+        <div className="flex flex-none items-center justify-between gap-[8px] border-b border-hair-strong bg-card px-[20px] py-[7px]">
+          <span className="font-mono text-tag tracking-[0.1em] text-mute2 uppercase">
+            Draft{" "}
+            <span className="text-ink-soft normal-case">
+              {draftCount}/{docs.length}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => onSetAllUse?.("useDraft", !allDraftSelected)}
+            disabled={!onSetAllUse}
+            // No `title` here on purpose: a tooltip becomes the accessible name in
+            // Chrome and would hide the visible "De-select All" / "Re-select All"
+            // label from assistive tech (WCAG 2.5.3, Label in Name).
+            // min-h/min-w keep the new control at the WCAG 2.5.8 (AA) 24x24 floor —
+            // the older per-row chips predate that and are tracked separately.
+            className="inline-flex min-h-[24px] min-w-[24px] cursor-pointer items-center justify-center rounded-full border border-cardbd bg-transparent px-[10px] py-[2px] font-mono text-tag tracking-[0.08em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink disabled:cursor-default disabled:opacity-40"
+          >
+            {allDraftSelected ? "De-select All" : "Re-select All"}
+          </button>
+        </div>
+      ) : null}
+
+      {/* ── Scrollable body: doc list + budget meter ─────────────────────────
+          `relative` is load-bearing, not cosmetic: each DocRow renders an `sr-only`
+          label, and Tailwind's `sr-only` is `position: absolute`. Without a positioned
+          ancestor their containing block is the *initial* containing block, so they
+          escape every `overflow: hidden` ancestor and grow the ROOT scroller to the
+          full un-scrolled list height (measured: 6212px of blank page for 28 files
+          against a 720px viewport). Making this scroller their containing block brings
+          them back under its own clipping. */}
+      <div className="relative flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto p-[18px_20px] pt-[16px]">
         {docs.length === 0 ? (
           <p className="font-body text-[13px] text-ink-soft">
             Drop reference files, then use Self-Triage to categorize each one manually —

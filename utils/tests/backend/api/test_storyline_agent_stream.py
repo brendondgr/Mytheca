@@ -188,3 +188,65 @@ def test_create_stream_returns_a_plan(client, monkeypatch):
     plan = next(f for f in _frames(res) if f["type"] == "plan")["plan"]
     assert plan["changes"][0]["field"] == "title"
     assert plan["changes"][0]["after"] == "Embergate"
+
+
+# ---- context-file grounding (docsOverview) ----------------------------------
+# The New Storyline page sends the inline text of the files the author kept selected
+# for Draft. Without this the assistant never saw uploaded documents at all.
+
+
+def test_create_stream_grounds_the_prompt_with_selected_context_files(client, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_upstream(monkeypatch, '{"message": "Understood."}', capture)
+    res = client.post(
+        "/api/storylines/agent/create/stream",
+        json={
+            "scope": _scope_body({"title"}),
+            "messages": [{"role": "user", "content": "draft a title"}],
+            "fields": {},
+            "docsOverview": "### tide-charts.md\nThe harbour drowns at every ninth bell.",
+        },
+    )
+    assert res.status_code == 200
+    system = json.loads(capture["body"])["messages"][0]
+    assert system["role"] == "system"
+    assert "ninth bell" in system["content"]
+    assert "tide-charts.md" in system["content"]
+
+
+def test_edit_stream_grounds_the_prompt_with_selected_context_files(
+    client, monkeypatch, storyline_id
+):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_upstream(monkeypatch, '{"message": "Understood."}', capture)
+    res = client.post(
+        f"/api/storylines/{storyline_id}/agent/edit/stream",
+        json={
+            "scope": _scope_body({"premise"}),
+            "messages": [{"role": "user", "content": "expand the premise"}],
+            "fields": {},
+            "docsOverview": "### lore.md\nThe Ashen Concord signs no treaty twice.",
+        },
+    )
+    assert res.status_code == 200
+    system = json.loads(capture["body"])["messages"][0]["content"]
+    assert "Ashen Concord" in system
+
+
+def test_streams_still_work_without_any_context_files(client, monkeypatch):
+    """The field is optional — omitting it leaves the prompt ungrounded, not broken."""
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_upstream(monkeypatch, '{"message": "Understood."}', capture)
+    res = client.post(
+        "/api/storylines/agent/create/stream",
+        json={
+            "scope": _scope_body({"title"}),
+            "messages": [{"role": "user", "content": "draft a title"}],
+            "fields": {},
+        },
+    )
+    assert res.status_code == 200
+    assert "Reference notes from dropped files" not in json.loads(capture["body"])["messages"][0]["content"]
