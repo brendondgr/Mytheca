@@ -183,8 +183,16 @@ def _build_user_prompt(
     # with the most recent line (the player, or the predecessor who just spoke).
     middle: list[str] = []
     if ctx.setting is not None:
+        # The authored description of the PLACE — written once at world creation and never
+        # rewritten during play. It is scenery, not a report of the current mood; the live
+        # read of the moment comes from the transcript and the beat's register, not here.
         flavor = ctx.setting.atmosphere or ctx.setting.current_state or ctx.setting.desc or ""
-        middle.append(f"Setting: {ctx.setting.name}{(' — ' + flavor) if flavor else ''}.")
+        middle.append(
+            f"Where this happens: {ctx.setting.name}{(' — ' + flavor) if flavor else ''} "
+            "(the place as authored; how it feels right now is whatever the beats below show)."
+            if flavor
+            else f"Where this happens: {ctx.setting.name}."
+        )
     roster = ", ".join(f"[{i + 1}] {m.name}" for i, m in enumerate(ctx.cast))
     middle.append(f"Cast in the scene: {roster}.")
     if ctx.retrieved_lore:
@@ -200,18 +208,17 @@ def _build_user_prompt(
     # TAIL — act-now (recency).
     tail: list[str] = []
     # Situational adaptation cue (recency, strongest attention): read the moment before
-    # defaulting to habit. Restates the scene's mood here as a tonal constraint (not scenery)
-    # and points at the character's own condition so the manner-adaptation rule actually fires.
-    moment = "Before you respond, read the moment — the stakes, the mood, and your own condition"
-    if ctx.setting is not None:
-        mood = (ctx.setting.atmosphere or ctx.setting.current_state or "").strip()
-        if mood:
-            moment += f" (the scene right now: {mood})"
-    moment += (
-        " — and let it shape how you come across. Drop your usual manner if the moment calls "
-        "for it (grief, fear, urgency, tenderness); don't answer on autopilot."
+    # defaulting to habit, and point at the character's own condition so the
+    # manner-adaptation rule actually fires. The mood is deliberately NOT restated from
+    # ``ctx.setting`` — that text is authored at world creation and never updated during
+    # play, so asserting it as "the scene right now" pinned every beat to the scene's
+    # opening tone. What is happening now comes from the beats above.
+    tail.append(
+        "Before you respond, read the moment as the beats above actually show it — what has "
+        "just changed, how much danger or feeling is in the air, and your own condition — and "
+        "let it shape how you come across. Drop your usual manner if the moment calls for it "
+        "(grief, fear, urgency, tenderness); don't answer on autopilot."
     )
-    tail.append(moment)
     if ctx.directed_at == speaker.id:
         tail.append("The player addressed you directly.")
     if speaker.disposition:

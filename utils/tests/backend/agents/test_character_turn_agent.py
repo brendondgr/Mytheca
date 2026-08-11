@@ -282,8 +282,25 @@ def test_voice_samples_injected_into_head(client, db_session, monkeypatch):
 
 
 def test_tail_surfaces_read_the_moment_adaptation_cue(client, db_session, monkeypatch):
-    # The recency tail must carry the "read the moment" cue and surface the scene's mood as a
-    # tonal constraint, so the character adapts its manner instead of defaulting to habit.
+    # The recency tail must carry the "read the moment" cue so the character adapts its
+    # manner instead of defaulting to habit.
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "read the moment" in user
+    assert "on autopilot" in user
+
+
+def test_authored_atmosphere_is_scenery_not_the_present_moment(client, db_session, monkeypatch):
+    # ``Setting.atmosphere`` is authored at world creation and never rewritten during play,
+    # so it must never be asserted as the scene's CURRENT mood — doing so pinned every beat
+    # to the world's opening tone. It still appears once, labelled as the place.
     from app.models import Setting
 
     _configure_llm(client)
@@ -296,10 +313,10 @@ def test_tail_surfaces_read_the_moment_adaptation_cue(client, db_session, monkey
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
     user = json.loads(capture["body"])["messages"][1]["content"]
-    assert "read the moment" in user
-    assert "on autopilot" in user
-    # The mood is restated inside the tail cue (not just as middle scenery).
-    assert "the scene right now: a hushed, grieving funeral" in user
+    assert "the scene right now" not in user
+    # Present exactly once, as the authored place rather than a live report.
+    assert user.count("a hushed, grieving funeral") == 1
+    assert "Where this happens: Chapel — a hushed, grieving funeral" in user
 
 
 def test_no_voice_samples_omits_the_block(client, db_session, monkeypatch):
