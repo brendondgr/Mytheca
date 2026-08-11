@@ -73,10 +73,22 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
     if (id) router.push(`/${id}`);
   }
 
+  // The dialog stays open for the whole run and reports it. A clean finish walks
+  // straight into the new world; anything less leaves the dialog up with what was
+  // built, so the author decides when to move on.
   async function onBuild(options: PopulateOptions) {
+    const { id, state } = await c.createAndBuild(options);
+    if (id && state.phase === "done" && state.problems.length === 0) router.push(`/${id}`);
+  }
+
+  function enterWorld() {
     setBuildOpen(false);
-    const id = await c.commit(options);
-    if (id) router.push(`/${id}`);
+    if (c.builtId) router.push(`/${c.builtId}`);
+  }
+
+  function cancelBuild() {
+    c.resetBuild();
+    setBuildOpen(false);
   }
 
   if (c.isEdit && c.loading) {
@@ -277,9 +289,13 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
 
       <BuildWorldModal
         open={buildOpen}
+        build={c.build}
         defaults={DEFAULT_POPULATE}
-        onCancel={() => setBuildOpen(false)}
+        worldTitle={c.fields.title}
+        onCancel={cancelBuild}
         onConfirm={(options) => void onBuild(options)}
+        onStop={c.stopBuild}
+        onEnter={enterWorld}
       />
 
       <SealModal

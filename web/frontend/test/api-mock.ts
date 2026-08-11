@@ -156,11 +156,13 @@ export function makeApiMock() {
       yield { type: "status" as const, stage: "roster" as const, message: "Planning…", name: "", index: 0, total: 0 };
       for (const [i, name] of ["Maerin Voss", "Harbormaster Cael"].entries()) {
         yield { type: "status" as const, stage: "character" as const, message: `Writing ${name}…`, name, index: i + 1, total: 2 };
+        yield { type: "status" as const, stage: "character" as const, message: `Finding ${name}'s voice…`, name, index: i + 1, total: 2 };
         yield {
           type: "entity" as const,
           stage: "character" as const,
           id: nid("c"),
           name,
+          role: "Smuggler",
           image: body.withArtwork ? "/media/portraits/mock.webp" : null,
         };
       }
@@ -170,6 +172,7 @@ export function makeApiMock() {
         stage: "setting" as const,
         id: nid("s"),
         name: "The Salt Wharf",
+        role: "Social Hub",
         image: body.withArtwork ? "/media/scenes/mock.webp" : null,
       };
       yield { type: "done" as const, characters: 2, settings: 1 };

@@ -16,6 +16,12 @@ import type {
 } from "@/lib/types";
 import { concatDocs, type ReadDoc } from "@/lib/readDocs";
 import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
+import {
+  type BuildState,
+  emptyBuild,
+  finishBuild,
+  foldPopulateFrame,
+} from "@/features/library/worldBuild";
 
 /** A dropped reference doc plus its triage classification (creator-only state). */
 export interface CreatorDoc extends ReadDoc {
@@ -213,47 +219,42 @@ export interface CommitArgs {
   docs: CreatorDoc[];
   /** Already-persisted docs (edit mode) — skipped so we don't duplicate them. */
   existingDocs?: ContextDocument[];
-  /** Create mode: what the author chose in the Build-world dialog. */
-  populate?: PopulateOptions;
 }
 
 /**
- * Fill the just-created world with a generated cast + settings, reporting progress.
+ * Fill the just-created world with a generated cast + settings, folding every frame
+ * into build state the dialog renders live.
  *
- * Runs last in the create sequence, against the *persisted* world: the roster is
- * grounded in the saved storyline and corpus, and each entity is written straight to
- * it. Failures are reported and swallowed — the world already exists, so a failed
- * population must never strand the author on the create page or lose their work.
- * Returns the non-fatal message to surface, or `null` when everything landed.
+ * Runs against the *persisted* world: the roster is grounded in the saved storyline
+ * and corpus, and each entity is written straight to it. Nothing is thrown — the world
+ * already exists, so a failed build is reported as a `failed` state rather than losing
+ * the author's work. `finishBuild` is what makes a truncated stream a failure instead
+ * of a silent success.
  */
-export async function populateWorld(
+export async function runPopulate(
   storylineId: string,
   opts: PopulateOptions,
-  docsOverview?: string,
-  onProgress?: (msg: string) => void,
-): Promise<string | null> {
-  let problem: string | null = null;
+  docsOverview: string | undefined,
+  onState: (state: BuildState) => void,
+  signal?: AbortSignal,
+): Promise<BuildState> {
+  let state: BuildState = { ...emptyBuild(), phase: "building", step: "Planning the world…" };
+  onState(state);
   try {
-    for await (const ev of api.populateWorldStream(storylineId, {
-      docsOverview,
-      withArtwork: opts.withArtwork,
-    })) {
-      if (ev.type === "status") {
-        onProgress?.(
-          ev.total > 1 ? `${ev.message} (${ev.index} / ${ev.total})` : ev.message,
-        );
-      } else if (ev.type === "entity") {
-        onProgress?.(`Added ${ev.name}.`);
-      } else if (ev.type === "error") {
-        // Non-fatal frames report one item; a fatal one ends the run. Either way the
-        // world stands, so the last message is what the author sees.
-        problem = ev.message;
-      }
+    for await (const frame of api.populateWorldStream(
+      storylineId,
+      { docsOverview, withArtwork: opts.withArtwork },
+      signal,
+    )) {
+      state = foldPopulateFrame(state, frame);
+      onState(state);
     }
+    state = finishBuild(state);
   } catch (e) {
-    problem = e instanceof Error ? e.message : "Could not build the cast and settings.";
+    state = finishBuild(state, e);
   }
-  return problem;
+  onState(state);
+  return state;
 }
 
 function coreInput(f: CreatorFields, clearable: boolean): api.StorylineInput {
@@ -270,23 +271,18 @@ function coreInput(f: CreatorFields, clearable: boolean): api.StorylineInput {
   };
 }
 
-/** The outcome of a commit: the world's id, plus anything worth telling the author. */
-export interface CommitResult {
-  id: string;
-  /** A non-fatal problem (population failed / partly failed); the world still exists. */
-  warning: string | null;
-}
-
 /**
- * Persist an approved world. In edit mode it updates the core + stats (+ reconciles
- * the storyline-level corpus). In create mode it creates the storyline, its stats,
- * the triaged corpus, and — when the author asked for it in the Build-world dialog —
- * generates and persists the cast + settings, reporting progress per step.
+ * Persist an approved world and return its id. In edit mode it updates the core +
+ * stats (+ reconciles the storyline-level corpus). In create mode it creates the
+ * storyline, its stats, then the triaged corpus, reporting progress per step.
+ *
+ * Population is deliberately NOT part of this: it is a long, watchable run that the
+ * Build-world dialog drives through `runPopulate` once the world exists.
  */
 export async function commitWorld(
   args: CommitArgs,
   onProgress?: (msg: string) => void,
-): Promise<CommitResult> {
+): Promise<string> {
   const { editId, fields, stats, statsOriginal, docs } = args;
 
   if (editId) {
@@ -304,7 +300,7 @@ export async function commitWorld(
     await Promise.all(
       slExisting.filter((d) => !keepNames.has(d.name)).map((d) => api.deleteContextDocument(d.id)),
     );
-    return { id: editId, warning: null };
+    return editId;
   }
 
   onProgress?.("Creating the world…");
@@ -322,12 +318,5 @@ export async function commitWorld(
     await api.bulkCreateContextDocuments(id, corpus.map(docToContextInput));
   }
 
-  // Population runs last, against the persisted world: the roster is grounded in the
-  // saved storyline + corpus, and the cast/settings are written straight into it.
-  let warning: string | null = null;
-  if (args.populate?.enabled) {
-    warning = await populateWorld(id, args.populate, draftGrounding(docs), onProgress);
-  }
-
-  return { id, warning };
+  return id;
 }

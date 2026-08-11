@@ -7,8 +7,10 @@ import {
   draftDocTexts,
   fromContextDocument,
   persistStatsDiff,
+  runPopulate,
   toCreatorDoc,
 } from "./storylineCreator";
+import { buildSummary, type BuildState } from "./worldBuild";
 import { blankStat } from "./editor";
 import * as api from "@/lib/api";
 import type { ContextDocument, StatDefinition } from "@/lib/types";
@@ -126,14 +128,13 @@ describe("storylineCreator helpers", () => {
 
 describe("storylineCreator.commitWorld create mode", () => {
   it("creates the storyline, its stats, then the triaged corpus", async () => {
-    const { id, warning } = await commitWorld({
+    const id = await commitWorld({
       fields: { ...BLANK_FIELDS, title: "World" },
       stats: [HEALTH],
       statsOriginal: [],
       docs: [{ name: "lore.md", text: "x", category: "other", triaged: true }],
     });
     expect(id).toBeTruthy();
-    expect(warning).toBeNull();
     expect(vi.mocked(api.createStoryline)).toHaveBeenCalledWith(
       expect.objectContaining({ title: "World" }),
     );
@@ -147,7 +148,7 @@ describe("storylineCreator.commitWorld create mode", () => {
     );
   });
 
-  it("does not populate the world unless the author asked for it", async () => {
+  it("never populates on its own — the build is the dialog's to run and show", async () => {
     await commitWorld({
       fields: { ...BLANK_FIELDS, title: "World" },
       stats: [],
@@ -158,78 +159,98 @@ describe("storylineCreator.commitWorld create mode", () => {
   });
 });
 
-// The regression guard for "the new world comes up empty": creating a world with
-// population on must actually run the build against the world that was just created,
-// after its corpus is saved, and report what landed.
-describe("storylineCreator.commitWorld population", () => {
-  const CREATE_ARGS = {
-    fields: { ...BLANK_FIELDS, title: "World" },
-    stats: [],
-    statsOriginal: [],
-    docs: [
-      { name: "lore.md", text: "The tide charts.", category: "other" as const, triaged: true, useDraft: true },
-    ],
-  };
+// The build is what the author watches, so its state has to be reported truthfully:
+// every entity that landed, every non-fatal problem, and — the bug this replaced —
+// a stream that stops early must be a failure, not a silent success.
+describe("storylineCreator.runPopulate", () => {
+  const DOCS = "The tide charts are kept in the ledger house.";
 
-  it("populates the created world, grounded in the Draft docs, after the corpus is saved", async () => {
-    const progress: string[] = [];
-    const { id, warning } = await commitWorld(
-      { ...CREATE_ARGS, populate: { enabled: true, withArtwork: false } },
-      (m) => progress.push(m),
+  it("streams the run into build state and finishes on done", async () => {
+    const seen: BuildState[] = [];
+    const final = await runPopulate(
+      "w1",
+      { enabled: true, withArtwork: false },
+      DOCS,
+      (s) => seen.push(s),
     );
 
-    expect(warning).toBeNull();
     expect(vi.mocked(api.populateWorldStream)).toHaveBeenCalledWith(
-      id,
-      expect.objectContaining({
-        withArtwork: false,
-        docsOverview: expect.stringContaining("The tide charts."),
-      }),
+      "w1",
+      { docsOverview: DOCS, withArtwork: false },
+      undefined,
     );
-    // Ordering matters: the roster is grounded in the saved corpus.
-    const docsCall = vi.mocked(api.bulkCreateContextDocuments).mock.invocationCallOrder[0];
-    const popCall = vi.mocked(api.populateWorldStream).mock.invocationCallOrder[0];
-    expect(docsCall).toBeLessThan(popCall);
-    // The author sees each entity land.
-    expect(progress).toContain("Added Maerin Voss.");
-    expect(progress).toContain("Added The Salt Wharf.");
+    expect(final.phase).toBe("done");
+    expect(final.entities.map((e) => e.name)).toEqual([
+      "Maerin Voss",
+      "Harbormaster Cael",
+      "The Salt Wharf",
+    ]);
+    expect(final.entities[0].role).toBe("Smuggler");
+    expect(final.problems).toEqual([]);
+    // The dialog is fed every step, not just the outcome.
+    expect(seen.some((s) => s.step.includes("Writing Maerin Voss"))).toBe(true);
   });
 
-  it("passes the artwork opt-in through", async () => {
-    await commitWorld({ ...CREATE_ARGS, populate: { enabled: true, withArtwork: true } });
-    expect(vi.mocked(api.populateWorldStream)).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ withArtwork: true }),
-    );
-  });
-
-  it("reports a non-fatal frame as a warning but keeps the world", async () => {
+  it("treats a stream that ends without done as a failure", async () => {
     vi.mocked(api.populateWorldStream).mockImplementationOnce(async function* () {
-      yield { type: "error" as const, message: "Could not write Maerin.", fatal: false };
-      yield { type: "done" as const, characters: 0, settings: 0 };
+      yield {
+        type: "entity" as const,
+        stage: "character" as const,
+        id: "c1",
+        name: "Maerin",
+        role: "Smuggler",
+        image: null,
+      };
     } as never);
 
-    const { id, warning } = await commitWorld({
-      ...CREATE_ARGS,
-      populate: { enabled: true, withArtwork: false },
-    });
+    const final = await runPopulate("w1", { enabled: true, withArtwork: false }, DOCS, () => {});
 
-    expect(id).toBeTruthy();
-    expect(warning).toBe("Could not write Maerin.");
+    expect(final.phase).toBe("failed");
+    expect(final.error).toMatch(/only partly built/i);
+    expect(final.entities).toHaveLength(1);
   });
 
-  it("never loses the world when population throws", async () => {
+  it("keeps going after a non-fatal problem and still finishes", async () => {
+    vi.mocked(api.populateWorldStream).mockImplementationOnce(async function* () {
+      yield { type: "error" as const, message: "Could not write Maerin.", fatal: false };
+      yield {
+        type: "entity" as const,
+        stage: "setting" as const,
+        id: "s1",
+        name: "The Wharf",
+        role: "Social Hub",
+        image: null,
+      };
+      yield { type: "done" as const, characters: 0, settings: 1 };
+    } as never);
+
+    const final = await runPopulate("w1", { enabled: true, withArtwork: false }, DOCS, () => {});
+
+    expect(final.phase).toBe("done");
+    expect(final.problems).toEqual(["Could not write Maerin."]);
+    expect(buildSummary(final)).toBe("0 characters · 1 setting");
+  });
+
+  it("reports a fatal frame as the failure it is", async () => {
+    vi.mocked(api.populateWorldStream).mockImplementationOnce(async function* () {
+      yield { type: "error" as const, message: "Choose a model in Options first.", fatal: true };
+    } as never);
+
+    const final = await runPopulate("w1", { enabled: true, withArtwork: false }, DOCS, () => {});
+
+    expect(final.phase).toBe("failed");
+    expect(final.error).toBe("Choose a model in Options first.");
+  });
+
+  it("never throws when the connection drops", async () => {
     vi.mocked(api.populateWorldStream).mockImplementationOnce(async function* () {
       throw new Error("Could not reach the server.");
     } as never);
 
-    const { id, warning } = await commitWorld({
-      ...CREATE_ARGS,
-      populate: { enabled: true, withArtwork: false },
-    });
+    const final = await runPopulate("w1", { enabled: true, withArtwork: false }, DOCS, () => {});
 
-    expect(id).toBeTruthy();
-    expect(warning).toBe("Could not reach the server.");
+    expect(final.phase).toBe("failed");
+    expect(final.error).toBe("Could not reach the server.");
   });
 });
 
