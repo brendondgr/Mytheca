@@ -22,6 +22,22 @@ MAX_CHARACTERS_CAP = 8
 MAX_SETTINGS_CAP = 6
 
 
+class ExtractedEntity(CamelModel):
+    """One subject a reference document explicitly names and profiles.
+
+    ``source`` is a self-contained paragraph drawn strictly from that document — the
+    downstream draft agent works from it without seeing the original file.
+    """
+
+    name: str
+    source: str = ""
+
+
+class ExtractedEntities(CamelModel):
+    characters: list[ExtractedEntity] = []
+    settings: list[ExtractedEntity] = []
+
+
 class RosterEntry(CamelModel):
     """One proposed cast member or place: a name plus the seed line drafting uses."""
 
