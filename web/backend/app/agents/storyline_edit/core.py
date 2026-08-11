@@ -63,7 +63,10 @@ _JSON_CONTRACT = (
     '"<one short line on why>"}. For "statChanges", an array of objects '
     '{"key", "changeType" (one of add|update|remove), "after" (the FULL stat definition — '
     "key, displayName, description, min, max, default, bands — for add or update; omit for "
-    'remove), "rationale"}. Omit "plan" entirely when you are only discussing, advising, or '
+    'remove), "rationale"}. "bands" is a list of OBJECTS, never bare numbers: each is '
+    '{"min": <int>, "max": <int>, "label": "<what that range means>", "description": '
+    '"<optional, one line, may use the {Character} placeholder>"}. Send [] if you have no '
+    'bands to propose. Omit "plan" entirely when you are only discussing, advising, or '
     "answering a question."
 )
 
@@ -305,6 +308,42 @@ def _merge_bands(existing: list, proposed: list) -> list:
     return out
 
 
+def _usable_bands(value: object) -> list:
+    """Keep only the band entries that could possibly validate (objects).
+
+    Models routinely emit ``"bands": [0, 3, 6, 9]`` — the *thresholds* rather than the
+    labelled ``{min, max, label}`` objects the schema wants, because ``bands`` is the
+    one sub-field whose shape the plan contract does not spell out. Those entries are
+    unsalvageable (there is no label to invent), but they must not be allowed to sink
+    the stat definition around them: see :func:`_validated_stat`.
+    """
+    if not isinstance(value, list):
+        return []
+    return [band for band in value if isinstance(band, dict)]
+
+
+def _validated_stat(merged: dict) -> StatDefinitionDraft | None:
+    """Validate a merged stat definition, sacrificing ``bands`` before the whole stat.
+
+    Bands are decorative — optional, and re-addable by hand in the Stats editor. The
+    key/name/range are what the author actually asked for. Rejecting the entire stat
+    (and therefore, once every stat fails the same way, the entire plan) over a
+    malformed band list is why a Statistics-only request could come back with a
+    friendly reply and no plan at all.
+    """
+    try:
+        return StatDefinitionDraft.model_validate(merged)
+    except Exception:
+        pass
+    if "bands" not in merged:
+        return None
+    salvaged = {**merged, "bands": _usable_bands(merged["bands"])}
+    try:
+        return StatDefinitionDraft.model_validate(salvaged)
+    except Exception:
+        return None
+
+
 def _stat_change_from_raw(
     item: object, existing: dict[str, StatDefinitionDraft]
 ) -> StatChange | None:
@@ -330,9 +369,8 @@ def _stat_change_from_raw(
                 patch["bands"] = _merge_bands(merged["bands"], patch["bands"])
             merged.update(patch)
         merged["key"] = key
-        try:
-            after = StatDefinitionDraft.model_validate(merged)
-        except Exception:
+        after = _validated_stat(merged)
+        if after is None:
             return None
         if change_type == "update" and before is not None and after == before:
             return None  # no-op

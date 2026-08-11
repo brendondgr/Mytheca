@@ -495,6 +495,14 @@ every other NDJSON stream in this contract.
   appended to that grounding. The terminal `plan` frame carries `baseVersion`. `404` if the
   storyline is missing; `400` if the LLM is unconfigured or the last message has no user
   turn. No writes.
+**Stat changes in a plan.** A `statChanges` entry's `after` is the *full* stat
+definition. Its `bands` must be a list of **objects** (`{min, max, label,
+description?}`), never bare thresholds — both the prompt contract and the `guided_json`
+schema now spell this out, because models default to emitting `[0, 3, 6, 9]`. Server
+side, an unsalvageable band list is **dropped and the stat kept**: bands are optional
+and re-addable by hand, whereas rejecting the stat used to empty the whole plan and
+return a reply with no proposal at all.
+
 - `POST /storylines/{id}/agent/apply` — approves and writes a plan. Body:
   `{ scope: ScopeState, plan: StoryPlan, baseVersion?: string }` → `{ storyline:
   StorylineRead, applied: string[] }` (`applied` lists the field/stat keys actually

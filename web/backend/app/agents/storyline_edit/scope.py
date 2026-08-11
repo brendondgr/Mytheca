@@ -77,6 +77,42 @@ def _text_change_schema() -> dict:
     }
 
 
+def _stat_after_schema() -> dict:
+    """The shape of a proposed stat definition.
+
+    ``bands`` is spelled out on purpose: left as a bare ``object``, models emit the
+    band *thresholds* (``[0, 3, 6, 9]``) instead of labelled ranges, which used to
+    invalidate the whole stat change. ``additionalProperties`` stays open so a model
+    volunteering ``visibility``/``appliesTo`` is not penalised for it.
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "key": {"type": "string"},
+            "displayName": {"type": "string"},
+            "description": {"type": "string"},
+            "min": {"type": "integer"},
+            "max": {"type": "integer"},
+            "default": {"type": "integer"},
+            "bands": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "min": {"type": "integer"},
+                        "max": {"type": "integer"},
+                        "label": {"type": "string"},
+                        "description": {"type": "string"},
+                    },
+                    "required": ["min", "max", "label"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "additionalProperties": True,
+    }
+
+
 def _stat_changes_schema() -> dict:
     return {
         "type": "array",
@@ -85,7 +121,7 @@ def _stat_changes_schema() -> dict:
             "properties": {
                 "key": {"type": "string"},
                 "changeType": {"type": "string", "enum": ["add", "update", "remove"]},
-                "after": {"type": "object"},
+                "after": _stat_after_schema(),
                 "schemaAltering": {"type": "boolean"},
                 "rationale": {"type": "string"},
             },

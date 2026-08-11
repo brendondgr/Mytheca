@@ -208,3 +208,86 @@ def test_build_system_omits_the_grounding_block_when_no_files_are_selected():
 
     system = core._build_system("persona", _scope({"title"}), StorylineFieldsSnapshot(), docs_block(""))
     assert "Reference notes from dropped files" not in system
+
+
+# ---- malformed bands must not sink the whole stat change --------------------
+# Regression: a Statistics-only request came back with a friendly reply and NO plan,
+# because the model emitted band *thresholds* ([0, 3, 6, 9]) instead of labelled
+# ranges. Every stat then failed validation, the plan emptied, and _plan_from_raw
+# returned None — silently.
+
+
+def _add(key: str, **after) -> dict:
+    return {"key": key, "changeType": "add", "after": {"key": key, **after}}
+
+
+def test_bare_number_bands_are_dropped_but_the_stat_survives():
+    raw = {
+        "statChanges": [
+            _add("guile", displayName="Guile", min=0, max=10, default=2, bands=[0, 3, 6, 9])
+        ]
+    }
+    plan = core._plan_from_raw(raw, _scope({"statistics"}), StorylineFieldsSnapshot())
+    assert plan is not None, "the stat change must survive a malformed bands list"
+    (change,) = plan.stat_changes
+    assert change.key == "guile"
+    assert change.after is not None
+    assert change.after.display_name == "Guile"
+    assert (change.after.min, change.after.max, change.after.default) == (0, 10, 2)
+    assert change.after.bands == []  # unsalvageable bands are dropped, not the stat
+
+
+def test_well_formed_bands_are_kept():
+    raw = {
+        "statChanges": [
+            _add(
+                "faith",
+                displayName="Faith",
+                min=0,
+                max=10,
+                bands=[{"min": 0, "max": 4, "label": "Lapsed"}],
+            )
+        ]
+    }
+    plan = core._plan_from_raw(raw, _scope({"statistics"}), StorylineFieldsSnapshot())
+    assert plan is not None
+    bands = plan.stat_changes[0].after.bands
+    assert [b.label for b in bands] == ["Lapsed"]
+
+
+def test_a_partly_malformed_band_list_keeps_the_valid_entries():
+    raw = {
+        "statChanges": [
+            _add(
+                "tide_sight",
+                displayName="Tide-Sight",
+                bands=[{"min": 0, "max": 3, "label": "Blind"}, 6, "high"],
+            )
+        ]
+    }
+    plan = core._plan_from_raw(raw, _scope({"statistics"}), StorylineFieldsSnapshot())
+    assert plan is not None
+    assert [b.label for b in plan.stat_changes[0].after.bands] == ["Blind"]
+
+
+def test_a_stat_with_no_salvageable_definition_is_still_dropped():
+    """The tolerance is scoped to bands — a genuinely broken stat is not invented."""
+    raw = {"statChanges": [{"key": "broken", "changeType": "add", "after": {"min": "not-an-int"}}]}
+    plan = core._plan_from_raw(raw, _scope({"statistics"}), StorylineFieldsSnapshot())
+    assert plan is None
+
+
+def test_the_json_contract_spells_out_the_band_shape():
+    """The prompt-side half of the fix — the local stack is prompt-instructed JSON."""
+    assert '"bands" is a list of OBJECTS, never bare numbers' in core._JSON_CONTRACT
+
+
+def test_guided_json_constrains_the_proposed_stat_bands():
+    from app.agents.storyline_edit import scope as sc
+
+    schema = sc.response_schema_for(_scope({"statistics"}))
+    band = schema["properties"]["plan"]["properties"]["statChanges"]["items"]["properties"][
+        "after"
+    ]["properties"]["bands"]["items"]
+    assert band["type"] == "object"
+    assert set(band["required"]) == {"min", "max", "label"}
