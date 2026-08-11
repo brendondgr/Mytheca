@@ -41,6 +41,33 @@ _VOICE_TOP_P = 0.92
 _VOICE_FREQUENCY_PENALTY = 0.4
 _VOICE_PRESENCE_PENALTY = 0.3
 
+# Per-register performance directives, stated in the recency TAIL as an established fact
+# about the situation rather than a question the speaker has to answer for itself. The
+# register comes from ``planner_agent.next_beat`` (which already runs once per beat, so
+# this costs no extra LLM call); ``None`` means the planner did not run or replied with
+# something unrecognized, and the tail then falls back to the generic "read the moment" cue.
+_REGISTER_DIRECTIVES = {
+    "light": (
+        "The moment is LIGHT — nothing real is on the line right now. Your usual manner "
+        "fits here; play it as you would."
+    ),
+    "neutral": (
+        "The moment is ORDINARY — mild friction, nothing at stake yet. Speak plainly as "
+        "yourself; don't perform."
+    ),
+    "tense": (
+        "The moment is TENSE — something you care about is genuinely at risk. Let that "
+        "show: shorter, sharper, more focused than your habit. Any act you normally keep "
+        "up is under strain now."
+    ),
+    "grave": (
+        "The moment is GRAVE — someone is dying, badly hurt, breaking down, or a life is "
+        "on the line RIGHT NOW. Your usual manner does NOT fit here. The act drops and the "
+        "real person shows: fear, grief, urgency, or tenderness. Do not be witty, do not "
+        "be cocky, do not deflect with a joke."
+    ),
+}
+
 # Default output contract text now lives in ``prompt_registry`` (single source of truth
 # for editable writing prompts); resolved per-turn text rides on ``ctx.prompts``.
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
@@ -67,6 +94,8 @@ def generate_line(
     correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
+    register: str | None = None,
+    stakes: str = "",
 ) -> str:
     """Generate one character's raw emission for this beat (thin-tag format).
 
@@ -75,6 +104,7 @@ def generate_line(
     raw, _ = generate_line_with_usage(
         db, ctx, speaker, turn_beats=turn_beats, reasoning=reasoning,
         correction=correction, directive=directive, relationship_note=relationship_note,
+        register=register, stakes=stakes,
     )
     return raw
 
@@ -89,6 +119,8 @@ def generate_line_with_usage(
     correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
+    register: str | None = None,
+    stakes: str = "",
 ) -> tuple[str, int | None]:
     """Generate one character's raw emission + the call's exact ``prompt_tokens``.
 
@@ -115,7 +147,7 @@ def generate_line_with_usage(
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(
         ctx, speaker, turn_beats, correction=correction, directive=directive,
-        relationship_note=relationship_note,
+        relationship_note=relationship_note, register=register, stakes=stakes,
     )
     return llm.chat_complete_usage(
         base_url,
@@ -142,6 +174,8 @@ def _build_user_prompt(
     correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
+    register: str | None = None,
+    stakes: str = "",
 ) -> str:
     """Bookended volatile suffix: identity/state (front) · scene+transcript (middle) · act-now (tail)."""
     number = _speaker_number(ctx, speaker)
@@ -213,12 +247,23 @@ def _build_user_prompt(
     # ``ctx.setting`` — that text is authored at world creation and never updated during
     # play, so asserting it as "the scene right now" pinned every beat to the scene's
     # opening tone. What is happening now comes from the beats above.
-    tail.append(
-        "Before you respond, read the moment as the beats above actually show it — what has "
-        "just changed, how much danger or feeling is in the air, and your own condition — and "
-        "let it shape how you come across. Drop your usual manner if the moment calls for it "
-        "(grief, fear, urgency, tenderness); don't answer on autopilot."
-    )
+    directive_text = _REGISTER_DIRECTIVES.get(register or "")
+    if directive_text:
+        # The scene director already read the moment for this beat — hand the speaker the
+        # ANSWER rather than the question, so it does not have to out-argue its own voice
+        # samples to reach it. Stakes name the concrete thing at risk.
+        moment = directive_text
+        if stakes:
+            moment += f" What is at stake right now: {stakes}."
+        moment += " Let that reach your voice — don't answer on autopilot."
+        tail.append(moment)
+    else:
+        tail.append(
+            "Before you respond, read the moment as the beats above actually show it — what has "
+            "just changed, how much danger or feeling is in the air, and your own condition — and "
+            "let it shape how you come across. Drop your usual manner if the moment calls for it "
+            "(grief, fear, urgency, tenderness); don't answer on autopilot."
+        )
     if ctx.directed_at == speaker.id:
         tail.append("The player addressed you directly.")
     if speaker.disposition:

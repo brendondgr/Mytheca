@@ -34,6 +34,7 @@ FastAPI, Python 3.13, `uv`.
 | --- | --- |
 | Turn loop / coordination | `app/services/turn_engine.py` |
 | Who acts next | `app/agents/planner_agent.py` (`next_beat`) — a per-beat ReAct decision |
+| How grave the moment is | `app/agents/planner_agent.py` (`next_beat` → `register` + `stakes`, no extra call) |
 | Voicing one character | `app/agents/character_turn_agent.py` (think → speak, one isolated call) |
 | Narration interstitials | `app/agents/narrator_agent.py` |
 | Player-intent reading | `app/agents/intent_agent.py` |
@@ -55,7 +56,7 @@ There is no "Orchestrator", "Rules Engine", "Memory System", or "KG Builder" mod
 ## Agent Roles (as built)
 
 1. **`intent_agent`** — is the player narrating, addressing someone, directing a character to act, or speaking to the group?
-2. **`planner_agent`** — the ReAct loop. One beat at a time: `speak` / `narrate` / `exit` / `end`, chosen only from **present** cast members, with the POV character locked out.
+2. **`planner_agent`** — the ReAct loop. One beat at a time: `speak` / `narrate` / `exit` / `end`, chosen only from **present** cast members, with the POV character locked out. The same reply carries the beat's **`register`** (`light`/`neutral`/`tense`/`grave`) and **`stakes`** — the scene-appraisal signal every speaker conditions on, obtained without a second LLM call.
 3. **`character_turn_agent`** — one isolated LLM call per beat. Emits a visible in-voice `<thinking>` block, then speech, in a thin tagged format the backend parses.
 4. **`narrator_agent`** — scene-setting and interstitials.
 5. **`director_agent`** — end-of-turn follow-up suggestions (situation branches, or first-person lines when POV is active).

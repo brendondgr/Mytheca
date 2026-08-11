@@ -24,7 +24,8 @@ Verified against the code on 2026-08-04.
 - **Neo4j KG-edge expansion in retrieval** — walking `related` edges during RAG retrieve.
 - **RAG-first ingestion + tool-calling authoring** — plan exists (`docs/plans/rag-first-ingestion.md`), not implemented.
 - **Text2Cypher read path** — `type_registry.schema_blob()` is compiled but has no consumer.
-- **Scene-appraisal signal** — one cheap shared per-turn LLM call giving every speaker a common read of mood and stakes. Revisit only if playtesting shows the current prompt-only situational adaptation is insufficient; weigh against local-model latency.
+- **Register-aware narration.** The per-beat `register`/`stakes` from `planner_agent.next_beat` reaches the *character* prompt but not `narrator_agent` — narration still leans on the authored `Setting.atmosphere` for scenery. A grave beat should narrate differently from a light one; the signal is already on `BeatDecision`, so this is threading, not new machinery.
+- **A live scene state.** `Setting.current_state` and `Setting.atmosphere` are written at world creation and **never again during play**. The character prompt no longer misrepresents them as the present moment, but nothing yet maintains a rolling "what this place is like now" line from the transcript.
 - **`end_scene` / `move_scene` verbs** — the presence/action bus is built to take them.
 - **YAML config loaders** in `app/content/` — only the Markdown stat-guidance loader exists. Entities live in Postgres, so this may simply be unnecessary; decide rather than leave it pending.
 - **Dice-based resolution** — explicitly dropped (decision D11), not merely deferred. The `CheckCard` renderer was removed. Reopen only as a deliberate reversal.

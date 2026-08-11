@@ -416,3 +416,55 @@ def test_dialogue_is_optional_but_thinking_is_always_required(client, db_session
     assert "ALWAYS required" in system  # <thinking> stays mandatory every beat
     assert "over-talking" in system
     assert "action-only" in system and "thinking-only" in system
+
+
+def test_register_states_the_moment_as_fact_in_the_tail(client, db_session, monkeypatch):
+    # The planner already read the moment for this beat, so the speaker is handed the
+    # ANSWER, not the question — it should not have to out-argue its own voice samples.
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        register="grave", stakes="the boy is bleeding out",
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "The moment is GRAVE" in user
+    assert "What is at stake right now: the boy is bleeding out." in user
+    # The generic "work it out yourself" cue is replaced, not stacked on top of the answer.
+    assert "Before you respond, read the moment" not in user
+    # It lands in the recency tail, after the transcript.
+    assert user.index("The moment is GRAVE") > user.index("Recent beats:")
+
+
+def test_light_register_licenses_the_usual_manner(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        register="light",
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "The moment is LIGHT" in user
+    # No stakes given → no dangling stakes sentence.
+    assert "What is at stake right now" not in user
+
+
+def test_no_register_keeps_the_generic_cue(client, db_session, monkeypatch):
+    # Planner fallback / puppet beat / a directly-built context: behave exactly as before.
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "Before you respond, read the moment" in user
+    assert "The moment is" not in user

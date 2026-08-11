@@ -803,14 +803,23 @@ characters stop over-talking; a **cold scene open** with no directed character i
 character always **`<thinking>`**s (a real in-voice deliberation — a short paragraph in their own
 terminology at turn effort **MEDIUM**, streamed `private_to_user` and kept out of `turn_beats`), but a
 spoken line is **optional** — in an action moment they act or simply think with no forced dialogue.
-**Situational voice adaptation:** the `<thinking>` step **appraises the moment first** (how grave/light,
-what changed, how much danger or feeling is in the air) before reasoning toward a response, and the
-output contract's manner-adaptation rule makes personality **constant** while manner **adapts** — the
-habitual act (constant quips, needless cruelty, forced levity) drops when the moment turns grave, and
-the character's own state + the scene's mood (restated as a recency "read the moment" cue in the prompt
-TAIL) reach their voice. The between-turn **`disposition`** carries the resulting emotional/situational
-state (shaken, grieving, afraid, relieved) forward, so an adapted manner persists rather than snapping
-back to the default next beat. The
+**Situational voice adaptation** is driven by a **per-beat register**, not by asking the speaker to
+work the moment out for itself. `planner_agent.next_beat` returns `register` (`light` · `neutral` ·
+`tense` · `grave`) and `stakes` (the concrete thing at risk) **alongside every action** — it already
+runs once per beat, so this costs no extra LLM call — and the turn engine threads both into the
+character prompt's recency TAIL, where a per-register directive states the situation as fact
+(`grave` explicitly revokes the habitual act: no wit, no cocky deflection). The register also
+**selects which voice samples** are injected and **tunes the sampler** (see below). It is always
+optional: a planner fallback, a puppet beat, or a directly-constructed `TurnContext` yields
+`register=None`, and the TAIL then falls back to the generic "read the moment" cue. The
+`<thinking>` step still appraises the moment first, and the output contract's manner-adaptation rule
+still makes personality **constant** while manner **adapts**. The between-turn **`disposition`**
+carries the resulting emotional/situational state (shaken, grieving, afraid, relieved) forward, so an
+adapted manner persists rather than snapping back to the default next beat.
+
+The authored `Setting.atmosphere` is **not** a live mood signal — it is written once at world
+creation and never rewritten during play, so the prompt presents it as the description of the place
+and never as "the scene right now". The
 character conditions on the scene's **`context_beats`** most-recent beats (5–100; `assembler` fetches
 that depth from the Redis buffer, which retains up to `turn_buffer_size` = 100). At the **end of
 every turn**, up to the scenario's **`suggestions_count`** (0–4; `0` disables) follow-up suggestions
