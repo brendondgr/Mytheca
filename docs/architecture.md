@@ -61,7 +61,7 @@ There is no "Orchestrator", "Rules Engine", "Memory System", or "KG Builder" mod
 5. **`director_agent`** — end-of-turn follow-up suggestions (situation branches, or first-person lines when POV is active).
 6. **`reflection_agent`** / **`relationship_agent`** — off-hot-path interior state and graph edges.
 
-Authoring-time agents (`storyline_agent`, `storyline_edit/`, `character_agent`, `setting_agent`, `scenario_agent`, `triage_agent`) are separate from the turn loop.
+Authoring-time agents (`storyline_agent`, `storyline_edit/`, `roster_agent`, `character_agent`, `setting_agent`, `scenario_agent`, `triage_agent`) are separate from the turn loop.
 
 ## Structured Side Effects Are Proposals
 

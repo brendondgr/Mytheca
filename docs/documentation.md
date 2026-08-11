@@ -75,7 +75,7 @@ Detail: `architecture.md` (decisions), `data-flow.md` (the turn walkthrough), `a
 Implemented and exercised end to end:
 
 - Full CRUD for the four canonical objects, plus stats, context documents, and the Story-Graph type registry.
-- Agentic authoring: storyline draft + primer, conversational scope-aware storyline **editing** (`storyline_edit/`), character / setting / scenario creators, document triage, portrait + scene-art generation.
+- Agentic authoring: storyline draft + primer, conversational scope-aware storyline **editing** (`storyline_edit/`), **create-time world population** (`roster_agent` + `services/world_populate` — the generated cast + settings a new world starts with), character / setting / scenario creators, document triage, portrait + scene-art generation.
 - The runtime turn loop: intent → ReAct planner → per-character think→speak → validator → NDJSON stream, with presence tracking, POV play, follow-up suggestions, within-turn consistency guard, cold-path Neo4j writes, and read-time reflection.
 - Persistent sessions: every turn and its diagnostic trace are stored (`events`, `turn_traces`); reopening a scenario resumes the latest session; sessions export as JSON or Markdown.
 - Hybrid RAG with embed-on-save and a conservative retrieval gate.
