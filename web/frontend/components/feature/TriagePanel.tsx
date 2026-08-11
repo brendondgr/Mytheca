@@ -324,11 +324,9 @@ export function TriagePanel({
             type="button"
             onClick={() => onSetAllUse?.("useDraft", !allDraftSelected)}
             disabled={!onSetAllUse}
-            title={
-              allDraftSelected
-                ? "Stop grounding the assistant with every context file"
-                : "Ground the assistant with every context file"
-            }
+            // No `title` here on purpose: a tooltip becomes the accessible name in
+            // Chrome and would hide the visible "De-select All" / "Re-select All"
+            // label from assistive tech (WCAG 2.5.3, Label in Name).
             className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[10px] py-[2px] font-mono text-tag tracking-[0.08em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink disabled:cursor-default disabled:opacity-40"
           >
             {allDraftSelected ? "De-select All" : "Re-select All"}

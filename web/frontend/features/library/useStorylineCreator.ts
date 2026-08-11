@@ -301,6 +301,8 @@ export function useStorylineCreator(editId?: string) {
     toggleDocUse,
     setAllDocUse,
     setDocCategory,
+    /** The Draft-selected context files as one bounded grounding string (or undefined). */
+    docsOverview: () => draftGrounding(docs),
     budget,
     isValid: isCreatorValid(fields),
     loading,

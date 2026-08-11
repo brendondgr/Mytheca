@@ -49,6 +49,10 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
       worldPrimer: c.fields.worldPrimer,
       stats: c.stats,
     }),
+    // The context files the author kept selected for Draft ground every assistant
+    // turn, so a generated title/genre/tagline/premise/primer/stat set is built on
+    // the material they uploaded rather than on the form fields alone.
+    getDocsOverview: c.docsOverview,
     onApplied,
   });
 

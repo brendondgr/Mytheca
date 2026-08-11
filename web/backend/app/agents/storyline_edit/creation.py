@@ -5,6 +5,11 @@ proposes a consistent title/genre/tagline/premise/World-Primer/stat-schema set f
 the author's seed and whatever they have already written, respecting any field left
 out of write scope (a pinned field). It shares the whole plan → approve machinery
 with the editor; only the persona differs and there is no storyline id yet.
+
+``docs_overview`` carries the inline text of the context files the author selected for
+Draft, so a world invented here is grounded in the material they uploaded rather than
+invented from the seed alone. There is no persisted world to retrieve from yet, which
+is exactly why those files are the only grounding this agent gets.
 """
 
 from __future__ import annotations
@@ -41,6 +46,7 @@ def storyline_creation_agent(
     scope: ScopeState,
     messages: list[AgentMessage],
     fields: StorylineFieldsSnapshot,
+    docs_overview: str | None = None,
     reasoning: ReasoningEffort = core.DEFAULT_AUTHORING_EFFORT,
 ) -> Iterator[AgentMessageFrame | AgentPlanFrame]:
     return core.converse(
@@ -51,5 +57,6 @@ def storyline_creation_agent(
         messages=messages,
         fields=fields,
         low_temp=False,
+        docs_overview=docs_overview,
         reasoning=reasoning,
     )

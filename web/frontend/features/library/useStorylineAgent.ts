@@ -18,6 +18,12 @@ interface Options {
   storylineId?: string;
   /** Read the author's current form values (sent as the agent's context each turn). */
   getFields: () => api.StorylineFieldsSnapshot;
+  /**
+   * Read the grounding text of the author's Draft-selected context files. Read per
+   * turn (like `getFields`) so a file dropped mid-conversation is picked up by the
+   * next message. Omit when the host has no context panel.
+   */
+  getDocsOverview?: () => string | undefined;
   /** Apply approved field values to the form (create: fill; edit: mirror what was saved). */
   onApplied: (patch: AppliedFields) => void;
 }
@@ -81,6 +87,7 @@ export function useStorylineAgent(opts: Options) {
         scope: scopeRef.current,
         messages: history,
         fields: opts.getFields(),
+        docsOverview: opts.getDocsOverview?.(),
       };
       try {
         const stream =

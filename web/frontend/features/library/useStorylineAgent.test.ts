@@ -103,3 +103,55 @@ describe("useStorylineAgent (create)", () => {
     expect(onApplied).toHaveBeenCalledWith(expect.objectContaining({ title: "Embergate" }));
   });
 });
+
+// ---- context-file grounding -------------------------------------------------
+// The Draft-selected uploads reach the assistant on every turn; before this they
+// reached it on none, which is why generated fields ignored uploaded documents.
+
+describe("useStorylineAgent context-file grounding", () => {
+  it("sends the Draft-selected context files with each create turn", async () => {
+    const onApplied = vi.fn();
+    const { result } = renderHook(() =>
+      useStorylineAgent({
+        mode: "create",
+        getFields,
+        getDocsOverview: () => "### tide-charts.md\nThe harbour drowns at every ninth bell.",
+        onApplied,
+      }),
+    );
+    await act(async () => {
+      await result.current.send("draft a title");
+    });
+    const body = vi.mocked(api.storylineAgentCreateStream).mock.calls[0][0];
+    expect(body.docsOverview).toContain("ninth bell");
+  });
+
+  it("re-reads the grounding per turn, so a file dropped mid-conversation is picked up", async () => {
+    const onApplied = vi.fn();
+    let docs: string | undefined = undefined;
+    const { result } = renderHook(() =>
+      useStorylineAgent({ mode: "create", getFields, getDocsOverview: () => docs, onApplied }),
+    );
+    await act(async () => {
+      await result.current.send("first");
+    });
+    docs = "### late.md\nAdded after the first message.";
+    await act(async () => {
+      await result.current.send("second");
+    });
+    const calls = vi.mocked(api.storylineAgentCreateStream).mock.calls;
+    expect(calls[0][0].docsOverview).toBeUndefined();
+    expect(calls[1][0].docsOverview).toContain("late.md");
+  });
+
+  it("omits the field entirely when the host has no context panel", async () => {
+    const onApplied = vi.fn();
+    const { result } = renderHook(() =>
+      useStorylineAgent({ mode: "create", getFields, onApplied }),
+    );
+    await act(async () => {
+      await result.current.send("draft a title");
+    });
+    expect(vi.mocked(api.storylineAgentCreateStream).mock.calls[0][0].docsOverview).toBeUndefined();
+  });
+});

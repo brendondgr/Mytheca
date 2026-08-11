@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.agents._common import (
     DEFAULT_AUTHORING_EFFORT,
+    docs_block,
     extract_json,
     gen_params,
     rag_block,
@@ -87,6 +88,7 @@ def converse(
     messages: list[AgentMessage],
     fields: StorylineFieldsSnapshot,
     low_temp: bool,
+    docs_overview: str | None = None,
     reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> Iterator[AgentMessageFrame | AgentPlanFrame]:
     """Run one conversation turn and yield the assistant reply + optional plan."""
@@ -94,7 +96,7 @@ def converse(
         raise APIError(400, "bad_request", "Send a message to the assistant first.")
     base_url, api_key, model, params = resolve_llm(db)
 
-    grounding = _grounding(db, storyline_id, messages)
+    grounding = _grounding(db, storyline_id, messages) + docs_block(docs_overview)
     system = _build_system(persona, scope, fields, grounding)
     chat: list[dict[str, str]] = [{"role": "system", "content": system}]
     for m in messages:

@@ -272,6 +272,13 @@ export interface StorylineAgentBody {
   scope: StorylineScope;
   messages: AgentMessage[];
   fields: StorylineFieldsSnapshot;
+  /**
+   * Inline text of the context files the author kept selected for **Draft**, read in
+   * the browser and concatenated by `concatDocs` (capped at `DOCS_CHAR_CAP`). It
+   * grounds this turn only — the corpus is persisted separately on commit. Omit it
+   * and the assistant reasons from the form fields alone.
+   */
+  docsOverview?: string;
 }
 
 /** Converse with the storyline **editor** agent for an existing world (NDJSON). */
