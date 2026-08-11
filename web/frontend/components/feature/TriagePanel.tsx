@@ -327,7 +327,9 @@ export function TriagePanel({
             // No `title` here on purpose: a tooltip becomes the accessible name in
             // Chrome and would hide the visible "De-select All" / "Re-select All"
             // label from assistive tech (WCAG 2.5.3, Label in Name).
-            className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[10px] py-[2px] font-mono text-tag tracking-[0.08em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink disabled:cursor-default disabled:opacity-40"
+            // min-h/min-w keep the new control at the WCAG 2.5.8 (AA) 24x24 floor —
+            // the older per-row chips predate that and are tracked separately.
+            className="inline-flex min-h-[24px] min-w-[24px] cursor-pointer items-center justify-center rounded-full border border-cardbd bg-transparent px-[10px] py-[2px] font-mono text-tag tracking-[0.08em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink disabled:cursor-default disabled:opacity-40"
           >
             {allDraftSelected ? "De-select All" : "Re-select All"}
           </button>

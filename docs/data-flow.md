@@ -353,6 +353,32 @@ reference files *in the browser* and passed inline for that one call only — th
 files are never uploaded, persisted, or indexed (the corpus/RAG layer is a later
 plan). The agent reuses the same stored LLM config as the Options menu.
 
+### Context files → the storyline assistant
+
+The New / Edit Storyline page carries the same `docsOverview` grounding into the
+**conversational** storyline agent, so the files the author uploaded shape every
+generated field — not just the primer:
+
+```
+TriagePanel (right sidebar)                 StorylineCreatorView
+  drop .txt/.md → useStorylineCreator.docs     ↓
+  per-doc Draft toggle + bulk De-select All  useStorylineAgent.getDocsOverview()
+      ↓ (docs.filter(useDraft) → concatDocs)     ↓ read PER TURN
+  → POST /api/storylines/agent/create/stream  {scope, messages, fields, docsOverview?}
+    POST /api/storylines/{id}/agent/edit/stream
+      → routes/storylines → agents/storyline_edit/{creation,editor} → core.converse
+          → _common.docs_block(docs_overview)  [capped at DOCS_CAP]
+          → folded into the system prompt beside world_context + rag_block
+```
+
+A dropped file is **Draft-on by default** (`toCreatorDoc`), so uploaded material
+grounds the assistant without per-row toggling; the panel's **De-select All /
+Re-select All** strip clears or restores the whole selection in one click, and the
+`ContextBudgetMeter` shows the cost live. The grounding is read **per turn**, so a
+file dropped mid-conversation applies from the next message onward. This is transient
+prompt context only — the corpus is persisted separately by `commitWorld` through
+`…/context-docs/bulk` (see *Context Document Flow* below).
+
 ## Character Authoring Flow (creation-time agent + portrait)
 
 ```
