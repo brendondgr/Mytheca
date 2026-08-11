@@ -79,7 +79,7 @@ describe("StorylineCreatorView", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith(expect.stringMatching(/^\/sl-test/)));
   });
 
-  it("builds the cast and settings into the world it just created, then navigates", async () => {
+  it("builds the world in front of the author and only then navigates", async () => {
     const { useRouter } = await import("next/navigation");
     const push = vi.mocked(useRouter().push);
     push.mockClear();
@@ -95,9 +95,34 @@ describe("StorylineCreatorView", () => {
     const createdId = (await vi.mocked(api.createStoryline).mock.results[0].value).id;
     expect(vi.mocked(api.populateWorldStream)).toHaveBeenCalledWith(
       createdId,
-      expect.objectContaining({ withArtwork: false }),
+      expect.objectContaining({ withArtwork: true }),
+      expect.anything(),
     );
     await waitFor(() => expect(push).toHaveBeenCalledWith(`/${createdId}`));
+  });
+
+  it("stays on the dialog when the build fails, and enters only when asked", async () => {
+    const { useRouter } = await import("next/navigation");
+    const push = vi.mocked(useRouter().push);
+    push.mockClear();
+    vi.mocked(api.populateWorldStream).mockImplementationOnce(async function* () {
+      yield { type: "error" as const, message: "Choose a model in Options first.", fatal: true };
+    } as never);
+    const user = userEvent.setup();
+    render(<StorylineCreatorView />);
+
+    await user.type(screen.getByLabelText(/^title$/i), "Half World");
+    await user.click(screen.getByRole("button", { name: /create world/i }));
+    await user.click(await screen.findByRole("button", { name: /create & build/i }));
+
+    // The world exists, but the run did not finish — no silent redirect.
+    const enter = await screen.findByRole("button", { name: /enter the world anyway/i });
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByText(/Choose a model in Options first/)).toBeInTheDocument();
+
+    await user.click(enter);
+    const createdId = (await vi.mocked(api.createStoryline).mock.results[0].value).id;
+    expect(push).toHaveBeenCalledWith(`/${createdId}`);
   });
 
   it("saves an edit without asking about population", async () => {

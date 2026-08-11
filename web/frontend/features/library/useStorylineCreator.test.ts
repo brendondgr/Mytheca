@@ -130,45 +130,76 @@ describe("useStorylineCreator", () => {
     expect(vi.mocked(api.bulkCreateContextDocuments)).toHaveBeenCalled();
   });
 
-  it("commit forwards the author's Build-world choices to the population step", async () => {
+  it("createAndBuild persists the world, then builds into watchable state", async () => {
     const { result } = renderHook(() => useStorylineCreator());
     act(() => result.current.setField("title", "A World"));
 
-    let newId: string | null = null;
+    let outcome: { id: string | null; state: { phase: string } } | null = null;
     await act(async () => {
-      newId = await result.current.commit({ enabled: true, withArtwork: true });
+      outcome = await result.current.createAndBuild({ enabled: true, withArtwork: true });
     });
 
-    expect(newId).toBeTruthy();
+    expect(outcome!.id).toBeTruthy();
+    expect(outcome!.state.phase).toBe("done");
     expect(vi.mocked(api.populateWorldStream)).toHaveBeenCalledWith(
-      newId,
+      outcome!.id,
       expect.objectContaining({ withArtwork: true }),
+      expect.anything(),
     );
+    // The dialog reads this: what landed, ready to show.
+    expect(result.current.build.phase).toBe("done");
+    expect(result.current.build.entities.map((e) => e.name)).toEqual([
+      "Maerin Voss",
+      "Harbormaster Cael",
+      "The Salt Wharf",
+    ]);
+    expect(result.current.builtId).toBe(outcome!.id);
   });
 
-  it("surfaces a population problem as an error without losing the world", async () => {
+  it("holds the world open on a failed build instead of reporting success", async () => {
     vi.mocked(api.populateWorldStream).mockImplementationOnce(async function* () {
-      yield { type: "error" as const, message: "Could not write Maerin.", fatal: false };
-      yield { type: "done" as const, characters: 0, settings: 0 };
+      yield { type: "error" as const, message: "Choose a model in Options first.", fatal: true };
     } as never);
     const { result } = renderHook(() => useStorylineCreator());
     act(() => result.current.setField("title", "A World"));
 
-    let newId: string | null = null;
+    let outcome: { id: string | null; state: { phase: string } } | null = null;
     await act(async () => {
-      newId = await result.current.commit({ enabled: true, withArtwork: false });
+      outcome = await result.current.createAndBuild({ enabled: true, withArtwork: false });
     });
 
-    expect(newId).toBeTruthy();
-    await waitFor(() => expect(result.current.error).toBe("Could not write Maerin."));
+    // The world exists — the author is not stranded — but the run is not a success.
+    expect(outcome!.id).toBeTruthy();
+    expect(outcome!.state.phase).toBe("failed");
+    expect(result.current.build.error).toBe("Choose a model in Options first.");
   });
 
-  it("skips population entirely when the author declines it", async () => {
+  it("skips the build entirely when the author declines it", async () => {
     const { result } = renderHook(() => useStorylineCreator());
     act(() => result.current.setField("title", "A World"));
+
+    let outcome: { id: string | null; state: { phase: string } } | null = null;
     await act(async () => {
-      await result.current.commit({ enabled: false, withArtwork: false });
+      outcome = await result.current.createAndBuild({ enabled: false, withArtwork: false });
     });
+
+    expect(vi.mocked(api.populateWorldStream)).not.toHaveBeenCalled();
+    expect(outcome!.state.phase).toBe("done");
+    expect(outcome!.id).toBeTruthy();
+  });
+
+  it("reports a world that could not be created as a failed build", async () => {
+    vi.mocked(api.createStoryline).mockRejectedValueOnce(new Error("Server said no."));
+    const { result } = renderHook(() => useStorylineCreator());
+    act(() => result.current.setField("title", "A World"));
+
+    let outcome: { id: string | null; state: { phase: string } } | null = null;
+    await act(async () => {
+      outcome = await result.current.createAndBuild({ enabled: true, withArtwork: false });
+    });
+
+    expect(outcome!.id).toBeNull();
+    expect(outcome!.state.phase).toBe("failed");
     expect(vi.mocked(api.populateWorldStream)).not.toHaveBeenCalled();
   });
 

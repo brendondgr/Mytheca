@@ -432,17 +432,38 @@ agents already take. `withArtwork` is **opt-in**: every image is a full ComfyUI 
 so it defaults off, is gated on one up-front reachability probe, and a failed render
 never costs the entity.
 
-The run plans a roster (`agents/roster_agent.py`), then drafts each entry through the
-*same* `POST /characters/draft` / `POST /settings/draft` agents and persists it through
-the normal CRUD path — so a populated world picks up the usual Story-Graph and RAG sync.
+The run plans a roster (`agents/roster_agent.py`), then builds each entry through the
+*same* agents the per-entity creators use and persists it through the normal CRUD path —
+so a populated world picks up the usual Story-Graph and RAG sync. A character is built
+**whole**, in the order the retired world build used: draft (`/characters/draft`) →
+**voice & tone profile** (`/characters/voice-samples`) → **starting stats** keyed to the
+world's schema (`/characters/starting-stats`, skipped with no LLM call when the world
+defines no stats) → portrait when artwork is on. A setting is drafted
+(`/settings/draft`), then given scene art when artwork is on. Every step after the draft
+is best-effort: it emits an `error` frame and the entity still stands.
+
+Names are **de-duplicated against the whole world** (existing rows included): two draft
+agents can independently invent the same name, and the turn loop resolves speakers and
+relationships by name, so a collision would make two characters indistinguishable to the
+engine. Preference order is the drafted name, the roster's proposed name, the drafted
+name qualified by role/type, then a numeric suffix.
+
 Frames:
 
 - `{ "type": "status", "stage": "roster"|"character"|"setting", "message", "name", "index", "total" }`
-- `{ "type": "entity", "stage": "character"|"setting", "id", "name", "image" }` — one per
-  **persisted** row (the client's proof it landed).
-- `{ "type": "error", "message", "fatal": false }` — one item (a draft or a render) failed;
-  the run continues and the world is never rolled back.
+  — one per step, including the per-character voice / stats / portrait sub-steps, so the
+  client can show the build happening.
+- `{ "type": "entity", "stage": "character"|"setting", "id", "name", "role", "image" }` — one
+  per **persisted** row, emitted once that entity is finished (`role` is the character's
+  role or the setting's type).
+- `{ "type": "error", "message", "fatal": false }` — one item (a draft, a proposal, a render)
+  failed; the run continues and the world is never rolled back.
 - `{ "type": "done", "characters": <int>, "settings": <int> }` — the counts that actually landed.
+
+**A stream that ends without `done` is a failure, not a success.** The client
+(`features/library/worldBuild.ts`) treats a truncated run — dropped connection, restarted
+server, a proxy cutting an idle socket — as a failed build and says so, rather than
+walking the author into a half-built world.
 
 **Pre-flight** failures return the usual error envelope before the `200`: `404` unknown
 storyline, `400` unconfigured LLM. A failure *after* the stream opens cannot change the

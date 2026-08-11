@@ -19,12 +19,18 @@ import {
   draftDocTexts,
   draftGrounding,
   fieldsFromStoryline,
+  runPopulate,
   fromContextDocument,
   isCreatorValid,
   toCreatorDoc,
   type TriageActive,
   type UploadDefaults,
 } from "@/features/library/storylineCreator";
+import {
+  type BuildState,
+  emptyBuild,
+  willBuild,
+} from "@/features/library/worldBuild";
 
 function messageOf(e: unknown): string {
   return e instanceof Error ? e.message : "Something went wrong.";
@@ -227,45 +233,83 @@ export function useStorylineCreator(editId?: string) {
   }, [fields.premise, docs]);
 
   // ---- commit ----
-  // `populate` is what the author chose in the Build-world dialog (create mode only).
-  // A population problem is a warning, not a failure: the world exists either way, so
-  // the caller still gets the id and navigates.
-  const commit = useCallback(
-    async (populate: PopulateOptions = { enabled: false, withArtwork: false }): Promise<
-      string | null
-    > => {
-      if (!isCreatorValid(fields)) {
-        setError("Give the world a title first.");
-        return null;
-      }
-      setCommitting(true);
-      setError(null);
+  const commit = useCallback(async (): Promise<string | null> => {
+    if (!isCreatorValid(fields)) {
+      setError("Give the world a title first.");
+      return null;
+    }
+    setCommitting(true);
+    setError(null);
+    setProgress(null);
+    try {
+      return await commitWorld(
+        { editId, fields, stats, statsOriginal, docs, existingDocs },
+        setProgress,
+      );
+    } catch (e) {
+      setError(messageOf(e));
+      return null;
+    } finally {
+      setCommitting(false);
       setProgress(null);
-      try {
-        const { id, warning } = await commitWorld(
-          {
-            editId,
-            fields,
-            stats,
-            statsOriginal,
-            docs,
-            existingDocs,
-            populate,
-          },
-          setProgress,
-        );
-        if (warning) setError(warning);
-        return id;
-      } catch (e) {
-        setError(messageOf(e));
-        return null;
-      } finally {
-        setCommitting(false);
-        setProgress(null);
-      }
+    }
+  }, [editId, fields, stats, statsOriginal, docs, existingDocs]);
+
+  // ---- create + build (the Build-world dialog drives this) ----
+  // The world is persisted first, then populated with the stream folded into `build`
+  // so the dialog can show it happening. The id is held here (not returned early) so
+  // the author only leaves for the world once the run reports `done`.
+  const [build, setBuild] = useState<BuildState>(emptyBuild);
+  const [builtId, setBuiltId] = useState<string | null>(null);
+  const buildAbort = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      buildAbort.current?.abort();
     },
-    [editId, fields, stats, statsOriginal, docs, existingDocs],
+    [],
   );
+
+  const createAndBuild = useCallback(
+    async (options: PopulateOptions): Promise<{ id: string | null; state: BuildState }> => {
+      setBuild({ ...emptyBuild(), phase: "creating", step: "Creating the world…" });
+      setBuiltId(null);
+      const id = await commit();
+      if (!id) {
+        const failed: BuildState = {
+          ...emptyBuild(),
+          phase: "failed",
+          error: "The world could not be created.",
+        };
+        setBuild(failed);
+        return { id: null, state: failed };
+      }
+      setBuiltId(id);
+      if (!willBuild(options)) {
+        const skipped: BuildState = { ...emptyBuild(), phase: "done" };
+        setBuild(skipped);
+        return { id, state: skipped };
+      }
+      buildAbort.current?.abort();
+      const ac = new AbortController();
+      buildAbort.current = ac;
+      const state = await runPopulate(id, options, draftGrounding(docs), setBuild, ac.signal);
+      return { id, state };
+    },
+    [commit, docs],
+  );
+
+  /** Stop an in-flight build. What already landed stays — the world is not rolled back. */
+  const stopBuild = useCallback(() => {
+    buildAbort.current?.abort();
+    buildAbort.current = null;
+  }, []);
+
+  const resetBuild = useCallback(() => {
+    buildAbort.current?.abort();
+    buildAbort.current = null;
+    setBuild(emptyBuild());
+    setBuiltId(null);
+  }, []);
 
   const budget = useMemo(
     () => budgetFor({ worldPrimer: fields.worldPrimer, draftDocs: draftDocTexts(docs) }),
@@ -336,5 +380,12 @@ export function useStorylineCreator(editId?: string) {
     triage,
     generatePrimer,
     commit,
+    /** Live state of the create-time world build (rendered by `BuildWorldModal`). */
+    build,
+    /** The id of the world created by `createAndBuild` (available before the build ends). */
+    builtId,
+    createAndBuild,
+    stopBuild,
+    resetBuild,
   };
 }

@@ -366,6 +366,8 @@ export type PopulateEvent =
       stage: "character" | "setting";
       id: string;
       name: string;
+      /** The character's role, or the setting's type. */
+      role: string;
       image: string | null;
     }
   /** `fatal: false` = one item failed and the run continued. */

@@ -39,7 +39,9 @@ describe("CharacterModal — agentic creator", () => {
         "A drafted personality.",
       );
     });
-  });
+    // Real-time bound: typing the seed plus the 150 ms-per-field choreographed reveal
+    // runs ~4.4 s alone, which overruns the 5 s default under a loaded parallel suite.
+  }, 15000);
 
   it("highlights the field being written and shows draft progress", async () => {
     const user = userEvent.setup();

@@ -39,6 +39,7 @@ from app.schemas.world_populate import (
     RosterEntry,
 )
 from app.services import comfyui, crud, portraits, scene_art, settings_store
+from app.services import stats as stat_service
 
 
 def _seed_of(entry: RosterEntry) -> str:
@@ -48,6 +49,31 @@ def _seed_of(entry: RosterEntry) -> str:
 
 def _message_of(exc: Exception) -> str:
     return exc.message if isinstance(exc, APIError) else str(exc) or exc.__class__.__name__
+
+
+def _unique_name(taken: set[str], drafted: str, proposed: str, qualifier: str = "") -> str:
+    """A name no other entity in this world already has.
+
+    The roster de-duplicates the names it *proposes*, but each draft agent invents its
+    own name from the seed and two of them can land on the same one — a real run
+    produced two separate characters called "Kaelen Thorne". Duplicate names are not
+    cosmetic here: the turn loop resolves speakers and relationships **by name**, so a
+    collision makes two characters indistinguishable to the engine.
+
+    Preference order: the drafted name, then the name the roster proposed, then the
+    drafted name qualified by its role/type, then a numeric suffix as the backstop.
+    """
+    candidates = [drafted, proposed]
+    if qualifier:
+        candidates.append(f"{drafted} ({qualifier})")
+    for candidate in candidates:
+        if candidate and candidate.casefold() not in taken:
+            return candidate
+    base = drafted or proposed
+    n = 2
+    while f"{base} {n}".casefold() in taken:
+        n += 1
+    return f"{base} {n}"
 
 
 def _artwork_enabled(db: Session, requested: bool) -> tuple[bool, str | None]:
@@ -67,6 +93,60 @@ def _artwork_enabled(db: Session, requested: bool) -> tuple[bool, str | None]:
     except Exception:
         return False, f"ComfyUI is not reachable at {base} — the world was built without artwork."
     return True, None
+
+
+def _write_voice(db: Session, char) -> str | None:
+    """Best-effort voice & tone profile for a persisted character. Returns an error.
+
+    Runs *before* the starting stats, matching the order the retired world build used:
+    a character's voice is derived from their prose, and the stats are keyed to who
+    they turn out to be.
+    """
+    try:
+        voice = character_agent.propose_voice_samples(
+            db,
+            name=char.name,
+            role=char.role,
+            traits=char.traits,
+            speech=char.speech,
+            background=char.background,
+            personality=char.personality,
+            storyline_id=char.storyline_id,
+        )
+        if not voice.samples:
+            return None
+        char.voice_samples = [s.model_dump() for s in voice.samples]
+        db.commit()
+        return None
+    except Exception as exc:  # a voiceless character is still a character
+        db.rollback()
+        return f"Could not find {char.name}'s voice: {_message_of(exc)}"
+
+
+def _write_starting_stats(db: Session, char) -> str | None:
+    """Best-effort starting stat values keyed to the world's schema. Returns an error.
+
+    A world with no stat definitions costs nothing — ``propose_starting_stats`` makes
+    no LLM call and returns no proposals.
+    """
+    try:
+        proposal = character_agent.propose_starting_stats(
+            db,
+            char.storyline_id,
+            name=char.name,
+            role=char.role,
+            traits=char.traits,
+            personality=char.personality,
+            background=char.background,
+        )
+        values = {p.key: p.value for p in proposal.proposals}
+        if not values:
+            return None
+        stat_service.set_character_stats(db, char.id, values)
+        return None
+    except Exception as exc:
+        db.rollback()
+        return f"Could not set {char.name}'s starting stats: {_message_of(exc)}"
 
 
 def _render_portrait(db: Session, char) -> tuple[str | None, str | None]:
@@ -123,6 +203,9 @@ def _populate_characters(
 ) -> Iterator[PopulateEvent]:
     """Draft + persist each cast member (one ``entity`` frame per one that landed)."""
     total = len(entries)
+    # Names already spoken for in this world (pre-existing rows included, since a run
+    # can be pointed at a world that is not empty).
+    taken = {c.name.casefold() for c in crud.list_characters(db, storyline_id)}
     for index, entry in enumerate(entries, start=1):
         yield PopulateStatusFrame(
             stage="character",
@@ -135,11 +218,12 @@ def _populate_characters(
             draft = character_agent.draft_character(
                 db, _seed_of(entry), docs_overview, storyline_id
             )
+            name = _unique_name(taken, draft.name, entry.name, draft.role)
             char = crud.create_character(
                 db,
                 storyline_id,
                 CharacterCreate(
-                    name=draft.name or entry.name,
+                    name=name,
                     role=draft.role or "Character",
                     color=draft.color or "#8E2B1C",
                     traits=draft.traits,
@@ -154,6 +238,24 @@ def _populate_characters(
         except Exception as exc:
             yield PopulateErrorFrame(message=f"Could not write {entry.name}: {_message_of(exc)}")
             continue
+        taken.add(char.name.casefold())
+
+        # The rest of the character, in the order the retired world build used: voice
+        # from the prose, then stats keyed to who they turned out to be, then the
+        # portrait. Each step is best-effort and announces itself so the author can
+        # watch the character being finished rather than staring at one long pause.
+        def _step(message: str, run) -> Iterator[PopulateEvent]:
+            yield PopulateStatusFrame(
+                stage="character", name=char.name, index=index, total=total, message=message
+            )
+            err = run()
+            if err:
+                yield PopulateErrorFrame(message=err)
+
+        yield from _step(f"Finding {char.name}'s voice…", lambda: _write_voice(db, char))
+        yield from _step(
+            f"Setting {char.name}'s starting stats…", lambda: _write_starting_stats(db, char)
+        )
 
         image = None
         if artwork:
@@ -167,7 +269,9 @@ def _populate_characters(
             image, err = _render_portrait(db, char)
             if err:
                 yield PopulateErrorFrame(message=err)
-        yield PopulateEntityFrame(stage="character", id=char.id, name=char.name, image=image)
+        yield PopulateEntityFrame(
+            stage="character", id=char.id, name=char.name, role=char.role, image=image
+        )
 
 
 def _populate_settings(
@@ -180,6 +284,7 @@ def _populate_settings(
 ) -> Iterator[PopulateEvent]:
     """Draft + persist each place (one ``entity`` frame per one that landed)."""
     total = len(entries)
+    taken = {s.name.casefold() for s in crud.list_settings(db, storyline_id)}
     for index, entry in enumerate(entries, start=1):
         yield PopulateStatusFrame(
             stage="setting",
@@ -190,11 +295,12 @@ def _populate_settings(
         )
         try:
             draft = setting_agent.draft_setting(db, _seed_of(entry), docs_overview, storyline_id)
+            name = _unique_name(taken, draft.name, entry.name, draft.type)
             setting = crud.create_setting(
                 db,
                 storyline_id,
                 SettingCreate(
-                    name=draft.name or entry.name,
+                    name=name,
                     type=draft.type or "Social Hub",
                     desc=draft.desc or "A place yet to be described.",
                     atmosphere=draft.atmosphere,
@@ -205,6 +311,7 @@ def _populate_settings(
         except Exception as exc:
             yield PopulateErrorFrame(message=f"Could not build {entry.name}: {_message_of(exc)}")
             continue
+        taken.add(setting.name.casefold())
 
         image = None
         if artwork:
@@ -218,7 +325,9 @@ def _populate_settings(
             image, err = _render_scene_art(db, setting)
             if err:
                 yield PopulateErrorFrame(message=err)
-        yield PopulateEntityFrame(stage="setting", id=setting.id, name=setting.name, image=image)
+        yield PopulateEntityFrame(
+            stage="setting", id=setting.id, name=setting.name, role=setting.type, image=image
+        )
 
 
 def populate_world(
