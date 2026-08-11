@@ -5,7 +5,7 @@
 export type Theme = "light" | "dark" | "slate";
 
 export const THEME_KEYS: readonly Theme[] = ["light", "dark", "slate"];
-export const DEFAULT_THEME: Theme = "light";
+export const DEFAULT_THEME: Theme = "slate";
 export const THEME_STORAGE_KEY = "mytheca-theme";
 
 /** Switcher metadata: label + the swatch color shown in the picker dot. */
