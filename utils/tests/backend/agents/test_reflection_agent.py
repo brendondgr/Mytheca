@@ -101,7 +101,11 @@ def test_disposition_prompt_captures_emotional_situational_state(monkeypatch):
     )
     system = json.loads(capture["body"])["messages"][0]["content"]
     assert "FEELING" in system
-    assert "default manner" in system
+    assert "snapping back to their default" in system
+    # It must have room to say what the character can no longer keep up — that clause is
+    # what actually carries an adapted manner into the next beat.
+    assert "2-3 sentences" in system
+    assert "is not going to survive into the next beat" in system
 
 
 def test_malformed_reply_yields_none(monkeypatch):

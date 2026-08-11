@@ -246,10 +246,6 @@ def _build_user_prompt(
         else:
             flat = ", ".join(f"{k}={v}" for k, v in speaker.stats.items())
             head.append(f"Your current state: {flat}")
-    if speaker.disposition:
-        # Carried in from the previous turn's reflection (§P9): the stance you already
-        # hold as you re-enter. It seeds this beat so <thinking> can stay very short.
-        head.append(f"Your current inner stance: {speaker.disposition}")
     if speaker.recent_lines:
         anchors = "  ".join(f"“{line}”" for line in speaker.recent_lines)
         head.append(f"Your recent lines (a reference for your voice, not a script): {anchors}")
@@ -308,9 +304,17 @@ def _build_user_prompt(
     if ctx.directed_at == speaker.id:
         tail.append("The player addressed you directly.")
     if speaker.disposition:
-        # Disposition already computed (§P9) — it seeds the stance, but the character still
-        # thinks the moment through in-voice rather than clipping it to a few words.
-        tail.append("You already hold a stance — let <thinking> build on it in your own voice, don't just restate it.")
+        # Carried in from the previous turn's reflection (§P9). This is the only signal in
+        # the prompt that tracks how events have actually CHANGED this character, so it sits
+        # in the recency TAIL beside the register rather than buried in the HEAD, where the
+        # voice-sample block outweighed it. Stated as a condition the character is already
+        # in, with explicit license to break their habitual manner because of it.
+        tail.append(
+            f"You do not come into this beat neutral. Where the last one left you: "
+            f"{speaker.disposition} That is your condition now — carry it in. If it means "
+            "you cannot keep up your usual manner, don't; let <thinking> build on it in "
+            "your own voice rather than restating it."
+        )
     if correction:
         # Consistency guard flagged the prior attempt (§P10) — steer the redo.
         tail.append(

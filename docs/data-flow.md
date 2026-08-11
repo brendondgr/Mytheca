@@ -828,7 +828,12 @@ optional: a planner fallback, a puppet beat, or a directly-constructed `TurnCont
 `<thinking>` step still appraises the moment first, and the output contract's manner-adaptation rule
 still makes personality **constant** while manner **adapts**. The between-turn **`disposition`**
 carries the resulting emotional/situational state (shaken, grieving, afraid, relieved) forward, so an
-adapted manner persists rather than snapping back to the default next beat.
+adapted manner persists rather than snapping back to the default next beat. It is 2–3 sentences —
+how the moment left them, what they want, and what they can no longer keep up — and it rides in the
+prompt's recency **TAIL** beside the register (not the HEAD, where the voice-sample block outweighed
+it), stated as the condition the character is already in with explicit license to break their
+habitual manner because of it. Reflection effort stays **LOW**: `dispatch_reflection` runs inline by
+default and a crowd reflects universally, so a higher budget would land on the turn tail.
 
 The authored `Setting.atmosphere` is **not** a live mood signal — it is written once at world
 creation and never rewritten during play, so the prompt presents it as the description of the place

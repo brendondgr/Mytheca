@@ -210,10 +210,16 @@ def test_interior_disposition_injected_and_builds_thinking(client, db_session, m
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
     user = json.loads(capture["body"])["messages"][1]["content"]
-    # HEAD carries the carried-in stance; TAIL has the thought BUILD on it (not clip it).
-    assert "Your current inner stance: Guarded — I want the coin without the strings." in user
+    # The carried-in stance is the only signal tracking how events actually changed this
+    # character, so it lives in the recency TAIL beside the register — not in the HEAD,
+    # where the voice-sample block outweighed it.
+    assert "Guarded — I want the coin without the strings." in user
+    assert "That is your condition now" in user
     assert "let <thinking> build on it in your own voice" in user
     assert "few words" not in user  # no longer clipped to a few words
+    # Tail placement: after the transcript, and stated only once.
+    assert user.index("Guarded — I want the coin") > user.index("Recent beats:")
+    assert user.count("Guarded — I want the coin") == 1
 
 
 def test_no_disposition_omits_inner_stance(client, db_session, monkeypatch):
@@ -226,7 +232,7 @@ def test_no_disposition_omits_inner_stance(client, db_session, monkeypatch):
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
     user = json.loads(capture["body"])["messages"][1]["content"]
-    assert "current inner stance" not in user
+    assert "do not come into this beat neutral" not in user
     assert "let <thinking> build on it" not in user
 
 
