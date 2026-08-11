@@ -33,6 +33,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
 | Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
 | Authoring | `POST /storylines/draft`, `POST /storylines/primer`, `POST /storylines/triage` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, generate the agent-facing World Primer, and **triage** dropped reference docs into Characters / Settings / Other with Draft/RAG inclusion (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
+| World population | `POST /storylines/{id}/populate/stream` | **Implemented.** NDJSON. Fills a newly-created world with a generated cast + settings: plan a roster, draft each entry through the existing character/setting draft agents, persist it, and stream `status` / `entity` / `error` / `done` frames. Artwork is opt-in and best-effort; a per-entity failure never aborts the run. Pre-flight `404`/`400`. See World Population Stream below. |
 | Authoring (live) | `POST /storylines/triage/stream` | **Implemented.** NDJSON (`application/x-ndjson`) streaming triage so the New Storyline page renders the classification **as it happens** — one `status`+`item` per doc then a terminal `done`. Pre-flight failures (no context / unconfigured LLM) return a normal `400` before the stream opens; a per-doc failure falls back to `other`/RAG-on rather than aborting. See Live Authoring Stream below. |
 | Storyline agent (editing) | `POST /storylines/agent/create/stream`, `POST /storylines/{id}/agent/edit/stream`, `POST /storylines/{id}/agent/apply` | **Implemented.** The conversational, scope-aware agent that **replaced "Build the whole world"** on the storyline create/edit pages: chat about the storyline's own fields (title/genre/tagline/premise/World Primer/stat schema) within an author-set **write scope**, review a proposed `StoryPlan`, then approve to write it (create: fills the form; edit: applies through validated writes). Nothing is written before `…/agent/apply`. See Storyline Agent Shapes below. |
 | Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/voice-samples`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), derive a **voice & tone profile** (situation → sample-response pairs) from the character's prose, and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
@@ -413,6 +414,40 @@ over the same generator).
   and a terminal `{ "type": "done" }`. A per-doc failure falls back to `other`/RAG-on
   (it does not abort the run). Empty/blank docs stream straight to `done` with no LLM call
   (and need no configured LLM).
+
+### World Population Stream (NDJSON)
+
+`POST /storylines/{id}/populate/stream` — fill a **newly-created** world with a
+generated cast and set of places. The New Storyline page runs this immediately after
+`commitWorld`, once the author confirms in the Build-world dialog, so the redirect
+lands them in a populated Library instead of an empty one. Body:
+
+```json
+{ "docsOverview": "…", "maxCharacters": 5, "maxSettings": 3, "withArtwork": false }
+```
+
+`maxCharacters` is 0–8 (default 5) and `maxSettings` 0–6 (default 3) — out-of-range
+values are a `422`. `docsOverview` is the same Draft-selected file text the authoring
+agents already take. `withArtwork` is **opt-in**: every image is a full ComfyUI render,
+so it defaults off, is gated on one up-front reachability probe, and a failed render
+never costs the entity.
+
+The run plans a roster (`agents/roster_agent.py`), then drafts each entry through the
+*same* `POST /characters/draft` / `POST /settings/draft` agents and persists it through
+the normal CRUD path — so a populated world picks up the usual Story-Graph and RAG sync.
+Frames:
+
+- `{ "type": "status", "stage": "roster"|"character"|"setting", "message", "name", "index", "total" }`
+- `{ "type": "entity", "stage": "character"|"setting", "id", "name", "image" }` — one per
+  **persisted** row (the client's proof it landed).
+- `{ "type": "error", "message", "fatal": false }` — one item (a draft or a render) failed;
+  the run continues and the world is never rolled back.
+- `{ "type": "done", "characters": <int>, "settings": <int> }` — the counts that actually landed.
+
+**Pre-flight** failures return the usual error envelope before the `200`: `404` unknown
+storyline, `400` unconfigured LLM. A failure *after* the stream opens cannot change the
+status, so it arrives as a terminal `error` frame with `fatal: true`. Long gaps between
+entities are filled with `status` keep-alive frames (see the keep-alive contract).
 
 ## Storyline Agent Shapes (conversational, scope-aware editor)
 

@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.agents import storyline_agent, triage_agent
+from app.agents._common import resolve_llm
 from app.agents.storyline_edit import core as storyline_edit_core
 from app.agents.storyline_edit import creation as creation_agent
 from app.agents.storyline_edit import editor as editor_agent
@@ -34,7 +35,12 @@ from app.schemas.storyline_edit import (
     StorylineApplyRequest,
     StorylineApplyResponse,
 )
-from app.services import crud, storyline_apply
+from app.schemas.world_populate import (
+    PopulateErrorFrame,
+    PopulateStatusFrame,
+    WorldPopulateRequest,
+)
+from app.services import crud, storyline_apply, world_populate
 
 router = APIRouter(prefix="/storylines", tags=["storylines"])
 
@@ -204,6 +210,54 @@ def storyline_agent_edit_stream(
             fields=data.fields,
             docs_overview=data.docs_overview,
         )
+    )
+
+
+@router.post("/{storyline_id}/populate/stream")
+def populate_storyline_stream(
+    storyline_id: str, data: WorldPopulateRequest, db: Session = Depends(get_db)
+):
+    """Fill a newly-created world with a generated cast + settings (NDJSON stream).
+
+    The create page runs this straight after committing a world, so the author lands
+    in a populated Library rather than an empty one. Frames: ``status`` (per stage +
+    item), ``entity`` (one per persisted character/setting), ``error`` (a non-fatal
+    per-item failure — the run continues), then ``done`` with the real counts.
+
+    Fatal cases are validated before the stream opens so they surface as a normal
+    error envelope: 404 for an unknown storyline, 400 for an unconfigured LLM.
+    """
+    crud.get_storyline(db, storyline_id)  # 404 pre-flight
+    resolve_llm(db)  # 400 when the operator has not configured a model
+
+    events = world_populate.populate_world(
+        db,
+        storyline_id,
+        docs_overview=data.docs_overview,
+        max_characters=data.max_characters,
+        max_settings=data.max_settings,
+        with_artwork=data.with_artwork,
+    )
+
+    def _lines() -> Iterator[str]:
+        try:
+            # Drafting one entity is a whole generation; without keep-alive frames the
+            # socket would sit silent for minutes between entities.
+            for event in with_keepalive(
+                events, lambda: PopulateStatusFrame(stage="roster", message="Still writing…")
+            ):
+                yield event.model_dump_json(by_alias=True) + "\n"
+        except APIError as exc:
+            yield PopulateErrorFrame(
+                message=exc.message, fatal=True
+            ).model_dump_json(by_alias=True) + "\n"
+        except Exception:  # never leak a stack trace into the stream
+            yield PopulateErrorFrame(
+                message="Populating the world failed unexpectedly.", fatal=True
+            ).model_dump_json(by_alias=True) + "\n"
+
+    return StreamingResponse(
+        _lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS
     )
 
 
