@@ -468,3 +468,58 @@ def test_no_register_keeps_the_generic_cue(client, db_session, monkeypatch):
     user = json.loads(capture["body"])["messages"][1]["content"]
     assert "Before you respond, read the moment" in user
     assert "The moment is" not in user
+
+
+_SAMPLE_ROWS = [
+    {"situation": "haggling", "sample": "Coin first, favor later.", "moment": "light"},
+    {"situation": "a friend bleeding out", "sample": "Stay with me. Stay.", "moment": "grave"},
+]
+
+
+def test_grave_beat_injects_only_the_grave_voice_sample(client, db_session, monkeypatch):
+    # The voice samples are the highest-salience block in the prompt — showing the at-rest
+    # quip on a grave beat is precisely what made characters unable to change register.
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    ctx.cast[0].voice_sample_rows = _SAMPLE_ROWS
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        register="grave",
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "Stay with me. Stay." in user
+    assert "Coin first, favor later." not in user
+    assert "how you sound in a moment like this one" in user
+
+
+def test_registerless_beat_injects_every_sample_as_the_baseline(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    ctx.cast[0].voice_sample_rows = _SAMPLE_ROWS
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "Coin first, favor later." in user and "Stay with me. Stay." in user
+    assert "your baseline voice" in user
+
+
+def test_unmatched_register_keeps_the_whole_profile(client, db_session, monkeypatch):
+    # A world authored before the field must never lose its voice profile.
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    ctx.cast[0].voice_sample_rows = [{"situation": "haggling", "sample": "Coin first.", "moment": "light"}]
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        register="grave",
+    )
+    assert "Coin first." in json.loads(capture["body"])["messages"][1]["content"]

@@ -107,8 +107,8 @@ _STATS_SYSTEM = (
 )
 
 
-# How many situation → response pairs to keep (accept 2-4, target 2-3).
-_VOICE_SAMPLES_CAP = 4
+# How many situation → response pairs to keep (target 3-4, one of them off-baseline).
+_VOICE_SAMPLES_CAP = 5
 
 _VOICE_SYSTEM = (
     "You are Mytheca's character-voice assistant. Your job is to PROVE, not "
@@ -120,7 +120,7 @@ _VOICE_SYSTEM = (
     "default formality, and anything they characteristically avoid saying. Never "
     "default to a generic, textbook-neutral voice — commit to something specific "
     "and a little uneven, the way real speech is.\n"
-    "Then write 2-3 distinct situation → response pairs that demonstrate this "
+    "Then write 3-4 distinct situation → response pairs that demonstrate this "
     "voice in action. Each \"situation\" is a PREVIOUS situation the character "
     "was confronted with — a short, vivid beat, usually including another "
     "character's line of dialogue, written as if it just happened. Each "
@@ -133,14 +133,25 @@ _VOICE_SYSTEM = (
     "Each response must be unmistakably driven by its own situation — react to "
     "the specific thing that was just said or done, don't restate a generic "
     "summary of the character's personality that could be dropped into any "
-    "situation unchanged. The 2-3 situations must be meaningfully different "
+    "situation unchanged. The situations must be meaningfully different "
     "(different stakes, different person, different pressure) so the character's "
     "tone visibly shifts across pairs — e.g. calm here, guarded there, cornered "
     "elsewhere — while the underlying voice (diction, rhythm, attitude) stays "
-    "recognizably theirs throughout. Respond with ONLY a JSON object — no prose, "
+    "recognizably theirs throughout.\n"
+    'Tag each pair with the KIND OF MOMENT it shows: "light" (banter, nothing at '
+    'stake), "neutral" (ordinary business), "tense" (something they care about is '
+    'at risk), or "grave" (someone is dying, badly hurt, or breaking down). COVER '
+    'THE RANGE — at least one pair MUST be "grave" or "tense", and that one must '
+    "show this person with their habitual manner stripped away: what is underneath "
+    "when the joke, the swagger, or the composure does not survive the moment. A "
+    "profile whose pairs all sound the same is a failed profile — these samples are "
+    "what the character imitates during play, so if they only ever demonstrate the "
+    "baseline, the character can never do anything else.\n"
+    "Respond with ONLY a JSON object — no prose, "
     'no markdown, no code fences — of the form {"samples": '
     '[{"situation": "<the previous situation they were confronted with>", '
-    '"sample": "<their single in-voice response>"}]}. Include no other keys.'
+    '"sample": "<their single in-voice response>", '
+    '"moment": "light"|"neutral"|"tense"|"grave"}]}. Include no other keys.'
 )
 
 
@@ -428,7 +439,11 @@ def propose_voice_samples(
         if not sample:
             continue
         situation = str(row.get("situation") or "").strip()
-        samples.append(VoiceSample(situation=situation, sample=sample))
+        # ``moment`` is whitelisted by the schema validator — an unrecognized or absent
+        # tag becomes "" (applies to any moment) rather than failing the whole proposal.
+        samples.append(
+            VoiceSample(situation=situation, sample=sample, moment=row.get("moment", ""))
+        )
         if len(samples) >= _VOICE_SAMPLES_CAP:
             break
     return VoiceSamplesResponse(samples=samples)

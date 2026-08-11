@@ -4,11 +4,22 @@
 // eventual backend contracts.
 
 /** One situation → sample-response pair defining how a character speaks. */
+/**
+ * The kinds of moment a voice sample can demonstrate — the same axis the backend
+ * planner reads per beat as the beat's `register`. Only the samples matching the
+ * current beat (plus untagged ones) are injected into the turn prompt, so a
+ * character has a concrete exemplar of themselves *not at rest*.
+ */
+export const VOICE_MOMENTS = ["light", "neutral", "tense", "grave"] as const;
+export type VoiceMoment = (typeof VOICE_MOMENTS)[number];
+
 export interface VoiceSample {
   /** A short description of a story event or an interaction with another character. */
   situation: string;
   /** What the character would say/do in response, in their own voice. */
   sample: string;
+  /** Which kind of moment this pair shows. Empty = applies to any moment. */
+  moment?: VoiceMoment | "";
 }
 
 /** The five story-event types the renderer maps 1:1 (docs/design-system.md). */

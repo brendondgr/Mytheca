@@ -59,9 +59,14 @@ class CastMember:
     # of the generation prompt so it re-enters the scene already leaning where it left.
     disposition: str = ""
     # Authored voice & tone profile, pre-rendered to a compact prompt block (situation
-    # → sample-response pairs). Injected into the generation HEAD so both spoken lines
-    # and the hidden thinking step stay in voice. Empty string when unauthored.
+    # → sample-response pairs), ALL samples regardless of moment. Read by
+    # ``director_agent`` and used as the character prompt's fallback when the beat has no
+    # register. Empty string when unauthored.
     voice_samples: str = ""
+    # The same profile unrendered. Selection is per BEAT (which register is in play is only
+    # known once the planner has decided) while assembly is per TURN, so the rows travel raw
+    # and ``character_turn_agent`` renders the matching subset at the call site.
+    voice_sample_rows: list[dict] = field(default_factory=list)
     # Runtime scene presence (Scene Presence & Director Actions): ``present`` (the default,
     # and the ONLY selectable status) through ``dead``. Derived from the session's
     # ``character_status_change`` event log; the turn loop skips non-``present`` members when
@@ -203,14 +208,38 @@ def _build_cast(
                 stats=block,
                 recent_lines=_anchors_for(char.id, recent_beats),
                 disposition=record.disposition if record is not None else "",
-                voice_samples=_format_voice_samples(char.voice_samples),
+                voice_samples=format_voice_samples(char.voice_samples),
+                voice_sample_rows=[s for s in (char.voice_samples or []) if isinstance(s, dict)],
                 presence=presence.status_for(presence_map, char.id),
             )
         )
     return members
 
 
-def _format_voice_samples(samples: list[dict] | None) -> str:
+def select_voice_samples(samples: list[dict] | None, register: str | None) -> list[dict]:
+    """The samples worth showing a character for a beat of ``register``.
+
+    Injecting every at-rest sample on every beat is what made characters sound scripted:
+    concrete exemplars of the baseline voice outweigh any abstract instruction to adapt.
+    So a beat with a register gets the pairs tagged with it, plus untagged pairs (which
+    claim to apply anywhere).
+
+    Falls back to the **whole** set when that selection is empty, when the register is
+    unknown, or when nothing is tagged at all — an existing world authored before the
+    field never loses its voice profile, and the no-register path stays byte-identical
+    to the pre-register behavior.
+    """
+    rows = [s for s in (samples or []) if isinstance(s, dict)]
+    if not rows or not register:
+        return rows
+    matching = [
+        s for s in rows
+        if str(s.get("moment") or "").strip().lower() in ("", register)
+    ]
+    return matching or rows
+
+
+def format_voice_samples(samples: list[dict] | None) -> str:
     """Render a character's situation → single-response pairs as a compact block.
 
     Each pair gets a two-line bullet — the prompting situation, then the character's

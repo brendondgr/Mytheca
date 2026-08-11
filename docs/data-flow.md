@@ -476,13 +476,22 @@ Character modal (CharacterModal) → lib/api.ts
     profile); accepted starting stats are applied via PUT /api/characters/{id}/stats
 ```
 
-The `voiceSamples` then feed the runtime turn loop: `assembler._build_cast` renders
-each character's pairs into a `CastMember.voice_samples` block, and
-`character_turn_agent` injects it into the generation prompt HEAD — anchoring both
-the spoken line and the hidden `<thinking>` step to the character's authored voice.
-The samples are framed as a **baseline** ("how you sound at rest"), not a script:
-the person stays constant but the register **flexes with the stakes** of the moment
-(see the situational-voice-adaptation note in the turn-loop section below).
+The `voiceSamples` then feed the runtime turn loop, and they are the **highest-salience
+block in the generation prompt** — concrete proof of how this person sounds, which the
+model imitates far more readily than it follows any abstract instruction to adapt. Each
+pair therefore carries a **`moment`** tag (`light` · `neutral` · `tense` · `grave`, or
+empty for "any moment"), authored in `VoiceSamplesEditor` and proposed by
+`character_agent.propose_voice_samples`, which is required to cover the range — at least
+one pair must show the character with their habitual manner stripped away.
+
+`assembler._build_cast` carries the pairs **raw** on `CastMember.voice_sample_rows`
+(selection is per beat, assembly is per turn) alongside the pre-rendered all-samples
+`voice_samples` block that `director_agent` reads. `character_turn_agent` then renders
+only the pairs matching the beat's register, plus untagged ones, into the prompt HEAD —
+so on a grave beat the character is shown itself in a grave moment rather than its
+at-rest banter. `assembler.select_voice_samples` falls back to the **whole** profile
+when the register is absent or nothing matches, so a world authored before the field
+never loses its voice profile.
 
 Same **creation-time, no-RAG** rules as storyline authoring. Everything produced
 is a character's **own base identity** (§1 node properties) — no graph structure

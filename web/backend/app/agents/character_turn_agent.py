@@ -23,7 +23,12 @@ from app.agents._common import gen_params, resolve_llm
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmParams
 from app.services import llm
-from app.services.assembler import CastMember, TurnContext
+from app.services.assembler import (
+    CastMember,
+    TurnContext,
+    format_voice_samples,
+    select_voice_samples,
+)
 from app.services.stat_render import render_character_stats
 
 logger = logging.getLogger("mytheca.turn")
@@ -186,15 +191,25 @@ def _build_user_prompt(
         head.append(f"Speech style (your default voice): {speaker.speech}")
     if speaker.traits:
         head.append(f"Traits: {speaker.traits}")
-    if speaker.voice_samples:
-        # Concrete situation → sample-response pairs authored for this character: the ground
-        # truth for *how* they sound AT REST. Framed as a baseline, not a script — the person
-        # stays constant, but their register bends with the stakes (see the output contract's
-        # manner-adaptation rule). Anchors both the spoken line and the in-voice <thinking>.
-        head.append(
-            "Voice samples — your baseline voice (how you sound at rest; keep the person, but "
-            f"let the register flex with the moment):\n{speaker.voice_samples}"
-        )
+    # Concrete situation → sample-response pairs authored for this character — the ground
+    # truth for *how* they sound, and the single highest-salience block in this prompt.
+    # Selected by the beat's register (untagged pairs always apply, and an unmatched or
+    # register-less beat falls back to the whole set) so the exemplars the model imitates
+    # are drawn from a moment LIKE this one rather than always from the baseline.
+    selected = format_voice_samples(
+        select_voice_samples(speaker.voice_sample_rows, register)
+    ) or speaker.voice_samples
+    if selected:
+        if register:
+            head.append(
+                f"Voice samples — how you sound in a moment like this one. Keep the person; "
+                f"match the pitch of the moment, not a habit:\n{selected}"
+            )
+        else:
+            head.append(
+                "Voice samples — your baseline voice (how you sound at rest; keep the person, but "
+                f"let the register flex with the moment):\n{selected}"
+            )
     if speaker.stats:
         # Resolve each stat's current band and substitute {Character} with the
         # speaker's name so the model reads what a value *means* for them right now
