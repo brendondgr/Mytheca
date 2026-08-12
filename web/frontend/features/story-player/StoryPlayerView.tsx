@@ -173,6 +173,8 @@ export function StoryPlayerView({
             contextBeats={scene.contextBeats}
             onContextBeatsChange={scene.setContextBeats}
             beatTexts={beatTexts}
+            guidance={scene.guidance}
+            onGuidanceChange={scene.setGuidance}
             pov={scene.pov}
             onPovChange={scene.setPov}
             povOptions={povOptions}

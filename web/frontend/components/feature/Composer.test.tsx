@@ -138,6 +138,138 @@ describe("Composer", () => {
       );
     });
 
+    describe("scene-direction box", () => {
+      it("is hidden in narrator mode — the message box already carries the direction", () => {
+        render(
+          <Composer
+            value=""
+            onChange={() => {}}
+            onSend={() => {}}
+            guidance=""
+            onGuidanceChange={() => {}}
+            onPovChange={() => {}}
+            povOptions={POV_OPTS}
+            pov={null}
+          />,
+        );
+        expect(screen.queryByRole("textbox", { name: /scene direction/i })).not.toBeInTheDocument();
+      });
+
+      it("appears above the message box once the player speaks as a character", () => {
+        render(
+          <Composer
+            value=""
+            onChange={() => {}}
+            onSend={() => {}}
+            guidance=""
+            onGuidanceChange={() => {}}
+            onPovChange={() => {}}
+            povOptions={POV_OPTS}
+            pov="mei"
+          />,
+        );
+        const direction = screen.getByRole("textbox", { name: /scene direction/i });
+        const message = screen.getByRole("textbox", { name: /your message/i });
+        expect(direction).toHaveAttribute("placeholder", "Guide the scene — what happens next…");
+        // Direction sits BEFORE the message box in document order (above it on screen).
+        expect(
+          direction.compareDocumentPosition(message) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+      });
+
+      it("stays hidden when no handler is wired, even under POV", () => {
+        render(
+          <Composer
+            value=""
+            onChange={() => {}}
+            onSend={() => {}}
+            onPovChange={() => {}}
+            povOptions={POV_OPTS}
+            pov="mei"
+          />,
+        );
+        expect(screen.queryByRole("textbox", { name: /scene direction/i })).not.toBeInTheDocument();
+      });
+
+      it("typing fires onGuidanceChange", async () => {
+        const onGuidanceChange = vi.fn();
+        const user = userEvent.setup();
+        render(
+          <Composer
+            value=""
+            onChange={() => {}}
+            onSend={() => {}}
+            guidance=""
+            onGuidanceChange={onGuidanceChange}
+            onPovChange={() => {}}
+            povOptions={POV_OPTS}
+            pov="mei"
+          />,
+        );
+        await user.type(screen.getByRole("textbox", { name: /scene direction/i }), "louder");
+        expect(onGuidanceChange).toHaveBeenCalled();
+      });
+
+      it("Enter sends from the direction box too, Shift+Enter does not", () => {
+        const onSend = vi.fn();
+        render(
+          <Composer
+            value="hello"
+            onChange={() => {}}
+            onSend={onSend}
+            guidance="make it worse"
+            onGuidanceChange={() => {}}
+            onPovChange={() => {}}
+            povOptions={POV_OPTS}
+            pov="mei"
+          />,
+        );
+        const direction = screen.getByRole("textbox", { name: /scene direction/i });
+        fireEvent.keyDown(direction, { key: "Enter", shiftKey: true });
+        expect(onSend).not.toHaveBeenCalled();
+        fireEvent.keyDown(direction, { key: "Enter", shiftKey: false });
+        expect(onSend).toHaveBeenCalledTimes(1);
+      });
+
+      it("Enter does not send while the message box is empty", () => {
+        const onSend = vi.fn();
+        render(
+          <Composer
+            value=""
+            onChange={() => {}}
+            onSend={onSend}
+            guidance="make it worse"
+            onGuidanceChange={() => {}}
+            onPovChange={() => {}}
+            povOptions={POV_OPTS}
+            pov="mei"
+          />,
+        );
+        fireEvent.keyDown(screen.getByRole("textbox", { name: /scene direction/i }), {
+          key: "Enter",
+          shiftKey: false,
+        });
+        expect(onSend).not.toHaveBeenCalled();
+      });
+
+      it("stays editable while a turn streams", () => {
+        render(
+          <Composer
+            value=""
+            onChange={() => {}}
+            onSend={() => {}}
+            guidance=""
+            onGuidanceChange={() => {}}
+            onPovChange={() => {}}
+            povOptions={POV_OPTS}
+            pov="mei"
+            sendDisabled
+          />,
+        );
+        expect(screen.getByRole("textbox", { name: /scene direction/i })).not.toBeDisabled();
+      });
+    });
+
     it("keeps the default placeholder when POV is Narrator (null)", () => {
       render(
         <Composer

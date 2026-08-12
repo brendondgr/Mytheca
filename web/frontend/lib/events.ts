@@ -187,4 +187,13 @@ export interface TurnRequestBody {
    * out of the AI roster server-side. `null`/omitted = the default guide/narrator behavior.
    */
   povCharacterId?: string | null;
+  /**
+   * The narrator direction for this turn — what should happen next and how the cast should
+   * react — from the composer's second box, which appears above the message box whenever
+   * `povCharacterId` is set (under POV the `text` field is the character's own line and can
+   * no longer double as direction). The backend breaks it into requirements and schedules
+   * them across the scene's `maxTurns` budget, so everything asked for lands in the turn.
+   * Omitted with POV off means the player's `text` is itself the direction.
+   */
+  guidance?: string | null;
 }
