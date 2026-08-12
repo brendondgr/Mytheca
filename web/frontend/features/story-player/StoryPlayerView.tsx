@@ -6,6 +6,7 @@ import { exportSessionUrl } from "@/lib/api";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 import type { ExportFormat } from "@/components/feature/ExportMenu";
 import { useScenePlay } from "./useScenePlay";
+import type { SceneImage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
 import { CastRail } from "@/components/feature/CastRail";
 import { GraphView } from "@/components/feature/GraphView";
@@ -14,6 +15,8 @@ import { Composer } from "@/components/feature/Composer";
 import { SceneLoader } from "@/components/feature/SceneLoader";
 import { SceneIntro } from "@/components/feature/SceneIntro";
 import { TranscriptBeat } from "@/components/feature/TranscriptBeat";
+import { CreateImageBar } from "@/components/feature/CreateImageBar";
+import { SceneImageModal } from "@/components/feature/SceneImageModal";
 import { CharacterDossier } from "@/components/feature/CharacterDossier";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { TurnInspectorPanel } from "@/components/feature/TurnInspectorPanel";
@@ -49,6 +52,8 @@ export function StoryPlayerView({
     [scene],
   );
   const [modalId, setModalId] = useState<string | null>(null);
+  // The transcript scene image currently enlarged (null = the lightbox is closed).
+  const [lightbox, setLightbox] = useState<SceneImage | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [viewMode, setViewMode] = useState<SceneViewMode>("chat");
   const byId = (id: string): Character | undefined =>
@@ -150,6 +155,7 @@ export function StoryPlayerView({
                     onProfile={scene.openProfile}
                     choices={scene.choices}
                     onChoose={onChoose}
+                    onOpenImage={setLightbox}
                   />
                 </motion.div>
               ))}
@@ -158,6 +164,15 @@ export function StoryPlayerView({
                   {scene.streamError}
                 </p>
               ) : null}
+              {/* The very bottom of the chat — below the last beat, above the composer. */}
+              <CreateImageBar
+                onCreate={scene.createImage}
+                running={scene.creatingImage}
+                stage={scene.imageStage}
+                error={scene.imageError}
+                disabled={!scene.sessionId}
+                className="mt-[2px]"
+              />
             </div>
           </div>
           <Composer
@@ -211,6 +226,7 @@ export function StoryPlayerView({
 
       <SceneLoader scenario={scenario} storylineName={storylineName} visible={scene.loading} />
       <CharacterProfileModal character={modalChar} onClose={() => setModalId(null)} />
+      <SceneImageModal image={lightbox} onClose={() => setLightbox(null)} />
     </div>
   );
 }

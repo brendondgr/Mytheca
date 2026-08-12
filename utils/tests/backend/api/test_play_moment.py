@@ -9,12 +9,15 @@ the pre-stream error envelopes, and the terminal in-band error frame.
 from __future__ import annotations
 
 import json
+import time
 from io import BytesIO
 
 import httpx
 from PIL import Image
 
 from app.core.errors import APIError
+from app.events import stream
+from app.routes import play as play_routes
 from app.schemas.play import MomentPromptResponse
 from app.services import comfyui, events_store, llm, scene_moment
 
@@ -107,6 +110,39 @@ def test_moment_stream_yields_both_stages_then_the_persisted_event(
     assert event["data"]["url"].startswith("/media/moments/")
     assert event["data"]["caption"] == "Two figures at a lamplit table."
     assert (tmp_path / event["data"]["url"].rsplit("/", 1)[1]).is_file()
+
+
+def test_the_keepalive_heartbeat_names_the_stage_actually_running(
+    client, storyline_id, monkeypatch, tmp_path
+):
+    """A tick during the prompt stage must not claim the render is under way."""
+    _configure(client)
+    _patch_llm(monkeypatch)
+    cid, scid = _scene(client, storyline_id)
+    session_id = _play(client, scid, cid)
+    _stub_generation(monkeypatch, tmp_path)
+    # Tick fast (the real 10s interval is bound as a default argument, so the route's
+    # wrapper is what has to be sped up).
+    monkeypatch.setattr(
+        play_routes,
+        "with_keepalive",
+        lambda source, keepalive: stream.with_keepalive(source, keepalive, 0.01),
+    )
+
+    # A prompt stage that takes long enough for at least one heartbeat to fire.
+    real_write = scene_moment.moment_agent.write_moment_prompt
+
+    def slow_write(db, **kw):
+        time.sleep(0.05)
+        return real_write(db, **kw)
+
+    monkeypatch.setattr(scene_moment.moment_agent, "write_moment_prompt", slow_write)
+
+    frames = _frames(client.post(f"/api/play/{scid}/moment/stream", json={"sessionId": session_id}))
+    ticks = [f for f in frames if f["type"] == "moment_stage" and "Still" in f["message"]]
+    assert ticks, "expected at least one keep-alive tick"
+    assert all(t["stage"] == "prompt" for t in ticks)
+    assert frames[-1]["type"] == "scene_image"
 
 
 def test_the_picture_rejoins_the_session_history(client, storyline_id, monkeypatch, tmp_path):

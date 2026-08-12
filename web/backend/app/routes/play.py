@@ -87,12 +87,27 @@ def play_moment(scenario_id: str, data: MomentRequest, db: Session = Depends(get
     unconfigured ComfyUI or model — is a normal error envelope before the 200 opens.
     """
     ctx = scene_moment.prepare_moment(db, scenario_id, data)
+    # The heartbeat has to say what is ACTUALLY happening: writing the prompt takes as
+    # long as the render on a local reasoning model, and a "still painting" tick during
+    # the prompt stage would name the wrong half of the work. Single writer (the worker
+    # thread yielding frames), single reader (the keep-alive callback).
+    current: dict[str, str] = {"stage": "prompt"}
+    heartbeat = {"prompt": "Still reading the scene…", "render": "Still painting…"}
+
+    def _tracked() -> Iterator:
+        for frame in scene_moment.generate_moment(db, ctx):
+            if isinstance(frame, MomentStageFrame):
+                current["stage"] = frame.stage
+            yield frame
 
     def _lines() -> Iterator[str]:
         try:
             for frame in with_keepalive(
-                scene_moment.generate_moment(db, ctx),
-                lambda: MomentStageFrame(stage="render", message="Still painting…"),
+                _tracked(),
+                lambda: MomentStageFrame(
+                    stage=current["stage"],  # type: ignore[arg-type]  # only ever a valid stage
+                    message=heartbeat[current["stage"]],
+                ),
             ):
                 yield to_ndjson_line(frame)
         except APIError as exc:
