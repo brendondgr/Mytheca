@@ -6,6 +6,7 @@ import {
   listCharacters,
   listScenarios,
   listSettings,
+  listContextDocumentIndex,
   listStatDefinitions,
 } from "@/lib/api";
 import {
@@ -16,7 +17,11 @@ import {
   SEED_STAT_DEFS,
   SEED_STORYLINES,
 } from "@/lib/seed-data";
-import type { ResolvedScenario, StatDefinition } from "@/lib/types";
+import type {
+  ContextDocumentIndexEntry,
+  ResolvedScenario,
+  StatDefinition,
+} from "@/lib/types";
 
 /** The resolved scene + its world context, or a loading/error state. */
 export type SceneData =
@@ -27,6 +32,8 @@ export type SceneData =
       scenario: ResolvedScenario;
       statDefs: StatDefinition[];
       storylineName: string;
+      /** The storyline's context documents, taggable with `@` in the composer. */
+      contextDocs: ContextDocumentIndexEntry[];
     };
 
 /** Resolve the scene from in-memory seed (offline/legacy fallback). */
@@ -41,6 +48,8 @@ function seedScene(storylineId: string, scenarioId: string): SceneData | null {
     scenario,
     statDefs: SEED_STAT_DEFS,
     storylineName: storyline?.title ?? "",
+    // The seed demo has no persisted corpus, so `@` tagging is simply unavailable there.
+    contextDocs: [],
   };
 }
 
@@ -66,13 +75,18 @@ export function useSceneData(
     setState({ status: "loading" });
     void (async () => {
       try {
-        const [scenarios, characters, settings, statDefs, storyline] =
+        const [scenarios, characters, settings, statDefs, storyline, contextDocs] =
           await Promise.all([
             listScenarios(storylineId),
             listCharacters(storylineId),
             listSettings(storylineId),
             listStatDefinitions(storylineId).catch(() => [] as StatDefinition[]),
             getStoryline(storylineId).catch(() => null),
+            // Names only, never bodies — and never a reason to fail the scene: no index
+            // simply means the `@` menu has nothing to offer.
+            listContextDocumentIndex(storylineId).catch(
+              () => [] as ContextDocumentIndexEntry[],
+            ),
           ]);
         if (cancelled) return;
         const sc = scenarios.find((s) => s.id === scenarioId);
@@ -86,6 +100,7 @@ export function useSceneData(
           scenario: resolveScenario(sc, characters, settings),
           statDefs,
           storylineName: storyline?.title ?? "",
+          contextDocs,
         });
       } catch (err) {
         if (cancelled) return;

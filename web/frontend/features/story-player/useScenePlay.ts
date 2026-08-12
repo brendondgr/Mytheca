@@ -17,6 +17,7 @@ import { estimateUsedTokens } from "@/lib/contextBudget";
 import type { MomentStreamFrame, PresenceStatus, TurnStreamFrame } from "@/lib/events";
 import type { ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
+import { stripMentions, type MentionOption } from "@/features/story-player/mentions";
 import { useToast } from "@/components/layout/ToastProvider";
 import {
   buildScene,
@@ -76,7 +77,12 @@ const PRESENCE_PHRASE: Record<PresenceStatus, string> = {
 };
 
 /** Client state + interactions for a live scene: a streamed turn loop over the backend. */
-export function useScenePlay(scenario: ResolvedScenario) {
+/**
+ * @param contextDocs The storyline's taggable context documents. Used only to resolve the
+ *   `@name` tokens in the composer back into ids at send time — the hook never fetches or
+ *   holds document text.
+ */
+export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOption[] = []) {
   const [seed] = useState(() => buildScene(scenario));
   const [messages, setMessages] = useState<SceneMessage[]>(seed.messages);
   const [tension] = useState(seed.tension);
@@ -400,7 +406,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
   }, [creatingImage, momentStream, scenario.id]);
 
   const submit = useCallback(
-    (text: string, direction = "") => {
+    (text: string, direction = "", taggedDocIds: string[] = []) => {
       const t = text.trim();
       if (!t || sending) return; // in-flight guard
       setStreamError(null);
@@ -423,6 +429,10 @@ export function useScenePlay(scenario: ResolvedScenario) {
               // Only meaningful under POV — omitted otherwise so the backend keeps reading
               // the player's own line as the direction.
               guidance: direction.trim() || null,
+              // The player's @-tagged files. Reference for this turn only — the backend
+              // keeps them out of the intent/direction/planner agents, so they inform what
+              // is said without steering what happens.
+              ...(taggedDocIds.length ? { taggedDocIds } : {}),
             },
             signal,
           ),
@@ -460,15 +470,22 @@ export function useScenePlay(scenario: ResolvedScenario) {
 
   const send = useCallback(() => {
     if (sending) return;
-    const text = composer.trim();
+    // Resolve @-tags from the FINAL text of both boxes rather than from accumulated click
+    // state, so what is sent always matches what the player actually left written; the
+    // `@name` tokens themselves are stripped so the line reaches the intent and direction
+    // agents as clean prose.
+    const message = stripMentions(composer, contextDocs);
+    const text = message.text.trim();
     if (!text) return;
     // The direction applies to THIS turn only — it is consumed with the message, not kept
     // as a standing instruction the player would have to remember to clear.
-    const direction = pov ? guidance : "";
+    const rawDirection = pov ? guidance : "";
+    const directed = stripMentions(rawDirection, contextDocs);
+    const taggedDocIds = Array.from(new Set([...message.ids, ...directed.ids]));
     setComposer("");
     setGuidance("");
-    submit(text, direction);
-  }, [composer, guidance, pov, sending, submit]);
+    submit(text, directed.text, taggedDocIds);
+  }, [composer, contextDocs, guidance, pov, sending, submit]);
 
   // Selecting a follow-up no longer submits: it writes the suggested (situation-based, tone-
   // matched) text into the composer so the player can review and edit it before sending
