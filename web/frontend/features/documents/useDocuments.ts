@@ -53,6 +53,19 @@ export function useDocuments(storylineId: string) {
     void load();
   }, [load]);
 
+  /**
+   * Re-run the corpus load after a failure.
+   *
+   * `reload` alone is not enough for a retry: it leaves the previous error on
+   * screen and never puts the view back into its loading state, so a
+   * successful second attempt would arrive underneath a stale alert.
+   */
+  const retry = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    void load();
+  }, [load]);
+
   const entityLabel = useCallback<EntityLabeler>(
     (entityType, entityId) => labels[`${entityType}:${entityId}`] ?? entityId,
     [labels],
@@ -125,6 +138,7 @@ export function useDocuments(storylineId: string) {
     removeDoc,
     addFiles,
     reload: load,
+    retry,
   };
 }
 

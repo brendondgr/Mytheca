@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { mediaUrl } from "@/lib/api";
 import { CARD_SCRIM, OVER_ART } from "@/lib/cardArt";
 import { cn } from "@/lib/cn";
@@ -33,7 +34,7 @@ export function SettingCard({
     <div
       aria-current={active ? "true" : undefined}
       className={cn(
-        "mytheca-card relative overflow-hidden rounded-[3px] border hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        "mytheca-card relative overflow-hidden rounded-[3px] border hover-lift hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
         hasImage && "min-h-[118px]",
         active ? "-translate-y-[2px] border-2 border-accent mytheca-glow" : "border-cardbd",
         !hasImage && (active ? "bg-card2" : "bg-card"),
@@ -42,11 +43,11 @@ export function SettingCard({
     >
       {hasImage ? (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount */}
-          <img
+          <SmartImage
             src={mediaUrl(s.image!)}
             alt={`Establishing image of ${s.name}`}
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            aspect="16 / 9"
+            className="pointer-events-none absolute inset-0"
           />
           <div
             className="pointer-events-none absolute inset-0"

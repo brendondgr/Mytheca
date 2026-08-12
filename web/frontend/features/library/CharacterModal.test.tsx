@@ -1,8 +1,46 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { act } from "react";
 import { LibraryView } from "./LibraryView";
+import { CharacterModal } from "@/components/feature/CharacterModal";
+import { INDICATOR_DELAY_MS } from "@/hooks/use-delayed-flag";
+import type { useLibraryState } from "@/features/library/useLibraryState";
 import * as api from "@/lib/api";
+
+type Lib = ReturnType<typeof useLibraryState>;
+
+function makeLib(overrides: Partial<Lib> = {}): Lib {
+  return {
+    modal: { type: "character", mode: "manual", editId: "c-1" },
+    draft: { name: "Doran Hale", role: "Captain" },
+    isValid: true,
+    pending: false,
+    generating: false,
+    generatingPrompts: false,
+    generatingPortrait: false,
+    generatingVoice: false,
+    generatingStats: false,
+    applyingStats: false,
+    error: null,
+    activeField: null,
+    draftStage: null,
+    activeStorylineId: "sl-1",
+    setDraft: vi.fn(),
+    setMode: vi.fn(),
+    closeModal: vi.fn(),
+    submit: vi.fn(),
+    deleteEntity: vi.fn(),
+    draftCharacter: vi.fn(),
+    generatePortraitPrompts: vi.fn(),
+    generatePortrait: vi.fn(),
+    proposeVoiceSamples: vi.fn(),
+    proposeStartingStats: vi.fn(),
+    applyStartingStats: vi.fn(),
+    ...overrides,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any as Lib;
+}
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
@@ -176,5 +214,40 @@ describe("CharacterModal — agentic creator", () => {
         expect.any(String),
       ),
     );
+  });
+});
+
+describe("CharacterModal — save/delete busy state", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("disables Save/Delete immediately, but only shows the spinner past the delay gate", () => {
+    vi.useFakeTimers();
+    render(<CharacterModal lib={makeLib({ pending: true })} />);
+
+    const save = screen.getByRole("button", { name: "Save Changes" });
+    const del = screen.getByRole("button", { name: "Delete" });
+    expect(save).toBeDisabled();
+    expect(del).toBeDisabled();
+    // Marked busy immediately — well before the spinner is shown.
+    expect(save.closest("div")?.parentElement).toHaveAttribute("aria-busy", "true");
+    expect(save).not.toHaveAttribute("aria-busy", "true");
+
+    act(() => void vi.advanceTimersByTime(INDICATOR_DELAY_MS));
+    expect(screen.getByRole("button", { name: "Saving character" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Deleting character" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+  });
+
+  it("shows the plain labels once the operation has resolved", () => {
+    render(<CharacterModal lib={makeLib({ pending: false })} />);
+    const save = screen.getByRole("button", { name: "Save Changes" });
+    expect(save).toBeEnabled();
+    expect(save).not.toHaveAttribute("aria-busy");
+    expect(screen.getByRole("button", { name: "Delete" })).not.toHaveAttribute("aria-busy");
   });
 });

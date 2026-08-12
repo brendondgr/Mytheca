@@ -163,7 +163,12 @@ export function TurnInspectorPanel({
   return (
     <aside
       aria-label="Turn inspector"
-      className="flex w-[340px] flex-none flex-col border-l border-hair-strong bg-page"
+      // A flat w-[340px] with no breakpoint was the one panel in the app that
+      // could not fit a 320px viewport — it is the only rail rendered outside
+      // an `lg:` gate, so on a phone it pushed the transcript off-screen.
+      // Below `sm` it takes the full width (the diagnostic IS the view while
+      // it is open); from `sm` up it returns to its docked 340px column.
+      className="flex w-full flex-none flex-col border-l border-hair-strong bg-page sm:w-[340px]"
     >
       <header className="flex flex-none items-start justify-between gap-3 border-b border-hair-strong p-[14px_16px]">
         <div>

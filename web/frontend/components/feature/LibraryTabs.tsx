@@ -40,7 +40,11 @@ export function LibraryTabs({
     <div
       role="tablist"
       aria-label="Library sections"
-      className="flex items-center gap-1 overflow-x-auto border-b border-hair-strong px-[28px]"
+      // `.scroll-fade` draws an edge gradient that clears at each end of the
+      // track, so a clipped tab reads as "there is more this way" rather than
+      // as the end of the list. It is driven by animation-timeline: scroll(),
+      // so there is no scroll listener behind it.
+      className="scroll-fade flex items-center gap-1 overflow-x-auto border-b border-hair-strong px-[28px]"
     >
       {tabs.map((tab, index) => {
         const selected = tab.key === active;

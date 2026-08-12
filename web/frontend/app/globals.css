@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../styles/themes.css";
+@import "../styles/motion.css";
 
 /* ------------------------------------------------------------------ *
  * Mytheca global base + Tailwind token mapping.
@@ -52,6 +53,54 @@
   --text-body-sm: var(--fs-body-sm);
   --text-body:    var(--fs-body);
   --text-tag:     var(--fs-tag);
+
+  /* Fluid display type + page rhythm — `text-step-1`, `gap-gutter`, `p-gutter`.
+   * Distinct from the --fs-* tier above: those follow the user's Text-size
+   * preference, these follow the viewport. */
+  --text-step-0: var(--step-0);
+  --text-step-1: var(--step-1);
+  --text-step-2: var(--step-2);
+  --text-step-3: var(--step-3);
+  --spacing-gutter: var(--gutter);
+}
+
+/* Motion utilities.
+ *
+ * The motion tokens themselves live in one place — `:root` in themes.css —
+ * alongside every other Mytheca token. They are surfaced here as utilities
+ * rather than through `@theme inline` for two reasons:
+ *
+ *  - Tailwind v4 has no `--duration-*` theme namespace at all, so the four
+ *    duration steps could only ever be utilities.
+ *  - The `--ease-*` namespace collides by name with the tokens: an entry of
+ *    `--ease-out: var(--ease-out)` compiles to a self-referential custom
+ *    property in the theme layer. It happens to resolve (themes.css is
+ *    unlayered, so it wins the cascade) but relying on that is a trap.
+ *
+ * `ease-out` and `ease-in` need no declaration here at all: Tailwind's stock
+ * utilities already emit `transition-timing-function: var(--ease-out)`, and
+ * themes.css redefines that variable, so every existing `ease-out` in the app
+ * silently picks up the Mytheca curve. Only the two new curves need utilities.
+ *
+ * Typing a raw millisecond value into a class list is a bug — see
+ * docs/frontend-polish-spec.md §2. */
+@utility duration-instant {
+  transition-duration: var(--dur-instant);
+}
+@utility duration-fast {
+  transition-duration: var(--dur-fast);
+}
+@utility duration-base {
+  transition-duration: var(--dur-base);
+}
+@utility duration-slow {
+  transition-duration: var(--dur-slow);
+}
+@utility ease-soft {
+  transition-timing-function: var(--ease-soft);
+}
+@utility ease-spring {
+  transition-timing-function: var(--ease-spring);
 }
 
 * {
@@ -64,10 +113,50 @@ body {
   padding: 0;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  /* Lets height/grid-row transitions interpolate to and from `auto`, so
+   * accordions and reveals never need a hardcoded max-height. */
+  interpolate-size: allow-keywords;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 body {
   font-family: var(--font-eb-garamond), Georgia, serif;
   background-color: var(--page-bg);
   color: var(--ink);
+  /* Ragged-right prose without orphans, and user-generated names/prose that
+   * cannot punch out of their container. */
+  text-wrap: pretty;
+  overflow-wrap: break-word;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+/* Media never overflows its column. `height` is left alone: the card and modal
+ * frames set their own aspect ratio and rely on `object-cover`. */
+:where(img, video) {
+  max-width: 100%;
+  display: block;
+}
+
+/* A container that is fetching says so to the pointer as well as to AT. */
+[aria-busy="true"] {
+  cursor: progress;
+}
+
+/* Deep links land below the sticky header rather than under it. */
+:where(section, [id]) {
+  scroll-margin-block-start: var(--header-h, 4.5rem);
 }
 
 input::placeholder,

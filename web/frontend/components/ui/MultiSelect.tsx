@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Monogram } from "@/components/ui/Monogram";
 import { FieldLabel } from "@/components/ui/FieldLabel";
+import { useExitTransition } from "@/hooks/use-exit-transition";
 
 export interface MultiSelectOption {
   id: string;
@@ -54,6 +55,10 @@ export function MultiSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<(HTMLLIElement | null)[]>([]);
   const listId = useId();
+
+  // The list outlives `open` by one beat so its dismissal animates out of the
+  // trigger rather than blinking away.
+  const { mounted: listMounted, closing: listClosing } = useExitTransition(open);
 
   const isEmpty = options.length === 0;
   const selectedSet = new Set(selected);
@@ -150,7 +155,9 @@ export function MultiSelect({
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] text-left text-[15px] hover:border-accent focus-visible:border-accent",
+          "flex w-full cursor-pointer items-center justify-between gap-2 rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] text-left text-body",
+          "touch-target press transition-[border-color] duration-fast ease-soft",
+          "enabled:hover:border-accent focus-visible:border-accent",
           (disabled || isEmpty) && "cursor-not-allowed opacity-60",
         )}
       >
@@ -200,14 +207,18 @@ export function MultiSelect({
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
-      {open && !isEmpty ? (
+      {listMounted && !isEmpty ? (
         <ul
           id={listId}
           role="listbox"
           aria-label={label}
           aria-multiselectable={multiple || undefined}
           onKeyDown={onListKeyDown}
-          className="absolute z-40 mt-[4px] max-h-[240px] w-full overflow-auto mytheca-menu p-[5px]"
+          data-closing={listClosing || undefined}
+          className={cn(
+            "absolute z-40 mt-[4px] max-h-[240px] w-full overflow-auto mytheca-menu p-[5px]",
+            listClosing && "pointer-events-none",
+          )}
         >
           {options.map((o, i) => {
             const isSelected = selectedSet.has(o.id);

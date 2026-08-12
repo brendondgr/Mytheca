@@ -6,8 +6,25 @@ import { mediaUrl } from "@/lib/api";
 import type { Character } from "@/lib/types";
 import type { SceneChoice, SceneImage, SceneMessage } from "@/features/story-player/scene-data";
 
+/**
+ * The 2px block caret that rides the tail of prose still being written.
+ *
+ * It is the difference between "the scene has paused" and "the scene is still
+ * being written" — a distinction the transcript otherwise leaves the reader to
+ * guess at. Purely decorative (`aria-hidden`): the same fact reaches assistive
+ * tech through `aria-busy` and the completion announcement.
+ *
+ * Note there is no per-chunk fade-in to go with it. The backend's delta frames
+ * re-emit each event's **full accumulated text** rather than the new fragment,
+ * so there are no chunk boundaries on the client to wrap — animating what
+ * arrived would re-animate the whole paragraph on every delta.
+ */
+function StreamCaret() {
+  return <span aria-hidden="true" className="stream-caret" />;
+}
+
 /** `narration` → teal-accented card (upright, not italic — feedback #6). */
-export function NarratorCard({ text }: { text: string }) {
+export function NarratorCard({ text, streaming }: { text: string; streaming?: boolean }) {
   return (
     <div className="rounded-[0_5px_5px_0] border-l-[3px] border-l-narrator bg-[rgba(31,138,130,.12)] p-[13px_17px]">
       <Eyebrow size={8} tracking="0.18em" color="#1F8A82" className="mb-[6px] block">
@@ -15,6 +32,7 @@ export function NarratorCard({ text }: { text: string }) {
       </Eyebrow>
       <p className="font-body text-[15.5px] leading-[1.55] text-ink">
         <QuotedText text={text} />
+        {streaming ? <StreamCaret /> : null}
       </p>
     </div>
   );
@@ -95,8 +113,10 @@ export function CharacterMessage({
   thought,
   text,
   onProfile,
+  streaming,
 }: {
   character: Character;
+  streaming?: boolean;
   action?: string;
   thought?: string;
   text: string;
@@ -111,7 +131,7 @@ export function CharacterMessage({
         disabled={!onProfile}
         aria-label={`View ${c.name}`}
         title={c.name}
-        className="flex-none rounded-full transition-transform hover:scale-105 disabled:hover:scale-100"
+        className="flex-none rounded-full hover-grow"
       >
         <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={40} fontSize={14} />
       </button>
@@ -147,6 +167,7 @@ export function CharacterMessage({
                 }`}
               >
                 <QuotedText text={text} />
+                {streaming ? <StreamCaret /> : null}
               </p>
             ) : null}
           </div>
@@ -179,7 +200,7 @@ export function BranchChoices({
             key={ch.id}
             type="button"
             onClick={() => onChoose(ch)}
-            className="mytheca-row flex items-center gap-[13px] rounded-[4px] border border-field-bd bg-card p-[12px_15px] text-left hover:translate-x-[3px] hover:border-accent hover:bg-hover"
+            className="mytheca-row flex items-center gap-[13px] rounded-[4px] border border-field-bd bg-card p-[12px_15px] text-left hover-nudge hover:border-accent hover:bg-hover"
           >
             <span aria-hidden className="flex-none text-[13px] text-accent">
               ◆
@@ -205,6 +226,7 @@ export function TranscriptBeat({
   choices,
   onChoose,
   onOpenImage,
+  streaming = false,
 }: {
   message: SceneMessage;
   charById: (id: string) => Character | undefined;
@@ -213,9 +235,11 @@ export function TranscriptBeat({
   onChoose: (choice: SceneChoice) => void;
   /** Open a scene image in the enlarged view (omit to render it non-clickable). */
   onOpenImage?: (image: SceneImage) => void;
+  /** This beat is the one currently being written — show the caret at its tail. */
+  streaming?: boolean;
 }) {
   const m = message;
-  if (m.kind === "narrator") return <NarratorCard text={m.text ?? ""} />;
+  if (m.kind === "narrator") return <NarratorCard text={m.text ?? ""} streaming={streaming} />;
   if (m.kind === "player") return <PlayerMessage text={m.text ?? ""} />;
   if (m.kind === "image")
     return m.image ? <SceneImageBeat image={m.image} onOpen={onOpenImage} /> : null;
@@ -234,6 +258,7 @@ export function TranscriptBeat({
       thought={m.thought}
       text={m.text ?? ""}
       onProfile={onProfile ? () => onProfile(c.id) : undefined}
+      streaming={streaming}
     />
   );
 }

@@ -222,6 +222,92 @@ the scrim base; the active `◆ In this scene` marker ~9:1); near-white art dire
 band is the known edge — accepted as a deliberate, requested look, mitigated by the strong scrim +
 width cap (mirrors the hero scrim).
 
+## Motion Tokens (the timing system)
+
+**No component may hardcode a duration or an easing.** Inconsistent timing is the single most
+common reason a UI reads as scaffolded rather than designed — each animation can look fine on
+its own while the set of them feels wrong. The tokens live in one place, `:root` in
+`styles/themes.css`, and the full rationale is `docs/frontend-polish-spec.md` §2.
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `--dur-instant` | 80ms | State flips: press, toggle knob, tab underline |
+| `--dur-fast` | 140ms | Hover, focus, tooltip — **and every exit** |
+| `--dur-base` | 220ms | Dropdowns, accordions, small reveals, streamed-token fade |
+| `--dur-slow` | 340ms | Modals, drawers, page-level entrances |
+| `--dur-ambient` | 1200ms | Skeleton sweep, typing dots |
+| `--dur-breath` | 2200ms | Slow pulse/travel loops: `.mytheca-glow`, `.mytheca-wash` |
+| `--dur-breath-quick` | 1400ms | The tighter "writing here" ring, `.mytheca-field-active` |
+| `--dur-theme` | 600ms | The whole-page theme cross-fade (a mood change, not an interaction) |
+| `--ease-out` | `cubic-bezier(.16,1,.3,1)` | **Default.** Entrances, reveals |
+| `--ease-in` | `cubic-bezier(.45,0,.55,1)` | Exits, dismissals |
+| `--ease-soft` | `cubic-bezier(.33,1,.68,1)` | Hover and small state changes |
+| `--ease-spring` | `linear(0, .42 12%, .87 24%, 1.05 36%, 1.01 60%, 1)` | One overshoot; sparingly |
+| `--lift-sm` / `-md` / `-lg` | 2 / 6 / 14px | Travel distance by element size |
+| `--stagger-step` | 50ms | Per-item offset in a choreographed group entrance |
+
+Two rules decide which step to pick:
+
+- **Exits are faster than entrances** (~60%). A dismissal that takes as long as an entrance
+  feels like the interface is arguing with the user.
+- **Travel scales inversely with size.** A 40px button lifts `--lift-sm`; a full-width card
+  lifts `--lift-md`; a modal enters from `--lift-lg`. Large elements moving large distances
+  read as sluggish.
+
+**Reaching the tokens from a component.** `app/globals.css` declares `duration-instant` /
+`duration-fast` / `duration-base` / `duration-slow` and `ease-soft` / `ease-spring` as Tailwind
+utilities. `ease-out` and `ease-in` need no declaration — Tailwind's stock utilities already
+emit `var(--ease-out)`, and `themes.css` redefines that variable, so every existing `ease-out`
+in the app picks up the Mytheca curve automatically. The `--ease-*` names deliberately are
+**not** routed through `@theme inline`: the namespace key collides with the token name and
+compiles to a self-referential `--ease-out: var(--ease-out)`. `check_frontend_css.mjs` fails
+the build on that pattern.
+
+### Shared motion utilities (`styles/motion.css`)
+
+Pure CSS, no runtime cost. Framer Motion keeps only the jobs it alone can do —
+`AnimatePresence` exits, layout animations, and the transcript beat entrances.
+
+| Class | What it does |
+| --- | --- |
+| `.hover-lift` / `.hover-lift-md` | Lift + shadow, **gated behind `@media (hover: hover) and (pointer: fine)`** so the state cannot stick on touch |
+| `.press` | `:active` scale to 0.985 at `--dur-instant` — the only feedback that exists on touch, so it is never optional |
+| `.stagger > *` | Group entrance, `--i` set inline from the index, **capped at 8 items** (400ms cumulative) |
+| `.content-enter` | The skeleton → content handoff; also used by error and empty states so failure reads as part of the system |
+| `.skeleton` | Layout-tracing placeholder; sweeps `background-position`, never `width` |
+| `.tok` | Blur-to-sharp fade on each arriving streamed chunk |
+| `.stream-caret` | The 2px block caret at the tail of streaming text |
+| `.mytheca-dots` | The shared three-dot thinking indicator (previously re-implemented in three places) |
+| `.reveal` | Scroll reveal via `animation-timeline: view()`, behind `@supports` + `prefers-reduced-motion` |
+| `.scroll-fade` | Edge fade on a horizontal scroller, driven by `animation-timeline: scroll()` — no scroll listener |
+
+Every one of these keeps its **resting state in the base style**, so the app-wide reduced-motion
+rule (which strips `animation` under `.mytheca-themed *`) degrades to something calm rather than
+to an empty box. `.reveal` has *no* base styles at all: the revealed state is the default, so
+content is visible with or without JS and CSS support.
+
+### Fluid space and display type
+
+`--gutter` and `--step-0…3` (`clamp()`-based) govern page rhythm and display headings, growing
+with the viewport instead of jumping at breakpoints. They are surfaced as `gap-gutter`,
+`p-gutter`, and `text-step-*`. The six `--fs-*` tokens stay **stepped on purpose** — they are
+the user's explicit Text-size preference and must keep winning over anything fluid.
+
+### Recorded deviations from `docs/frontend-polish-spec.md`
+
+1. **The spec's blanket `*` reduced-motion reset is not adopted.** `themes.css` already carries
+   a stronger repo-wide rule (`.mytheca-themed *` → `animation: none !important`), and the
+   codebase idiom is to put the resting state in the base style. Adding the spec's reset on top
+   would be a duplicate of an existing, load-bearing rule.
+2. **Scroll-driven reveals apply narrowly.** Mytheca has no root scroll — every route is a
+   self-contained `h-dvh` shell whose columns scroll. `.reveal` is used inside those scrollers;
+   a scroll **progress bar** and **parallax** are skipped as inapplicable, not forgotten.
+3. **Cross-document view transitions are skipped.** App Router navigations are client-side, so
+   `@view-transition { navigation: auto }` never fires; Next 16's `experimental.viewTransition`
+   would be a stack change. Tracked in `docs/checklist.md`.
+4. **Framer Motion is retained** despite the spec's lean toward dropping animation libraries —
+   the stack is locked to it and GSAP is banned. Its scope is narrowed, not removed.
+
 ## Motion (Framer Motion)
 
 Purposeful only, and always with a near-instant `prefers-reduced-motion` fallback.
@@ -350,6 +436,64 @@ Near the top of key pages show **real artifacts**: a live/sample scene transcrip
 ## Required UI States (design all)
 
 loading (scenario loader) · empty · error · partial-data (mid-stream / streaming deltas) · stalled/reconnecting stream · success · permission-denied · long-content · dense-data · hidden-stat (a stat the player isn't allowed to see) · mobile · reduced-motion · **all three themes**.
+
+### The loading state ladder
+
+Match the pattern to the *expected wait*; a mismatch is what reads as unpolished. Full
+rationale in `docs/frontend-polish-spec.md` §3.
+
+| Elapsed | Pattern |
+| --- | --- |
+| 0–300 ms | **Nothing.** `useDelayedFlag` gates every indicator — a flashed-and-gone spinner reads as a stutter, measurably worse than stillness. |
+| 300 ms–1 s | An indicator on the element that was acted on (`Button loading`), never a full-screen block. |
+| 1–10 s | A **skeleton tracing the incoming layout** (`Skeleton`, `LibrarySkeletons`). |
+| >10 s | The skeleton times out into an error with a retry — a shimmer with no ceiling hides a dead request. |
+
+**A skeleton is a tracing, not grey boxes.** Same card count, gaps, radii, and heights as the
+real content, and the same *container* queries — `CharacterColumnSkeleton` uses the identical
+`@[420px]:grid-cols-3` threshold as the real grid, because a skeleton that reflows on swap
+destroys the trust it was built to buy. The last line of a text block runs 55–70% wide.
+
+**Every async region owes five states**, not one: `idle · loading · success · error · empty`.
+`AsyncPanel` renders all five so the four that aren't "success" cannot be forgotten. Errors
+name what failed in the interface's voice and carry a **retry**; empty states carry their
+**primary action inline** (`ColumnEmpty` — and a *filtered*-empty column is treated as the
+different problem it is, offering "Clear search" rather than "Forge Character"). Both enter
+with the same `.content-enter` as success, so failure reads as part of the system.
+
+**Images** go through `SmartImage`: a required `aspect` reserves the frame, the picture fades
+in on load, and `img.complete` is checked at the ref callback — without that, an image already
+in the browser cache never fires `load` and stays invisible forever.
+
+**The scene curtain** (`SceneLoader`) is driven by real readiness, floored at 650 ms so an
+instant load does not flash it and capped at 6 s so an unreachable backend cannot hold the
+reader behind it. It was previously a blind `setTimeout(2200)`.
+
+### Streaming text
+
+The transcript **follows the newest beat only while the reader is already at the bottom**
+(`useStickyBottom`, 64 px tolerance — never an exact test). Scrolling away detaches and raises
+the **`JumpToLatest`** pill; scrolling back re-attaches. The viewport sets `overflow-anchor:
+none` so the browser's own anchoring does not fight the hook.
+
+Announcements live in a dedicated `sr-only` region (`TranscriptAnnouncer`) that speaks **once
+per completed turn**, not on the transcript container. Because delta frames re-emit each
+event's *full accumulated text*, a live region on the growing prose asks a screen reader to
+re-read the sentence from the beginning on every delta. For the same reason there is **no
+per-chunk fade**: the client never sees a chunk boundary. A streaming beat gets a block caret
+(`.stream-caret`) and ~2 lines of reserved height so the composer does not hop.
+
+### Responsiveness
+
+**Container queries, not viewport queries, for anything whose width is not the page's.** The
+Library's character grid was `sm:grid-cols-3` — at 1024px the Library splits into three
+columns, so that grid is ~300px wide while a 640px *viewport* rule had long since fired,
+packing three 2:3 portraits in at ~92px each. It now asks its own container.
+
+`dvh`, never `vh`. Touch targets reach 44×44 on **coarse pointers only** — a zero-specificity
+floor in `motion.css` grows any control that never expressed a height, while dense controls
+that set their own size keep it and gain a projected hit area instead. Horizontal scrollers
+carry `.scroll-fade`.
 
 ## Anti-Generic Checklist (forbidden unless justified)
 

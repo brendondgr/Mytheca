@@ -1,5 +1,6 @@
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Monogram } from "@/components/ui/Monogram";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { mediaUrl } from "@/lib/api";
 import { CARD_SCRIM, OVER_ART } from "@/lib/cardArt";
 import type { ResolvedScenario } from "@/lib/types";
@@ -32,12 +33,12 @@ export function SceneLoader({
     >
       {/* Scene-art backdrop (gradient fallback when no image), behind a scrim. */}
       {hasArt ? (
-        // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
-        <img
+        <SmartImage
           src={mediaUrl(s.image ?? "")}
           alt=""
-          aria-hidden
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          aspect="16 / 9"
+          priority
+          className="pointer-events-none absolute inset-0"
         />
       ) : null}
       <div

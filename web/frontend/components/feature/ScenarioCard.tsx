@@ -2,6 +2,7 @@ import { cn } from "@/lib/cn";
 import { mediaUrl } from "@/lib/api";
 import { CARD_SCRIM, OVER_ART } from "@/lib/cardArt";
 import { Monogram } from "@/components/ui/Monogram";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
 import type { ResolvedScenario } from "@/lib/types";
@@ -32,7 +33,7 @@ export function ScenarioCard({
   return (
     <div
       className={cn(
-        "mytheca-card relative overflow-hidden rounded-[4px] hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        "mytheca-card relative overflow-hidden rounded-[4px] hover-lift hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
         hasImage && "min-h-[176px]",
         featured
           ? "border-2 border-accent shadow-[0_6px_18px_rgba(142,43,28,.16)]"
@@ -42,11 +43,11 @@ export function ScenarioCard({
     >
       {hasImage ? (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount */}
-          <img
+          <SmartImage
             src={mediaUrl(s.image!)}
             alt={`Scene art for ${s.title}`}
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            aspect="16 / 9"
+            className="pointer-events-none absolute inset-0"
           />
           <div
             className="pointer-events-none absolute inset-0"
@@ -125,7 +126,7 @@ export function ScenarioCard({
                   onClick={() => onProfile(c.id)}
                   aria-label={`View ${c.name}`}
                   title={c.name}
-                  className="pointer-events-auto relative z-[2] rounded-full transition-transform hover:scale-110"
+                  className="pointer-events-auto relative z-[2] rounded-full hover-grow"
                 >
                   <Monogram mono={c.mono} color={c.color} size={27} src={c.portrait ? mediaUrl(c.portrait) : undefined} />
                 </button>

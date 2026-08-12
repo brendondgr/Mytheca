@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { ENTER_TRANSITION } from "@/lib/motion";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import type { StatDefinition } from "@/lib/types";
 import type { Relationship, StatChip } from "@/features/story-player/scene-data";
@@ -32,9 +33,16 @@ export function TensionMeter({ pct, label }: { pct: number; label: string }) {
         aria-valuemax={100}
         aria-valuetext={label}
       >
+        {/* scaleX, not width: `width` is a layout property, so animating it
+            re-runs layout on every frame of the fill. A transform runs on the
+            compositor. The bar is drawn at full width and squeezed from the
+            left, which is why the gradient is sized to the track. */}
         <div
-          className="h-full transition-[width] duration-[400ms]"
-          style={{ width: `${pct}%`, background: "linear-gradient(90deg,#C8862A,#8E2B1C)" }}
+          className="h-full w-full origin-left transition-transform duration-base ease-out"
+          style={{
+            transform: `scaleX(${pct / 100})`,
+            background: "linear-gradient(90deg,#C8862A,#8E2B1C)",
+          }}
         />
       </div>
       <div className="mt-[6px] font-mono text-[9px] tracking-[0.06em] text-accent">{label}</div>
@@ -146,7 +154,7 @@ function StatSlider({ def, value: live }: { def: StatDefinition; value?: number 
       {/* Band legend — opens only via the "?" (hover or click); in-flow, never clipped. */}
       {hasBands ? (
         <div
-          className={`grid transition-[grid-template-rows] duration-200 motion-reduce:transition-none ${
+          className={`grid transition-[grid-template-rows] duration-base ease-out motion-reduce:transition-none ${
             open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
           }`}
         >
@@ -253,7 +261,7 @@ function ScenePulse({
       role="log"
       aria-live="polite"
       aria-label="Scene pulse"
-      className="max-h-[52vh] overflow-y-auto"
+      className="max-h-[52dvh] overflow-y-auto"
     >
       {activity.length === 0 ? (
         <p className="font-body text-[12px] italic text-ink-soft">
@@ -268,7 +276,7 @@ function ScenePulse({
                 key={entry.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
+                transition={ENTER_TRANSITION}
               >
                 <div className="rounded-[3px] border border-cardbd bg-card p-[6px_9px]">
                   <div className="flex items-baseline gap-[5px]">

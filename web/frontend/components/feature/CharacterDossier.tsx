@@ -1,4 +1,5 @@
 import { Monogram } from "@/components/ui/Monogram";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { StatSchema, Relationships } from "@/components/feature/DirectorRail";
 import { mediaUrl } from "@/lib/api";
@@ -66,18 +67,18 @@ export function CharacterDossier({
             background: "var(--field-bg)",
           }}
         >
-          {c.portrait ? (
-            // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
-            <img
-              src={mediaUrl(c.portrait)}
-              alt={`Portrait of ${c.name}`}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover/portrait:scale-[1.03]"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <Monogram mono={c.mono} color={c.color} size={84} ring={2} fontSize={32} />
-            </div>
-          )}
+          <SmartImage
+            src={c.portrait ? mediaUrl(c.portrait) : null}
+            alt={`Portrait of ${c.name}`}
+            aspect="2 / 3"
+            className="h-full w-full"
+            imgClassName="transition-transform duration-300 group-hover/portrait:scale-[1.03]"
+            placeholder={
+              <div className="flex h-full w-full items-center justify-center">
+                <Monogram mono={c.mono} color={c.color} size={84} ring={2} fontSize={32} />
+              </div>
+            }
+          />
           <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center bg-gradient-to-t from-black/55 to-transparent pb-[7px] pt-[18px] font-mono text-[8.5px] tracking-[0.14em] text-[#F6ECDA] uppercase opacity-0 transition-opacity duration-200 group-hover/portrait:opacity-100 group-focus-visible/portrait:opacity-100">
             ⤢ Full profile
           </span>

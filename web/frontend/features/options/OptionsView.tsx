@@ -96,7 +96,10 @@ export function OptionsView() {
             role="tablist"
             aria-label="Options sections"
             aria-orientation="vertical"
-            className="flex flex-none gap-[6px] overflow-x-auto rounded-[6px] lg:w-[210px] lg:flex-col lg:self-start lg:overflow-visible lg:border lg:border-cardbd lg:bg-surface lg:p-[10px]"
+            // The edge fade applies only below `lg`, where this is a horizontal
+            // strip that can clip; from `lg` it is a vertical rail with
+            // `overflow-visible` and nothing to fade.
+            className="scroll-fade flex flex-none gap-[6px] overflow-x-auto rounded-[6px] lg:w-[210px] lg:flex-col lg:self-start lg:overflow-visible lg:border lg:border-cardbd lg:bg-surface lg:p-[10px] lg:[&::before]:hidden lg:[&::after]:hidden"
           >
             {TABS.map((tab, index) => {
               const selected = tab.key === active;

@@ -1,4 +1,5 @@
 import { Monogram } from "@/components/ui/Monogram";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
 import { mediaUrl } from "@/lib/api";
@@ -34,7 +35,7 @@ export function CharacterCard({
   return (
     <div
       className={cn(
-        "mytheca-card group relative aspect-[2/3] overflow-hidden rounded-[4px] hover:-translate-y-[2px] hover:shadow-[0_8px_20px_rgba(20,14,6,.22)]",
+        "mytheca-card group relative aspect-[2/3] overflow-hidden rounded-[4px] hover-lift hover:shadow-[0_8px_20px_rgba(20,14,6,.22)]",
         !hasPortrait && "bg-card2",
         highlighted && "mytheca-glow",
       )}
@@ -43,24 +44,23 @@ export function CharacterCard({
         ...(highlighted ? { "--glow-color": c.color } : {}),
       }}
     >
+      <SmartImage
+        src={hasPortrait ? mediaUrl(c.portrait!) : null}
+        alt={`Portrait of ${c.name}`}
+        aspect="2 / 3"
+        className="pointer-events-none absolute inset-0"
+        placeholder={
+          <div className="flex h-full w-full items-center justify-center pb-[64px]">
+            <Monogram mono={c.mono} color={c.color} size={96} ring={2} fontSize={36} />
+          </div>
+        }
+      />
       {hasPortrait ? (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount */}
-          <img
-            src={mediaUrl(c.portrait!)}
-            alt={`Portrait of ${c.name}`}
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          />
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{ background: PORTRAIT_SCRIM }}
-          />
-        </>
-      ) : (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center pb-[64px]">
-          <Monogram mono={c.mono} color={c.color} size={96} ring={2} fontSize={36} />
-        </div>
-      )}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: PORTRAIT_SCRIM }}
+        />
+      ) : null}
 
       {/* Whole-card affordance: open the profile. */}
       <button

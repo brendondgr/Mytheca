@@ -5,8 +5,48 @@ import { getScenarioGraph } from "@/lib/api";
 import type { ScenarioGraph } from "@/lib/types";
 import { GraphCanvas, edgeKey } from "@/components/feature/GraphCanvas";
 import { GraphInspectorPanel, type GraphSelection } from "@/components/feature/GraphInspectorPanel";
+import { useDelayedFlag } from "@/hooks/use-delayed-flag";
+import { SKELETON_TIMEOUT_MS } from "@/components/ui/Skeleton";
 
 type Status = "loading" | "error" | "ready";
+
+/** The shared frame for the graph's four non-canvas states, so a stalled load,
+ *  a failure, an offline database, and an empty graph all read as one system. */
+function GraphMessage({
+  title,
+  body,
+  onRetry,
+  role,
+}: {
+  title: string;
+  body: string;
+  onRetry?: () => void;
+  role?: "alert";
+}) {
+  return (
+    <div
+      role={role}
+      className="content-enter flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center"
+    >
+      <p className="font-display text-[18px] text-ink">
+        <span aria-hidden className="mr-[6px] text-gold">
+          ❖
+        </span>
+        {title}
+      </p>
+      <p className="max-w-[440px] font-body text-body-sm leading-[1.5] text-ink-soft">{body}</p>
+      {onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="press touch-target mt-[4px] cursor-pointer rounded-[2px] border border-field-bd px-[12px] py-[6px] font-mono text-[10px] tracking-[0.12em] text-ink uppercase transition-colors duration-fast ease-soft hover:border-hair-strong hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          Try again
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * The story-player's Graph view: the scenario's Story-Graph rendered as a
@@ -52,6 +92,10 @@ export function GraphView({ scenarioId }: { scenarioId: string }) {
     return map;
   }, [graph]);
 
+  const isLoading = status === "loading";
+  const showLoading = useDelayedFlag(isLoading);
+  const stalled = useDelayedFlag(isLoading, SKELETON_TIMEOUT_MS);
+
   const clearSelection = useCallback(() => setSelection(null), []);
   const selectedNodeId = selection?.kind === "node" ? selection.node.id : null;
   const selectedEdgeKey = selection?.kind === "edge" ? edgeKey(selection.edge) : null;
@@ -59,10 +103,29 @@ export function GraphView({ scenarioId }: { scenarioId: string }) {
   const shell = "flex min-w-0 flex-1 flex-col bg-page";
 
   if (status === "loading") {
+    // A graph canvas has no internal layout to trace, so there is no honest
+    // skeleton to draw for it — a rectangle of shimmer would promise a shape
+    // the force simulation does not have. The status line is the right answer
+    // here; what it needed was the 300ms gate (a warm graph returns fast
+    // enough that the line was pure flicker) and a ceiling, so an unreachable
+    // Neo4j cannot leave it reading forever.
+    if (!showLoading) return <section aria-label="Story graph" className={shell} aria-busy="true" />;
+    if (stalled) {
+      return (
+        <section aria-label="Story graph" className={shell}>
+          <GraphMessage
+            role="alert"
+            title="The story graph is taking too long"
+            body="The graph database hasn't answered. It may be starting up, or unreachable."
+            onRetry={retry}
+          />
+        </section>
+      );
+    }
     return (
-      <section aria-label="Story graph" className={shell}>
+      <section aria-label="Story graph" className={shell} aria-busy="true">
         <div
-          className="flex flex-1 items-center justify-center font-mono text-[11px] tracking-[0.16em] text-mute uppercase"
+          className="content-enter flex flex-1 items-center justify-center font-mono text-[11px] tracking-[0.16em] text-mute uppercase"
           role="status"
         >
           ❖ Reading the story graph…
@@ -74,18 +137,12 @@ export function GraphView({ scenarioId }: { scenarioId: string }) {
   if (status === "error") {
     return (
       <section aria-label="Story graph" className={shell}>
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-          <p role="alert" className="max-w-[420px] font-body text-body-sm text-danger">
-            The story graph could not be loaded.
-          </p>
-          <button
-            type="button"
-            onClick={retry}
-            className="rounded-[2px] border border-field-bd px-[12px] py-[6px] font-mono text-[10px] tracking-[0.12em] text-ink uppercase hover:bg-hover hover:border-hair-strong"
-          >
-            Try again
-          </button>
-        </div>
+        <GraphMessage
+          role="alert"
+          title="The story graph could not be loaded"
+          body="The request to the graph database failed. The scene itself is unaffected."
+          onRetry={retry}
+        />
       </section>
     );
   }
@@ -98,14 +155,10 @@ export function GraphView({ scenarioId }: { scenarioId: string }) {
   if (!graph?.available) {
     return (
       <section aria-label="Story graph" className={shell}>
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-          <p className="font-display text-[18px] text-ink">The Story Graph is offline</p>
-          <p className="max-w-[440px] font-body text-body-sm text-ink-soft">
-            The graph database isn&apos;t running for this session, so relationships
-            can&apos;t be drawn right now. The scene itself is unaffected — switch back to
-            Chat to keep playing.
-          </p>
-        </div>
+        <GraphMessage
+          title="The Story Graph is offline"
+          body="The graph database isn't running for this session, so relationships can't be drawn right now. The scene itself is unaffected — switch back to Chat to keep playing."
+        />
       </section>
     );
   }
@@ -113,13 +166,10 @@ export function GraphView({ scenarioId }: { scenarioId: string }) {
   if (nodes.length === 0) {
     return (
       <section aria-label="Story graph" className={shell}>
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-          <p className="font-display text-[18px] text-ink">This scene&apos;s graph is empty</p>
-          <p className="max-w-[440px] font-body text-body-sm text-ink-soft">
-            Characters, settings, and the ties between them appear here as the world
-            fills in.
-          </p>
-        </div>
+        <GraphMessage
+          title="This scene's graph is empty"
+          body="Characters, settings, and the ties between them appear here as the world fills in. Play a turn and come back — the graph is written as the scene happens."
+        />
       </section>
     );
   }

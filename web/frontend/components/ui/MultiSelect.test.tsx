@@ -1,4 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import {
+  render,
+  screen,
+  within,
+  waitForElementToBeRemoved,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { useState } from "react";
@@ -58,8 +63,10 @@ describe("MultiSelect", () => {
     expect(screen.getByRole("listbox", { name: "Cast" })).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    // `aria-expanded` flips immediately — the listbox lingers only as long as
+    // its exit transition, so AT is told it is closed the moment it is closed.
     expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await waitForElementToBeRemoved(() => screen.queryByRole("listbox"));
   });
 
   it("multi-select toggles options on and off, keeping the listbox open", async () => {
@@ -95,7 +102,7 @@ describe("MultiSelect", () => {
     await user.click(screen.getByRole("option", { name: /The Harbor/ }));
     expect(onChangeSpy).toHaveBeenLastCalledWith(["s1"]);
     // Single-select closes after choosing.
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    await waitForElementToBeRemoved(() => screen.queryByRole("listbox"));
 
     // Reopen and pick another — replaces, never appends.
     await user.click(screen.getByRole("button"));

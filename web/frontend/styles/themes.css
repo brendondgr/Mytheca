@@ -99,6 +99,74 @@
 }
 
 /* ------------------------------------------------------------------ *
+ * Motion tokens — the single source of timing for the whole app.
+ * Four duration steps and four easings, per docs/frontend-polish-spec.md
+ * §2. Nothing in the app may hardcode a duration or easing: inconsistent
+ * timing reads as amateur even when each individual animation is fine.
+ *
+ * The rules that follow in this file reference these, and app/globals.css
+ * maps them onto Tailwind `duration-*` / `ease-*` utilities so component
+ * classes can reach them too.
+ *
+ * Two rules govern which step to pick:
+ *   - Exits are FASTER than entrances (~60%). A dismissal that takes as
+ *     long as an entrance feels like the interface is arguing with you.
+ *   - Travel distance scales INVERSELY with element size. A button lifts
+ *     --lift-sm; a card lifts --lift-md; a modal enters from --lift-lg.
+ * ------------------------------------------------------------------ */
+:root {
+  /* Durations — four steps, no improvising between them. */
+  --dur-instant: 80ms;    /* state flips: press, toggle knob, tab underline */
+  --dur-fast: 140ms;      /* hover, focus, press, tooltip, every exit       */
+  --dur-base: 220ms;      /* dropdowns, accordions, small reveals           */
+  --dur-slow: 340ms;      /* modals, drawers, page-level entrances          */
+  /* Ambient loops are their own category — they run forever, so they are paced
+   * to be ignorable rather than to feel responsive. Three rhythms, each with a
+   * distinct job, so no loop in the app picks its own number. */
+  --dur-ambient: 1200ms;      /* skeleton sweep, typing dots                */
+  --dur-breath: 2200ms;       /* slow pulse/travel: selection glow, paint wash */
+  --dur-breath-quick: 1400ms; /* the tighter "writing here" field ring      */
+
+  /* Easing — the emotional register of the motion. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);    /* DEFAULT. enters, reveals   */
+  --ease-in: cubic-bezier(0.45, 0, 0.55, 1);    /* exits, dismissals          */
+  --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);  /* hover, small state changes */
+  --ease-spring: linear(0, 0.42 12%, 0.87 24%, 1.05 36%, 1.01 60%, 1);
+                                                /* one overshoot, sparingly   */
+
+  /* Travel distance — small. Big travel reads as cheap. */
+  --lift-sm: 2px;
+  --lift-md: 6px;
+  --lift-lg: 14px;
+
+  /* Stagger step for choreographed group entrances. 8 items x 50ms = 400ms
+   * cumulative, under the 500ms ceiling; `.stagger` in motion.css caps the
+   * index so a 40-item list does not take two seconds to arrive. */
+  --stagger-step: 50ms;
+
+  /* The theme cross-fade is deliberately its own, much slower token: it is a
+   * whole-page mood change, not an interaction, and reusing --dur-slow here
+   * would make theme switching feel like a flicker. */
+  --dur-theme: 600ms;
+}
+
+/* ------------------------------------------------------------------ *
+ * Fluid space and display type.
+ * `--gutter` and the `--step-*` scale grow with the viewport instead of
+ * jumping at breakpoints (spec §8a). These govern PAGE RHYTHM and DISPLAY
+ * headings only — the six `--fs-*` tokens below stay stepped on purpose,
+ * because they are the user's explicit Text-size preference and must keep
+ * winning over anything fluid.
+ * ------------------------------------------------------------------ */
+:root {
+  --gutter: clamp(1rem, 4vw, 3rem);
+  --step-0: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
+  --step-1: clamp(1.125rem, 1.05rem + 0.4vw, 1.375rem);
+  --step-2: clamp(1.375rem, 1.2rem + 0.9vw, 1.875rem);
+  --step-3: clamp(1.75rem, 1.4rem + 1.8vw, 2.75rem);
+}
+
+/* ------------------------------------------------------------------ *
  * Typography scale — font-size CSS variables.
  * Six tokens cover every distinct text tier in the UI. The active
  * size-preset class (.fs-compact / .fs-default / .fs-comfortable /
@@ -153,12 +221,48 @@
 
 /* Shared dropdown/popover surface — every menu panel (storyline switcher,
  * Create, Options, Export, POV select, scene Config, MultiSelect) uses this so
- * dropdowns read as one consistent, clearly-elevated layer above the page. */
+ * dropdowns read as one consistent, clearly-elevated layer above the page.
+ *
+ * The entrance is origin-aware: the panel scales out of the edge nearest its
+ * trigger, so it reads as unfolding FROM the control rather than materialising
+ * over it. `@starting-style` supplies the from-state on the panel's first
+ * rendered frame, which needs no JS at all — every menu in the app gets the
+ * entrance simply by wearing this class. Menus that also want an animated exit
+ * add `data-closing` via the `useExitTransition` hook.
+ *
+ * Upward-opening menus (the composer's Config and POV popovers) set
+ * `--menu-origin: bottom` so they still grow out of their trigger. */
 .mytheca-menu {
+  --menu-origin: top;
   background-color: var(--menu-bg);
   border: 1px solid var(--menu-bd);
   border-radius: 4px;
   box-shadow: 0 18px 44px rgba(10, 6, 2, 0.55), 0 2px 8px rgba(10, 6, 2, 0.28);
+  transform-origin: var(--menu-origin);
+  opacity: 1;
+  transform: scaleY(1) translateY(0);
+  transition: opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+.mytheca-menu-up {
+  --menu-origin: bottom;
+}
+@starting-style {
+  .mytheca-menu {
+    opacity: 0;
+    transform: scaleY(0.96) translateY(calc(-1 * var(--lift-sm)));
+  }
+  .mytheca-menu-up {
+    transform: scaleY(0.96) translateY(var(--lift-sm));
+  }
+}
+.mytheca-menu[data-closing="true"] {
+  opacity: 0;
+  transform: scaleY(0.98);
+  /* Exits run at --dur-fast — roughly 60% of the entrance. A dismissal that
+   * takes as long as an entrance feels like the interface is arguing. */
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-in);
 }
 
 /* Gradient-backed surfaces (can't be expressed as Tailwind color utilities). */
@@ -190,21 +294,29 @@
 
 /* Theme cross-fade lives on the page surface; interactive cards/rows and
  * buttons carry their own (snappier) hover transitions so micro-interactions
- * don't inherit the slow 0.6s color fade. */
+ * don't inherit the slow --dur-theme color fade. Every value is a token —
+ * see the motion block at the top of this file. */
 .mytheca-page {
-  transition: background-color 0.6s ease;
+  transition: background-color var(--dur-theme) var(--ease-soft);
 }
 .mytheca-card {
-  transition: transform 0.14s ease, box-shadow 0.14s ease,
-    background-color 0.6s ease, border-color 0.6s ease;
+  transition: transform var(--dur-fast) var(--ease-soft),
+    box-shadow var(--dur-fast) var(--ease-soft),
+    background-color var(--dur-theme) var(--ease-soft),
+    border-color var(--dur-theme) var(--ease-soft);
 }
 .mytheca-row {
-  transition: transform 0.14s ease, background-color 0.6s ease,
-    border-color 0.6s ease;
+  transition: transform var(--dur-fast) var(--ease-soft),
+    background-color var(--dur-theme) var(--ease-soft),
+    border-color var(--dur-theme) var(--ease-soft);
 }
 .mytheca-themed button {
-  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease,
-    transform 0.12s ease, box-shadow 0.16s ease, filter 0.16s ease;
+  transition: background-color var(--dur-fast) var(--ease-soft),
+    border-color var(--dur-fast) var(--ease-soft),
+    color var(--dur-fast) var(--ease-soft),
+    transform var(--dur-instant) var(--ease-soft),
+    box-shadow var(--dur-fast) var(--ease-soft),
+    filter var(--dur-fast) var(--ease-soft);
 }
 
 /* Motion vocabulary from the reference (Framer Motion drives most entrances;
@@ -254,7 +366,7 @@
 }
 .mytheca-glow {
   box-shadow: 0 0 0 3px var(--glow-color), 0 0 11px 3px var(--glow-color);
-  animation: mythecaGlowPulse 2.2s ease-in-out infinite;
+  animation: mythecaGlowPulse var(--dur-breath) ease-in-out infinite;
 }
 
 /* Active-field highlight — marks the field an agent is authoring *right now*
@@ -275,7 +387,7 @@
   --glow-color: var(--accent);
   border-radius: 3px;
   box-shadow: 0 0 0 2px var(--glow-color), 0 0 10px 2px var(--glow-color);
-  animation: mythecaFieldPulse 1.4s ease-in-out infinite;
+  animation: mythecaFieldPulse var(--dur-breath-quick) ease-in-out infinite;
 }
 
 /* Painting placeholder — the landscape frame that stands in for a scene image
@@ -296,7 +408,7 @@
     var(--field-bg) 70%
   );
   background-size: 200% 100%;
-  animation: mythecaWash 2.6s linear infinite;
+  animation: mythecaWash var(--dur-breath) linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

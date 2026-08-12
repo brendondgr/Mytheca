@@ -1,6 +1,7 @@
 "use client";
 
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { mediaUrl } from "@/lib/api";
 import type { SceneImage } from "@/features/story-player/scene-data";
 
@@ -30,11 +31,14 @@ export function SceneImageBeat({
         aria-label={`Enlarge scene image — ${caption}`}
         className="group block w-full max-w-[560px] cursor-pointer overflow-hidden rounded-[6px] border border-cardbd bg-field shadow-[0_1px_2px_rgba(20,14,6,.06)] transition hover:border-accent hover:shadow-[0_6px_18px_rgba(10,6,3,.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:hover:border-cardbd disabled:hover:shadow-[0_1px_2px_rgba(20,14,6,.06)]"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- generated art from our media mount */}
-        <img
+        {/* 1216x832 (see docs/comfyui-image-generation.md, "In-play scene
+            images") — not literally 16:9, so the exact generation ratio is
+            reserved rather than a nominal 16/9 that would crop the render. */}
+        <SmartImage
           src={mediaUrl(image.url)}
           alt={caption}
-          className="block h-auto w-full object-cover"
+          aspect="1216 / 832"
+          className="block w-full"
         />
       </button>
       <figcaption className="mt-[7px] max-w-[560px] text-center">

@@ -43,7 +43,9 @@ export function SceneImageModal({
         <img
           src={mediaUrl(image.url)}
           alt={caption}
-          className="block h-auto max-h-[70vh] w-full rounded-[4px] border border-cardbd object-contain"
+          // dvh: on mobile, `vh` measures the viewport as if the browser chrome
+          // were hidden, so a 70vh image can exceed the space actually visible.
+          className="block h-auto max-h-[70dvh] w-full rounded-[4px] border border-cardbd object-contain"
         />
         <p className="mt-[12px] font-body text-[13.5px] leading-[1.5] text-ink">{caption}</p>
 

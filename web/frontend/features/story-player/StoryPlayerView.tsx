@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { ENTER_TRANSITION } from "@/lib/motion";
 import { exportSessionUrl } from "@/lib/api";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 import type { ExportFormat } from "@/components/feature/ExportMenu";
@@ -15,6 +16,9 @@ import { Composer } from "@/components/feature/Composer";
 import { SceneLoader } from "@/components/feature/SceneLoader";
 import { SceneIntro } from "@/components/feature/SceneIntro";
 import { TranscriptBeat } from "@/components/feature/TranscriptBeat";
+import { TranscriptAnnouncer } from "@/components/feature/TranscriptAnnouncer";
+import { JumpToLatest } from "@/components/feature/JumpToLatest";
+import { useStickyBottom } from "./use-sticky-bottom";
 import { CreateImageBar } from "@/components/feature/CreateImageBar";
 import { SceneImageModal } from "@/components/feature/SceneImageModal";
 import { CharacterDossier } from "@/components/feature/CharacterDossier";
@@ -40,8 +44,17 @@ export function StoryPlayerView({
     () => scene.messages.map((m) => [m.text, m.action, m.thought].filter(Boolean).join(" ")),
     [scene.messages],
   );
-  const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  // Follow the newest beat only while the reader is already at the bottom.
+  // Anything else is yanking the page away from someone who is reading.
+  // Destructured at the call site so the render body reads plain locals rather
+  // than properties of an object that also carries a ref — the refs lint rule
+  // cannot tell those apart.
+  const {
+    ref: transcriptRef,
+    detached: readerScrolledUp,
+    jumpToLatest,
+  } = useStickyBottom([scene.messages.length, scene.reveal]);
   // Picking a suggestion writes it into the composer for review/editing; move focus there so
   // the player can immediately edit before sending (request #2).
   const onChoose = useCallback(
@@ -58,12 +71,6 @@ export function StoryPlayerView({
   const [viewMode, setViewMode] = useState<SceneViewMode>("chat");
   const byId = (id: string): Character | undefined =>
     scenario.cast.find((c) => c.id === id);
-
-  // Keep the transcript pinned to the latest beat.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [scene.messages.length, scene.reveal]);
 
   // Download the full conversation record (server-rendered) as an attachment.
   const onExport = useCallback(
@@ -126,16 +133,20 @@ export function StoryPlayerView({
           <GraphView scenarioId={scenario.id} />
         ) : (
         <>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto p-[20px_16px_10px] sm:p-[24px_30px_10px]">
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          <div
+            ref={transcriptRef}
+            // `.stream-viewport` sets overflow-anchor: none so the browser's own
+            // scroll anchoring does not fight the sticky-bottom hook for control
+            // of the scroll position as beats stream in.
+            className="stream-viewport min-h-0 flex-1 overflow-auto p-[20px_16px_10px] sm:p-[24px_30px_10px]"
+          >
             <div
-              className="mx-auto flex max-w-[720px] flex-col gap-4 transition-[opacity,transform] duration-[550ms]"
+              className="mx-auto flex max-w-[720px] flex-col gap-4 transition-[opacity,transform] duration-slow ease-out"
               style={{
                 opacity: scene.reveal ? 1 : 0,
-                transform: scene.reveal ? "none" : "translateY(14px)",
+                transform: scene.reveal ? "none" : "translateY(var(--lift-lg))",
               }}
-              aria-live="polite"
-              aria-relevant="additions"
               aria-busy={!scene.reveal}
             >
               <SceneIntro scenario={scenario} onProfile={scene.openProfile} />
@@ -147,7 +158,15 @@ export function StoryPlayerView({
                   key={i}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
+                  transition={ENTER_TRANSITION}
+                  // The beat currently being written gets a couple of lines of
+                  // reserved height, so the composer does not hop the instant
+                  // the first token lands and again as the line wraps.
+                  className={
+                    scene.sending && i === scene.messages.length - 1
+                      ? "min-h-[3.2em]"
+                      : undefined
+                  }
                 >
                   <TranscriptBeat
                     message={m}
@@ -156,6 +175,7 @@ export function StoryPlayerView({
                     choices={scene.choices}
                     onChoose={onChoose}
                     onOpenImage={setLightbox}
+                    streaming={scene.sending && i === scene.messages.length - 1}
                   />
                 </motion.div>
               ))}
@@ -172,7 +192,7 @@ export function StoryPlayerView({
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
+                  transition={ENTER_TRANSITION}
                 >
                   <CreateImageBar
                     onCreate={scene.createImage}
@@ -185,6 +205,20 @@ export function StoryPlayerView({
               ) : null}
             </div>
           </div>
+
+          {/* Streamed prose is announced here, once per completed turn — not by
+              a live region on the transcript itself. See TranscriptAnnouncer. */}
+          <TranscriptAnnouncer
+            messages={scene.messages}
+            streaming={scene.sending}
+            nameOf={(id) => (id ? (byId(id)?.name ?? id) : "Someone")}
+          />
+
+          {/* Only while the reader has scrolled away from the live edge. */}
+          {readerScrolledUp ? (
+            <JumpToLatest onClick={jumpToLatest} className="bottom-[96px]" />
+          ) : null}
+
           <Composer
             value={scene.composer}
             onChange={scene.setComposer}

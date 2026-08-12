@@ -1,7 +1,41 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  act,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ToastProvider, useToast, type NotifyInput } from "./ToastProvider";
+
+/**
+ * Toasts animate OUT via `AnimatePresence`, so a dismissed toast stays in the
+ * DOM for the length of its exit. Every removal assertion therefore waits
+ * rather than checking synchronously — asserting immediately would be asserting
+ * that the exit animation does not exist.
+ *
+ * The exit itself is ~140ms, but Framer drives it on `requestAnimationFrame`,
+ * which stalls under CPU contention — at full Vitest worker concurrency the
+ * 1000ms default is not enough headroom and the suite goes load-flaky. The
+ * assertion is correct; only the budget is generous.
+ */
+const REMOVAL = { timeout: 5000 };
+
+/**
+ * Assert a toast is gone, tolerating both orderings.
+ *
+ * `waitForElementToBeRemoved` THROWS if the element is already absent when the
+ * wait begins — so it is only correct when removal is guaranteed to still be
+ * pending. Here it is a race: the exit takes ~140ms, but whether it has already
+ * finished by the time the assertion runs depends on machine load, which made
+ * the suite intermittently red. `waitFor` is right in both directions.
+ */
+async function expectGone(role: "alert" | "status") {
+  await waitFor(
+    () => expect(screen.queryByRole(role)).not.toBeInTheDocument(),
+    REMOVAL,
+  );
+}
 
 /** A tiny consumer that raises a toast on demand. */
 function Harness({ input }: { input: NotifyInput }) {
@@ -31,7 +65,7 @@ describe("ToastProvider / Toast", () => {
     expect(alert).toHaveTextContent("Draft failed");
 
     await user.click(screen.getByRole("button", { name: "Dismiss notification" }));
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await expectGone("alert");
   });
 
   it("renders an info toast as role=status", async () => {
@@ -65,26 +99,57 @@ describe("ToastProvider / Toast", () => {
     await user.click(screen.getByRole("button", { name: "raise" }));
     await user.click(screen.getByRole("button", { name: "Undo" }));
     expect(onClick).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    await expectGone("status");
   });
 
   it("auto-dismisses after the duration elapses", async () => {
+    render(
+      <ToastProvider>
+        <Harness input={{ message: "bye", variant: "info", durationMs: 60 }} />
+      </ToastProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "raise" }));
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    await expectGone("status");
+  });
+
+  it("holds the auto-dismiss timer while the pointer is over the toast", async () => {
     vi.useFakeTimers();
     try {
       render(
         <ToastProvider>
-          <Harness input={{ message: "bye", variant: "info", durationMs: 3000 }} />
+          <Harness input={{ message: "read me", variant: "info", durationMs: 3000 }} />
         </ToastProvider>,
       );
-      // fireEvent-style click without user-event (fake timers).
       act(() => {
         screen.getByRole("button", { name: "raise" }).click();
       });
+      const toast = screen.getByRole("status");
+
+      // Halfway through the countdown, the pointer arrives.
+      act(() => void vi.advanceTimersByTime(1500));
+      act(() => {
+        toast.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      });
+
+      // Well past the original 3000ms deadline, it is still on screen: the
+      // timer is held, not merely visually frozen.
+      act(() => void vi.advanceTimersByTime(10_000));
       expect(screen.getByRole("status")).toBeInTheDocument();
-      act(() => void vi.advanceTimersByTime(3000));
-      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+      // On leaving, only the REMAINING 1500ms is owed — not a fresh 3000.
+      act(() => {
+        toast.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      });
+      act(() => void vi.advanceTimersByTime(1400));
+      expect(screen.getByRole("status")).toBeInTheDocument();
+      act(() => void vi.advanceTimersByTime(200));
     } finally {
       vi.useRealTimers();
     }
+    await waitFor(() =>
+      expect(screen.queryByRole("status")).not.toBeInTheDocument(),
+    );
   });
 });

@@ -46,6 +46,26 @@ import {
   type TraceTurn,
 } from "./turn-stream";
 
+/**
+ * How long the establishing curtain (`SceneLoader`) must be up before it may
+ * dissolve, even if the scene is ready sooner.
+ *
+ * The curtain is the app's one deliberate motion moment and it carries real
+ * information — the scenario, its setting, the cast, the goal. Flashing it for
+ * 80ms and snatching it away reads as a glitch, not as speed.
+ */
+const SCENE_REVEAL_MIN_MS = 650;
+
+/**
+ * The hard ceiling on the curtain, whether or not the scene ever reports ready.
+ *
+ * Past this the transcript is revealed regardless and its own empty/error
+ * states speak for themselves. An unreachable backend must not leave the reader
+ * staring at a loading animation indefinitely — that is the "infinite shimmer
+ * with no timeout" anti-pattern wearing a nicer coat.
+ */
+const SCENE_REVEAL_MAX_MS = 6000;
+
 /** Human phrase for a presence transition, used in the auto-change toast. */
 const PRESENCE_PHRASE: Record<PresenceStatus, string> = {
   present: "is back in the scene",
@@ -148,13 +168,37 @@ export function useScenePlay(scenario: ResolvedScenario) {
   }, []);
 
   // Loader → content reveal.
+  //
+  // This used to be a blind `setTimeout(2200)` on mount: the curtain held for
+  // 2.2s whether the scene was ready in 100ms or not ready at 5s. That is a
+  // spinner for a 150ms request, scaled up — self-inflicted latency that the
+  // user reads as the app being slow.
+  //
+  // It is now driven by the real readiness signal (`sceneReady`, set when the
+  // resume/baseline load settles), bracketed by two bounds:
+  //
+  //  - a MINIMUM, so an instant load does not flash the curtain and yank it
+  //    away. The SceneLoader is the app's one signature motion moment; a
+  //    strobe is worse than either extreme.
+  //  - a MAXIMUM, so a stalled or unreachable backend cannot hold the reader
+  //    behind a curtain forever. Past the cap we reveal anyway and let the
+  //    transcript's own empty/error states speak.
+  const [sceneReady, setSceneReady] = useState(false);
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (!sceneReady) {
+      // The hard ceiling still runs while we wait for readiness.
+      const cap = window.setTimeout(() => {
+        setReveal(true);
+        setLoading(false);
+      }, SCENE_REVEAL_MAX_MS);
+      return () => window.clearTimeout(cap);
+    }
+    const floor = window.setTimeout(() => {
       setReveal(true);
       setLoading(false);
-    }, 2200);
-    return () => clearTimeout(timer);
-  }, []);
+    }, SCENE_REVEAL_MIN_MS);
+    return () => window.clearTimeout(floor);
+  }, [sceneReady]);
 
   // Seed live per-character stats from each cast member's persisted starting values, then
   // resume the scenario's most recent play-through on top of that baseline: reload its full
@@ -194,7 +238,13 @@ export function useScenePlay(scenario: ResolvedScenario) {
       setPresenceByChar(scene.presenceByChar);
       setTraceTurns(scene.traceTurns);
       setChoices([]);
-    })().catch(() => {});
+    })()
+      .catch(() => {})
+      // Ready either way. A failed resume is a scene that starts fresh, not a
+      // scene that never opens — the curtain must not outlive the attempt.
+      .finally(() => {
+        if (alive) setSceneReady(true);
+      });
     return () => {
       alive = false;
     };

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { mediaUrl } from "@/lib/api";
 import { Monogram } from "@/components/ui/Monogram";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { PORTRAIT_SCRIM, OVER_ART } from "@/lib/cardArt";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 
@@ -91,7 +92,7 @@ export function ScenarioCarousel({
       className="relative mx-[16px] mt-[18px] h-[326px] flex-none overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-[28px]"
     >
       <div
-        className="flex h-full w-full transition-transform duration-[550ms] ease-[cubic-bezier(.45,.05,.2,1)]"
+        className="flex h-full w-full transition-transform duration-slow ease-out"
         style={{ transform: `translateX(-${index * 100}%)` }}
       >
         {slides.map((s, i) => (
@@ -108,21 +109,16 @@ export function ScenarioCarousel({
               className="relative flex aspect-[16/9] h-full flex-none flex-col overflow-hidden border-r"
               style={{ borderColor: HERO.divider }}
             >
-              {/* Background: scene art image or hatched placeholder */}
-              {s.image ? (
-                // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
-                <img
-                  src={mediaUrl(s.image)}
-                  alt=""
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-                />
-              ) : (
-                <div
-                  className="pointer-events-none absolute inset-0"
-                  style={{ background: HERO.art }}
-                />
-              )}
+              {/* Background: scene art image or hatched placeholder. The hero
+                  panel is the carousel's LCP image, so it loads eagerly. */}
+              <SmartImage
+                src={s.image ? mediaUrl(s.image) : null}
+                alt=""
+                aspect="16 / 9"
+                priority
+                className="pointer-events-none absolute inset-0"
+                placeholder={<div className="h-full w-full" style={{ background: HERO.art }} />}
+              />
               {/* Graduated scrim — strong on the left (under the title/description
                   column) and along the bottom (under the Begin button), fading to
                   near-clear on the right so the scene art reads boldly. Keeps the
@@ -190,7 +186,7 @@ export function ScenarioCarousel({
                   <button
                     type="button"
                     onClick={() => onBegin(s.id)}
-                    className="mt-[10px] w-full rounded-[2px] px-[4px] py-[8px] font-mono text-label uppercase tracking-[0.09em] hover:-translate-y-[1px] hover:brightness-[1.18] hover:shadow-[0_5px_14px_rgba(10,6,3,.35)] active:translate-y-0"
+                    className="mt-[10px] w-full rounded-[2px] px-[4px] py-[8px] font-mono text-label uppercase tracking-[0.09em] hover-lift press hover:brightness-[1.18] hover:shadow-[0_5px_14px_rgba(10,6,3,.35)] active:translate-y-0"
                     style={{ background: HERO.label, color: "#1f160c" }}
                   >
                     Begin Scene ▸
@@ -398,7 +394,7 @@ function CastCard({
   return (
     <div
       ref={ref}
-      className="group relative grid h-full flex-none overflow-hidden rounded-[6px] transition-[grid-template-columns] duration-300 ease-out motion-reduce:transition-none"
+      className="group relative grid h-full flex-none overflow-hidden rounded-[6px] transition-[grid-template-columns] duration-base ease-out motion-reduce:transition-none"
       // The card is a 2-column grid: a fixed portrait column + a stats column that
       // animates 0px → CAST_STATS_W when opened. Animating `grid-template-columns`
       // slides the extension out as part of the same bordered card and pushes the
@@ -413,22 +409,18 @@ function CastCard({
         className="relative h-full overflow-hidden"
         style={{ background: hasPortrait ? undefined : "var(--card-bg2)" }}
       >
-        {hasPortrait ? (
-          // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
-          <img
-            src={mediaUrl(c.portrait!)}
-            alt=""
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
-          />
-        ) : (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 flex items-center justify-center pb-[52px]"
-          >
-            <Monogram mono={c.mono} color={c.color} size={84} ring={2} fontSize={32} />
-          </div>
-        )}
+        <SmartImage
+          src={hasPortrait ? mediaUrl(c.portrait!) : null}
+          alt=""
+          aspect="2 / 3"
+          imgClassName="object-top"
+          className="pointer-events-none absolute inset-0"
+          placeholder={
+            <div className="flex h-full w-full items-center justify-center pb-[52px]">
+              <Monogram mono={c.mono} color={c.color} size={84} ring={2} fontSize={32} />
+            </div>
+          }
+        />
 
         {/* Transparent bottom scrim — name/role read over the lower portrait. */}
         <div
