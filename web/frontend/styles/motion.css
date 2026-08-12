@@ -1,0 +1,272 @@
+/* ------------------------------------------------------------------ *
+ * Mytheca — shared motion & loading utilities.
+ *
+ * Everything here is pure CSS on purpose. Framer Motion stays for the jobs
+ * only it can do (AnimatePresence exits, layout animations, the transcript
+ * beat entrances); fades, hovers, presses, shimmer, and scroll reveals are
+ * one-to-ten lines of platform CSS and cost nothing at runtime.
+ *
+ * Every duration and easing comes from the tokens in themes.css. If you find
+ * yourself typing a millisecond value into a component, the answer is a token
+ * or a class in this file.
+ *
+ * Contract: docs/frontend-polish-spec.md
+ * ------------------------------------------------------------------ */
+
+/* ---------- Hover, press, focus ------------------------------------ *
+ * `@media (hover: hover) and (pointer: fine)` is MANDATORY on any hover
+ * effect that moves or lifts. Without it a touch device applies the hover
+ * state on tap and it sticks until the user taps elsewhere — a persistent,
+ * obviously-broken artifact. Tailwind's `hover:` prefix is NOT gated, so
+ * transform-bearing hovers belong here rather than in a class list.
+ * ------------------------------------------------------------------ */
+
+/* Lift + shadow. Two properties, because one reads as unfinished and four
+ * reads as noisy. Distance scales inversely with element size, so the caller
+ * picks --lift via the -sm/-md/-lg variants below. */
+.hover-lift {
+  --hover-lift-distance: var(--lift-sm);
+  transition: transform var(--dur-fast) var(--ease-soft),
+    box-shadow var(--dur-fast) var(--ease-soft),
+    border-color var(--dur-fast) var(--ease-soft);
+}
+.hover-lift-md {
+  --hover-lift-distance: var(--lift-md);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hover-lift:hover:not(:disabled):not([aria-disabled="true"]) {
+    transform: translateY(calc(-1 * var(--hover-lift-distance)));
+    box-shadow: 0 6px 16px rgba(40, 30, 16, 0.12);
+  }
+}
+
+/* Press feedback matters MORE than hover, because it is the only one that
+ * exists on touch. Every interactive surface gets it, on every device. */
+.press:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(0) scale(0.985);
+  transition-duration: var(--dur-instant);
+}
+
+/* Disabled never lifts and never invites the cursor. */
+.hover-lift:disabled,
+.hover-lift[aria-disabled="true"] {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Double-clicking a button label should activate it twice, not select the
+ * text inside it. */
+:where(button, [role="button"], [role="menuitem"], [role="tab"], summary) {
+  user-select: none;
+}
+
+/* ---------- Entrances --------------------------------------------- *
+ * The revealed state is always the DEFAULT state. These classes layer an
+ * entrance on top of already-visible content, using `backwards` fill so an
+ * element holds its start state during any delay instead of flashing at full
+ * opacity first — the detail that makes a stagger look broken when missed.
+ * ------------------------------------------------------------------ */
+
+@keyframes mythecaRise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--lift-md));
+  }
+}
+
+/* The skeleton -> content handoff, and the entrance for error/empty states so
+ * a failure reads as part of the system rather than a crash. */
+@keyframes mythecaContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.content-enter {
+  animation: mythecaContentIn var(--dur-base) var(--ease-out) backwards;
+}
+
+/* Choreographed group entrance. Set --i inline from the list index; the
+ * `min()` caps the ramp at 8 items so a long list does not read as slow.
+ * 8 x 50ms = 400ms cumulative, inside the 500ms ceiling. */
+.stagger > * {
+  animation: mythecaRise var(--dur-base) var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 8) * var(--stagger-step));
+}
+
+/* ---------- Skeletons ---------------------------------------------- *
+ * A skeleton is a tracing of the real layout, not grey boxes: same line
+ * count, widths, gaps, and radii as the content it stands in for. Building
+ * it against `currentColor` via color-mix means it works in all three themes
+ * with no second definition.
+ *
+ * The sweep animates background-position, never width — a width animation
+ * thrashes layout on every frame.
+ * ------------------------------------------------------------------ */
+
+.skeleton {
+  --skeleton-base: color-mix(in oklch, currentColor 8%, transparent);
+  --skeleton-hi: color-mix(in oklch, currentColor 18%, transparent);
+  border-radius: 3px;
+  background: linear-gradient(
+      90deg,
+      var(--skeleton-base) 0 40%,
+      var(--skeleton-hi) 50%,
+      var(--skeleton-base) 60% 100%
+    )
+    0 0 / 300% 100%;
+  animation: mythecaSkeletonSweep var(--dur-ambient) linear infinite;
+}
+
+@keyframes mythecaSkeletonSweep {
+  to {
+    background-position: -150% 0;
+  }
+}
+
+/* The base background lives outside the keyframes, so the app-wide
+ * reduced-motion rule in themes.css — which strips `animation` but not
+ * `background` — leaves a calm static bar rather than an empty box. Same
+ * idiom as .mytheca-glow / .mytheca-field-active / .mytheca-wash. */
+
+/* ---------- Streaming text ----------------------------------------- *
+ * Blur-to-sharp is what makes streamed prose feel deliberate rather than
+ * mechanical. Applied per arriving chunk, never to the container — animating
+ * the container's height would thrash the whole transcript.
+ * ------------------------------------------------------------------ */
+
+.tok {
+  animation: mythecaTokenIn var(--dur-base) var(--ease-out) backwards;
+}
+
+@keyframes mythecaTokenIn {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
+}
+
+/* The 2px block caret that rides the tail of streaming text and is removed on
+ * completion. Blink is animation-only, so reduced motion leaves a steady bar
+ * rather than nothing. */
+.stream-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  translate: 0 0.14em;
+  margin-inline-start: 2px;
+  background: currentColor;
+  animation: mythecaCaret 1s steps(2, jump-none) infinite;
+}
+
+@keyframes mythecaCaret {
+  50% {
+    opacity: 0.15;
+  }
+}
+
+/* The three-dot "thinking" indicator, shared by the scene loader, the route
+ * loader, and the cast rail — all three previously wrote their own delays.
+ * Status is never carried by motion alone: every use pairs this with a
+ * literal "Thinking" / "Speaking" label. */
+.mytheca-dots > * {
+  animation: embDots var(--dur-breath-quick) ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 200ms);
+}
+
+/* ---------- Scroll ------------------------------------------------- *
+ * Scroll-driven reveals run on the compositor, so they do not jank when the
+ * main thread is busy streaming a turn. The failure mode is "no animation",
+ * never "invisible content" — which is why `.reveal` has no base styles at
+ * all: the revealed state IS the default.
+ *
+ * Mytheca has no root scroll (every route is a self-contained h-dvh shell),
+ * so `view()` is resolved against the nearest scrolling ancestor. A scroll
+ * progress bar and parallax are deliberately absent — there is nothing
+ * page-level to measure.
+ * ------------------------------------------------------------------ */
+
+.reveal {
+  /* base = final state. Always visible without support, without JS. */
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: mythecaRevealIn linear both;
+      animation-timeline: view();
+      animation-range: entry 4% cover 22%;
+    }
+  }
+}
+
+@keyframes mythecaRevealIn {
+  from {
+    opacity: 0;
+    transform: translateY(var(--lift-md));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Horizontal scrollers get an edge fade so a clipped row reads as "there is
+ * more" rather than "that is all there is". Driven by `animation-timeline:
+ * scroll()` so each fade disappears at its own end of the track, with no
+ * scroll listener. The static fallback is both fades at rest, which is
+ * honest at the start position and harmless elsewhere. */
+.scroll-fade {
+  --scroll-fade-size: 28px;
+  position: relative;
+}
+.scroll-fade::before,
+.scroll-fade::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  width: var(--scroll-fade-size);
+  pointer-events: none;
+  z-index: 1;
+}
+.scroll-fade::before {
+  inset-inline-start: 0;
+  background: linear-gradient(to right, var(--page-bg), transparent);
+  opacity: 0;
+}
+.scroll-fade::after {
+  inset-inline-end: 0;
+  background: linear-gradient(to left, var(--page-bg), transparent);
+}
+
+@supports (animation-timeline: scroll()) {
+  .scroll-fade::before,
+  .scroll-fade::after {
+    animation: mythecaFadeIn linear both;
+    animation-timeline: scroll(nearest inline);
+  }
+  .scroll-fade::before {
+    animation-range: 0 var(--scroll-fade-size);
+  }
+  .scroll-fade::after {
+    animation-direction: reverse;
+    animation-range: calc(100% - var(--scroll-fade-size)) 100%;
+  }
+}
+
+@keyframes mythecaFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Streaming viewports must not fight the browser's own scroll anchoring; the
+ * sticky-bottom hook owns that decision instead. */
+.stream-viewport {
+  overflow-anchor: none;
+}

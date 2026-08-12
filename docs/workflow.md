@@ -113,6 +113,21 @@ uv run python utils/scripts/check_contrast.py
 
 It parses `web/frontend/styles/themes.css` and asserts the WCAG-AA token pairs across all three themes.
 
+Stylesheet gate, also from the repo root:
+
+```bash
+node utils/scripts/check_frontend_css.mjs
+```
+
+It compiles `app/globals.css` (and therefore `themes.css` + `motion.css`) through the real
+Tailwind v4 pipeline, then asserts that no custom property is defined in terms of itself and
+that every `var(--dur-*/--ease-*/--lift-*)` motion token referenced actually exists.
+
+**Use it whenever `npm run build` is unavailable.** `next build` is the normal gate, but
+`next/font/google` fetches Cinzel / EB Garamond / IBM Plex Mono at build time and hard-fails
+with no network — so in a sandbox or an offline worktree the build cannot validate CSS at all.
+This script needs no network.
+
 ## Validation Gate (definition of "done")
 
 Required:
@@ -121,6 +136,8 @@ Required:
 - Frontend tests pass (`npm test` in `web/frontend/`).
 - **UI changes also require** an accessibility + responsive pass per `skills/accessibility-mobile/SKILL.md` and `skills/ada-compliance/SKILL.md`: keyboard operability, visible focus, AA contrast, live-region announcements for streamed content, and layout at 320 / 375 / 768 / 1024 px.
 - **Theme-token changes also require** `check_contrast.py` to pass.
+- **Stylesheet changes also require** `check_frontend_css.mjs` to pass (or a green
+  `npm run build`, where the network allows one).
 - **Any experiment, benchmark, baseline, ablation or evaluation run also requires**
   `make validate-research` to pass, with the run recorded under
   `research/experiments/`. Failed runs are recorded, not deleted.

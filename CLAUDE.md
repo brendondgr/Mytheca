@@ -49,6 +49,7 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 | Data origins + the turn/streaming path | `docs/data-flow.md` |
 | Build/run/deploy + every env var | `docs/deployment.md` |
 | Themes, tokens, UI states | `docs/design-system.md` |
+| Motion / loading / responsiveness contract for new UI | `docs/frontend-polish-spec.md` |
 | API + NDJSON event contract | `docs/api-contract.md` |
 | Hybrid RAG (Qdrant/fastembed) | `docs/rag.md` |
 | Story Graph (Neo4j) | `docs/story-graph-neo4j.md` |
@@ -117,6 +118,7 @@ cd web/frontend && npm run dev    # frontend dev server (port 3346)
 cd web/frontend && npm test       # frontend tests (Vitest)
 cd web/frontend && npm run typecheck && npm run lint
 uv run python utils/scripts/check_contrast.py   # WCAG-AA theme gate
+node utils/scripts/check_frontend_css.mjs       # Tailwind/stylesheet gate (works offline)
 make validate-research            # enforce the research record contract
 make new-experiment SLUG=x        # scaffold an experiment folder
 ```

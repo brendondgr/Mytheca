@@ -222,6 +222,92 @@ the scrim base; the active `◆ In this scene` marker ~9:1); near-white art dire
 band is the known edge — accepted as a deliberate, requested look, mitigated by the strong scrim +
 width cap (mirrors the hero scrim).
 
+## Motion Tokens (the timing system)
+
+**No component may hardcode a duration or an easing.** Inconsistent timing is the single most
+common reason a UI reads as scaffolded rather than designed — each animation can look fine on
+its own while the set of them feels wrong. The tokens live in one place, `:root` in
+`styles/themes.css`, and the full rationale is `docs/frontend-polish-spec.md` §2.
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `--dur-instant` | 80ms | State flips: press, toggle knob, tab underline |
+| `--dur-fast` | 140ms | Hover, focus, tooltip — **and every exit** |
+| `--dur-base` | 220ms | Dropdowns, accordions, small reveals, streamed-token fade |
+| `--dur-slow` | 340ms | Modals, drawers, page-level entrances |
+| `--dur-ambient` | 1200ms | Skeleton sweep, typing dots |
+| `--dur-breath` | 2200ms | Slow pulse/travel loops: `.mytheca-glow`, `.mytheca-wash` |
+| `--dur-breath-quick` | 1400ms | The tighter "writing here" ring, `.mytheca-field-active` |
+| `--dur-theme` | 600ms | The whole-page theme cross-fade (a mood change, not an interaction) |
+| `--ease-out` | `cubic-bezier(.16,1,.3,1)` | **Default.** Entrances, reveals |
+| `--ease-in` | `cubic-bezier(.45,0,.55,1)` | Exits, dismissals |
+| `--ease-soft` | `cubic-bezier(.33,1,.68,1)` | Hover and small state changes |
+| `--ease-spring` | `linear(0, .42 12%, .87 24%, 1.05 36%, 1.01 60%, 1)` | One overshoot; sparingly |
+| `--lift-sm` / `-md` / `-lg` | 2 / 6 / 14px | Travel distance by element size |
+| `--stagger-step` | 50ms | Per-item offset in a choreographed group entrance |
+
+Two rules decide which step to pick:
+
+- **Exits are faster than entrances** (~60%). A dismissal that takes as long as an entrance
+  feels like the interface is arguing with the user.
+- **Travel scales inversely with size.** A 40px button lifts `--lift-sm`; a full-width card
+  lifts `--lift-md`; a modal enters from `--lift-lg`. Large elements moving large distances
+  read as sluggish.
+
+**Reaching the tokens from a component.** `app/globals.css` declares `duration-instant` /
+`duration-fast` / `duration-base` / `duration-slow` and `ease-soft` / `ease-spring` as Tailwind
+utilities. `ease-out` and `ease-in` need no declaration — Tailwind's stock utilities already
+emit `var(--ease-out)`, and `themes.css` redefines that variable, so every existing `ease-out`
+in the app picks up the Mytheca curve automatically. The `--ease-*` names deliberately are
+**not** routed through `@theme inline`: the namespace key collides with the token name and
+compiles to a self-referential `--ease-out: var(--ease-out)`. `check_frontend_css.mjs` fails
+the build on that pattern.
+
+### Shared motion utilities (`styles/motion.css`)
+
+Pure CSS, no runtime cost. Framer Motion keeps only the jobs it alone can do —
+`AnimatePresence` exits, layout animations, and the transcript beat entrances.
+
+| Class | What it does |
+| --- | --- |
+| `.hover-lift` / `.hover-lift-md` | Lift + shadow, **gated behind `@media (hover: hover) and (pointer: fine)`** so the state cannot stick on touch |
+| `.press` | `:active` scale to 0.985 at `--dur-instant` — the only feedback that exists on touch, so it is never optional |
+| `.stagger > *` | Group entrance, `--i` set inline from the index, **capped at 8 items** (400ms cumulative) |
+| `.content-enter` | The skeleton → content handoff; also used by error and empty states so failure reads as part of the system |
+| `.skeleton` | Layout-tracing placeholder; sweeps `background-position`, never `width` |
+| `.tok` | Blur-to-sharp fade on each arriving streamed chunk |
+| `.stream-caret` | The 2px block caret at the tail of streaming text |
+| `.mytheca-dots` | The shared three-dot thinking indicator (previously re-implemented in three places) |
+| `.reveal` | Scroll reveal via `animation-timeline: view()`, behind `@supports` + `prefers-reduced-motion` |
+| `.scroll-fade` | Edge fade on a horizontal scroller, driven by `animation-timeline: scroll()` — no scroll listener |
+
+Every one of these keeps its **resting state in the base style**, so the app-wide reduced-motion
+rule (which strips `animation` under `.mytheca-themed *`) degrades to something calm rather than
+to an empty box. `.reveal` has *no* base styles at all: the revealed state is the default, so
+content is visible with or without JS and CSS support.
+
+### Fluid space and display type
+
+`--gutter` and `--step-0…3` (`clamp()`-based) govern page rhythm and display headings, growing
+with the viewport instead of jumping at breakpoints. They are surfaced as `gap-gutter`,
+`p-gutter`, and `text-step-*`. The six `--fs-*` tokens stay **stepped on purpose** — they are
+the user's explicit Text-size preference and must keep winning over anything fluid.
+
+### Recorded deviations from `docs/frontend-polish-spec.md`
+
+1. **The spec's blanket `*` reduced-motion reset is not adopted.** `themes.css` already carries
+   a stronger repo-wide rule (`.mytheca-themed *` → `animation: none !important`), and the
+   codebase idiom is to put the resting state in the base style. Adding the spec's reset on top
+   would be a duplicate of an existing, load-bearing rule.
+2. **Scroll-driven reveals apply narrowly.** Mytheca has no root scroll — every route is a
+   self-contained `h-dvh` shell whose columns scroll. `.reveal` is used inside those scrollers;
+   a scroll **progress bar** and **parallax** are skipped as inapplicable, not forgotten.
+3. **Cross-document view transitions are skipped.** App Router navigations are client-side, so
+   `@view-transition { navigation: auto }` never fires; Next 16's `experimental.viewTransition`
+   would be a stack change. Tracked in `docs/checklist.md`.
+4. **Framer Motion is retained** despite the spec's lean toward dropping animation libraries —
+   the stack is locked to it and GSAP is banned. Its scope is narrowed, not removed.
+
 ## Motion (Framer Motion)
 
 Purposeful only, and always with a near-instant `prefers-reduced-motion` fallback.
