@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { ENTER_TRANSITION } from "@/lib/motion";
 import { exportSessionUrl } from "@/lib/api";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 import type { ExportFormat } from "@/components/feature/ExportMenu";
@@ -157,7 +158,7 @@ export function StoryPlayerView({
                   key={i}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  transition={ENTER_TRANSITION}
                   // The beat currently being written gets a couple of lines of
                   // reserved height, so the composer does not hop the instant
                   // the first token lands and again as the line wraps.
@@ -191,7 +192,7 @@ export function StoryPlayerView({
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
+                  transition={ENTER_TRANSITION}
                 >
                   <CreateImageBar
                     onCreate={scene.createImage}

@@ -2,6 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { DUR_FAST, ENTER_TRANSITION } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 
 export type ToastVariant = "info" | "success" | "error";
@@ -80,8 +81,8 @@ export function Toast({
             initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
             // Exits run at roughly 60% of the entrance, per the motion tokens.
-            exit={{ opacity: 0, x: 16, transition: { duration: 0.14 } }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, x: 16, transition: { duration: DUR_FAST } }}
+            transition={ENTER_TRANSITION}
             role={VARIANT_ROLE[t.variant]}
             onMouseEnter={() => onPause?.(t.id)}
             onMouseLeave={() => onResume?.(t.id)}

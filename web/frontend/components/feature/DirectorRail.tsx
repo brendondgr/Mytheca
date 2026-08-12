@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { ENTER_TRANSITION } from "@/lib/motion";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import type { StatDefinition } from "@/lib/types";
 import type { Relationship, StatChip } from "@/features/story-player/scene-data";
@@ -153,7 +154,7 @@ function StatSlider({ def, value: live }: { def: StatDefinition; value?: number 
       {/* Band legend — opens only via the "?" (hover or click); in-flow, never clipped. */}
       {hasBands ? (
         <div
-          className={`grid transition-[grid-template-rows] duration-200 motion-reduce:transition-none ${
+          className={`grid transition-[grid-template-rows] duration-base ease-out motion-reduce:transition-none ${
             open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
           }`}
         >
@@ -275,7 +276,7 @@ function ScenePulse({
                 key={entry.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
+                transition={ENTER_TRANSITION}
               >
                 <div className="rounded-[3px] border border-cardbd bg-card p-[6px_9px]">
                   <div className="flex items-baseline gap-[5px]">

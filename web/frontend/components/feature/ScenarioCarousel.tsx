@@ -92,7 +92,7 @@ export function ScenarioCarousel({
       className="relative mx-[16px] mt-[18px] h-[326px] flex-none overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-[28px]"
     >
       <div
-        className="flex h-full w-full transition-transform duration-[550ms] ease-[cubic-bezier(.45,.05,.2,1)]"
+        className="flex h-full w-full transition-transform duration-slow ease-out"
         style={{ transform: `translateX(-${index * 100}%)` }}
       >
         {slides.map((s, i) => (
@@ -394,7 +394,7 @@ function CastCard({
   return (
     <div
       ref={ref}
-      className="group relative grid h-full flex-none overflow-hidden rounded-[6px] transition-[grid-template-columns] duration-300 ease-out motion-reduce:transition-none"
+      className="group relative grid h-full flex-none overflow-hidden rounded-[6px] transition-[grid-template-columns] duration-base ease-out motion-reduce:transition-none"
       // The card is a 2-column grid: a fixed portrait column + a stats column that
       // animates 0px → CAST_STATS_W when opened. Animating `grid-template-columns`
       // slides the extension out as part of the same bordered card and pushes the

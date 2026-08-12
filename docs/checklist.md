@@ -106,12 +106,44 @@ Verified against the code on 2026-08-04.
   to NDJSON streams with keep-alives, mirroring the existing `/triage` + `/triage/stream`
   pair. Not started — waiting on confirmation of which control actually fails in the
   field, since the work is a new endpoint plus UI per call site.
+- **Core Web Vitals have never been measured.** `docs/plans/frontend-polish-acceptance.md`
+  records this as the one outright **FAIL** against the polish spec's §14. The *causes* of
+  layout shift were addressed structurally on 2026-08-12 (space-reserved images via
+  `SmartImage`, a reserved error line in `FieldError`, a min-height on the streaming beat,
+  skeletons matching real card geometry), but CLS / INP / LCP were not measured — `next build`
+  cannot run without network access to Google Fonts, so there is no production bundle to
+  profile. Needs one Lighthouse run on a 4× throttled CPU in a networked environment.
+- **Not every async path routes through `AsyncPanel`.** The five-state shell exists and covers
+  the Library columns, Documents, GraphView, and the modals; `useLibraryState`'s per-entity
+  loads still fail silently to empty collections, so a partial failure is indistinguishable
+  from an empty world.
+- **`:disabled` was audited on the primitives only.** `components/ui/` all carry the four
+  interaction states; the 48 feature components inherit them through the primitives but were
+  not individually swept for bespoke `<button>`s that can be disabled. Contrast of the new
+  disabled treatments (`opacity-45`/`opacity-60` over existing tokens) is not modelled by
+  `check_contrast.py` and was not measured.
 - **No LICENSE file.** The repository is all-rights-reserved by default.
 
 ## Deferred verification
 
 - **The `VoiceSamplesEditor` Moment select has not been seen in a browser.** Added 2026-08-11. Verified by co-located component tests (native `<select>`, `<label>`-associated, reachable by accessible name, reuses the existing field styling) and by structural review: the row wraps at the 320px floor and the select is `max-w-full min-w-0` so a long option label cannot overflow. A live check was attempted in the worktree on a free port and **failed for an unrelated reason** — `next/font/google` cannot reach Google Fonts in this sandbox, so the page never renders. Folded into the consolidated pass below.
-- **Live in-browser accessibility + responsive pass.** Deferred across a long series of UI changes against a persistent environment constraint: a dev server holding 3346, backend CORS pinned to that origin, unreachable Google Fonts, and unreliable screenshot tooling inside worktrees. Each change was instead verified via green component suites, `next build`, and structural review (native controls, AA tokens, reduced-motion fallbacks). **This is the largest outstanding quality gap** — run one consolidated keyboard + 320/375/768/1024 pass over the whole app once a clean environment is available, rather than re-deferring it per feature.
+- **Live in-browser accessibility + responsive pass.** Deferred across a long series of UI changes against a persistent environment constraint: a dev server holding 3346, backend CORS pinned to that origin, unreachable Google Fonts, and unreliable screenshot tooling inside worktrees. Each change was instead verified via green component suites, `next build`, and structural review (native controls, AA tokens, reduced-motion fallbacks).
+  - **Substantially closed on 2026-08-12** by the frontend-polish pass
+    (`docs/plans/frontend-polish-ui.md`). The Google-Fonts blocker was worked
+    around by temporarily shimming `lib/fonts.ts` to system families — enough to
+    render the app and measure it, reverted before commit. Measured live on
+    `/storylines/new` and the story player at **320 / 375 / 768 / 1024**: no
+    horizontal page overflow and `documentElement.scrollHeight ==
+    clientHeight` at every width (the `sr-only` root-scroll symptom is absent).
+    Touch emulation (`pointer: coarse`) found **9 controls under 44px** that no
+    per-component sweep had caught; a zero-specificity floor in `motion.css`
+    fixes all 9, verified 9 → 0 in the browser. The sticky-bottom transcript was
+    confirmed live: scrolling up raises the pill and the position **holds** when
+    content grows.
+  - **Still not verified live:** screenshots (the browser pane does not
+    composite in this environment, so nothing visual was eyeballed), and
+    `:focus-visible` rendering (`document.hasFocus()` is false in the pane, so
+    the selector never matches). Both were verified structurally instead.
   - *Partially closed on 2026-08-11 for the composer.* The scene-direction box was measured
     live (a throwaway route on a second dev server, so no backend/CORS was involved) at
     320/375/768/1024: no horizontal overflow, no root-scroll growth, the panel grows upward
@@ -129,7 +161,7 @@ Verified against the code on 2026-08-04.
 - Rails are hidden below `lg` (the transcript stays primary); mobile drawers are unbuilt.
 - Graph mode is canvas-only below `lg`; the `sr-only` node/edge table remains the data alternative. Graph node clicks are wired for Character only — other types are hover-tooltip only.
 - The storyline switcher is hidden below `md`, so mobile cannot switch worlds.
-- At the 320px floor the scene-header Inspector icon clips ~7px. There is no page-level horizontal overflow at any width, and everything fits at 375+.
+- At the 320px floor the scene-header Inspector icon clips ~7px. There is no page-level horizontal overflow at any width, and everything fits at 375+. **Re-measured live on 2026-08-12: still exactly 7px, and the button is genuinely unreachable there** (an `overflow: hidden` ancestor clips it). Letting the control cluster shrink was tried and is *worse* — its children have intrinsic widths, so a squeezed container pushes them 50–150px past the edge instead of 7. The real fix is to collapse or overflow-menu some scene-header controls below `sm`, which is a design decision, not a layout tweak.
 - **Scene images cannot be regenerated or deleted from the transcript.** The Create image
   control paints a new one each time; an unwanted picture stays in the beat log (it can
   only be removed by deleting the session). No re-roll, no per-image prompt editing, and

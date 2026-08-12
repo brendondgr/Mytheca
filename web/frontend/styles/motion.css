@@ -110,6 +110,21 @@
  * ------------------------------------------------------------------ */
 
 @media (pointer: coarse) {
+  /* The floor, applied to every interactive element rather than one at a time.
+   *
+   * Measured in an emulated touch browser, the app had a long tail of 15–21px
+   * text-buttons ("Generate primer", "Add statistic", "New chat", the triage
+   * defaults row) that no per-component sweep was going to catch reliably.
+   *
+   * `:where()` gives this ZERO specificity, so it is a floor and not a
+   * mandate: any component that sets its own height — the 24px IconButton in
+   * a dense rail, a 40px monogram — still wins, and those keep their projected
+   * hit area via `.touch-target-overlay` instead. Only controls that never
+   * expressed an opinion about their height are grown. */
+  :where(button, a[href], [role="button"], select, summary) {
+    min-height: 44px;
+  }
+
   .touch-target {
     min-height: 44px;
     min-width: 44px;

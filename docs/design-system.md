@@ -437,6 +437,64 @@ Near the top of key pages show **real artifacts**: a live/sample scene transcrip
 
 loading (scenario loader) · empty · error · partial-data (mid-stream / streaming deltas) · stalled/reconnecting stream · success · permission-denied · long-content · dense-data · hidden-stat (a stat the player isn't allowed to see) · mobile · reduced-motion · **all three themes**.
 
+### The loading state ladder
+
+Match the pattern to the *expected wait*; a mismatch is what reads as unpolished. Full
+rationale in `docs/frontend-polish-spec.md` §3.
+
+| Elapsed | Pattern |
+| --- | --- |
+| 0–300 ms | **Nothing.** `useDelayedFlag` gates every indicator — a flashed-and-gone spinner reads as a stutter, measurably worse than stillness. |
+| 300 ms–1 s | An indicator on the element that was acted on (`Button loading`), never a full-screen block. |
+| 1–10 s | A **skeleton tracing the incoming layout** (`Skeleton`, `LibrarySkeletons`). |
+| >10 s | The skeleton times out into an error with a retry — a shimmer with no ceiling hides a dead request. |
+
+**A skeleton is a tracing, not grey boxes.** Same card count, gaps, radii, and heights as the
+real content, and the same *container* queries — `CharacterColumnSkeleton` uses the identical
+`@[420px]:grid-cols-3` threshold as the real grid, because a skeleton that reflows on swap
+destroys the trust it was built to buy. The last line of a text block runs 55–70% wide.
+
+**Every async region owes five states**, not one: `idle · loading · success · error · empty`.
+`AsyncPanel` renders all five so the four that aren't "success" cannot be forgotten. Errors
+name what failed in the interface's voice and carry a **retry**; empty states carry their
+**primary action inline** (`ColumnEmpty` — and a *filtered*-empty column is treated as the
+different problem it is, offering "Clear search" rather than "Forge Character"). Both enter
+with the same `.content-enter` as success, so failure reads as part of the system.
+
+**Images** go through `SmartImage`: a required `aspect` reserves the frame, the picture fades
+in on load, and `img.complete` is checked at the ref callback — without that, an image already
+in the browser cache never fires `load` and stays invisible forever.
+
+**The scene curtain** (`SceneLoader`) is driven by real readiness, floored at 650 ms so an
+instant load does not flash it and capped at 6 s so an unreachable backend cannot hold the
+reader behind it. It was previously a blind `setTimeout(2200)`.
+
+### Streaming text
+
+The transcript **follows the newest beat only while the reader is already at the bottom**
+(`useStickyBottom`, 64 px tolerance — never an exact test). Scrolling away detaches and raises
+the **`JumpToLatest`** pill; scrolling back re-attaches. The viewport sets `overflow-anchor:
+none` so the browser's own anchoring does not fight the hook.
+
+Announcements live in a dedicated `sr-only` region (`TranscriptAnnouncer`) that speaks **once
+per completed turn**, not on the transcript container. Because delta frames re-emit each
+event's *full accumulated text*, a live region on the growing prose asks a screen reader to
+re-read the sentence from the beginning on every delta. For the same reason there is **no
+per-chunk fade**: the client never sees a chunk boundary. A streaming beat gets a block caret
+(`.stream-caret`) and ~2 lines of reserved height so the composer does not hop.
+
+### Responsiveness
+
+**Container queries, not viewport queries, for anything whose width is not the page's.** The
+Library's character grid was `sm:grid-cols-3` — at 1024px the Library splits into three
+columns, so that grid is ~300px wide while a 640px *viewport* rule had long since fired,
+packing three 2:3 portraits in at ~92px each. It now asks its own container.
+
+`dvh`, never `vh`. Touch targets reach 44×44 on **coarse pointers only** — a zero-specificity
+floor in `motion.css` grows any control that never expressed a height, while dense controls
+that set their own size keep it and gain a projected hit area instead. Horizontal scrollers
+carry `.scroll-fade`.
+
 ## Anti-Generic Checklist (forbidden unless justified)
 
 - Blue/purple neon gradients, glowing orbs, mesh backgrounds.

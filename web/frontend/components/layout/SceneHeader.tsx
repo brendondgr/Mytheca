@@ -100,6 +100,11 @@ export function SceneHeader({
           </div>
         </div>
       </div>
+      {/* Deliberately `flex-none`. Letting this cluster shrink was tried and is
+        * worse: its children have intrinsic widths, so a squeezed container
+        * pushes them 50–150px past the edge instead of 7px. The real fix for
+        * the 320px floor is to collapse controls below `sm` — a design change,
+        * not a layout tweak. Tracked in docs/checklist.md. */}
       <div className="flex flex-none items-center gap-[8px] sm:gap-[14px]">
         {onViewModeChange ? (
           <ViewModeSwitch viewMode={viewMode ?? "chat"} onChange={onViewModeChange} />
