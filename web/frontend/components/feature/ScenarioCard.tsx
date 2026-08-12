@@ -46,11 +46,11 @@ export function ScenarioCard({
           <SmartImage
             src={mediaUrl(s.image!)}
             alt={`Scene art for ${s.title}`}
-            aspect="16 / 9"
-            className="pointer-events-none absolute inset-0"
+            fill
+            className="pointer-events-none"
           />
           <div
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none"
             style={{ background: CARD_SCRIM }}
           />
         </>
