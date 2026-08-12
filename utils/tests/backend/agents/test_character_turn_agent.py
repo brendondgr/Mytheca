@@ -399,3 +399,99 @@ def test_dialogue_is_optional_but_thinking_is_always_required(client, db_session
     assert "ALWAYS required" in system  # <thinking> stays mandatory every beat
     assert "over-talking" in system
     assert "action-only" in system and "thinking-only" in system
+
+
+# ---- The scene direction (Narrator-Guided Scenes) --------------------------
+
+
+def test_scene_direction_and_requirement_reach_the_prompt(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        scene_direction="the deal falls apart",
+        requirements=["Mei walks away from the table"],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    # Where the scene is going is CONTEXT (middle); what this beat owes is the LAST thing
+    # said, where recency attention is strongest.
+    assert "Where this scene is going (the player's direction): the deal falls apart" in user
+    assert "THIS BEAT MUST MAKE THIS TRUE: Mei walks away from the table" in user
+    assert user.rstrip().endswith("never break character to acknowledge it.")
+
+
+def test_the_requirement_is_an_outcome_not_a_script(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        requirements=["Mei walks away"],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "How you get there is yours" in user
+    assert "Never quote or paraphrase the direction itself" in user
+
+
+def test_several_requirements_are_joined(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        requirements=["Mei stands", "  ", "Mei draws"],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "THIS BEAT MUST MAKE THIS TRUE: Mei stands; Mei draws" in user  # blanks dropped
+
+
+def test_no_direction_leaves_the_prompt_untouched(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "THIS BEAT MUST MAKE THIS TRUE" not in user
+    assert "Where this scene is going" not in user
+
+
+def test_a_requirement_composes_with_a_puppet_directive(client, db_session, monkeypatch):
+    # A puppeted character can also be carrying a requirement — both tails are present, and
+    # the requirement is last.
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+        directive="tell Beth she is late",
+        requirements=["Mei loses her temper"],
+    )
+    user = json.loads(capture["body"])["messages"][1]["content"]
+    assert "The player is directing you to: tell Beth she is late" in user
+    assert user.index("THIS BEAT MUST MAKE THIS TRUE") > user.index("directing you to")
+
+
+def test_contract_states_a_direction_is_what_not_how(client, db_session, monkeypatch):
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    system = json.loads(capture["body"])["messages"][0]["content"]
+    assert "It tells you WHAT, never HOW" in system

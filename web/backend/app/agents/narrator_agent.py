@@ -41,8 +41,11 @@ def interstitial(
     ``long`` swaps the short transition beat for a fuller paragraph that advances the
     story (used to OPEN a scene and to play out a selected branch — the player asked the
     story to move, so narration covers the next few moments rather than stopping short).
-    ``lead`` folds an explicit cue into the prompt (the branch's narrative direction, or
-    a scene-opening hint) so the beat leans into where the player is steering.
+    ``lead`` folds an explicit cue into the prompt (the branch's narrative direction, a
+    scene-opening hint, or — under Narrator-Guided Scenes — the player's scene direction
+    plus the specific outcomes THIS beat owes) so the beat leans into where the player is
+    steering. The turn engine composes it; this agent just places it above the transcript,
+    where it reads as the destination for the prose rather than as text to restate.
     """
     try:
         base_url, api_key, model, params = resolve_llm(db)
