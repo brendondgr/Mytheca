@@ -12,6 +12,13 @@ This agent classifies the line into a small :class:`TurnIntent` the turn loop ac
 structure-only LLM call, roster-constrained, and **best-effort** — a missing/failed/
 malformed reply falls back to ``freeform`` (the prior behavior), so a turn never fails
 to interpret.
+
+The same call also breaks the line into ``direction_agent`` requirements — the outcomes
+the turn owes the player when they are directing rather than conversing. Riding on this
+existing call (one extra JSON field) is deliberate: in narrator mode the player's line
+*is* the direction, and a second round-trip to re-read the same string would add a whole
+LLM call to every turn. POV-mode guidance is a different string and is parsed separately
+by :func:`app.agents.direction_agent.parse`.
 """
 
 from __future__ import annotations
@@ -22,6 +29,12 @@ from dataclasses import dataclass, field
 from sqlalchemy.orm import Session
 
 from app.agents._common import extract_json, resolve_llm
+from app.agents.direction_agent import (
+    REQUIREMENTS_RULES,
+    REQUIREMENTS_SCHEMA,
+    DirectionRequirement,
+    resolve_requirements,
+)
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
@@ -33,14 +46,15 @@ INTENT_EFFORT = ReasoningEffort.LOW
 _KINDS = {"puppet", "direct", "broadcast", "narration", "freeform"}
 _SCOPES = {"all", "some", "none"}
 
-_SYSTEM = """You interpret the player's latest line in an interactive story. The player is the guide/narrator — they may narrate the scene, address a character, DIRECT a character to say or do something (puppet), or direct the whole group. Classify the line — STRUCTURE ONLY, never prose.
+_SYSTEM = f"""You interpret the player's latest line in an interactive story. The player is the guide/narrator — they may narrate the scene, address a character, DIRECT a character to say or do something (puppet), or direct the whole group. Classify the line — STRUCTURE ONLY, never prose.
 
 Return ONLY a JSON object:
-{"kind": "puppet"|"direct"|"broadcast"|"narration"|"freeform",
+{{"kind": "puppet"|"direct"|"broadcast"|"narration"|"freeform",
  "actors": [roster numbers the player is DIRECTING to act/speak],
  "addressed": [roster numbers the player is addressing or targeting],
  "scope": "all"|"some"|"none",
- "directive": "<one short clause: what the player wants to happen>"}
+ "directive": "<one short clause: what the player wants to happen>",
+ {REQUIREMENTS_SCHEMA}}}
 
 Rules:
 - "puppet": the player makes a specific character do/say something (e.g. "Beth tells Mei 'I hate you'"). Put the acting character (Beth) in "actors" and the target (Mei) in "addressed".
@@ -49,6 +63,7 @@ Rules:
 - "narration": the player sets the scene/mood with no specific target.
 - "freeform": anything else.
 - Use ONLY the roster numbers given; never invent one. "directive" restates the ask in one plain clause.
+{REQUIREMENTS_RULES}
 - No prose, no commentary — just the JSON object."""
 
 
@@ -61,6 +76,11 @@ class TurnIntent:
     addressed: list[str] = field(default_factory=list)  # targeted → should react
     scope: str = "none"  # "all" → the whole group acts
     directive: str = ""  # a plain restatement of the ask (for the planner)
+    # The outcomes this line owes the turn when the player is DIRECTING the scene rather
+    # than conversing with it. Empty for an ordinary line — and always ignored under Player
+    # POV, where the line is the character's own dialogue and the direction (if any) came
+    # from the separate guidance box.
+    requirements: list[DirectionRequirement] = field(default_factory=list)
 
 
 def _freeform(text: str) -> TurnIntent:
@@ -105,6 +125,7 @@ def interpret(db: Session, ctx: TurnContext, text: str) -> TurnIntent:
         addressed=_resolve(data.get("addressed"), roster_ids),
         scope=scope,
         directive=directive,
+        requirements=resolve_requirements(data.get("requirements"), roster_ids),
     )
 
 
