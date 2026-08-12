@@ -1,0 +1,89 @@
+id: EXP-2026-08-002
+slug: moment-prompt-style
+title: Do in-narrative moment prompts describe the cast by appearance rather than by name?
+status: complete
+date_started: 2026-08-11
+date_completed: 2026-08-11
+authors: [Claude Opus 5 (agent), brendondgr]
+purpose: >
+  Verification of the in-narrative image feature's central design claim: an image model
+  cannot resolve a character name, so a prompt that says "Maerin closes her ledger" paints
+  a stranger. The pipeline therefore instructs the prompt writer to describe every figure
+  by appearance and action, and enforces it afterwards with a deterministic guard
+  (`moment_agent.strip_names`). This run measures whether the shipped pipeline actually
+  produces name-free, appearance-grounded, landscape prompts against the real LLM and the
+  real ComfyUI server. It supports no paper claim yet — it is a feature-verification run,
+  recorded because the contract records evaluation runs, not only publishable ones.
+hypothesis: >
+  Every run emits a positive prompt containing no cast name in any form (name_leak = 0),
+  covering every in-frame character with at least one token from their own authored
+  appearance (appearance_coverage = 1.0), and renders a landscape frame (landscape = 1.0).
+code:
+  commit: 27407faf13b10c75630f76a71d218795eb9602ae
+  branch: claude/in-narrative-image-generation-438279
+  entrypoint: "uv run python -m utils.scripts.research.run_moment --runs 3 --experiment docs/research/experiments/EXP-2026-08-002-moment-prompt-style"
+  dirty: true
+config:
+  path: null                # the entrypoint is self-describing: the world + transcript are literals in it
+  hash: null
+data:
+  name: scripted Embergate tavern scene, built in memory by the entrypoint
+  version: utils/scripts/research/run_moment.py (CAST + TRANSCRIPT literals)
+  split: none — one fixed scene, run repeatedly
+  n_examples: 1
+  dvc_path: null
+  hash: null                # no external artifact; the scene is source code, versioned with it
+seeds: []                 # the render seed is deliberately random per call (services/scene_moment.py)
+n_runs: 3
+environment:
+  python: '3.13'
+  lockfile: env/requirements.lock
+  container: null
+compute:
+  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
+  wall_clock_hours: 0.032
+  estimated_cost_usd: 0.0
+llm:
+  model: "local-relay/skynet@2026-08-11 (OpenAI-compatible relay on localhost:4000)"
+  temperature: 0.7          # the app's saved authoring default — deliberately NOT lowered
+  top_p: 1.0
+  max_tokens: 8000
+  prompt_files: [web/backend/app/agents/moment_agent.py]
+  prompt_hash: sha256:090082e88116e49969578e30fc10768be47219539f8f039d041846a1bb6f218c
+  tool_schema_hash: null
+  total_input_tokens: 0     # unknown — the relay reported no usage figures on these calls
+  total_output_tokens: 0    # unknown — see ISSUES.md
+  nondeterminism_note: 'Provider-side nondeterminism remains even at temperature 0; results are reported
+    as mean ± std over n_runs.
+
+    '
+metrics:
+  primary: name_leak
+  values:
+    name_leak:
+      mean: 0.0
+      n: 3
+      std: 0.0
+    landscape:
+      mean: 1.0
+      n: 3
+      std: 0.0
+    appearance_coverage:
+      mean: 1.0
+      n: 3
+      std: 0.0
+    phrases:
+      mean: 27.0
+      n: 3
+      std: 2.160247
+    wall_clock_seconds:
+      mean: 38.449
+      n: 3
+      std: 3.250444
+baselines_compared: []    # none — single arm; RESULTS.md §5 says so plainly
+statistical_test: null
+supports_claims: []
+figures: []
+supersedes: null
+superseded_by: null
+related: []

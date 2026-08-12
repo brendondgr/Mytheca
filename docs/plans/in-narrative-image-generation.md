@@ -218,6 +218,20 @@ No question here needs human intervention.
   green, commit: `[In-Narrative Images] (6/6) Complete: Verified moment generation
   against the live ComfyUI server and documented it.`*
 
+## 4. Outcome (all six phases shipped, 2026-08-11)
+
+Built as planned, with three things worth recording because they differ from the plan:
+
+1. **The keep-alive heartbeat had to become stage-aware.** The first live run showed
+   `stage: "render"` ticks arriving while the prompt was still being written — the route
+   now mirrors the stage actually running (`routes/play.py`), covered by a test.
+2. **The name guard is applied to the positive prompt only**, not the caption: the caption
+   is read by a person and never sent to the image model, so names help there.
+3. **The live verification is recorded as `EXP-2026-08-002`** (3 runs against the real LLM
+   relay and the real ComfyUI: `name_leak` 0.0, `appearance_coverage` 1.0, `landscape` 1.0,
+   1216×832, ~38 s/image). It is a single-arm *functional* verification — no baseline, one
+   scene — and `RESULTS.md` §5 says so; no claim in `CLAIMS.md` moved.
+
 ## 4. Deliverables Table
 
 | Deliverable | Description | Location |
