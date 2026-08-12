@@ -13,6 +13,9 @@ const STEP_META: Record<string, { tag: string; color: string }> = {
   intent: { tag: "Intent", color: "#8b5cf6" },
   assemble: { tag: "Scene", color: "#64748b" },
   lore: { tag: "Lore", color: "#0ea5e9" },
+  // The player's @-tagged context files — distinct from `lore`, which is the gated
+  // retrieval the engine decides on by itself.
+  files: { tag: "Files", color: "#0d9488" },
   plan: { tag: "Plan", color: "#d97706" },
   director: { tag: "Director", color: "#d97706" },
   speaker: { tag: "Speaker", color: "#2563eb" },

@@ -666,3 +666,97 @@ describe("useScenePlay create image", () => {
     expect(vi.mocked(postSceneMoment)).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("@-tagged context files", () => {
+  const DOCS = [
+    { id: "cd_m", name: "maerin.md" },
+    { id: "cd_h", name: "harbor.md" },
+  ];
+
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+  });
+
+  async function ready(docs = DOCS) {
+    const { result } = renderHook(() => useScenePlay(scenario, docs));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    return result;
+  }
+
+  it("sends the tagged ids and strips the @name tokens from the line", async () => {
+    const result = await ready();
+    act(() => result.current.setComposer("@maerin.md what is she holding?"));
+    act(() => result.current.send());
+
+    expect(vi.mocked(postTurn)).toHaveBeenCalledWith(
+      scenario.id,
+      expect.objectContaining({
+        text: "what is she holding?",
+        taggedDocIds: ["cd_m"],
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("omits taggedDocIds entirely when nothing is tagged", async () => {
+    const result = await ready();
+    act(() => result.current.setComposer("A plain line."));
+    act(() => result.current.send());
+
+    const body = vi.mocked(postTurn).mock.calls.at(-1)?.[1] as unknown as Record<string, unknown>;
+    expect(body.text).toBe("A plain line.");
+    expect(body).not.toHaveProperty("taggedDocIds");
+  });
+
+  it("drops a tag the player deleted by hand", async () => {
+    const result = await ready();
+    act(() => result.current.setComposer("@maerin.md tell me"));
+    act(() => result.current.setComposer("tell me"));
+    act(() => result.current.send());
+
+    const body = vi.mocked(postTurn).mock.calls.at(-1)?.[1] as unknown as Record<string, unknown>;
+    expect(body).not.toHaveProperty("taggedDocIds");
+  });
+
+  it("unions tags from the message and the scene-direction box under POV", async () => {
+    const result = await ready();
+    act(() => result.current.setPov(speaker.id));
+    act(() => result.current.setComposer("@maerin.md I say nothing."));
+    act(() => result.current.setGuidance("@harbor.md the tide turns"));
+    act(() => result.current.send());
+
+    expect(vi.mocked(postTurn)).toHaveBeenCalledWith(
+      scenario.id,
+      expect.objectContaining({
+        text: "I say nothing.",
+        guidance: "the tide turns",
+        taggedDocIds: ["cd_m", "cd_h"],
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("clears the tags with the boxes on send — a tag never carries into the next turn", async () => {
+    const result = await ready();
+    act(() => result.current.setPov(speaker.id));
+    act(() => result.current.setComposer("@maerin.md first"));
+    act(() => result.current.setGuidance("@harbor.md then"));
+    act(() => result.current.send());
+
+    // Tags are derived from the two boxes, so emptying them is what un-tags the turn.
+    expect(result.current.composer).toBe("");
+    expect(result.current.guidance).toBe("");
+  });
+
+  it("leaves an @token alone when no documents are taggable", async () => {
+    const result = await ready([]);
+    act(() => result.current.setComposer("@maerin.md stays"));
+    act(() => result.current.send());
+
+    const body = vi.mocked(postTurn).mock.calls.at(-1)?.[1] as unknown as Record<string, unknown>;
+    expect(body.text).toBe("@maerin.md stays");
+    expect(body).not.toHaveProperty("taggedDocIds");
+  });
+});

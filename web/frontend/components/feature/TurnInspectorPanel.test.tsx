@@ -69,6 +69,35 @@ describe("TurnInspectorPanel", () => {
     expect(screen.getByText("Stat")).toBeInTheDocument();
   });
 
+  it("tags the @-tagged files step as Files, distinct from the gated Lore look-up", () => {
+    const t: TraceTurn = {
+      id: "0",
+      label: "go",
+      steps: [
+        {
+          type: "trace",
+          n: 1,
+          step: "lore",
+          title: "World-lore look-up (RAG)",
+          detail: "Skipped.",
+          data: {},
+        },
+        {
+          type: "trace",
+          n: 2,
+          step: "files",
+          title: "Tagged files — 1 attached",
+          detail: "Folded maerin.md into the prompt as reference material.",
+          data: { names: ["maerin.md"], injected: true },
+        },
+      ],
+    };
+    render(<TurnInspectorPanel open onClose={() => {}} turns={[t]} />);
+    expect(screen.getByText("Files")).toBeInTheDocument();
+    expect(screen.getByText("Lore")).toBeInTheDocument();
+    expect(screen.getByText("Tagged files — 1 attached")).toBeInTheDocument();
+  });
+
   it("keeps only the newest turn expanded; older turns collapse (accordion)", async () => {
     render(
       <TurnInspectorPanel

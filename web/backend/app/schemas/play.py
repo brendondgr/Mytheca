@@ -14,6 +14,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
+from pydantic import Field
+
 from app.schemas.base import CamelModel, PresenceStatus, Visibility
 
 # One engine, two render styles (D1): POV (interstitials off) or Narrator (on).
@@ -71,6 +73,17 @@ class TurnRequest(CamelModel):
     A selected follow-up suggestion no longer submits a turn on its own: the story player
     writes the suggested text into the composer for the player to review/edit and send as
     an ordinary ``text`` turn (request #2), so there is no separate open-ended steer field.
+
+    ``taggedDocIds`` are the storyline ``ContextDocument`` ids the player **@-tagged** in the
+    composer. Their text is loaded server-side and folded into the character + narrator
+    prompts as **reference material for this one turn**, bypassing the conservative
+    ``retrieval_gate`` (which skips most turns) and the 600-character RAG snippet cap. It is
+    the exact opposite of ``guidance``: guidance is *direction* and becomes schedulable
+    requirements; tagged files are *background* and never do. Structurally, tagged text is
+    withheld from ``intent_agent``, ``direction_agent`` and ``planner_agent``, so it can
+    inform what a character or the narrator SAYS but can never decide what happens, who
+    acts, or where the scene goes. Ids belonging to another storyline are ignored, and the
+    text is bounded (see ``assembler.TAGGED_*``).
     """
 
     session_id: str | None = None
@@ -81,6 +94,7 @@ class TurnRequest(CamelModel):
     outcome: str | None = None
     pov_character_id: str | None = None
     guidance: str | None = None
+    tagged_doc_ids: list[str] = Field(default_factory=list)
 
 
 class SessionSummary(CamelModel):

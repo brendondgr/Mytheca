@@ -20,6 +20,7 @@ import type {
   AgentMessage,
   Character,
   ContextDocument,
+  ContextDocumentIndexEntry,
   DocCategory,
   EntityScope,
   GraphTypeDefinition,
@@ -564,6 +565,12 @@ export const listContextDocuments = (
   const q = params.toString() ? `?${params.toString()}` : "";
   return request<ContextDocument[]>(`/storylines/${storylineId}/context-docs${q}`);
 };
+/**
+ * A world's context docs **without their text** — the rows the story player's `@` menu
+ * lists. Same order as `listContextDocuments`, minus every document body.
+ */
+export const listContextDocumentIndex = (storylineId: string) =>
+  request<ContextDocumentIndexEntry[]>(`/storylines/${storylineId}/context-docs/index`);
 export const createContextDocument = (storylineId: string, doc: ContextDocumentInput) =>
   post<ContextDocument>(`/storylines/${storylineId}/context-docs`, doc);
 export const bulkCreateContextDocuments = (

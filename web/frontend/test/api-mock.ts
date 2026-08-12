@@ -196,6 +196,7 @@ export function makeApiMock() {
 
     // ---- context documents (the persisted triaged RAG corpus) ----
     listContextDocuments: vi.fn(async () => [] as unknown[]),
+    listContextDocumentIndex: vi.fn(async () => [] as unknown[]),
     bulkCreateContextDocuments: vi.fn(
       async (storylineId: string, docs: Record<string, unknown>[]) =>
         docs.map((body, i) => ({

@@ -4,7 +4,12 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ENTER_TRANSITION } from "@/lib/motion";
 import { exportSessionUrl } from "@/lib/api";
-import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
+import type {
+  Character,
+  ContextDocumentIndexEntry,
+  ResolvedScenario,
+  StatDefinition,
+} from "@/lib/types";
 import type { ExportFormat } from "@/components/feature/ExportMenu";
 import { useScenePlay } from "./useScenePlay";
 import type { SceneImage } from "./scene-data";
@@ -31,14 +36,17 @@ export function StoryPlayerView({
   scenario,
   statDefs = [],
   storylineName,
+  contextDocs = [],
   backHref = "/",
 }: {
   scenario: ResolvedScenario;
   statDefs?: StatDefinition[];
   storylineName?: string;
+  /** The storyline's context documents — the rows the composer's `@` menu offers. */
+  contextDocs?: ContextDocumentIndexEntry[];
   backHref?: string;
 }) {
-  const scene = useScenePlay(scenario);
+  const scene = useScenePlay(scenario, contextDocs);
   // One string per transcript beat (its dialogue/action/thought), so the composer's Config
   // "Number of beats" readout reflects the REAL recent content, not a flat average.
   const beatTexts = useMemo(
@@ -229,6 +237,7 @@ export function StoryPlayerView({
           ) : null}
 
           <Composer
+            mentionOptions={contextDocs}
             value={scene.composer}
             onChange={scene.setComposer}
             onSend={scene.send}

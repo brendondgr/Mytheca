@@ -239,4 +239,14 @@ export interface TurnRequestBody {
    * Omitted with POV off means the player's `text` is itself the direction.
    */
   guidance?: string | null;
+  /**
+   * The storyline `ContextDocument` ids the player @-tagged in the composer. Their text is
+   * loaded server-side and folded into the character + narrator prompts as **reference for
+   * this one turn**, bypassing the conservative retrieval gate and its 600-character
+   * snippet cap. The opposite of `guidance`: guidance is direction and becomes schedulable
+   * requirements; tagged files are background and never do — the backend withholds them
+   * from the intent, direction, and planner agents, so they can inform what is *said* but
+   * never what *happens*. Ids from another storyline are ignored.
+   */
+  taggedDocIds?: string[];
 }

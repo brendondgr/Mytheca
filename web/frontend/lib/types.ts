@@ -332,6 +332,20 @@ export interface ContextDocument {
   links?: ContextDocumentLink[];
 }
 
+/**
+ * One context document without its text — the rows the story player's `@` menu lists.
+ * The client never fetches document bodies for tagging: it sends ids on the turn and the
+ * backend loads the text into the prompt itself.
+ */
+export interface ContextDocumentIndexEntry {
+  id: string;
+  name: string;
+  category: DocCategory;
+  charCount: number;
+  entityType?: EntityScope | null;
+  entityId?: string | null;
+}
+
 /** One Triage classification for a dropped doc (before persistence). */
 export interface TriageItem {
   name: string;

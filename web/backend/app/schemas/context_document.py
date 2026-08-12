@@ -88,6 +88,23 @@ class ContextDocumentRead(CamelModel):
     links: list[ContextDocumentLinkRead] = []
 
 
+class ContextDocumentIndexEntry(CamelModel):
+    """One document, name-only — the shape the story player's ``@`` menu lists.
+
+    Deliberately omits ``content``: the picker needs a label and a size, and a world with
+    thirty large files would otherwise ship every body just to open a dropdown. The full
+    text is never fetched by the client at all — the player sends ids and the turn engine
+    loads the text server-side (see ``assembler._tagged_notes``).
+    """
+
+    id: str
+    name: str
+    category: DocCategory
+    char_count: int
+    entity_type: EntityScope | None = None
+    entity_id: str | None = None
+
+
 # ---- Triage (the agentic classification step) -------------------------------
 # Classify dropped reference text into the three buckets + Draft/RAG inclusion.
 # The documents are not persisted by this call; the page persists them on commit

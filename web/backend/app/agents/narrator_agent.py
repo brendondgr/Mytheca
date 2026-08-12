@@ -57,13 +57,18 @@ def interstitial(
         flavor = ctx.setting.atmosphere or ctx.setting.current_state or ctx.setting.desc or ""
         setting = f"Setting: {ctx.setting.name}{(' — ' + flavor) if flavor else ''}.\n"
     transcript = _recent(ctx, turn_beats)
+    # The player's @-tagged files, placed BEFORE the direction cue so the cue stays nearest
+    # the ask: the notes ground the prose's facts, the direction still decides its content.
+    # (Note the narrator deliberately does NOT take ``ctx.retrieved_lore`` — the gated and
+    # the explicit channels are controlled independently.)
+    tagged = f"{ctx.tagged_notes.strip()}\n" if ctx.tagged_notes else ""
     lead_line = f"Direction to follow: {lead}\n" if lead else ""
     ask = (
         "Write the narrator's opening/progression passage now."
         if long
         else "Write the narrator's transition beat now."
     )
-    user = f"{setting}{lead_line}Recent beats:\n{transcript}\n\n{ask}"
+    user = f"{setting}{tagged}{lead_line}Recent beats:\n{transcript}\n\n{ask}"
     system = (
         ctx.prompts.get(prompt_registry.NARRATOR_SYSTEM_LONG, _SYSTEM_LONG)
         if long

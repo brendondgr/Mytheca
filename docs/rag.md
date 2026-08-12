@@ -109,6 +109,24 @@ alone is unwired. Retrieved lore sits alongside the transient `docs_block`
 (dropped-file text), so a draft is grounded in both the established world and any
 just-dropped references.
 
+### Retrieval vs. `@` tagging (two different channels)
+
+During play there are two ways a context document can reach the prompt, and they are
+deliberately independent:
+
+- **Gated retrieval** — `retrieval_gate.gate` decides per turn whether to query at all
+  (it is conservative and skips most turns), and `rag_block` renders each hit as one
+  bullet capped at `RAG_SNIPPET_CHARS = 600`. The engine chooses; the player does not.
+- **`@` tagging** — the player names the file in the composer. `assembler._tagged_notes`
+  loads it whole (bounded at 5 docs / 6 000 characters each / 12 000 total), bypassing
+  both the gate and the 600-character cap, and lands it in `TurnContext.tagged_notes` —
+  a slot separate from `retrieved_lore`, framed as reference rather than direction.
+
+Tagging does **not** depend on `include_rag`: a document excluded from the retrieval corpus
+is still taggable. `@` exists precisely because retrieval routinely failed to surface the
+passage the player wanted. See `docs/api-contract.md` and `docs/data-flow.md` for the
+guarantees that keep tagged text from steering the scene.
+
 ## Entity-scoped context documents
 
 `ContextDocument` carries an optional `entity_type` + `entity_id`. A document is

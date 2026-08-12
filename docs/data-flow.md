@@ -33,7 +33,7 @@ stream connection for the single-player case (the `GET /stream/{sessionId}` + Re
 fan-out is a deferred seam, see `api-contract.md`).
 
 ```
-Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/turn  {text, directedAt?, sessionId?, povCharacterId?, guidance?}
+Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/turn  {text, directedAt?, sessionId?, povCharacterId?, guidance?, taggedDocIds?}
   → routes/play (pre-flight: scenario exists, text present, session valid)
   → turn_engine.run_turn:
       assembler.assemble_context (Band-1, read-only): ordered cast + clamped stats + loaded
@@ -41,6 +41,8 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
         best-effort) + cacheable stable prefix + GATED RAG (retrieval_gate: a cheap
         model-free skip-or-fetch — off-roster entity / world-history question; on fetch,
         _common.rag_block retrieves + injects a fenced RETRIEVED LORE block, best-effort)
+        + @-TAGGED FILES (taggedDocIds → assembler._tagged_notes: storyline-checked,
+        bounded, framed as reference — see below)
       resolve Player POV member (povCharacterId → a PRESENT cast member, else None)
       events_store: resolve/create PlaySession · record user_turn (seq 0, Postgres; data.pov = POV id | null)
       memory.buffer.push_turn (POV → the line as the character's own beat w/ characterId;
@@ -193,6 +195,38 @@ the app's own `<speaker:>`/`<type:>`/`<thinking>` markers intact.
 
 The hot path is **read-only** — all mutation (durable consequences, edges) defers to the
 cold-path turn-writer (a later phase); stat changes are clamped during validation.
+
+### @-tagged context files (the `@` command)
+
+The player types `@` in either composer box, picks one of the storyline's context documents,
+and that file's text is injected into **this turn only**.
+
+```
+Composer (@ menu over useSceneData.contextDocs, from GET …/context-docs/index — names only)
+  → useScenePlay.send: stripMentions(message) + stripMentions(direction)
+      → clean prose + the ids still present in the text
+  → POST …/turn { text, guidance?, taggedDocIds }
+  → assembler._tagged_notes(db, storyline_id, ids):
+      reject any doc from another storyline · dedupe · cap (5 docs / 6 000 ch each / 12 000 total)
+      → TurnContext.tagged_notes  (a slot SEPARATE from retrieved_lore)
+  → character_turn_agent: prompt MIDDLE, after retrieved_lore, BEFORE the direction line
+  → narrator_agent:      before the direction cue
+  → `files` trace step → the Inspector's Files row
+```
+
+**Why it cannot redirect the story.** This is the constraint to preserve when changing the
+turn loop. Tagged text is deliberately withheld from `intent_agent` and `direction_agent`
+(so it can never become a schedulable `DirectionRequirement`) and from `planner_agent` (so it
+can never change whose beat is next) — it reaches only the two agents that write prose. Its
+prompt position is equally deliberate: the character prompt's TAIL is the act-now region, so
+the block sits in the MIDDLE and *above* the player's direction, which keeps the recency
+advantage. The block's own wording states the precedence: the notes keep facts straight in
+what a character or the narrator says; the beats and the direction decide what happens; on
+conflict the scene wins.
+
+Tagging is independent of `includeRag` — a file excluded from retrieval is still taggable,
+which is the point: `retrieval_gate` skips most turns and `rag_block` truncates each hit to
+600 characters, so the passage the player actually wanted routinely never arrived.
 
 ## Scene Persistence, Resume & Export
 

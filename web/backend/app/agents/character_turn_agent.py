@@ -282,6 +282,11 @@ def _build_user_prompt(
     middle.append(f"Cast in the scene: {roster}.")
     if ctx.retrieved_lore:
         middle.append(ctx.retrieved_lore.strip())  # fenced reference lore (gated)
+    if ctx.tagged_notes:
+        # The player's @-tagged files. Deliberately in the MIDDLE (context) and deliberately
+        # ABOVE the direction line below, so the direction keeps the recency advantage: a
+        # tagged file informs HOW this character speaks, never WHERE the scene goes.
+        middle.append(ctx.tagged_notes.strip())
     if relationship_note:
         # How this character actually relates to whom they're addressing (from the graph,
         # incl. 2-hop shared ties) so the reply is relationship-appropriate (D4).

@@ -233,7 +233,14 @@ def run_turn(
     # resolved before anything is recorded, THEN push the player's line so it becomes
     # history for the next turn (the current line also seeds this turn's transcript, so it
     # is present even when the buffer is disabled).
-    ctx = assembler.assemble_context(db, scenario, session.id, req.directed_at, player_text=text)
+    ctx = assembler.assemble_context(
+        db,
+        scenario,
+        session.id,
+        req.directed_at,
+        player_text=text,
+        tagged_doc_ids=req.tagged_doc_ids,
+    )
 
     # Player POV: the player is speaking AS this character. Resolve it to a *present* cast
     # member (else fall back to the default guide/narrator behavior). When set, the player's
@@ -297,6 +304,24 @@ def run_turn(
         ),
         data={"reason": ctx.gate_reason, "fetched": fetched, "injected": bool(ctx.retrieved_lore)},
     )
+    # @-tagged context files: the player named these explicitly, so unlike the gated lore
+    # above they always go in. Traced so the player can confirm the file actually landed —
+    # the whole reason for tagging over relying on retrieval.
+    if req.tagged_doc_ids:
+        yield from tracer.emit(
+            "files",
+            "Tagged files"
+            + (f" — {len(ctx.tagged_names)} attached" if ctx.tagged_names else " — none matched"),
+            detail=(
+                "Folded "
+                + ", ".join(ctx.tagged_names)
+                + " into the prompt as reference material (it grounds what is said; it does"
+                " not steer the scene)."
+                if ctx.tagged_names
+                else "None of the tagged files could be read for this world."
+            ),
+            data={"names": ctx.tagged_names, "injected": bool(ctx.tagged_notes)},
+        )
 
     emitter = _Emitter(db, scenario.id, session.id, start_seq=seq0 + 1)
     # The chronological this-turn transcript handed to each speaker so a later speaker
