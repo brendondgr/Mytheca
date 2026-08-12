@@ -599,7 +599,12 @@ def run_turn(
             "plan",
             f"{actor.name} is up next" + (f" (to {addressing.name})" if addressing else ""),
             detail=decision.reason,
-            data={"actor": actor.name, "addressing": addressing.name if addressing else None},
+            data={
+                "actor": actor.name,
+                "addressing": addressing.name if addressing else None,
+                "register": decision.register,
+                "stakes": decision.stakes or None,
+            },
         )
         yield from tracer.emit(
             "speaker", f"{actor.name} responds", data={"characterId": actor.id, "name": actor.name}
@@ -618,6 +623,7 @@ def run_turn(
         yield from _generate_speaker(
             db, ctx, actor, emitter, turn_beats, consequences,
             guard_conn=guard_conn, relationship_note=note,
+            register=decision.register, stakes=decision.stakes,
             direction=direction, requirements=owed, tracer=tracer,
         )
         acted.append(actor.id)
@@ -879,12 +885,21 @@ def _generate_speaker(
     guard_conn: LlmConn | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
+    register: str | None = None,
+    stakes: str = "",
     direction: SceneDirection | None = None,
     requirements: list[DirectionRequirement] | None = None,
     tracer: _Tracer | None = None,
 ) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
     """Generate one speaker's beat, guard it for continuity, emit its events, append them
     to ``turn_beats``, and return the beat's impact (Σ|stat delta|) for the live queue.
+
+    ``register``/``stakes`` are the planner's read of this beat's moment (see
+    ``planner_agent.BeatDecision``); they reach the character prompt's recency tail so the
+    speaker performs against a stated situation instead of inferring one. A puppet beat runs
+    before the planner has decided anything — and a forced direction beat runs *instead* of
+    asking it — so both carry no register and the prompt falls back to its generic "read the
+    moment" cue.
 
     ``directive`` marks a **puppet** beat (the player directed this character): the
     character performs it in-voice and the continuity guard is skipped (there is nothing
@@ -900,7 +915,8 @@ def _generate_speaker(
     owed = [r.text for r in requirements or []]
     raw, prompt_tokens = character_turn_agent.generate_line_with_usage(
         db, ctx, speaker, turn_beats=turn_beats, directive=directive,
-        relationship_note=relationship_note, scene_direction=scene_direction, requirements=owed,
+        relationship_note=relationship_note, register=register, stakes=stakes,
+        scene_direction=scene_direction, requirements=owed,
     )
     segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
 
@@ -926,8 +942,8 @@ def _generate_speaker(
         if not verdict.consistent:
             raw, prompt_tokens = character_turn_agent.generate_line_with_usage(
                 db, ctx, speaker, turn_beats=turn_beats, correction=verdict.reason,
-                relationship_note=relationship_note, scene_direction=scene_direction,
-                requirements=owed,
+                relationship_note=relationship_note, register=register, stakes=stakes,
+                scene_direction=scene_direction, requirements=owed,
             )
             segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
 

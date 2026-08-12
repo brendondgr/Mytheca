@@ -23,7 +23,12 @@ from app.agents._common import gen_params, resolve_llm
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmParams
 from app.services import llm
-from app.services.assembler import CastMember, TurnContext
+from app.services.assembler import (
+    CastMember,
+    TurnContext,
+    format_voice_samples,
+    select_voice_samples,
+)
 from app.services.stat_render import render_character_stats
 
 logger = logging.getLogger("mytheca.turn")
@@ -41,18 +46,71 @@ _VOICE_TOP_P = 0.92
 _VOICE_FREQUENCY_PENALTY = 0.4
 _VOICE_PRESENCE_PENALTY = 0.3
 
+# Per-register sampler tuning: (top_p, frequency_penalty, presence_penalty).
+#
+# Frequency and presence penalties push the model toward tokens it has NOT used yet —
+# toward novelty and flourish, which is exactly the quip-seeking behavior that reads as
+# a character performing instead of reacting. So they come DOWN as the moment gets
+# graver, letting plain, direct, even repetitive language through (people repeat
+# themselves when frightened), and up in a light moment where banter should stay varied.
+# ``top_p`` narrows alongside them so a grave beat stays on the obvious, sincere word.
+#
+# A beat with no register (planner fallback, puppet beat, test context) resolves to the
+# module defaults above — byte-identical to the pre-register behavior. Temperature and
+# max_tokens stay under the operator's config either way.
+_REGISTER_SAMPLER = {
+    "light": (0.95, 0.45, 0.35),
+    "neutral": (0.92, 0.40, 0.30),
+    "tense": (0.88, 0.30, 0.20),
+    "grave": (0.85, 0.20, 0.15),
+}
+
+# Per-register performance directives, stated in the recency TAIL as an established fact
+# about the situation rather than a question the speaker has to answer for itself. The
+# register comes from ``planner_agent.next_beat`` (which already runs once per beat, so
+# this costs no extra LLM call); ``None`` means the planner did not run or replied with
+# something unrecognized, and the tail then falls back to the generic "read the moment" cue.
+_REGISTER_DIRECTIVES = {
+    "light": (
+        "The moment is LIGHT — nothing real is on the line right now. Your usual manner "
+        "fits here; play it as you would."
+    ),
+    "neutral": (
+        "The moment is ORDINARY — mild friction, nothing at stake yet. Speak plainly as "
+        "yourself; don't perform."
+    ),
+    "tense": (
+        "The moment is TENSE — something you care about is genuinely at risk. Let that "
+        "show: shorter, sharper, more focused than your habit. Any act you normally keep "
+        "up is under strain now."
+    ),
+    "grave": (
+        "The moment is GRAVE — someone is dying, badly hurt, breaking down, or a life is "
+        "on the line RIGHT NOW. Your usual manner does NOT fit here. The act drops and the "
+        "real person shows: fear, grief, urgency, or tenderness. Do not be witty, do not "
+        "be cocky, do not deflect with a joke."
+    ),
+}
+
 # Default output contract text now lives in ``prompt_registry`` (single source of truth
 # for editable writing prompts); resolved per-turn text rides on ``ctx.prompts``.
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
 
 
-def _voice_params(params: LlmParams) -> LlmParams:
-    """Floor max_tokens (reasoning headroom) and apply the voice-tuned sampler fields."""
+def _voice_params(params: LlmParams, register: str | None = None) -> LlmParams:
+    """Floor max_tokens (reasoning headroom) and apply the voice-tuned sampler fields.
+
+    The sampler tracks the beat's ``register`` (see ``_REGISTER_SAMPLER``); an absent or
+    unrecognized register keeps the module defaults.
+    """
+    top_p, frequency, presence = _REGISTER_SAMPLER.get(
+        register or "", (_VOICE_TOP_P, _VOICE_FREQUENCY_PENALTY, _VOICE_PRESENCE_PENALTY)
+    )
     return gen_params(params).model_copy(
         update={
-            "top_p": _VOICE_TOP_P,
-            "frequency_penalty": _VOICE_FREQUENCY_PENALTY,
-            "presence_penalty": _VOICE_PRESENCE_PENALTY,
+            "top_p": top_p,
+            "frequency_penalty": frequency,
+            "presence_penalty": presence,
         }
     )
 
@@ -67,6 +125,8 @@ def generate_line(
     correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
+    register: str | None = None,
+    stakes: str = "",
     scene_direction: str = "",
     requirements: list[str] | None = None,
 ) -> str:
@@ -77,6 +137,7 @@ def generate_line(
     raw, _ = generate_line_with_usage(
         db, ctx, speaker, turn_beats=turn_beats, reasoning=reasoning,
         correction=correction, directive=directive, relationship_note=relationship_note,
+        register=register, stakes=stakes,
         scene_direction=scene_direction, requirements=requirements,
     )
     return raw
@@ -92,6 +153,8 @@ def generate_line_with_usage(
     correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
+    register: str | None = None,
+    stakes: str = "",
     scene_direction: str = "",
     requirements: list[str] | None = None,
 ) -> tuple[str, int | None]:
@@ -126,15 +189,15 @@ def generate_line_with_usage(
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(
         ctx, speaker, turn_beats, correction=correction, directive=directive,
-        relationship_note=relationship_note, scene_direction=scene_direction,
-        requirements=requirements,
+        relationship_note=relationship_note, register=register, stakes=stakes,
+        scene_direction=scene_direction, requirements=requirements,
     )
     return llm.chat_complete_usage(
         base_url,
         api_key,
         model,
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        _voice_params(params),
+        _voice_params(params, register),
         reasoning=reasoning,
     )
 
@@ -154,6 +217,8 @@ def _build_user_prompt(
     correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
+    register: str | None = None,
+    stakes: str = "",
     scene_direction: str = "",
     requirements: list[str] | None = None,
 ) -> str:
@@ -166,15 +231,25 @@ def _build_user_prompt(
         head.append(f"Speech style (your default voice): {speaker.speech}")
     if speaker.traits:
         head.append(f"Traits: {speaker.traits}")
-    if speaker.voice_samples:
-        # Concrete situation → sample-response pairs authored for this character: the ground
-        # truth for *how* they sound AT REST. Framed as a baseline, not a script — the person
-        # stays constant, but their register bends with the stakes (see the output contract's
-        # manner-adaptation rule). Anchors both the spoken line and the in-voice <thinking>.
-        head.append(
-            "Voice samples — your baseline voice (how you sound at rest; keep the person, but "
-            f"let the register flex with the moment):\n{speaker.voice_samples}"
-        )
+    # Concrete situation → sample-response pairs authored for this character — the ground
+    # truth for *how* they sound, and the single highest-salience block in this prompt.
+    # Selected by the beat's register (untagged pairs always apply, and an unmatched or
+    # register-less beat falls back to the whole set) so the exemplars the model imitates
+    # are drawn from a moment LIKE this one rather than always from the baseline.
+    selected = format_voice_samples(
+        select_voice_samples(speaker.voice_sample_rows, register)
+    ) or speaker.voice_samples
+    if selected:
+        if register:
+            head.append(
+                f"Voice samples — how you sound in a moment like this one. Keep the person; "
+                f"match the pitch of the moment, not a habit:\n{selected}"
+            )
+        else:
+            head.append(
+                "Voice samples — your baseline voice (how you sound at rest; keep the person, but "
+                f"let the register flex with the moment):\n{selected}"
+            )
     if speaker.stats:
         # Resolve each stat's current band and substitute {Character} with the
         # speaker's name so the model reads what a value *means* for them right now
@@ -185,10 +260,6 @@ def _build_user_prompt(
         else:
             flat = ", ".join(f"{k}={v}" for k, v in speaker.stats.items())
             head.append(f"Your current state: {flat}")
-    if speaker.disposition:
-        # Carried in from the previous turn's reflection (§P9): the stance you already
-        # hold as you re-enter. It seeds this beat so <thinking> can stay very short.
-        head.append(f"Your current inner stance: {speaker.disposition}")
     if speaker.recent_lines:
         anchors = "  ".join(f"“{line}”" for line in speaker.recent_lines)
         head.append(f"Your recent lines (a reference for your voice, not a script): {anchors}")
@@ -197,8 +268,16 @@ def _build_user_prompt(
     # with the most recent line (the player, or the predecessor who just spoke).
     middle: list[str] = []
     if ctx.setting is not None:
+        # The authored description of the PLACE — written once at world creation and never
+        # rewritten during play. It is scenery, not a report of the current mood; the live
+        # read of the moment comes from the transcript and the beat's register, not here.
         flavor = ctx.setting.atmosphere or ctx.setting.current_state or ctx.setting.desc or ""
-        middle.append(f"Setting: {ctx.setting.name}{(' — ' + flavor) if flavor else ''}.")
+        middle.append(
+            f"Where this happens: {ctx.setting.name}{(' — ' + flavor) if flavor else ''} "
+            "(the place as authored; how it feels right now is whatever the beats below show)."
+            if flavor
+            else f"Where this happens: {ctx.setting.name}."
+        )
     roster = ", ".join(f"[{i + 1}] {m.name}" for i, m in enumerate(ctx.cast))
     middle.append(f"Cast in the scene: {roster}.")
     if ctx.retrieved_lore:
@@ -219,24 +298,42 @@ def _build_user_prompt(
     # TAIL — act-now (recency).
     tail: list[str] = []
     # Situational adaptation cue (recency, strongest attention): read the moment before
-    # defaulting to habit. Restates the scene's mood here as a tonal constraint (not scenery)
-    # and points at the character's own condition so the manner-adaptation rule actually fires.
-    moment = "Before you respond, read the moment — the stakes, the mood, and your own condition"
-    if ctx.setting is not None:
-        mood = (ctx.setting.atmosphere or ctx.setting.current_state or "").strip()
-        if mood:
-            moment += f" (the scene right now: {mood})"
-    moment += (
-        " — and let it shape how you come across. Drop your usual manner if the moment calls "
-        "for it (grief, fear, urgency, tenderness); don't answer on autopilot."
-    )
-    tail.append(moment)
+    # defaulting to habit, and point at the character's own condition so the
+    # manner-adaptation rule actually fires. The mood is deliberately NOT restated from
+    # ``ctx.setting`` — that text is authored at world creation and never updated during
+    # play, so asserting it as "the scene right now" pinned every beat to the scene's
+    # opening tone. What is happening now comes from the beats above.
+    directive_text = _REGISTER_DIRECTIVES.get(register or "")
+    if directive_text:
+        # The scene director already read the moment for this beat — hand the speaker the
+        # ANSWER rather than the question, so it does not have to out-argue its own voice
+        # samples to reach it. Stakes name the concrete thing at risk.
+        moment = directive_text
+        if stakes:
+            moment += f" What is at stake right now: {stakes}."
+        moment += " Let that reach your voice — don't answer on autopilot."
+        tail.append(moment)
+    else:
+        tail.append(
+            "Before you respond, read the moment as the beats above actually show it — what has "
+            "just changed, how much danger or feeling is in the air, and your own condition — and "
+            "let it shape how you come across. Drop your usual manner if the moment calls for it "
+            "(grief, fear, urgency, tenderness); don't answer on autopilot."
+        )
     if ctx.directed_at == speaker.id:
         tail.append("The player addressed you directly.")
     if speaker.disposition:
-        # Disposition already computed (§P9) — it seeds the stance, but the character still
-        # thinks the moment through in-voice rather than clipping it to a few words.
-        tail.append("You already hold a stance — let <thinking> build on it in your own voice, don't just restate it.")
+        # Carried in from the previous turn's reflection (§P9). This is the only signal in
+        # the prompt that tracks how events have actually CHANGED this character, so it sits
+        # in the recency TAIL beside the register rather than buried in the HEAD, where the
+        # voice-sample block outweighed it. Stated as a condition the character is already
+        # in, with explicit license to break their habitual manner because of it.
+        tail.append(
+            f"You do not come into this beat neutral. Where the last one left you: "
+            f"{speaker.disposition} That is your condition now — carry it in. If it means "
+            "you cannot keep up your usual manner, don't; let <thinking> build on it in "
+            "your own voice rather than restating it."
+        )
     if correction:
         # Consistency guard flagged the prior attempt (§P10) — steer the redo.
         tail.append(

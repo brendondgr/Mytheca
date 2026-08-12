@@ -33,6 +33,12 @@ from app.services.assembler import TurnContext
 PLANNER_EFFORT = ReasoningEffort.LOW
 
 _ACTIONS = {"speak", "narrate", "exit", "end"}
+# The beat's REGISTER — the planner's read of how the situation stands right now, on one
+# axis from banter to life-and-death. It is the situational-adaptation signal the character
+# prompt was previously asking each speaker to infer for itself while its own voice samples
+# argued the other way. Whitelisted on parse; anything else (or a fallback beat) yields
+# ``None``, and every consumer must then behave exactly as it did before registers existed.
+_REGISTERS = ("light", "neutral", "tense", "grave")
 # The presence transitions the planner may trigger via an "exit" beat (never "present" —
 # a re-entry is a player/manual action, not something the planner decides mid-scene).
 _EXIT_STATUSES = {"unconscious", "departed", "left", "dead"}
@@ -54,6 +60,11 @@ class BeatDecision:
     # For an "exit" beat: the presence status to transition <actor> into (Scene Presence
     # & Director Actions). One of _EXIT_STATUSES; ``None`` for every other action.
     status: str | None = None
+    # The planner's read of the moment (one of ``_REGISTERS``), and the concrete thing at
+    # risk in it. ``register`` is ``None`` whenever the planner did not run or replied with
+    # something unrecognized — consumers then fall back to their pre-register behavior.
+    register: str | None = None
+    stakes: str = ""
 
 
 def next_beat(
@@ -143,20 +154,36 @@ def next_beat(
             ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
             direction=direction,
         )
+    # The read of the moment rides on every action (it describes the situation, not the
+    # beat), so parse it once up front. An unrecognized value degrades to None rather than
+    # reaching the character prompt as noise.
+    register = str(data.get("register", "")).strip().lower() or None
+    if register not in _REGISTERS:
+        register = None
+    stakes = str(data.get("stakes", "") or "").strip()
     if action == "end":
-        return BeatDecision("end", reason=str(data.get("reason", "")), needs_branch=bool(data.get("needsBranch", False)))
+        return BeatDecision(
+            "end", reason=str(data.get("reason", "")),
+            needs_branch=bool(data.get("needsBranch", False)),
+            register=register, stakes=stakes,
+        )
     if action == "narrate":
-        return BeatDecision("narrate", reason=str(data.get("reason", "")))
+        return BeatDecision(
+            "narrate", reason=str(data.get("reason", "")), register=register, stakes=stakes
+        )
     if action == "exit":
         actor_id = roster_ids.get(_as_int(data.get("actor")) or -1)
         status = str(data.get("status", "")).strip().lower()
         if actor_id is None or status not in _EXIT_STATUSES:
             # Malformed exit (no valid target/status) → don't guess a removal; fall back.
             return _fallback_beat(
-            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
-            direction=direction,
+                ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
+                direction=direction,
+            )
+        return BeatDecision(
+            "exit", actor_id=actor_id, status=status, reason=str(data.get("reason", "")),
+            register=register, stakes=stakes,
         )
-        return BeatDecision("exit", actor_id=actor_id, status=status, reason=str(data.get("reason", "")))
     actor_id = roster_ids.get(_as_int(data.get("actor")) or -1)
     if actor_id is None:
         return _fallback_beat(
@@ -168,6 +195,8 @@ def next_beat(
         actor_id=actor_id,
         addressing_id=roster_ids.get(_as_int(data.get("addressing")) or -1),
         reason=str(data.get("reason", "")),
+        register=register,
+        stakes=stakes,
     )
 
 

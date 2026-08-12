@@ -235,6 +235,42 @@ def test_fallback_skips_non_present(db_session):
     assert d.action == "speak" and d.actor_id == "kira"
 
 
+def test_register_and_stakes_are_parsed_onto_every_action(client, db_session, monkeypatch):
+    # The register describes the SITUATION, so it rides on every action — a narrator beat
+    # needs it as much as a spoken one (Phase 2 only consumes it on "speak", but the field
+    # must not be silently dropped for the others).
+    _configure_llm(client)
+    for action in ("speak", "narrate", "end"):
+        _patch(
+            monkeypatch,
+            json.dumps({"action": action, "actor": 1, "register": "grave", "stakes": "she is bleeding out"}),
+        )
+        d = planner_agent.next_beat(db_session, _ctx(_cast("mei", "kira")), TurnIntent(), [], [])
+        assert d.register == "grave", action
+        assert d.stakes == "she is bleeding out", action
+
+
+def test_unknown_register_degrades_to_none(client, db_session, monkeypatch):
+    # Anything off the whitelist must not reach the character prompt as noise.
+    _configure_llm(client)
+    _patch(monkeypatch, json.dumps({"action": "narrate", "register": "apocalyptic"}))
+    assert planner_agent.next_beat(db_session, _ctx(_cast("mei")), TurnIntent(), [], []).register is None
+
+
+def test_register_is_case_insensitive(client, db_session, monkeypatch):
+    _configure_llm(client)
+    _patch(monkeypatch, json.dumps({"action": "narrate", "register": "TENSE"}))
+    assert planner_agent.next_beat(db_session, _ctx(_cast("mei")), TurnIntent(), [], []).register == "tense"
+
+
+def test_fallback_beat_carries_no_register(db_session):
+    # No LLM configured → nothing read the moment, so the character prompt must fall back
+    # to its generic cue rather than being told a register nobody computed.
+    ctx = _ctx(_cast("mei", "kira"))
+    d = planner_agent.next_beat(db_session, ctx, TurnIntent(kind="direct", addressed=["kira"]), [], [])
+    assert d.actor_id == "kira" and d.register is None and d.stakes == ""
+
+
 # ---- The scene direction (Narrator-Guided Scenes) --------------------------
 
 

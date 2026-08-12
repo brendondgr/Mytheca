@@ -954,7 +954,11 @@ export function useLibraryState(initialStorylineId?: string) {
           // Voice & tone samples: trimmed, blank rows dropped (a sample with no
           // response text is meaningless), persisted with the character.
           voiceSamples: (d._voiceSamples ?? [])
-            .map((s) => ({ situation: s.situation.trim(), sample: s.sample.trim() }))
+            .map((s) => ({
+              situation: s.situation.trim(),
+              sample: s.sample.trim(),
+              moment: s.moment ?? "",
+            }))
             .filter((s) => s.sample),
         };
         // Proposed starting stats are applied with the save (the "save" the user

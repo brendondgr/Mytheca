@@ -202,17 +202,20 @@ describe("useLibraryState — character authoring", () => {
     act(() => result.current.setDraft("name", "Fenwick"));
     act(() =>
       result.current.setDraft("_voiceSamples", [
-        { situation: " cornered ", sample: " Back off. Now. " },
+        { situation: " cornered ", sample: " Back off. Now. ", moment: "tense" as const },
         { situation: "empty row", sample: "   " }, // dropped: no response text
       ]),
     );
     await act(async () => {
       await result.current.submit();
     });
+    // The moment tag rides along — it is what the turn loop matches against the beat's
+    // register when deciding which samples the character is shown. An untagged row
+    // normalizes to "" (applies to any moment).
     expect(vi.mocked(api.createCharacter)).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        voiceSamples: [{ situation: "cornered", sample: "Back off. Now." }],
+        voiceSamples: [{ situation: "cornered", sample: "Back off. Now.", moment: "tense" }],
       }),
     );
   });

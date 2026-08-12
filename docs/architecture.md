@@ -34,6 +34,7 @@ FastAPI, Python 3.13, `uv`.
 | --- | --- |
 | Turn loop / coordination | `app/services/turn_engine.py` |
 | Who acts next | `app/agents/planner_agent.py` (`next_beat`) — a per-beat ReAct decision |
+| How grave the moment is | `app/agents/planner_agent.py` (`next_beat` → `register` + `stakes`, no extra call) |
 | Voicing one character | `app/agents/character_turn_agent.py` (think → speak, one isolated call) |
 | Narration interstitials | `app/agents/narrator_agent.py` |
 | Player-intent reading | `app/agents/intent_agent.py` |
@@ -57,7 +58,7 @@ There is no "Orchestrator", "Rules Engine", "Memory System", or "KG Builder" mod
 
 1. **`intent_agent`** — is the player narrating, addressing someone, directing a character to act, or speaking to the group?
 2. **`direction_agent`** — the player's scene direction as a list of outcomes the turn owes, each optionally bound to a cast member, plus the deterministic packer that fits what is left into the beats that are left. In narrator mode the requirements ride on the `intent_agent` call that already read the line; POV-mode `guidance` is a separate string and gets its own parse.
-3. **`planner_agent`** — the ReAct loop. One beat at a time: `speak` / `narrate` / `exit` / `end`, chosen only from **present** cast members, with the POV character locked out. It is shown what the direction still owes and how many beats remain; once those numbers meet, the engine schedules the rest itself.
+3. **`planner_agent`** — the ReAct loop. One beat at a time: `speak` / `narrate` / `exit` / `end`, chosen only from **present** cast members, with the POV character locked out. The same reply carries the beat's **`register`** (`light`/`neutral`/`tense`/`grave`) and **`stakes`** — the scene-appraisal signal every speaker conditions on, obtained without a second LLM call. It is also shown what the direction still owes and how many beats remain; once those numbers meet, the engine schedules the rest itself.
 4. **`character_turn_agent`** — one isolated LLM call per beat. Emits a visible in-voice `<thinking>` block, then speech, in a thin tagged format the backend parses.
 5. **`narrator_agent`** — scene-setting and interstitials.
 6. **`director_agent`** — end-of-turn follow-up suggestions (situation branches, or first-person lines when POV is active).
@@ -125,6 +126,7 @@ There is no authentication of any kind: no user model, no auth routes, no sessio
 - Event-driven rendering; **7** event types.
 - Per-beat ReAct planner replaced the one-shot director; the old arm survives only in tests.
 - One isolated LLM call per speaker, to hold voices apart.
+- The beat's **register** rides on the planner's existing reply (no second appraisal call) and drives the character prompt's tail, voice-sample selection, and sampler.
 - Server-side clamping of every proposed side effect.
 - Best-effort substrates throughout (Neo4j / Qdrant / Redis / ComfyUI down → degrade, never block).
 - **No dice** — narrative resolution only; `branch_choices` carry `label` + `outcome` and the check card was retired.

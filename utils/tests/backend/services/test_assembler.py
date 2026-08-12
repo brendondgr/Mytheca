@@ -279,3 +279,39 @@ def test_context_beats_out_of_range_is_clamped(db_session, monkeypatch):
     monkeypatch.setattr(assembler.buffer, "recent_turns", lambda session_id, limit=None: [])
     ctx = assembler.assemble_context(db_session, sc, "ps1")
     assert ctx.context_beats == 100
+
+
+# ---- Register-aware voice-sample selection ---------------------------------
+# Injecting every at-rest sample on every beat is what made characters sound scripted:
+# the concrete exemplars outweigh any abstract instruction to adapt. Selection narrows
+# them to the moment, but must never leave a character with nothing.
+
+_ROWS = [
+    {"situation": "haggling", "sample": "Coin first.", "moment": "light"},
+    {"situation": "a blade at his throat", "sample": "Wait—wait.", "moment": "grave"},
+    {"situation": "anything at all", "sample": "Mm.", "moment": ""},
+]
+
+
+def test_selection_keeps_the_matching_and_untagged_samples():
+    picked = assembler.select_voice_samples(_ROWS, "grave")
+    assert [s["sample"] for s in picked] == ["Wait—wait.", "Mm."]
+
+
+def test_selection_without_a_register_returns_everything():
+    # No register (planner fallback / puppet beat) → byte-identical to pre-register behavior.
+    assert assembler.select_voice_samples(_ROWS, None) == _ROWS
+
+
+def test_selection_falls_back_to_all_when_nothing_matches():
+    # A world authored before the field, or a register no pair demonstrates: the character
+    # keeps its whole voice profile rather than losing it.
+    untagged = [{"situation": "x", "sample": "y"}]
+    assert assembler.select_voice_samples(untagged, "grave") == untagged
+    only_light = [{"situation": "x", "sample": "y", "moment": "light"}]
+    assert assembler.select_voice_samples(only_light, "grave") == only_light
+
+
+def test_selection_tolerates_junk_rows():
+    assert assembler.select_voice_samples(None, "tense") == []
+    assert assembler.select_voice_samples(["not a dict", 7], "tense") == []

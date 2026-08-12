@@ -511,13 +511,22 @@ Character modal (CharacterModal) → lib/api.ts
     profile); accepted starting stats are applied via PUT /api/characters/{id}/stats
 ```
 
-The `voiceSamples` then feed the runtime turn loop: `assembler._build_cast` renders
-each character's pairs into a `CastMember.voice_samples` block, and
-`character_turn_agent` injects it into the generation prompt HEAD — anchoring both
-the spoken line and the hidden `<thinking>` step to the character's authored voice.
-The samples are framed as a **baseline** ("how you sound at rest"), not a script:
-the person stays constant but the register **flexes with the stakes** of the moment
-(see the situational-voice-adaptation note in the turn-loop section below).
+The `voiceSamples` then feed the runtime turn loop, and they are the **highest-salience
+block in the generation prompt** — concrete proof of how this person sounds, which the
+model imitates far more readily than it follows any abstract instruction to adapt. Each
+pair therefore carries a **`moment`** tag (`light` · `neutral` · `tense` · `grave`, or
+empty for "any moment"), authored in `VoiceSamplesEditor` and proposed by
+`character_agent.propose_voice_samples`, which is required to cover the range — at least
+one pair must show the character with their habitual manner stripped away.
+
+`assembler._build_cast` carries the pairs **raw** on `CastMember.voice_sample_rows`
+(selection is per beat, assembly is per turn) alongside the pre-rendered all-samples
+`voice_samples` block that `director_agent` reads. `character_turn_agent` then renders
+only the pairs matching the beat's register, plus untagged ones, into the prompt HEAD —
+so on a grave beat the character is shown itself in a grave moment rather than its
+at-rest banter. `assembler.select_voice_samples` falls back to the **whole** profile
+when the register is absent or nothing matches, so a world authored before the field
+never loses its voice profile.
 
 Same **creation-time, no-RAG** rules as storyline authoring. Everything produced
 is a character's **own base identity** (§1 node properties) — no graph structure
@@ -838,14 +847,32 @@ characters stop over-talking; a **cold scene open** with no directed character i
 character always **`<thinking>`**s (a real in-voice deliberation — a short paragraph in their own
 terminology at turn effort **MEDIUM**, streamed `private_to_user` and kept out of `turn_beats`), but a
 spoken line is **optional** — in an action moment they act or simply think with no forced dialogue.
-**Situational voice adaptation:** the `<thinking>` step **appraises the moment first** (how grave/light,
-what changed, how much danger or feeling is in the air) before reasoning toward a response, and the
-output contract's manner-adaptation rule makes personality **constant** while manner **adapts** — the
-habitual act (constant quips, needless cruelty, forced levity) drops when the moment turns grave, and
-the character's own state + the scene's mood (restated as a recency "read the moment" cue in the prompt
-TAIL) reach their voice. The between-turn **`disposition`** carries the resulting emotional/situational
-state (shaken, grieving, afraid, relieved) forward, so an adapted manner persists rather than snapping
-back to the default next beat. The
+**Situational voice adaptation** is driven by a **per-beat register**, not by asking the speaker to
+work the moment out for itself. `planner_agent.next_beat` returns `register` (`light` · `neutral` ·
+`tense` · `grave`) and `stakes` (the concrete thing at risk) **alongside every action** — it already
+runs once per beat, so this costs no extra LLM call — and the turn engine threads both into the
+character prompt's recency TAIL, where a per-register directive states the situation as fact
+(`grave` explicitly revokes the habitual act: no wit, no cocky deflection). The register also
+**selects which voice samples** are injected (above) and **tunes the sampler**: frequency
+and presence penalties push the model toward tokens it has not used yet — toward novelty
+and flourish — so they come down as the moment gets graver (`grave` = `top_p 0.85`,
+`freq 0.20`, `presence 0.15`) and up when it is light (`0.95 / 0.45 / 0.35`), with the
+register-less path keeping the original `0.92 / 0.40 / 0.30`. It is always
+optional: a planner fallback, a puppet beat, or a directly-constructed `TurnContext` yields
+`register=None`, and the TAIL then falls back to the generic "read the moment" cue. The
+`<thinking>` step still appraises the moment first, and the output contract's manner-adaptation rule
+still makes personality **constant** while manner **adapts**. The between-turn **`disposition`**
+carries the resulting emotional/situational state (shaken, grieving, afraid, relieved) forward, so an
+adapted manner persists rather than snapping back to the default next beat. It is 2–3 sentences —
+how the moment left them, what they want, and what they can no longer keep up — and it rides in the
+prompt's recency **TAIL** beside the register (not the HEAD, where the voice-sample block outweighed
+it), stated as the condition the character is already in with explicit license to break their
+habitual manner because of it. Reflection effort stays **LOW**: `dispatch_reflection` runs inline by
+default and a crowd reflects universally, so a higher budget would land on the turn tail.
+
+The authored `Setting.atmosphere` is **not** a live mood signal — it is written once at world
+creation and never rewritten during play, so the prompt presents it as the description of the place
+and never as "the scene right now". The
 character conditions on the scene's **`context_beats`** most-recent beats (5–100; `assembler` fetches
 that depth from the Redis buffer, which retains up to `turn_buffer_size` = 100). At the **end of
 every turn**, up to the scenario's **`suggestions_count`** (0–4; `0` disables) follow-up suggestions
