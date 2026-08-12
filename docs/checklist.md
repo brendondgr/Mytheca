@@ -60,6 +60,13 @@ Verified against the code on 2026-08-04.
 - **`TurnContext.subgraph` is fetched but unused.** The scenario subgraph is assembled every turn; its only consumer is a boolean `available` flag in the diagnostic trace. The graph reaches the model solely via `graph_reader.relationship_context()`. Either render the subgraph into the prompt or stop assembling it.
 - **Unused graph queries.** `graph_reader.presence_casting` and `graph_reader.secret_reachability` have no callers.
 - **`validate_relationship` substring fallback** will mis-bind on nested cast names ("Aldous" vs "Brother Aldous").
+- **Two frontend tests are load-flaky.** `features/library/{CharacterModal,SettingModal}.test.tsx`
+  → "drafts a full … from a seed into the form" hit Vitest's 5s per-test timeout on a busy
+  machine (they wait on the ~150 ms-per-field choreographed reveal). Observed 2026-08-11
+  while a dev server, a second backend and ComfyUI were running: ~50% failure at full
+  worker concurrency, 0/3 failures with `--maxWorkers=4`. The tests are correct; the
+  budget is too tight. Fix by raising the per-test timeout on those two, not by loosening
+  the assertions.
 - **Ollama is not a detected engine.** `LOCAL_LLM_BASE_URL` defaults to `http://localhost:11434` — Ollama's port — but `services/llm_backend.py` detects only vLLM (`GET /version`) and llama.cpp (`GET /props`). An Ollama user silently gets no reasoning budget.
 - **`web/shared/contracts/` is empty** while both layers hand-maintain their own copy of the event contract. Either populate it or drop the directory and document the manual mirror as the intended design.
 - **`sr-only` inside a clipping container is a repo-wide latent bug.** Tailwind's
@@ -123,6 +130,12 @@ Verified against the code on 2026-08-04.
 - Graph mode is canvas-only below `lg`; the `sr-only` node/edge table remains the data alternative. Graph node clicks are wired for Character only — other types are hover-tooltip only.
 - The storyline switcher is hidden below `md`, so mobile cannot switch worlds.
 - At the 320px floor the scene-header Inspector icon clips ~7px. There is no page-level horizontal overflow at any width, and everything fits at 375+.
+- **Scene images cannot be regenerated or deleted from the transcript.** The Create image
+  control paints a new one each time; an unwanted picture stays in the beat log (it can
+  only be removed by deleting the session). No re-roll, no per-image prompt editing, and
+  no way to ask for a specific subject — the prompt is written from the scene as it stands.
+- **A scene image is not context.** It is persisted as a `scene_image` event, but nothing
+  feeds it back into the turn loop; characters have no idea a picture was taken.
 
 ## Research record — deliberate gaps
 
@@ -139,6 +152,10 @@ are **decisions, not oversights**, recorded here so they are not mistaken for dr
   run: no OpenAI-compatible endpoint is configured for this checkout, so every agent
   fell back or raised. 0 LLM calls. `C-005` stays `unsupported`. The harness is built
   and the protocol pre-registered — it is a re-run, not a rebuild.
+- **EXP-2026-08-002 is a verification, not a comparison.** The in-narrative image
+  prompt run (3 runs, one scene, one model) has **no baseline arm**, so `name_leak = 0`
+  is observed, not attributed — the ablation with the name guard removed was not run.
+  Its follow-ups are in `docs/research/OPEN_QUESTIONS.md`; nothing in `CLAIMS.md` moved.
 - **Six of seven claims have no experiment at all.** `docs/research/CLAIMS.md` is the
   backlog; it is meant to look uncomfortable.
 - **The audit's P1 study is not started.** 10–14 weeks, critical path 8–11

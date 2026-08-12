@@ -136,3 +136,49 @@ class SessionHistoryResponse(CamelModel):
     session: SessionSummary
     events: list[PersistedEvent]
     traces: list[PersistedTrace]
+
+
+# ---- in-narrative image generation (the player's "Create image" action) -----
+
+
+class MomentPromptResponse(CamelModel):
+    """The prompts ``agents.moment_agent`` wrote for a picture of the current moment.
+
+    ``positive`` describes the moment in ComfyUI phrase form — every figure by
+    appearance and action, never by name (enforced by ``moment_agent.strip_names``).
+    ``caption`` is plain English for a reader who cannot see the image, and MAY use
+    names; it becomes the event's alt text.
+    """
+
+    positive: str
+    negative: str = ""
+    caption: str = ""
+
+
+class MomentRequest(CamelModel):
+    """Ask for a picture of where the scene stands right now.
+
+    ``sessionId`` is required — a moment belongs to a play-through, and the beats it
+    depicts are read from that session's event log. ``beats`` optionally narrows how
+    far back the shot looks (defaults to the scenario's own ``contextBeats`` window,
+    clamped); everything else (who is in frame, the place, the world) is derived
+    server-side, so the client cannot desync from the story.
+    """
+
+    session_id: str
+    beats: int | None = None
+
+
+class MomentStageFrame(CamelModel):
+    """Progress on the moment stream: which of the two stages is running.
+
+    ``prompt`` while the agent writes, ``render`` while ComfyUI paints (re-emitted as
+    the keep-alive heartbeat so a silent socket never looks dead). ``positive`` is
+    filled once the prompt exists, so the UI can show what is being painted.
+    """
+
+    type: Literal["moment_stage"] = "moment_stage"
+    stage: Literal["prompt", "render"]
+    message: str = ""
+    positive: str = ""
+    caption: str = ""

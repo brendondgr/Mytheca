@@ -15,7 +15,7 @@ Mytheca is an AI-driven, multi-character roleplay chat engine (Next.js frontend 
 These trip people up because older prose said otherwise. All verified 2026-08-04:
 
 - **No authentication exists.** No `User` model, no auth routes, no sessions or tokens. Nothing is gated.
-- **7 story-event types**, not 5: `narration` · `character_dialogue` · `character_action` · `internal_thought` · `state_update` · `branch_choices` · `character_status_change`.
+- **8 story-event types**, not 5: `narration` · `character_dialogue` · `character_action` · `internal_thought` · `state_update` · `branch_choices` · `character_status_change` · `scene_image` (the player's in-narrative picture).
 - **Streaming is NDJSON in the turn POST response.** No SSE endpoint, no WebSocket for story events, no `message_start`/`message_delta`/`message_end` frames — delta streaming re-emits the *same* event `id`+`seq` with growing `text` and `done: false → true`.
 - **Alembic is in use** (12 migrations), coexisting with `create_all` + an additive reconciler.
 - **`director_agent.who_is_up` and `rerank` are dead code** — tests only. `planner_agent.next_beat` makes the real per-beat decision, and its reply also carries the beat's **register** (`light`/`neutral`/`tense`/`grave`) + `stakes`, which drive the character prompt's tail, voice-sample selection, and sampler.
@@ -64,12 +64,12 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 | Layer | Path | Files |
 | --- | --- | --- |
 | API routes (all mounted under `/api`) | `routes/` | `characters.py` `context_documents.py` `graph.py` `options.py` `play.py` (turn streaming) `rag.py` `scenarios.py` `settings.py` `stats.py` `storylines.py` |
-| Turn loop / orchestration | `services/` | `turn_engine.py` (the loop) `assembler.py` (context) `retrieval_gate.py` `emission.py` `validator.py` `consistency.py` `presence.py` `events_store.py` `turn_writer.py` `session_export.py` `reflection.py` `relationships.py` `crud.py` `stats.py` `stat_guidance.py` `stat_render.py` `type_registry.py` `storyline_apply.py` `world_populate.py` (create-time cast + settings build, from the author's classified docs) `world_populate_runs.py` (background runs + resumable frame log) `settings_store.py` `llm.py` `llm_backend.py` `graph_reader.py` `graph_writer.py` `concurrency.py` `media.py` `media_cleanup.py` `portraits.py` `scene_art.py` `comfyui.py` |
-| LLM agents | `agents/` | Turn loop: `planner_agent.py` (ReAct next-beat + register) `character_turn_agent.py` (think→speak) `narrator_agent.py` `intent_agent.py` `direction_agent.py` (the player's direction → outcomes the turn owes + the budget packer) `director_agent.py` (branch/POV suggestions; `who_is_up`+`rerank` are dead) `reflection_agent.py` `relationship_agent.py`. Authoring: `storyline_agent.py` `storyline_edit/` (`scope.py` `core.py` `editor.py` `creation.py`) `character_agent.py` `setting_agent.py` `scenario_agent.py` `triage_agent.py` `roster_agent.py` (invented roster) `extract_agent.py` (the author's docs → named subjects). Shared: `_common.py` `prompt_registry.py` (8 overridable prompt keys) |
+| Turn loop / orchestration | `services/` | `turn_engine.py` (the loop) `assembler.py` (context) `retrieval_gate.py` `emission.py` `validator.py` `consistency.py` `presence.py` `events_store.py` `turn_writer.py` `session_export.py` `reflection.py` `relationships.py` `crud.py` `stats.py` `stat_guidance.py` `stat_render.py` `type_registry.py` `storyline_apply.py` `world_populate.py` (create-time cast + settings build, from the author's classified docs) `world_populate_runs.py` (background runs + resumable frame log) `settings_store.py` `llm.py` `llm_backend.py` `graph_reader.py` `graph_writer.py` `concurrency.py` `media.py` `media_cleanup.py` `portraits.py` `scene_art.py` `scene_moment.py` (in-play scene images) `comfyui.py` |
+| LLM agents | `agents/` | Turn loop: `planner_agent.py` (ReAct next-beat + register) `character_turn_agent.py` (think→speak) `narrator_agent.py` `intent_agent.py` `direction_agent.py` (the player's direction → outcomes the turn owes + the budget packer) `director_agent.py` (branch/POV suggestions; `who_is_up`+`rerank` are dead) `reflection_agent.py` `relationship_agent.py`. Authoring: `storyline_agent.py` `storyline_edit/` (`scope.py` `core.py` `editor.py` `creation.py`) `character_agent.py` `setting_agent.py` `scenario_agent.py` `triage_agent.py` `roster_agent.py` (invented roster) `extract_agent.py` (the author's docs → named subjects). In-play art: `moment_agent.py` (the scene → an appearance-first image prompt). Shared: `_common.py` `prompt_registry.py` (8 overridable prompt keys) |
 | Authored content | `content/` | `graph_registry.py` (6 node + 16 edge built-in types) + `stats/*.md` (`health` `patience` `suspicion` `trust`) |
 | Hybrid RAG | `rag/` | `schema.py` `serializer.py` `tokens.py` `entries.py` `embedder.py` `store.py` `indexer.py` `retriever.py` `const.py` |
 | Live turn state | `memory/` | `buffer.py` (Redis recent-turn buffer) `interior.py` |
-| Event stream | `events/` | `envelope.py` (7 story events) `stream.py` (NDJSON + trace/error frames) |
+| Event stream | `events/` | `envelope.py` (8 story events) `stream.py` (NDJSON + trace/error frames) |
 | DB models (13 tables) | `models/` | `storyline.py` `character.py` `setting.py` `scenario.py` `event.py` `stat.py` (StatDefinition + CharacterStat) `session.py` `turn_trace.py` `context_document.py` (Doc + Link) `graph_type.py` `app_setting.py` |
 | Pydantic schemas | `schemas/` | `base.py` + mirrors of `models/` + `play.py` `rag.py` `reasoning.py` `settings.py` `storyline_edit.py` |
 | Config/clients | `core/` | `config.py` `db.py` `redis.py` `neo4j.py` `qdrant.py` `bootstrap.py` (preflight) `seed.py` `errors.py` `ids.py` |
@@ -89,11 +89,11 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 | Helpers (14) | `lib/` | `api.ts` `types.ts` `events.ts` `theme.ts` `fonts.ts` `font-size.ts` `contextBudget.ts` `cardArt.ts` `graphColors.ts` `monogram.ts` `readDocs.ts` `seals.ts` `seed-data.ts` `cn.ts` |
 | Styles | `styles/themes.css`, `app/globals.css` | Three themes + `--fs-*` scale; Tailwind v4 `@theme inline` mapping |
 
-**Frontend tests are co-located** (`Foo.tsx` → `Foo.test.tsx`) — 84 files. `utils/tests/frontend/` is empty; ignore it.
+**Frontend tests are co-located** (`Foo.tsx` → `Foo.test.tsx`) — 90 files. `utils/tests/frontend/` is empty; ignore it.
 
 ## Backend tests — `utils/tests/backend/`
 
-Five area folders: `api/` `agents/` `services/` `rag/` `data/`, plus a shared `conftest.py`. Add new tests to the matching folder as `test_<behavior>.py`. 784 cases pass today.
+Five area folders: `api/` `agents/` `services/` `rag/` `data/`, plus a shared `conftest.py`. Add new tests to the matching folder as `test_<behavior>.py`. 948 cases pass today.
 
 ## Root-level essentials
 

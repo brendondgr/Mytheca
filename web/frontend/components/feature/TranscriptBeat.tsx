@@ -1,9 +1,10 @@
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { QuotedText } from "@/components/ui/QuotedText";
+import { SceneImageBeat } from "@/components/feature/SceneImageBeat";
 import { mediaUrl } from "@/lib/api";
 import type { Character } from "@/lib/types";
-import type { SceneChoice, SceneMessage } from "@/features/story-player/scene-data";
+import type { SceneChoice, SceneImage, SceneMessage } from "@/features/story-player/scene-data";
 
 /** `narration` → teal-accented card (upright, not italic — feedback #6). */
 export function NarratorCard({ text }: { text: string }) {
@@ -203,16 +204,21 @@ export function TranscriptBeat({
   onProfile,
   choices,
   onChoose,
+  onOpenImage,
 }: {
   message: SceneMessage;
   charById: (id: string) => Character | undefined;
   onProfile?: (id: string) => void;
   choices: SceneChoice[];
   onChoose: (choice: SceneChoice) => void;
+  /** Open a scene image in the enlarged view (omit to render it non-clickable). */
+  onOpenImage?: (image: SceneImage) => void;
 }) {
   const m = message;
   if (m.kind === "narrator") return <NarratorCard text={m.text ?? ""} />;
   if (m.kind === "player") return <PlayerMessage text={m.text ?? ""} />;
+  if (m.kind === "image")
+    return m.image ? <SceneImageBeat image={m.image} onOpen={onOpenImage} /> : null;
   if (m.kind === "choices")
     return <BranchChoices choices={choices} onChoose={onChoose} />;
   const c = charById(m.who ?? "");

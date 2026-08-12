@@ -15,7 +15,7 @@ mytheca/
 ├── CONTRIBUTING.md         # Validation gate + how to run an experiment
 ├── line_counter.py         # Standalone LOC-counting utility (not part of the app)
 ├── images/                 # Brand kit — Basic.svg, Basic-Light.svg, DarkText.svg, LightText.svg
-├── media/                  # Generated WebP output (portraits/, scenes/) — gitignored, served at /media
+├── media/                  # Generated WebP output (portraits/, scenes/, moments/) — gitignored, served at /media
 ├── libs/                   # Internal shared packages — currently empty (.gitkeep)
 ├── docs/                   # Source of truth
 │   ├── documentation.md    # Purpose, domain model, stack, status

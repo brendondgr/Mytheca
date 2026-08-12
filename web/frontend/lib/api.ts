@@ -6,6 +6,8 @@
 // envelope `{ error: { code, message, details } }`.
 
 import type {
+  MomentRequestBody,
+  MomentStreamFrame,
   PersistedEvent,
   PresenceStatus,
   SessionHistory,
@@ -315,6 +317,20 @@ export function postTurn(
   signal?: AbortSignal,
 ): AsyncGenerator<TurnStreamFrame> {
   return postNdjson<TurnStreamFrame>(`/play/${scenarioId}/turn`, body, signal);
+}
+
+/**
+ * Paint the moment the scene is in (the transcript's **Create image** control) and stream
+ * the two stages back as NDJSON: `moment_stage` (`prompt` → `render`, the latter repeated
+ * as a keep-alive while ComfyUI works), then the persisted `scene_image` event — or a
+ * terminal `error` frame. Pass an `AbortSignal` to cancel.
+ */
+export function postSceneMoment(
+  scenarioId: string,
+  body: MomentRequestBody,
+  signal?: AbortSignal,
+): AsyncGenerator<MomentStreamFrame> {
+  return postNdjson<MomentStreamFrame>(`/play/${scenarioId}/moment/stream`, body, signal);
 }
 
 /** Manually set a character's scene presence (the cast-rail control + its undo). Returns
@@ -1014,6 +1030,8 @@ export interface MediaDirOrphans {
 export interface MediaOrphansResult {
   portraits: MediaDirOrphans;
   scenes: MediaDirOrphans;
+  /** In-play scene images captured from the story player (`/media/moments`). */
+  moments: MediaDirOrphans;
   orphanCount: number;
   eligibleCount: number;
   totalBytes: number;

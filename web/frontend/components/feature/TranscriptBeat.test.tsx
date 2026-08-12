@@ -105,4 +105,38 @@ describe("TranscriptBeat", () => {
       expect(screen.getByText("Enough.")).toBeTruthy();
     });
   });
+  describe("scene image", () => {
+    it("renders a centered picture beat that opens the enlarged view", async () => {
+      const onOpenImage = vi.fn();
+      const image = {
+        url: "/media/moments/abc.webp",
+        caption: "Two figures at a lamplit table.",
+        prompt: "two figures at a lamplit table",
+      };
+      render(
+        <TranscriptBeat
+          message={{ kind: "image", image }}
+          charById={() => undefined}
+          choices={[]}
+          onChoose={vi.fn()}
+          onOpenImage={onOpenImage}
+        />,
+      );
+      expect(screen.getByAltText(image.caption)).toBeTruthy();
+      screen.getByRole("button", { name: /enlarge scene image/i }).click();
+      expect(onOpenImage).toHaveBeenCalledWith(image);
+    });
+
+    it("renders nothing for an image beat with no picture attached", () => {
+      const { container } = render(
+        <TranscriptBeat
+          message={{ kind: "image" }}
+          charById={() => undefined}
+          choices={[]}
+          onChoose={vi.fn()}
+        />,
+      );
+      expect(container).toBeEmptyDOMElement();
+    });
+  });
 });

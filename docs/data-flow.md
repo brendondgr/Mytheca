@@ -611,6 +611,44 @@ are passed as context when available. Scene art is an explicit, opt-in step (it 
 GPU time on the local ComfyUI server). The prompt pair is saved alongside the image URL
 so it can be refined and re-rendered.
 
+## In-Narrative Scene Image Flow (the player's Create image action)
+
+```
+Story player → CreateImageBar "Go" → useScenePlay.createImage → lib/api.postSceneMoment
+  → POST /api/play/{scenarioId}/moment/stream   {sessionId, beats?}
+        → routes/play.play_moment
+            services/scene_moment.prepare_moment  (BEFORE the 200 opens)
+              scenario + session + ComfyUI base + LLM connection resolved
+              last N visible beats (default 8, clamped 2-40) from the session's events
+              in-frame cast = present characters active in that window
+                              (falls back to the present cast for pure narration)
+            then services/scene_moment.generate_moment, wrapped in with_keepalive:
+              frame: {type: moment_stage, stage: "prompt"}
+              → agents/moment_agent.write_moment_prompt (world + place + beats + cast look)
+                  → services/llm.chat_complete → {positive, negative, caption}
+                  → strip_names() rewrites any leaked name as that character's visual tag
+              frame: {type: moment_stage, stage: "render", positive, caption}
+              → services/comfyui.generate at 1216x832 (landscape, fresh random seed)
+                  → PNG → services/media.save_webp → MEDIA_DIR/moments
+              → build_event("scene_image", ...) at next_seq → events_store.persist_story_event
+              frame: the scene_image story event  (terminal)
+  → turn-stream.mergeFrame appends a `kind: "image"` beat → SceneImageBeat (centered,
+    clickable) → SceneImageModal on click
+```
+
+The **only story event a player triggers directly**, and the only one not produced by the
+turn loop. Because it is a persisted event and not a column, it replays through the same
+`mergeFrame` reducer on reload, appears in the session history, and exports as a Markdown
+image line — no separate rehydration path.
+
+Two properties are enforced by the server, not by the prompt writer's goodwill: the frame
+is **pinned landscape** (1216x832 in `scene_moment.py`, not the Options defaults, which
+are tuned for portraits), and no character **name** may reach the image model — the system
+prompt forbids it and `strip_names` rewrites any that survive into that character's own
+appearance phrases, because an image model cannot resolve a name into a face. The keep-alive
+heartbeat re-emits the stage that is *actually* running, so a long prompt write never
+reports itself as a render.
+
 ## Orphaned-Media Cleanup Flow (maintenance)
 
 ```
@@ -618,10 +656,11 @@ Options → About tab → Maintenance section → lib/api.ts
   → GET  /api/options/media/orphans?min_age_hours=24   (dry-run scan)
         → routes/options → services/media_cleanup.scan_orphans
             referenced = {basenames of Character.portrait} ∪ {Setting.image} ∪ {Scenario.image}
-            for *.webp in MEDIA_DIR/portraits + MEDIA_DIR/scenes:
+                         ∪ {url of every persisted scene_image event}
+            for *.webp in MEDIA_DIR/portraits + MEDIA_DIR/scenes + MEDIA_DIR/moments:
               orphan   = basename ∉ referenced
               eligible = orphan AND mtime older than min_age_hours (grace period)
-        → {portraits, scenes, orphanCount, eligibleCount, totalBytes, eligibleBytes, minAgeHours}
+        → {portraits, scenes, moments, orphanCount, eligibleCount, totalBytes, eligibleBytes, minAgeHours}
   → author reviews counts, confirms, then
   → POST /api/options/media/cleanup?min_age_hours=24   (delete eligible only)
         → services/media_cleanup.delete_orphans (re-scans; unlinks eligible orphans)
@@ -630,11 +669,14 @@ Options → About tab → Maintenance section → lib/api.ts
 
 A WebP is written to disk the moment ComfyUI renders it — before the entity is
 saved — so a cancelled draft or a deleted Character/Setting leaves an unreferenced
-file behind. Cleanup cross-references disk against the two media columns. The
+file behind. Cleanup cross-references disk against the three media columns **and** the
+`scene_image` event log. The
 **grace period** (`min_age_hours`, default 24) is the safety valve: a just-generated
 file from an in-flight draft counts as an orphan but is *not eligible*, so an
 author mid-creation never loses their pending image. Deletion is doubly guarded
-(unreferenced AND grace-expired), `.webp`-only, and scoped to the two media subdirs.
+(unreferenced AND grace-expired), `.webp`-only, and scoped to the three media subdirs.
+In-play scene images are referenced by an **event row**, not a column — without that
+lookup the sweep would delete every picture a player captured one day later.
 
 ## Agentic Storyline Editing Flow (conversational, scope-aware editor)
 

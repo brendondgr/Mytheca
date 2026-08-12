@@ -91,6 +91,25 @@ class CharacterStatusChangeData(CamelModel):
     auto: bool = True
 
 
+class SceneImageData(CamelModel):
+    """A rendered picture of the moment the scene is in (player-triggered).
+
+    Written by ``agents.moment_agent`` and rendered by ``services.scene_moment``:
+    ``url`` is the relative ``/media/moments/<uuid>.webp`` path of the landscape
+    WebP, ``prompt``/``negative`` are the ComfyUI prompts that produced it (kept so
+    the picture is reproducible and reviewable), ``caption`` is a one-line
+    description used as the image's alt text and its enlarged-view label, and
+    ``characterIds`` names who is depicted (never by name inside the prompt — the
+    prompt describes appearance and action).
+    """
+
+    url: str
+    prompt: str = ""
+    negative: str = ""
+    caption: str = ""
+    character_ids: list[str] = Field(default_factory=list)
+
+
 # ---- envelope (shared base + one class per type) ---------------------------
 
 
@@ -141,6 +160,11 @@ class CharacterStatusChangeEvent(EventEnvelope):
     data: CharacterStatusChangeData
 
 
+class SceneImageEvent(EventEnvelope):
+    type: Literal["scene_image"] = "scene_image"
+    data: SceneImageData
+
+
 StoryEvent = Annotated[
     Union[
         NarrationEvent,
@@ -150,6 +174,7 @@ StoryEvent = Annotated[
         StateUpdateEvent,
         BranchChoicesEvent,
         CharacterStatusChangeEvent,
+        SceneImageEvent,
     ],
     Field(discriminator="type"),
 ]
@@ -168,6 +193,7 @@ __all__ = [
     "BranchChoiceOption",
     "BranchChoicesData",
     "CharacterStatusChangeData",
+    "SceneImageData",
     "EventEnvelope",
     "NarrationEvent",
     "CharacterDialogueEvent",
@@ -176,6 +202,7 @@ __all__ = [
     "StateUpdateEvent",
     "BranchChoicesEvent",
     "CharacterStatusChangeEvent",
+    "SceneImageEvent",
     "StoryEvent",
     "story_event_adapter",
 ]

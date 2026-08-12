@@ -243,6 +243,26 @@ Every agentic authoring flow (drafting/editing a Character or Setting/Scenario, 
 - **Process progress** — `components/feature/ProcessProgress.tsx` is a compact done/active/pending stepper with a live `aria-live` "Now … · Next …" line, shown during a draft (character Identity → Voice & tone → Starting stats; setting fields as steps).
 - **Notifications** — `components/ui/Toast.tsx` + `components/layout/ToastProvider.tsx` (`useToast`) render **top-right, stacking** toasts in a portal; errors are `role="alert"`, info/success `role="status"`, entrance via `embMsg` with `motion-reduce:animate-none`. Agentic errors across all surfaces raise an error toast (alongside the existing inline `role="alert"` copy). A toast may carry one optional **action button** (e.g. "Undo" for an auto scene-presence change), rendered before the dismiss control.
 
+### In-narrative scene images
+
+The story player's **Create image** action (`CreateImageBar` → `SceneImageBeat` →
+`SceneImageModal`) paints the moment the scene is in. Its visual rules:
+
+- **Same object family as scene art.** A picture in the transcript wears the frame the
+  setting's establishing shot wears in `SceneArtModal` — `rounded-[6px]`, `border-cardbd`,
+  `bg-field`, landscape — so a captured moment and an authored place read as the same kind
+  of thing. Style tags in the prompt follow the watercolor look the portrait/scene-art
+  agents already establish; only the *composition* is fixed (landscape, everyone in frame).
+- **Centered, capped at `max-w-[560px]`** inside the 720 px reading column, with the
+  caption below in muted italic under an "A moment in the scene" eyebrow.
+- **Painting placeholder** — `.mytheca-wash` (`mythecaWash` in `styles/themes.css`) travels
+  a slow gradient across the 3:2 frame the picture will occupy. The gradient lives outside
+  the keyframes, so the app-wide `prefers-reduced-motion` rule leaves a **static** wash
+  rather than an empty box (the same idiom as `.mytheca-glow` / `.mytheca-field-active`).
+- **The image is a control.** The frame is a real `<button>` (pointer *and* keyboard) whose
+  accessible name is the caption; the caption is also the `alt`, so the description a
+  screen-reader user hears is the one a sighted user reads.
+
 ## Storyline Assistant Panel (conversational, scope-aware editing)
 
 The storyline create/edit page (`StorylineCreatorView`) replaced its one-shot "Build the

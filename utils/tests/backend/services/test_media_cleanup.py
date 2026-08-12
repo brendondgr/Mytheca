@@ -20,11 +20,13 @@ from __future__ import annotations
 
 import os
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from app.models.character import Character
+from app.models.event import Event
 from app.models.setting import Setting
 from app.services import media_cleanup
 
@@ -47,6 +49,22 @@ def _age(path: Path, seconds: float) -> None:
     """Backdate a file's mtime by ``seconds``."""
     now = time.time()
     os.utime(path, (now - seconds, now - seconds))
+
+
+@pytest.fixture(autouse=True)
+def _isolate_media_dirs(tmp_path, monkeypatch):
+    """Point every scanned directory at a tmp path.
+
+    Individual tests re-patch the two they care about; this keeps the third (and
+    any added later) away from the developer's real ``media/`` tree, where a
+    genuinely orphaned file would otherwise leak into a count assertion.
+    """
+    for name, sub in (
+        ("_portraits_dir", "portraits"),
+        ("_scenes_dir", "scenes"),
+        ("_moments_dir", "moments"),
+    ):
+        monkeypatch.setattr(media_cleanup, name, lambda path=tmp_path / sub: path)
 
 
 # ---------------------------------------------------------------------------
@@ -164,6 +182,59 @@ class TestScanOrphans:
 
         report = media_cleanup.scan_orphans(db_session, min_age_hours=24.0)
         assert report.orphan_count == 0
+
+
+class TestSceneImageMoments:
+    """An in-play moment is referenced by its EVENT row, not by a column.
+
+    Without that lookup the 24-hour sweep would delete every picture a player has
+    captured, straight out of a transcript that still links to it.
+    """
+
+    def _moment_event(self, filename: str) -> Event:
+        return Event(
+            id="ev-moment-1",
+            type="scene_image",
+            scenario_id="sc-1",
+            session_id="ps-1",
+            seq=4,
+            ts=datetime.now(UTC),
+            visibility="public",
+            data={"url": f"/media/moments/{filename}", "caption": "A quiet moment."},
+        )
+
+    def test_moment_referenced_by_a_scene_image_event_survives(
+        self, db_session, tmp_path, monkeypatch
+    ):
+        moments = tmp_path / "moments"
+        monkeypatch.setattr(media_cleanup, "_moments_dir", lambda: moments)
+
+        filename = "beadfeed" * 4 + ".webp"
+        _age(_write(moments, filename), 100 * 3600)
+        db_session.add(self._moment_event(filename))
+        db_session.commit()
+
+        report = media_cleanup.scan_orphans(db_session, min_age_hours=1.0)
+        assert report.orphan_count == 0
+        assert media_cleanup.delete_orphans(db_session, min_age_hours=1.0).deleted_count == 0
+        assert (moments / filename).is_file()
+
+    def test_unreferenced_moment_is_reported_and_swept(
+        self, db_session, tmp_path, monkeypatch
+    ):
+        moments = tmp_path / "moments"
+        monkeypatch.setattr(media_cleanup, "_moments_dir", lambda: moments)
+
+        stale = "0badbeef" * 4 + ".webp"
+        _age(_write(moments, stale, content=b"z" * 512), 100 * 3600)
+
+        report = media_cleanup.scan_orphans(db_session, min_age_hours=1.0)
+        assert report.moments.orphan_count == 1
+        assert report.orphan_count == 1  # moments count toward the totals
+        assert report.total_bytes == 512
+
+        assert media_cleanup.delete_orphans(db_session, min_age_hours=1.0).deleted_count == 1
+        assert not (moments / stale).exists()
 
 
 class TestDeleteOrphans:

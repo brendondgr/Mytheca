@@ -160,3 +160,17 @@ Appended as each `RESULTS.md` §7 is written.
 - [ ] **Decide whether a zero-LLM-call run should be a hard validator error.** An
       experiment whose manifest carries an `llm` block but records 0 calls is
       structurally suspect, and the current validator accepts it.
+
+### From EXP-2026-08-002 (`complete` — in-narrative moment prompts)
+
+- [ ] **Run the ablation arm** (moment prompt with `strip_names` and the no-names
+      instruction removed) so `name_leak = 0` can be *attributed* to the design rather
+      than merely observed. As it stands the metric is measured after the guard runs and
+      cannot distinguish a model that never named anyone from a guard that cleaned up.
+      → `experiments/EXP-2026-08-002-moment-prompt-style/RESULTS.md` §5
+- [ ] **Measure on characters with no `portrait_positive`** (authored appearance prose
+      only) — the common case for hand-written casts, and the weaker input to
+      `moment_agent.visual_tag`.
+- [ ] **Judge image fidelity, not just prompt grounding.** `appearance_coverage` reads
+      the prompt; nothing yet checks whether the painted figure resembles the authored
+      character. Needs a VLM judge or human raters.

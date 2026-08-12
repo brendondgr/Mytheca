@@ -23,8 +23,10 @@ Four canonical objects, plus the Story Event abstraction and the Stat system.
 
 **Stats** are bounded numeric values defined per storyline (`stat_definitions`) and held per character (`character_stats`), each with labeled bands and an optional Markdown guidance file. The validator clamps every AI-proposed change to `[min, max]`.
 
-**Story Events** — 7 types, defined in `web/backend/app/events/envelope.py`:
-`narration` · `character_dialogue` · `character_action` · `internal_thought` · `state_update` · `branch_choices` · `character_status_change`.
+**Story Events** — 8 types, defined in `web/backend/app/events/envelope.py`:
+`narration` · `character_dialogue` · `character_action` · `internal_thought` · `state_update` · `branch_choices` · `character_status_change` · `scene_image`.
+The first seven come from the turn loop; `scene_image` is the one the **player** triggers —
+a picture of the moment, painted on demand from the scene and persisted as a beat.
 
 Full envelope and payloads: `api-contract.md`.
 
@@ -38,7 +40,7 @@ Full envelope and payloads: `api-contract.md`.
 | Live state | Redis — recent-turn buffer, per-character interior state |
 | Story Graph | Neo4j 5.26 (custom APOC image) — typed nodes/edges, best-effort |
 | Semantic memory | Qdrant + fastembed `BAAI/bge-large-en-v1.5` (1024-dim), hybrid dense + BM25 + RRF — best-effort |
-| Images | ComfyUI (local) — character portraits + setting/scenario scene art, saved as WebP |
+| Images | ComfyUI (local) — character portraits, setting/scenario scene art, and in-play scene images, saved as WebP |
 | AI | OpenAI-compatible endpoints (cloud OpenAI or local vLLM / llama.cpp) behind one proxy |
 | Streaming | NDJSON over the turn POST response |
 
@@ -62,7 +64,7 @@ Detail: `architecture.md` (decisions), `data-flow.md` (the turn walkthrough), `a
 
 ## Major Decisions
 
-- **Event-driven rendering** — the AI emits typed events, the backend validates, the frontend renders. 7 event types.
+- **Event-driven rendering** — the AI emits typed events, the backend validates, the frontend renders. 8 event types.
 - **Per-beat ReAct planner** — `planner_agent.next_beat` decides one beat at a time from the present roster. It replaced the older one-shot `director_agent.who_is_up` / `rerank`, which are now **dead code kept only for their unit tests**.
 - **The player's direction is a contract, not a hint** — `direction_agent` turns it into ordered requirements and the engine schedules them into the scene's `maxTurns` budget, taking the decision off the planner once the budget is as tight as the direction is long. Each beat is told the outcome it owes, never the words.
 - **One isolated LLM call per speaker** — no shared multi-POV prompt, to keep voices distinct.
@@ -80,6 +82,7 @@ Implemented and exercised end to end:
 - Full CRUD for the four canonical objects, plus stats, context documents, and the Story-Graph type registry.
 - Agentic authoring: storyline draft + primer, conversational scope-aware storyline **editing** (`storyline_edit/`), **create-time world population** (`roster_agent` + `services/world_populate` — the generated cast + settings a new world starts with), character / setting / scenario creators, document triage, portrait + scene-art generation.
 - The runtime turn loop: intent → ReAct planner → per-character think→speak → validator → NDJSON stream, with presence tracking, POV play, follow-up suggestions, within-turn consistency guard, cold-path Neo4j writes, and read-time reflection.
+- In-narrative images: a **Create image** control at the foot of the transcript writes an appearance-first prompt from the live scene (`moment_agent`) and renders it landscape through ComfyUI (`scene_moment`), persisted as a `scene_image` beat.
 - Persistent sessions: every turn and its diagnostic trace are stored (`events`, `turn_traces`); reopening a scenario resumes the latest session; sessions export as JSON or Markdown.
 - Hybrid RAG with embed-on-save and a conservative retrieval gate.
 - Story-Graph view in the story player (force-directed canvas + inspector rail) with an accessible text alternative.
@@ -87,6 +90,6 @@ Implemented and exercised end to end:
 
 Not built: authentication (no user model, no auth routes), a standalone `GET /stream` transport, admin surfaces, dice resolution, and any evaluation/benchmark harness. Open items: `checklist.md`.
 
-**Validation baseline:** 826 backend pytest cases and 540 Vitest cases across 84 co-located frontend test files, all passing.
+**Validation baseline:** 948 backend pytest cases and 637 Vitest cases across 90 co-located frontend test files, all passing.
 
-**Research status:** Mytheca has **no evaluation results** — no benchmark, baseline, ablation, metric or human study. That is recorded, not glossed: `docs/research/` is the single research record, all seven claims in `research/CLAIMS.md` are `unsupported`, and `research/mytheca-research-audit.md` is the external audit that established it.
+**Research status:** Mytheca has **no evaluation results that support a claim** — no benchmark, baseline, ablation or human study. That is recorded, not glossed: `docs/research/` is the single research record, all seven claims in `research/CLAIMS.md` remain `unsupported`, and `research/mytheca-research-audit.md` is the external audit that established it. Two experiment folders exist: `EXP-2026-08-001` (failed — no LLM endpoint was reachable) and `EXP-2026-08-002` (complete — a 3-run, single-arm *functional* verification of the in-narrative image prompts, with no baseline and no claim attached).

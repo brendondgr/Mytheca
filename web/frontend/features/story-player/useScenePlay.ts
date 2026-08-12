@@ -8,12 +8,13 @@ import {
   getScenarioRelationships,
   getSessionHistory,
   listPlaySessions,
+  postSceneMoment,
   postTurn,
   setPresence as apiSetPresence,
   updateScenario,
 } from "@/lib/api";
 import { estimateUsedTokens } from "@/lib/contextBudget";
-import type { PresenceStatus, TurnStreamFrame } from "@/lib/events";
+import type { MomentStreamFrame, PresenceStatus, TurnStreamFrame } from "@/lib/events";
 import type { ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
 import { useToast } from "@/components/layout/ToastProvider";
@@ -312,6 +313,42 @@ export function useScenePlay(scenario: ResolvedScenario) {
     if (id === null) setGuidance("");
   }, []);
 
+  // ---- Create image (the transcript's scene-image action) -------------------
+  // Its own stream, independent of the turn stream: a picture can be asked for between
+  // turns and must not abort (or be aborted by) a turn in flight. `imageStage` drives the
+  // control's staged progress; the finished `scene_image` event folds into the transcript
+  // through the same reducer the turn stream uses, so live and reload agree.
+  const [imageStage, setImageStage] = useState<"prompt" | "render" | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const onMomentFrame = useCallback((frame: MomentStreamFrame) => {
+    if (frame.type === "moment_stage") {
+      setImageStage(frame.stage);
+      return;
+    }
+    if (frame.type === "error") {
+      setImageError(frame.message);
+      return;
+    }
+    setMessages((prev) => mergeFrame(prev, frame));
+  }, []);
+  const momentStream = useEventStream<MomentStreamFrame>(onMomentFrame);
+  const creatingImage = momentStream.status === "streaming";
+
+  const createImage = useCallback(() => {
+    const sid = sessionRef.current;
+    if (!sid || creatingImage) return; // nothing to depict yet / already painting
+    setImageError(null);
+    setImageStage("prompt");
+    void momentStream
+      .run((signal) => postSceneMoment(scenario.id, { sessionId: sid }, signal))
+      .catch((err: unknown) =>
+        setImageError(
+          err instanceof Error && err.message ? err.message : "The image could not be generated.",
+        ),
+      )
+      .finally(() => setImageStage(null));
+  }, [creatingImage, momentStream, scenario.id]);
+
   const submit = useCallback(
     (text: string, direction = "") => {
       const t = text.trim();
@@ -427,6 +464,12 @@ export function useScenePlay(scenario: ResolvedScenario) {
     closeProfile: () => setProfileId(null),
     activity,
     activityByChar,
+    // Create image: `imageStage` is which half is running (null = idle), `creatingImage`
+    // gates the control, `imageError` is the last failure (cleared on the next attempt).
+    createImage,
+    creatingImage,
+    imageStage,
+    imageError,
     // The dial's used-token count: the exact `usage.prompt_tokens` once a turn has reported
     // it, else the char/4 estimate. `usedTokensExact` lets the UI label which it is showing.
     usedTokens: liveContextTokens ?? estimatedUsedTokens,

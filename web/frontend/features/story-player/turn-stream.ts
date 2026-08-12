@@ -149,6 +149,22 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
       ];
     }
 
+    case "scene_image":
+      // A picture the player asked for — its own centered beat, appended in stream order
+      // so it sits under the moment it depicts (live and on rehydrate alike).
+      return [
+        ...prev,
+        {
+          kind: "image",
+          id: event.id,
+          image: {
+            url: event.data.url,
+            caption: event.data.caption,
+            prompt: event.data.prompt,
+          },
+        },
+      ];
+
     // state_update + branch_choices drive panels (wired in the branch/stat phase).
     default:
       return prev;
@@ -271,7 +287,8 @@ export function rehydrateFromHistory(
       continue;
     }
     if (e.type === "branch_choices") continue; // don't resurrect a past fork as active
-    // narration / internal_thought / character_action / character_dialogue fold exactly as live.
+    // narration / internal_thought / character_action / character_dialogue / scene_image
+    // all fold exactly as they do live.
     messages = mergeFrame(messages, e as unknown as TurnStreamFrame);
   }
 

@@ -1,0 +1,87 @@
+"use client";
+
+import { Button } from "@/components/ui/Button";
+import { Eyebrow } from "@/components/ui/Eyebrow";
+import { cn } from "@/lib/cn";
+
+/** What the two stages of a moment render are called, in the player's language. */
+const STAGE_LABEL: Record<"prompt" | "render", string> = {
+  prompt: "Reading the scene…",
+  render: "Painting the moment…",
+};
+
+/**
+ * **Create image** — the control at the foot of the transcript, below the last beat.
+ *
+ * Idle it is one quiet row: what it does, and **Go**. Running, it becomes the
+ * landscape frame the picture will occupy, washed by `.mytheca-wash` so the wait
+ * reads as work under way, with the current stage named in a polite live region
+ * (`prompt` → `render`). Reduced motion keeps the frame and drops the wash, per
+ * the global rule in `styles/themes.css`.
+ *
+ * Presentational: the stream itself lives on `useScenePlay.createImage`.
+ */
+export function CreateImageBar({
+  onCreate,
+  running = false,
+  stage = null,
+  error = null,
+  disabled = false,
+  className,
+}: {
+  onCreate: () => void;
+  running?: boolean;
+  stage?: "prompt" | "render" | null;
+  error?: string | null;
+  /** No session yet (nothing to depict) — the control explains itself instead. */
+  disabled?: boolean;
+  className?: string;
+}) {
+  const status = running ? STAGE_LABEL[stage ?? "prompt"] : "";
+  return (
+    <section
+      aria-label="Create an image of this moment"
+      className={cn("mx-auto w-full max-w-[560px]", className)}
+    >
+      {running ? (
+        <div
+          className="mytheca-wash flex aspect-[3/2] w-full flex-col items-center justify-center gap-[8px] rounded-[6px] border border-cardbd"
+          aria-busy="true"
+        >
+          <span aria-hidden className="text-[22px] text-mute2">
+            ❖
+          </span>
+          <Eyebrow size={9} tracking="0.16em" color="var(--accent)">
+            {status}
+          </Eyebrow>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-center gap-x-[14px] gap-y-[8px] rounded-[6px] border border-dashed border-hair-strong p-[12px_14px]">
+          <div className="text-center sm:text-left">
+            <Eyebrow size={9} tracking="0.16em" className="block">
+              ❖ Create image
+            </Eyebrow>
+            <span className="mt-[2px] block font-body text-[12.5px] text-ink-soft">
+              {disabled
+                ? "Take a turn first — there is no moment to picture yet."
+                : "Picture the scene as it stands right now."}
+            </span>
+          </div>
+          <Button variant="secondary" onClick={onCreate} disabled={disabled}>
+            Go
+          </Button>
+        </div>
+      )}
+
+      {/* One polite live region for both the stage changes and a failure. */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {status}
+      </p>
+      {error ? (
+        <p role="alert" className="mt-[8px] text-center font-mono text-[11px] tracking-[0.08em] text-danger">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
+}

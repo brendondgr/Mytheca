@@ -47,15 +47,40 @@ scenarios:
 - `POST /settings/scene-art-prompts` / `POST /settings/scene-art`
 - `POST /scenarios/scene-art-prompts` / `POST /scenarios/scene-art`
 
+## In-play scene images (WebP)
+
+[`web/backend/app/services/scene_moment.py`](../web/backend/app/services/scene_moment.py)
+is the **player-facing** counterpart to the two authoring pipelines above: the story
+player's **Create image** control paints the moment the scene is in. It is two-stage —
+[`agents/moment_agent.py`](../web/backend/app/agents/moment_agent.py) writes the prompt
+from the recent beats, the in-frame cast and the place, then `comfyui.generate(...)`
+renders it at a **landscape 1216x832** frame (pinned in the service, *not* taken from the
+Options defaults, which are tuned for portraits) with a fresh random seed. The WebP lands
+in `MEDIA_DIR/moments/` and is served at `/media/moments/<uuid>.webp`.
+
+Two things make this pipeline different from the authoring ones:
+
+- **No names in the prompt.** An image model cannot resolve "Maerin Voss" into a face, so
+  the system prompt demands every figure be described by appearance and by what they are
+  doing, and `moment_agent.strip_names` deterministically rewrites any name that survives
+  into that character's own **visual tag** — the opening phrases of the `portrait_positive`
+  that produced their avatar, so a moment and a portrait depict the same person.
+- **The result is a story event.** The rendered image is persisted as a `scene_image`
+  event on the play session (not a column), so it keeps its place in the transcript, the
+  session history, and the export. Endpoint: `POST /api/play/{scenarioId}/moment/stream`
+  (NDJSON: two `moment_stage` frames, then the event).
+
 ## Orphaned-media cleanup
 
-Generated portrait/scene-art WebPs are written to disk immediately, but
+Generated portrait/scene-art/moment WebPs are written to disk immediately, but
 cancelled drafts and deleted entities can leave files behind with no DB row
 referencing them.
 [`web/backend/app/services/media_cleanup.py`](../web/backend/app/services/media_cleanup.py)
 (`scan_orphans` / `delete_orphans`) cross-references the on-disk `*.webp` files
-under `portraits_dir`/`scenes_dir` against every `Character.portrait`,
-`Setting.image`, and `Scenario.image` value in the DB, and deletes only the
+under `portraits_dir`/`scenes_dir`/`moments_dir` against every `Character.portrait`,
+`Setting.image`, and `Scenario.image` value in the DB **plus the `url` of every persisted
+`scene_image` event** (an in-play moment is referenced by an event row, not a column), and
+deletes only the
 unreferenced files older than a grace period (`min_age_hours`, default **24**)
 so in-flight drafts (generated but not yet saved) are never touched. Backed by
 `GET /options/media/orphans` (dry-run scan) and `POST /options/media/cleanup`

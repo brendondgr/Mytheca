@@ -160,9 +160,10 @@ def scan_media_orphans(
     """Dry-run scan: report orphaned WebP files without deleting anything.
 
     A file is an orphan when its basename is not referenced by any
-    ``Character.portrait`` or ``Setting.image`` DB column.  Only files older
-    than ``min_age_hours`` are counted as *eligible* for deletion (the rest are
-    within the in-flight-draft grace period).
+    ``Character.portrait`` / ``Setting.image`` / ``Scenario.image`` DB column, nor
+    by a persisted ``scene_image`` event's ``url``.  Only files older than
+    ``min_age_hours`` are counted as *eligible* for deletion (the rest are within
+    the in-flight-draft grace period).
     """
     report = media_cleanup.scan_orphans(db, min_age_hours=min_age_hours)
     return MediaOrphansResponse(
@@ -177,6 +178,12 @@ def scan_media_orphans(
             eligible_count=report.scenes.eligible_count,
             total_bytes=report.scenes.total_bytes,
             eligible_bytes=report.scenes.eligible_bytes,
+        ),
+        moments=MediaDirOrphans(
+            orphan_count=report.moments.orphan_count,
+            eligible_count=report.moments.eligible_count,
+            total_bytes=report.moments.total_bytes,
+            eligible_bytes=report.moments.eligible_bytes,
         ),
         orphan_count=report.orphan_count,
         eligible_count=report.eligible_count,

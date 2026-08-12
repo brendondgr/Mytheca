@@ -142,6 +142,11 @@ class Settings(BaseSettings):
         return self.media_dir / "scenes"
 
     @property
+    def moments_dir(self) -> Path:
+        """Directory holding in-play scene images (WebP) captured during a scene."""
+        return self.media_dir / "moments"
+
+    @property
     def is_sqlite(self) -> bool:
         """True when pointed at SQLite (used by tests and the engine factory)."""
         return self.database_url.startswith("sqlite")

@@ -153,6 +153,10 @@ def _beat_md(beat: dict[str, Any]) -> str:
     if kind == "branch_choices":
         labels = ", ".join(str(c.get("label", "")) for c in data.get("choices", []))
         return f"_Branch offered:_ {labels}"
+    if kind == "scene_image":
+        # A captured moment — the picture itself, linked by its served media path.
+        caption = str(data.get("caption", "")).strip() or "Scene image"
+        return f"![{caption}]({data.get('url', '')})"
     return text
 
 

@@ -1,0 +1,85 @@
+{
+  "aggregate": {
+    "appearance_coverage": {
+      "mean": 1.0,
+      "n": 3,
+      "std": 0.0
+    },
+    "landscape": {
+      "mean": 1.0,
+      "n": 3,
+      "std": 0.0
+    },
+    "name_leak": {
+      "mean": 0.0,
+      "n": 3,
+      "std": 0.0
+    },
+    "phrases": {
+      "mean": 27.0,
+      "n": 3,
+      "std": 2.160247
+    },
+    "wall_clock_seconds": {
+      "mean": 38.449,
+      "n": 3,
+      "std": 3.250444
+    }
+  },
+  "per_run": [
+    {
+      "appearance_coverage": 1.0,
+      "caption": "Maerin and Captain Hale discuss the missing ledger while Wren eavesdrops in the dim Saltworn tavern.",
+      "error": "",
+      "figures_in_frame": 3,
+      "height": 832,
+      "image": "752df2ee84e24b96b8b401cfeded5062.webp",
+      "landscape": 1,
+      "leaked_forms": "",
+      "name_leak": 0,
+      "phrases": 25,
+      "prompt": "three figures in a tense tavern huddle, middle-aged human woman, salt-stained indigo coat, silver-streaked dark hair, sitting composed, broad-shouldered human man, weathered face, grey temples, dark naval coat, leaning forward, wiry young human, freckled face, patched grey cloak, leaning in from nearby table, smoke-dark dockside tavern, dim lamplight, rain on barred shutters, moody, watercolor, soft washes, painterly, delicate linework, atmospheric lighting, wide landscape composition, detailed",
+      "run": 0,
+      "wall_clock_seconds": 38.963,
+      "width": 1216
+    },
+    {
+      "appearance_coverage": 1.0,
+      "caption": "Maerin Voss and Captain Doran Hale share a tense conversation at the Saltworn while Wren Calloway eavesdrops.",
+      "error": "",
+      "figures_in_frame": 3,
+      "height": 832,
+      "image": "9ffe8ffd22464aa8803d5d962bbfcbde.webp",
+      "landscape": 1,
+      "leaked_forms": "",
+      "name_leak": 0,
+      "phrases": 30,
+      "prompt": "two figures facing each other across a dim tavern table, a third leaning in close, middle-aged human woman, silver-streaked dark hair, salt-stained indigo coat, sharp eyes, composed posture, commanding expression, broad-shouldered human man, weathered face, grey temples, dark naval coat with brass buttons, leaning forward, tense expression, wiry young human, freckled face, patched grey cloak, eavesdropping expression, smoke-dark dockside tavern, lamplit interior, barred shutters, rainy night, mood of tension, watercolor, soft washes, painterly, delicate linework, atmospheric lighting, wide landscape composition, detailed",
+      "run": 1,
+      "wall_clock_seconds": 34.236,
+      "width": 1216
+    },
+    {
+      "appearance_coverage": 1.0,
+      "caption": "In the dim, rainy Saltworn tavern, Maerin Voss and Captain Hale share a tense exchange while Wren Calloway eavesdrops.",
+      "error": "",
+      "figures_in_frame": 3,
+      "height": 832,
+      "image": "84acaa6d43e84f24a47d4b47bc932943.webp",
+      "landscape": 1,
+      "leaked_forms": "",
+      "name_leak": 0,
+      "phrases": 26,
+      "prompt": "three figures in a dim tavern, tense conversation, middle-aged human woman, silver-streaked dark hair, salt-stained indigo coat, composed posture, broad-shouldered human man, weathered face, grey temples, dark naval coat, setting down a glass, wiry young human, freckled face, patched grey cloak, leaning in, smoke-dark dockside tavern, yellow lamplight, rain on barred shutters, moody, watercolor, soft washes, painterly, delicate linework, atmospheric lighting, wide composition, wide landscape composition",
+      "run": 2,
+      "wall_clock_seconds": 42.148,
+      "width": 1216
+    }
+  ],
+  "totals": {
+    "input_tokens": 0,
+    "llm_calls": 3,
+    "output_tokens": 0,
+    "wall_clock_seconds": 115.38
+  }
+}

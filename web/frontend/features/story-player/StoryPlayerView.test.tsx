@@ -26,6 +26,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   closePlaySession: vi.fn(() => {}),
   getCharacterStats: vi.fn(async () => ({}) as Record<string, number>),
   getLlmContextWindow: vi.fn(async () => ({ maxContextTokens: 16384, source: "configured" as const })),
+  postSceneMoment: vi.fn(),
 }));
 
 // The graph view is exercised in its own test; here we only verify the switch
@@ -217,5 +218,23 @@ describe("StoryPlayerView", () => {
     expect(screen.getByText(/Lamplight gutters across the Saltworn/i)).toBeInTheDocument();
     expect(screen.queryByTestId("graph-view-stub")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /inspector/i })).toBeInTheDocument();
+  });
+});
+
+describe("StoryPlayerView create image", () => {
+  it("puts the Create image control at the foot of the transcript, after the last beat", () => {
+    render(<StoryPlayerView scenario={embergate} />);
+    const bar = screen.getByRole("region", { name: /create an image of this moment/i });
+    expect(bar).toBeInTheDocument();
+
+    // It sits after every transcript beat in document order (the very bottom of the chat).
+    const lastBeat = screen.getByText(/Choose your next words carefully/i);
+    expect(lastBeat.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("explains itself instead of firing when there is no session yet", () => {
+    render(<StoryPlayerView scenario={embergate} />);
+    expect(screen.getByText(/take a turn first/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^go$/i })).toBeDisabled();
   });
 });

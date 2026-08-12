@@ -124,6 +124,28 @@ describe("mergeFrame", () => {
     expect(msgs[1].thought).toBe("Hers.");
   });
 
+  it("appends a scene_image as its own beat, in stream order", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: '"Sit."', done: true }));
+    msgs = mergeFrame(
+      msgs,
+      ev("scene_image", "img1", {
+        url: "/media/moments/abc.webp",
+        prompt: "two figures at a lamplit table, wide landscape composition",
+        negative: "text",
+        caption: "Two figures at a lamplit table.",
+        characterIds: ["mei"],
+      }),
+    );
+    expect(msgs).toHaveLength(2);
+    expect(msgs[1].kind).toBe("image");
+    expect(msgs[1].image).toEqual({
+      url: "/media/moments/abc.webp",
+      caption: "Two figures at a lamplit table.",
+      prompt: "two figures at a lamplit table, wide landscape composition",
+    });
+  });
+
   it("ignores error frames and unknown event types", () => {
     expect(mergeFrame([], { type: "error", message: "x" })).toEqual([]);
     expect(mergeFrame([], ev("state_update", "s1", { patch: {}, stat: null }))).toEqual([]);
@@ -297,6 +319,23 @@ describe("rehydrateFromHistory", () => {
     expect(scene.traceTurns).toHaveLength(1);
     expect(scene.traceTurns[0].label).toBe("I slide the coin toward Mei.");
     expect(scene.traceTurns[0].steps.map((s) => s.step)).toEqual(["turn", "lore", "commit"]);
+  });
+
+  it("replays a persisted scene_image back into its place in the transcript", () => {
+    const events: PersistedEvent[] = [
+      pe("user_turn", 0, { text: "hi", directedAt: null }),
+      pe("character_dialogue", 1, { characterId: "mei", text: '"Sit."', done: true }),
+      pe("scene_image", 2, {
+        url: "/media/moments/abc.webp",
+        prompt: "two figures at a lamplit table",
+        negative: "text",
+        caption: "Two figures at a lamplit table.",
+        characterIds: ["mei"],
+      }),
+    ];
+    const scene = rehydrateFromHistory(events, []);
+    expect(scene.messages.map((m) => m.kind)).toEqual(["player", "char", "image"]);
+    expect(scene.messages[2].image?.url).toBe("/media/moments/abc.webp");
   });
 
   it("layers persisted deltas on top of a supplied initial statsByChar baseline", () => {
