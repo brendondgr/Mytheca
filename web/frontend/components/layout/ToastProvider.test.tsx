@@ -4,7 +4,6 @@ import {
   screen,
   act,
   waitFor,
-  waitForElementToBeRemoved,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ToastProvider, useToast, type NotifyInput } from "./ToastProvider";
@@ -21,6 +20,22 @@ import { ToastProvider, useToast, type NotifyInput } from "./ToastProvider";
  * assertion is correct; only the budget is generous.
  */
 const REMOVAL = { timeout: 5000 };
+
+/**
+ * Assert a toast is gone, tolerating both orderings.
+ *
+ * `waitForElementToBeRemoved` THROWS if the element is already absent when the
+ * wait begins — so it is only correct when removal is guaranteed to still be
+ * pending. Here it is a race: the exit takes ~140ms, but whether it has already
+ * finished by the time the assertion runs depends on machine load, which made
+ * the suite intermittently red. `waitFor` is right in both directions.
+ */
+async function expectGone(role: "alert" | "status") {
+  await waitFor(
+    () => expect(screen.queryByRole(role)).not.toBeInTheDocument(),
+    REMOVAL,
+  );
+}
 
 /** A tiny consumer that raises a toast on demand. */
 function Harness({ input }: { input: NotifyInput }) {
@@ -50,7 +65,7 @@ describe("ToastProvider / Toast", () => {
     expect(alert).toHaveTextContent("Draft failed");
 
     await user.click(screen.getByRole("button", { name: "Dismiss notification" }));
-    await waitForElementToBeRemoved(() => screen.queryByRole("alert"), REMOVAL);
+    await expectGone("alert");
   });
 
   it("renders an info toast as role=status", async () => {
@@ -84,7 +99,7 @@ describe("ToastProvider / Toast", () => {
     await user.click(screen.getByRole("button", { name: "raise" }));
     await user.click(screen.getByRole("button", { name: "Undo" }));
     expect(onClick).toHaveBeenCalledTimes(1);
-    await waitForElementToBeRemoved(() => screen.queryByRole("status"), REMOVAL);
+    await expectGone("status");
   });
 
   it("auto-dismisses after the duration elapses", async () => {
@@ -96,7 +111,7 @@ describe("ToastProvider / Toast", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "raise" }));
     expect(screen.getByRole("status")).toBeInTheDocument();
-    await waitForElementToBeRemoved(() => screen.queryByRole("status"), REMOVAL);
+    await expectGone("status");
   });
 
   it("holds the auto-dismiss timer while the pointer is over the toast", async () => {
