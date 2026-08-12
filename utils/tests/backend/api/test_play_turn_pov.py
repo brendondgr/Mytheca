@@ -172,7 +172,7 @@ def test_stray_speak_pov_is_coerced_to_end(client, storyline_id, monkeypatch):
 
     calls = {"n": 0}
 
-    def fake_next_beat(db, ctx, intent, turn_beats, acted, *, scene_opening=False, locked_id=None):
+    def fake_next_beat(db, ctx, intent, turn_beats, acted, **_kwargs):
         calls["n"] += 1
         if calls["n"] == 1:
             return BeatDecision("speak", actor_id=mei)  # a stray reply naming the POV char

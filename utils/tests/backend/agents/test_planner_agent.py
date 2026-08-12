@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from app.agents import planner_agent
+from app.agents.direction_agent import DirectionRequirement, SceneDirection
 from app.agents.intent_agent import TurnIntent
 from app.models import Scenario
 from app.services import assembler, llm, llm_backend
@@ -232,3 +233,97 @@ def test_fallback_skips_non_present(db_session):
     ctx = _ctx(_present("mei", "kira", absent={"mei": "unconscious"}))
     d = planner_agent.next_beat(db_session, ctx, TurnIntent(scope="all"), [], [])
     assert d.action == "speak" and d.actor_id == "kira"
+
+
+# ---- The scene direction (Narrator-Guided Scenes) --------------------------
+
+
+def _direction(*specs):
+    return SceneDirection(
+        text="something happens",
+        requirements=[
+            DirectionRequirement(id=f"req{i + 1}", text=t, actor_id=a)
+            for i, (t, a) in enumerate(specs)
+        ],
+    )
+
+
+def test_outstanding_direction_reaches_the_prompt_with_the_budget(client, db_session, monkeypatch):
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        seen["user"] = json.loads(request.content.decode())["messages"][1]["content"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"action": "end"})}}]})
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    _configure_llm(client)
+    direction = _direction(("Kira laughs", "kira"), ("the door slams", None))
+    planner_agent.next_beat(
+        db_session, _ctx(_cast("mei", "kira")), TurnIntent(), [], [],
+        direction=direction, remaining_beats=3,
+    )
+    assert "Still to deliver" in seen["user"]
+    assert "[2]: Kira laughs" in seen["user"] and "narrator: the door slams" in seen["user"]
+    assert "3 beat(s) left in this turn" in seen["user"]
+
+
+def test_a_delivered_direction_says_so(client, db_session, monkeypatch):
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        seen["user"] = json.loads(request.content.decode())["messages"][1]["content"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"action": "end"})}}]})
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    _configure_llm(client)
+    direction = _direction(("Kira laughs", "kira"))
+    direction.satisfy(direction.requirements)
+    planner_agent.next_beat(
+        db_session, _ctx(_cast("mei", "kira")), TurnIntent(), [], [], direction=direction
+    )
+    assert "fully delivered" in seen["user"] and "Still to deliver" not in seen["user"]
+
+
+def test_no_direction_leaves_the_prompt_untouched(client, db_session, monkeypatch):
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith("/chat/completions"):
+            return httpx.Response(404)
+        seen["user"] = json.loads(request.content.decode())["messages"][1]["content"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"action": "end"})}}]})
+
+    monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    _configure_llm(client)
+    planner_agent.next_beat(db_session, _ctx(_cast("mei", "kira")), TurnIntent(), [], [])
+    assert "Still to deliver" not in seen["user"] and "delivered" not in seen["user"]
+
+
+def test_offline_fallback_still_honors_the_direction(db_session):
+    # No LLM configured → the fallback path. What the player is owed outranks the heuristics.
+    d = planner_agent.next_beat(
+        db_session, _ctx(_cast("mei", "kira")), TurnIntent(), [], [],
+        direction=_direction(("Kira laughs", "kira")),
+    )
+    assert d.action == "speak" and d.actor_id == "kira"
+
+
+def test_offline_fallback_narrates_a_narrator_owned_requirement(db_session):
+    d = planner_agent.next_beat(
+        db_session, _ctx(_cast("mei", "kira")), TurnIntent(), [], [],
+        direction=_direction(("the door slams", None)),
+    )
+    assert d.action == "narrate"
+
+
+def test_offline_fallback_skips_a_requirement_whose_owner_left(db_session):
+    ctx = _ctx(_present("mei", "kira", absent={"kira": "left"}))
+    d = planner_agent.next_beat(
+        db_session, ctx, TurnIntent(), [], [],
+        direction=_direction(("Kira laughs", "kira"), ("Mei flinches", "mei")),
+    )
+    assert d.action == "speak" and d.actor_id == "mei"

@@ -149,6 +149,8 @@ Rules:
 - "end": the player's direction is satisfied and the exchange is at a natural stopping point.
 - SCENE OPENING: if nothing has happened yet this turn AND the player did not direct or address a specific character (and did not address the whole group), OPEN WITH "narrate" to set the scene in motion — do NOT have a character speak first. A character speaks unprompted at a cold open is wrong.
 - HONOR THE PLAYER'S DIRECTION. If they told the WHOLE GROUP to do something ("everyone introduces themselves"), keep choosing the next character who has NOT yet taken a beat until every one of them has, THEN end — never stop early.
+- WHEN A "Still to deliver" LIST IS GIVEN, it is a contract: every line on it has to happen before this turn ends, and you have only the stated number of beats left. Work down it in order — choose the named character when a line names one, "narrate" when it says narrator — and pace it so nothing is left over. Do NOT "end" while anything is still owed, do NOT spend a beat on something the list did not ask for while lines remain, and do NOT try to deliver two different characters' lines in one beat.
+- The list says WHAT must be true, never HOW. Never treat a line as dialogue to be recited — the character it names will reach that outcome in their own voice.
 - Do not repeat a character who already had their beat unless there is a real reason.
 - The roster lists ONLY the characters still present and able to act — a character who has died/left is already gone and will not appear. Use ONLY the roster numbers given. "needsBranch" is true only when you end at a genuine fork for the player.
 - No prose, no commentary — just the JSON object."""

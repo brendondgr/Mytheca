@@ -67,6 +67,8 @@ def generate_line(
     correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
+    scene_direction: str = "",
+    requirements: list[str] | None = None,
 ) -> str:
     """Generate one character's raw emission for this beat (thin-tag format).
 
@@ -75,6 +77,7 @@ def generate_line(
     raw, _ = generate_line_with_usage(
         db, ctx, speaker, turn_beats=turn_beats, reasoning=reasoning,
         correction=correction, directive=directive, relationship_note=relationship_note,
+        scene_direction=scene_direction, requirements=requirements,
     )
     return raw
 
@@ -89,6 +92,8 @@ def generate_line_with_usage(
     correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
+    scene_direction: str = "",
+    requirements: list[str] | None = None,
 ) -> tuple[str, int | None]:
     """Generate one character's raw emission + the call's exact ``prompt_tokens``.
 
@@ -106,6 +111,12 @@ def generate_line_with_usage(
     is a **puppet** performance (Reactive Turn Director D1): the player directed this
     character to do/say something, so the character performs it **in their own voice**
     rather than reacting to the player's words as if spoken to them.
+
+    ``scene_direction`` is where the player is steering the whole scene — context, so even
+    an unassigned speaker plays toward it — and ``requirements`` are the outcomes THIS beat
+    owes (Narrator-Guided Scenes). Both are guides, not scripts: they say what has to be
+    true when the beat ends, and the character reaches it in their own words while every
+    in-character constraint above still applies.
     """
     base_url, api_key, model, params = resolve_llm(db)
     contract = ctx.prompts.get(prompt_registry.CHARACTER_OUTPUT_CONTRACT, _OUTPUT_CONTRACT)
@@ -115,7 +126,8 @@ def generate_line_with_usage(
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(
         ctx, speaker, turn_beats, correction=correction, directive=directive,
-        relationship_note=relationship_note,
+        relationship_note=relationship_note, scene_direction=scene_direction,
+        requirements=requirements,
     )
     return llm.chat_complete_usage(
         base_url,
@@ -142,6 +154,8 @@ def _build_user_prompt(
     correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
+    scene_direction: str = "",
+    requirements: list[str] | None = None,
 ) -> str:
     """Bookended volatile suffix: identity/state (front) · scene+transcript (middle) · act-now (tail)."""
     number = _speaker_number(ctx, speaker)
@@ -193,6 +207,11 @@ def _build_user_prompt(
         # How this character actually relates to whom they're addressing (from the graph,
         # incl. 2-hop shared ties) so the reply is relationship-appropriate (D4).
         middle.append(f"Your ties in this scene: {relationship_note}")
+    if scene_direction.strip():
+        # Where the player is steering the scene. Every speaker sees it — including one with
+        # no requirement of their own — so the whole cast plays toward the same destination
+        # instead of only the character who happens to be carrying a beat of it.
+        middle.append(f"Where this scene is going (the player's direction): {scene_direction.strip()}")
     transcript = _transcript(ctx, turn_beats)
     if transcript:
         middle.append(f"Recent beats:\n{transcript}")
@@ -235,6 +254,19 @@ def _build_user_prompt(
         tail.append(
             f"Respond now, in {speaker.name}'s voice, to what was just said. "
             "Emit only the tagged format."
+        )
+    owed = [r.strip() for r in (requirements or []) if r and r.strip()]
+    if owed:
+        # LAST, where attention is strongest: what this beat has to accomplish. Stated as an
+        # outcome rather than a script — the player said WHAT happens, the character still
+        # owns HOW. Everything above (voice, state, the manner-adaptation rule) still binds.
+        must = "; ".join(owed)
+        tail.append(
+            f"THIS BEAT MUST MAKE THIS TRUE: {must}. It is the player's direction and it "
+            f"happens now — not later, not maybe. How you get there is yours: reach it as "
+            f"{speaker.name} genuinely would, in your own words, manner, and reasoning. Never "
+            "quote or paraphrase the direction itself, never narrate it as an outside voice, "
+            "and never break character to acknowledge it."
         )
 
     return "\n".join(["\n".join(head), "", "\n".join(middle), "", "\n".join(tail)])

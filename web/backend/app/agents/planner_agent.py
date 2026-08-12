@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.agents import prompt_registry
 from app.agents._common import extract_json, resolve_llm
+from app.agents.direction_agent import SceneDirection
 from app.agents.intent_agent import TurnIntent
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
@@ -64,6 +65,8 @@ def next_beat(
     *,
     scene_opening: bool = False,
     locked_id: str | None = None,
+    direction: SceneDirection | None = None,
+    remaining_beats: int | None = None,
 ) -> BeatDecision:
     """Decide the next beat (best-effort; never raises).
 
@@ -73,6 +76,13 @@ def next_beat(
     ``locked_id`` is the Player POV character id (when set): it is dropped from the
     selectable roster so the AI never voices the character the player is speaking as —
     the loop then ends on its own once the remaining cast is done reacting.
+
+    ``direction`` is the player's scene direction (Narrator-Guided Scenes) and
+    ``remaining_beats`` how many beats of the scene's cap are left. The outstanding
+    requirements are shown as work the turn still owes, so the planner paces them across
+    the beats it has. It may still choose freely — the engine takes the schedule out of its
+    hands (``direction_agent.schedule``) only once the budget is as tight as the direction
+    is long, so a satisfied direction is never left to chance.
     """
     if not ctx.cast:
         return BeatDecision("end", reason="no cast")
@@ -85,7 +95,10 @@ def next_beat(
     try:
         base_url, api_key, model, params = resolve_llm(db)
     except APIError:
-        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id)
+        return _fallback_beat(
+            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
+            direction=direction,
+        )
 
     roster_ids = {i + 1: m.id for i, m in enumerate(present)}
     roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(present))
@@ -99,6 +112,7 @@ def next_beat(
     user = (
         f"Roster:\n{roster}\n\n"
         f"Player's direction: {intent.directive or '(freeform)'}.{scope_note}{opening_note}\n"
+        f"{_owed(direction, roster_ids, remaining_beats)}"
         f"Characters who have ALREADY taken a beat this turn (roster numbers): "
         f"{', '.join(acted_nums) or 'none'}\n\n"
         f"This turn so far:\n{_recent(ctx, turn_beats)}\n\n"
@@ -118,11 +132,17 @@ def next_beat(
         )
         data = extract_json(raw)
     except APIError:
-        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id)
+        return _fallback_beat(
+            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
+            direction=direction,
+        )
 
     action = str(data.get("action", "")).lower()
     if action not in _ACTIONS:
-        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id)
+        return _fallback_beat(
+            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
+            direction=direction,
+        )
     if action == "end":
         return BeatDecision("end", reason=str(data.get("reason", "")), needs_branch=bool(data.get("needsBranch", False)))
     if action == "narrate":
@@ -132,11 +152,17 @@ def next_beat(
         status = str(data.get("status", "")).strip().lower()
         if actor_id is None or status not in _EXIT_STATUSES:
             # Malformed exit (no valid target/status) → don't guess a removal; fall back.
-            return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id)
+            return _fallback_beat(
+            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
+            direction=direction,
+        )
         return BeatDecision("exit", actor_id=actor_id, status=status, reason=str(data.get("reason", "")))
     actor_id = roster_ids.get(_as_int(data.get("actor")) or -1)
     if actor_id is None:
-        return _fallback_beat(ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id)
+        return _fallback_beat(
+            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
+            direction=direction,
+        )
     return BeatDecision(
         "speak",
         actor_id=actor_id,
@@ -152,6 +178,7 @@ def _fallback_beat(
     *,
     scene_opening: bool = False,
     locked_id: str | None = None,
+    direction: SceneDirection | None = None,
 ) -> BeatDecision:
     """Model-free next beat: honor an explicit group/addressed target, else end.
 
@@ -159,11 +186,21 @@ def _fallback_beat(
     addressed character reacts once, freeform input mid-scene gets one responder. On a
     cold ``scene_opening`` with no direction, though, nobody is forced to speak — the
     narrator opens the scene (handled by the engine) and the turn ends. ``locked_id``
-    (the Player POV character) is never selectable, mirroring :func:`next_beat`."""
+    (the Player POV character) is never selectable, mirroring :func:`next_beat`.
+
+    An outstanding ``direction`` outranks all of that: what the player asked for is owed
+    whether or not the planner call succeeded, so the next unsatisfied requirement picks
+    the beat (its owner speaks; a narrator-owned one narrates)."""
     acted_set = set(acted)
     present = [m for m in ctx.cast if m.is_present and m.id != locked_id]  # only selectable
     if not present:
         return BeatDecision("end", reason="no one present")
+    for req in direction.outstanding() if direction else []:
+        if req.actor_id is None:
+            return BeatDecision("narrate", reason="the direction still owes this")
+        member = ctx.cast_by_id(req.actor_id)
+        if req.actor_id != locked_id and member is not None and member.is_present:
+            return BeatDecision("speak", actor_id=req.actor_id, reason="the direction names them")
     if intent.scope == "all":
         for m in present:
             if m.id not in acted_set:
@@ -176,6 +213,41 @@ def _fallback_beat(
     if not acted and not scene_opening:  # freeform mid-scene — one character responds
         return BeatDecision("speak", actor_id=present[0].id, reason="responds")
     return BeatDecision("end", reason="direction satisfied")
+
+
+def _owed(
+    direction: SceneDirection | None,
+    roster_ids: dict[int, str],
+    remaining_beats: int | None,
+) -> str:
+    """Render what the player's direction still owes, plus the beats left to deliver it.
+
+    Empty string when there is no direction — the prompt is then byte-identical to the
+    pre-direction one, so an ordinary conversational turn is unchanged.
+    """
+    if direction is None or not direction.active:
+        return ""
+    outstanding = direction.outstanding()
+    if not outstanding:
+        return "The player's direction has been fully delivered this turn.\n"
+    by_id = {cid: n for n, cid in roster_ids.items()}
+    lines = []
+    for req in outstanding:
+        number = by_id.get(req.actor_id or "")
+        who = f"[{number}]" if number else "narrator"
+        lines.append(f"  - {who}: {req.text}")
+    budget = (
+        f"You have {remaining_beats} beat(s) left in this turn — everything above must "
+        "happen within them.\n"
+        if remaining_beats is not None
+        else ""
+    )
+    return (
+        "The player DIRECTED this scene. Still to deliver, in this order:\n"
+        + "\n".join(lines)
+        + "\n"
+        + budget
+    )
 
 
 def _as_int(value: object) -> int | None:
