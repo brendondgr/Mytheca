@@ -1,8 +1,10 @@
 """Context-document routes — the persisted triaged RAG corpus.
 
-Storyline-scoped list / create / bulk-create, then flat item update / delete.
-The corpus is written by the New Storyline page (Triage → commit); retrieval over
-it is a later plan, so nothing reads ``content`` at runtime yet.
+Storyline-scoped list / index / create / bulk-create, then flat item update / delete.
+The corpus is written by the New Storyline page (Triage → commit) and read at runtime
+two ways: hybrid retrieval (``app/rag/``) and the story player's ``@`` tagging, which
+loads a named document's ``content`` straight into the turn's prompt. ``…/index`` is the
+name-only listing that backs the ``@`` menu.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from app.core.db import get_db
 from app.schemas.context_document import (
     ContextDocumentBulkCreate,
     ContextDocumentCreate,
+    ContextDocumentIndexEntry,
     ContextDocumentLinkCreate,
     ContextDocumentRead,
     ContextDocumentUpdate,
@@ -46,6 +49,20 @@ def list_context_documents(
         linked_entity_type=linked_entity_type,
         linked_entity_id=linked_entity_id,
     )
+
+
+@router.get(
+    "/storylines/{storyline_id}/context-docs/index",
+    response_model=list[ContextDocumentIndexEntry],
+)
+def index_context_documents(storyline_id: str, db: Session = Depends(get_db)):
+    """List a world's context docs **without their text** — the story player's ``@`` menu.
+
+    Same rows and same ``(position, name)`` ordering as the full list endpoint, minus
+    ``content``, so opening the menu on a world with many large files costs one small
+    response instead of the whole corpus.
+    """
+    return crud.list_context_documents(db, storyline_id)
 
 
 @router.post(

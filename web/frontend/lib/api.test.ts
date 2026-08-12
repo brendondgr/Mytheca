@@ -8,6 +8,7 @@ import {
   generateScenarioSceneArt,
   generateScenarioSceneArtPrompts,
   getScenarioGraph,
+  listContextDocumentIndex,
   listStorylines,
   postNdjson,
   proposeVoiceSamples,
@@ -86,6 +87,21 @@ describe("api client", () => {
     const [url, init] = spy.mock.calls[0];
     expect(url).toContain("/storylines/triage");
     expect(JSON.parse(init?.body as string).docs[0].name).toBe("a.md");
+  });
+
+  it("lists the name-only context-document index for the @ menu", async () => {
+    const spy = mockFetch(
+      () =>
+        new Response(
+          JSON.stringify([{ id: "cd1", name: "maerin.md", category: "character", charCount: 812 }]),
+          { status: 200 },
+        ),
+    );
+    const entries = await listContextDocumentIndex("embergate");
+    expect(entries).toEqual([
+      { id: "cd1", name: "maerin.md", category: "character", charCount: 812 },
+    ]);
+    expect(spy.mock.calls[0][0]).toContain("/storylines/embergate/context-docs/index");
   });
 
   it("bulk-creates the triaged context corpus", async () => {
