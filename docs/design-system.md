@@ -218,11 +218,33 @@ brightening to near-clear on the right so the artwork reads. The card's text (ti
 or type eyebrow, goal/description) is **light** (theme-independent over the dark scrim) and
 **width-capped (~58–60%)** so it stays in the dark zone while the art shows on the right; the
 Scenario card adds a cast + `◆ setting` footer and a top-right Recent/edit cluster. Cards **without**
-art keep the prior solid, theme-aware treatment (Setting's striped "setting plate"). **AA note:**
-over typical mid-tone watercolor art the capped left-side text clears AA (measured ~14–17:1 over
-the scrim base; the active `◆ In this scene` marker ~9:1); near-white art directly behind the text
-band is the known edge — accepted as a deliberate, requested look, mitigated by the strong scrim +
-width cap (mirrors the hero scrim).
+art keep the prior solid, theme-aware treatment (Setting's striped "setting plate").
+
+**AA over artwork — now guaranteed, not assumed.** `CARD_SCRIM` is three stacked layers: the
+left-dark directional gradient, a bottom reinforcement, and a **flat 10% wash across the whole
+card**. The wash is what closed the "near-white art directly behind the text band" edge that this
+section used to record as an accepted limitation — it does show up in practice, with bright art
+washing out the far end of a title or goal line. A gradient alone cannot fix it without dragging
+its dark end so far right that the art stops reading; a flat floor costs the art far less.
+Measured against **pure white**, the worst artwork possible:
+
+| Position across the card | Body text, before | Body text, now | Title, now |
+| --- | --- | --- | --- |
+| 0% | 15.9:1 | 14.9:1 | 16.1:1 |
+| 60% (text cap) | **3.5:1 — failed AA** | **8.4:1** | 9.2:1 |
+| 78% (title extent) | **2.0:1** | 3.4:1 | **3.7:1** |
+
+Far-right art darkening rose only **28% → 31%**. `OVER_ART.body` also became **opaque**
+(`#EFE3CC`); as `rgba(…,0.86)` it composited with the backdrop, so over bright art it lost
+contrast from both sides at once — the ink lightening as the ground lightened.
+
+Those numbers are **computed by `lib/cardArt.test.ts`**, not measured by hand: it parses the
+scrim strings, composites them over white, and asserts 4.5:1 for capped text, 3:1 for the large
+title, **and a ceiling on how much the artwork may be dimmed** — so a future contrast fix cannot
+be bought by quietly darkening everything (a first attempt at this one used a 16% wash, hit 50%
+darkening, and was caught by exactly that assertion). `PORTRAIT_SCRIM` deliberately gets no wash:
+its text is a narrow bottom band already at 0.72–0.92 alpha, and a wash over a portrait would dim
+the face for nothing.
 
 ## Motion Tokens (the timing system)
 
