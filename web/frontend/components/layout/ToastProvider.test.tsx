@@ -14,7 +14,13 @@ import { ToastProvider, useToast, type NotifyInput } from "./ToastProvider";
  * DOM for the length of its exit. Every removal assertion therefore waits
  * rather than checking synchronously — asserting immediately would be asserting
  * that the exit animation does not exist.
+ *
+ * The exit itself is ~140ms, but Framer drives it on `requestAnimationFrame`,
+ * which stalls under CPU contention — at full Vitest worker concurrency the
+ * 1000ms default is not enough headroom and the suite goes load-flaky. The
+ * assertion is correct; only the budget is generous.
  */
+const REMOVAL = { timeout: 5000 };
 
 /** A tiny consumer that raises a toast on demand. */
 function Harness({ input }: { input: NotifyInput }) {
@@ -44,7 +50,7 @@ describe("ToastProvider / Toast", () => {
     expect(alert).toHaveTextContent("Draft failed");
 
     await user.click(screen.getByRole("button", { name: "Dismiss notification" }));
-    await waitForElementToBeRemoved(() => screen.queryByRole("alert"));
+    await waitForElementToBeRemoved(() => screen.queryByRole("alert"), REMOVAL);
   });
 
   it("renders an info toast as role=status", async () => {
@@ -78,7 +84,7 @@ describe("ToastProvider / Toast", () => {
     await user.click(screen.getByRole("button", { name: "raise" }));
     await user.click(screen.getByRole("button", { name: "Undo" }));
     expect(onClick).toHaveBeenCalledTimes(1);
-    await waitForElementToBeRemoved(() => screen.queryByRole("status"));
+    await waitForElementToBeRemoved(() => screen.queryByRole("status"), REMOVAL);
   });
 
   it("auto-dismisses after the duration elapses", async () => {
@@ -90,7 +96,7 @@ describe("ToastProvider / Toast", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "raise" }));
     expect(screen.getByRole("status")).toBeInTheDocument();
-    await waitForElementToBeRemoved(() => screen.queryByRole("status"));
+    await waitForElementToBeRemoved(() => screen.queryByRole("status"), REMOVAL);
   });
 
   it("holds the auto-dismiss timer while the pointer is over the toast", async () => {
