@@ -87,6 +87,23 @@ export interface CharacterStatusChangeEvent extends PlayEnvelope {
   data: { characterId: string; status: PresenceStatus; reason: string; auto: boolean };
 }
 
+/**
+ * A rendered picture of the moment (the player's **Create image** action). Persisted like
+ * any other beat, so it takes its place in the transcript live *and* on reload. `url` is a
+ * relative `/media/moments/…` path (resolve with `mediaUrl`); `caption` is the image's alt
+ * text and its enlarged-view label; `prompt`/`negative` are what ComfyUI was given.
+ */
+export interface SceneImageEvent extends PlayEnvelope {
+  type: "scene_image";
+  data: {
+    url: string;
+    prompt: string;
+    negative: string;
+    caption: string;
+    characterIds: string[];
+  };
+}
+
 /** Any story event on the turn stream. */
 export type PlayEvent =
   | NarrationEvent
@@ -95,7 +112,8 @@ export type PlayEvent =
   | StateUpdateEvent
   | BranchChoicesEvent
   | InternalThoughtEvent
-  | CharacterStatusChangeEvent;
+  | CharacterStatusChangeEvent
+  | SceneImageEvent;
 
 /** Terminal in-band error frame (mid-stream failure). */
 export interface TurnErrorFrame {

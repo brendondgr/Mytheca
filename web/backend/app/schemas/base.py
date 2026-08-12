@@ -46,6 +46,7 @@ EventType = Literal[
     "state_update",
     "branch_choices",
     "character_status_change",
+    "scene_image",
 ]
 
 

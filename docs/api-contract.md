@@ -815,6 +815,7 @@ Each maps to one frontend component.
 | `state_update` | Updates side panels (no chat message) | `patch` — partial scenario state; **stat changes ride here** |
 | `branch_choices` | Branch-choices panel | `choices[]` (`label`, `outcome`) |
 | `character_status_change` | Updates the cast rail (no chat message); an `auto` change also raises an **Undo** toast | `characterId`, `status` (`present`\|`unconscious`\|`departed`\|`left`\|`dead`), `reason`, `auto` |
+| `scene_image` | Centered, clickable landscape picture of the moment in the transcript (enlarges in a lightbox) | `url` (relative `/media/moments/…`), `prompt`, `negative`, `caption` (alt text), `characterIds` |
 
 **No dice (D11):** `branch_choices` options carry `label` + `outcome` (a narrative-direction
 tag) only — there is no `check` field. A branch is a narrative fork resolved by the player's
@@ -839,6 +840,13 @@ speaker's action/dialogue, which merge into that beat). It is **kept out of othe
 context** — never appended to the shared transcript later speakers condition on. (The type's
 default visibility is `hidden`; the engine overrides it to `private_to_user` so the player
 sees the thought while the other characters do not.)
+
+**Scene images (`scene_image`)** are the only story event the *player* triggers directly, and
+the only one not produced by the turn loop: they come from `POST /play/{scenarioId}/moment/stream`
+(see below). The event is persisted like any other beat, so a picture keeps its position in the
+transcript, in the session history, and in the export. `prompt`/`negative` are retained on the
+event so the picture is reproducible and reviewable; the prompt itself never names a character —
+it describes each figure's appearance and what they are doing (see `agents/moment_agent.py`).
 
 **Model output is sanitized centrally:** a reasoning model's chain-of-thought and
 harmony-style channel tokens (`<|channel|>…`, `<think>…</think>`) are stripped in
