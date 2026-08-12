@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { DUR_FAST, ENTER_TRANSITION } from "@/lib/motion";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { cn } from "@/lib/cn";
 
 export type ToastVariant = "info" | "success" | "error";
@@ -69,7 +70,19 @@ export function Toast({
   /** Release the hold and run out the remaining time. */
   onResume?: (id: string) => void;
 }) {
-  if (typeof document === "undefined") return null;
+  // The container is portalled unconditionally — even with no toasts — so that
+  // `AnimatePresence` survives the dismissal of the LAST one and can animate it
+  // out. (Returning null on an empty list unmounts the exiting toast instantly,
+  // which is what this component used to do.)
+  //
+  // That makes the hydration gate necessary: a portal renders nothing on the
+  // server but inserts its container into `document.body` on the client, so
+  // rendering it on the first client pass leaves React reconciling a <body>
+  // child that is absent from the server HTML — a hydration mismatch that
+  // regenerates the tree. Waiting one render costs nothing here, since there
+  // are never toasts at hydration time anyway.
+  const hydrated = useHydrated();
+  if (!hydrated) return null;
 
   return createPortal(
     <div className="pointer-events-none fixed right-4 top-4 z-[100] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2">
