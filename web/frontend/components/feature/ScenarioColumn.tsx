@@ -1,5 +1,6 @@
 import { ScenarioCard } from "@/components/feature/ScenarioCard";
 import { ColumnEmpty, ColumnHeader } from "@/components/feature/ColumnChrome";
+import { ScenarioColumnSkeleton } from "@/components/feature/LibrarySkeletons";
 import type { ResolvedScenario } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
@@ -16,6 +17,8 @@ export function ScenarioColumn({
   onEdit,
   onProfile,
   onAdd,
+  onClearQuery,
+  loading = false,
   padX,
 }: {
   scenarios: ResolvedScenario[];
@@ -25,6 +28,9 @@ export function ScenarioColumn({
   onEdit: (id: string) => void;
   onProfile: (id: string) => void;
   onAdd?: () => void;
+  onClearQuery?: () => void;
+  /** The world's scenarios are still being fetched — show the row placeholders. */
+  loading?: boolean;
   padX?: string;
 }) {
   return (
@@ -37,9 +43,18 @@ export function ScenarioColumn({
         addLabel="Add scenario"
         className={padX}
       />
-      <div className={cn(padX)}>
-        {scenarios.length === 0 ? (
-          <ColumnEmpty query={query} noun="scenarios" />
+      <div className={cn(padX)} aria-busy={loading || undefined}>
+        {loading ? (
+          <ScenarioColumnSkeleton />
+        ) : scenarios.length === 0 ? (
+          <ColumnEmpty
+            query={query}
+            noun="scenarios"
+            invitation="A scenario is a scene to play — a setting, a cast, and something at stake."
+            onAdd={onAdd}
+            addLabel="New Scenario"
+            onClearQuery={onClearQuery}
+          />
         ) : (
           <div className="flex flex-col gap-[14px]">
             {scenarios.map((s) => (

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { SettingCard } from "@/components/feature/SettingCard";
 import { ColumnEmpty, ColumnHeader } from "@/components/feature/ColumnChrome";
+import { SettingColumnSkeleton } from "@/components/feature/LibrarySkeletons";
 import type { Setting } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
@@ -18,6 +19,8 @@ export function SettingColumn({
   query,
   onEdit,
   onAdd,
+  onClearQuery,
+  loading = false,
   padX,
 }: {
   settings: Setting[];
@@ -25,6 +28,9 @@ export function SettingColumn({
   query: string;
   onEdit: (id: string) => void;
   onAdd?: () => void;
+  onClearQuery?: () => void;
+  /** The world's settings are still being fetched — show the row placeholders. */
+  loading?: boolean;
   padX?: string;
 }) {
   const activeRef = useRef<HTMLDivElement>(null);
@@ -43,9 +49,18 @@ export function SettingColumn({
   return (
     <div>
       <ColumnHeader title="Settings" count={settings.length} hint="The places of this world." onAdd={onAdd} addLabel="Add setting" className={padX} />
-      <div className={cn(padX)}>
-        {settings.length === 0 ? (
-          <ColumnEmpty query={query} noun="settings" />
+      <div className={cn(padX)} aria-busy={loading || undefined}>
+        {loading ? (
+          <SettingColumnSkeleton />
+        ) : settings.length === 0 ? (
+          <ColumnEmpty
+            query={query}
+            noun="settings"
+            invitation="A setting is a place your scenes happen in — its atmosphere shapes how the narrator describes it."
+            onAdd={onAdd}
+            addLabel="Add Setting"
+            onClearQuery={onClearQuery}
+          />
         ) : (
           <div className="flex flex-col gap-[14px]">
             {settings.map((s) => {

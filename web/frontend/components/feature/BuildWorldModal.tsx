@@ -5,6 +5,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { CloseButton } from "@/components/ui/CloseButton";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { SmartImage } from "@/components/ui/SmartImage";
 import * as api from "@/lib/api";
 import { API_BASE } from "@/lib/api";
 import { buildSummary, type BuildState } from "@/features/library/worldBuild";
@@ -381,21 +382,20 @@ function EntityList({
       <ul className="mt-[8px] flex flex-col gap-[8px]">
         {entities.map((e) => (
           <li key={e.id} className="flex items-center gap-[10px]">
-            {e.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={mediaSrc(e.image)}
-                alt=""
-                className="h-[34px] w-[34px] shrink-0 rounded-[3px] border border-cardbd object-cover"
-              />
-            ) : (
-              <span
-                aria-hidden
-                className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[3px] border border-cardbd bg-field font-mono text-[11px] text-mute"
-              >
-                ✓
-              </span>
-            )}
+            <SmartImage
+              src={e.image ? mediaSrc(e.image) : null}
+              alt=""
+              aspect="1 / 1"
+              className="h-[34px] w-[34px] shrink-0 rounded-[3px] border border-cardbd"
+              placeholder={
+                <span
+                  aria-hidden
+                  className="flex h-full w-full items-center justify-center bg-field font-mono text-[11px] text-mute"
+                >
+                  ✓
+                </span>
+              }
+            />
             <span className="min-w-0">
               <span className="block truncate font-body text-[14px] text-ink">{e.name}</span>
               {e.role ? (

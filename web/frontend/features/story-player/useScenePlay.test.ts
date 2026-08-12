@@ -58,6 +58,30 @@ function historyOf(sessionId: string): SessionHistory {
   };
 }
 
+describe("useScenePlay scene reveal", () => {
+  it("holds the curtain until the scene is actually ready, then reveals", async () => {
+    const { result } = renderHook(() => useScenePlay(scenario));
+
+    // The reveal used to be a blind setTimeout(2200) on mount — the curtain
+    // held for 2.2s whether the scene was ready in 100ms or not ready at 5s.
+    // It is now driven by the resume/baseline load settling, with a short
+    // minimum so an instant load does not flash the curtain and snatch it away.
+    expect(result.current.loading).toBe(true);
+    expect(result.current.reveal).toBe(false);
+
+    await waitFor(() => expect(result.current.reveal).toBe(true), { timeout: 4000 });
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("reveals even when the resume fails — a failed load is a fresh scene, not a stuck curtain", async () => {
+    vi.mocked(listPlaySessions).mockRejectedValueOnce(new Error("offline"));
+    const { result } = renderHook(() => useScenePlay(scenario));
+
+    await waitFor(() => expect(result.current.reveal).toBe(true), { timeout: 4000 });
+    expect(result.current.loading).toBe(false);
+  });
+});
+
 describe("useScenePlay resume + save-on-close", () => {
   it("rehydrates the transcript + trace from the latest saved session and continues it", async () => {
     vi.mocked(listPlaySessions).mockResolvedValueOnce({

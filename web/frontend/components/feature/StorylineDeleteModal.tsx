@@ -2,8 +2,11 @@
 
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
 import { CloseButton } from "@/components/ui/CloseButton";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { cn } from "@/lib/cn";
+import { useDelayedFlag } from "@/hooks/use-delayed-flag";
 import type { Storyline } from "@/lib/types";
 
 /**
@@ -24,6 +27,8 @@ export function StorylineDeleteModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  // Delayed so a delete that resolves quickly never flashes a spinner.
+  const busy = useDelayedFlag(pending);
   if (!storyline) return null;
   const { scenarios, characters, settings } = storyline;
   const total = scenarios.length + characters.length + settings.length;
@@ -72,7 +77,10 @@ export function StorylineDeleteModal({
           </p>
         ) : null}
 
-        <div className="mt-[22px] flex items-center justify-end gap-[10px]">
+        <div
+          className="mt-[22px] flex items-center justify-end gap-[10px]"
+          aria-busy={pending || undefined}
+        >
           <Button variant="ghost" onClick={onCancel} disabled={pending}>
             Cancel
           </Button>
@@ -80,10 +88,19 @@ export function StorylineDeleteModal({
             type="button"
             onClick={onConfirm}
             disabled={pending}
-            className="inline-flex cursor-pointer items-center justify-center rounded-[2px] px-[18px] py-[10px] font-mono text-[11px] tracking-[0.08em] text-[#F6ECDA] uppercase hover:brightness-[1.3] disabled:cursor-not-allowed disabled:opacity-60"
+            aria-busy={busy || undefined}
+            aria-label={busy ? "Deleting storyline" : undefined}
+            className="relative inline-flex cursor-pointer items-center justify-center rounded-[2px] px-[18px] py-[10px] font-mono text-[11px] tracking-[0.08em] text-[#F6ECDA] uppercase hover:brightness-[1.3] disabled:cursor-not-allowed disabled:opacity-60"
             style={{ background: "#9A3520" }}
           >
-            {pending ? "Deleting…" : "Delete World"}
+            <span className={cn("inline-flex items-center", busy && "invisible")}>
+              Delete World
+            </span>
+            {busy ? (
+              <span className="absolute inset-0 flex items-center justify-center">
+                <Spinner size={14} />
+              </span>
+            ) : null}
           </button>
         </div>
       </div>

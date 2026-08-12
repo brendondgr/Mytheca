@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { TextArea } from "@/components/ui/TextArea";
+import { useDelayedFlag } from "@/hooks/use-delayed-flag";
 import { ScenarioForm } from "@/components/feature/ScenarioForm";
 import { SceneArtModal } from "@/components/feature/SceneArtModal";
 import { PromptOverridesModal } from "@/components/feature/PromptOverridesModal";
@@ -39,6 +41,9 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
   // Declare hooks before the early-return guard to keep the hook order stable.
   const [sceneArtOpen, setSceneArtOpen] = useState(false);
   const [promptsOpen, setPromptsOpen] = useState(false);
+  // Same flag drives both Save and Delete (they can't run at once); delayed so
+  // a save/delete that resolves quickly never flashes a spinner.
+  const busy = useDelayedFlag(lib.pending);
 
   const m = lib.modal;
   if (!m || m.type !== "scenario") return null;
@@ -215,16 +220,28 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
                 {lib.error}
               </p>
             ) : null}
-            <div className="mt-[20px] flex items-center justify-between gap-[10px]">
+            <div
+              className="mt-[20px] flex items-center justify-between gap-[10px]"
+              aria-busy={lib.pending || undefined}
+            >
               <div className="flex items-center gap-[14px]">
                 {isEdit ? (
                   <button
                     type="button"
                     onClick={lib.deleteEntity}
                     disabled={lib.pending}
-                    className="cursor-pointer p-[6px] font-mono text-[10.5px] tracking-[0.06em] text-accent uppercase hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-busy={busy || undefined}
+                    aria-label={busy ? "Deleting scenario" : undefined}
+                    className="relative cursor-pointer p-[6px] font-mono text-[10.5px] tracking-[0.06em] text-accent uppercase hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {lib.pending ? "Deleting…" : "Delete"}
+                    <span className={cn("inline-flex items-center", busy && "invisible")}>
+                      Delete
+                    </span>
+                    {busy ? (
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <Spinner size={12} />
+                      </span>
+                    ) : null}
                   </button>
                 ) : null}
                 <button
@@ -239,8 +256,13 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
                 <Button variant="ghost" onClick={lib.closeModal}>
                   Cancel
                 </Button>
-                <Button onClick={lib.submit} disabled={!lib.isValid || lib.pending}>
-                  {lib.pending ? "Saving…" : isEdit ? meta.save : meta.ok}
+                <Button
+                  onClick={lib.submit}
+                  disabled={!lib.isValid || lib.pending}
+                  loading={busy}
+                  loadingLabel={isEdit ? "Saving scenario" : "Creating scenario"}
+                >
+                  {isEdit ? meta.save : meta.ok}
                 </Button>
               </div>
             </div>

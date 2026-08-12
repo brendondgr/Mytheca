@@ -6,6 +6,7 @@ import { LibraryTabs, type TabItem } from "@/components/feature/LibraryTabs";
 import { ScenarioColumn } from "@/components/feature/ScenarioColumn";
 import { CharacterColumn } from "@/components/feature/CharacterColumn";
 import { SettingColumn } from "@/components/feature/SettingColumn";
+import { useDelayedFlag } from "@/hooks/use-delayed-flag";
 import { cn } from "@/lib/cn";
 
 /** Wrap a column so it shows as one of three open columns on desktop, and as
@@ -53,6 +54,15 @@ export function LibraryColumns({
   const castIds = lib.featured?.castIds ?? [];
   const settingId = lib.featured?.settingId ?? "";
 
+  // Gated at 300ms: a library that loads from a warm cache should not flash
+  // three columns of placeholders on its way to the real thing. Without the
+  // gate the skeleton IS the jank it exists to prevent.
+  const showSkeletons = useDelayedFlag(lib.loading);
+
+  // Clearing the search is the only useful action when a filter has emptied a
+  // column, so the empty state offers it.
+  const clearQuery = () => lib.setQuery("");
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Mobile-only section switcher; desktop shows all three columns. */}
@@ -79,6 +89,8 @@ export function LibraryColumns({
             onEdit={lib.editScenario}
             onProfile={lib.openProfile}
             onAdd={() => lib.openCreate("scenario")}
+            onClearQuery={clearQuery}
+            loading={showSkeletons}
             padX="lg:pr-[24px]"
           />
         </Column>
@@ -91,6 +103,8 @@ export function LibraryColumns({
             onPreview={lib.openProfile}
             onEdit={lib.editCharacter}
             onAdd={() => lib.openCreate("character")}
+            onClearQuery={clearQuery}
+            loading={showSkeletons}
             padX="lg:px-[24px]"
           />
         </Column>
@@ -102,6 +116,8 @@ export function LibraryColumns({
             query={lib.query}
             onEdit={lib.editSetting}
             onAdd={() => lib.openCreate("setting")}
+            onClearQuery={clearQuery}
+            loading={showSkeletons}
             padX="lg:pl-[24px]"
           />
         </Column>

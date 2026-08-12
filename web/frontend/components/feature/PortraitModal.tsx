@@ -1,13 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
 import { Monogram } from "@/components/ui/Monogram";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { cn } from "@/lib/cn";
 
 const LINK =
   "cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40";
+
+/** The `messageOf()` fallback in useLibraryState for a non-`Error` throw — too
+ * vague to leave on screen, so a retry-able failure names the operation instead. */
+const VAGUE_ERROR = "Something went wrong.";
 
 /**
  * Portrait editor pop-up — the "own page" for a character's portrait, opened from
@@ -59,7 +65,18 @@ export function PortraitModal({
   /** The prompt field being written right now (live highlight). */
   activeField?: string | null;
 }) {
+  // Tracks which generate action the Retry control should re-run — whichever
+  // of the two was attempted most recently (defaults to the render, the
+  // modal's primary action, until either has been tried).
+  const [lastAction, setLastAction] = useState<"prompts" | "portrait" | null>(null);
+
   if (!open) return null;
+
+  function retryFailed() {
+    if (lastAction === "prompts") onGeneratePrompts();
+    else onGeneratePortrait();
+  }
+
   return (
     <Modal
       open
@@ -78,7 +95,10 @@ export function PortraitModal({
           </div>
           <button
             type="button"
-            onClick={onGeneratePrompts}
+            onClick={() => {
+              setLastAction("prompts");
+              onGeneratePrompts();
+            }}
             disabled={!hasDescription || generatingPrompts}
             className={cn(LINK, "mb-[6px]")}
           >
@@ -115,7 +135,10 @@ export function PortraitModal({
               )}
             />
             <Button
-              onClick={onGeneratePortrait}
+              onClick={() => {
+                setLastAction("portrait");
+                onGeneratePortrait();
+              }}
               disabled={!canRenderPortrait || generatingPortrait}
               className="mt-[12px]"
             >
@@ -128,29 +151,37 @@ export function PortraitModal({
               className="flex aspect-[2/3] w-[200px] items-center justify-center overflow-hidden rounded-[6px] border border-cardbd bg-field"
               style={{ borderColor: color }}
             >
-              {portraitUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
-                <img
-                  src={portraitUrl}
-                  alt={`Portrait of ${name || "the character"}`}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex flex-col items-center gap-[8px] px-[10px] text-center">
-                  <Monogram mono={mono} color={color} size={64} ring={3} fontSize={26} />
-                  <span className="font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
-                    No portrait yet
-                  </span>
-                </div>
-              )}
+              <SmartImage
+                src={portraitUrl}
+                alt={`Portrait of ${name || "the character"}`}
+                aspect="2 / 3"
+                className="h-full w-full"
+                placeholder={
+                  <div className="flex flex-col items-center gap-[8px] px-[10px] text-center">
+                    <Monogram mono={mono} color={color} size={64} ring={3} fontSize={26} />
+                    <span className="font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
+                      No portrait yet
+                    </span>
+                  </div>
+                }
+              />
             </div>
           </div>
         </div>
 
         {error ? (
-          <p role="alert" className="mt-4 font-body text-[13px] text-accent">
-            {error}
-          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-[10px]">
+            <p role="alert" className="font-body text-[13px] text-accent">
+              {error === VAGUE_ERROR
+                ? lastAction === "prompts"
+                  ? "Could not generate the portrait prompts."
+                  : "Could not render the portrait."
+                : error}
+            </p>
+            <Button variant="secondary" onClick={retryFailed}>
+              Try again
+            </Button>
+          </div>
         ) : null}
         <div className="mt-[20px] flex justify-end">
           <Button variant="ghost" onClick={onClose}>

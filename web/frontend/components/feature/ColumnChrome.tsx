@@ -52,10 +52,76 @@ export function ColumnHeader({
   );
 }
 
-export function ColumnEmpty({ query, noun }: { query: string; noun: string }) {
+/**
+ * A column with nothing in it.
+ *
+ * Two genuinely different situations, and they need different answers:
+ *
+ * - **A search found nothing.** The content exists; the query is wrong. The
+ *   only useful affordance is clearing the search, so that is what is offered.
+ * - **The column is empty.** This is the author's first visit to it, and a
+ *   flat "No characters yet." is a dead end. An empty state is an invitation
+ *   to act, so it says what the thing *is* and carries its create action
+ *   inline — the same action buried in the column header's `+`, put where
+ *   someone who has never seen the app will actually look.
+ */
+export function ColumnEmpty({
+  query,
+  noun,
+  invitation,
+  onAdd,
+  addLabel,
+  onClearQuery,
+}: {
+  query: string;
+  noun: string;
+  /** One line on what this kind of thing is for. Shown only when unfiltered. */
+  invitation?: string;
+  onAdd?: () => void;
+  addLabel?: string;
+  onClearQuery?: () => void;
+}) {
+  if (query) {
+    return (
+      <div className="flex flex-col items-center gap-[10px] py-[24px] text-center">
+        <p className="font-body text-body-sm text-mute2 italic">
+          No {noun} match “{query}”.
+        </p>
+        {onClearQuery ? (
+          <button
+            type="button"
+            onClick={onClearQuery}
+            className="press cursor-pointer rounded-[3px] font-mono text-[11px] tracking-[0.08em] text-accent uppercase transition-colors duration-fast ease-soft hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            Clear search
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
-    <p className="py-[24px] text-center font-body text-[14px] text-mute2 italic">
-      {query ? `No ${noun} match “${query}”.` : `No ${noun} yet.`}
-    </p>
+    <div className="flex flex-col items-center gap-[10px] rounded-[4px] border border-dashed border-cardbd px-[16px] py-[24px] text-center">
+      <p className="font-display text-[14px] font-semibold text-ink">
+        <span aria-hidden className="mr-[6px] text-gold">
+          ❖
+        </span>
+        No {noun} yet
+      </p>
+      {invitation ? (
+        <p className="max-w-[34ch] font-body text-body-sm leading-[1.5] text-ink-soft">
+          {invitation}
+        </p>
+      ) : null}
+      {onAdd ? (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="press touch-target cursor-pointer rounded-[2px] border border-accent px-[14px] py-[7px] font-mono text-[11px] tracking-[0.08em] text-accent uppercase transition-colors duration-fast ease-soft hover:bg-accent hover:text-[#F6ECDA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          {addLabel ?? `Add ${noun.replace(/s$/, "")}`}
+        </button>
+      ) : null}
+    </div>
   );
 }

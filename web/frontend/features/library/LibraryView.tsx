@@ -82,11 +82,11 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
         </div>
       ) : null}
 
-      {lib.loading ? (
-        <p aria-live="polite" className="px-[18px] pt-[12px] font-body text-[14px] text-mute">
-          Loading your library…
-        </p>
-      ) : null}
+      {/* The columns carry the wait themselves now, as skeletons tracing the
+          cards that are coming. A bare "Loading your library…" line above an
+          otherwise-blank page told the user nothing about what would appear,
+          and pushed the layout down when it disappeared. The announcement it
+          carried is preserved: each column sets `aria-busy` while it waits. */}
 
       <ScenarioCarousel
         slides={lib.resolvedScenarios}

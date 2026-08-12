@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { mediaUrl } from "@/lib/api";
 import { CARD_SCRIM, OVER_ART } from "@/lib/cardArt";
 import { cn } from "@/lib/cn";
@@ -42,11 +43,11 @@ export function SettingCard({
     >
       {hasImage ? (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount */}
-          <img
+          <SmartImage
             src={mediaUrl(s.image!)}
             alt={`Establishing image of ${s.name}`}
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            aspect="16 / 9"
+            className="pointer-events-none absolute inset-0"
           />
           <div
             className="pointer-events-none absolute inset-0"

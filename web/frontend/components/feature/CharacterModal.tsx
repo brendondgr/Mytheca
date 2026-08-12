@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { TextField } from "@/components/ui/TextField";
 import { TextArea } from "@/components/ui/TextArea";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { Monogram } from "@/components/ui/Monogram";
+import { useDelayedFlag } from "@/hooks/use-delayed-flag";
 import { ContextFilesPanel } from "@/components/feature/ContextFilesPanel";
 import { SourceDocumentsPanel } from "@/components/feature/SourceDocumentsPanel";
 import { VoiceSamplesEditor } from "@/components/feature/VoiceSamplesEditor";
@@ -51,6 +53,9 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
   // Portrait editor pop-up open state — declared before any early return so the
   // hook order stays stable (rules-of-hooks).
   const [portraitOpen, setPortraitOpen] = useState(false);
+  // Same flag drives both Save and Delete (they can't run at once); delayed so
+  // a save/delete that resolves quickly never flashes a spinner.
+  const busy = useDelayedFlag(lib.pending);
   const m = lib.modal;
   if (!m || m.type !== "character") return null;
   const d = lib.draft;
@@ -457,15 +462,27 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 {lib.error}
               </p>
             ) : null}
-            <div className="mt-[20px] flex items-center justify-between gap-[10px]">
+            <div
+              className="mt-[20px] flex items-center justify-between gap-[10px]"
+              aria-busy={lib.pending || undefined}
+            >
               {isEdit ? (
                 <button
                   type="button"
                   onClick={lib.deleteEntity}
                   disabled={lib.pending}
-                  className="cursor-pointer p-[6px] font-mono text-[10.5px] tracking-[0.06em] text-accent uppercase hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-busy={busy || undefined}
+                  aria-label={busy ? "Deleting character" : undefined}
+                  className="relative cursor-pointer p-[6px] font-mono text-[10.5px] tracking-[0.06em] text-accent uppercase hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {lib.pending ? "Deleting…" : "Delete"}
+                  <span className={cn("inline-flex items-center", busy && "invisible")}>
+                    Delete
+                  </span>
+                  {busy ? (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <Spinner size={12} />
+                    </span>
+                  ) : null}
                 </button>
               ) : (
                 <span />
@@ -474,14 +491,13 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 <Button variant="ghost" onClick={lib.closeModal}>
                   Cancel
                 </Button>
-                <Button onClick={lib.submit} disabled={!lib.isValid || lib.pending}>
-                  {lib.pending
-                    ? isEdit
-                      ? "Saving…"
-                      : "Creating…"
-                    : isEdit
-                      ? "Save Changes"
-                      : "Add to Cast"}
+                <Button
+                  onClick={lib.submit}
+                  disabled={!lib.isValid || lib.pending}
+                  loading={busy}
+                  loadingLabel={isEdit ? "Saving character" : "Creating character"}
+                >
+                  {isEdit ? "Save Changes" : "Add to Cast"}
                 </Button>
               </div>
             </div>

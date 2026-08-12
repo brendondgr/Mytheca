@@ -2,6 +2,7 @@
 
 import { Modal } from "@/components/ui/Modal";
 import { Monogram } from "@/components/ui/Monogram";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Button } from "@/components/ui/Button";
 import { CloseButton } from "@/components/ui/CloseButton";
@@ -117,18 +118,17 @@ export function CharacterProfileModal({
                   background: "var(--field-bg)",
                 }}
               >
-                {c.portrait ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- generated portrait from our media mount
-                  <img
-                    src={mediaUrl(c.portrait)}
-                    alt={`Portrait of ${c.name}`}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Monogram mono={c.mono} color={c.color} size={96} ring={2} fontSize={36} />
-                  </div>
-                )}
+                <SmartImage
+                  src={c.portrait ? mediaUrl(c.portrait) : null}
+                  alt={`Portrait of ${c.name}`}
+                  aspect="2 / 3"
+                  className="h-full w-full"
+                  placeholder={
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Monogram mono={c.mono} color={c.color} size={96} ring={2} fontSize={36} />
+                    </div>
+                  }
+                />
               </div>
             </div>
           </div>

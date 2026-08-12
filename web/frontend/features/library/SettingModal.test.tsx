@@ -1,8 +1,38 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { act } from "react";
 import { LibraryView } from "./LibraryView";
+import { SettingModal } from "@/components/feature/SettingModal";
+import { INDICATOR_DELAY_MS } from "@/hooks/use-delayed-flag";
+import type { useLibraryState } from "@/features/library/useLibraryState";
 import * as api from "@/lib/api";
+
+type Lib = ReturnType<typeof useLibraryState>;
+
+function makeLib(overrides: Partial<Lib> = {}): Lib {
+  return {
+    modal: { type: "setting", mode: "manual", editId: "s-1" },
+    draft: { name: "The Lantern Quay", type: "Social Hub" },
+    isValid: true,
+    pending: false,
+    generating: false,
+    generatingPrompts: false,
+    generatingPortrait: false,
+    error: null,
+    activeField: null,
+    setDraft: vi.fn(),
+    setMode: vi.fn(),
+    closeModal: vi.fn(),
+    submit: vi.fn(),
+    deleteEntity: vi.fn(),
+    draftSetting: vi.fn(),
+    generateSceneArtPrompts: vi.fn(),
+    generateSceneArt: vi.fn(),
+    ...overrides,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any as Lib;
+}
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
@@ -163,5 +193,36 @@ describe("SettingModal — agentic creator", () => {
         expect.any(String),
       ),
     );
+  });
+});
+
+describe("SettingModal — save/delete busy state", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("disables Save/Delete immediately, but only shows the spinner past the delay gate", () => {
+    vi.useFakeTimers();
+    render(<SettingModal lib={makeLib({ pending: true })} />);
+
+    const save = screen.getByRole("button", { name: "Save Changes" });
+    const del = screen.getByRole("button", { name: "Delete" });
+    expect(save).toBeDisabled();
+    expect(del).toBeDisabled();
+    expect(save).not.toHaveAttribute("aria-busy", "true");
+
+    act(() => void vi.advanceTimersByTime(INDICATOR_DELAY_MS));
+    expect(screen.getByRole("button", { name: "Saving setting" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Deleting setting" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+  });
+
+  it("shows the plain labels once the operation has resolved", () => {
+    render(<SettingModal lib={makeLib({ pending: false })} />);
+    expect(screen.getByRole("button", { name: "Save Changes" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Delete" })).not.toHaveAttribute("aria-busy");
   });
 });

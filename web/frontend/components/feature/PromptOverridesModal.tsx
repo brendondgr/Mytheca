@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
 import { PromptOverridesEditor } from "@/components/feature/PromptOverridesEditor";
 import { getSettings, type PromptSpec } from "@/lib/api";
 
@@ -45,26 +46,37 @@ export function PromptOverridesModal({
   const [catalog, setCatalog] = useState<PromptSpec[] | null>(null);
   const [globalOverrides, setGlobalOverrides] = useState<Record<string, string>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Guards a stale response — from either the mount-fetch or a manual Retry —
+  // against landing after the modal has closed or reopened.
+  const cancelledRef = useRef(false);
 
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    // Reset to the loading state when the modal (re)opens, then fetch. The rule targets
-    // synchronous setState; this is the canonical mount/open data-fetch (see useOptionsSettings).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // The catalog fetch, factored out of the effect so Retry can re-run the exact
+  // same request instead of the modal being a dead end on failure.
+  function loadCatalog() {
+    cancelledRef.current = false;
     setCatalog(null);
     setLoadError(null);
     getSettings()
       .then((s) => {
-        if (cancelled) return;
+        if (cancelledRef.current) return;
         setCatalog(s.prompts.catalog);
         setGlobalOverrides(s.prompts.overrides);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : "Could not load prompts.");
+        if (!cancelledRef.current) {
+          setLoadError(err instanceof Error ? err.message : "Could not load prompts.");
+        }
       });
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    // Reset to the loading state when the modal (re)opens, then fetch. The rule targets
+    // synchronous setState; this is the canonical mount/open data-fetch (see useOptionsSettings).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadCatalog();
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
   }, [open]);
 
@@ -83,9 +95,14 @@ export function PromptOverridesModal({
         {subtitle ? <p className="mt-[4px] font-body text-[14px] text-ink-soft">{subtitle}</p> : null}
         <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
         {loadError ? (
-          <p role="alert" className="font-body text-[14px] text-danger">
-            {loadError}
-          </p>
+          <div className="flex flex-wrap items-center gap-[10px]">
+            <p role="alert" className="font-body text-[14px] text-danger">
+              {loadError}
+            </p>
+            <Button variant="secondary" onClick={loadCatalog}>
+              Try again
+            </Button>
+          </div>
         ) : null}
         {!catalog && !loadError ? (
           <p className="font-body text-[14px] text-ink-soft">Loading prompts…</p>

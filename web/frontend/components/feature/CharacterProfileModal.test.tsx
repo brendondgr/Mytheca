@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { CharacterProfileModal } from "./CharacterProfileModal";
@@ -33,8 +33,12 @@ describe("CharacterProfileModal", () => {
     expect(screen.getByText("Tall, silver at the temples.")).toBeInTheDocument();
     expect(screen.getByText("Rose through the salt guild.")).toBeInTheDocument();
     expect(screen.getByText("Gracious, cold beneath.")).toBeInTheDocument();
-    // Portrait replaces the monogram initials.
-    expect(screen.getByAltText("Portrait of Mei Voss")).toBeInTheDocument();
+    // Portrait replaces the monogram initials once it loads — SmartImage keeps
+    // the placeholder mounted underneath until then, so the fallback initials
+    // are still present in the pending frame (see SmartImage.test.tsx).
+    const portrait = screen.getByAltText("Portrait of Mei Voss");
+    expect(portrait).toBeInTheDocument();
+    fireEvent.load(portrait);
     expect(screen.queryByText("MV")).not.toBeInTheDocument();
   });
 

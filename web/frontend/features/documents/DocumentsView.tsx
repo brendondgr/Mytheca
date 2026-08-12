@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { DocumentsTable } from "@/components/feature/DocumentsTable";
+import { SkeletonLine } from "@/components/ui/Skeleton";
+import { useDelayedFlag } from "@/hooks/use-delayed-flag";
 import { cn } from "@/lib/cn";
 import type { DocCategory } from "@/lib/types";
 import { groupByCategory, useDocuments } from "@/features/documents/useDocuments";
@@ -27,6 +29,9 @@ export function DocumentsView({ storylineId }: { storylineId: string }) {
   const dm = useDocuments(storylineId);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  // A cached corpus lands well inside 300ms; without the gate the skeleton is
+  // the flicker it exists to prevent.
+  const showLoading = useDelayedFlag(dm.loading);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -128,17 +133,39 @@ export function DocumentsView({ storylineId }: { storylineId: string }) {
           {dm.error ? (
             <div
               role="alert"
-              className="rounded-[4px] border border-danger/40 bg-danger/10 px-[12px] py-[8px] font-body text-[13px] text-danger"
+              className="content-enter flex flex-wrap items-center justify-between gap-[10px] rounded-[4px] border border-danger/40 bg-danger/10 px-[12px] py-[8px] font-body text-[13px] text-danger"
             >
-              {dm.error}
+              <span>{dm.error}</span>
+              {/* Without this the corpus is simply gone until a full page
+                  reload — a recoverable failure presented as a dead end. */}
+              <button
+                type="button"
+                onClick={dm.retry}
+                className="press touch-target cursor-pointer rounded-[3px] border border-danger/50 px-[10px] py-[4px] font-mono text-[10.5px] tracking-[0.08em] uppercase transition-colors duration-fast ease-soft hover:bg-danger/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                Try again
+              </button>
             </div>
           ) : null}
 
-          {dm.loading ? (
-            <p role="status" className="font-mono text-[12px] tracking-[0.08em] text-mute uppercase">
-              Loading documents…
-            </p>
-          ) : dm.docs.length === 0 ? (
+          {showLoading ? (
+            /* Skeleton rows that trace the real table, rather than a bare
+               "Loading documents…" line that says nothing about what is
+               coming and shifts the layout when it goes. */
+            <div aria-busy="true" aria-label="Loading documents" className="flex flex-col gap-[8px]">
+              <SkeletonLine width="28%" height="11px" />
+              {Array.from({ length: 5 }, (_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-[12px] rounded-[4px] border border-cardbd bg-card px-[12px] py-[10px]"
+                >
+                  <SkeletonLine width="34%" height="13px" />
+                  <SkeletonLine width="18%" height="11px" />
+                  <SkeletonLine width="22%" height="11px" />
+                </div>
+              ))}
+            </div>
+          ) : dm.loading ? null : dm.docs.length === 0 ? (
             <p className="font-body text-[14px] text-mute">
               No documents uploaded to this world yet. Drop <code className="font-mono text-[12px]">.txt</code>/
               <code className="font-mono text-[12px]">.md</code> files above, or add them from the

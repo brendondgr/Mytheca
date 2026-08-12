@@ -1,12 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { cn } from "@/lib/cn";
 
 const LINK =
   "cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40";
+
+/** The `messageOf()` fallback in useLibraryState for a non-`Error` throw — too
+ * vague to leave on screen, so a retry-able failure names the operation instead. */
+const VAGUE_ERROR = "Something went wrong.";
 
 /**
  * Scene-art editor pop-up — the "own page" for a setting's establishing image,
@@ -55,7 +61,18 @@ export function SceneArtModal({
   /** The prompt field being written right now (live highlight). */
   activeField?: string | null;
 }) {
+  // Tracks which generate action the Retry control should re-run — whichever
+  // of the two was attempted most recently (defaults to the render, the
+  // modal's primary action, until either has been tried).
+  const [lastAction, setLastAction] = useState<"prompts" | "image" | null>(null);
+
   if (!open) return null;
+
+  function retryFailed() {
+    if (lastAction === "prompts") onGeneratePrompts();
+    else onGenerate();
+  }
+
   return (
     <Modal
       open
@@ -74,7 +91,10 @@ export function SceneArtModal({
           </div>
           <button
             type="button"
-            onClick={onGeneratePrompts}
+            onClick={() => {
+              setLastAction("prompts");
+              onGeneratePrompts();
+            }}
             disabled={!hasDescription || generatingPrompts}
             className={cn(LINK, "mb-[6px]")}
           >
@@ -110,7 +130,10 @@ export function SceneArtModal({
             )}
           />
           <Button
-            onClick={onGenerate}
+            onClick={() => {
+              setLastAction("image");
+              onGenerate();
+            }}
             disabled={!canRender || generatingImage}
             className="mt-[12px]"
           >
@@ -121,30 +144,38 @@ export function SceneArtModal({
         {/* Preview — the rendered WebP, or a placeholder, in a 16:9 frame. */}
         <div className="mt-[16px]">
           <div className="aspect-[16/9] w-full overflow-hidden rounded-[6px] border border-cardbd bg-field">
-            {imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
-              <img
-                src={imageUrl}
-                alt={`Establishing image of ${name || "the place"}`}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-[6px] text-center">
-                <span aria-hidden className="text-[22px] text-mute2">
-                  ◇
-                </span>
-                <span className="font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
-                  No scene art yet
-                </span>
-              </div>
-            )}
+            <SmartImage
+              src={imageUrl}
+              alt={`Establishing image of ${name || "the place"}`}
+              aspect="16 / 9"
+              className="h-full w-full"
+              placeholder={
+                <div className="flex h-full w-full flex-col items-center justify-center gap-[6px] text-center">
+                  <span aria-hidden className="text-[22px] text-mute2">
+                    ◇
+                  </span>
+                  <span className="font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
+                    No scene art yet
+                  </span>
+                </div>
+              }
+            />
           </div>
         </div>
 
         {error ? (
-          <p role="alert" className="mt-4 font-body text-[13px] text-accent">
-            {error}
-          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-[10px]">
+            <p role="alert" className="font-body text-[13px] text-accent">
+              {error === VAGUE_ERROR
+                ? lastAction === "prompts"
+                  ? "Could not generate the scene-art prompts."
+                  : "Could not render the scene art."
+                : error}
+            </p>
+            <Button variant="secondary" onClick={retryFailed}>
+              Try again
+            </Button>
+          </div>
         ) : null}
         <div className="mt-[20px] flex justify-end">
           <Button variant="ghost" onClick={onClose}>

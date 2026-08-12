@@ -65,13 +65,26 @@ describe("GraphView", () => {
     getScenarioGraph.mockReset();
   });
 
-  it("shows a loading state until the graph resolves", async () => {
+  it("stays silent for a graph that arrives quickly", async () => {
     let resolve!: (g: ScenarioGraph) => void;
     getScenarioGraph.mockReturnValue(new Promise<ScenarioGraph>((r) => (resolve = r)));
     render(<GraphView scenarioId="sc1" />);
-    expect(screen.getByText(/reading the story graph/i)).toBeInTheDocument();
+
+    // A warm graph returns well inside the 300ms gate, so the status line must
+    // never appear — it would be pure flicker between the click and the canvas.
+    expect(screen.queryByText(/reading the story graph/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Story graph")).toHaveAttribute("aria-busy", "true");
+
     resolve(POPULATED);
     expect(await screen.findByTestId("graph-canvas")).toBeInTheDocument();
+  });
+
+  it("shows the loading line once the wait becomes perceptible", async () => {
+    getScenarioGraph.mockReturnValue(new Promise<ScenarioGraph>(() => {}));
+    render(<GraphView scenarioId="sc1" />);
+    expect(
+      await screen.findByText(/reading the story graph/i, undefined, { timeout: 2000 }),
+    ).toBeInTheDocument();
   });
 
   it("renders the canvas, the inspector breakdown, and an accessible table when populated", async () => {
