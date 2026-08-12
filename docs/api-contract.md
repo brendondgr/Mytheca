@@ -995,6 +995,13 @@ the transcript. The green **Graph** steps name what was written: `commit`'s `det
 each durable change (`data.changes[]` — the `Consequence` summaries), and the first-turn
 `relationships` seed step's `detail` lists the seeded edges (`data.edges[]`).
 
+**`plan` step — the end-of-turn marker.** Exactly one `plan` step per turn carries
+**`data.end === true`**: the step that stops the beat loop, whatever stopped it (the planner
+called `end`, the POV backstop fired, the scenario's `maxTurns` was reached, or the runaway
+beat backstop tripped). Its `title`/`detail` differ by cause and are prose that will drift —
+`data.end` is the stable signal, and the story player's **turn-status strip** reads it to say
+"the turn is ending" rather than matching on the title.
+
 **`context` step — exact context-window usage.** After a character generation, the engine
 emits a `context` trace step carrying the LLM-reported **`data.promptTokens`** — the exact
 `usage.prompt_tokens` for that call (the real size of everything sent: output contract +

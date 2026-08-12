@@ -11,6 +11,9 @@ import type { SceneMessage, StatChip } from "./scene-data";
 import {
   applyActivity,
   applyCharacterActivity,
+  applyTurnStatus,
+  IDLE_TURN_STATUS,
+  type TurnStatus,
   type ActivityEntry,
   type CharacterActivity,
   applyPresence,
@@ -700,5 +703,108 @@ describe("applyCharacterActivity", () => {
       ev("character_dialogue", "d1", { characterId: "mei", text: "end", done: true }),
     );
     expect(result).toBe(original);
+  });
+});
+
+// ---- applyTurnStatus ----
+
+describe("applyTurnStatus", () => {
+  function traceFrame(step: string, n: number, extra: Partial<TurnTraceFrame> = {}): TurnTraceFrame {
+    return { type: "trace", n, step, title: `${step} ${n}`, detail: "", data: {}, ...extra };
+  }
+
+  it("trace speaker step → thinking, carrying the id and the name", () => {
+    const s = applyTurnStatus(
+      IDLE_TURN_STATUS,
+      traceFrame("speaker", 1, { data: { characterId: "mei", name: "Mei" } }),
+    );
+    expect(s).toEqual({ phase: "thinking", characterId: "mei", name: "Mei" });
+  });
+
+  it("a speaker trace with no characterId is ignored", () => {
+    const s = applyTurnStatus(IDLE_TURN_STATUS, traceFrame("speaker", 1, { data: {} }));
+    expect(s).toBe(IDLE_TURN_STATUS);
+  });
+
+  it("internal_thought → thinking, keeping the speaker trace's name for that character", () => {
+    const start = applyTurnStatus(
+      IDLE_TURN_STATUS,
+      traceFrame("speaker", 1, { data: { characterId: "mei", name: "Mei" } }),
+    );
+    const s = applyTurnStatus(start, ev("internal_thought", "t1", { characterId: "mei", text: "Hmm." }));
+    expect(s).toEqual({ phase: "thinking", characterId: "mei", name: "Mei" });
+  });
+
+  it("does NOT carry a stale name onto a different character", () => {
+    const start: TurnStatus = { phase: "thinking", characterId: "mei", name: "Mei" };
+    const s = applyTurnStatus(start, ev("internal_thought", "t1", { characterId: "kira", text: "…" }));
+    expect(s).toEqual({ phase: "thinking", characterId: "kira", name: undefined });
+  });
+
+  it("character_action → acting; character_dialogue → speaking", () => {
+    let s = applyTurnStatus(IDLE_TURN_STATUS, ev("character_action", "a1", { characterId: "mei", text: "stands" }));
+    expect(s.phase).toBe("acting");
+    s = applyTurnStatus(s, ev("character_dialogue", "d1", { characterId: "mei", text: "Hi", done: false }));
+    expect(s).toEqual({ phase: "speaking", characterId: "mei", name: undefined });
+  });
+
+  it("character_dialogue done:true → idle", () => {
+    const start: TurnStatus = { phase: "speaking", characterId: "mei" };
+    const s = applyTurnStatus(start, ev("character_dialogue", "d1", { characterId: "mei", text: "Bye", done: true }));
+    expect(s).toEqual(IDLE_TURN_STATUS);
+  });
+
+  it("narration streams as narrating and clears on done", () => {
+    let s = applyTurnStatus(IDLE_TURN_STATUS, ev("narration", "n1", { text: "Rain ", done: false }));
+    expect(s).toEqual({ phase: "narrating" });
+    s = applyTurnStatus(s, ev("narration", "n1", { text: "Rain ticks.", done: true }));
+    expect(s.phase).toBe("idle");
+  });
+
+  it("a plan trace with data.end → ending (never matched on the prose title)", () => {
+    const s = applyTurnStatus(
+      { phase: "speaking", characterId: "mei" },
+      traceFrame("plan", 7, { title: "Something else entirely", data: { end: true } }),
+    );
+    expect(s).toEqual({ phase: "ending" });
+  });
+
+  it("an ordinary plan trace leaves the status alone", () => {
+    const start: TurnStatus = { phase: "speaking", characterId: "mei" };
+    expect(applyTurnStatus(start, traceFrame("plan", 3, { title: "Mei is up next" }))).toBe(start);
+  });
+
+  it("ending survives the trailing branch/commit frames of the turn", () => {
+    let s: TurnStatus = applyTurnStatus(
+      { phase: "speaking", characterId: "mei" },
+      traceFrame("plan", 7, { data: { end: true } }),
+    );
+    s = applyTurnStatus(s, traceFrame("branch", 8));
+    s = applyTurnStatus(s, traceFrame("commit", 9));
+    s = applyTurnStatus(s, ev("branch_choices", "b1", { choices: [] }));
+    expect(s.phase).toBe("ending");
+  });
+
+  it("an error frame resets to idle", () => {
+    const s = applyTurnStatus({ phase: "speaking", characterId: "mei" }, { type: "error", message: "x" });
+    expect(s).toEqual(IDLE_TURN_STATUS);
+  });
+
+  it("returns the same reference across repeated delta chunks (no per-token re-render)", () => {
+    const first = applyTurnStatus(
+      IDLE_TURN_STATUS,
+      ev("character_dialogue", "d1", { characterId: "mei", text: "Hel", done: false }),
+    );
+    const second = applyTurnStatus(
+      first,
+      ev("character_dialogue", "d1", { characterId: "mei", text: "Hello.", done: false }),
+    );
+    expect(second).toBe(first);
+  });
+
+  it("returns the same reference for frames it does not care about", () => {
+    const start: TurnStatus = { phase: "thinking", characterId: "mei", name: "Mei" };
+    expect(applyTurnStatus(start, traceFrame("lore", 2))).toBe(start);
+    expect(applyTurnStatus(start, ev("state_update", "s1", { patch: {}, stat: null }))).toBe(start);
   });
 });
