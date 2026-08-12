@@ -186,7 +186,7 @@ function CastMemberRow({
           type="button"
           onClick={() => onProfile(c.id)}
           title="View profile"
-          className="mytheca-row flex min-w-0 flex-1 items-center gap-[10px] text-left hover:translate-x-[2px]"
+          className="mytheca-row flex min-w-0 flex-1 items-center gap-[10px] text-left hover-nudge"
         >
           <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={34} fontSize={13} />
           <span className="min-w-0 flex-1">

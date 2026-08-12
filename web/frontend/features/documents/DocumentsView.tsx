@@ -71,7 +71,7 @@ export function DocumentsView({ storylineId }: { storylineId: string }) {
       <main className="min-h-0 flex-1 overflow-y-auto px-[16px] py-[22px] sm:px-[26px]">
         <div className="mx-auto flex max-w-[900px] flex-col gap-[16px]">
           <div>
-            <h1 className="font-display text-[26px] font-bold tracking-[0.04em] text-ink">
+            <h1 className="font-display text-step-2 font-bold tracking-[0.04em] text-ink">
               Context documents
             </h1>
             <p className="mt-[3px] font-body text-[13.5px] text-ink-soft">

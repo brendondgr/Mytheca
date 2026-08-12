@@ -80,7 +80,7 @@ export function BeginSceneModal({
           </Button>
           <Link
             href={`/${storylineId}/${s.id}`}
-            className="inline-flex items-center rounded-[2px] bg-accent px-[22px] py-[11px] font-mono text-[11px] uppercase tracking-[0.1em] text-[#F6ECDA] hover:-translate-y-[1px] hover:bg-accent-hover hover:shadow-[0_5px_14px_rgba(10,6,3,.3)] active:translate-y-0"
+            className="inline-flex items-center rounded-[2px] bg-accent px-[22px] py-[11px] font-mono text-[11px] uppercase tracking-[0.1em] text-[#F6ECDA] hover-lift press hover:bg-accent-hover hover:shadow-[0_5px_14px_rgba(10,6,3,.3)] active:translate-y-0"
           >
             Enter Scene ▸
           </Link>

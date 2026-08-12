@@ -131,7 +131,7 @@ export function CharacterMessage({
         disabled={!onProfile}
         aria-label={`View ${c.name}`}
         title={c.name}
-        className="flex-none rounded-full transition-transform hover:scale-105 disabled:hover:scale-100"
+        className="flex-none rounded-full hover-grow"
       >
         <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={40} fontSize={14} />
       </button>
@@ -200,7 +200,7 @@ export function BranchChoices({
             key={ch.id}
             type="button"
             onClick={() => onChoose(ch)}
-            className="mytheca-row flex items-center gap-[13px] rounded-[4px] border border-field-bd bg-card p-[12px_15px] text-left hover:translate-x-[3px] hover:border-accent hover:bg-hover"
+            className="mytheca-row flex items-center gap-[13px] rounded-[4px] border border-field-bd bg-card p-[12px_15px] text-left hover-nudge hover:border-accent hover:bg-hover"
           >
             <span aria-hidden className="flex-none text-[13px] text-accent">
               ◆

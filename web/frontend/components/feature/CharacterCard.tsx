@@ -35,7 +35,7 @@ export function CharacterCard({
   return (
     <div
       className={cn(
-        "mytheca-card group relative aspect-[2/3] overflow-hidden rounded-[4px] hover:-translate-y-[2px] hover:shadow-[0_8px_20px_rgba(20,14,6,.22)]",
+        "mytheca-card group relative aspect-[2/3] overflow-hidden rounded-[4px] hover-lift hover:shadow-[0_8px_20px_rgba(20,14,6,.22)]",
         !hasPortrait && "bg-card2",
         highlighted && "mytheca-glow",
       )}

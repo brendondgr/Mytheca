@@ -15,6 +15,10 @@ import { SkeletonBlock, SkeletonLine } from "@/components/ui/Skeleton";
  * mistake in the other direction.
  */
 
+/* Note these placeholders do NOT carry `.reveal`. A scroll-driven entrance on
+ * a shimmer would animate a thing that is already animating, and the columns
+ * are short enough that most placeholders are on screen at once anyway. */
+
 /** One scenario row — image band, title, eyebrow, goal line, cast footer. */
 function ScenarioCardSkeleton() {
   return (
@@ -64,10 +68,12 @@ export function ScenarioColumnSkeleton({ rows = 3 }: { rows?: number }) {
 }
 
 export function CharacterColumnSkeleton({ tiles = 6 }: { tiles?: number }) {
-  // The same 2-up / 3-up grid the real column uses, so the swap does not
-  // reflow the row.
+  // The same container-driven 2-up / 3-up grid the real column uses. If this
+  // used the viewport while the real grid asks its container, the tiles would
+  // visibly re-flow the instant the real cast landed — which is precisely the
+  // broken-trust moment a skeleton exists to avoid.
   return (
-    <div className="grid grid-cols-2 gap-[12px] sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-[12px] @[420px]:grid-cols-3">
       {Array.from({ length: tiles }, (_, i) => (
         <CharacterTileSkeleton key={i} />
       ))}

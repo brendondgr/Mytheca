@@ -32,9 +32,16 @@ export function TensionMeter({ pct, label }: { pct: number; label: string }) {
         aria-valuemax={100}
         aria-valuetext={label}
       >
+        {/* scaleX, not width: `width` is a layout property, so animating it
+            re-runs layout on every frame of the fill. A transform runs on the
+            compositor. The bar is drawn at full width and squeezed from the
+            left, which is why the gradient is sized to the track. */}
         <div
-          className="h-full transition-[width] duration-[400ms]"
-          style={{ width: `${pct}%`, background: "linear-gradient(90deg,#C8862A,#8E2B1C)" }}
+          className="h-full w-full origin-left transition-transform duration-base ease-out"
+          style={{
+            transform: `scaleX(${pct / 100})`,
+            background: "linear-gradient(90deg,#C8862A,#8E2B1C)",
+          }}
         />
       </div>
       <div className="mt-[6px] font-mono text-[9px] tracking-[0.06em] text-accent">{label}</div>
@@ -253,7 +260,7 @@ function ScenePulse({
       role="log"
       aria-live="polite"
       aria-label="Scene pulse"
-      className="max-h-[52vh] overflow-y-auto"
+      className="max-h-[52dvh] overflow-y-auto"
     >
       {activity.length === 0 ? (
         <p className="font-body text-[12px] italic text-ink-soft">

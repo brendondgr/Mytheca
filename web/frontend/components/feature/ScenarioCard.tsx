@@ -33,7 +33,7 @@ export function ScenarioCard({
   return (
     <div
       className={cn(
-        "mytheca-card relative overflow-hidden rounded-[4px] hover:-translate-y-[2px] hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        "mytheca-card relative overflow-hidden rounded-[4px] hover-lift hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
         hasImage && "min-h-[176px]",
         featured
           ? "border-2 border-accent shadow-[0_6px_18px_rgba(142,43,28,.16)]"
@@ -126,7 +126,7 @@ export function ScenarioCard({
                   onClick={() => onProfile(c.id)}
                   aria-label={`View ${c.name}`}
                   title={c.name}
-                  className="pointer-events-auto relative z-[2] rounded-full transition-transform hover:scale-110"
+                  className="pointer-events-auto relative z-[2] rounded-full hover-grow"
                 >
                   <Monogram mono={c.mono} color={c.color} size={27} src={c.portrait ? mediaUrl(c.portrait) : undefined} />
                 </button>

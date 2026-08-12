@@ -47,7 +47,7 @@ export function CreateMenu({
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls="create-menu"
-        className="rounded-[2px] bg-accent px-[15px] py-[8px] font-mono text-[10.5px] uppercase tracking-[0.1em] text-[#F6ECDA] hover:-translate-y-[1px] hover:bg-accent-hover hover:shadow-[0_5px_14px_rgba(10,6,3,.3)] active:translate-y-0"
+        className="rounded-[2px] bg-accent px-[15px] py-[8px] font-mono text-[10.5px] uppercase tracking-[0.1em] text-[#F6ECDA] hover-lift press hover:bg-accent-hover hover:shadow-[0_5px_14px_rgba(10,6,3,.3)] active:translate-y-0"
       >
         + Create ▾
       </button>

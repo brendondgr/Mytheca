@@ -21,23 +21,45 @@
  * transform-bearing hovers belong here rather than in a class list.
  * ------------------------------------------------------------------ */
 
-/* Lift + shadow. Two properties, because one reads as unfinished and four
- * reads as noisy. Distance scales inversely with element size, so the caller
- * picks --lift via the -sm/-md/-lg variants below. */
-.hover-lift {
-  --hover-lift-distance: var(--lift-sm);
+/* These carry the MOVEMENT only. The second property of a hover — the shadow,
+ * the border, the brightness — stays a normal Tailwind `hover:` utility at the
+ * call site, because that part is safe on touch: it looks like a highlight, not
+ * like a displaced element. What must never stick is the transform.
+ *
+ * Distance scales inversely with element size: a button lifts --lift-sm, a
+ * full-width card --lift-md, a modal enters from --lift-lg. */
+.hover-lift,
+.hover-nudge,
+.hover-grow {
   transition: transform var(--dur-fast) var(--ease-soft),
     box-shadow var(--dur-fast) var(--ease-soft),
-    border-color var(--dur-fast) var(--ease-soft);
+    border-color var(--dur-fast) var(--ease-soft),
+    filter var(--dur-fast) var(--ease-soft);
+}
+
+.hover-lift {
+  --hover-lift-distance: var(--lift-sm);
 }
 .hover-lift-md {
   --hover-lift-distance: var(--lift-md);
 }
 
 @media (hover: hover) and (pointer: fine) {
+  /* A card or button rising toward the cursor. */
   .hover-lift:hover:not(:disabled):not([aria-disabled="true"]) {
     transform: translateY(calc(-1 * var(--hover-lift-distance)));
-    box-shadow: 0 6px 16px rgba(40, 30, 16, 0.12);
+  }
+
+  /* A list row sliding toward its content — the rail and choice-row idiom. */
+  .hover-nudge:hover:not(:disabled):not([aria-disabled="true"]) {
+    transform: translateX(var(--lift-sm));
+  }
+
+  /* A small circular control growing slightly: avatars, swatches, glyph
+   * buttons. Scale rather than translate, because these are round and a
+   * displacement reads as a wobble. */
+  .hover-grow:hover:not(:disabled):not([aria-disabled="true"]) {
+    transform: scale(1.1);
   }
 }
 

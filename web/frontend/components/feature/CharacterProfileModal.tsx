@@ -137,7 +137,12 @@ export function CharacterProfileModal({
           <div className="mt-[26px] min-w-0 flex-1 pr-[36px] md:mt-0">
             <h2
               id="profile-name"
-              className="text-center font-display text-[30px] font-bold uppercase leading-[1.02] tracking-[0.04em] text-ink md:text-left"
+              // Fluid: a long uppercase Cinzel name at a fixed 30px is the most
+              // likely thing in the app to punch out of a 320px dialog. The
+              // clamp lets it shrink to ~22px on a phone and grow back on a
+              // desktop, instead of picking one size and overflowing at the
+              // other end.
+              className="text-center font-display text-step-2 font-bold uppercase leading-[1.02] tracking-[0.04em] text-ink md:text-left"
             >
               {c.name}
             </h2>

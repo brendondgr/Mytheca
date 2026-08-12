@@ -56,16 +56,23 @@ export function ScenarioColumn({
             onClearQuery={onClearQuery}
           />
         ) : (
+          // `.reveal` fades each row in as it enters the column's own scroller,
+          // via animation-timeline: view() — compositor-driven, so it does not
+          // stutter while a turn is streaming elsewhere. The base style IS the
+          // revealed state, so with no support (or under reduced motion) every
+          // card is simply visible. There is no scroll progress bar or parallax
+          // anywhere: Mytheca has no root scroll to measure.
           <div className="flex flex-col gap-[14px]">
             {scenarios.map((s) => (
+              <div key={s.id} className="reveal">
               <ScenarioCard
-                key={s.id}
                 scenario={s}
                 featured={s.id === featuredId}
                 onSelect={() => onSelect(s.id)}
                 onEdit={() => onEdit(s.id)}
                 onProfile={onProfile}
               />
+              </div>
             ))}
           </div>
         )}

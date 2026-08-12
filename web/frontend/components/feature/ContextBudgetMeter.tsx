@@ -54,9 +54,14 @@ export function ContextBudgetMeter({ budget }: { budget: ContextBudget }) {
         aria-valuemax={budget.primerSoftCap}
         aria-label="World Primer size against its per-scene budget"
       >
+        {/* scaleX rather than width — a compositor-only property, so the fill
+            never triggers layout. See the same note in DirectorRail. */}
         <div
-          className={cn("h-full rounded-full transition-[width]", LEVEL_BAR[budget.level])}
-          style={{ width: `${pct}%` }}
+          className={cn(
+            "h-full w-full origin-left rounded-full transition-transform duration-base ease-out",
+            LEVEL_BAR[budget.level],
+          )}
+          style={{ transform: `scaleX(${pct / 100})` }}
         />
       </div>
       <dl className="mt-[8px] flex flex-col gap-[4px] font-mono text-[12px]">
