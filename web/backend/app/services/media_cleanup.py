@@ -1,19 +1,20 @@
 """Orphaned-media cleanup service.
 
-Generated portrait/scene-art WebPs are written immediately, but cancelled drafts
-and deleted entities leave files on disk with no DB row referencing them. This
-service scans for those orphans, reports them (dry-run), and optionally deletes
-only the ones that are old enough to fall outside the in-flight-draft grace period.
+Generated portrait/scene-art/moment WebPs are written immediately, but cancelled
+drafts and deleted entities leave files on disk with no DB row referencing them.
+This service scans for those orphans, reports them (dry-run), and optionally
+deletes only the ones old enough to fall outside the in-flight-draft grace period.
 
 Safety guarantees
 -----------------
-- Only files whose basename is **not** referenced by any ``Character.portrait``
-  or ``Setting.image`` DB row are candidates.
+- Only files whose basename is **not** referenced by any ``Character.portrait``,
+  ``Setting.image`` or ``Scenario.image`` DB row — or by the ``url`` of a
+  persisted ``scene_image`` event — are candidates.
 - Only files with an mtime **older than** ``min_age_hours`` are eligible for
   deletion (protects drafts that are generated but not yet saved).
 - Only ``.webp`` files are ever examined; the rest of the directory is untouched.
-- Only the configured ``portraits_dir`` and ``scenes_dir`` are touched; nothing
-  outside those two subdirectories.
+- Only the configured ``portraits_dir``, ``scenes_dir`` and ``moments_dir`` are
+  touched; nothing outside those three subdirectories.
 - Every unlink is individually guarded with ``try/except`` so one failure does not
   abort the batch.
 """
@@ -28,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.character import Character
+from app.models.event import Event
 from app.models.scenario import Scenario
 from app.models.setting import Setting
 
@@ -47,13 +49,21 @@ def _scenes_dir() -> Path:
     return get_settings().scenes_dir
 
 
+def _moments_dir() -> Path:
+    """In-play scene-image directory (monkeypatched in tests)."""
+    return get_settings().moments_dir
+
+
 def _referenced_basenames(db: Session) -> set[str]:
     """Return the set of WebP basenames currently referenced by any DB row.
 
-    Collects ``Character.portrait`` and ``Setting.image`` values (non-null),
-    extracts the final path component (the filename), and returns them as a
-    set.  Only ``.webp`` names survive — other formats would be safe to ignore
-    in practice, but the cleanup only touches ``.webp`` files anyway.
+    Collects ``Character.portrait``, ``Setting.image`` and ``Scenario.image``
+    values (non-null) plus the ``url`` on every persisted ``scene_image`` event —
+    an in-play moment is referenced by its *event row*, not by a column, and
+    without that lookup every captured image would fall out of the transcript one
+    day later. Extracts the final path component (the filename) and returns them
+    as a set.  Only ``.webp`` names survive — other formats would be safe to
+    ignore in practice, but the cleanup only touches ``.webp`` files anyway.
     """
     basenames: set[str] = set()
 
@@ -69,6 +79,11 @@ def _referenced_basenames(db: Session) -> set[str]:
 
     for (value,) in db.query(Scenario.image).filter(Scenario.image.isnot(None)):
         basename = value.rsplit("/", 1)[-1]
+        if basename.endswith(".webp"):
+            basenames.add(basename)
+
+    for (data,) in db.query(Event.data).filter(Event.type == "scene_image"):
+        basename = str((data or {}).get("url") or "").rsplit("/", 1)[-1]
         if basename.endswith(".webp"):
             basenames.add(basename)
 
@@ -96,6 +111,7 @@ class OrphanReport:
 
     portraits: DirOrphanStats = field(default_factory=DirOrphanStats)
     scenes: DirOrphanStats = field(default_factory=DirOrphanStats)
+    moments: DirOrphanStats = field(default_factory=DirOrphanStats)
     orphan_count: int = 0
     eligible_count: int = 0
     total_bytes: int = 0
@@ -135,6 +151,7 @@ def scan_orphans(db: Session, *, min_age_hours: float = 24.0) -> OrphanReport:
     dirs = [
         (_portraits_dir(), report.portraits),
         (_scenes_dir(), report.scenes),
+        (_moments_dir(), report.moments),
     ]
 
     for directory, stats in dirs:
@@ -158,10 +175,11 @@ def scan_orphans(db: Session, *, min_age_hours: float = 24.0) -> OrphanReport:
                 stats.eligible_bytes += size
 
     # Aggregate totals
-    report.orphan_count = report.portraits.orphan_count + report.scenes.orphan_count
-    report.eligible_count = report.portraits.eligible_count + report.scenes.eligible_count
-    report.total_bytes = report.portraits.total_bytes + report.scenes.total_bytes
-    report.eligible_bytes = report.portraits.eligible_bytes + report.scenes.eligible_bytes
+    per_dir = (report.portraits, report.scenes, report.moments)
+    report.orphan_count = sum(s.orphan_count for s in per_dir)
+    report.eligible_count = sum(s.eligible_count for s in per_dir)
+    report.total_bytes = sum(s.total_bytes for s in per_dir)
+    report.eligible_bytes = sum(s.eligible_bytes for s in per_dir)
 
     return report
 
@@ -177,14 +195,14 @@ def delete_orphans(db: Session, *, min_age_hours: float = 24.0) -> CleanupResult
     - Only deletes files whose basename is NOT referenced in the DB.
     - Only deletes files older than ``min_age_hours`` (grace period).
     - Only deletes ``.webp`` files.
-    - Only operates within ``portraits_dir`` / ``scenes_dir``.
+    - Only operates within ``portraits_dir`` / ``scenes_dir`` / ``moments_dir``.
     """
     referenced = _referenced_basenames(db)
     cutoff = time.time() - min_age_hours * 3600.0
 
     result = CleanupResult()
 
-    for directory in (_portraits_dir(), _scenes_dir()):
+    for directory in (_portraits_dir(), _scenes_dir(), _moments_dir()):
         if not directory.exists():
             continue
         for path in directory.glob("*.webp"):

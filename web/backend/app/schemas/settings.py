@@ -205,13 +205,14 @@ class MediaDirOrphans(CamelModel):
 class MediaOrphansResponse(CamelModel):
     """Response for ``GET /options/media/orphans`` (dry-run scan).
 
-    ``portraits`` and ``scenes`` break down the counts per directory.
-    ``orphanCount`` / ``eligibleCount`` are totals across both.
-    ``minAgeHours`` echoes the effective grace-period threshold used.
+    ``portraits``, ``scenes`` and ``moments`` (in-play scene images) break down the
+    counts per directory. ``orphanCount`` / ``eligibleCount`` are totals across all
+    three. ``minAgeHours`` echoes the effective grace-period threshold used.
     """
 
     portraits: MediaDirOrphans
     scenes: MediaDirOrphans
+    moments: MediaDirOrphans
     orphan_count: int
     eligible_count: int
     total_bytes: int

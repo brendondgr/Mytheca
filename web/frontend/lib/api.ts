@@ -1014,6 +1014,8 @@ export interface MediaDirOrphans {
 export interface MediaOrphansResult {
   portraits: MediaDirOrphans;
   scenes: MediaDirOrphans;
+  /** In-play scene images captured from the story player (`/media/moments`). */
+  moments: MediaDirOrphans;
   orphanCount: number;
   eligibleCount: number;
   totalBytes: number;

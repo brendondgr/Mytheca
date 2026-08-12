@@ -17,9 +17,11 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.errors import APIError
-from app.events.stream import TurnErrorFrame, build_event, to_ndjson_line
+from app.events.stream import TurnErrorFrame, build_event, to_ndjson_line, with_keepalive
 from app.models import PlaySession
 from app.schemas.play import (
+    MomentRequest,
+    MomentStageFrame,
     PersistedEvent,
     PersistedTrace,
     PresenceRequest,
@@ -33,6 +35,7 @@ from app.services import (
     events_store,
     graph_reader,
     presence,
+    scene_moment,
     session_export,
     turn_engine,
 )
@@ -69,6 +72,33 @@ def play_turn(scenario_id: str, data: TurnRequest, db: Session = Depends(get_db)
             yield to_ndjson_line(TurnErrorFrame(message=exc.message))
         except Exception:  # never leak a stack trace into the stream
             yield to_ndjson_line(TurnErrorFrame(message="The turn failed unexpectedly."))
+
+    return StreamingResponse(_lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS)
+
+
+@router.post("/{scenario_id}/moment/stream")
+def play_moment(scenario_id: str, data: MomentRequest, db: Session = Depends(get_db)):
+    """Capture the scene as a picture; stream the two stages, then the persisted beat.
+
+    The player's **Create image** action. Frames: ``moment_stage`` (``prompt`` →
+    ``render``, the latter re-emitted as the keep-alive heartbeat while ComfyUI
+    works), then the ``scene_image`` story event, or a terminal ``error`` frame.
+    Everything knowable up front — unknown scenario/session, an unplayed scene, an
+    unconfigured ComfyUI or model — is a normal error envelope before the 200 opens.
+    """
+    ctx = scene_moment.prepare_moment(db, scenario_id, data)
+
+    def _lines() -> Iterator[str]:
+        try:
+            for frame in with_keepalive(
+                scene_moment.generate_moment(db, ctx),
+                lambda: MomentStageFrame(stage="render", message="Still painting…"),
+            ):
+                yield to_ndjson_line(frame)
+        except APIError as exc:
+            yield to_ndjson_line(TurnErrorFrame(message=exc.message))
+        except Exception:  # never leak a stack trace into the stream
+            yield to_ndjson_line(TurnErrorFrame(message="The image could not be generated."))
 
     return StreamingResponse(_lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS)
 
