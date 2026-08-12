@@ -7,13 +7,27 @@ import { ContextUsageDial } from "@/components/feature/ContextUsageDial";
 const MAX_HEIGHT = 240;
 
 /**
- * Bottom composer — one continuous panel, two stacked areas:
+ * Maximum visible height of the scene-direction box (~5 lines). Deliberately shorter than
+ * the message box: direction is a note to the scene, not the line the player is performing.
+ */
+const GUIDANCE_MAX_HEIGHT = 120;
+
+/**
+ * Bottom composer — one continuous panel, stacked areas:
+ *   • (Player POV only) the scene-direction textarea, above a hairline rule — see below,
  *   • the auto-growing message textarea (Enter sends / Shift+Enter newline), then a gap,
  *   • a compact controls bar — Config on the left (room reserved for future options),
  *     and on the right the circular context dial then a small "Send →" pill.
- * The panel shows a single accent border on focus-within; the textarea itself has no
- * focus outline (that boxy ring is suppressed). The textarea stays editable while a turn
- * streams; only sending is blocked (`sendDisabled`).
+ * The panel shows a single accent border on focus-within; the textareas themselves have no
+ * focus outline (that boxy ring is suppressed). Both stay editable while a turn streams;
+ * only sending is blocked (`sendDisabled`).
+ *
+ * **The scene-direction box** appears only while the player is speaking AS a character
+ * (`pov` set) and `onGuidanceChange` is wired. In narrator mode the message box already is
+ * the narrator's box — its text *is* the direction — so a second one would duplicate it.
+ * Under POV the message box holds the character's own line, which leaves nowhere to steer
+ * the scene from; this is that place. The panel grows upward as it fills, so opening it
+ * lifts the transcript rather than covering it.
  */
 export function Composer({
   value,
@@ -21,6 +35,9 @@ export function Composer({
   onSend,
   sendDisabled = false,
   inputRef,
+  // Scene direction (Player POV only) — the narrator's box, above the message box.
+  guidance = "",
+  onGuidanceChange,
   // Scene config (rendered on the bottom-left when at least one handler is supplied).
   maxTurns,
   onMaxTurnsChange,
@@ -48,6 +65,14 @@ export function Composer({
   sendDisabled?: boolean;
   /** Lets the parent move focus here after a suggestion is written into the box. */
   inputRef?: RefObject<HTMLTextAreaElement | null>;
+  /**
+   * The narrator direction for this turn — what should happen next and how the cast should
+   * react. Rendered only under Player POV (see the component doc); as vague or as specific
+   * as the player likes.
+   */
+  guidance?: string;
+  /** Omit to hide the scene-direction box entirely. */
+  onGuidanceChange?: (value: string) => void;
   maxTurns?: number;
   onMaxTurnsChange?: (value: number) => void;
   suggestionsCount?: number;
@@ -70,10 +95,14 @@ export function Composer({
 }) {
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const ref = (inputRef as RefObject<HTMLTextAreaElement>) ?? internalRef;
+  const guidanceRef = useRef<HTMLTextAreaElement>(null);
 
   const hasConfig = Boolean(
     onMaxTurnsChange ?? onSuggestionsCountChange ?? onContextBeatsChange,
   );
+  // The direction box belongs to POV mode only — in narrator mode the message box below
+  // already carries the direction.
+  const showGuidance = Boolean(onGuidanceChange) && Boolean(pov);
 
   // Placeholder reflects the active POV: "Speaking as Mei…" when the player has chosen a
   // character to voice, else the default guide/narrator prompt.
@@ -84,11 +113,11 @@ export function Composer({
       ? `Speaking as ${povName}…`
       : "Speak, or describe what you do…";
 
-  /** Resize the textarea to fit its content, capped at MAX_HEIGHT. */
-  function resize(el: HTMLTextAreaElement) {
+  /** Resize a textarea to fit its content, capped at `max`. */
+  function resize(el: HTMLTextAreaElement, max = MAX_HEIGHT) {
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
-    el.style.overflowY = el.scrollHeight > MAX_HEIGHT ? "auto" : "hidden";
+    el.style.height = `${Math.min(el.scrollHeight, max)}px`;
+    el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
   }
 
   // Re-run resize whenever `value` changes externally (e.g. suggestion select).
@@ -97,11 +126,43 @@ export function Composer({
     if (el) resize(el);
   }, [value, ref]);
 
+  // Same for the direction box — it is cleared on send and on leaving POV, both external.
+  useLayoutEffect(() => {
+    const el = guidanceRef.current;
+    if (el) resize(el, GUIDANCE_MAX_HEIGHT);
+  }, [guidance, showGuidance]);
+
   return (
     /* Outer band: transparent, no background — just positions the centered panel. */
     <div className="flex-none px-[16px] pb-[12px] sm:px-[30px] sm:pb-[14px]">
       {/* The single visual unit: the chat box panel (input area + gap + controls). */}
       <div className="mx-auto flex max-w-[720px] flex-col rounded-[14px] border border-field-bd bg-field px-[10px] pt-[8px] pb-[7px] focus-within:border-accent transition-colors duration-150">
+        {/* Scene direction (Player POV) — the narrator's box, above the character's line and
+            separated from it by a hairline so the two are never mistaken for one field. */}
+        {showGuidance ? (
+          <div className="mb-[6px] border-b border-field-bd pb-[6px]">
+            <textarea
+              ref={guidanceRef}
+              rows={1}
+              value={guidance}
+              onChange={(e) => {
+                onGuidanceChange?.(e.target.value);
+                resize(e.currentTarget, GUIDANCE_MAX_HEIGHT);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!sendDisabled && value.trim()) onSend();
+                }
+              }}
+              aria-label="Scene direction"
+              placeholder="Guide the scene — what happens next…"
+              className="composer-input block w-full resize-none bg-transparent px-[4px] py-[2px] font-body text-[13px] text-mute placeholder:text-mute2 focus:outline-none"
+              style={{ overflowY: "hidden" }}
+            />
+          </div>
+        ) : null}
+
         {/* The message input — no focus outline (the container carries the accent border). */}
         <textarea
           ref={ref}

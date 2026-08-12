@@ -18,6 +18,25 @@ Verified against the code on 2026-08-04.
 - **Population never proposes scenarios.** It writes characters and settings only (each character whole — draft, voice profile, starting stats, portrait); the first scenario is still authored by hand.
 - **World-build runs are in-process and non-durable.** `services/world_populate_runs.py` keeps a run's frame log in memory, keyed by storyline. A backend restart ends the run (the client is told, and never silently rebuilds), and a multi-process deployment would not share the registry. Durable runs (a table + a worker) are unbuilt.
 - **A stopped build leaves a partly-built world.** *Stop* aborts the stream but does not roll back the rows already committed, and there is no in-app way to resume the run — the author finishes the cast by hand. Tied to the missing re-run entry point above.
+- **The scene direction is not persisted.** `TurnRequest.guidance` shapes the turn it was
+  sent with and shows up in the Inspector's `direction` trace steps, but it is not written to
+  the `user_turn` row — so a session reload does not restore it into the composer's direction
+  box, and an export cannot show what the player asked for versus what the turn delivered.
+  The row already carries `data = {text, directedAt, pov}`; adding `guidance` is additive.
+- **Nothing verifies that a requirement was actually met.** A beat marks its requirements
+  delivered because it *carried* them into the prompt, not because the emitted prose reached
+  them (a deliberate call — an LLM "did that happen?" check would roughly double the turn's
+  call count). A character that ignores its stated outcome is not caught, and the end-of-turn
+  trace will still report the direction delivered in full.
+- **A guidance-only turn cannot be sent.** The direction box rides along with a message;
+  `validate_turn_inputs` requires `text`, and the optimistic bubble plus the `user_turn` row
+  are keyed to it. Steering the scene without also speaking as your character means typing
+  something in the message box.
+- **A direction longer than the scene's turn cap is compressed, not spread.** The opening
+  narration absorbs every narrator-owned requirement at once when `maxTurns` is at or below
+  the requirement count, and the last beat collapses to a narrator beat covering whatever
+  several characters are still owed. Both are correct — the cap is hard — but they read as
+  summary rather than scene. Raising the scene's turn limit is the only remedy today.
 - **Relationship / mood stats** — extend the stat machinery to values with a relational target. Relationships currently live only in the graph.
 - **Scenario-level stat additions and range overrides** — described in old docs, never implemented; `Scenario` has no such column.
 - **Separate `GET /stream` transport** — the turn POST streams NDJSON directly. A standalone stream endpoint with Redis pub/sub fan-out is a seam, not a plan.
@@ -25,7 +44,11 @@ Verified against the code on 2026-08-04.
 - **Neo4j KG-edge expansion in retrieval** — walking `related` edges during RAG retrieve.
 - **RAG-first ingestion + tool-calling authoring** — plan exists (`docs/plans/rag-first-ingestion.md`), not implemented.
 - **Text2Cypher read path** — `type_registry.schema_blob()` is compiled but has no consumer.
-- **Scene-appraisal signal** — one cheap shared per-turn LLM call giving every speaker a common read of mood and stakes. Revisit only if playtesting shows the current prompt-only situational adaptation is insufficient; weigh against local-model latency.
+- **Register-aware narration.** The per-beat `register`/`stakes` from `planner_agent.next_beat` reaches the *character* prompt but not `narrator_agent` — narration still leans on the authored `Setting.atmosphere` for scenery. A grave beat should narrate differently from a light one; the signal is already on `BeatDecision`, so this is threading, not new machinery.
+- **A live scene state.** `Setting.current_state` and `Setting.atmosphere` are written at world creation and **never again during play**. The character prompt no longer misrepresents them as the present moment, but nothing yet maintains a rolling "what this place is like now" line from the transcript.
+- **Reflection effort is pinned to `LOW`.** The disposition it produces is now 2–3 sentences and sits in the character prompt's recency tail, so it carries real weight — but `dispatch_reflection` runs **inline** by default (`TURN_ASYNC_FINALIZE` is off) and a crowd (cast > 2) reflects **universally**, so raising `REFLECTION_EFFORT` to `MEDIUM` would put a whole cast's reasoning budget on the turn tail. Revisit together with async finalize, or gate the effort on cast size.
+- **Nothing measures whether the register works.** Phases 1–5 of `docs/plans/character-dialogue-flexibility.md` are validated structurally (the register reaches the prompt, the right samples are selected, the sampler moves) — no experiment shows that output quality improved. A grave-beat manner-adaptation eval belongs in `docs/research/experiments/`.
+- **Composure as a stat, and a tonal redo pass** — the two rejected arms of the same design (ideas 4 and 6). The stat machinery already renders bands to prose, and `consistency.review`'s correction seam already re-runs a beat; both are cheap to revisit if the register alone proves insufficient.
 - **`end_scene` / `move_scene` verbs** — the presence/action bus is built to take them.
 - **YAML config loaders** in `app/content/` — only the Markdown stat-guidance loader exists. Entities live in Postgres, so this may simply be unnecessary; decide rather than leave it pending.
 - **Dice-based resolution** — explicitly dropped (decision D11), not merely deferred. The `CheckCard` renderer was removed. Reopen only as a deliberate reversal.
@@ -80,7 +103,17 @@ Verified against the code on 2026-08-04.
 
 ## Deferred verification
 
-- **Live in-browser accessibility + responsive pass.** Deferred across a long series of UI changes against a persistent environment constraint: a dev server holding 3346, backend CORS pinned to that origin, and unreliable screenshot tooling inside worktrees. Each change was instead verified via green component suites, `next build`, and structural review (native controls, AA tokens, reduced-motion fallbacks). **This is the largest outstanding quality gap** — run one consolidated keyboard + 320/375/768/1024 pass over the whole app once a clean environment is available, rather than re-deferring it per feature.
+- **The `VoiceSamplesEditor` Moment select has not been seen in a browser.** Added 2026-08-11. Verified by co-located component tests (native `<select>`, `<label>`-associated, reachable by accessible name, reuses the existing field styling) and by structural review: the row wraps at the 320px floor and the select is `max-w-full min-w-0` so a long option label cannot overflow. A live check was attempted in the worktree on a free port and **failed for an unrelated reason** — `next/font/google` cannot reach Google Fonts in this sandbox, so the page never renders. Folded into the consolidated pass below.
+- **Live in-browser accessibility + responsive pass.** Deferred across a long series of UI changes against a persistent environment constraint: a dev server holding 3346, backend CORS pinned to that origin, unreachable Google Fonts, and unreliable screenshot tooling inside worktrees. Each change was instead verified via green component suites, `next build`, and structural review (native controls, AA tokens, reduced-motion fallbacks). **This is the largest outstanding quality gap** — run one consolidated keyboard + 320/375/768/1024 pass over the whole app once a clean environment is available, rather than re-deferring it per feature.
+  - *Partially closed on 2026-08-11 for the composer.* The scene-direction box was measured
+    live (a throwaway route on a second dev server, so no backend/CORS was involved) at
+    320/375/768/1024: no horizontal overflow, no root-scroll growth, the panel grows upward
+    with the box capped then scrolling, and tab order reads direction → message → Config →
+    Speaking as → dial → Send. **Focus styling could not be seen rendered** — the browser
+    pane reports `document.hasFocus() === false` and `visibilityState: "hidden"`, so
+    `:focus-visible` never matches and screenshots time out. It was verified by reading the
+    served stylesheet instead (`textarea.composer-input:focus-visible` and
+    `.focus-within\:border-accent:focus-within` both present and correct).
 - **ComfyUI end-to-end render.** The generate → edit → save → reopen loop has never been verified against a running ComfyUI server.
 - **Graph node/edge click → detail.** Confirmed by unit tests; could not be driven live because synthetic canvas clicks don't reach `react-force-graph-2d`'s internal hit-testing headlessly.
 

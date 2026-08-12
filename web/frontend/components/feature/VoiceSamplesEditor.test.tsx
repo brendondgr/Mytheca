@@ -49,6 +49,32 @@ describe("VoiceSamplesEditor", () => {
     expect(onChange).toHaveBeenLastCalledWith([{ situation: "cornered", sample: "Back off." }]);
   });
 
+  it("defaults a new row to 'any moment'", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    await user.click(screen.getByRole("button", { name: /add sample/i }));
+    expect(onChange).toHaveBeenLastCalledWith([{ situation: "", sample: "", moment: "" }]);
+    expect(screen.getByLabelText(/sample 1 moment/i)).toHaveValue("");
+  });
+
+  it("tags a row with the kind of moment it demonstrates", async () => {
+    // The moment decides whether this pair reaches the turn prompt at all — a grave beat
+    // must not be shown the character's at-rest banter.
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <Harness
+        initial={[{ situation: "a blade at his throat", sample: "Wait\u2014" }]}
+        onChange={onChange}
+      />,
+    );
+    await user.selectOptions(screen.getByLabelText(/sample 1 moment/i), "grave");
+    expect(onChange).toHaveBeenLastCalledWith([
+      { situation: "a blade at his throat", sample: "Wait\u2014", moment: "grave" },
+    ]);
+  });
+
   it("removes a row", async () => {
     const user = userEvent.setup();
     render(

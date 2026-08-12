@@ -6,6 +6,12 @@ from pydantic import field_validator
 
 from app.schemas.base import CamelModel
 
+# The kinds of moment a voice sample may be tagged with — the same axis
+# ``planner_agent`` reads per beat as a beat's ``register``. The field is called
+# ``moment`` rather than ``register`` because a pydantic field named ``register``
+# shadows ``ABCMeta.register`` on the model base. Empty (untagged) means "any moment".
+VOICE_MOMENTS = ("light", "neutral", "tense", "grave")
+
 
 class VoiceSample(CamelModel):
     """One situation → single-response pair defining how a character speaks.
@@ -15,10 +21,25 @@ class VoiceSample(CamelModel):
     single in-voice response to that situation (one turn, never a back-and-forth
     exchange), reacting to what specifically happened rather than restating a
     generic description of their voice.
+
+    ``moment`` tags which kind of moment the pair demonstrates — ``light`` ·
+    ``neutral`` · ``tense`` · ``grave``, matching ``planner_agent``'s per-beat
+    ``register``. Only the pairs matching the current beat (plus untagged ones) are
+    injected, so a character has a concrete exemplar of themselves *not at rest*
+    instead of always being shown their baseline voice. Empty means "any moment";
+    anything unrecognized is coerced to empty rather than rejected, since these rows
+    are free-form JSON that predate the field.
     """
 
     situation: str = ""
     sample: str = ""
+    moment: str = ""
+
+    @field_validator("moment", mode="before")
+    @classmethod
+    def _coerce_moment(cls, value: object) -> str:
+        text = str(value or "").strip().lower()
+        return text if text in VOICE_MOMENTS else ""
 
 
 class CharacterBase(CamelModel):

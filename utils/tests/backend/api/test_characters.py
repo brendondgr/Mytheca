@@ -143,15 +143,17 @@ def test_character_voice_samples_roundtrip(client, storyline_id):
         "offered a bribe",
     ]
     assert body["voiceSamples"][0]["sample"].startswith("State your business")
+    # Untagged pairs persist with an empty moment — they apply to any beat.
+    assert [s["moment"] for s in body["voiceSamples"]] == ["", ""]
     cid = body["id"]
 
     patched = client.patch(
         f"/api/characters/{cid}",
-        json={"voiceSamples": [{"situation": "cornered", "sample": "Back off. Now."}]},
+        json={"voiceSamples": [{"situation": "cornered", "sample": "Back off. Now.", "moment": "tense"}]},
     )
     assert patched.status_code == 200
     assert patched.json()["voiceSamples"] == [
-        {"situation": "cornered", "sample": "Back off. Now."}
+        {"situation": "cornered", "sample": "Back off. Now.", "moment": "tense"}
     ]
 
     fetched = client.get(f"/api/characters/{cid}").json()

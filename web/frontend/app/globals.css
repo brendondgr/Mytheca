@@ -82,12 +82,17 @@ textarea::placeholder {
   outline-offset: 2px;
 }
 
-/* The story composer's textarea signals focus through its panel's accent border
- * (focus-within), so it opts out of the boxy outline above. This unlayered, higher-
- * specificity rule is what actually wins: the rule above is unlayered, so a Tailwind
- * `focus-visible:outline-none` utility (in @layer utilities) can't override it. */
+/* The story composer's textareas opt out of the boxy outline above and mark focus with a
+ * 2px accent bar down the field's leading edge instead. The bar is per-FIELD on purpose:
+ * under Player POV the panel holds two textareas (scene direction above the message), so a
+ * panel-level indicator alone cannot tell a keyboard user which one they are in. As a
+ * non-text indicator it needs 3:1 — accent on field is 5.17:1 at worst across the three
+ * themes. This unlayered, higher-specificity rule is what actually wins: the rule above is
+ * unlayered, so a Tailwind `focus-visible:outline-none` utility (in @layer utilities)
+ * can't override it. */
 textarea.composer-input:focus-visible {
   outline: none;
+  box-shadow: inset 2px 0 0 0 var(--accent);
 }
 
 ::-webkit-scrollbar {

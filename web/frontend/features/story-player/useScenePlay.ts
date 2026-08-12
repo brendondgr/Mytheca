@@ -73,6 +73,10 @@ export function useScenePlay(scenario: ResolvedScenario) {
     [scenario.cast],
   );
   const [composer, setComposer] = useState("");
+  // The narrator direction for the next turn — the composer's second box, which only exists
+  // under Player POV (in narrator mode the message box already IS the direction). Cleared on
+  // send, and whenever POV is dropped, so stale steering never rides along with a later turn.
+  const [guidance, setGuidance] = useState("");
   // Per-scene play controls (persisted on the scenario). Local state drives the composer
   // dropdowns; each change is written back so the backend reads it on the next turn.
   const [maxTurns, setMaxTurnsState] = useState<number>(scenario.maxTurns ?? 5);
@@ -92,7 +96,10 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const [povPresenceSnapshot, setPovPresenceSnapshot] = useState(presenceByChar);
   if (presenceByChar !== povPresenceSnapshot) {
     setPovPresenceSnapshot(presenceByChar);
-    if (pov && (presenceByChar[pov] ?? "present") !== "present") setPov(null);
+    if (pov && (presenceByChar[pov] ?? "present") !== "present") {
+      setPov(null);
+      setGuidance(""); // the direction box goes with it
+    }
   }
   const [reveal, setReveal] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -297,8 +304,16 @@ export function useScenePlay(scenario: ResolvedScenario) {
   const stream = useEventStream<TurnStreamFrame>(onFrame);
   const sending = stream.status === "streaming";
 
+  // Choosing who to speak as. Leaving POV (back to Narrator) also drops the direction box's
+  // text — in narrator mode the message box carries the direction, so keeping it would send
+  // the same steer twice.
+  const choosePov = useCallback((id: string | null) => {
+    setPov(id);
+    if (id === null) setGuidance("");
+  }, []);
+
   const submit = useCallback(
-    (text: string) => {
+    (text: string, direction = "") => {
       const t = text.trim();
       if (!t || sending) return; // in-flight guard
       setStreamError(null);
@@ -313,7 +328,15 @@ export function useScenePlay(scenario: ResolvedScenario) {
         .run((signal) =>
           postTurn(
             scenario.id,
-            { text: t, sessionId: sessionRef.current, trace: true, povCharacterId: pov },
+            {
+              text: t,
+              sessionId: sessionRef.current,
+              trace: true,
+              povCharacterId: pov,
+              // Only meaningful under POV — omitted otherwise so the backend keeps reading
+              // the player's own line as the direction.
+              guidance: direction.trim() || null,
+            },
             signal,
           ),
         )
@@ -352,9 +375,13 @@ export function useScenePlay(scenario: ResolvedScenario) {
     if (sending) return;
     const text = composer.trim();
     if (!text) return;
+    // The direction applies to THIS turn only — it is consumed with the message, not kept
+    // as a standing instruction the player would have to remember to clear.
+    const direction = pov ? guidance : "";
     setComposer("");
-    submit(text);
-  }, [composer, sending, submit]);
+    setGuidance("");
+    submit(text, direction);
+  }, [composer, guidance, pov, sending, submit]);
 
   // Selecting a follow-up no longer submits: it writes the suggested (situation-based, tone-
   // matched) text into the composer so the player can review and edit it before sending
@@ -377,6 +404,8 @@ export function useScenePlay(scenario: ResolvedScenario) {
     speakingId: lastSpeaker?.who ?? null,
     composer,
     setComposer,
+    guidance,
+    setGuidance,
     maxTurns,
     setMaxTurns,
     suggestionsCount,
@@ -384,7 +413,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
     contextBeats,
     setContextBeats,
     pov,
-    setPov,
+    setPov: choosePov,
     loading,
     reveal,
     sending,

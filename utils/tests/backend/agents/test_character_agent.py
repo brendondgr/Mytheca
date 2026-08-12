@@ -202,10 +202,11 @@ def test_portrait_prompts_require_a_description(client):
 _VOICE_JSON = json.dumps(
     {
         "samples": [
-            {"situation": "greeted warmly", "sample": "State your business."},
-            {"situation": "offered a bribe", "sample": "Coin talks. I decide what it says."},
-            {"situation": "cornered", "sample": "Back off. Now."},
-            {"situation": "praised", "sample": "Flattery's cheap."},
+            {"situation": "greeted warmly", "sample": "State your business.", "moment": "neutral"},
+            {"situation": "offered a bribe", "sample": "Coin talks. I decide what it says.", "moment": "light"},
+            {"situation": "cornered", "sample": "Back off. Now.", "moment": "tense"},
+            {"situation": "his brother dies", "sample": "No. No, hold on—", "moment": "grave"},
+            {"situation": "praised", "sample": "Flattery's cheap.", "moment": "nonsense"},
             {"situation": "extra pair over the cap", "sample": "dropped by the cap"},
         ]
     }
@@ -232,11 +233,17 @@ def test_voice_samples_parses_and_caps(client, monkeypatch, storyline_id):
     )
     assert res.status_code == 200
     samples = res.json()["samples"]
-    assert len(samples) == 4  # capped at _VOICE_SAMPLES_CAP, the 5th pair dropped
+    assert len(samples) == 5  # capped at _VOICE_SAMPLES_CAP, the 6th pair dropped
     assert samples[0]["situation"] == "greeted warmly"
     assert samples[0]["sample"] == "State your business."
+    # The moment tag rides through; an unrecognized one degrades to "" (applies anywhere)
+    # rather than failing the whole proposal.
+    assert [s["moment"] for s in samples] == ["neutral", "light", "tense", "grave", ""]
     # The character's voice fields are handed to the model.
     assert "clipped, wary" in seen["body"]
+    # The profile must cover more than the baseline — an all-at-rest profile is what made
+    # characters unable to change register during play.
+    assert "COVER THE RANGE" in seen["body"]
 
 
 def test_voice_samples_empty_without_description(client):

@@ -56,6 +56,18 @@ class TurnRequest(CamelModel):
     behavior. NOTE: this is orthogonal to ``mode`` — ``mode`` is a *rendering* switch
     (narrator interstitials on/off); ``povCharacterId`` is *who the player speaks as*.
 
+    ``guidance`` is the *narrator direction* for the turn — what should happen next and how
+    the cast should react — sent from the story player's second composer box, which appears
+    above the message box whenever ``povCharacterId`` is set. It exists because under Player
+    POV the ``text`` field is the character's own line and can no longer double as
+    direction. The engine parses it into ``direction_agent`` requirements and schedules them
+    across the scene's ``maxTurns`` budget, so everything asked for lands inside the turn.
+    When it is omitted **and** POV is off, the player's ``text`` is itself the direction
+    (the main box is the narrator box); when it is omitted under POV, the turn carries no
+    direction at all. Vague ("things get worse") and highly specific ("Mei storms out,
+    Aldous grabs her wrist, the lamp goes over") both work — the more it asks for, the more
+    of the turn's beats are committed to delivering it.
+
     A selected follow-up suggestion no longer submits a turn on its own: the story player
     writes the suggested text into the composer for the player to review/edit and send as
     an ordinary ``text`` turn (request #2), so there is no separate open-ended steer field.
@@ -68,6 +80,7 @@ class TurnRequest(CamelModel):
     trace: bool = False
     outcome: str | None = None
     pov_character_id: str | None = None
+    guidance: str | None = None
 
 
 class SessionSummary(CamelModel):
