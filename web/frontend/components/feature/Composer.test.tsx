@@ -1,4 +1,5 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { useState } from "react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { Composer } from "./Composer";
@@ -318,6 +319,171 @@ describe("Composer", () => {
       render(<Composer value="" onChange={() => {}} onSend={() => {}} sendDisabled />);
       const ta = screen.getByRole("textbox", { name: /your message/i });
       expect(ta).toHaveAttribute("placeholder", "The scene responds…");
+    });
+  });
+
+  describe("@ file tagging", () => {
+    const DOCS = [
+      { id: "cd_m", name: "maerin.md", charCount: 812 },
+      { id: "cd_h", name: "harbor.md", charCount: 40 },
+    ];
+
+    /** Composer is controlled, so typing needs a stateful host. */
+    function Harness({
+      onSend = () => {},
+      pov = null,
+      withGuidance = false,
+      mentionOptions = DOCS,
+      initial = "",
+    }: {
+      onSend?: () => void;
+      pov?: string | null;
+      withGuidance?: boolean;
+      mentionOptions?: typeof DOCS;
+      initial?: string;
+    }) {
+      const [value, setValue] = useState(initial);
+      const [guidance, setGuidance] = useState("");
+      return (
+        <Composer
+          value={value}
+          onChange={setValue}
+          onSend={onSend}
+          mentionOptions={mentionOptions}
+          pov={pov}
+          onPovChange={pov !== null ? () => {} : undefined}
+          povOptions={pov ? [{ id: "mei", name: "Mei", mono: "M", color: "#8E2B1C", portrait: null }] : []}
+          guidance={withGuidance ? guidance : undefined}
+          onGuidanceChange={withGuidance ? setGuidance : undefined}
+        />
+      );
+    }
+
+    const message = () => screen.getByRole("textbox", { name: /your message/i });
+    const direction = () => screen.getByRole("textbox", { name: /scene direction/i });
+
+    it("opens the file list when the player types @", async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
+      await user.click(message());
+      await user.keyboard("@");
+      expect(screen.getByRole("listbox", { name: /context files/i })).toBeInTheDocument();
+      expect(screen.getAllByRole("option")).toHaveLength(2);
+    });
+
+    it("narrows the list as the player keeps typing", async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
+      await user.click(message());
+      await user.keyboard("@mae");
+      expect(screen.getAllByRole("option")).toHaveLength(1);
+      expect(screen.getByRole("option", { name: /maerin\.md/ })).toBeInTheDocument();
+    });
+
+    it("closes the list when nothing matches", async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
+      await user.click(message());
+      await user.keyboard("@zzz");
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    });
+
+    it("does not open mid-word", async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
+      await user.click(message());
+      await user.keyboard("mail@x");
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    });
+
+    it("stays inert when no documents are taggable", async () => {
+      const user = userEvent.setup();
+      render(<Harness mentionOptions={[]} />);
+      await user.click(message());
+      await user.keyboard("@");
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    });
+
+    it("Enter selects the highlighted file instead of sending", async () => {
+      const user = userEvent.setup();
+      const onSend = vi.fn();
+      render(<Harness onSend={onSend} />);
+      await user.click(message());
+      await user.keyboard("@mae{Enter}");
+      expect(onSend).not.toHaveBeenCalled();
+      expect(message()).toHaveValue("@maerin.md ");
+    });
+
+    it("Enter still sends once the list is closed", async () => {
+      const user = userEvent.setup();
+      const onSend = vi.fn();
+      render(<Harness onSend={onSend} initial="ready" />);
+      await user.click(message());
+      await user.keyboard("{Enter}");
+      expect(onSend).toHaveBeenCalledTimes(1);
+    });
+
+    it("arrow keys move the highlight and Enter takes that file", async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
+      await user.click(message());
+      await user.keyboard("@{ArrowDown}{Enter}");
+      expect(message()).toHaveValue("@harbor.md ");
+    });
+
+    it("Escape closes the list and leaves the text alone", async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
+      await user.click(message());
+      await user.keyboard("@mae{Escape}");
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      expect(message()).toHaveValue("@mae");
+    });
+
+    it("clicking a row inserts it", async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
+      await user.click(message());
+      await user.keyboard("@");
+      await user.click(screen.getByRole("option", { name: /harbor\.md/ }));
+      expect(message()).toHaveValue("@harbor.md ");
+    });
+
+    it("points aria-activedescendant at the highlighted row while open", async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
+      await user.click(message());
+      await user.keyboard("@mae");
+      const active = message().getAttribute("aria-activedescendant");
+      expect(active).toBeTruthy();
+      expect(screen.getByRole("option", { name: /maerin\.md/ })).toHaveAttribute("id", active!);
+      expect(message()).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("lists the tagged file as a chip", async () => {
+      const user = userEvent.setup();
+      render(<Harness initial="@maerin.md what is she holding?" />);
+      const chips = screen.getByRole("list", { name: /tagged files/i });
+      expect(within(chips).getByText("maerin.md")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /remove maerin\.md/i }));
+      expect(message()).toHaveValue("what is she holding?");
+      expect(screen.queryByRole("list", { name: /tagged files/i })).not.toBeInTheDocument();
+    });
+
+    it("shows no chip row when nothing is tagged", () => {
+      render(<Harness initial="just talking" />);
+      expect(screen.queryByRole("list", { name: /tagged files/i })).not.toBeInTheDocument();
+    });
+
+    it("works in the scene-direction box too", async () => {
+      const user = userEvent.setup();
+      render(<Harness pov="mei" withGuidance />);
+      await user.click(direction());
+      await user.keyboard("@har{Enter}");
+      expect(direction()).toHaveValue("@harbor.md ");
+      expect(
+        within(screen.getByRole("list", { name: /tagged files/i })).getByText("harbor.md"),
+      ).toBeInTheDocument();
     });
   });
 });
