@@ -541,3 +541,109 @@ export function applyCharacterActivity(
 
   return map;
 }
+
+// ---- Whole-scene turn status (who is up, right now) ----
+
+/**
+ * What the scene is doing at this instant. Distinct from {@link CharacterActivity}, which is
+ * per-character state for the cast rail: this is the SINGLE current focus of the turn, which
+ * is what a reader watching the transcript actually needs — who is up, and whether the turn
+ * is wrapping up.
+ */
+export type TurnPhase =
+  | "idle"
+  | "thinking"
+  | "speaking"
+  | "acting"
+  | "narrating"
+  | "ending";
+
+/** The scene's current focus. `characterId`/`name` are set only for character phases. */
+export interface TurnStatus {
+  phase: TurnPhase;
+  characterId?: string;
+  /** The name carried by the `speaker` trace — the fallback when the cast lookup misses. */
+  name?: string;
+}
+
+/** Nothing is in flight. Also the reset value between turns. */
+export const IDLE_TURN_STATUS: TurnStatus = { phase: "idle" };
+
+/** True when both statuses describe the same moment (so the reducer can skip a re-render). */
+function sameStatus(a: TurnStatus, b: TurnStatus): boolean {
+  return a.phase === b.phase && a.characterId === b.characterId && a.name === b.name;
+}
+
+/**
+ * Fold one frame into the scene's turn status. Returns the **same reference** when nothing
+ * changes — this runs on every delta frame, and a fresh object per token would re-render
+ * the status strip (and restart its entrance animation) on every chunk of every line.
+ *
+ * Transitions:
+ * - trace `speaker` → `thinking` (a speaker has been chosen; nothing written yet)
+ * - trace `plan` with `data.end` → `ending` (the beat loop stopped — see api-contract.md)
+ * - `internal_thought` → `thinking` · `character_action` → `acting`
+ * - `character_dialogue` → `speaking`, `done: true` → `idle`
+ * - `narration` → `narrating`, `done: true` → `idle`
+ * - `error` → `idle`; every other frame leaves the status alone
+ *
+ * Note `ending` is deliberately sticky: the trailing `branch_choices`/`commit`/`reflection`
+ * frames are not beats, so they must not knock the "the turn is ending" label back to idle.
+ */
+export function applyTurnStatus(prev: TurnStatus, frame: TurnStreamFrame): TurnStatus {
+  const next = nextTurnStatus(prev, frame);
+  return sameStatus(prev, next) ? prev : next;
+}
+
+function nextTurnStatus(prev: TurnStatus, frame: TurnStreamFrame): TurnStatus {
+  if (frame.type === "trace") {
+    if (frame.step === "speaker") {
+      const characterId = frame.data.characterId as string | undefined;
+      if (!characterId) return prev;
+      return {
+        phase: "thinking",
+        characterId,
+        name: (frame.data.name as string | undefined) ?? undefined,
+      };
+    }
+    if (frame.step === "plan" && frame.data.end === true) return { phase: "ending" };
+    return prev;
+  }
+
+  if (frame.type === "error") return IDLE_TURN_STATUS;
+
+  const event = frame as import("@/lib/events").PlayEvent;
+
+  if (event.type === "narration") {
+    return event.data.done ? IDLE_TURN_STATUS : { phase: "narrating" };
+  }
+
+  if (event.type === "internal_thought") {
+    return forCharacter("thinking", event.data.characterId, prev);
+  }
+
+  if (event.type === "character_action") {
+    return forCharacter("acting", event.data.characterId, prev);
+  }
+
+  if (event.type === "character_dialogue") {
+    if (event.data.done) return IDLE_TURN_STATUS;
+    return forCharacter("speaking", event.data.characterId, prev);
+  }
+
+  return prev;
+}
+
+/**
+ * A character phase for `characterId`. The `name` from the `speaker` trace is carried
+ * forward **only while it still describes the same character** — story events name a
+ * character by id alone, so a stale name from the previous speaker would otherwise be
+ * shown against the new one.
+ */
+function forCharacter(phase: TurnPhase, characterId: string, prev: TurnStatus): TurnStatus {
+  return {
+    phase,
+    characterId,
+    name: prev.characterId === characterId ? prev.name : undefined,
+  };
+}

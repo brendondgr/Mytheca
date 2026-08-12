@@ -17,6 +17,7 @@ import { SceneLoader } from "@/components/feature/SceneLoader";
 import { SceneIntro } from "@/components/feature/SceneIntro";
 import { TranscriptBeat } from "@/components/feature/TranscriptBeat";
 import { TranscriptAnnouncer } from "@/components/feature/TranscriptAnnouncer";
+import { TurnStatusStrip } from "@/components/feature/TurnStatusStrip";
 import { JumpToLatest } from "@/components/feature/JumpToLatest";
 import { useStickyBottom } from "./use-sticky-bottom";
 import { CreateImageBar } from "@/components/feature/CreateImageBar";
@@ -179,6 +180,14 @@ export function StoryPlayerView({
                   />
                 </motion.div>
               ))}
+              {/* Who is up, while the turn is being written. Sits in the same slot the
+                  CreateImageBar occupies between turns (the two are gated on `sending` in
+                  opposite directions), so the foot of the transcript never empties out. */}
+              <TurnStatusStrip
+                status={scene.turnStatus}
+                streaming={scene.sending}
+                charById={byId}
+              />
               {scene.streamError ? (
                 <p role="alert" className="text-center font-mono text-[11px] tracking-[0.08em] text-danger">
                   {scene.streamError}

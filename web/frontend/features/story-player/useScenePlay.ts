@@ -28,8 +28,11 @@ import {
 import {
   applyActivity,
   applyCharacterActivity,
+  applyTurnStatus,
   type ActivityEntry,
   type CharacterActivity,
+  IDLE_TURN_STATUS,
+  type TurnStatus,
   applyPresence,
   applyStatByChar,
   applyStatUpdate,
@@ -135,6 +138,10 @@ export function useScenePlay(scenario: ResolvedScenario) {
   // Per-character live status: "idle" | "thinking" | "speaking". Resets to {} when the
   // stream leaves "streaming" (nobody is stuck in thinking/speaking between turns).
   const [activityByChar, setActivityByChar] = useState<Record<string, CharacterActivity>>({});
+  // The scene's SINGLE current focus — who is up right now, and whether the turn is
+  // wrapping up. Drives the transcript's turn-status strip (the only speaker signal below
+  // the `lg` breakpoint, where the cast rail is hidden). Reset to idle when a turn settles.
+  const [turnStatus, setTurnStatus] = useState<TurnStatus>(IDLE_TURN_STATUS);
   // Model's reported context-window size in tokens (null = unknown / fetch failed → dial hidden).
   const [maxContextTokens, setMaxContextTokens] = useState<number | null>(null);
   // The EXACT input-token count the model reported for the latest turn (`usage.prompt_tokens`,
@@ -304,9 +311,11 @@ export function useScenePlay(scenario: ResolvedScenario) {
     const sid = sessionIdOf(frame);
     if (sid && sid !== sessionRef.current) rememberSession(sid);
 
-    // Activity feed + per-character status see ALL frames (trace, story events, errors).
+    // Activity feed + per-character status + the scene's turn status see ALL frames
+    // (trace, story events, errors).
     setActivity((a) => applyActivity(a, frame));
     setActivityByChar((m) => applyCharacterActivity(m, frame));
+    setTurnStatus((s) => applyTurnStatus(s, frame));
 
     if (frame.type === "trace") {
       // The engine's `context` step carries the exact input-token count for the turn's
@@ -428,9 +437,14 @@ export function useScenePlay(scenario: ResolvedScenario) {
           ),
         )
         .catch(() => setStreamError((e) => e ?? "The turn could not be completed."))
-        // Turn over (done or error): clear per-character activity so nobody is stuck
-        // "thinking". The activity feed itself is kept — it describes what just happened.
-        .finally(() => setActivityByChar({}));
+        // Turn over (done or error): clear per-character activity and the turn status so
+        // nobody is left stuck "thinking" — including when the stream dies before the
+        // engine's end-of-turn trace lands. The activity feed itself is kept: it describes
+        // what just happened, and outlives the turn by design.
+        .finally(() => {
+          setActivityByChar({});
+          setTurnStatus(IDLE_TURN_STATUS);
+        });
     },
     [sending, scenario.id, stream, pov],
   );
@@ -514,6 +528,7 @@ export function useScenePlay(scenario: ResolvedScenario) {
     closeProfile: () => setProfileId(null),
     activity,
     activityByChar,
+    turnStatus,
     // Create image: `imageStage` is which half is running (null = idle), `creatingImage`
     // gates the control, `imageError` is the last failure (cleared on the next attempt).
     createImage,

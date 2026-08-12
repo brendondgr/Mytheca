@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { StoryPlayerView } from "./StoryPlayerView";
@@ -115,6 +115,38 @@ describe("StoryPlayerView", () => {
       embergate.id,
       expect.objectContaining({ text: "I draw my blade." }),
       expect.anything(),
+    );
+  });
+
+  it("names who is up while the turn streams, and clears the strip when it ends", async () => {
+    // The cast rail is hidden below `lg`, so this strip is the only speaker signal on a
+    // narrow viewport — it must appear during the turn and be gone once it settles.
+    const speaker = embergate.cast[0];
+    let release = () => {};
+    const parked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(postTurn).mockImplementation(async function* () {
+      yield {
+        type: "trace", n: 1, step: "speaker", title: "up", detail: "",
+        data: { characterId: speaker.id, name: speaker.name },
+      } as TurnStreamFrame;
+      await parked;
+    });
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.type(screen.getByRole("textbox", { name: /your message/i }), "Well?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(
+      await screen.findByText(`${speaker.name} is about to speak`),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      release();
+    });
+    await waitFor(() =>
+      expect(screen.queryByText(`${speaker.name} is about to speak`)).not.toBeInTheDocument(),
     );
   });
 

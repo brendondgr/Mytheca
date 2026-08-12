@@ -1,5 +1,6 @@
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { TypingDots } from "@/components/ui/TypingDots";
 import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { liveValueFor } from "@/components/feature/DirectorRail";
@@ -114,35 +115,6 @@ function CastMemberStats({
         </div>
       ))}
     </div>
-  );
-}
-
-/**
- * Animated three-dot typing indicator. Uses the `embDots` keyframe defined in
- * themes.css. The `.mytheca-themed *` reduced-motion rule strips `animation` globally,
- * so the dots need a visible static base — they render as "…" text by default and
- * animate via inline styles only when motion is available (no separate media query needed:
- * the global rule handles it). Each dot uses an explicit non-zero opacity as baseline so
- * the static state is visible.
- */
-function TypingDots() {
-  return (
-    <span
-      aria-hidden
-      className="inline-flex items-center gap-[2px]"
-      data-testid="typing-dots"
-    >
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="inline-block h-[4px] w-[4px] rounded-full bg-current"
-          style={{
-            opacity: 0.5,
-            animation: `embDots 1.2s ease-in-out ${i * 0.2}s infinite`,
-          }}
-        />
-      ))}
-    </span>
   );
 }
 

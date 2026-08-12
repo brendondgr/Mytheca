@@ -487,7 +487,7 @@ def run_turn(
                         else ""
                     )
                 ),
-                data={"undelivered": [r.text for r in outstanding]},
+                data={"end": True, "undelivered": [r.text for r in outstanding]},
             )
             break
         # The direction is a contract, and the scene cap is hard — so once what is still owed
@@ -551,13 +551,22 @@ def run_turn(
         # ever names them, treat it as the turn ending rather than voicing a duplicate beat.
         if pov_id is not None and decision.action == "speak" and decision.actor_id == pov_id:
             yield from tracer.emit(
-                "plan", "The turn ends", detail="The POV character is voiced by the player."
+                "plan",
+                "The turn ends",
+                detail="The POV character is voiced by the player.",
+                data={"end": True},
             )
             break
         if decision.action == "end":
+            # Every step that stops the beat loop carries ``data.end = True`` — the
+            # structured signal the story player's turn-status strip reads to say "the turn
+            # is ending". The titles are prose and will drift; the flag will not.
             needs_branch = decision.needs_branch
             yield from tracer.emit(
-                "plan", "The turn ends", detail=decision.reason or "The direction is satisfied."
+                "plan",
+                "The turn ends",
+                detail=decision.reason or "The direction is satisfied.",
+                data={"end": True},
             )
             break
         if decision.action == "narrate":
@@ -634,6 +643,7 @@ def run_turn(
             "plan",
             "Reached the turn's beat limit",
             detail=f"Stopped after {beats} beats (runaway backstop).",
+            data={"end": True},
         )
     if direction.active:
         undelivered = direction.outstanding()

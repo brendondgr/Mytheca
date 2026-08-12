@@ -328,6 +328,67 @@ describe("useScenePlay activity feed + per-character status", () => {
     expect(result.current.activityByChar).toEqual({});
   });
 
+  it("turnStatus tracks who is up mid-turn, then returns to idle", async () => {
+    // The stream parks after the speaker trace so the mid-turn status can be observed;
+    // releasing it lets the turn finish.
+    let release = () => {};
+    const parked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    async function* twoPart(): AsyncGenerator<TurnStreamFrame> {
+      yield traceFrame("turn", 1, {});
+      yield traceFrame("speaker", 2, { characterId: cid, name: speaker.name });
+      await parked;
+      yield envelope("character_dialogue", "d1", { characterId: cid, text: "Hi.", done: true });
+      yield traceFrame("plan", 3, { end: true });
+    }
+    vi.mocked(postTurn).mockReturnValue(twoPart());
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.setComposer("Hello");
+    });
+    act(() => {
+      result.current.send();
+    });
+
+    // Mid-turn: the strip can name who is about to speak.
+    await waitFor(() => expect(result.current.turnStatus.phase).toBe("thinking"));
+    expect(result.current.turnStatus.characterId).toBe(cid);
+    expect(result.current.turnStatus.name).toBe(speaker.name);
+
+    await act(async () => {
+      release();
+    });
+
+    // Turn over → idle, so nobody is left frozen as "about to speak".
+    await waitFor(() => expect(result.current.sending).toBe(false));
+    expect(result.current.turnStatus).toEqual({ phase: "idle" });
+  });
+
+  it("turnStatus clears even when the stream fails before the end-of-turn trace", async () => {
+    async function* failing(): AsyncGenerator<TurnStreamFrame> {
+      yield traceFrame("speaker", 1, { characterId: cid, name: speaker.name });
+      throw new Error("connection lost");
+    }
+    vi.mocked(postTurn).mockReturnValue(failing());
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.setComposer("Hello");
+    });
+    act(() => {
+      result.current.send();
+    });
+
+    await waitFor(() => expect(result.current.sending).toBe(false));
+    expect(result.current.turnStatus).toEqual({ phase: "idle" });
+  });
+
   it("activity feed starts empty and accumulates only live frames (no rehydration)", async () => {
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
       sessions: [{ id: "ps_old", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "old" }],
