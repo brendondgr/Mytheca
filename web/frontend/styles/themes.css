@@ -221,12 +221,48 @@
 
 /* Shared dropdown/popover surface — every menu panel (storyline switcher,
  * Create, Options, Export, POV select, scene Config, MultiSelect) uses this so
- * dropdowns read as one consistent, clearly-elevated layer above the page. */
+ * dropdowns read as one consistent, clearly-elevated layer above the page.
+ *
+ * The entrance is origin-aware: the panel scales out of the edge nearest its
+ * trigger, so it reads as unfolding FROM the control rather than materialising
+ * over it. `@starting-style` supplies the from-state on the panel's first
+ * rendered frame, which needs no JS at all — every menu in the app gets the
+ * entrance simply by wearing this class. Menus that also want an animated exit
+ * add `data-closing` via the `useExitTransition` hook.
+ *
+ * Upward-opening menus (the composer's Config and POV popovers) set
+ * `--menu-origin: bottom` so they still grow out of their trigger. */
 .mytheca-menu {
+  --menu-origin: top;
   background-color: var(--menu-bg);
   border: 1px solid var(--menu-bd);
   border-radius: 4px;
   box-shadow: 0 18px 44px rgba(10, 6, 2, 0.55), 0 2px 8px rgba(10, 6, 2, 0.28);
+  transform-origin: var(--menu-origin);
+  opacity: 1;
+  transform: scaleY(1) translateY(0);
+  transition: opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+.mytheca-menu-up {
+  --menu-origin: bottom;
+}
+@starting-style {
+  .mytheca-menu {
+    opacity: 0;
+    transform: scaleY(0.96) translateY(calc(-1 * var(--lift-sm)));
+  }
+  .mytheca-menu-up {
+    transform: scaleY(0.96) translateY(var(--lift-sm));
+  }
+}
+.mytheca-menu[data-closing="true"] {
+  opacity: 0;
+  transform: scaleY(0.98);
+  /* Exits run at --dur-fast — roughly 60% of the entrance. A dismissal that
+   * takes as long as an entrance feels like the interface is arguing. */
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-in);
 }
 
 /* Gradient-backed surfaces (can't be expressed as Tailwind color utilities). */

@@ -55,10 +55,56 @@
   box-shadow: none;
 }
 
+/* A glyph that grows slightly under the cursor. Gated like every other
+ * transform-bearing hover: un-gated, a tap on touch leaves the glyph
+ * permanently enlarged until the user taps somewhere else. */
+.close-button-hover {
+  transition: transform var(--dur-fast) var(--ease-soft),
+    color var(--dur-fast) var(--ease-soft);
+}
+@media (hover: hover) and (pointer: fine) {
+  .close-button-hover:hover:not(:disabled) {
+    transform: scale(1.1);
+  }
+}
+
 /* Double-clicking a button label should activate it twice, not select the
  * text inside it. */
 :where(button, [role="button"], [role="menuitem"], [role="tab"], summary) {
   user-select: none;
+}
+
+/* ---------- Touch targets ------------------------------------------ *
+ * WCAG's 44x44 floor exists for fingers, so both utilities below are gated on
+ * `pointer: coarse`. Mytheca's desktop chrome is deliberately dense — the
+ * design system specifies the composer controls and rail rows as "small and
+ * quiet" — and inflating every control to 44px on a mouse would be obeying the
+ * letter of the rule while breaking the design it is meant to protect.
+ *
+ * Use `.touch-target` when the control can afford to grow (buttons in a form,
+ * menu rows). Use `.touch-target-overlay` when it cannot: it projects an
+ * invisible 44x44 hit area from the element's centre WITHOUT affecting layout,
+ * which is the only option for a 24px icon button inside a dense rail.
+ * ------------------------------------------------------------------ */
+
+@media (pointer: coarse) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .touch-target-overlay {
+    position: relative;
+  }
+  .touch-target-overlay::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+  }
 }
 
 /* ---------- Entrances --------------------------------------------- *
@@ -269,4 +315,102 @@
  * sticky-bottom hook owns that decision instead. */
 .stream-viewport {
   overflow-anchor: none;
+}
+
+/* ---------- Toasts -------------------------------------------------- *
+ * The countdown bar drains left-to-right over the toast's own lifetime (its
+ * `animation-duration` is set inline from `durationMs`), so a dismissal is
+ * something the user sees coming instead of something that happens to them.
+ * Hovering or focusing the toast pauses the bar AND the JS dismiss timer —
+ * `animation-play-state` alone would freeze the picture while the toast
+ * disappeared underneath it.
+ * ------------------------------------------------------------------ */
+
+.toast-countdown {
+  animation-name: mythecaToastDrain;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.toast-item:hover .toast-countdown,
+.toast-item:focus-within .toast-countdown {
+  animation-play-state: paused;
+}
+
+@keyframes mythecaToastDrain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Under reduced motion the bar holds at full width rather than vanishing: it
+ * still says "this one is on a timer", it just stops counting. The toast is
+ * portalled outside `.mytheca-themed`, so the global rule does not reach it. */
+@media (prefers-reduced-motion: reduce) {
+  .toast-countdown {
+    animation: none;
+  }
+}
+
+/* ---------- Dialogs ------------------------------------------------ *
+ * Modals previously entered with an `embPop` keyframe and left INSTANTLY —
+ * there was no exit animation anywhere in the app, so every dismissal was a
+ * hard cut.
+ *
+ * `@starting-style` supplies the entrance: it names the state an element
+ * transitions FROM on its first rendered frame, which is what the old
+ * double-rAF hacks existed to fake. The spec pairs it with `allow-discrete` on
+ * `display`/`overlay`, but that combination is for elements the *browser*
+ * removes from the top layer (a real <dialog>). Mytheca's Modal is a portalled
+ * div whose mounting React owns, so the exit is held open in JS for one
+ * --dur-fast beat instead — see the EXIT_MS note in Modal.tsx.
+ *
+ * Entrances use --dur-slow (a modal is a page-level arrival, entering from
+ * --lift-lg); exits use --dur-fast, because a dismissal that takes as long as
+ * an entrance feels like the interface is arguing with the user.
+ * ------------------------------------------------------------------ */
+
+.modal-panel {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  transition: opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+}
+@starting-style {
+  .modal-panel {
+    opacity: 0;
+    transform: scale(0.97) translateY(var(--lift-lg));
+  }
+}
+
+.modal-backdrop {
+  opacity: 1;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+@starting-style {
+  .modal-backdrop {
+    opacity: 0;
+  }
+}
+
+/* The state the exit transitions TO while React holds the node mounted. */
+.modal-panel[data-closing="true"] {
+  opacity: 0;
+  transform: scale(0.98) translateY(var(--lift-md));
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-in);
+}
+.modal-backdrop[data-closing="true"] {
+  opacity: 0;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-in);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-panel,
+  .modal-backdrop {
+    transition: none;
+  }
 }

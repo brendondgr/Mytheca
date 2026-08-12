@@ -3,9 +3,20 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
+import { useExitTransition } from "@/hooks/use-exit-transition";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * How long the panel stays mounted after `open` flips to false, so the exit
+ * transition in motion.css has something to animate. Must match `--dur-fast`.
+ *
+ * This lives in JS rather than riding `display: allow-discrete` because React
+ * owns mounting for a portalled div — the browser only runs the discrete-
+ * property dance for elements it removes from the top layer itself.
+ */
+const EXIT_MS = 140;
 
 interface ModalProps {
   open: boolean;
@@ -61,6 +72,10 @@ export function Modal({
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  // `open` says what the caller wants; `mounted` says what is on screen. They
+  // differ only for the EXIT_MS beat during which the panel is animating out.
+  const { mounted, closing } = useExitTransition(open, EXIT_MS);
+
   useEffect(() => {
     if (!open) return;
     const panel = panelRef.current;
@@ -103,7 +118,7 @@ export function Modal({
     };
   }, [open]);
 
-  if (typeof document === "undefined" || !open) return null;
+  if (typeof document === "undefined" || !mounted) return null;
 
   const dialog = (
     <div
@@ -116,8 +131,11 @@ export function Modal({
       aria-labelledby={labelledBy}
       tabIndex={-1}
       onClick={(event) => event.stopPropagation()}
+      data-closing={closing || undefined}
       className={cn(
-        "max-h-[90vh] w-full max-w-[92vw] rounded-[5px] bg-modal outline-none animate-[embPop_.2s_ease] motion-reduce:animate-none",
+        // dvh, not vh: on mobile the browser chrome makes vh taller than the
+        // space actually available, so a 90vh panel can exceed the viewport.
+        "modal-panel max-h-[90dvh] w-full max-w-[92vw] rounded-[5px] bg-modal outline-none",
         splitScroll
           ? "overflow-auto lg:flex lg:overflow-hidden"
           : "overflow-auto",
@@ -135,7 +153,12 @@ export function Modal({
   return createPortal(
     <div
       data-testid="modal-overlay"
-      className="fixed inset-0 flex items-center justify-center p-4 animate-[embDim_.15s_ease] motion-reduce:animate-none"
+      data-closing={closing || undefined}
+      // A dialog that is animating away must not accept a click on the way out.
+      className={cn(
+        "modal-backdrop fixed inset-0 flex items-center justify-center p-4",
+        closing && "pointer-events-none",
+      )}
       style={{ background: "rgba(14,9,4,.6)", zIndex: z }}
       onClick={onClose}
     >
@@ -149,7 +172,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute -top-[13px] -right-[13px] z-10 flex h-[33px] w-[33px] items-center justify-center rounded-full text-[19px] leading-none text-[#F8E9DC] shadow-[0_4px_14px_rgba(14,9,4,.5)] transition hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C24A33] focus-visible:ring-offset-2"
+            className="touch-target-overlay press absolute -top-[13px] -right-[13px] z-10 flex h-[33px] w-[33px] cursor-pointer items-center justify-center rounded-full text-[19px] leading-none text-[#F8E9DC] shadow-[0_4px_14px_rgba(14,9,4,.5)] transition duration-fast ease-soft hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C24A33] focus-visible:ring-offset-2"
             style={{ background: "#A8321F", border: "1px solid #C24A33" }}
           >
             ×
