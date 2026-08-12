@@ -370,14 +370,15 @@ export function Composer({
           >
             {taggedFiles.map((file) => (
               <li key={file.id}>
-                <span className="flex items-center gap-[5px] rounded-[6px] border border-field-bd px-[7px] py-[2px] font-mono text-[10px] text-mute">
+                <span className="flex items-center gap-[4px] rounded-[6px] border border-field-bd py-[1px] pr-[1px] pl-[7px] font-mono text-[10px] text-mute">
                   <span aria-hidden>⎙</span>
                   <span className="max-w-[160px] truncate">{file.name}</span>
+                  {/* 24×24 minimum target (WCAG 2.5.8) — the glyph is small, the hit area is not. */}
                   <button
                     type="button"
                     onClick={() => removeTag(file)}
                     aria-label={`Remove ${file.name}`}
-                    className="flex-none rounded-[3px] px-[2px] text-mute hover:text-ink"
+                    className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[4px] text-[12px] text-mute hover:bg-hover hover:text-ink"
                   >
                     ×
                   </button>

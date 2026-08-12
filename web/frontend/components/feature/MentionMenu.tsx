@@ -50,18 +50,22 @@ export function MentionMenu({
             // The textarea keeps focus, so the pointer must not steal it on press.
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onSelect(opt)}
-            className={`flex w-full items-center gap-[8px] rounded-[3px] px-[8px] py-[6px] text-left text-ink hover:bg-hover focus:outline-none ${
-              active ? "bg-hover text-accent" : ""
+            // The active row is marked by the composer's 2px inset accent bar rather than a
+            // text colour: `bg-hover` is dark enough that the muted secondary text would
+            // fall below AA on it, so both labels stay `text-ink` and hierarchy comes from
+            // size and weight instead.
+            className={`flex w-full items-center gap-[8px] rounded-[3px] border-l-2 px-[8px] py-[6px] text-left text-ink hover:bg-hover focus:outline-none ${
+              active ? "border-accent bg-hover" : "border-transparent"
             }`}
           >
-            <span aria-hidden className="text-[12px] text-mute">
+            <span aria-hidden className="text-[12px]">
               ⎙
             </span>
             <span className="min-w-0 flex-1 truncate font-display text-[13px] font-semibold">
               {opt.name}
             </span>
             {typeof opt.charCount === "number" ? (
-              <span className="flex-none text-[11px] text-mute">{opt.charCount} ch</span>
+              <span className="flex-none text-[11px]">{opt.charCount} ch</span>
             ) : null}
           </button>
         );

@@ -28,7 +28,7 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Characters | `GET /storylines/{id}/characters`, `POST /storylines/{id}/characters`, `GET /characters/{id}`, `PATCH /characters/{id}`, `DELETE /characters/{id}` | Belong to a storyline; each holds a stat block. Read/write shape: `id`, `name`, `role`, `color`, `mono` (derived), `traits`, `speech`, `goal`, `secret`, plus base-identity prose `appearance`, `background`, `personality` (all nullable), `portrait` (nullable relative `/media/...` URL of the generated WebP avatar), `portraitPositive` / `portraitNegative` (nullable ComfyUI prompt strings that produced the portrait — persisted so the author can tweak-and-re-render on re-edit), and `voiceSamples` (a list of `{ situation, sample, moment }` pairs — the character's voice & tone profile, each pair a previous situation paired with the character's *single* in-voice response to it (never a back-and-forth exchange); empty list when unauthored, derived from background/personality before starting stats and injected into the turn loop). **`moment`** tags which kind of moment the pair demonstrates — `"light"` \| `"neutral"` \| `"tense"` \| `"grave"`, or `""` for "any moment" (an unrecognized value is coerced to `""` rather than rejected). Only the pairs matching the beat's **register** (plus untagged ones) reach the turn prompt, so a character has a concrete exemplar of itself *not at rest*. |
 | Settings | `GET /storylines/{id}/settings`, `POST /storylines/{id}/settings`, `GET /settings/{id}`, `PATCH /settings/{id}`, `DELETE /settings/{id}` | Places within a storyline. Read/write shape: `id`, `name`, `type`, `desc` (short base description), plus §4.1 Setting-node metadata `atmosphere` (sensory character), `features` (notable fixtures/points of interest), `currentState` (initial here-and-now), and `image` (nullable relative `/media/scenes/...` URL of the generated WebP establishing shot) — all nullable; `sceneArtPositive` / `sceneArtNegative` (nullable ComfyUI prompt strings that produced the image — persisted for re-edit); and `timeline` (append-only event log, **empty at authoring**, play-accrued; defaults `[]`). |
 | Scenarios | `GET /storylines/{id}/scenarios`, `POST /storylines/{id}/scenarios`, `GET /scenarios/{id}`, `PATCH /scenarios/{id}`, `DELETE /scenarios/{id}` | The live situations; may add/override stats. Read/write shape includes `image` (nullable relative `/media/scenes/...` URL of the generated WebP scene art), `sceneArtPositive`, and `sceneArtNegative` (nullable prompt strings), plus three **per-scene play controls** set from the composer's scene-config menu: `maxTurns` (hard ceiling on the beats a player message produces — character replies **and** narrator beats — ≥1, default **5**; the loop may still end earlier), `suggestionsCount` (how many follow-up suggestions to offer at the end of a turn, 0–4, `0` disables, default **4**), and `contextBeats` (depth of the recent-transcript window the character conditions on, 5–100, default **14**). Also includes `promptOverrides` (nullable JSON object `{registryKey: text}` — per-scenario writing-agent prompt overrides, the innermost layer of the four-layer resolution chain; coerced to `{}` when NULL on read; see Writing-Agent Prompt Overrides below). |
-| Context documents | `GET /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs/bulk`, `PATCH /context-docs/{docId}`, `DELETE /context-docs/{docId}`, `POST /context-docs/{docId}/links`, `DELETE /context-docs/{docId}/links` | **Implemented.** The persisted **triaged RAG corpus** for a world (written by the New Storyline page's Triage → commit; managed post-creation at `/storylines/[id]/documents`). Each doc carries a `category` (`character`/`setting`/`other`) and inclusion tiers `includeDraft` / `includeRag` / `includeExtract` (opt-in build-time mining, default off). Docs are **storyline-level** (Triage default) or **entity-scoped** — a doc with `entityType` + `entityId` reappears in that editor on re-edit and is removed (with its embedding) when the entity is deleted. Each doc also carries **provenance `links`** (which entities it is context *for* — build lineage + manual). `GET /storylines/{id}/context-docs` accepts `?entityType=&entityId=` (owned scope) or `?linkedEntityType=&linkedEntityId=` (provenance). Docs with `includeRag` are embedded on save (hybrid RAG). See Context Document Shape below. |
+| Context documents | `GET /storylines/{id}/context-docs`, `GET /storylines/{id}/context-docs/index`, `POST /storylines/{id}/context-docs`, `POST /storylines/{id}/context-docs/bulk`, `PATCH /context-docs/{docId}`, `DELETE /context-docs/{docId}`, `POST /context-docs/{docId}/links`, `DELETE /context-docs/{docId}/links` | **Implemented.** The persisted **triaged RAG corpus** for a world (written by the New Storyline page's Triage → commit; managed post-creation at `/storylines/[id]/documents`). Each doc carries a `category` (`character`/`setting`/`other`) and inclusion tiers `includeDraft` / `includeRag` / `includeExtract` (opt-in build-time mining, default off). Docs are **storyline-level** (Triage default) or **entity-scoped** — a doc with `entityType` + `entityId` reappears in that editor on re-edit and is removed (with its embedding) when the entity is deleted. Each doc also carries **provenance `links`** (which entities it is context *for* — build lineage + manual). `GET /storylines/{id}/context-docs` accepts `?entityType=&entityId=` (owned scope) or `?linkedEntityType=&linkedEntityId=` (provenance). Docs with `includeRag` are embedded on save (hybrid RAG). `GET …/context-docs/index` is a **name-only** listing (`id`, `name`, `category`, `charCount`, `entityType`, `entityId` — no `content`) in the same order, backing the story player's `@` file-tagging menu so opening it never ships document bodies. See Context Document Shape below. |
 | Hybrid RAG | `GET /storylines/{id}/rag/status`, `POST /storylines/{id}/rag/reindex/stream`, `POST /storylines/{id}/rag/query` | **Implemented.** Vector-store status, NDJSON reindex progress stream, and debug retrieval query for a world's corpus. Best-effort (`available: false` when Qdrant is down/disabled). See RAG Shapes below. |
 | Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
 | Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
@@ -879,7 +879,7 @@ The response **is** the stream — `application/x-ndjson`, one event per line, i
 order — for the same `postNdjson`/`StreamingResponse` reasons as the build/triage streams.
 Request body: `{ "text": "…", "directedAt": "ch_id" | null, "sessionId": "ps_…" | null,
 "mode": "pov" | "narrator", "outcome": "…" | null, "povCharacterId": "ch_id" | null,
-"guidance": "…" | null }` (omit `sessionId`
+"guidance": "…" | null, "taggedDocIds": ["cd_…"] }` (omit `sessionId`
 to open a new play session; the streamed events carry the resolved `sessionId`; `mode`
 defaults to `pov`). `outcome` is the legacy branch-direction tag that opened with a
 progression narration. **`povCharacterId` (Player POV)** — when set to a *present* cast
@@ -894,6 +894,33 @@ rendering; `povCharacterId` = who the player speaks as); an id that is not a pre
 member is ignored (falls back to the default behavior, `data.pov = null`). The back-and-forth is capped by the scenario's `maxTurns`, which
 counts **every emitted beat — narrator beats included, not just character replies**. A cold
 scene open with no directed character opens narrator-first.
+
+**@-tagged context files (`taggedDocIds`).** The storyline `ContextDocument` ids the player
+tagged with `@` in either composer box. The server loads each one (ignoring any id belonging
+to a different storyline), bounds the text — at most 5 documents, 6 000 characters each,
+12 000 overall, marking anything it trims — and folds it into the **character** and
+**narrator** prompts as reference for that one turn. This is the deterministic override for
+hybrid RAG: the `retrieval_gate` skips most turns, and when it does fire `rag_block` truncates
+each hit to 600 characters, so the specific passage the player cared about routinely never
+arrived. Tagging bypasses both.
+
+It is the **opposite of `guidance`**, and four mechanisms keep it that way — two structural,
+two prompt-level:
+
+1. Tagged text is **never parsed into requirements** — `intent_agent` and `direction_agent`
+   read `text` and `guidance` only, so a tagged file can never create a beat the turn owes.
+2. The **planner never sees it** — it reaches only the two writing agents, so it cannot
+   change whose beat it is or where the scene goes.
+3. **Position:** it sits in the character prompt's MIDDLE, after the gated lore and *before*
+   the direction line, so the direction keeps the recency advantage; in the narrator prompt it
+   sits ahead of the direction cue for the same reason. The act-now TAIL is untouched.
+4. The block **states the precedence outright**: the notes keep facts straight in what is
+   said, the beats and the direction decide what happens, and on conflict the scene wins.
+
+The composer strips the `@name` tokens before sending, so the player's line reaches the
+intent and direction agents as clean prose; the ids are re-derived from the final text at send
+time, so hand-deleting a mention untags it. A `files` trace step reports which documents
+landed (`data.names`, `data.injected`).
 
 **Scene direction (`guidance`).** The player directs: they say what happens next and how the
 cast should react, and the turn delivers it. The direction text is **`guidance`** when the
@@ -954,6 +981,7 @@ envelope before the 200 opens.
 `{ "type": "trace", "n", "step", "title", "detail", "data" }` frames that narrate, **in
 order**, what the turn loop did and why — the story player's **Inspector** panel renders
 these. `step` is a stable key (`turn` opens each turn, then `intent` / `assemble` / `lore` /
+`files` /
 `plan` / `speaker` / `thinking` / `consistency` / `relationship` / `action` / `dialogue` /
 `context` / `stat` / `relationship_change` / `branch` / `commit` / `reflection`); `n` orders
 within one turn. Trace frames stay **out of the story-event stream** (not story events, not in

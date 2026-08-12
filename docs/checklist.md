@@ -201,6 +201,17 @@ are **decisions, not oversights**, recorded here so they are not mistaken for dr
   topic; the audit names it as the most likely place for a scoop it missed, and both
   remaining novelty claims rest on absence of evidence.
 
+## `@` file tagging — deferred follow-ups
+
+- **The persisted player beat shows no attachment.** `@`-tagged files are visible in the
+  composer (chips) before sending and in the Inspector's `Files` step after, but the
+  `user_turn` row records only the stripped text, so a resumed scene cannot show which
+  files a past turn carried. Rendering an attachment chip on the transcript beat means
+  persisting the ids on the event and threading them through `rehydrateFromHistory`.
+- **No token accounting for tagged text.** `ContextUsageDial` estimates from the beats and
+  the model's reported `prompt_tokens`; up to 12 000 characters of tagged text is not in
+  the pre-send estimate, so the dial under-reads until the turn's real usage comes back.
+
 ## Housekeeping
 
 - **11 stale git worktrees** under `.claude/worktrees/`, all registered in `git worktree list`, each 25+ days idle with a merged-looking final commit. Prune them along with the ~45 leftover local branches.
