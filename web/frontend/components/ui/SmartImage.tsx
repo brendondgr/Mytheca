@@ -23,16 +23,7 @@ import { cn } from "@/lib/cn";
  * 3. **A failed load is a state, not a broken glyph** — the frame keeps its
  *    placeholder rather than showing the browser's torn-page icon.
  */
-export function SmartImage({
-  src,
-  alt,
-  aspect,
-  className,
-  imgClassName,
-  placeholder,
-  priority = false,
-  objectFit = "cover",
-}: {
+interface SmartImageBaseProps {
   src: string | null | undefined;
   /**
    * Required, and required to be *meaningful*. Decorative images should pass
@@ -40,8 +31,6 @@ export function SmartImage({
    * decision.
    */
   alt: string;
-  /** CSS aspect-ratio for the frame, e.g. `"2 / 3"` or `"16 / 9"`. */
-  aspect: string;
   className?: string;
   imgClassName?: string;
   /** Shown before the image arrives, and if it never does (e.g. a monogram). */
@@ -52,7 +41,52 @@ export function SmartImage({
    */
   priority?: boolean;
   objectFit?: "cover" | "contain";
-}) {
+}
+
+/**
+ * The two ways an image can be sized, as a union so they cannot be mixed up.
+ *
+ * This used to be a single required `aspect`, and every full-bleed caller
+ * worked around it by passing `className="absolute inset-0"`. That silently did
+ * not work: `cn` is a plain string joiner, so the element carried BOTH
+ * `relative` (from this component) and `absolute` (from the caller), and
+ * Tailwind emits `.relative` after `.absolute`, so `relative` won. The frames
+ * became in-flow blocks sitting *above* the text they were supposed to sit
+ * behind. Making the choice explicit is what stops that recurring.
+ */
+export type SmartImageProps = SmartImageBaseProps &
+  (
+    | {
+        /**
+         * The image is the background of a box its PARENT already sizes — a
+         * card, a hero panel, a loader backdrop. The frame is `absolute
+         * inset-0`, so the text layered over it is unaffected.
+         */
+        fill: true;
+        aspect?: never;
+      }
+    | {
+        /**
+         * CSS aspect-ratio for the frame, e.g. `"2 / 3"` or `"16 / 9"`. The
+         * frame reserves this space in normal flow, so nothing below it moves
+         * when the image lands.
+         */
+        aspect: string;
+        fill?: false;
+      }
+  );
+
+export function SmartImage({
+  src,
+  alt,
+  aspect,
+  fill = false,
+  className,
+  imgClassName,
+  placeholder,
+  priority = false,
+  objectFit = "cover",
+}: SmartImageProps) {
   const [state, setState] = useState<"pending" | "loaded" | "failed">("pending");
   const [renderedSrc, setRenderedSrc] = useState(src);
 
@@ -82,8 +116,17 @@ export function SmartImage({
 
   return (
     <span
-      className={cn("relative block overflow-hidden", className)}
-      style={{ aspectRatio: aspect }}
+      // In `fill` mode the parent owns the box, so the frame is absolutely
+      // positioned and carries no aspect-ratio of its own. Positioning is
+      // decided HERE rather than being passed in, because a caller-supplied
+      // `absolute` cannot beat a hardcoded `relative` — same specificity, and
+      // Tailwind emits `.relative` last.
+      className={cn(
+        "block overflow-hidden",
+        fill ? "absolute inset-0" : "relative",
+        className,
+      )}
+      style={fill ? undefined : { aspectRatio: aspect }}
     >
       {/* The placeholder stays mounted underneath rather than being swapped
        * out, so the frame is never empty for a frame between the two. */}

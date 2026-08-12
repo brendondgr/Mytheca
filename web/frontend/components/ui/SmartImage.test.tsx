@@ -11,6 +11,42 @@ describe("SmartImage", () => {
     // when the picture lands.
     const frame = container.firstElementChild as HTMLElement;
     expect(frame.style.aspectRatio).toBe("2 / 3");
+    expect(frame).toHaveClass("relative");
+  });
+
+  describe("fill mode", () => {
+    it("positions the frame absolutely and claims no space of its own", () => {
+      const { container } = render(
+        <SmartImage src="/media/scenes/harbor.webp" alt="" fill />,
+      );
+      const frame = container.firstElementChild as HTMLElement;
+
+      // The regression this guards: full-bleed callers used to pass
+      // `className="absolute inset-0"` while the component hardcoded
+      // `relative`. `cn` is a plain string joiner, so BOTH landed on the
+      // element, and Tailwind emits `.relative` after `.absolute` — so
+      // `relative` won and the "background" image became an in-flow block
+      // sitting ABOVE the text it was supposed to sit behind.
+      expect(frame).toHaveClass("absolute", "inset-0");
+      expect(frame).not.toHaveClass("relative");
+
+      // No aspect-ratio either: in fill mode the parent owns the box, and a
+      // ratio on an inset-0 element is meaningless at best.
+      expect(frame.style.aspectRatio).toBe("");
+    });
+
+    it("never carries conflicting position utilities", () => {
+      const { container } = render(
+        <SmartImage src="/media/scenes/harbor.webp" alt="" fill className="pointer-events-none" />,
+      );
+      const classes = Array.from((container.firstElementChild as HTMLElement).classList);
+      const positions = classes.filter((c) =>
+        ["static", "fixed", "absolute", "relative", "sticky"].includes(c),
+      );
+      // Exactly one position utility, always — the whole class of bug is two of
+      // them fighting, which no type check and no lint rule will catch.
+      expect(positions).toEqual(["absolute"]);
+    });
   });
 
   it("stays transparent until the image actually loads", () => {

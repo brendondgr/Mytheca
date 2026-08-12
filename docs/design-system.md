@@ -461,9 +461,15 @@ name what failed in the interface's voice and carry a **retry**; empty states ca
 different problem it is, offering "Clear search" rather than "Forge Character"). Both enter
 with the same `.content-enter` as success, so failure reads as part of the system.
 
-**Images** go through `SmartImage`: a required `aspect` reserves the frame, the picture fades
-in on load, and `img.complete` is checked at the ref callback — without that, an image already
-in the browser cache never fires `load` and stays invisible forever.
+**Images** go through `SmartImage`, which fades in on load and checks `img.complete` at the ref
+callback — without that, an image already in the browser cache never fires `load` and stays
+invisible forever. Two sizing modes, chosen explicitly: `aspect` reserves a frame in normal
+flow, and **`fill`** absolutely positions the frame for **card art** — the scenario, setting and
+character cards, the carousel hero, and the scene-loader backdrop all paint the image as the
+*background of the text*, full-bleed behind `CARD_SCRIM`, with the parent defining the box.
+Never pass positioning through `className`: the caller's `absolute` loses to the component's
+`relative` (equal specificity, and Tailwind emits `.relative` later), which turns a background
+into an in-flow block sitting above the text.
 
 **The scene curtain** (`SceneLoader`) is driven by real readiness, floored at 650 ms so an
 instant load does not flash it and capped at 6 s so an unreachable backend cannot hold the

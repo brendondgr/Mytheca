@@ -114,9 +114,9 @@ export function ScenarioCarousel({
               <SmartImage
                 src={s.image ? mediaUrl(s.image) : null}
                 alt=""
-                aspect="16 / 9"
+                fill
                 priority
-                className="pointer-events-none absolute inset-0"
+                className="pointer-events-none"
                 placeholder={<div className="h-full w-full" style={{ background: HERO.art }} />}
               />
               {/* Graduated scrim — strong on the left (under the title/description
@@ -124,7 +124,7 @@ export function ScenarioCarousel({
                   near-clear on the right so the scene art reads boldly. Keeps the
                   left text column at AA while letting the artwork show through. */}
               <div
-                className="pointer-events-none absolute inset-0"
+                className="pointer-events-none"
                 style={{
                   background:
                     "linear-gradient(96deg, rgba(18,12,5,0.9) 0%, rgba(18,12,5,0.74) 38%, rgba(18,12,5,0.34) 70%, rgba(18,12,5,0.12) 100%), linear-gradient(0deg, rgba(14,9,4,0.55) 0%, rgba(14,9,4,0) 42%)",
@@ -412,9 +412,9 @@ function CastCard({
         <SmartImage
           src={hasPortrait ? mediaUrl(c.portrait!) : null}
           alt=""
-          aspect="2 / 3"
+          fill
           imgClassName="object-top"
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none"
           placeholder={
             <div className="flex h-full w-full items-center justify-center pb-[52px]">
               <Monogram mono={c.mono} color={c.color} size={84} ring={2} fontSize={32} />
@@ -424,7 +424,7 @@ function CastCard({
 
         {/* Transparent bottom scrim — name/role read over the lower portrait. */}
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none"
           style={{ background: PORTRAIT_SCRIM }}
         />
 

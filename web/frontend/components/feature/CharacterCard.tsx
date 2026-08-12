@@ -47,8 +47,8 @@ export function CharacterCard({
       <SmartImage
         src={hasPortrait ? mediaUrl(c.portrait!) : null}
         alt={`Portrait of ${c.name}`}
-        aspect="2 / 3"
-        className="pointer-events-none absolute inset-0"
+        fill
+        className="pointer-events-none"
         placeholder={
           <div className="flex h-full w-full items-center justify-center pb-[64px]">
             <Monogram mono={c.mono} color={c.color} size={96} ring={2} fontSize={36} />
@@ -57,7 +57,7 @@ export function CharacterCard({
       />
       {hasPortrait ? (
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none"
           style={{ background: PORTRAIT_SCRIM }}
         />
       ) : null}

@@ -36,14 +36,14 @@ export function SceneLoader({
         <SmartImage
           src={mediaUrl(s.image ?? "")}
           alt=""
-          aspect="16 / 9"
+          fill
           priority
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none"
         />
       ) : null}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none"
         style={{ background: hasArt ? CARD_SCRIM : undefined }}
       />
 
