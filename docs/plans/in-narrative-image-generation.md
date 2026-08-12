@@ -102,8 +102,9 @@ No question here needs human intervention.
   `{"positive","negative","caption"}`.
 - **Guard:** `strip_names(text, replacements)` — word-boundary, case-insensitive
   replacement of each cast name (full name and each name token ≥3 chars) with that
-  character's visual tag; applied to `positive` *and* `caption`. Exported and
-  independently unit-tested.
+  character's visual tag; applied to `positive` only — the `caption` is alt text
+  read by a person, never sent to the image model, so names *help* there. Exported
+  and independently unit-tested.
 - **Rationale:** The prompt is the feature's substance; isolating it (and its
   guard) in an agent module keeps it testable offline and re-tunable without
   touching the render path or the route.
