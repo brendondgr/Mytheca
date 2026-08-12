@@ -18,6 +18,25 @@ Verified against the code on 2026-08-04.
 - **Population never proposes scenarios.** It writes characters and settings only (each character whole — draft, voice profile, starting stats, portrait); the first scenario is still authored by hand.
 - **World-build runs are in-process and non-durable.** `services/world_populate_runs.py` keeps a run's frame log in memory, keyed by storyline. A backend restart ends the run (the client is told, and never silently rebuilds), and a multi-process deployment would not share the registry. Durable runs (a table + a worker) are unbuilt.
 - **A stopped build leaves a partly-built world.** *Stop* aborts the stream but does not roll back the rows already committed, and there is no in-app way to resume the run — the author finishes the cast by hand. Tied to the missing re-run entry point above.
+- **The scene direction is not persisted.** `TurnRequest.guidance` shapes the turn it was
+  sent with and shows up in the Inspector's `direction` trace steps, but it is not written to
+  the `user_turn` row — so a session reload does not restore it into the composer's direction
+  box, and an export cannot show what the player asked for versus what the turn delivered.
+  The row already carries `data = {text, directedAt, pov}`; adding `guidance` is additive.
+- **Nothing verifies that a requirement was actually met.** A beat marks its requirements
+  delivered because it *carried* them into the prompt, not because the emitted prose reached
+  them (a deliberate call — an LLM "did that happen?" check would roughly double the turn's
+  call count). A character that ignores its stated outcome is not caught, and the end-of-turn
+  trace will still report the direction delivered in full.
+- **A guidance-only turn cannot be sent.** The direction box rides along with a message;
+  `validate_turn_inputs` requires `text`, and the optimistic bubble plus the `user_turn` row
+  are keyed to it. Steering the scene without also speaking as your character means typing
+  something in the message box.
+- **A direction longer than the scene's turn cap is compressed, not spread.** The opening
+  narration absorbs every narrator-owned requirement at once when `maxTurns` is at or below
+  the requirement count, and the last beat collapses to a narrator beat covering whatever
+  several characters are still owed. Both are correct — the cap is hard — but they read as
+  summary rather than scene. Raising the scene's turn limit is the only remedy today.
 - **Relationship / mood stats** — extend the stat machinery to values with a relational target. Relationships currently live only in the graph.
 - **Scenario-level stat additions and range overrides** — described in old docs, never implemented; `Scenario` has no such column.
 - **Separate `GET /stream` transport** — the turn POST streams NDJSON directly. A standalone stream endpoint with Redis pub/sub fan-out is a seam, not a plan.
@@ -81,6 +100,15 @@ Verified against the code on 2026-08-04.
 ## Deferred verification
 
 - **Live in-browser accessibility + responsive pass.** Deferred across a long series of UI changes against a persistent environment constraint: a dev server holding 3346, backend CORS pinned to that origin, and unreliable screenshot tooling inside worktrees. Each change was instead verified via green component suites, `next build`, and structural review (native controls, AA tokens, reduced-motion fallbacks). **This is the largest outstanding quality gap** — run one consolidated keyboard + 320/375/768/1024 pass over the whole app once a clean environment is available, rather than re-deferring it per feature.
+  - *Partially closed on 2026-08-11 for the composer.* The scene-direction box was measured
+    live (a throwaway route on a second dev server, so no backend/CORS was involved) at
+    320/375/768/1024: no horizontal overflow, no root-scroll growth, the panel grows upward
+    with the box capped then scrolling, and tab order reads direction → message → Config →
+    Speaking as → dial → Send. **Focus styling could not be seen rendered** — the browser
+    pane reports `document.hasFocus() === false` and `visibilityState: "hidden"`, so
+    `:focus-visible` never matches and screenshots time out. It was verified by reading the
+    served stylesheet instead (`textarea.composer-input:focus-visible` and
+    `.focus-within\:border-accent:focus-within` both present and correct).
 - **ComfyUI end-to-end render.** The generate → edit → save → reopen loop has never been verified against a running ComfyUI server.
 - **Graph node/edge click → detail.** Confirmed by unit tests; could not be driven live because synthetic canvas clicks don't reach `react-force-graph-2d`'s internal hit-testing headlessly.
 

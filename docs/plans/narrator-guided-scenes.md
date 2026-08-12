@@ -105,8 +105,9 @@ malformed → whole-text fallback, unconfigured LLM → fallback, roster constra
    direction rules (follow it closely; schedule everything left into the beats left; the
    direction is the outcome, the characters own the words).
 
-**Validation:** new `utils/tests/backend/services/test_scene_direction.py` — a stubbed LLM
-turn proving (a) every requirement is emitted within `max_turns`, (b) the forced schedule
+**Validation:** new `utils/tests/backend/api/test_play_turn_direction.py` (the engine is
+exercised end-to-end through the turn endpoint, where the other turn-loop suites live) — a
+stubbed LLM turn proving (a) every requirement is emitted within `max_turns`, (b) the forced schedule
 fires when the budget is tight, (c) a POV-bound requirement is rebound to the narrator,
 (d) no direction ⇒ byte-identical planner arguments to today. Plus `test_planner_agent.py`
 additions. Run `uv run pytest utils/tests/backend`.
@@ -199,5 +200,6 @@ config → POV → send), visible focus, AA contrast on the placeholder, layout 
 | `web/frontend/features/story-player/useScenePlay.ts` | guidance state → turn |
 | `web/frontend/features/story-player/StoryPlayerView.tsx` | wiring |
 | `utils/tests/backend/agents/test_direction_agent.py` | **new** |
-| `utils/tests/backend/services/test_scene_direction.py` | **new** |
+| `utils/tests/backend/api/test_play_turn_direction.py` | **new** |
+| `web/frontend/app/globals.css` | per-field composer focus indicator |
 | `docs/*` | contract, data flow, component map, checklist |

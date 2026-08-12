@@ -33,7 +33,7 @@ stream connection for the single-player case (the `GET /stream/{sessionId}` + Re
 fan-out is a deferred seam, see `api-contract.md`).
 
 ```
-Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/turn  {text, directedAt?, sessionId?, povCharacterId?}
+Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/turn  {text, directedAt?, sessionId?, povCharacterId?, guidance?}
   → routes/play (pre-flight: scenario exists, text present, session valid)
   → turn_engine.run_turn:
       assembler.assemble_context (Band-1, read-only): ordered cast + clamped stats + loaded
@@ -46,12 +46,19 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
       memory.buffer.push_turn (POV → the line as the character's own beat w/ characterId;
         else the plain player line → recent-turn buffer, best-effort)
       intent_agent.interpret: classify the player's line — narrate / address / puppet /
-        whole-group — and, for a puppet, which cast member is directed
-      puppet beats (if any): the directed character performs it in-voice, up front
+        whole-group — and, for a puppet, which cast member is directed; the same call
+        also breaks a DIRECTING line into direction requirements
+      scene direction: guidance (POV, its own direction_agent.parse call) else the
+        player's own line (narrator mode, from the intent call above) → an ordered list
+        of requirements, each rebound to the narrator if its owner is absent/POV
+      puppet beats (if any): the directed character performs it in-voice, up front,
+        carrying their own requirements
       ReAct loop — planner_agent.next_beat re-decides after every beat, bounded by
         scenario.max_turns (hard per-scene ceiling on every emitted beat) and a runaway
         backstop max(TURN_MAX_BEATS, 2*cast+6); only `present` cast members are
-        selectable and the POV character is locked out of the AI roster:
+        selectable and the POV character is locked out of the AI roster. The planner
+        sees what the direction still owes + the beats left; once what is owed would
+        fill them, direction_agent.schedule picks the beat instead:
           decision.action == "speak" →
             graph_reader.relationship_context (via turn_engine._relationship_note) →
             character_turn_agent.generate_line (bookended LLM call, relationship note
@@ -108,6 +115,23 @@ by `TranscriptBeat`'s `PlayerAsCharacterMessage` with the character's monogram/n
 on resume the current POV is derived from the most recent `user_turn.data.pov`;
 `rehydrateFromHistory` turns a `user_turn` row with `pov` set into that same right-side
 character beat (without `pov` it stays a left-side player beat).
+
+**Scene direction.** The player directs the scene, and the turn is held to it. In narrator mode
+the message box already carries the direction; under Player POV it holds the character's line
+instead, so the composer grows a **second, shorter box above it** (`guidance` — rendered only
+when `pov` is set, since a second box in narrator mode would duplicate the first). The panel
+grows upward as it fills, capped then scrolling, so it lifts the transcript rather than covering
+it. `useScenePlay` clears the box on send (the direction applies to that turn only) and when POV
+is dropped. Server-side the direction becomes an ordered list of `direction_agent`
+requirements — parsed on its own call for POV guidance, or lifted off the intent call that
+already read the player's line in narrator mode — and the turn engine schedules them across the
+scene's `maxTurns` budget: the planner paces them while there is room, and once what is owed
+would fill every remaining beat the engine takes over (`direction_agent.schedule`), collapsing
+the last beat to narration when several characters are still owed. Each beat's prompt states
+only *its* requirements, as outcomes rather than lines, so the speaker reaches them in their own
+voice. Progress is visible in the Inspector as `direction` trace steps (what was asked for, what
+each beat delivered, and anything that did not fit). `guidance` is not persisted — it is not
+restored into the box on resume.
 
 **Type-while-streaming:** the composer's `sendDisabled` prop (renamed from `disabled`) blocks
 only the Send button and Enter key while a turn is in-flight — the `<textarea>` remains editable
