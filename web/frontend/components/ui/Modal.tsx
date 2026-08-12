@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
 import { useExitTransition } from "@/hooks/use-exit-transition";
+import { useHydrated } from "@/hooks/use-hydrated";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -75,6 +76,7 @@ export function Modal({
   // `open` says what the caller wants; `mounted` says what is on screen. They
   // differ only for the EXIT_MS beat during which the panel is animating out.
   const { mounted, closing } = useExitTransition(open, EXIT_MS);
+  const hydrated = useHydrated();
 
   useEffect(() => {
     if (!open) return;
@@ -118,7 +120,12 @@ export function Modal({
     };
   }, [open]);
 
-  if (typeof document === "undefined" || !mounted) return null;
+  // Same portal/hydration rule as Toast: a portal inserts into `document.body`
+  // on the client but renders nothing on the server. In practice no modal is
+  // open at hydration (they open from user action), so this has never fired —
+  // but a modal opened straight from initial state would hit exactly the
+  // mismatch Toast did, and the failure reads as unrelated when it happens.
+  if (!hydrated || !mounted) return null;
 
   const dialog = (
     <div

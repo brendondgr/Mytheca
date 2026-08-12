@@ -72,6 +72,12 @@ how Mytheca implements it and the four deviations taken;
   is not gated, so on touch the state lands on tap and sticks.
 - **Every async boundary owes five states** and a 300 ms delay gate (`useDelayedFlag`). A
   skeleton must trace the real layout and must time out.
+- **Every `createPortal` must gate on `useHydrated()`.** A portal renders nothing on the server
+  but inserts into `document.body` on the client; unguarded, that is a hydration mismatch which
+  regenerates the tree — and the regeneration then makes React re-create the root layout's
+  no-flash `<script>`s, which the browser silently refuses to execute. The two symptoms look
+  unrelated and are the same bug. The root layout's init scripts use `next/script`
+  `beforeInteractive` so they live outside the React element tree.
 - Respect `prefers-reduced-motion` everywhere. The global rule in `themes.css` already kills all `animation` under `.mytheca-themed *` when reduced motion is set, so a new keyframe needs a sensible **static base style**, not a separate media query.
 - Framer `MotionConfig` handles component-level reduction; CSS `motion-reduce:` utilities handle the rest.
 - Choreographed reveals collapse to instant under reduced motion.
