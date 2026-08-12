@@ -756,6 +756,28 @@ def test_trace_plan_step_names_the_next_actor(client, storyline_id, monkeypatch)
     assert plan["data"]["actor"] == "Mei" and plan["detail"]  # names who's up + why
 
 
+def test_trace_marks_the_turn_ending_step_structurally(client, storyline_id, monkeypatch):
+    # The step that stops the beat loop carries `data.end = True` — the structured signal the
+    # story player's turn-status strip reads, so no client has to match on the prose title.
+    _configure_llm(client)
+    _plan_routed(monkeypatch, [{"action": "speak", "actor": 1}, {"action": "end", "reason": "said"}])
+    mei = client.post(f"/api/storylines/{storyline_id}/characters", json={"name": "Mei"}).json()["id"]
+    sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hearth"}).json()["id"]
+    scid = _scenario(client, storyline_id, [mei], sid)
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "I address the room.", "trace": True})
+    )
+    ends = [
+        t
+        for t in events
+        if t["type"] == "trace" and t["step"] == "plan" and t["data"].get("end") is True
+    ]
+    assert len(ends) == 1  # exactly one end-of-loop marker per turn
+    # It is the LAST plan step of the turn — nothing plans a further beat after it.
+    plans = [t for t in events if t["type"] == "trace" and t["step"] == "plan"]
+    assert plans[-1] is ends[0]
+
+
 def test_trace_commit_reports_graph_changes_on_a_stat_turn(client, storyline_id, monkeypatch):
     _configure_llm(client)
     client.post(
