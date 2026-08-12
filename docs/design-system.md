@@ -259,6 +259,10 @@ The story player's **Create image** action (`CreateImageBar` → `SceneImageBeat
   a slow gradient across the 3:2 frame the picture will occupy. The gradient lives outside
   the keyframes, so the app-wide `prefers-reduced-motion` rule leaves a **static** wash
   rather than an empty box (the same idiom as `.mytheca-glow` / `.mytheca-field-active`).
+- **It only exists between turns.** The control is absent while a turn streams and before
+  the first turn of a session, so the transcript's live region is never competing with an
+  affordance that would picture a half-played beat. It enters with the same opacity + 8px
+  rise the transcript beats use.
 - **The image is a control.** The frame is a real `<button>` (pointer *and* keyboard) whose
   accessible name is the caption; the caption is also the `alt`, so the description a
   screen-reader user hears is the one a sighted user reads.

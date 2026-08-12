@@ -14,18 +14,6 @@ describe("CreateImageBar", () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
-  it("explains itself and stays disabled before a session exists", async () => {
-    const onCreate = vi.fn();
-    const user = userEvent.setup();
-    render(<CreateImageBar onCreate={onCreate} disabled />);
-
-    expect(screen.getByText(/take a turn first/i)).toBeInTheDocument();
-    const go = screen.getByRole("button", { name: /^go$/i });
-    expect(go).toBeDisabled();
-    await user.click(go);
-    expect(onCreate).not.toHaveBeenCalled();
-  });
-
   it("names each stage in a live region while it runs", () => {
     const { rerender } = render(
       <CreateImageBar onCreate={vi.fn()} running stage="prompt" />,

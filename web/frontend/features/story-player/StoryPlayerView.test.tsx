@@ -222,19 +222,43 @@ describe("StoryPlayerView", () => {
 });
 
 describe("StoryPlayerView create image", () => {
-  it("puts the Create image control at the foot of the transcript, after the last beat", () => {
-    render(<StoryPlayerView scenario={embergate} />);
-    const bar = screen.getByRole("region", { name: /create an image of this moment/i });
-    expect(bar).toBeInTheDocument();
+  const bar = () => screen.queryByRole("region", { name: /create an image of this moment/i });
 
-    // It sits after every transcript beat in document order (the very bottom of the chat).
-    const lastBeat = screen.getByText(/Choose your next words carefully/i);
-    expect(lastBeat.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  it("is absent before any turn has been taken", () => {
+    render(<StoryPlayerView scenario={embergate} />);
+    expect(bar()).not.toBeInTheDocument();
   });
 
-  it("explains itself instead of firing when there is no session yet", () => {
+  it("appears once the turn ends, at the foot of the transcript", async () => {
+    const speaker = embergate.cast[0];
+    vi.mocked(postTurn).mockImplementation(
+      streamOf({
+        type: "character_dialogue",
+        id: "d-img",
+        seq: 1,
+        scenarioId: embergate.id,
+        sessionId: "ps_img",
+        ts: "t",
+        visibility: "public",
+        data: { characterId: speaker.id, text: "The room turns to you.", done: true },
+      } as TurnStreamFrame),
+    );
+    const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
-    expect(screen.getByText(/take a turn first/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^go$/i })).toBeDisabled();
+    expect(bar()).not.toBeInTheDocument();
+
+    await user.type(screen.getByRole("textbox", { name: /your message/i }), "I wait.");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+    await screen.findByText("The room turns to you.");
+
+    const control = await screen.findByRole("region", {
+      name: /create an image of this moment/i,
+    });
+    expect(screen.getByRole("button", { name: /^go$/i })).toBeEnabled();
+    // It sits after every transcript beat in document order (the very bottom of the chat).
+    const lastBeat = screen.getByText("The room turns to you.");
+    expect(
+      lastBeat.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

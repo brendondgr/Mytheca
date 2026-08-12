@@ -164,15 +164,25 @@ export function StoryPlayerView({
                   {scene.streamError}
                 </p>
               ) : null}
-              {/* The very bottom of the chat — below the last beat, above the composer. */}
-              <CreateImageBar
-                onCreate={scene.createImage}
-                running={scene.creatingImage}
-                stage={scene.imageStage}
-                error={scene.imageError}
-                disabled={!scene.sessionId}
-                className="mt-[2px]"
-              />
+              {/* The very bottom of the chat — below the last beat, above the composer.
+                  Only once a turn has finished: there is no moment to picture before the
+                  first turn, and offering it mid-stream would paint a half-played beat.
+                  Enters with the transcript's own beat animation rather than popping in. */}
+              {scene.sessionId && !scene.sending ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
+                >
+                  <CreateImageBar
+                    onCreate={scene.createImage}
+                    running={scene.creatingImage}
+                    stage={scene.imageStage}
+                    error={scene.imageError}
+                    className="mt-[2px]"
+                  />
+                </motion.div>
+              ) : null}
             </div>
           </div>
           <Composer

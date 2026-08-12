@@ -13,6 +13,9 @@ const STAGE_LABEL: Record<"prompt" | "render", string> = {
 /**
  * **Create image** — the control at the foot of the transcript, below the last beat.
  *
+ * Rendered by `StoryPlayerView` only **between** turns — once a session exists and no
+ * turn is streaming — so it never offers to paint a half-played beat.
+ *
  * Idle it is one quiet row: what it does, and **Go**. Running, it becomes the
  * landscape frame the picture will occupy, washed by `.mytheca-wash` so the wait
  * reads as work under way, with the current stage named in a polite live region
@@ -26,15 +29,12 @@ export function CreateImageBar({
   running = false,
   stage = null,
   error = null,
-  disabled = false,
   className,
 }: {
   onCreate: () => void;
   running?: boolean;
   stage?: "prompt" | "render" | null;
   error?: string | null;
-  /** No session yet (nothing to depict) — the control explains itself instead. */
-  disabled?: boolean;
   className?: string;
 }) {
   const status = running ? STAGE_LABEL[stage ?? "prompt"] : "";
@@ -62,12 +62,10 @@ export function CreateImageBar({
               ❖ Create image
             </Eyebrow>
             <span className="mt-[2px] block font-body text-[12.5px] text-ink-soft">
-              {disabled
-                ? "Take a turn first — there is no moment to picture yet."
-                : "Picture the scene as it stands right now."}
+              Picture the scene as it stands right now.
             </span>
           </div>
-          <Button variant="secondary" onClick={onCreate} disabled={disabled}>
+          <Button variant="secondary" onClick={onCreate}>
             Go
           </Button>
         </div>
