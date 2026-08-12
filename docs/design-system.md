@@ -122,6 +122,8 @@ A three-zone "open book": a **left cast rail** (At the table · turn order, port
 
 **Scene pulse (Director rail).** The static Scene Goal, TensionMeter, and Relationships sections were replaced by a **"Scene pulse"** live feed: a `role="log"` `aria-live="polite"` scrollable region (`max-h` capped, newest entry first) of up to 12 `ActivityEntry` items. Each entry is a compact line with character-colored name, a status verb, and optional detail text; entries animate in with the transcript beat-entrance idiom (opacity + 8 px rise, `motion-reduce` safe). An idle empty state reads **"The scene is quiet — your move."**. The `StateChips` scene-state block is kept beneath the feed.
 
+**Turn status strip (transcript foot).** While a turn streams, a rounded pill under the last beat names **who is up**: the speaker's `Monogram` (their color on the ring), a phase sentence — "X is about to speak" · "X is speaking" · "X is acting" · "The narrator is setting the scene" · "The turn is ending" — and the shared `TypingDots`. Between beats it reads "The scene is unfolding" rather than blinking out, because a strip that vanishes at every beat boundary reads as a glitch instead of as progress; in the "ending" phase the dots are dropped, since nothing more is coming. It occupies the slot `CreateImageBar` uses between turns, so the foot of the transcript never empties and the composer never hops. The label sits on `--ink-soft`, never the character's color: at 10px uppercase a light cast color would fall under AA (measured 7.4–8.5:1 across the three themes as written), so identity is carried graphically by the monogram ring. One `role="status" aria-live="polite"` region carries the label — it changes at most once per beat, and says what the `TranscriptAnnouncer` (which speaks *finished* prose) cannot. **This is the only speaker signal below the `lg` breakpoint, where the cast rail is hidden**, which is why it lives in the reading column rather than a rail.
+
 **Character activity indicators (Cast rail).** Each cast-row shows an animated **three-dot typing indicator** (`embDots` keyframe, `static "…"` base style so reduced motion degrades gracefully per the `.mytheca-themed *` global rule) plus a **"Thinking"** label while a character is processing, and a **"Speaking"** label while their dialogue is streaming. Both states clear to idle when the turn ends. Status is never conveyed by motion alone — the text label ("Thinking"/"Speaking") is always present alongside the dots or accent treatment.
 
 ### Event → component mapping (visual contract)
@@ -488,6 +490,8 @@ event's *full accumulated text*, a live region on the growing prose asks a scree
 re-read the sentence from the beginning on every delta. For the same reason there is **no
 per-chunk fade**: the client never sees a chunk boundary. A streaming beat gets a block caret
 (`.stream-caret`) and ~2 lines of reserved height so the composer does not hop.
+
+Who is speaking is its own signal, separate from the prose: the **turn status strip** (above) sits under the last beat for the length of the turn, so the reader knows a new speaker was chosen and when the turn is wrapping up without having to infer it from text appearing.
 
 ### Responsiveness
 

@@ -53,7 +53,8 @@ that names who is up and animates while they are working:
 ## Phase 1 — Backend: a structured turn-end flag
 
 **Files:** `web/backend/app/services/turn_engine.py`,
-`utils/tests/backend/services/test_turn_end_trace.py`, `docs/api-contract.md`
+`utils/tests/backend/api/test_play_turn.py` (the Inspector-trace section, where every other
+trace test lives), `docs/api-contract.md`
 
 1. Add `data={"end": True}` to the four trace emits that stop the beat loop:
    - `"The turn ends"` (planner `decision.action == "end"`, ~L559)
@@ -63,8 +64,9 @@ that names who is up and animates while they are working:
 2. Document the flag in `docs/api-contract.md`'s *Diagnostic trace* section: a `plan` step
    with `data.end === true` marks the end of the beat loop.
 
-**Validation:** `uv run pytest utils/tests/backend/services/` — a new test drives a turn and
-asserts exactly one `plan` trace step carries `data.end is True`.
+**Validation:** `uv run pytest utils/tests/backend/api/test_play_turn.py` — a new test drives a
+turn and asserts exactly one `plan` trace step carries `data.end is True`, and that it is the
+turn's last `plan` step.
 **Commit:** `Mytheca — turn engine: flag the turn-ending trace step with data.end`
 
 ---
@@ -165,7 +167,7 @@ breakpoint-independent — it is the only speaker signal below `lg`).
 | Deliverable | Path |
 | --- | --- |
 | Turn-end trace flag | `web/backend/app/services/turn_engine.py` |
-| Backend test | `utils/tests/backend/services/test_turn_end_trace.py` |
+| Backend test | `utils/tests/backend/api/test_play_turn.py` |
 | Turn-status reducer | `web/frontend/features/story-player/turn-stream.ts` |
 | Shared dots primitive | `web/frontend/components/ui/TypingDots.tsx` |
 | Status strip | `web/frontend/components/feature/TurnStatusStrip.tsx` |

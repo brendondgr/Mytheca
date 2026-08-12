@@ -168,6 +168,20 @@ arrays are held in `useScenePlay` state, folded on `onFrame`, and are **live-onl
 `rehydrateFromHistory` seeds neither (the pulse and indicators reflect only the current in-flight
 turn).
 
+**Turn status — who is up (live-only).** Alongside the per-character map, `turn-stream.applyTurnStatus`
+folds the same frames into the scene's **single** current focus: `{ phase, characterId?, name? }`,
+where `phase` is `idle | thinking | speaking | acting | narrating | ending`. A `speaker` trace step
+opens `thinking` (and carries the name the trace reports); `internal_thought`/`character_action`/
+`character_dialogue` move it through the character phases; `narration` sets `narrating`; and a `plan`
+trace step with **`data.end === true`** sets `ending` — the structured end-of-beat-loop marker the
+engine stamps (see `api-contract.md`), so no client has to match on the step's prose title. `ending`
+is sticky, since the turn's trailing `branch_choices`/`commit`/`reflection` frames are not beats. The
+reducer returns the **same reference** when nothing changes, so a delta chunk cannot re-render the
+consumer per token. `useScenePlay` holds it as `turnStatus`, resets it to idle in `submit`'s
+`.finally` (so a stream that dies before the end-of-turn trace cannot leave anyone stuck "about to
+speak"), and `StoryPlayerView` renders it as the `TurnStatusStrip` at the foot of the transcript —
+the only speaker signal below the `lg` breakpoint, where the cast rail is hidden.
+
 **Model output is sanitized centrally.** Reasoning models inline their chain-of-thought and
 harmony-style channel tokens (`<|channel|>…`, `<think>…</think>`, `*Check:*`/`*Revised:*`) in
 `message.content`. `services.llm.chat_complete` — the one generation call every agent shares —

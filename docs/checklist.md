@@ -159,6 +159,14 @@ Verified against the code on 2026-08-04.
 ## Known UI limitations
 
 - Rails are hidden below `lg` (the transcript stays primary); mobile drawers are unbuilt.
+  The live **who-is-speaking** signal is no longer lost with them — `TurnStatusStrip` carries
+  it in the reading column at every width — but per-character stats, presence controls, and
+  the scene-pulse feed are still `lg`-only.
+- **The turn-status strip's `ending` phase depends on the engine reaching its end-of-loop
+  trace step.** A turn killed by a mid-stream failure jumps straight from its last beat to
+  no strip at all (the client's `.finally` reset), so "the turn is ending" is never shown on
+  the error path. That is deliberate — the `role="alert"` stream error says more than a
+  wind-down label would — but it does mean the phase is not a guaranteed terminal state.
 - Graph mode is canvas-only below `lg`; the `sr-only` node/edge table remains the data alternative. Graph node clicks are wired for Character only — other types are hover-tooltip only.
 - The storyline switcher is hidden below `md`, so mobile cannot switch worlds.
 - At the 320px floor the scene-header Inspector icon clips ~7px. There is no page-level horizontal overflow at any width, and everything fits at 375+. **Re-measured live on 2026-08-12: still exactly 7px, and the button is genuinely unreachable there** (an `overflow: hidden` ancestor clips it). Letting the control cluster shrink was tried and is *worse* — its children have intrinsic widths, so a squeezed container pushes them 50–150px past the edge instead of 7. The real fix is to collapse or overflow-menu some scene-header controls below `sm`, which is a design decision, not a layout tweak.
