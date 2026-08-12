@@ -139,6 +139,31 @@ export interface TurnTraceFrame {
 /** One line of the turn stream. */
 export type TurnStreamFrame = PlayEvent | TurnErrorFrame | TurnTraceFrame;
 
+// ---- scene images (POST /play/{scenarioId}/moment/stream) ----
+
+/**
+ * Progress on the moment stream: `prompt` while the agent describes the scene, `render`
+ * while ComfyUI paints it (re-sent as the keep-alive heartbeat, so it may arrive more
+ * than once). `positive`/`caption` are filled from the `render` stage onward.
+ */
+export interface MomentStageFrame {
+  type: "moment_stage";
+  stage: "prompt" | "render";
+  message: string;
+  positive: string;
+  caption: string;
+}
+
+/** One line of the moment stream — the two stages, the finished image, or a failure. */
+export type MomentStreamFrame = MomentStageFrame | SceneImageEvent | TurnErrorFrame;
+
+/** The body for `POST /play/{scenarioId}/moment/stream`. */
+export interface MomentRequestBody {
+  sessionId: string;
+  /** How many recent beats the picture looks back over (clamped 2–40 server-side). */
+  beats?: number;
+}
+
 // ---- persisted session review (GET /play/{scenarioId}/sessions[/{id}]) ----
 
 /** One saved play-through's metadata (the resume list, newest `updatedAt` first). */

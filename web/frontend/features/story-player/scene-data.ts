@@ -4,13 +4,25 @@ import type { ResolvedScenario } from "@/lib/types";
 // match the reference; any other scenario gets a believable generic opening
 // built from its cast + branches. No model calls — interactions are local.
 
-export type SceneMessageKind = "narrator" | "char" | "player" | "choices";
+export type SceneMessageKind = "narrator" | "char" | "player" | "choices" | "image";
+
+/** A picture of the moment, from a `scene_image` event (the Create image action). */
+export interface SceneImage {
+  /** Relative `/media/moments/…` path — resolve with `mediaUrl` before rendering. */
+  url: string;
+  /** One plain-English line describing the picture; the image's alt text. */
+  caption: string;
+  /** The ComfyUI prompt that produced it (shown behind a disclosure in the lightbox). */
+  prompt: string;
+}
 
 export interface SceneMessage {
   kind: SceneMessageKind;
   who?: string;
   action?: string;
   text?: string;
+  /** Set on `kind: "image"` beats — the rendered picture and its caption. */
+  image?: SceneImage;
   /**
    * A character's private thinking, folded into the SAME beat as their speech: it renders
    * muted, between the name and the spoken bubble. Populated from an `internal_thought`

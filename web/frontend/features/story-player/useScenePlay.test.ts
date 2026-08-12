@@ -7,10 +7,11 @@ import {
   getLlmContextWindow,
   getSessionHistory,
   listPlaySessions,
+  postSceneMoment,
   postTurn,
   setPresence as apiSetPresence,
 } from "@/lib/api";
-import type { SessionHistory, TurnStreamFrame } from "@/lib/events";
+import type { MomentStreamFrame, SessionHistory, TurnStreamFrame } from "@/lib/events";
 import {
   resolveScenario,
   SEED_CHARACTERS,
@@ -29,6 +30,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   postTurn: vi.fn(),
   getScenarioRelationships: vi.fn(async () => ({ relationships: [] })),
   getLlmContextWindow: vi.fn(async () => ({ maxContextTokens: 16384, source: "configured" as const })),
+  postSceneMoment: vi.fn(),
 }));
 
 /** Build a mock async generator that yields the given frames then completes. */
@@ -467,5 +469,115 @@ describe("useScenePlay context tokens (exact vs. estimate)", () => {
     const { result } = renderHook(() => useScenePlay(scenario));
     await waitFor(() => expect(result.current.usedTokens).toBe(5120));
     expect(result.current.usedTokensExact).toBe(true);
+  });
+});
+
+describe("useScenePlay create image", () => {
+  async function* momentStream(frames: MomentStreamFrame[]): AsyncGenerator<MomentStreamFrame> {
+    for (const f of frames) yield f;
+  }
+
+  const imageEvent = (sessionId: string): MomentStreamFrame => ({
+    type: "scene_image",
+    id: "img1",
+    seq: 4,
+    scenarioId: scenario.id,
+    sessionId,
+    ts: "t",
+    visibility: "public",
+    data: {
+      url: "/media/moments/abc.webp",
+      prompt: "two figures at a lamplit table, wide landscape composition",
+      negative: "text, watermark",
+      caption: "Two figures at a lamplit table.",
+      characterIds: [speaker.id],
+    },
+  });
+
+  /** Resume a saved session so the hook has a session id to attach a moment to. */
+  async function renderWithSession() {
+    vi.mocked(listPlaySessions).mockResolvedValueOnce({
+      sessions: [{ id: "ps_img", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" }],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValueOnce(historyOf("ps_img"));
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_img"));
+    return result;
+  }
+
+  beforeEach(() => vi.mocked(postSceneMoment).mockReset());
+
+  it("streams both stages and folds the finished picture into the transcript", async () => {
+    const result = await renderWithSession();
+    vi.mocked(postSceneMoment).mockReturnValue(
+      momentStream([
+        { type: "moment_stage", stage: "prompt", message: "Reading the scene…", positive: "", caption: "" },
+        { type: "moment_stage", stage: "render", message: "Painting…", positive: "two figures", caption: "Two figures at a lamplit table." },
+        imageEvent("ps_img"),
+      ]),
+    );
+
+    act(() => result.current.createImage());
+
+    await waitFor(() =>
+      expect(result.current.messages.some((m) => m.kind === "image")).toBe(true),
+    );
+    const beat = result.current.messages.find((m) => m.kind === "image");
+    expect(beat?.image?.url).toBe("/media/moments/abc.webp");
+    expect(beat?.image?.caption).toBe("Two figures at a lamplit table.");
+    // The picture lands at the END of the transcript — under the moment it depicts.
+    expect(result.current.messages[result.current.messages.length - 1]).toBe(beat);
+
+    await waitFor(() => expect(result.current.creatingImage).toBe(false));
+    expect(result.current.imageStage).toBeNull();
+    expect(result.current.imageError).toBeNull();
+    expect(vi.mocked(postSceneMoment)).toHaveBeenCalledWith(
+      scenario.id,
+      { sessionId: "ps_img" },
+      expect.anything(),
+    );
+  });
+
+  it("surfaces a mid-stream failure and adds no picture", async () => {
+    const result = await renderWithSession();
+    vi.mocked(postSceneMoment).mockReturnValue(
+      momentStream([
+        { type: "moment_stage", stage: "prompt", message: "Reading the scene…", positive: "", caption: "" },
+        { type: "error", message: "ComfyUI never returned an image." },
+      ]),
+    );
+
+    act(() => result.current.createImage());
+
+    await waitFor(() =>
+      expect(result.current.imageError).toBe("ComfyUI never returned an image."),
+    );
+    expect(result.current.messages.some((m) => m.kind === "image")).toBe(false);
+  });
+
+  it("does nothing before a session exists", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValueOnce({ sessions: [] });
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.createImage());
+    expect(vi.mocked(postSceneMoment)).not.toHaveBeenCalled();
+  });
+
+  it("ignores a second request while one is already painting", async () => {
+    const result = await renderWithSession();
+    // A stream that never resolves keeps the hook in the streaming state.
+    vi.mocked(postSceneMoment).mockReturnValue(
+      (async function* () {
+        yield { type: "moment_stage", stage: "prompt", message: "…", positive: "", caption: "" } as MomentStreamFrame;
+        await new Promise(() => {});
+      })(),
+    );
+
+    act(() => result.current.createImage());
+    await waitFor(() => expect(result.current.creatingImage).toBe(true));
+    act(() => result.current.createImage());
+
+    expect(vi.mocked(postSceneMoment)).toHaveBeenCalledTimes(1);
   });
 });
