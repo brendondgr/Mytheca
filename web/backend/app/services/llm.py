@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import time
 
 import httpx
@@ -78,6 +79,60 @@ def _send(
         raise APIError(
             502, "bad_gateway", f"Could not reach the model endpoint: {exc.__class__.__name__}."
         ) from exc
+
+
+# ---- Context-window fitting -------------------------------------------------
+# The operator's saved Max tokens is an *output* budget, but an OpenAI-compatible
+# server counts prompt + completion against one context window: asking for 48000
+# output tokens on a 48000-token model is rejected with a 400 no matter how short
+# the prompt, which surfaced as a bare 502 on every generation. We learn the
+# window from that 400 (it states the limit), clamp, and retry once; the learned
+# limit is cached per endpoint+model so later calls are clamped before sending.
+_CONTEXT_LIMIT_RE = re.compile(r"maximum context length is\s+(\d+)\s*tokens", re.IGNORECASE)
+_CONTEXT_LIMITS: dict[tuple[str, str], int] = {}
+_CHARS_PER_TOKEN = 4  # rough, deliberately conservative prompt estimate
+_CONTEXT_RESERVE = 512  # headroom for the chat template / role scaffolding
+_MIN_OUTPUT_TOKENS = 256
+
+
+def _estimate_prompt_tokens(messages: list[dict[str, str]]) -> int:
+    chars = sum(len(str(m.get("content") or "")) + len(str(m.get("role") or "")) for m in messages)
+    return chars // _CHARS_PER_TOKEN
+
+
+def _fit_max_tokens(body: dict, limit: int) -> bool:
+    """Clamp ``body["max_tokens"]`` so prompt + completion fit ``limit``.
+
+    Returns True when the value changed. Raises when the prompt alone leaves no
+    usable room, so the operator sees the real problem instead of a raw upstream 400.
+    """
+    prompt_tokens = _estimate_prompt_tokens(body.get("messages") or [])
+    allowed = limit - prompt_tokens - _CONTEXT_RESERVE
+    if allowed < _MIN_OUTPUT_TOKENS:
+        raise APIError(
+            502,
+            "upstream_error",
+            f"The prompt is too long for this model's {limit}-token context window. "
+            "Use a model with a larger context, or trim the reference material.",
+        )
+    requested = int(body.get("max_tokens") or 0)
+    if requested and requested <= allowed:
+        return False
+    body["max_tokens"] = allowed
+    return True
+
+
+def _learn_context_limit(key: tuple[str, str], res: httpx.Response) -> int | None:
+    """Read the model's context window out of an overflow 400 and cache it."""
+    if res.status_code != 400:
+        return None
+    match = _CONTEXT_LIMIT_RE.search(res.text or "")
+    if not match:
+        return None
+    limit = int(match.group(1))
+    _CONTEXT_LIMITS[key] = limit
+    logger.info("Learned context window for %s: %d tokens", key[1], limit)
+    return limit
 
 
 def _ensure_ok(res: httpx.Response) -> None:
@@ -164,7 +219,15 @@ def chat_complete_usage(
 
         backend = llm_backend.get_backend(base_url, api_key)
         llm_backend.apply_reasoning(body, backend, reasoning)
+    limit_key = (_normalize(base_url), model)
+    known_limit = _CONTEXT_LIMITS.get(limit_key)
+    if known_limit:
+        _fit_max_tokens(body, known_limit)
     res = _send("POST", url, headers=_headers(api_key), json=body, timeout=_GEN_TIMEOUT)
+    if not res.is_success:
+        limit = _learn_context_limit(limit_key, res)
+        if limit and _fit_max_tokens(body, limit):
+            res = _send("POST", url, headers=_headers(api_key), json=body, timeout=_GEN_TIMEOUT)
     _ensure_ok(res)
     try:
         payload = res.json()

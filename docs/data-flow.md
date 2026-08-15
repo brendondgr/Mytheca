@@ -193,6 +193,16 @@ after the last channel marker, scrub residual control tokens) before returning i
 and the **authoring JSON** agents all receive only the model's final answer; the scrub keeps
 the app's own `<speaker:>`/`<type:>`/`<thinking>` markers intact.
 
+**The output budget is fitted to the model's context window.** Options' *Max tokens* is an
+**output** budget, but an OpenAI-compatible server counts prompt + completion against one
+window — so a saved value at or near the model's context length 400s on every generation
+regardless of prompt size (this surfaced as a blanket 502 on `POST /api/characters/draft`).
+`services.llm.chat_complete` reads the window out of that 400 (`maximum context length is N
+tokens`), caches it per endpoint+model, clamps `max_tokens` to `N − estimated prompt − 512`,
+and retries **once**; later calls to the same endpoint are clamped before sending. A prompt
+that leaves under 256 tokens of room raises a plain "prompt is too long for this model's
+N-token context window" instead of a raw upstream 400, and non-context 400s are untouched.
+
 The hot path is **read-only** — all mutation (durable consequences, edges) defers to the
 cold-path turn-writer (a later phase); stat changes are clamped during validation.
 
