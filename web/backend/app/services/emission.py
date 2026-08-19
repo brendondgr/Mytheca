@@ -99,3 +99,212 @@ def parse_emission(
         if kind in _PROSE_TYPES or kind in _JSON_TYPES:
             segments.append(Segment(kind, body, speaker_id))
     return segments
+
+
+# ---- Incremental parsing ---------------------------------------------------
+# :func:`parse_emission` runs over a finished string, so nothing can be shown until the
+# whole beat exists. The accumulator below makes the same decisions on a growing prefix,
+# which is what lets a character's private thought reach the player while their spoken
+# line is still being written.
+
+#: Every emission tag, in one pattern, so the scanner can find the next one of any kind.
+#: The optional leading slash and optional ``:value`` mirror the tolerances above.
+_ANY_TAG_RE = re.compile(
+    r"</?(?:speaker(?::\s*\d+)?|type(?::\s*[a-z_]+)?|thinking)\s*>", re.IGNORECASE
+)
+
+
+@dataclass
+class SegmentDelta:
+    """One increment of a segment being parsed out of a streaming emission.
+
+    ``index`` orders segments within the emission; a consumer keyed on it can open an
+    event on the first delta and close it when ``done`` arrives. ``text`` is the
+    increment, never the accumulation — joining every delta for one index reproduces the
+    corresponding :class:`Segment` body exactly.
+    """
+
+    index: int
+    type: str
+    text: str
+    character_id: str
+    done: bool = False
+
+
+class EmissionAccumulator:
+    """Parse a thin-tag emission as it arrives, yielding :class:`SegmentDelta`s.
+
+    Fed the same text as :func:`parse_emission` — in any chunking — it produces the same
+    ordered segments with the same bodies. Three behaviours are worth knowing:
+
+    * **Prose and thinking stream; JSON does not.** ``character_dialogue``,
+      ``character_action`` and ``internal_thought`` emit deltas as they grow.
+      ``state_update`` / ``relationship_update`` / ``presence_change`` carry a JSON body
+      that is meaningless in fragments, so they are held and emitted whole on close.
+    * **Text before the first ``<type:>`` mark is held.** The batch parser discards it
+      when marks exist, and treats it as one spoken line when none do — which cannot be
+      known until the stream ends. Holding it preserves both outcomes.
+    * **Order is arrival order.** The batch parser lifts ``internal_thought`` to the
+      front of the list wherever it appeared; a stream cannot reorder what it has already
+      sent. For the documented think→speak format the two agree, because the thought
+      genuinely comes first. Likewise a ``<speaker:N>`` tag arriving *after* a segment has
+      opened cannot retroactively re-attribute it, so that segment keeps the engine's
+      intended speaker.
+    """
+
+    def __init__(self, *, roster: dict[int, str], fallback_speaker_id: str) -> None:
+        self._roster = roster
+        self._speaker_id = fallback_speaker_id
+        self._buf = ""
+        self._index = -1
+        self._open_type: str | None = None
+        self._open_text = ""
+        self._pending_ws = ""
+        self._held = ""  # preamble: prose seen before any <type:> mark
+        self._saw_type_mark = False
+        self._segments: list[Segment] = []
+
+    @property
+    def segments(self) -> list[Segment]:
+        """Every segment closed so far."""
+        return list(self._segments)
+
+    def push(self, chunk: str) -> list[SegmentDelta]:
+        """Consume a chunk of the emission; return the deltas it produced."""
+        if not chunk:
+            return []
+        self._buf += chunk
+        out: list[SegmentDelta] = []
+        while True:
+            match = _ANY_TAG_RE.search(self._buf)
+            if match is None:
+                # No complete tag. Emit everything that cannot still become one.
+                safe = self._safe_prefix(self._buf)
+                if safe:
+                    out.extend(self._consume_text(self._buf[:safe]))
+                    self._buf = self._buf[safe:]
+                break
+            out.extend(self._consume_text(self._buf[: match.start()]))
+            self._buf = self._buf[match.end() :]
+            out.extend(self._handle_tag(match.group(0)))
+        return out
+
+    def finish(self) -> list[SegmentDelta]:
+        """Close the emission; return the final deltas."""
+        out: list[SegmentDelta] = []
+        if self._buf:
+            out.extend(self._consume_text(self._buf))
+            self._buf = ""
+        out.extend(self._close_open())
+        if not self._saw_type_mark:
+            # The model ignored the tag format — the held prose is one spoken line.
+            body = _clean(self._held)
+            if body:
+                out.extend(self._open(_DIALOGUE))
+                out.extend(self._grow(body))
+                out.extend(self._close_open())
+        self._held = ""
+        return out
+
+    # -- internals -----------------------------------------------------------
+
+    def _safe_prefix(self, text: str) -> int:
+        """How much of ``text`` cannot still turn out to be part of a tag."""
+        start = text.rfind("<")
+        return len(text) if start == -1 or ">" in text[start:] else start
+
+    def _handle_tag(self, tag: str) -> list[SegmentDelta]:
+        speaker = _SPEAKER_RE.fullmatch(tag)
+        if speaker:
+            self._speaker_id = self._roster.get(int(speaker.group(1)), self._speaker_id)
+            return []
+        lowered = tag.lower()
+        if "thinking" in lowered:
+            if lowered.startswith("</"):
+                return self._close_open()
+            out = self._close_open()
+            out.extend(self._open("internal_thought"))
+            return out
+        type_match = _TYPE_RE.fullmatch(tag)
+        if type_match:
+            self._saw_type_mark = True
+            self._held = ""  # preamble before the first mark is discarded, as in batch
+            kind = type_match.group(1).lower()
+            out = self._close_open()
+            if kind in _PROSE_TYPES or kind in _JSON_TYPES:
+                out.extend(self._open(kind))
+            return out
+        # A bare </type> / </speaker> closes nothing and is simply scrubbed.
+        return []
+
+    def _consume_text(self, text: str) -> list[SegmentDelta]:
+        if not text:
+            return []
+        if self._open_type is None:
+            self._held += text
+            return []
+        return self._grow(text)
+
+    def _open(self, kind: str) -> list[SegmentDelta]:
+        self._index += 1
+        self._open_type = kind
+        self._open_text = ""
+        self._pending_ws = ""
+        return []
+
+    def _grow(self, text: str) -> list[SegmentDelta]:
+        """Add text to the open segment, emitting a delta unless it must be held.
+
+        Leading and trailing whitespace are withheld so the accumulated body matches the
+        batch parser's ``.strip()``; held whitespace is released as soon as more prose
+        follows it. A JSON body is withheld entirely — half a JSON object is not usable.
+        """
+        assert self._open_type is not None
+        if not self._open_text:
+            text = text.lstrip()
+            if not text:
+                return []
+        text = self._pending_ws + text
+        stripped = text.rstrip()
+        self._pending_ws = text[len(stripped) :]
+        if not stripped:
+            return []
+        self._open_text += stripped
+        if self._open_type in _JSON_TYPES:
+            return []
+        return [
+            SegmentDelta(
+                index=self._index,
+                type=self._open_type,
+                text=stripped,
+                character_id=self._speaker_id,
+            )
+        ]
+
+    def _close_open(self) -> list[SegmentDelta]:
+        if self._open_type is None:
+            return []
+        kind, body = self._open_type, self._open_text
+        self._open_type = None
+        self._open_text = ""
+        self._pending_ws = ""
+        if kind not in _JSON_TYPES:
+            body = _clean(body)
+        if not body:
+            self._index -= 1  # an empty segment was never really a segment
+            return []
+        self._segments.append(Segment(kind, body, self._speaker_id))
+        return [
+            SegmentDelta(
+                index=self._index,
+                type=kind,
+                # A JSON body is delivered here, in one piece, having been withheld.
+                text=body if kind in _JSON_TYPES else "",
+                character_id=self._speaker_id,
+                done=True,
+            )
+        ]
+
+
+#: The type a tag-free emission collapses to (see :class:`EmissionAccumulator.finish`).
+_DIALOGUE = "character_dialogue"
