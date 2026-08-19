@@ -57,7 +57,7 @@ export function TurnStatusStrip({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={ENTER_TRANSITION}
-      className={cn("flex justify-center", className)}
+      className={cn("flex flex-col items-center gap-[4px]", className)}
     >
       <p
         role="status"
@@ -80,15 +80,36 @@ export function TurnStatusStrip({
         <span className="text-ink-soft">{label}</span>
         {showDots ? <TypingDots className="text-mute2" /> : null}
       </p>
+      {/* How the turn read the message, or why this speaker is up. Outside the live region
+          above: the label already announces the change, and repeating a long clause on
+          every phase would make the strip chatty for a screen reader. Wraps rather than
+          truncates — a directive the player cannot finish reading is worse than none. */}
+      {status.detail ? (
+        <p className="max-w-[46ch] text-balance px-[8px] text-center font-body text-[12px] leading-[1.4] text-mute2">
+          {status.detail}
+        </p>
+      ) : null}
     </motion.div>
   );
 }
 
-/** The player-facing sentence for each phase. */
+/**
+ * The player-facing sentence for each phase.
+ *
+ * The pre-generation phases matter as much as the character ones: they cover the stretch
+ * before the first token, which is the longest part of a turn and used to show nothing but
+ * the generic fallback below.
+ */
 function labelFor(phase: TurnStatus["phase"], who: string): string {
   switch (phase) {
+    case "gathering":
+      return "Gathering the scene";
+    case "reading":
+      return "Reading your message";
+    case "planning":
+      return "Deciding who speaks next";
     case "thinking":
-      return `${who} is about to speak`;
+      return `${who} is thinking`;
     case "speaking":
       return `${who} is speaking`;
     case "acting":

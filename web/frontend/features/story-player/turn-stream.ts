@@ -599,6 +599,12 @@ export function applyCharacterActivity(
  */
 export type TurnPhase =
   | "idle"
+  // The pre-generation steps. They already streamed as trace frames and were simply
+  // ignored here, which is why the strip sat on its generic idle line through the
+  // longest, most opaque part of the wait.
+  | "gathering"
+  | "reading"
+  | "planning"
   | "thinking"
   | "speaking"
   | "acting"
@@ -611,6 +617,12 @@ export interface TurnStatus {
   characterId?: string;
   /** The name carried by the `speaker` trace — the fallback when the cast lookup misses. */
   name?: string;
+  /**
+   * A short clause explaining the current phase in the turn's own terms — how the player's
+   * message was read (`reading`), or why this speaker is up (`thinking`). Rendered under
+   * the label; absent when the engine offered no reason.
+   */
+  detail?: string;
 }
 
 /** Nothing is in flight. Also the reset value between turns. */
@@ -618,8 +630,33 @@ export const IDLE_TURN_STATUS: TurnStatus = { phase: "idle" };
 
 /** True when both statuses describe the same moment (so the reducer can skip a re-render). */
 function sameStatus(a: TurnStatus, b: TurnStatus): boolean {
-  return a.phase === b.phase && a.characterId === b.characterId && a.name === b.name;
+  return (
+    a.phase === b.phase &&
+    a.characterId === b.characterId &&
+    a.name === b.name &&
+    a.detail === b.detail
+  );
 }
+
+/**
+ * Trace steps that name a pre-generation phase.
+ *
+ * These frames already reached the client (the player sends `trace: true`); the reducer
+ * simply dropped them, so the strip showed its generic default for the whole stretch
+ * before the first token. Mapping them turns a blank wait into a visible sequence.
+ */
+const PHASE_BY_STEP: Record<string, TurnPhase> = {
+  assemble: "gathering",
+  lore: "gathering",
+  files: "gathering",
+  // `reading`/`planning` are emitted BEFORE their call; `intent`/`direction` after it,
+  // carrying the result. Both map to the same phase, so the label stands for the whole
+  // window and the detail fills in once the answer is known.
+  reading: "reading",
+  intent: "reading",
+  direction: "reading",
+  planning: "planning",
+};
 
 /**
  * Fold one frame into the scene's turn status. Returns the **same reference** when nothing
@@ -651,9 +688,20 @@ function nextTurnStatus(prev: TurnStatus, frame: TurnStreamFrame): TurnStatus {
         phase: "thinking",
         characterId,
         name: (frame.data.name as string | undefined) ?? undefined,
+        // The planner's read of the moment — why THIS character is up, and how the beat
+        // is pitched. Both are already computed; surfacing them answers the commonest
+        // question in play ("why did they answer and not her?").
+        detail: speakerReason(frame.data),
       };
     }
-    if (frame.step === "plan" && frame.data.end === true) return { phase: "ending" };
+    if (frame.step === "plan") {
+      if (frame.data.end === true) return { phase: "ending" };
+      return { phase: "planning" };
+    }
+    const phase = PHASE_BY_STEP[frame.step];
+    if (phase) {
+      return { phase, detail: frame.step === "intent" ? intentReason(frame) : undefined };
+    }
     return prev;
   }
 
@@ -687,6 +735,22 @@ function nextTurnStatus(prev: TurnStatus, frame: TurnStreamFrame): TurnStatus {
  * character by id alone, so a stale name from the previous speaker would otherwise be
  * shown against the new one.
  */
+/** "she was just accused (tense)" — the planner's reason and register, when given. */
+function speakerReason(data: Record<string, unknown>): string | undefined {
+  const register = typeof data.register === "string" ? data.register : "";
+  const stakes = typeof data.stakes === "string" ? data.stakes.trim() : "";
+  if (stakes && register) return `${stakes} (${register})`;
+  return stakes || register || undefined;
+}
+
+/** "read as: you're telling Beth to confront Mei" — how the message was interpreted. */
+function intentReason(frame: { detail?: string; data: Record<string, unknown> }): string | undefined {
+  const directive = (frame.detail ?? "").trim();
+  if (directive) return directive;
+  const kind = typeof frame.data.kind === "string" ? frame.data.kind : "";
+  return kind || undefined;
+}
+
 function forCharacter(phase: TurnPhase, characterId: string, prev: TurnStatus): TurnStatus {
   return {
     phase,

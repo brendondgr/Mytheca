@@ -543,7 +543,7 @@ describe("applyActivity", () => {
     expect(feed).toHaveLength(1);
     expect(feed[0].kind).toBe("thinking");
     expect(feed[0].who).toBe("mei");
-    expect(feed[0].label).toBe("Mei is about to speak");
+    expect(feed[0].label).toBe("Mei is about to speak");  // activity feed copy, not the strip
   });
 
   it("trace branch step → branch entry", () => {
@@ -814,9 +814,39 @@ describe("applyTurnStatus", () => {
     expect(s).toEqual({ phase: "ending" });
   });
 
-  it("an ordinary plan trace leaves the status alone", () => {
+  it("an ordinary plan trace means the turn is choosing its next beat", () => {
+    // This used to leave the status alone, which is how the strip came to sit on its
+    // generic default through the planner call — one of the longest silences in a turn.
     const start: TurnStatus = { phase: "speaking", characterId: "mei" };
-    expect(applyTurnStatus(start, traceFrame("plan", 3, { title: "Mei is up next" }))).toBe(start);
+    expect(applyTurnStatus(start, traceFrame("plan", 3, { title: "Mei is up next" }))).toEqual({
+      phase: "planning",
+    });
+  });
+
+  it("names the pre-generation steps instead of idling through them", () => {
+    const start: TurnStatus = { phase: "idle" };
+    expect(applyTurnStatus(start, traceFrame("assemble", 1)).phase).toBe("gathering");
+    expect(applyTurnStatus(start, traceFrame("lore", 2)).phase).toBe("gathering");
+    expect(applyTurnStatus(start, traceFrame("files", 3)).phase).toBe("gathering");
+    expect(applyTurnStatus(start, traceFrame("intent", 4)).phase).toBe("reading");
+  });
+
+  it("carries the planner's reason and register onto the speaker status", () => {
+    const start: TurnStatus = { phase: "idle" };
+    const next = applyTurnStatus(
+      start,
+      traceFrame("speaker", 5, {
+        data: {
+          characterId: "mei",
+          name: "Mei",
+          reason: "she was just accused",
+          register: "tense",
+          stakes: "she was just accused",
+        },
+      }),
+    );
+    expect(next.phase).toBe("thinking");
+    expect(next.detail).toBe("she was just accused (tense)");
   });
 
   it("ending survives the trailing branch/commit frames of the turn", () => {
@@ -849,7 +879,8 @@ describe("applyTurnStatus", () => {
 
   it("returns the same reference for frames it does not care about", () => {
     const start: TurnStatus = { phase: "thinking", characterId: "mei", name: "Mei" };
-    expect(applyTurnStatus(start, traceFrame("lore", 2))).toBe(start);
+    // `consistency` names no phase — unlike assemble/lore/files/intent/plan, which now do.
+    expect(applyTurnStatus(start, traceFrame("consistency", 2))).toBe(start);
     expect(applyTurnStatus(start, ev("state_update", "s1", { patch: {}, stat: null }))).toBe(start);
   });
 });

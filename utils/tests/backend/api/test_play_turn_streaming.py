@@ -398,3 +398,50 @@ def test_an_unknown_stored_visibility_falls_back_to_the_safe_default(client):
     assert _reasoning_visibility(None) == "summary"
     assert _reasoning_visibility("nonsense") == "summary"
     assert _reasoning_visibility("full") == "full"
+
+
+# ---- the wait is narrated ---------------------------------------------------
+
+
+def test_each_step_is_announced_before_its_call_not_after(client, storyline_id, monkeypatch):
+    """Every trace step used to be emitted once its work was already done, so the status
+    strip could only name the step the turn had just finished — the actual waits were
+    unlabelled. `reading` and `planning` mark the start of theirs."""
+    _configure_llm(client)
+    _patch_streaming_llm(monkeypatch)
+    cast, scid = _scene(client, storyline_id)
+
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "I slide the pouch over.", "directedAt": cast[0], "trace": True},
+        )
+    )
+    steps = [e["step"] for e in events if e.get("type") == "trace"]
+
+    assert "reading" in steps
+    # The message is read before its interpretation is reported, and before any speaker.
+    assert steps.index("reading") < steps.index("intent")
+    if "speaker" in steps:
+        assert steps.index("reading") < steps.index("speaker")
+
+
+def test_the_speaker_step_carries_the_planners_reasoning(client, storyline_id, monkeypatch):
+    """Why THIS character is up is already computed — it just never left the engine."""
+    _configure_llm(client)
+    _patch_streaming_llm(monkeypatch)
+    cast, scid = _scene(client, storyline_id, names=("Mei", "Kira"))
+
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "Everyone say something.", "trace": True},
+        )
+    )
+    speakers = [e for e in events if e.get("type") == "trace" and e["step"] == "speaker"]
+
+    assert speakers, "expected at least one speaker step"
+    for step in speakers:
+        # The keys are always present so the client never has to guess whether the engine
+        # simply omitted them; an empty string means the planner had nothing to say.
+        assert "register" in step["data"] or step["data"].get("puppet")

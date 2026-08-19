@@ -139,14 +139,14 @@ describe("StoryPlayerView", () => {
     await user.click(screen.getByRole("button", { name: /send/i }));
 
     expect(
-      await screen.findByText(`${speaker.name} is about to speak`),
+      await screen.findByText(`${speaker.name} is thinking`),
     ).toBeInTheDocument();
 
     await act(async () => {
       release();
     });
     await waitFor(() =>
-      expect(screen.queryByText(`${speaker.name} is about to speak`)).not.toBeInTheDocument(),
+      expect(screen.queryByText(`${speaker.name} is thinking`)).not.toBeInTheDocument(),
     );
   });
 

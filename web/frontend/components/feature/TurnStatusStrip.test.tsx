@@ -22,9 +22,9 @@ describe("TurnStatusStrip", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("names who is about to speak, with dots", () => {
+  it("names who is thinking, with dots", () => {
     renderStrip({ phase: "thinking", characterId: "mei" });
-    expect(screen.getByText("Mei is about to speak")).toBeInTheDocument();
+    expect(screen.getByText("Mei is thinking")).toBeInTheDocument();
     expect(screen.getByTestId("typing-dots")).toBeInTheDocument();
   });
 
@@ -43,7 +43,7 @@ describe("TurnStatusStrip", () => {
 
   it("falls back to the name the speaker trace carried when the cast lookup misses", () => {
     renderStrip({ phase: "thinking", characterId: "ghost", name: "Kira" });
-    expect(screen.getByText("Kira is about to speak")).toBeInTheDocument();
+    expect(screen.getByText("Kira is thinking")).toBeInTheDocument();
   });
 
   it("falls back to a neutral stand-in when neither is available", () => {
@@ -74,7 +74,58 @@ describe("TurnStatusStrip", () => {
     renderStrip({ phase: "thinking", characterId: "mei" });
     const region = screen.getByRole("status");
     expect(region).toHaveAttribute("aria-live", "polite");
-    expect(region).toHaveTextContent("Mei is about to speak");
+    expect(region).toHaveTextContent("Mei is thinking");
     expect(screen.getByTestId("typing-dots")).toHaveAttribute("aria-hidden", "true");
+  });
+});
+
+describe("TurnStatusStrip — the wait is legible", () => {
+  const charById = () => undefined;
+
+  it("names each pre-generation step instead of a generic line", () => {
+    const cases: [TurnStatus["phase"], string][] = [
+      ["gathering", "Gathering the scene"],
+      ["reading", "Reading your message"],
+      ["planning", "Deciding who speaks next"],
+    ];
+    for (const [phase, label] of cases) {
+      const { unmount } = render(
+        <TurnStatusStrip status={{ phase }} streaming charById={charById} />,
+      );
+      expect(screen.getByText(label)).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("shows why this speaker is up, under the label", () => {
+    render(
+      <TurnStatusStrip
+        status={{ phase: "thinking", name: "Mei", detail: "she was just accused (tense)" }}
+        streaming
+        charById={charById}
+      />,
+    );
+    expect(screen.getByText("Mei is thinking")).toBeInTheDocument();
+    expect(screen.getByText("she was just accused (tense)")).toBeInTheDocument();
+  });
+
+  it("keeps the detail out of the live region", () => {
+    // The label already announces the change; repeating a long clause on every phase
+    // would make the strip chatty for a screen reader.
+    render(
+      <TurnStatusStrip
+        status={{ phase: "reading", detail: "you are telling Beth to confront Mei" }}
+        streaming
+        charById={charById}
+      />,
+    );
+    const region = screen.getByRole("status");
+    expect(region).toHaveTextContent("Reading your message");
+    expect(region).not.toHaveTextContent("confront Mei");
+  });
+
+  it("renders no detail line when the engine offered no reason", () => {
+    render(<TurnStatusStrip status={{ phase: "planning" }} streaming charById={charById} />);
+    expect(screen.getByText("Deciding who speaks next")).toBeInTheDocument();
   });
 });

@@ -494,6 +494,14 @@ def run_turn(
     # to act/speak (puppet)? This is what fixes attribution (Reactive Turn Director D1) —
     # a puppeted character performs the direction in its own voice; the addressed character
     # reacts, instead of a bystander answering the player's words.
+    # Announce the step BEFORE the call, not after it. The trace steps were all emitted
+    # once their work was already done, so the status strip could only ever name the step
+    # the turn had just finished — leaving the actual waits unlabelled.
+    yield from tracer.emit(
+        "reading",
+        "Reading your message",
+        detail="Working out whether you are narrating, addressing someone, or directing.",
+    )
     intent = intent_agent.interpret(db, ctx, text)
     # A UI-set target (e.g. a branch selection) addresses that character explicitly.
     if (
@@ -669,6 +677,11 @@ def run_turn(
         decision: planner_agent.BeatDecision | None = None
         forced_reason = "the rest of your direction has to fit the beats that are left"
         if not outstanding or len(outstanding) < remaining:
+            yield from tracer.emit(
+                "planning",
+                "Deciding who speaks next",
+                detail=f"{remaining} beat(s) left in the scene's budget.",
+            )
             decision = planner_agent.next_beat(
                 db, ctx, intent, turn_beats, acted,
                 scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
@@ -788,7 +801,19 @@ def run_turn(
             },
         )
         yield from tracer.emit(
-            "speaker", f"{actor.name} responds", data={"characterId": actor.id, "name": actor.name}
+            "speaker",
+            f"{actor.name} responds",
+            # The planner already decided WHY this character is up and how the beat is
+            # pitched; carrying both into the trace lets the status strip answer the
+            # commonest question in play — why them, and not the one I addressed?
+            detail=decision.reason,
+            data={
+                "characterId": actor.id,
+                "name": actor.name,
+                "reason": decision.reason,
+                "register": decision.register or "",
+                "stakes": decision.stakes,
+            },
         )
         note = _relationship_note(
             ctx,

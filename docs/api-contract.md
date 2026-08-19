@@ -983,6 +983,15 @@ character id the line was spoken as (`null` for the default guide/narrator line)
 frame; pre-flight failures (unknown scenario, empty text, bad session) are a normal error
 envelope before the 200 opens.
 
+**Trace steps mark the START of their work.** `reading` (before the intent call) and
+`planning` (before each planner call) are emitted *before* the step they name, while
+`intent`, `direction`, `speaker` and the rest report a result and therefore follow it. This
+matters because the client derives its status label from these frames: when every step was
+reported only on completion, the label could name nothing but the step the turn had just
+finished, and the real waits went unlabelled. The `speaker` step additionally carries the
+planner's `reason`, `register` and `stakes`, so the player can be told *why* this character
+is up rather than merely that they are.
+
 **Live reasoning (opt-in, ephemeral).** When Options › Language models › *Reasoning
 visibility* is set to `full`, the turn interleaves
 `{ "type": "reasoning", "characterId", "text", "done" }` frames carrying the model's
