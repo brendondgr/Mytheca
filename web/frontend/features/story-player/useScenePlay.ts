@@ -30,6 +30,7 @@ import {
   NO_DIRECTION,
   applyActivity,
   applyDirection,
+  dropPendingBeats,
   applyReasoning,
   applyCharacterActivity,
   applyTurnStatus,
@@ -345,6 +346,10 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
         setLiveContextTokens(frame.data.promptTokens);
       }
       setTraceTurns((t) => foldTrace(t, frame));
+      // One trace step also reaches the transcript: `speaker` opens the chosen character's
+      // beat before any words exist, so the wait has a place to live. Every other step is
+      // ignored by mergeFrame.
+      if (frame.step === "speaker") setMessages((m) => mergeFrame(m, frame));
       return;
     }
     if (frame.type === "error") {
@@ -384,6 +389,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
 
   const stream = useEventStream<TurnStreamFrame>(onFrame);
   const sending = stream.status === "streaming";
+
 
   // Choosing who to speak as. Leaving POV (back to Narrator) also drops the direction box's
   // text — in narrator mode the message box carries the direction, so keeping it would send
@@ -469,6 +475,11 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
         .finally(() => {
           setActivityByChar({});
           setTurnStatus(IDLE_TURN_STATUS);
+          // A `speaker` trace opens a beat before any words exist, so the wait has a place
+          // to live. The engine may then emit nothing for that speaker (a withheld beat, a
+          // failed generation, an aborted turn) — clear the empty placeholder here rather
+          // than in an effect, so it cannot outlive the turn and cannot cascade a render.
+          setMessages(dropPendingBeats);
         });
     },
     [sending, scenario.id, stream, pov],

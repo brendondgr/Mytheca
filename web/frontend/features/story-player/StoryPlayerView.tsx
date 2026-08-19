@@ -32,6 +32,12 @@ import { CharacterProfileModal } from "@/components/feature/CharacterProfileModa
 import { TurnInspectorPanel } from "@/components/feature/TurnInspectorPanel";
 
 /** The signature surface: a three-zone "open book" live scene. */
+/**
+ * Phases the transcript itself is already showing, in place, on the speaker's own beat.
+ * The status strip suppresses these so the two do not narrate the same moment.
+ */
+const CHARACTER_PHASES = new Set(["thinking", "speaking", "acting"]);
+
 export function StoryPlayerView({
   scenario,
   statDefs = [],
@@ -189,12 +195,17 @@ export function StoryPlayerView({
                   />
                 </motion.div>
               ))}
-              {/* Who is up, while the turn is being written. Sits in the same slot the
-                  CreateImageBar occupies between turns (the two are gated on `sending` in
-                  opposite directions), so the foot of the transcript never empties out. */}
+              {/* What the turn is doing, while it is being written. Sits in the same slot
+                  the CreateImageBar occupies between turns (the two are gated on `sending`
+                  in opposite directions), so the foot of the transcript never empties out.
+
+                  Once a speaker has been chosen, their own beat is already open above with
+                  a typing indicator in it, so the strip stands down to avoid saying the
+                  same thing twice. It keeps the pre-generation phases — gathering, reading,
+                  planning — which no beat can show, because no beat exists yet. */}
               <TurnStatusStrip
                 status={scene.turnStatus}
-                streaming={scene.sending}
+                streaming={scene.sending && !CHARACTER_PHASES.has(scene.turnStatus.phase)}
                 charById={byId}
               />
               {scene.streamError ? (

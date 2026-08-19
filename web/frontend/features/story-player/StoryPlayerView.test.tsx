@@ -118,9 +118,11 @@ describe("StoryPlayerView", () => {
     );
   });
 
-  it("names who is up while the turn streams, and clears the strip when it ends", async () => {
-    // The cast rail is hidden below `lg`, so this strip is the only speaker signal on a
-    // narrow viewport — it must appear during the turn and be gone once it settles.
+  it("holds the chosen speaker's place while the turn streams, and clears it when it ends", async () => {
+    // The cast rail is hidden below `lg`, so this is the only speaker signal on a narrow
+    // viewport. A chosen speaker now opens their OWN beat immediately (the status strip
+    // stands down for character phases rather than narrating the same moment twice), and
+    // an empty placeholder must not outlive the turn that created it.
     const speaker = embergate.cast[0];
     let release = () => {};
     const parked = new Promise<void>((resolve) => {
@@ -139,14 +141,16 @@ describe("StoryPlayerView", () => {
     await user.click(screen.getByRole("button", { name: /send/i }));
 
     expect(
-      await screen.findByText(`${speaker.name} is thinking`),
+      await screen.findByText(`${speaker.name} is composing a reply`),
     ).toBeInTheDocument();
 
     await act(async () => {
       release();
     });
     await waitFor(() =>
-      expect(screen.queryByText(`${speaker.name} is thinking`)).not.toBeInTheDocument(),
+      expect(
+        screen.queryByText(`${speaker.name} is composing a reply`),
+      ).not.toBeInTheDocument(),
     );
   });
 

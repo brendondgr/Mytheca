@@ -1,5 +1,6 @@
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { TypingDots } from "@/components/ui/TypingDots";
 import { QuotedText } from "@/components/ui/QuotedText";
 import { SceneImageBeat } from "@/components/feature/SceneImageBeat";
 import { mediaUrl } from "@/lib/api";
@@ -115,6 +116,7 @@ export function CharacterMessage({
   text,
   onProfile,
   streaming,
+  pending,
 }: {
   character: Character;
   streaming?: boolean;
@@ -127,6 +129,12 @@ export function CharacterMessage({
   reasoning?: string;
   text: string;
   onProfile?: () => void;
+  /**
+   * The speaker is chosen but nothing is written yet. Reserves the beat's place so the
+   * thought → speech sequence fills one stable spot rather than pushing the transcript
+   * around as it arrives.
+   */
+  pending?: boolean;
 }) {
   const c = character;
   return (
@@ -169,6 +177,14 @@ export function CharacterMessage({
               {reasoning}
             </p>
           </details>
+        ) : null}
+        {/* Nothing written yet: hold the beat's height with the same bubble geometry the
+            prose will land in, so filling it in does not shift the page. */}
+        {pending && !thought && !text ? (
+          <div className="mt-[6px] flex min-h-[2.4em] items-center rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px]">
+            <TypingDots className="text-mute2" />
+            <span className="sr-only">{c.name} is composing a reply</span>
+          </div>
         ) : null}
         {thought || text ? (
           <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px] shadow-[0_1px_2px_rgba(20,14,6,.06)]">
@@ -284,6 +300,7 @@ export function TranscriptBeat({
       thought={m.thought}
       reasoning={reasoningByChar?.[c.id]}
       text={m.text ?? ""}
+      pending={m.pending}
       onProfile={onProfile ? () => onProfile(c.id) : undefined}
       streaming={streaming}
     />

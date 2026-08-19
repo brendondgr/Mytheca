@@ -91,11 +91,42 @@ function isOpenCharBeat(m: SceneMessage | undefined, who: string): m is SceneMes
   return Boolean(m && m.kind === "char" && m.who === who && m.text === undefined);
 }
 
+/**
+ * Drop any beat still waiting on content.
+ *
+ * A `speaker` trace opens a beat optimistically, but the engine may then emit nothing for
+ * that speaker — a withheld beat, a failed generation, an aborted turn. Called when the
+ * stream settles so an empty placeholder never outlives the turn that created it.
+ */
+export function dropPendingBeats(prev: SceneMessage[]): SceneMessage[] {
+  const next = prev.filter(
+    (m) =>
+      !(
+        m.pending &&
+        m.text === undefined &&
+        m.thought === undefined &&
+        m.action === undefined
+      ),
+  );
+  return next.length === prev.length ? prev : next;
+}
+
 /** Fold one story event into the transcript. Non-visible/unknown frames pass through. */
 export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneMessage[] {
   if (frame.type === "error") return prev; // surfaced separately by the hook
-  if (frame.type === "trace") return prev; // routed to the Inspector, not the transcript
   if (frame.type === "reasoning") return prev; // live-only machinery, folded separately
+  if (frame.type === "trace") {
+    // One exception to "traces never touch the transcript": a chosen speaker opens their
+    // beat immediately, before a single word exists. The layout commits early, the
+    // thought → speech sequence fills one stable place, and the wait stops being a
+    // floating pill over an empty transcript.
+    if (frame.step !== "speaker") return prev;
+    const who = frame.data.characterId as string | undefined;
+    if (!who) return prev;
+    const last = prev[prev.length - 1];
+    if (isOpenCharBeat(last, who)) return prev; // their beat is already open
+    return [...prev, { kind: "char", who, pending: true }];
+  }
   const event = frame as PlayEvent;
 
   switch (event.type) {

@@ -12,6 +12,7 @@ import {
   NARRATOR_REASONING,
   NO_DIRECTION,
   applyDirection,
+  dropPendingBeats,
   applyActivity,
   applyReasoning,
   applyCharacterActivity,
@@ -984,5 +985,69 @@ describe("applyDirection", () => {
     expect(applyDirection(start, trace("direction", { delivered: ["A"] }))).toBe(start);
     expect(applyDirection(start, trace("lore", {}))).toBe(start);
     expect(applyDirection(start, ev("narration", "n1", { text: "x", done: true }))).toBe(start);
+  });
+});
+
+
+describe("pending beats (the wait has a place to live)", () => {
+  const speakerTrace = (characterId: string): TurnStreamFrame =>
+    ({
+      type: "trace",
+      n: 1,
+      step: "speaker",
+      title: "up",
+      detail: "",
+      data: { characterId, name: "Mei" },
+    }) as TurnStreamFrame;
+
+  it("opens the chosen speaker's beat before any words exist", () => {
+    const msgs = mergeFrame([], speakerTrace("mei"));
+    expect(msgs).toEqual([{ kind: "char", who: "mei", pending: true }]);
+  });
+
+  it("fills the pending beat in place rather than appending a second one", () => {
+    let msgs = mergeFrame([], speakerTrace("mei"));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Lie.", done: true }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "I was home.", done: true }));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].thought).toBe("Lie.");
+    expect(msgs[0].text).toBe("I was home.");
+  });
+
+  it("does not open a second placeholder for a speaker already open", () => {
+    let msgs = mergeFrame([], speakerTrace("mei"));
+    msgs = mergeFrame(msgs, speakerTrace("mei"));
+    expect(msgs).toHaveLength(1);
+  });
+
+  it("opens a separate beat for the next speaker", () => {
+    let msgs = mergeFrame([], speakerTrace("mei"));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "Hi.", done: true }));
+    msgs = mergeFrame(msgs, speakerTrace("kira"));
+    expect(msgs).toHaveLength(2);
+    expect(msgs[1]).toEqual({ kind: "char", who: "kira", pending: true });
+  });
+
+  it("ignores every other trace step", () => {
+    const frame = { type: "trace", n: 1, step: "lore", title: "", detail: "", data: {} } as TurnStreamFrame;
+    expect(mergeFrame([], frame)).toEqual([]);
+  });
+
+  it("drops a placeholder that never received content", () => {
+    // The engine may emit nothing for a chosen speaker — a withheld beat, a failed
+    // generation, an aborted turn. The empty box must not outlive the turn.
+    const msgs = mergeFrame([], speakerTrace("mei"));
+    expect(dropPendingBeats(msgs)).toEqual([]);
+  });
+
+  it("keeps a beat that received only an action", () => {
+    let msgs = mergeFrame([], speakerTrace("mei"));
+    msgs = mergeFrame(msgs, ev("character_action", "a1", { characterId: "mei", text: "Mei turns." }));
+    expect(dropPendingBeats(msgs)).toHaveLength(1);
+  });
+
+  it("returns the same reference when there is nothing to drop", () => {
+    const msgs: SceneMessage[] = [{ kind: "narrator", id: "n1", text: "Rain." }];
+    expect(dropPendingBeats(msgs)).toBe(msgs);
   });
 });
