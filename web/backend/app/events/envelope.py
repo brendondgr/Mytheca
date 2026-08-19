@@ -48,14 +48,17 @@ class CharacterActionData(CamelModel):
 
 
 class InternalThoughtData(CamelModel):
-    """A character's hidden in-voice thinking (conditioning only, never shown).
+    """A character's private in-voice thinking.
 
-    Emitted with ``visibility: hidden`` (Step 5 / §7 of the turn-loop plan): it is
-    persisted as conditioning context but withheld from the client stream.
+    Streamed to the PLAYER (``visibility: private_to_user``) as the muted line above the
+    speaker's dialogue, and kept out of every other character's context. It delta-streams
+    like visible prose — the thought is written before the spoken line, so it is the
+    first thing a turn can actually show.
     """
 
     character_id: str
     text: str
+    done: bool = True
 
 
 class StateUpdateData(CamelModel):

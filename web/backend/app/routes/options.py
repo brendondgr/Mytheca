@@ -84,9 +84,9 @@ def test_llm(data: LlmTestRequest, db: Session = Depends(get_db)):
 def llm_backend_info(db: Session = Depends(get_db)):
     """Report the auto-detected inference engine + the reasoning-budget map.
 
-    Read-only diagnostics: confirms whether Mytheca sees vLLM / llama.cpp (and is
-    therefore sending the thinking budget) for the configured endpoint. Uses the
-    cached detection (the background poller keeps it warm).
+    Read-only diagnostics: names the engine Mytheca sees for the configured endpoint and
+    the request key(s) the thinking budget rides under. Uses the cached detection (the
+    background poller keeps it warm).
     """
     base_url, api_key = settings_store.resolve_llm_credentials(db, None, None)
     backend = (
@@ -94,9 +94,12 @@ def llm_backend_info(db: Session = Depends(get_db)):
         if base_url.strip()
         else InferenceBackend.UNKNOWN
     )
+    keys = llm_backend.budget_keys_for(backend)
     return LlmBackendResponse(
         backend=backend.value,
         budgets={effort.value: budget for effort, budget in THINKING_BUDGET.items()},
+        budget_keys=list(keys),
+        budget_applied=bool(keys),
     )
 
 

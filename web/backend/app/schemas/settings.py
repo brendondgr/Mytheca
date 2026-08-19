@@ -13,6 +13,15 @@ from typing import Literal
 from app.schemas.base import CamelModel
 
 
+#: How much of a turn's thinking the player sees.
+#:  * ``hidden``  — no thinking at all; the muted thought line is suppressed too.
+#:  * ``summary`` — the character's own ``internal_thought`` (the default, and the only
+#:    behaviour that existed before): in-voice interiority, written for the reader.
+#:  * ``full``    — additionally streams the model's raw ``reasoning_content`` live.
+#: ``full`` is opt-in because raw deliberation frequently spoils the beat that follows it.
+ReasoningVisibility = Literal["hidden", "summary", "full"]
+
+
 class LlmParams(CamelModel):
     """Generation parameters passed through to the model endpoint."""
 
@@ -37,6 +46,8 @@ class LlmConfigRead(CamelModel):
     authoring_concurrency: int = 3
     # Fallback context-window size used when the engine does not report one.
     max_context_tokens: int = 16384
+    # How much of a turn's thinking reaches the player (see ``ReasoningVisibility``).
+    reasoning_visibility: ReasoningVisibility = "summary"
 
 
 class LlmConfigUpdate(CamelModel):
@@ -49,6 +60,7 @@ class LlmConfigUpdate(CamelModel):
     authoring_concurrency: int | None = None
     # ge=1024: a window smaller than 1 K is not useful and likely a config error.
     max_context_tokens: int | None = None
+    reasoning_visibility: ReasoningVisibility | None = None
 
 
 class LibraryDefaultsRead(CamelModel):
@@ -168,14 +180,22 @@ class LlmTestResponse(CamelModel):
 class LlmBackendResponse(CamelModel):
     """Read-only diagnostics for the detected inference engine + budget map.
 
-    ``backend`` is ``vllm`` / ``llamacpp`` / ``unknown`` (the last when the endpoint
-    is OpenAI or unreachable — no reasoning budget is sent then). ``budgets`` maps
-    each reasoning effort to its thinking-token budget. Backend-controlled: the
-    effort itself is fixed per operation and not user-editable.
+    ``backend`` is ``vllm`` / ``llamacpp`` / ``relay`` / ``unknown`` — ``relay`` being an
+    OpenAI-protocol front end that names its upstream engine in the models listing, and
+    ``unknown`` an endpoint that matched no probe. ``budgets`` maps each reasoning effort
+    to its thinking-token budget; ``budget_keys`` names the request key(s) that budget is
+    actually sent under, and ``budget_applied`` says whether any is sent at all.
+
+    The last two exist because their absence hid a real defect: an unrecognised endpoint
+    used to receive no budget, so every per-operation effort was silently discarded and
+    generations ran until they timed out. The operator can now see that it is capped.
+    Backend-controlled: the effort itself is fixed per operation and not user-editable.
     """
 
     backend: str
     budgets: dict[str, int]
+    budget_keys: list[str] = []
+    budget_applied: bool = True
 
 
 class LlmContextWindowResponse(CamelModel):

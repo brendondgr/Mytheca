@@ -191,3 +191,86 @@ def extract_json(raw: str) -> dict:
     if not isinstance(data, dict):
         raise APIError(502, "upstream_error", "The model did not return a JSON object.")
     return data
+
+
+class InlineReasoningSplitter:
+    """Split a *streaming* ``content`` channel into reasoning text and answer text.
+
+    The fallback for endpoints that inline their chain-of-thought in ``content`` as
+    ``<think>…</think>``. The endpoint Mytheca is normally pointed at does not do this —
+    it returns a separate ``reasoning_content`` field, which needs no parsing at all —
+    but a model that inlines its thinking would otherwise stream that thinking straight
+    into the story as if it were prose.
+
+    :func:`strip_reasoning` cannot be reused here because it operates on a finished
+    string: it takes the text after the *last* channel marker, which is unknowable while
+    the text is still arriving. This class makes the same split incrementally, at the
+    cost of only handling the ``<think>`` form (the harmony-channel form is still scrubbed
+    in one pass at the end, where the last marker IS known).
+
+    Feed it deltas with :meth:`push`; each call returns ``(answer, reasoning)`` for *that*
+    delta. A tag split across two deltas is held back until it resolves, so a partial
+    ``"<thi"`` is never emitted as prose.
+    """
+
+    _OPEN = "<think>"
+    _CLOSE = "</think>"
+
+    def __init__(self) -> None:
+        self._buf = ""
+        self._in_think = False
+
+    #: Harmony control tokens are dropped from the answer channel as they stream. The
+    #: full :func:`strip_reasoning` pass cannot run incrementally — it keeps the text
+    #: after the LAST channel marker, and which marker is last is unknowable mid-stream —
+    #: but suppressing the tokens themselves stops raw control glyphs rendering as prose.
+    _HARMONY = _HARMONY_TOKEN_RE
+
+    def push(self, delta: str) -> tuple[str, str]:
+        """Consume one delta; return the ``(answer, reasoning)`` text it contributed."""
+        if not delta:
+            return "", ""
+        self._buf += delta
+        answer: list[str] = []
+        reasoning: list[str] = []
+        while self._buf:
+            if self._in_think:
+                end = self._buf.lower().find(self._CLOSE)
+                if end == -1:
+                    safe = self._safe_len()
+                    if safe:
+                        reasoning.append(self._buf[:safe])
+                        self._buf = self._buf[safe:]
+                    break
+                reasoning.append(self._buf[:end])
+                self._buf = self._buf[end + len(self._CLOSE) :]
+                self._in_think = False
+                continue
+            start = self._buf.lower().find(self._OPEN)
+            if start == -1:
+                safe = self._safe_len()
+                if safe:
+                    answer.append(self._buf[:safe])
+                    self._buf = self._buf[safe:]
+                break
+            answer.append(self._buf[:start])
+            self._buf = self._buf[start + len(self._OPEN) :]
+            self._in_think = True
+        return self._HARMONY.sub("", "".join(answer)), "".join(reasoning)
+
+    def flush(self) -> tuple[str, str]:
+        """Drain whatever is still held back once the stream has ended."""
+        rest, self._buf = self._buf, ""
+        if not rest:
+            return "", ""
+        return ("", rest) if self._in_think else (self._HARMONY.sub("", rest), "")
+
+    def _safe_len(self) -> int:
+        """How much of the buffer cannot still turn out to be part of a tag.
+
+        An unterminated ``<`` is held back wholesale rather than matched against a
+        specific tag: it may be the start of ``<think>``, but equally of a harmony
+        control token, and either way it must not reach the reader as prose.
+        """
+        start = self._buf.rfind("<")
+        return len(self._buf) if start == -1 or ">" in self._buf[start:] else start

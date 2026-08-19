@@ -164,6 +164,26 @@ class TurnErrorFrame(CamelModel):
     message: str
 
 
+class TurnReasoningFrame(CamelModel):
+    """The model's in-flight deliberation, streamed live and **never persisted**.
+
+    A transport frame like :class:`TurnTraceFrame`, carrying the ``reasoning_content``
+    channel a reasoning endpoint reports alongside its answer — the text the app used to
+    read and discard. It is the machine's scratchpad, not story record: it is not a story
+    event, gets no ``seq``, is not written to ``events`` or ``turn_traces``, and does not
+    come back on resume or in an export.
+
+    Emitted only when the operator sets Reasoning visibility to ``full``; the default
+    keeps it off the wire entirely, because raw deliberation routinely states what a
+    character is about to say before they say it.
+    """
+
+    type: Literal["reasoning"] = "reasoning"
+    character_id: str | None = None
+    text: str = ""
+    done: bool = False
+
+
 class TurnTraceFrame(CamelModel):
     """Diagnostic trace frame for the turn stream (opt-in via ``TurnRequest.trace``).
 

@@ -19,6 +19,7 @@ function makeOpts(overrides: Partial<OptionsState> = {}): OptionsState {
         apiKeyHint: null,
         authoringConcurrency: 3,
         maxContextTokens: 16384,
+        reasoningVisibility: "summary" as const,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
       comfy: {
@@ -54,14 +55,47 @@ describe("AboutTab", () => {
     expect(screen.getByRole("list", { name: /reasoning budget ladder/i })).toBeInTheDocument();
   });
 
-  it("shows 'unavailable' for the inference engine when getLlmBackend rejects", async () => {
+  it("shows 'unavailable' for the engine and the budget when getLlmBackend rejects", async () => {
     vi.mocked(api.getLlmBackend).mockRejectedValueOnce(new Error("network error"));
 
     render(<AboutTab opts={makeOpts()} />);
 
-    expect(await screen.findByText("unavailable")).toBeInTheDocument();
+    // Both diagnostics rows degrade together — they come from the same probe.
+    expect(await screen.findAllByText("unavailable")).toHaveLength(2);
     // Budget ladder is not rendered when data is unavailable
     expect(screen.queryByRole("list", { name: /reasoning budget ladder/i })).not.toBeInTheDocument();
+  });
+
+  it("reports how the thinking budget reaches an unpinnable endpoint", async () => {
+    // A relay cannot be pinned to one engine, so both keys go out. The operator has to
+    // be able to see that the budget IS being sent: an endpoint that silently received
+    // none is what let reasoning models run until the generation timed out.
+    vi.mocked(api.getLlmBackend).mockResolvedValueOnce({
+      backend: "relay",
+      budgets: { low: 256, medium: 512, high: 1024, very_high: 2048, max: 4096 },
+      budgetKeys: ["thinking_token_budget", "thinking_budget_tokens"],
+      budgetApplied: true,
+    });
+
+    render(<AboutTab opts={makeOpts()} />);
+
+    expect(await screen.findByText("OpenAI-protocol relay")).toBeInTheDocument();
+    expect(
+      screen.getByText(/sent as thinking_token_budget \+ thinking_budget_tokens/i),
+    ).toBeInTheDocument();
+  });
+
+  it("says so plainly when no thinking budget is sent at all", async () => {
+    vi.mocked(api.getLlmBackend).mockResolvedValueOnce({
+      backend: "unknown",
+      budgets: { low: 256 },
+      budgetKeys: [],
+      budgetApplied: false,
+    });
+
+    render(<AboutTab opts={makeOpts()} />);
+
+    expect(await screen.findByText(/may think without limit/i)).toBeInTheDocument();
   });
 });
 

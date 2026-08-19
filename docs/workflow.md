@@ -38,7 +38,7 @@ All three degrade to a no-op; CRUD and `pytest` run with none of them.
 ### Runtime knobs worth knowing
 
 - **`authoringConcurrency`** (Options › Language Models, seeded from `BUILD_MAX_CONCURRENCY`, default 3) bounds concurrent authoring drafts and RAG re-indexing. Set **1** for a single-slot llama.cpp, higher for a batching vLLM. Image generation is always sequential (single-GPU ComfyUI).
-- **Reasoning budget** — the backend probes the configured LLM endpoint (`GET /version` → vLLM, `GET /props` → llama.cpp) and injects a per-call thinking-token budget. Never user-facing. `LLM_BACKEND_POLL_SECONDS` (30) re-probes; `LLM_BACKEND_CACHE_TTL_SECONDS` (60) caches. No effect on OpenAI or unrecognized endpoints — note that **Ollama is not a detected engine**.
+- **Reasoning budget** — the backend probes the configured LLM endpoint (`GET /version` → vLLM, `GET /props` → llama.cpp, then `GET /models` for a relay naming its upstream) and injects a per-call thinking-token budget. Never user-facing. `LLM_BACKEND_POLL_SECONDS` (30) re-probes; `LLM_BACKEND_CACHE_TTL_SECONDS` (60) caches. An endpoint matching no probe still gets **both** engine keys, so an unrecognized server (Ollama included) is capped rather than left to think without limit. `LLM_GEN_TIMEOUT_SECONDS` (300) bounds a generation's read window.
 - **`TURN_BUFFER_SIZE`** (default 100) is the Redis recent-turn buffer. It must be ≥ the largest per-scene `context_beats` (max 100), or the scene asks for more history than the buffer retains.
 
 ### Migrations (Alembic)

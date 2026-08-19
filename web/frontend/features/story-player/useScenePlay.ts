@@ -27,7 +27,11 @@ import {
   type StatChip,
 } from "./scene-data";
 import {
+  NO_DIRECTION,
   applyActivity,
+  applyDirection,
+  dropPendingBeats,
+  applyReasoning,
   applyCharacterActivity,
   applyTurnStatus,
   type ActivityEntry,
@@ -47,6 +51,7 @@ import {
   type PresenceMap,
   rehydrateFromHistory,
   sessionIdOf,
+  type DirectionProgress,
   type TraceTurn,
 } from "./turn-stream";
 
@@ -137,6 +142,11 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // Ordered per-turn diagnostic trace (the Inspector panel). Populated only from the
   // opt-in `trace` frames the backend interleaves when we request them.
   const [traceTurns, setTraceTurns] = useState<TraceTurn[]>([]);
+  // Live, per-character model deliberation (Reasoning visibility = "full"). Ephemeral:
+  // never persisted, cleared as each beat finishes, and empty on resume.
+  const [reasoningByChar, setReasoningByChar] = useState<Record<string, string>>({});
+  // What the player asked the scene to do this turn, and how much has landed.
+  const [direction, setDirection] = useState<DirectionProgress>(NO_DIRECTION);
   // Live "scene pulse" activity feed: newest entries first, capped at 12. Live-only by
   // design — not seeded from history. Both the Director rail (Phase 6) and the cast rail
   // read from this feed. Resets to [] automatically on new scene load (initial state).
@@ -322,6 +332,12 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setActivity((a) => applyActivity(a, frame));
     setActivityByChar((m) => applyCharacterActivity(m, frame));
     setTurnStatus((s) => applyTurnStatus(s, frame));
+    setDirection((d) => applyDirection(d, frame));
+
+    if (frame.type === "reasoning") {
+      setReasoningByChar((m) => applyReasoning(m, frame));
+      return;
+    }
 
     if (frame.type === "trace") {
       // The engine's `context` step carries the exact input-token count for the turn's
@@ -330,6 +346,10 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
         setLiveContextTokens(frame.data.promptTokens);
       }
       setTraceTurns((t) => foldTrace(t, frame));
+      // One trace step also reaches the transcript: `speaker` opens the chosen character's
+      // beat before any words exist, so the wait has a place to live. Every other step is
+      // ignored by mergeFrame.
+      if (frame.step === "speaker") setMessages((m) => mergeFrame(m, frame));
       return;
     }
     if (frame.type === "error") {
@@ -369,6 +389,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
 
   const stream = useEventStream<TurnStreamFrame>(onFrame);
   const sending = stream.status === "streaming";
+
 
   // Choosing who to speak as. Leaving POV (back to Narrator) also drops the direction box's
   // text — in narrator mode the message box carries the direction, so keeping it would send
@@ -454,6 +475,11 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
         .finally(() => {
           setActivityByChar({});
           setTurnStatus(IDLE_TURN_STATUS);
+          // A `speaker` trace opens a beat before any words exist, so the wait has a place
+          // to live. The engine may then emit nothing for that speaker (a withheld beat, a
+          // failed generation, an aborted turn) — clear the empty placeholder here rather
+          // than in an effect, so it cannot outlive the turn and cannot cascade a render.
+          setMessages(dropPendingBeats);
         });
     },
     [sending, scenario.id, stream, pov],
@@ -537,6 +563,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     sending,
     streamError,
     traceTurns,
+    reasoningByChar,
+    direction,
     sessionId,
     send,
     choose,

@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import type { Character } from "@/lib/types";
 import type { SceneMessage } from "@/features/story-player/scene-data";
-import { TranscriptBeat } from "./TranscriptBeat";
+import { CharacterMessage, TranscriptBeat } from "./TranscriptBeat";
 
 const MEI: Character = {
   id: "mei",
@@ -138,5 +138,37 @@ describe("TranscriptBeat", () => {
       );
       expect(container).toBeEmptyDOMElement();
     });
+  });
+});
+
+
+describe("CharacterMessage — live reasoning", () => {
+  const mei: Character = {
+    id: "mei",
+    name: "Mei",
+    mono: "M",
+    color: "#b07",
+  } as Character;
+
+  it("shows the raw deliberation behind a collapsed disclosure", () => {
+    render(<CharacterMessage character={mei} reasoning="She is lying about the letter." text="" />);
+
+    const disclosure = screen.getByText(/working/i);
+    expect(disclosure).toBeInTheDocument();
+    // Collapsed by default: it is machinery, and it routinely gives away the beat.
+    expect(disclosure.closest("details")).not.toHaveAttribute("open");
+  });
+
+  it("renders nothing extra when there is no reasoning", () => {
+    render(<CharacterMessage character={mei} text="Evening." />);
+    expect(screen.queryByText(/working/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the prose readable alongside it", () => {
+    render(
+      <CharacterMessage character={mei} reasoning="deliberating" thought="Lie." text="I was home." />,
+    );
+    expect(screen.getByText(/I was home\./)).toBeInTheDocument();
+    expect(screen.getByText(/Lie\./)).toBeInTheDocument();
   });
 });

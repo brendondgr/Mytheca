@@ -68,7 +68,8 @@ export interface BranchChoicesEvent extends PlayEnvelope {
  */
 export interface InternalThoughtEvent extends PlayEnvelope {
   type: "internal_thought";
-  data: { characterId: string; text: string };
+  /** Delta-streamed like visible prose: accumulate by `id` until `done`. */
+  data: { characterId: string; text: string; done: boolean };
 }
 
 /**
@@ -137,7 +138,22 @@ export interface TurnTraceFrame {
 }
 
 /** One line of the turn stream. */
-export type TurnStreamFrame = PlayEvent | TurnErrorFrame | TurnTraceFrame;
+/**
+ * The model's in-flight deliberation, streamed live and never persisted.
+ *
+ * Ephemeral by design: it is the machine's scratchpad, not story record — no `seq`, no
+ * DB row, absent from resume and export. Only sent when the operator sets Reasoning
+ * visibility to `full`, because raw deliberation frequently states what a character is
+ * about to say before they say it.
+ */
+export interface TurnReasoningFrame {
+  type: "reasoning";
+  characterId: string | null;
+  text: string;
+  done: boolean;
+}
+
+export type TurnStreamFrame = PlayEvent | TurnErrorFrame | TurnTraceFrame | TurnReasoningFrame;
 
 // ---- scene images (POST /play/{scenarioId}/moment/stream) ----
 

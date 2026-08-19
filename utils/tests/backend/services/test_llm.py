@@ -94,3 +94,24 @@ def test_chat_complete_usage_none_when_prompt_tokens_nonpositive(monkeypatch):
     _patch_with_usage(monkeypatch, "A clean reply.", {"prompt_tokens": 0})
     _, prompt_tokens = _call_usage()
     assert prompt_tokens is None
+
+
+# ---- generation timeout (operator-configurable) ----------------------------
+
+
+def test_gen_timeout_reads_the_setting(monkeypatch):
+    """The generation read window is a setting, not a constant baked in at import.
+
+    It used to be a hardcoded 300 s, which is the five-minute wall a slow local model
+    hits. Resolving it per call means an override takes effect without a restart.
+    """
+    from app.core import config
+    from app.services import llm as llm_module
+
+    assert llm_module._gen_timeout().read == 300.0
+
+    settings = config.get_settings()
+    monkeypatch.setattr(settings, "llm_gen_timeout_seconds", 45, raising=False)
+    assert llm_module._gen_timeout().read == 45.0
+    # The connect budget stays short — a slow model is not a slow handshake.
+    assert llm_module._gen_timeout().connect == 5.0

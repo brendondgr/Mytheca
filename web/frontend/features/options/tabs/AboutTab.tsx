@@ -17,7 +17,24 @@ const APP_VERSION = "0.0.0";
 function formatBackendName(backend: string): string {
   if (backend === "vllm") return "vLLM";
   if (backend === "llamacpp") return "llama.cpp";
+  if (backend === "relay") return "OpenAI-protocol relay";
   return "Unknown";
+}
+
+/**
+ * How the thinking budget is reaching the endpoint, in the operator's terms.
+ *
+ * Worth a row of its own because its absence hid a real defect: an endpoint matching
+ * no probe used to receive no budget at all, so every per-operation reasoning effort
+ * was discarded and generations ran until they timed out. "Not sent" is now only
+ * possible if a future backend opts out explicitly.
+ */
+function formatBudgetDelivery(info: LlmBackendInfo): string {
+  if (info.budgetApplied === false) return "not sent — the model may think without limit";
+  const keys = info.budgetKeys ?? [];
+  if (keys.length === 0) return "sent";
+  if (keys.length === 1) return `sent as ${keys[0]}`;
+  return `sent as ${keys.join(" + ")} (the engine ignores the key it does not know)`;
 }
 
 /** Format bytes into a human-readable string (e.g. "1.2 MB"). */
@@ -123,6 +140,15 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
     { label: "Endpoint", value: llm?.baseUrl || "not set" },
     { label: "API key", value: llm?.hasApiKey ? `set (${llm.apiKeyHint})` : "not set" },
     { label: "Inference engine", value: engineValue },
+    {
+      label: "Thinking budget",
+      value:
+        backendInfo === null
+          ? "loading…"
+          : backendInfo === "error"
+            ? "unavailable"
+            : formatBudgetDelivery(backendInfo),
+    },
   ];
 
   /** Sorted budget entries from the detected backend, e.g. low→max. */

@@ -271,15 +271,19 @@ key is **write-only**: it is stored server-side and never returned in clear.
   `400 bad_request`.
 - `POST /options/llm/test` — `{ baseUrl?, apiKey?, model, params? }`. Proxies a
   tiny `POST {baseUrl}/chat/completions` → `{ ok, model, latencyMs, sample }`.
-- `GET /options/llm/backend` — read-only diagnostics for the auto-detected local
+- `GET /options/llm/backend` — read-only diagnostics for the auto-detected
   inference engine of the configured endpoint → `{ "backend": "vllm" | "llamacpp" |
-  "unknown", "budgets": { "low": 256, "medium": 512, "high": 1024, "very_high": 2048,
-  "max": 4096 } }` (budget keys are the effort enum values, not camelized). The
-  engine is probed (`GET /version` → vLLM, `GET /props` →
-  llama.cpp), cached, and refreshed by a background poller. `unknown` (OpenAI /
-  unreachable) means no thinking budget is sent. See **Reasoning budget** below.
-  Surfaced read-only in the Options **About** tab (`getLlmBackend` in `lib/api.ts`):
-  the detected engine plus the budget ladder, degrading to "unavailable" on error.
+  "relay" | "unknown", "budgets": { "low": 256, "medium": 512, "high": 1024,
+  "very_high": 2048, "max": 4096 }, "budgetKeys": [...], "budgetApplied": true }`
+  (budget keys are the effort enum values, not camelized). The engine is probed in
+  order — `GET /version` → vLLM, `GET /props` → llama.cpp, then the OpenAI
+  `GET /models` listing, whose entries name an upstream engine when the endpoint is a
+  **relay** (`owned_by: "relay:llama.cpp · local"`) — then cached and refreshed by a
+  background poller. `budgetKeys` names the request key(s) the thinking budget rides
+  under and `budgetApplied` says whether any is sent; a `relay`/`unknown` endpoint gets
+  **both** keys rather than none. See **Reasoning budget** below. Surfaced read-only in
+  the Options **About** tab (`getLlmBackend` in `lib/api.ts`): the detected engine, how
+  the budget is delivered, and the budget ladder, degrading to "unavailable" on error.
 - `GET /options/llm/context-window` — returns the effective context-window token count
   for the currently configured LLM endpoint →
   `{ "maxContextTokens": 32768, "source": "detected" | "configured" }`. `source` is
@@ -365,9 +369,11 @@ toggle for it.
   drafts + the storyline agent's converse/plan calls = **Medium** (`DEFAULT_AUTHORING_EFFORT`).
 - **Transport:** `services/llm.chat_complete(..., reasoning=)` detects the engine and
   adds the matching key — **vLLM** `thinking_token_budget`, **llama.cpp**
-  `thinking_budget_tokens`. An OpenAI / unknown endpoint gets no key (unchanged
-  behaviour). Requires reasoning enabled server-side (vLLM `--reasoning-parser`;
-  llama.cpp `--jinja --reasoning on` with no CLI `--reasoning-budget`).
+  `thinking_budget_tokens`. A **relay** or **unknown** endpoint gets **both** keys: an
+  engine ignores a body key it does not recognise, whereas sending none leaves a
+  reasoning model to think until it exhausts `max_tokens` or the generation timeout.
+  Requires reasoning enabled server-side (vLLM `--reasoning-parser`; llama.cpp
+  `--jinja --reasoning on` with no CLI `--reasoning-budget`).
 
 ## Authoring Shapes (storyline creation agent)
 
@@ -812,7 +818,7 @@ Each maps to one frontend component.
 | `narration` | Teal narrator card (prose **sanitized** — reasoning/channel tokens stripped) | `text` (may delta-stream), `done` |
 | `character_dialogue` | Character chat bubble (speaker's avatar/color) | `characterId`, `text` (may delta-stream), `done` |
 | `character_action` | Action label on the speaker's beat | `characterId`, `text` |
-| `internal_thought` | **Inline thinking** — a muted line folded into the speaker's beat, between the name and the spoken bubble (`visibility: private_to_user`) | `characterId`, `text` (streams to the player; kept out of other characters' context) |
+| `internal_thought` | **Inline thinking** — a muted line folded into the speaker's beat, between the name and the spoken bubble (`visibility: private_to_user`) | `characterId`, `text`, `done` (delta-streams to the player; kept out of other characters' context) |
 | `state_update` | Updates side panels (no chat message) | `patch` — partial scenario state; **stat changes ride here** |
 | `branch_choices` | Branch-choices panel | `choices[]` (`label`, `outcome`) |
 | `character_status_change` | Updates the cast rail (no chat message); an `auto` change also raises an **Undo** toast | `characterId`, `status` (`present`\|`unconscious`\|`departed`\|`left`\|`dead`), `reason`, `auto` |
@@ -977,6 +983,27 @@ character id the line was spoken as (`null` for the default guide/narrator line)
 frame; pre-flight failures (unknown scenario, empty text, bad session) are a normal error
 envelope before the 200 opens.
 
+**Trace steps mark the START of their work.** `reading` (before the intent call) and
+`planning` (before each planner call) are emitted *before* the step they name, while
+`intent`, `direction`, `speaker` and the rest report a result and therefore follow it. This
+matters because the client derives its status label from these frames: when every step was
+reported only on completion, the label could name nothing but the step the turn had just
+finished, and the real waits went unlabelled. The `speaker` step additionally carries the
+planner's `reason`, `register` and `stakes`, so the player can be told *why* this character
+is up rather than merely that they are.
+
+**Live reasoning (opt-in, ephemeral).** When Options › Language models › *Reasoning
+visibility* is set to `full`, the turn interleaves
+`{ "type": "reasoning", "characterId", "text", "done" }` frames carrying the model's
+`reasoning_content` channel as it is produced — the deliberation behind the beat, visible
+while the player waits. It is **not** a story event and **not** persisted: no `seq`, no
+`events` row, no `turn_traces` row, absent from resume and export. `done` marks the end of
+one speaker's reasoning; a `characterId` of `null` is the narrator's. The default
+(`summary`) keeps these frames off the wire entirely, because raw deliberation routinely
+states what a character is about to say before they say it. `hidden` additionally
+suppresses the muted thought line client-side. Clients ignore unknown frame types, so a
+client that does not implement this is unaffected.
+
 **Diagnostic trace (opt-in).** Set `"trace": true` in the request body to interleave
 `{ "type": "trace", "n", "step", "title", "detail", "data" }` frames that narrate, **in
 order**, what the turn loop did and why — the story player's **Inspector** panel renders
@@ -1016,7 +1043,10 @@ char/4 estimate only until a real `promptTokens` is known.
 - `seq` is monotonic per session (DB-authoritative: `max(seq)+1`, guarded by a
   `(session_id, seq)` unique constraint) so the client can detect gaps and reorder.
 - Chunked/delta text sets `done: false` until the final chunk sets `done: true`.
-- `internal_thought` streams with `visibility: private_to_user` (the inline thinking line, folded into the speaker's beat) but is kept out of other characters' context.
+- **Deltas are live.** `narration`, `character_dialogue` and `internal_thought` are emitted as the model writes them (`services/llm.chat_complete_stream`), not sliced up after the completion is whole. The persisted row still holds the finished text with `done: true`, so a resumed session replays through the same reducers. On an endpoint that refuses `stream: true` the whole beat arrives as a single terminal delta — same shape, different timing.
+- `character_action` is delivered whole even on the live path: the client folds it into the speaker's open bubble, and that fold only works while the bubble has no spoken text yet.
+- **A beat the continuity guard will judge does not stream its prose.** The guard inspects a complete candidate and can reject it, so only beats it skips — the turn's first character beat, and puppet beats — stream. Later speakers emit once, after the verdict.
+- `internal_thought` streams with `visibility: private_to_user` (the inline thinking line, folded into the speaker's beat) but is kept out of other characters' context. It **delta-streams**: because the emission format is think→speak, the thought is normally the first thing a turn can show, completing while the spoken line is still being written.
 - The validator runs `parse → validate (incl. stat clamping) → repair/retry` before anything reaches the stream.
 
 ## Shared Contracts Location

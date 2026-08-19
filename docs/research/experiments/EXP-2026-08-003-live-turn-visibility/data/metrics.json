@@ -1,0 +1,197 @@
+{
+  "aggregate": {
+    "blocking-capped.completion_tokens": {
+      "mean": 606.8,
+      "n": 5,
+      "std": 25.356656
+    },
+    "blocking-capped.ttft_s": {
+      "mean": 13.32,
+      "n": 5,
+      "std": 3.96822
+    },
+    "blocking-capped.wall_clock_s": {
+      "mean": 13.32,
+      "n": 5,
+      "std": 3.96822
+    },
+    "blocking-uncapped.completion_tokens": {
+      "mean": 591.8,
+      "n": 5,
+      "std": 108.422138
+    },
+    "blocking-uncapped.ttft_s": {
+      "mean": 17.5928,
+      "n": 5,
+      "std": 7.137537
+    },
+    "blocking-uncapped.wall_clock_s": {
+      "mean": 17.5928,
+      "n": 5,
+      "std": 7.137537
+    },
+    "streaming-capped.completion_tokens": {
+      "mean": 584.4,
+      "n": 5,
+      "std": 70.090228
+    },
+    "streaming-capped.first_reasoning_s": {
+      "mean": 0.5546,
+      "n": 5,
+      "std": 0.244223
+    },
+    "streaming-capped.ttft_s": {
+      "mean": 10.5904,
+      "n": 5,
+      "std": 3.562822
+    },
+    "streaming-capped.wall_clock_s": {
+      "mean": 11.8156,
+      "n": 5,
+      "std": 3.730691
+    }
+  },
+  "per_run": [
+    {
+      "arm": "blocking-uncapped",
+      "chars": 262,
+      "completion_tokens": 586,
+      "first_reasoning_s": null,
+      "run": 1,
+      "ttft_s": 25.679,
+      "wall_clock_s": 25.679
+    },
+    {
+      "arm": "blocking-capped",
+      "chars": 295,
+      "completion_tokens": 624,
+      "first_reasoning_s": null,
+      "run": 1,
+      "ttft_s": 19.449,
+      "wall_clock_s": 19.449
+    },
+    {
+      "arm": "streaming-capped",
+      "chars": 281,
+      "completion_tokens": 612,
+      "first_reasoning_s": 1.043,
+      "run": 1,
+      "ttft_s": 17.695,
+      "wall_clock_s": 19.245
+    },
+    {
+      "arm": "blocking-uncapped",
+      "chars": 355,
+      "completion_tokens": 770,
+      "first_reasoning_s": null,
+      "run": 2,
+      "ttft_s": 26.129,
+      "wall_clock_s": 26.129
+    },
+    {
+      "arm": "blocking-capped",
+      "chars": 354,
+      "completion_tokens": 599,
+      "first_reasoning_s": null,
+      "run": 2,
+      "ttft_s": 16.588,
+      "wall_clock_s": 16.588
+    },
+    {
+      "arm": "streaming-capped",
+      "chars": 275,
+      "completion_tokens": 605,
+      "first_reasoning_s": 0.43,
+      "run": 2,
+      "ttft_s": 9.109,
+      "wall_clock_s": 9.899
+    },
+    {
+      "arm": "blocking-uncapped",
+      "chars": 303,
+      "completion_tokens": 500,
+      "first_reasoning_s": null,
+      "run": 3,
+      "ttft_s": 8.035,
+      "wall_clock_s": 8.035
+    },
+    {
+      "arm": "blocking-capped",
+      "chars": 395,
+      "completion_tokens": 561,
+      "first_reasoning_s": null,
+      "run": 3,
+      "ttft_s": 10.479,
+      "wall_clock_s": 10.479
+    },
+    {
+      "arm": "streaming-capped",
+      "chars": 286,
+      "completion_tokens": 559,
+      "first_reasoning_s": 0.431,
+      "run": 3,
+      "ttft_s": 8.588,
+      "wall_clock_s": 9.792
+    },
+    {
+      "arm": "blocking-uncapped",
+      "chars": 297,
+      "completion_tokens": 464,
+      "first_reasoning_s": null,
+      "run": 4,
+      "ttft_s": 14.346,
+      "wall_clock_s": 14.346
+    },
+    {
+      "arm": "blocking-capped",
+      "chars": 265,
+      "completion_tokens": 632,
+      "first_reasoning_s": null,
+      "run": 4,
+      "ttft_s": 9.361,
+      "wall_clock_s": 9.361
+    },
+    {
+      "arm": "streaming-capped",
+      "chars": 353,
+      "completion_tokens": 679,
+      "first_reasoning_s": 0.43,
+      "run": 4,
+      "ttft_s": 9.122,
+      "wall_clock_s": 10.59
+    },
+    {
+      "arm": "blocking-uncapped",
+      "chars": 310,
+      "completion_tokens": 639,
+      "first_reasoning_s": null,
+      "run": 5,
+      "ttft_s": 13.775,
+      "wall_clock_s": 13.775
+    },
+    {
+      "arm": "blocking-capped",
+      "chars": 331,
+      "completion_tokens": 618,
+      "first_reasoning_s": null,
+      "run": 5,
+      "ttft_s": 10.723,
+      "wall_clock_s": 10.723
+    },
+    {
+      "arm": "streaming-capped",
+      "chars": 330,
+      "completion_tokens": 467,
+      "first_reasoning_s": 0.439,
+      "run": 5,
+      "ttft_s": 8.438,
+      "wall_clock_s": 9.552
+    }
+  ],
+  "totals": {
+    "input_tokens": 0,
+    "llm_calls": 30,
+    "output_tokens": 0,
+    "wall_clock_seconds": 406.072
+  }
+}

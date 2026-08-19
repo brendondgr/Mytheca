@@ -9,6 +9,7 @@ terminal ``error`` frame.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -39,6 +40,8 @@ from app.services import (
     session_export,
     turn_engine,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/play", tags=["play"])
 
@@ -71,6 +74,10 @@ def play_turn(scenario_id: str, data: TurnRequest, db: Session = Depends(get_db)
         except APIError as exc:
             yield to_ndjson_line(TurnErrorFrame(message=exc.message))
         except Exception:  # never leak a stack trace into the stream
+            # ...but do not lose it either: without this, an ordinary bug in the turn loop
+            # is indistinguishable from a model failure, because both reach the player as
+            # the same opaque sentence and nothing is written to the server log.
+            logger.exception("Turn failed (scenario=%s)", scenario_id)
             yield to_ndjson_line(TurnErrorFrame(message="The turn failed unexpectedly."))
 
     return StreamingResponse(_lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS)
@@ -113,6 +120,7 @@ def play_moment(scenario_id: str, data: MomentRequest, db: Session = Depends(get
         except APIError as exc:
             yield to_ndjson_line(TurnErrorFrame(message=exc.message))
         except Exception:  # never leak a stack trace into the stream
+            logger.exception("Scene image failed (scenario=%s)", scenario_id)
             yield to_ndjson_line(TurnErrorFrame(message="The image could not be generated."))
 
     return StreamingResponse(_lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS)

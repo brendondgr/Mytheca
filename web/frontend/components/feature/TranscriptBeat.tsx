@@ -1,5 +1,6 @@
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { TypingDots } from "@/components/ui/TypingDots";
 import { QuotedText } from "@/components/ui/QuotedText";
 import { SceneImageBeat } from "@/components/feature/SceneImageBeat";
 import { mediaUrl } from "@/lib/api";
@@ -111,16 +112,29 @@ export function CharacterMessage({
   character,
   action,
   thought,
+  reasoning,
   text,
   onProfile,
   streaming,
+  pending,
 }: {
   character: Character;
   streaming?: boolean;
   action?: string;
   thought?: string;
+  /**
+   * The model's raw, in-flight deliberation (Reasoning visibility = "full"). Live only —
+   * it is cleared once the beat lands, so it never appears on a finished or resumed beat.
+   */
+  reasoning?: string;
   text: string;
   onProfile?: () => void;
+  /**
+   * The speaker is chosen but nothing is written yet. Reserves the beat's place so the
+   * thought → speech sequence fills one stable spot rather than pushing the transcript
+   * around as it arrives.
+   */
+  pending?: boolean;
 }) {
   const c = character;
   return (
@@ -150,6 +164,28 @@ export function CharacterMessage({
             <span className="font-body text-[13px] text-mute2">{action}</span>
           ) : null}
         </div>
+        {/* Raw deliberation, while it is happening. Deliberately subordinate to everything
+            else — smaller, dimmer, and collapsed by default — because it is machinery, it
+            is long and rambling, and it must never compete with the prose. It sits ABOVE
+            the bubble so the beat itself never shifts as the reasoning grows. */}
+        {reasoning ? (
+          <details className="mt-[6px] group">
+            <summary className="cursor-pointer list-none font-mono text-[9px] tracking-[0.14em] text-mute2 uppercase focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+              working…
+            </summary>
+            <p className="mt-[4px] max-h-[8lh] overflow-y-auto border-l border-hair pl-[9px] font-mono text-[11px] leading-[1.45] text-mute2">
+              {reasoning}
+            </p>
+          </details>
+        ) : null}
+        {/* Nothing written yet: hold the beat's height with the same bubble geometry the
+            prose will land in, so filling it in does not shift the page. */}
+        {pending && !thought && !text ? (
+          <div className="mt-[6px] flex min-h-[2.4em] items-center rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px]">
+            <TypingDots className="text-mute2" />
+            <span className="sr-only">{c.name} is composing a reply</span>
+          </div>
+        ) : null}
         {thought || text ? (
           <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px] shadow-[0_1px_2px_rgba(20,14,6,.06)]">
             {thought ? (
@@ -227,6 +263,7 @@ export function TranscriptBeat({
   onChoose,
   onOpenImage,
   streaming = false,
+  reasoningByChar,
 }: {
   message: SceneMessage;
   charById: (id: string) => Character | undefined;
@@ -237,6 +274,11 @@ export function TranscriptBeat({
   onOpenImage?: (image: SceneImage) => void;
   /** This beat is the one currently being written — show the caret at its tail. */
   streaming?: boolean;
+  /**
+   * Live model deliberation for this beat's speaker, keyed by character id (Reasoning
+   * visibility = "full"). Ephemeral — cleared as the beat lands.
+   */
+  reasoningByChar?: Record<string, string>;
 }) {
   const m = message;
   if (m.kind === "narrator") return <NarratorCard text={m.text ?? ""} streaming={streaming} />;
@@ -256,7 +298,9 @@ export function TranscriptBeat({
       character={c}
       action={m.action}
       thought={m.thought}
+      reasoning={reasoningByChar?.[c.id]}
       text={m.text ?? ""}
+      pending={m.pending}
       onProfile={onProfile ? () => onProfile(c.id) : undefined}
       streaming={streaming}
     />

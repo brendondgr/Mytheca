@@ -24,6 +24,7 @@ from app.schemas.settings import (
     PromptsConfigRead,
     PromptsConfigUpdate,
     PromptSpecRead,
+    ReasoningVisibility,
 )
 
 _DEFAULT_MAX_CONTEXT_TOKENS = 16384
@@ -70,7 +71,17 @@ def _llm_defaults() -> dict:
         "_apiKey": s.openai_api_key or "",
         "authoringConcurrency": s.build_max_concurrency,
         "maxContextTokens": _DEFAULT_MAX_CONTEXT_TOKENS,
+        "reasoningVisibility": "summary",
     }
+
+
+def _reasoning_visibility(value: object) -> ReasoningVisibility:
+    """Coerce a stored value to a known visibility, defaulting to the safe middle.
+
+    A row written before the setting existed (or by hand) must not make the turn loop
+    stream raw deliberation it was never asked for.
+    """
+    return value if value in ("hidden", "summary", "full") else "summary"  # type: ignore[return-value]
 
 
 def _llm_doc(db: Session) -> dict:
@@ -91,6 +102,7 @@ def get_llm(db: Session) -> LlmConfigRead:
         max_context_tokens=max(
             1024, int(doc.get("maxContextTokens") or _DEFAULT_MAX_CONTEXT_TOKENS)
         ),
+        reasoning_visibility=_reasoning_visibility(doc.get("reasoningVisibility")),
     )
 
 
@@ -112,6 +124,8 @@ def update_llm(db: Session, data: LlmConfigUpdate) -> LlmConfigRead:
         doc["authoringConcurrency"] = max(1, int(data.authoring_concurrency))
     if data.max_context_tokens is not None:
         doc["maxContextTokens"] = max(1024, int(data.max_context_tokens))
+    if data.reasoning_visibility is not None:
+        doc["reasoningVisibility"] = data.reasoning_visibility
     _set_row(db, LLM_KEY, doc)
     return get_llm(db)
 

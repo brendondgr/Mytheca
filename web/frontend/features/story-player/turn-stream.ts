@@ -91,10 +91,42 @@ function isOpenCharBeat(m: SceneMessage | undefined, who: string): m is SceneMes
   return Boolean(m && m.kind === "char" && m.who === who && m.text === undefined);
 }
 
+/**
+ * Drop any beat still waiting on content.
+ *
+ * A `speaker` trace opens a beat optimistically, but the engine may then emit nothing for
+ * that speaker — a withheld beat, a failed generation, an aborted turn. Called when the
+ * stream settles so an empty placeholder never outlives the turn that created it.
+ */
+export function dropPendingBeats(prev: SceneMessage[]): SceneMessage[] {
+  const next = prev.filter(
+    (m) =>
+      !(
+        m.pending &&
+        m.text === undefined &&
+        m.thought === undefined &&
+        m.action === undefined
+      ),
+  );
+  return next.length === prev.length ? prev : next;
+}
+
 /** Fold one story event into the transcript. Non-visible/unknown frames pass through. */
 export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneMessage[] {
   if (frame.type === "error") return prev; // surfaced separately by the hook
-  if (frame.type === "trace") return prev; // routed to the Inspector, not the transcript
+  if (frame.type === "reasoning") return prev; // live-only machinery, folded separately
+  if (frame.type === "trace") {
+    // One exception to "traces never touch the transcript": a chosen speaker opens their
+    // beat immediately, before a single word exists. The layout commits early, the
+    // thought → speech sequence fills one stable place, and the wait stops being a
+    // floating pill over an empty transcript.
+    if (frame.step !== "speaker") return prev;
+    const who = frame.data.characterId as string | undefined;
+    if (!who) return prev;
+    const last = prev[prev.length - 1];
+    if (isOpenCharBeat(last, who)) return prev; // their beat is already open
+    return [...prev, { kind: "char", who, pending: true }];
+  }
   const event = frame as PlayEvent;
 
   switch (event.type) {
@@ -105,15 +137,31 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
       // A character's private thinking — folded into the SAME beat as their speech, so it
       // reads as one message (thought muted, between name + dialogue). The thought is
       // emitted before the speaker's action/dialogue, so it opens the beat.
+      //
+      // It delta-streams like visible prose, and is usually the FIRST thing a turn can
+      // show, so chunks must accumulate rather than replace. Tracked by `thoughtId`
+      // because the beat's own `id` belongs to the dialogue that follows.
+      const open = prev.findIndex((m) => m.thoughtId === event.id);
+      if (open !== -1) {
+        const next = prev.slice();
+        next[open] = { ...next[open], thought: (next[open].thought ?? "") + event.data.text };
+        return next;
+      }
       const last = prev[prev.length - 1];
       if (isOpenCharBeat(last, event.data.characterId) && last.thought === undefined) {
         const next = prev.slice();
-        next[next.length - 1] = { ...last, thought: event.data.text };
+        next[next.length - 1] = { ...last, thought: event.data.text, thoughtId: event.id };
         return next;
       }
       return [
         ...prev,
-        { kind: "char", id: event.id, who: event.data.characterId, thought: event.data.text },
+        {
+          kind: "char",
+          id: event.id,
+          thoughtId: event.id,
+          who: event.data.characterId,
+          thought: event.data.text,
+        },
       ];
     }
 
@@ -171,9 +219,111 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
   }
 }
 
+/**
+ * Fold a live `reasoning` frame into the per-character reasoning map.
+ *
+ * Keyed by character (the narrator's reasoning lands under `NARRATOR_REASONING`) and
+ * cleared when that character's beat opens for real, so the scratchpad is visible during
+ * the wait and does not linger under a finished beat. Returns the SAME reference when
+ * nothing changes, so a stream of tokens cannot cause needless re-renders elsewhere.
+ */
+export function applyReasoning(
+  prev: Record<string, string>,
+  frame: TurnStreamFrame,
+): Record<string, string> {
+  if (frame.type !== "reasoning") return prev;
+  const key = frame.characterId ?? NARRATOR_REASONING;
+  if (frame.done) {
+    if (!(key in prev)) return prev;
+    const next = { ...prev };
+    delete next[key];
+    return next;
+  }
+  if (!frame.text) return prev;
+  return { ...prev, [key]: (prev[key] ?? "") + frame.text };
+}
+
+// ---- Scene direction progress ----
+
+/** One outcome the turn owes the player, and whether it has landed yet. */
+export interface DirectionItem {
+  text: string;
+  delivered: boolean;
+  /** Who carried it, once delivered (`null` → the narrator). */
+  by?: string | null;
+}
+
+/** What the player asked the scene to do this turn, and how far it has got. */
+export interface DirectionProgress {
+  items: DirectionItem[];
+  /** Requirements the scene's beat budget could not fit — reported at the end. */
+  undelivered: string[];
+}
+
+export const NO_DIRECTION: DirectionProgress = { items: [], undelivered: [] };
+
+/**
+ * Fold the `direction` and `plan` trace steps into a live checklist.
+ *
+ * The engine already broke the player's direction into requirements and already tracked
+ * which had landed — but only reported the *result*, at the end, in the Inspector. Folding
+ * the per-delivery steps turns that into progress the player can watch: the clearest
+ * signal in the app that a long turn is actually going somewhere.
+ *
+ * Returns the SAME reference when nothing changes (this sees every frame).
+ */
+export function applyDirection(
+  prev: DirectionProgress,
+  frame: TurnStreamFrame,
+): DirectionProgress {
+  if (frame.type !== "trace") return prev;
+
+  if (frame.step === "direction") {
+    // The opening step lists everything owed; later steps tick items off.
+    const declared = frame.data.requirements as { text?: string }[] | string[] | undefined;
+    if (Array.isArray(declared) && declared.length && !("delivered" in frame.data)) {
+      const items = declared
+        .map((r) => (typeof r === "string" ? r : (r.text ?? "")))
+        .filter(Boolean)
+        .map((text) => ({ text, delivered: false }));
+      return items.length ? { items, undelivered: [] } : prev;
+    }
+    const delivered = frame.data.delivered as string[] | undefined;
+    if (!Array.isArray(delivered) || !delivered.length) return prev;
+    const by = (frame.data.characterId as string | null | undefined) ?? null;
+    const done = new Set(delivered);
+    let changed = false;
+    const items = prev.items.map((item) => {
+      if (item.delivered || !done.has(item.text)) return item;
+      changed = true;
+      return { ...item, delivered: true, by };
+    });
+    // A requirement the engine rebound (or that the client never saw declared) still
+    // counts as progress — append it rather than dropping it on the floor.
+    const known = new Set(prev.items.map((i) => i.text));
+    const extra = delivered.filter((t) => !known.has(t)).map((text) => ({ text, delivered: true, by }));
+    if (!changed && !extra.length) return prev;
+    return { ...prev, items: [...items, ...extra] };
+  }
+
+  if (frame.step === "plan" && Array.isArray(frame.data.undelivered)) {
+    const undelivered = (frame.data.undelivered as string[]).filter(Boolean);
+    if (!undelivered.length && !prev.undelivered.length) return prev;
+    return { ...prev, undelivered };
+  }
+
+  return prev;
+}
+
+/** Map key for the narrator's own reasoning (it has no character id). */
+export const NARRATOR_REASONING = "__narrator__";
+
 /** Capture the resolved session id from any envelope frame (for turn resume). */
 export function sessionIdOf(frame: TurnStreamFrame): string | null {
-  if (frame.type === "error" || frame.type === "trace") return null;
+  // Transport frames (error/trace/reasoning) carry no envelope — only story events do.
+  if (frame.type === "error" || frame.type === "trace" || frame.type === "reasoning") {
+    return null;
+  }
   return frame.sessionId || null;
 }
 
@@ -552,6 +702,12 @@ export function applyCharacterActivity(
  */
 export type TurnPhase =
   | "idle"
+  // The pre-generation steps. They already streamed as trace frames and were simply
+  // ignored here, which is why the strip sat on its generic idle line through the
+  // longest, most opaque part of the wait.
+  | "gathering"
+  | "reading"
+  | "planning"
   | "thinking"
   | "speaking"
   | "acting"
@@ -564,6 +720,12 @@ export interface TurnStatus {
   characterId?: string;
   /** The name carried by the `speaker` trace — the fallback when the cast lookup misses. */
   name?: string;
+  /**
+   * A short clause explaining the current phase in the turn's own terms — how the player's
+   * message was read (`reading`), or why this speaker is up (`thinking`). Rendered under
+   * the label; absent when the engine offered no reason.
+   */
+  detail?: string;
 }
 
 /** Nothing is in flight. Also the reset value between turns. */
@@ -571,8 +733,33 @@ export const IDLE_TURN_STATUS: TurnStatus = { phase: "idle" };
 
 /** True when both statuses describe the same moment (so the reducer can skip a re-render). */
 function sameStatus(a: TurnStatus, b: TurnStatus): boolean {
-  return a.phase === b.phase && a.characterId === b.characterId && a.name === b.name;
+  return (
+    a.phase === b.phase &&
+    a.characterId === b.characterId &&
+    a.name === b.name &&
+    a.detail === b.detail
+  );
 }
+
+/**
+ * Trace steps that name a pre-generation phase.
+ *
+ * These frames already reached the client (the player sends `trace: true`); the reducer
+ * simply dropped them, so the strip showed its generic default for the whole stretch
+ * before the first token. Mapping them turns a blank wait into a visible sequence.
+ */
+const PHASE_BY_STEP: Record<string, TurnPhase> = {
+  assemble: "gathering",
+  lore: "gathering",
+  files: "gathering",
+  // `reading`/`planning` are emitted BEFORE their call; `intent`/`direction` after it,
+  // carrying the result. Both map to the same phase, so the label stands for the whole
+  // window and the detail fills in once the answer is known.
+  reading: "reading",
+  intent: "reading",
+  direction: "reading",
+  planning: "planning",
+};
 
 /**
  * Fold one frame into the scene's turn status. Returns the **same reference** when nothing
@@ -604,9 +791,20 @@ function nextTurnStatus(prev: TurnStatus, frame: TurnStreamFrame): TurnStatus {
         phase: "thinking",
         characterId,
         name: (frame.data.name as string | undefined) ?? undefined,
+        // The planner's read of the moment — why THIS character is up, and how the beat
+        // is pitched. Both are already computed; surfacing them answers the commonest
+        // question in play ("why did they answer and not her?").
+        detail: speakerReason(frame.data),
       };
     }
-    if (frame.step === "plan" && frame.data.end === true) return { phase: "ending" };
+    if (frame.step === "plan") {
+      if (frame.data.end === true) return { phase: "ending" };
+      return { phase: "planning" };
+    }
+    const phase = PHASE_BY_STEP[frame.step];
+    if (phase) {
+      return { phase, detail: frame.step === "intent" ? intentReason(frame) : undefined };
+    }
     return prev;
   }
 
@@ -640,6 +838,22 @@ function nextTurnStatus(prev: TurnStatus, frame: TurnStreamFrame): TurnStatus {
  * character by id alone, so a stale name from the previous speaker would otherwise be
  * shown against the new one.
  */
+/** "she was just accused (tense)" — the planner's reason and register, when given. */
+function speakerReason(data: Record<string, unknown>): string | undefined {
+  const register = typeof data.register === "string" ? data.register : "";
+  const stakes = typeof data.stakes === "string" ? data.stakes.trim() : "";
+  if (stakes && register) return `${stakes} (${register})`;
+  return stakes || register || undefined;
+}
+
+/** "read as: you're telling Beth to confront Mei" — how the message was interpreted. */
+function intentReason(frame: { detail?: string; data: Record<string, unknown> }): string | undefined {
+  const directive = (frame.detail ?? "").trim();
+  if (directive) return directive;
+  const kind = typeof frame.data.kind === "string" ? frame.data.kind : "";
+  return kind || undefined;
+}
+
 function forCharacter(phase: TurnPhase, characterId: string, prev: TurnStatus): TurnStatus {
   return {
     phase,

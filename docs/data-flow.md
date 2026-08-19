@@ -85,8 +85,21 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
 ```
 
 On the client, `useScenePlay` (via the generic `useEventStream` hook + `postTurn`) consumes
-the stream: **delta-streamed prose** (`narration`, `character_dialogue`) accumulates by event
-`id` (incremental `text` chunks, `done` flips true last). A speaker's `internal_thought`,
+the stream: **delta-streamed prose** (`narration`, `character_dialogue`, `internal_thought`)
+accumulates by event `id` (incremental `text` chunks, `done` flips true last). Those deltas
+are produced **live** — `llm.chat_complete_stream` feeds the model's tokens through
+`emission.EmissionAccumulator` as they arrive, so a segment reaches the wire the moment the
+parser recognises it. The thought therefore completes while the spoken line is still being
+written. A `thought` accumulates against `thoughtId` rather than the beat's `id`, which
+belongs to the dialogue that follows it.
+
+One trace step also reaches the transcript: `speaker` opens the chosen character's beat
+**before any words exist** (`pending: true`), so the wait has a place to live and the
+thought → speech sequence fills one stable spot instead of pushing the page around. The
+status strip stands down for character phases once that beat is open, keeping only the
+pre-generation ones (gathering / reading / planning) that no beat can show. A placeholder
+that never receives content — a withheld beat, a failed generation, an aborted turn — is
+cleared by `dropPendingBeats` when the stream settles. A speaker's `internal_thought`,
 `character_action`, and `character_dialogue` **all fold into one `char` beat** (the thought
 opens it, action + dialogue merge in as they arrive — `mergeFrame`/`isOpenCharBeat`), so a
 message reads as one moment: the character's name, then **one bubble** holding their muted

@@ -51,7 +51,7 @@ from app.core.config import get_settings
 from app.core.errors import APIError
 from app.core.ids import new_id
 from app.events.envelope import StoryEvent
-from app.events.stream import TurnTraceFrame, build_event, chunk_text
+from app.events.stream import TurnReasoningFrame, TurnTraceFrame, build_event, chunk_text
 from app.memory import buffer
 from app.models import Scenario
 from app.schemas.base import EventType, Visibility
@@ -66,6 +66,7 @@ from app.services import (
     presence,
     reflection,
     relationships,
+    settings_store,
     stats,
     turn_writer,
     validator,
@@ -83,6 +84,76 @@ class _Emitter:
         self._scenario_id = scenario_id
         self._session_id = session_id
         self._seq = start_seq
+
+    # -- shared plumbing for the live streamer ------------------------------
+
+    @property
+    def scenario_id(self) -> str:
+        return self._scenario_id
+
+    @property
+    def session_id(self) -> str:
+        return self._session_id
+
+    def take_seq(self) -> int:
+        """Claim the next sequence number (one per event, streamed or not)."""
+        seq = self._seq
+        self._seq += 1
+        return seq
+
+    def build_full(
+        self,
+        type_: EventType,
+        text: str,
+        *,
+        event_id: str,
+        seq: int,
+        character_id: str | None,
+        visibility: Visibility | None,
+    ) -> StoryEvent:
+        """The DB-authoritative row for a streamed event: the whole text, ``done``."""
+        data: dict[str, Any] = {"text": text, "done": True}
+        if character_id is not None:
+            data["characterId"] = character_id
+        return build_event(
+            type_,
+            data,
+            scenario_id=self._scenario_id,
+            session_id=self._session_id,
+            seq=seq,
+            event_id=event_id,
+            visibility=visibility,
+        )
+
+    def persist(
+        self, event: StoryEvent, *, buffer_role: str | None, character_id: str | None
+    ) -> None:
+        """Write the row and mirror visible prose into the recent-turn buffer."""
+        events_store.persist_story_event(self._db, event)
+        if buffer_role:
+            buffer.push_turn(
+                self._session_id,
+                buffer_role,
+                str(getattr(event.data, "text", "") or ""),
+                character_id=character_id,
+            )
+
+    def open_stream(
+        self,
+        type_: EventType,
+        *,
+        character_id: str | None = None,
+        visibility: Visibility | None = None,
+        buffer_role: str | None = None,
+    ) -> "_LiveSegment":
+        """Start streaming one event; the caller drives it with ``delta``/``close``."""
+        return _LiveSegment(
+            self,
+            type_,
+            character_id=character_id,
+            visibility=visibility,
+            buffer_role=buffer_role,
+        )
 
     def emit(
         self,
@@ -153,6 +224,78 @@ class _Emitter:
                 seq=seq,
                 event_id=event_id,
             )
+
+
+class _LiveSegment:
+    """One event id being streamed live, so deltas can be emitted as text arrives.
+
+    :meth:`_Emitter.emit_streamed` persists a finished string and replays it as fake
+    deltas; this is the real thing — the row is written on :meth:`close`, once the text
+    is actually complete, and every delta before that goes straight to the wire.
+    """
+
+    def __init__(
+        self,
+        emitter: "_Emitter",
+        type_: EventType,
+        *,
+        character_id: str | None,
+        visibility: Visibility | None,
+        buffer_role: str | None,
+    ) -> None:
+        self._emitter = emitter
+        self._type = type_
+        self._character_id = character_id
+        self._visibility = visibility
+        self._buffer_role = buffer_role
+        self._event_id = new_id("ev")
+        self._seq = emitter.take_seq()
+        self._text = ""
+        self._closed = False
+
+    @property
+    def text(self) -> str:
+        """Everything streamed for this event so far."""
+        return self._text
+
+    def delta(self, chunk: str) -> Iterator[StoryEvent]:
+        """Stream one increment of this event's text."""
+        if not chunk:
+            return
+        self._text += chunk
+        yield from self._frame(chunk, done=False)
+
+    def close(self) -> Iterator[StoryEvent]:
+        """Persist the finished text, mirror it into the buffer, and send the last frame."""
+        if self._closed:
+            return
+        self._closed = True
+        full = self._emitter.build_full(
+            self._type,
+            self._text,
+            event_id=self._event_id,
+            seq=self._seq,
+            character_id=self._character_id,
+            visibility=self._visibility,
+        )
+        self._emitter.persist(full, buffer_role=self._buffer_role, character_id=self._character_id)
+        yield from self._frame("", done=True)
+
+    def _frame(self, chunk: str, *, done: bool) -> Iterator[StoryEvent]:
+        data: dict[str, Any] = {"text": chunk, "done": done}
+        if self._character_id is not None:
+            data["characterId"] = self._character_id
+        event = build_event(
+            self._type,
+            data,
+            scenario_id=self._emitter.scenario_id,
+            session_id=self._emitter.session_id,
+            seq=self._seq,
+            event_id=self._event_id,
+            visibility=self._visibility,
+        )
+        if event.visibility != "hidden":
+            yield event
 
 
 class _Tracer:
@@ -343,10 +486,22 @@ def run_turn(
     # generation would have failed first). Also used by the puppet beats below.
     guard_conn = _resolve_conn(db) if len(ctx.cast) > 1 else None
 
+    # Whether the model's raw deliberation streams to the player this turn. Resolved once
+    # (a settings read per beat would be wasteful) and threaded down to every generation.
+    show_reasoning = settings_store.get_llm(db).reasoning_visibility == "full"
+
     # Interpret the player's line: narrating, addressing someone, or DIRECTING a character
     # to act/speak (puppet)? This is what fixes attribution (Reactive Turn Director D1) —
     # a puppeted character performs the direction in its own voice; the addressed character
     # reacts, instead of a bystander answering the player's words.
+    # Announce the step BEFORE the call, not after it. The trace steps were all emitted
+    # once their work was already done, so the status strip could only ever name the step
+    # the turn had just finished — leaving the actual waits unlabelled.
+    yield from tracer.emit(
+        "reading",
+        "Reading your message",
+        detail="Working out whether you are narrating, addressing someone, or directing.",
+    )
     intent = intent_agent.interpret(db, ctx, text)
     # A UI-set target (e.g. a branch selection) addresses that character explicitly.
     if (
@@ -429,11 +584,11 @@ def run_turn(
         )
         owed = direction.for_actor(None)[:open_limit]
         narrated_open = yield from _narrator_interstitial(
-            db, ctx, turn_beats, emitter,
+            db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
             lead=_direction_lead(direction, owed, base=outcome), long=True,
         )
         if narrated_open:
-            direction.satisfy(owed)
+            yield from _delivered(tracer, ctx, direction, owed)
     elif scene_opening and not intent.directed_actors and not intent.addressed and intent.scope != "all":
         yield from tracer.emit(
             "plan",
@@ -442,11 +597,11 @@ def run_turn(
         )
         owed = direction.for_actor(None)[:open_limit]
         narrated_open = yield from _narrator_interstitial(
-            db, ctx, turn_beats, emitter,
+            db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
             lead=_direction_lead(direction, owed, base="Open the scene."), long=True,
         )
         if narrated_open:
-            direction.satisfy(owed)
+            yield from _delivered(tracer, ctx, direction, owed)
 
     # Puppet beats first: each directed character performs the player's direction in its
     # OWN voice (not a reply to the player's words). The POV character is excluded — the
@@ -471,10 +626,10 @@ def run_turn(
         # A puppeted character performs the direction, so their own requirements ride on the
         # very beat the player asked for rather than waiting for a later one.
         owed = direction.for_actor(speaker.id)
-        direction.satisfy(owed)
+        yield from _delivered(tracer, ctx, direction, owed, by=speaker.id)
         yield from _generate_speaker(
             db, ctx, speaker, emitter, turn_beats, consequences,
-            guard_conn=guard_conn, directive=intent.directive, relationship_note=note,
+            show_reasoning=show_reasoning, guard_conn=guard_conn, directive=intent.directive, relationship_note=note,
             direction=direction, requirements=owed, tracer=tracer,
         )
 
@@ -522,6 +677,11 @@ def run_turn(
         decision: planner_agent.BeatDecision | None = None
         forced_reason = "the rest of your direction has to fit the beats that are left"
         if not outstanding or len(outstanding) < remaining:
+            yield from tracer.emit(
+                "planning",
+                "Deciding who speaks next",
+                detail=f"{remaining} beat(s) left in the scene's budget.",
+            )
             decision = planner_agent.next_beat(
                 db, ctx, intent, turn_beats, acted,
                 scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
@@ -535,8 +695,8 @@ def run_turn(
             scheduled = direction_agent.schedule(outstanding, remaining)
             if scheduled is None:
                 break
-            direction.satisfy(scheduled.requirements)
             owed = scheduled.requirements
+            yield from _delivered(tracer, ctx, direction, owed, by=scheduled.actor_id)
             forced_actor = ctx.cast_by_id(scheduled.actor_id) if scheduled.actor_id else None
             if forced_actor is None:
                 yield from tracer.emit(
@@ -546,7 +706,7 @@ def run_turn(
                     data={"requirements": [r.text for r in owed]},
                 )
                 yield from _narrator_interstitial(
-                    db, ctx, turn_beats, emitter,
+                    db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
                     lead=_direction_lead(direction, owed),
                     # Several requirements bundled into one closing beat need a paragraph,
                     # not a two-sentence transition, to actually land them all.
@@ -564,7 +724,7 @@ def run_turn(
                 )
                 yield from _generate_speaker(
                     db, ctx, forced_actor, emitter, turn_beats, consequences,
-                    guard_conn=guard_conn, relationship_note=note,
+                    show_reasoning=show_reasoning, guard_conn=guard_conn, relationship_note=note,
                     direction=direction, requirements=owed, tracer=tracer,
                 )
                 acted.append(forced_actor.id)
@@ -599,9 +759,9 @@ def run_turn(
             # One narrator-owned requirement per narrated beat, so a multi-part direction
             # paces out across the turn instead of arriving as a single summary paragraph.
             owed = direction.for_actor(None)[:1]
-            direction.satisfy(owed)
+            yield from _delivered(tracer, ctx, direction, owed)
             yield from _narrator_interstitial(
-                db, ctx, turn_beats, emitter,
+                db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
                 lead=_direction_lead(direction, owed) or None,
             )
             beats += 1
@@ -641,7 +801,19 @@ def run_turn(
             },
         )
         yield from tracer.emit(
-            "speaker", f"{actor.name} responds", data={"characterId": actor.id, "name": actor.name}
+            "speaker",
+            f"{actor.name} responds",
+            # The planner already decided WHY this character is up and how the beat is
+            # pitched; carrying both into the trace lets the status strip answer the
+            # commonest question in play — why them, and not the one I addressed?
+            detail=decision.reason,
+            data={
+                "characterId": actor.id,
+                "name": actor.name,
+                "reason": decision.reason,
+                "register": decision.register or "",
+                "stakes": decision.stakes,
+            },
         )
         note = _relationship_note(
             ctx,
@@ -653,10 +825,10 @@ def run_turn(
         # One of this actor's own requirements rides on the beat the planner chose for them
         # (the rest, if any, wait for a later beat or the forced schedule above).
         owed = direction.for_actor(actor.id)[:1]
-        direction.satisfy(owed)
+        yield from _delivered(tracer, ctx, direction, owed, by=actor.id)
         yield from _generate_speaker(
             db, ctx, actor, emitter, turn_beats, consequences,
-            guard_conn=guard_conn, relationship_note=note,
+            show_reasoning=show_reasoning, guard_conn=guard_conn, relationship_note=note,
             register=decision.register, stakes=decision.stakes,
             direction=direction, requirements=owed, tracer=tracer,
         )
@@ -810,20 +982,62 @@ def _narrator_interstitial(
     turn_beats: list[dict],
     emitter: _Emitter,
     *,
+    show_reasoning: bool = False,
     lead: str | None = None,
     long: bool = False,
-) -> Generator[StoryEvent, None, bool]:
+) -> Generator[StoryEvent | TurnReasoningFrame, None, bool]:
     """Emit an optional narrator beat; skip silently on failure. Returns whether a beat
     was actually emitted (so the caller can tell a real opening from a no-op).
 
     ``lead``/``long`` drive the fuller opening + branch-progression passage (feedback
-    #1/#2/#3); the default (both unset) is the short between-speakers transition beat."""
-    text = narrator_agent.interstitial(db, ctx, turn_beats, lead=lead, long=long)
+    #1/#2/#3); the default (both unset) is the short between-speakers transition beat.
+
+    The prose streams as the model writes it. A scene's first message is narrator-led, so
+    this is the very first thing a new player sees — it is the beat that most needs to
+    start arriving early rather than landing whole after a long silence."""
+    stream = narrator_agent.stream_interstitial(db, ctx, turn_beats, lead=lead, long=long)
+    live = emitter.open_stream("narration", buffer_role="narrator")
+    try:
+        while True:
+            delta = next(stream)
+            if delta.reasoning and show_reasoning:
+                yield TurnReasoningFrame(text=delta.reasoning)
+            if delta.answer:
+                yield from live.delta(delta.answer)
+    except StopIteration as stop:
+        text = stop.value
     if not text:
+        # Nothing usable — discard the event id rather than persisting an empty beat.
         return False
-    yield from emitter.emit_streamed("narration", text, buffer_role="narrator")
-    turn_beats.append({"role": "narrator", "text": text, "characterId": None})
+    yield from live.close()
+    turn_beats.append({"role": "narrator", "text": live.text, "characterId": None})
     return True
+
+
+def _delivered(
+    tracer: _Tracer, ctx: TurnContext, direction: SceneDirection, owed: list[DirectionRequirement],
+    *, by: str | None = None,
+) -> Iterator[TurnTraceFrame]:
+    """Mark requirements delivered AND say so on the wire.
+
+    The engine already tracked what the turn still owed the player; it just never
+    reported the ticking-off, so a direction's progress was invisible until the turn
+    ended. ``by`` is the character who carried them (``None`` → the narrator).
+    """
+    if not owed:
+        return
+    direction.satisfy(owed)
+    who = _name_of(ctx, by) or "The narrator"
+    yield from tracer.emit(
+        "direction",
+        f"{who} delivered {len(owed)} part(s) of your direction",
+        detail="; ".join(r.text for r in owed),
+        data={
+            "delivered": [r.text for r in owed],
+            "characterId": by,
+            "outstanding": [r.text for r in direction.outstanding()],
+        },
+    )
 
 
 def _name_of(ctx: TurnContext, character_id: str | None) -> str | None:
@@ -909,6 +1123,169 @@ def _prior_transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _stream_emission(
+    db: Session,
+    ctx: TurnContext,
+    speaker: CastMember,
+    emitter: _Emitter,
+    turn_beats: list[dict],
+    consequences: list[Consequence],
+    *,
+    roster: dict[int, str],
+    directive: str | None,
+    relationship_note: str | None,
+    register: str | None,
+    stakes: str,
+    scene_direction: str,
+    owed: list[str],
+    tracer: _Tracer,
+    live: bool,
+    show_reasoning: bool = False,
+) -> Generator[StoryEvent | TurnTraceFrame | TurnReasoningFrame, None, tuple[str, int | None, int]]:
+    """Drive one character generation as a stream; return ``(raw, prompt_tokens, impact)``.
+
+    When ``live``, each segment is emitted, appended to ``turn_beats`` and traced the
+    moment the parser recognises it — so the character's private thought completes while
+    their spoken line is still being written, which is the whole point of the exercise.
+    When not (a beat the continuity guard will judge), nothing is emitted here and the
+    caller runs the ordinary post-verdict path; the raw emission is identical either way.
+
+    ``impact`` (Σ|stat delta|) is only meaningful on the live path — the guarded path
+    computes its own from the post-verdict segments.
+    """
+    stream = character_turn_agent.stream_line(
+        db, ctx, speaker, turn_beats=turn_beats, directive=directive,
+        relationship_note=relationship_note, register=register, stakes=stakes,
+        scene_direction=scene_direction, requirements=owed,
+    )
+    acc = emission.EmissionAccumulator(roster=roster, fallback_speaker_id=speaker.id)
+    open_segments: dict[int, _LiveSegment] = {}
+    buffered: dict[int, str] = {}
+    impact = 0
+
+    try:
+        while True:
+            delta = next(stream)
+            if delta.reasoning and show_reasoning:
+                # Ephemeral: the model's scratchpad, streamed live and never persisted.
+                # Kept out of the story record deliberately — it is machinery, not prose.
+                yield TurnReasoningFrame(character_id=speaker.id, text=delta.reasoning)
+            if not live or not delta.answer:
+                # Still feed the parser so the raw emission and segment list are the same
+                # on both paths — only the emitting is conditional.
+                if delta.answer:
+                    acc.push(delta.answer)
+                continue
+            for seg in acc.push(delta.answer):
+                impact += yield from _emit_segment_delta(
+                    db, ctx, speaker, emitter, turn_beats, consequences,
+                    seg, open_segments, buffered, tracer,
+                )
+    except StopIteration as stop:
+        raw, prompt_tokens = stop.value
+
+    if show_reasoning:
+        yield TurnReasoningFrame(character_id=speaker.id, done=True)
+    if live:
+        for seg in acc.finish():
+            impact += yield from _emit_segment_delta(
+                db, ctx, speaker, emitter, turn_beats, consequences,
+                seg, open_segments, buffered, tracer,
+            )
+        # A stream that ended mid-segment (a truncated completion) must not leave an
+        # event open and unpersisted.
+        for live_seg in open_segments.values():
+            yield from live_seg.close()
+        open_segments.clear()
+    return raw, prompt_tokens, impact
+
+
+def _emit_segment_delta(
+    db: Session,
+    ctx: TurnContext,
+    speaker: CastMember,
+    emitter: _Emitter,
+    turn_beats: list[dict],
+    consequences: list[Consequence],
+    seg: emission.SegmentDelta,
+    open_segments: dict[int, _LiveSegment],
+    buffered: dict[int, str],
+    tracer: _Tracer,
+) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
+    """Route one parsed increment to the wire; return the stat impact it carried.
+
+    Prose that reads well arriving piecemeal (``internal_thought``, ``character_dialogue``)
+    delta-streams. ``character_action`` is held and sent whole: it is one short beat, and
+    the client folds it into the speaker's open bubble — a rule that only works while the
+    bubble has no spoken text yet. The JSON types are held because half an object is not
+    parseable, and are applied through the same handlers the batch path uses.
+    """
+    if seg.type in ("internal_thought", "character_dialogue"):
+        live_seg = open_segments.get(seg.index)
+        if live_seg is None:
+            live_seg = emitter.open_stream(
+                seg.type,
+                character_id=seg.character_id,
+                visibility="private_to_user" if seg.type == "internal_thought" else None,
+                buffer_role=None if seg.type == "internal_thought" else "character",
+            )
+            open_segments[seg.index] = live_seg
+        if seg.text:
+            yield from live_seg.delta(seg.text)
+        if seg.done:
+            text = live_seg.text
+            yield from live_seg.close()
+            open_segments.pop(seg.index, None)
+            if seg.type == "internal_thought":
+                # Kept OUT of turn_beats: it is the character's interiority, not shared
+                # dialogue, and later speakers must never condition on it.
+                yield from tracer.emit(
+                    "thinking", f"{speaker.name} thinks (private)",
+                    detail=text, data={"characterId": seg.character_id},
+                )
+            else:
+                turn_beats.append(
+                    {"role": "character", "text": text, "characterId": seg.character_id}
+                )
+                yield from tracer.emit(
+                    "dialogue", f"{speaker.name} speaks",
+                    detail=text, data={"characterId": seg.character_id},
+                )
+        return 0
+
+    # Held types: accumulate, act on close.
+    buffered[seg.index] = buffered.get(seg.index, "") + seg.text
+    if not seg.done:
+        return 0
+    body = buffered.pop(seg.index, "")
+    if not body:
+        return 0
+    if seg.type == "character_action":
+        yield from emitter.emit(
+            "character_action",
+            {"characterId": seg.character_id, "text": body},
+            buffer_role="character",
+            character_id=seg.character_id,
+        )
+        turn_beats.append({"role": "character", "text": body, "characterId": seg.character_id})
+        yield from tracer.emit(
+            "action", f"{speaker.name} acts", detail=body, data={"characterId": seg.character_id}
+        )
+        return 0
+    if seg.type == "state_update":
+        return (
+            yield from _apply_stat_change(
+                db, ctx, seg.character_id, body, emitter, consequences, tracer=tracer
+            )
+        )
+    if seg.type == "relationship_update":
+        yield from _apply_relationship_change(ctx, seg.character_id, body, consequences, tracer)
+        return 0
+    if seg.type == "presence_change":
+        yield from _apply_declared_presence(ctx, seg.character_id, body, emitter, tracer)
+    return 0
+
+
 def _generate_speaker(
     db: Session,
     ctx: TurnContext,
@@ -917,6 +1294,7 @@ def _generate_speaker(
     turn_beats: list[dict],
     consequences: list[Consequence],
     *,
+    show_reasoning: bool = False,
     guard_conn: LlmConn | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
@@ -948,17 +1326,27 @@ def _generate_speaker(
     roster = {i + 1: m.id for i, m in enumerate(ctx.cast)}
     scene_direction = direction.text.strip() if direction is not None else ""
     owed = [r.text for r in requirements or []]
-    raw, prompt_tokens = character_turn_agent.generate_line_with_usage(
-        db, ctx, speaker, turn_beats=turn_beats, directive=directive,
-        relationship_note=relationship_note, register=register, stakes=stakes,
-        scene_direction=scene_direction, requirements=owed,
+    # The continuity guard inspects a COMPLETE candidate line and can reject it, so a beat
+    # it will judge cannot also be shown as it arrives — a rejected line would have to
+    # un-write itself on screen. It only runs once someone has already spoken this turn,
+    # which splits the work cleanly: the turn's first beat (the longest wait, and the one
+    # the player is actually staring at) streams its prose live, while a later beat holds
+    # its prose for the verdict. Both stream the model's REASONING either way, so every
+    # beat shows something happening rather than nothing.
+    guarded = guard_conn is not None and not directive and _has_prior_character_beat(turn_beats)
+    raw, prompt_tokens, streamed_impact = yield from _stream_emission(
+        db, ctx, speaker, emitter, turn_beats, consequences,
+        roster=roster, directive=directive, relationship_note=relationship_note,
+        register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
+        tracer=tr, live=not guarded, show_reasoning=show_reasoning,
     )
     segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
 
     # Consistency guard (§P10): once a character has already spoken this turn, a later
     # line must not contradict the established beats. Regenerate once with the reason if
     # it does; best-effort (an unconfigured/failed guard leaves the line as-is).
-    if guard_conn is not None and not directive and _has_prior_character_beat(turn_beats):
+    if guarded:
+        assert guard_conn is not None
         candidate = " ".join(
             s.text for s in segments if s.type in ("character_action", "character_dialogue")
         )
@@ -995,6 +1383,10 @@ def _generate_speaker(
             detail=f"{prompt_tokens:,} tokens sent to the model",
             data={"characterId": speaker.id, "promptTokens": prompt_tokens},
         )
+
+    if not guarded:
+        # The live path already emitted, appended and traced every segment as it arrived.
+        return streamed_impact
 
     impact = 0
     for seg in segments:

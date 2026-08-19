@@ -4,6 +4,8 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ENTER_TRANSITION } from "@/lib/motion";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { DirectionChecklist } from "@/components/feature/DirectionChecklist";
+import { NO_DIRECTION, type DirectionProgress } from "@/features/story-player/turn-stream";
 import type { StatDefinition } from "@/lib/types";
 import type { Relationship, StatChip } from "@/features/story-player/scene-data";
 import type { ActivityEntry } from "@/features/story-player/turn-stream";
@@ -326,10 +328,13 @@ export function DirectorRail({
   stats,
   activity = [],
   charById,
+  direction = NO_DIRECTION,
 }: {
   stats: StatChip[];
   activity?: ActivityEntry[];
   charById?: (id: string) => { name: string; color: string } | undefined;
+  /** The player's scene direction and how much of it the turn has delivered. */
+  direction?: DirectionProgress;
 }) {
   return (
     <aside className="mytheca-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block">
@@ -342,6 +347,8 @@ export function DirectorRail({
         Scene state
       </Eyebrow>
       <StateChips stats={stats} />
+
+      <DirectionChecklist progress={direction} />
     </aside>
   );
 }

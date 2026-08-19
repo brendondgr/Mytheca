@@ -1,0 +1,16 @@
+arm,chars,completion_tokens,first_reasoning_s,run,ttft_s,wall_clock_s
+blocking-uncapped,262,586,None,1,25.679,25.679
+blocking-capped,295,624,None,1,19.449,19.449
+streaming-capped,281,612,1.043,1,17.695,19.245
+blocking-uncapped,355,770,None,2,26.129,26.129
+blocking-capped,354,599,None,2,16.588,16.588
+streaming-capped,275,605,0.43,2,9.109,9.899
+blocking-uncapped,303,500,None,3,8.035,8.035
+blocking-capped,395,561,None,3,10.479,10.479
+streaming-capped,286,559,0.431,3,8.588,9.792
+blocking-uncapped,297,464,None,4,14.346,14.346
+blocking-capped,265,632,None,4,9.361,9.361
+streaming-capped,353,679,0.43,4,9.122,10.59
+blocking-uncapped,310,639,None,5,13.775,13.775
+blocking-capped,331,618,None,5,10.723,10.723
+streaming-capped,330,467,0.439,5,8.438,9.552

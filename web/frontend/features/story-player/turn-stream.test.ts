@@ -9,7 +9,12 @@ import type {
 } from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
+  NARRATOR_REASONING,
+  NO_DIRECTION,
+  applyDirection,
+  dropPendingBeats,
   applyActivity,
+  applyReasoning,
   applyCharacterActivity,
   applyTurnStatus,
   IDLE_TURN_STATUS,
@@ -117,6 +122,38 @@ describe("mergeFrame", () => {
     expect(msgs[0].text).toBe("As you wish.");
   });
 
+  it("accumulates a streamed thought instead of replacing it", () => {
+    // The thought delta-streams now — it is usually the first thing a turn can show —
+    // so chunks must append. Replacing would leave only the final fragment on screen.
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "He is ", done: false }));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "testing me.", done: true }));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].thought).toBe("He is testing me.");
+  });
+
+  it("folds a streamed thought and streamed dialogue into ONE beat", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Lie.", done: false }));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: " Calmly.", done: true }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "I was ", done: false }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "home.", done: true }));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].thought).toBe("Lie. Calmly.");
+    expect(msgs[0].text).toBe("I was home.");
+  });
+
+  it("keeps two speakers' streamed thoughts in separate beats", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "A", done: false }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "Hi.", done: true }));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t2", { characterId: "kira", text: "B", done: false }));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t2", { characterId: "kira", text: "C", done: true }));
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0].thought).toBe("A");
+    expect(msgs[1].thought).toBe("BC");
+  });
+
   it("keeps a different speaker's thought as its own beat", () => {
     let msgs: SceneMessage[] = [];
     msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Mine." }));
@@ -125,6 +162,17 @@ describe("mergeFrame", () => {
     expect(msgs[0].who).toBe("mei");
     expect(msgs[1].who).toBe("kira");
     expect(msgs[1].thought).toBe("Hers.");
+  });
+
+  it("ignores a reasoning frame — it never touches the transcript", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, {
+      type: "reasoning",
+      characterId: "mei",
+      text: "weighing it",
+      done: false,
+    } as TurnStreamFrame);
+    expect(msgs).toEqual([]);
   });
 
   it("appends a scene_image as its own beat, in stream order", () => {
@@ -498,7 +546,7 @@ describe("applyActivity", () => {
     expect(feed).toHaveLength(1);
     expect(feed[0].kind).toBe("thinking");
     expect(feed[0].who).toBe("mei");
-    expect(feed[0].label).toBe("Mei is about to speak");
+    expect(feed[0].label).toBe("Mei is about to speak");  // activity feed copy, not the strip
   });
 
   it("trace branch step → branch entry", () => {
@@ -769,9 +817,39 @@ describe("applyTurnStatus", () => {
     expect(s).toEqual({ phase: "ending" });
   });
 
-  it("an ordinary plan trace leaves the status alone", () => {
+  it("an ordinary plan trace means the turn is choosing its next beat", () => {
+    // This used to leave the status alone, which is how the strip came to sit on its
+    // generic default through the planner call — one of the longest silences in a turn.
     const start: TurnStatus = { phase: "speaking", characterId: "mei" };
-    expect(applyTurnStatus(start, traceFrame("plan", 3, { title: "Mei is up next" }))).toBe(start);
+    expect(applyTurnStatus(start, traceFrame("plan", 3, { title: "Mei is up next" }))).toEqual({
+      phase: "planning",
+    });
+  });
+
+  it("names the pre-generation steps instead of idling through them", () => {
+    const start: TurnStatus = { phase: "idle" };
+    expect(applyTurnStatus(start, traceFrame("assemble", 1)).phase).toBe("gathering");
+    expect(applyTurnStatus(start, traceFrame("lore", 2)).phase).toBe("gathering");
+    expect(applyTurnStatus(start, traceFrame("files", 3)).phase).toBe("gathering");
+    expect(applyTurnStatus(start, traceFrame("intent", 4)).phase).toBe("reading");
+  });
+
+  it("carries the planner's reason and register onto the speaker status", () => {
+    const start: TurnStatus = { phase: "idle" };
+    const next = applyTurnStatus(
+      start,
+      traceFrame("speaker", 5, {
+        data: {
+          characterId: "mei",
+          name: "Mei",
+          reason: "she was just accused",
+          register: "tense",
+          stakes: "she was just accused",
+        },
+      }),
+    );
+    expect(next.phase).toBe("thinking");
+    expect(next.detail).toBe("she was just accused (tense)");
   });
 
   it("ending survives the trailing branch/commit frames of the turn", () => {
@@ -804,7 +882,172 @@ describe("applyTurnStatus", () => {
 
   it("returns the same reference for frames it does not care about", () => {
     const start: TurnStatus = { phase: "thinking", characterId: "mei", name: "Mei" };
-    expect(applyTurnStatus(start, traceFrame("lore", 2))).toBe(start);
+    // `consistency` names no phase — unlike assemble/lore/files/intent/plan, which now do.
+    expect(applyTurnStatus(start, traceFrame("consistency", 2))).toBe(start);
     expect(applyTurnStatus(start, ev("state_update", "s1", { patch: {}, stat: null }))).toBe(start);
+  });
+});
+
+
+describe("applyReasoning", () => {
+  const frame = (
+    characterId: string | null,
+    text: string,
+    done = false,
+  ): TurnStreamFrame => ({ type: "reasoning", characterId, text, done }) as TurnStreamFrame;
+
+  it("accumulates a character's live deliberation", () => {
+    let m: Record<string, string> = {};
+    m = applyReasoning(m, frame("mei", "She is "));
+    m = applyReasoning(m, frame("mei", "testing me."));
+    expect(m).toEqual({ mei: "She is testing me." });
+  });
+
+  it("clears the character's entry when the beat finishes", () => {
+    // The scratchpad belongs to the wait, not to the finished beat — leaving it under a
+    // landed line would make a transient artefact look like part of the story.
+    let m: Record<string, string> = {};
+    m = applyReasoning(m, frame("mei", "hmm"));
+    m = applyReasoning(m, frame("mei", "", true));
+    expect(m).toEqual({});
+  });
+
+  it("keeps two speakers' reasoning apart", () => {
+    let m: Record<string, string> = {};
+    m = applyReasoning(m, frame("mei", "A"));
+    m = applyReasoning(m, frame("kira", "B"));
+    expect(m).toEqual({ mei: "A", kira: "B" });
+  });
+
+  it("files the narrator's reasoning under its own key", () => {
+    const m = applyReasoning({}, frame(null, "setting the scene"));
+    expect(m).toEqual({ [NARRATOR_REASONING]: "setting the scene" });
+  });
+
+  it("returns the same reference when nothing changes", () => {
+    // A token stream must not re-render everything downstream on every frame.
+    const before: Record<string, string> = { mei: "A" };
+    expect(applyReasoning(before, frame("mei", ""))).toBe(before);
+    expect(applyReasoning(before, frame("kira", "", true))).toBe(before);
+    expect(
+      applyReasoning(before, { type: "trace", n: 1, step: "x", title: "y", detail: "", data: {} } as TurnStreamFrame),
+    ).toBe(before);
+  });
+});
+
+
+describe("applyDirection", () => {
+  const trace = (step: string, data: Record<string, unknown>): TurnStreamFrame =>
+    ({ type: "trace", n: 1, step, title: "", detail: "", data }) as TurnStreamFrame;
+
+  it("seeds the checklist from the declared requirements", () => {
+    const d = applyDirection(NO_DIRECTION, trace("direction", {
+      source: "message",
+      requirements: [{ text: "Beth confronts Mei" }, { text: "Mei admits the letter" }],
+    }));
+    expect(d.items.map((i) => i.text)).toEqual(["Beth confronts Mei", "Mei admits the letter"]);
+    expect(d.items.every((i) => !i.delivered)).toBe(true);
+  });
+
+  it("ticks an item off when the engine reports it delivered", () => {
+    let d = applyDirection(NO_DIRECTION, trace("direction", {
+      requirements: [{ text: "A" }, { text: "B" }],
+    }));
+    d = applyDirection(d, trace("direction", {
+      delivered: ["A"],
+      characterId: "beth",
+      outstanding: ["B"],
+    }));
+    expect(d.items).toEqual([
+      { text: "A", delivered: true, by: "beth" },
+      { text: "B", delivered: false },
+    ]);
+  });
+
+  it("keeps a delivered requirement it never saw declared", () => {
+    // The engine rebinds requirements when a character leaves mid-turn; progress the
+    // client cannot match must not be silently dropped.
+    const d = applyDirection(NO_DIRECTION, trace("direction", {
+      delivered: ["Rebound outcome"],
+      characterId: null,
+    }));
+    expect(d.items).toEqual([{ text: "Rebound outcome", delivered: true, by: null }]);
+  });
+
+  it("records what the scene's beat budget could not fit", () => {
+    let d = applyDirection(NO_DIRECTION, trace("direction", { requirements: [{ text: "A" }] }));
+    d = applyDirection(d, trace("plan", { end: true, undelivered: ["A"] }));
+    expect(d.undelivered).toEqual(["A"]);
+  });
+
+  it("returns the same reference when nothing changes", () => {
+    const start = { items: [{ text: "A", delivered: true }], undelivered: [] };
+    expect(applyDirection(start, trace("direction", { delivered: ["A"] }))).toBe(start);
+    expect(applyDirection(start, trace("lore", {}))).toBe(start);
+    expect(applyDirection(start, ev("narration", "n1", { text: "x", done: true }))).toBe(start);
+  });
+});
+
+
+describe("pending beats (the wait has a place to live)", () => {
+  const speakerTrace = (characterId: string): TurnStreamFrame =>
+    ({
+      type: "trace",
+      n: 1,
+      step: "speaker",
+      title: "up",
+      detail: "",
+      data: { characterId, name: "Mei" },
+    }) as TurnStreamFrame;
+
+  it("opens the chosen speaker's beat before any words exist", () => {
+    const msgs = mergeFrame([], speakerTrace("mei"));
+    expect(msgs).toEqual([{ kind: "char", who: "mei", pending: true }]);
+  });
+
+  it("fills the pending beat in place rather than appending a second one", () => {
+    let msgs = mergeFrame([], speakerTrace("mei"));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Lie.", done: true }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "I was home.", done: true }));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].thought).toBe("Lie.");
+    expect(msgs[0].text).toBe("I was home.");
+  });
+
+  it("does not open a second placeholder for a speaker already open", () => {
+    let msgs = mergeFrame([], speakerTrace("mei"));
+    msgs = mergeFrame(msgs, speakerTrace("mei"));
+    expect(msgs).toHaveLength(1);
+  });
+
+  it("opens a separate beat for the next speaker", () => {
+    let msgs = mergeFrame([], speakerTrace("mei"));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "Hi.", done: true }));
+    msgs = mergeFrame(msgs, speakerTrace("kira"));
+    expect(msgs).toHaveLength(2);
+    expect(msgs[1]).toEqual({ kind: "char", who: "kira", pending: true });
+  });
+
+  it("ignores every other trace step", () => {
+    const frame = { type: "trace", n: 1, step: "lore", title: "", detail: "", data: {} } as TurnStreamFrame;
+    expect(mergeFrame([], frame)).toEqual([]);
+  });
+
+  it("drops a placeholder that never received content", () => {
+    // The engine may emit nothing for a chosen speaker — a withheld beat, a failed
+    // generation, an aborted turn. The empty box must not outlive the turn.
+    const msgs = mergeFrame([], speakerTrace("mei"));
+    expect(dropPendingBeats(msgs)).toEqual([]);
+  });
+
+  it("keeps a beat that received only an action", () => {
+    let msgs = mergeFrame([], speakerTrace("mei"));
+    msgs = mergeFrame(msgs, ev("character_action", "a1", { characterId: "mei", text: "Mei turns." }));
+    expect(dropPendingBeats(msgs)).toHaveLength(1);
+  });
+
+  it("returns the same reference when there is nothing to drop", () => {
+    const msgs: SceneMessage[] = [{ kind: "narrator", id: "n1", text: "Rain." }];
+    expect(dropPendingBeats(msgs)).toBe(msgs);
   });
 });

@@ -18,6 +18,7 @@ function makeOpts(overrides: Partial<OptionsState> = {}): OptionsState {
         apiKeyHint: null,
         authoringConcurrency: 3,
         maxContextTokens: 16384,
+        reasoningVisibility: "summary" as const,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
       comfy: {

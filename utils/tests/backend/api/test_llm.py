@@ -156,15 +156,21 @@ def test_chat_complete_no_reasoning_injects_nothing(monkeypatch):
     assert "thinking_budget_tokens" not in captured
 
 
-def test_chat_complete_unknown_engine_injects_nothing(monkeypatch):
+def test_chat_complete_unknown_engine_still_caps_the_thinking(monkeypatch):
+    """An unidentified endpoint gets BOTH budget keys rather than none.
+
+    It previously got neither, which meant the ``reasoning=`` argument was silently
+    inert for any endpoint that matched no probe — the model then thought until it
+    exhausted ``max_tokens`` or the generation timed out.
+    """
     captured: dict = {}
     _patch_upstream(monkeypatch, _chat_body(captured, "openai"))  # neither probe matches
     llm.chat_complete(
         "http://localhost:9000/v1", "", "m", [{"role": "user", "content": "hi"}],
         reasoning=ReasoningEffort.HIGH,
     )
-    assert "thinking_token_budget" not in captured
-    assert "thinking_budget_tokens" not in captured
+    assert captured["thinking_token_budget"] == 1024
+    assert captured["thinking_budget_tokens"] == 1024
 
 
 def test_chat_complete_merges_extra_body(monkeypatch):

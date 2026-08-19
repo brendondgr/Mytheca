@@ -29,6 +29,19 @@ export interface SceneMessage {
    * event that precedes the speaker's action/dialogue.
    */
   thought?: string;
+  /**
+   * Streamed-event id of the `thought` above. The thought and the spoken line are two
+   * separate events folded into one beat, so the beat's own `id` (the dialogue's) cannot
+   * be used to accumulate the thought's deltas — it needs its own.
+   */
+  thoughtId?: string;
+  /**
+   * This beat has been announced but nothing has been written into it yet — the speaker
+   * is chosen and the model is working. It holds the character's place in the transcript
+   * so the thought → speech sequence fills in one stable spot, and so the wait has a
+   * location instead of only a floating status pill.
+   */
+  pending?: boolean;
   /** Streamed-event id — used to accumulate delta chunks of narration/dialogue. */
   id?: string;
   /**
