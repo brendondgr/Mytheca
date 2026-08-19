@@ -288,3 +288,44 @@ def test_truly_empty_completion_still_reports_empty(monkeypatch):
         )
 
     assert "empty" in excinfo.value.message.lower()
+
+
+# ---- incremental reasoning split (the inline-<think> fallback) --------------
+
+
+def _split(chunks: list[str]) -> tuple[str, str]:
+    from app.agents._common import InlineReasoningSplitter
+
+    splitter = InlineReasoningSplitter()
+    answer, reasoning = "", ""
+    for chunk in chunks:
+        a, r = splitter.push(chunk)
+        answer += a
+        reasoning += r
+    a, r = splitter.flush()
+    return answer + a, reasoning + r
+
+
+def test_split_holds_back_an_unterminated_tag():
+    """A '<' that has not closed yet may be any tag — it must not reach the reader."""
+    answer, reasoning = _split(["Hello <thi", "nk>plotting</think> world"])
+    assert answer == "Hello  world"
+    assert reasoning == "plotting"
+
+
+def test_split_suppresses_harmony_control_tokens():
+    answer, _ = _split(["<|chan", "nel|>final<|mess", "age|>The real line."])
+    assert "<|" not in answer
+    assert answer.endswith("The real line.")
+
+
+def test_split_passes_clean_prose_through_untouched():
+    answer, reasoning = _split(["The night ", "was cold."])
+    assert answer == "The night was cold."
+    assert reasoning == ""
+
+
+def test_split_releases_a_bare_less_than_sign_at_the_end():
+    """Held-back text is delayed, never dropped."""
+    answer, _ = _split(["5 < 6 is true"])
+    assert answer == "5 < 6 is true"

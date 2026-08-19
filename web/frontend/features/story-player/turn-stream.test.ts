@@ -117,6 +117,38 @@ describe("mergeFrame", () => {
     expect(msgs[0].text).toBe("As you wish.");
   });
 
+  it("accumulates a streamed thought instead of replacing it", () => {
+    // The thought delta-streams now — it is usually the first thing a turn can show —
+    // so chunks must append. Replacing would leave only the final fragment on screen.
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "He is ", done: false }));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "testing me.", done: true }));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].thought).toBe("He is testing me.");
+  });
+
+  it("folds a streamed thought and streamed dialogue into ONE beat", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Lie.", done: false }));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: " Calmly.", done: true }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "I was ", done: false }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "home.", done: true }));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].thought).toBe("Lie. Calmly.");
+    expect(msgs[0].text).toBe("I was home.");
+  });
+
+  it("keeps two speakers' streamed thoughts in separate beats", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "A", done: false }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "Hi.", done: true }));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t2", { characterId: "kira", text: "B", done: false }));
+    msgs = mergeFrame(msgs, ev("internal_thought", "t2", { characterId: "kira", text: "C", done: true }));
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0].thought).toBe("A");
+    expect(msgs[1].thought).toBe("BC");
+  });
+
   it("keeps a different speaker's thought as its own beat", () => {
     let msgs: SceneMessage[] = [];
     msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Mine." }));

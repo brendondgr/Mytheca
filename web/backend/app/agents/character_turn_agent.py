@@ -15,6 +15,7 @@ sampler tuning are layered on in the think→speak phase; this module is where t
 from __future__ import annotations
 
 import logging
+from collections.abc import Generator
 
 from sqlalchemy.orm import Session
 
@@ -199,6 +200,52 @@ def generate_line_with_usage(
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
         _voice_params(params, register),
         reasoning=reasoning,
+    )
+
+
+def stream_line(
+    db: Session,
+    ctx: TurnContext,
+    speaker: CastMember,
+    *,
+    turn_beats: list[dict],
+    reasoning: ReasoningEffort = TURN_EFFORT,
+    correction: str | None = None,
+    directive: str | None = None,
+    relationship_note: str | None = None,
+    register: str | None = None,
+    stakes: str = "",
+    scene_direction: str = "",
+    requirements: list[str] | None = None,
+) -> Generator[llm.StreamDelta, None, tuple[str, int | None]]:
+    """Stream one character's emission; return ``(raw_emission, prompt_tokens)``.
+
+    The streaming sibling of :func:`generate_line_with_usage`, taking the same arguments
+    and building the identical prompt — the only difference is that the caller sees the
+    emission arrive instead of waiting for it. Deltas carry the model's ``reasoning``
+    channel separately from the ``answer`` text, so the turn engine can show the
+    deliberation without ever mistaking it for prose.
+
+    Falls back to a single whole-emission delta on an endpoint that cannot stream.
+    """
+    base_url, api_key, model, params = resolve_llm(db)
+    contract = ctx.prompts.get(prompt_registry.CHARACTER_OUTPUT_CONTRACT, _OUTPUT_CONTRACT)
+    system = f"{contract}\n\n{ctx.stable_prefix}".strip()
+    logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
+    user = _build_user_prompt(
+        ctx, speaker, turn_beats, correction=correction, directive=directive,
+        relationship_note=relationship_note, register=register, stakes=stakes,
+        scene_direction=scene_direction, requirements=requirements,
+    )
+    return (
+        yield from llm.chat_complete_stream(
+            base_url,
+            api_key,
+            model,
+            [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            _voice_params(params, register),
+            reasoning=reasoning,
+        )
     )
 
 

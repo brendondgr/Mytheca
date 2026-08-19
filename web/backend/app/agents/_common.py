@@ -220,6 +220,12 @@ class InlineReasoningSplitter:
         self._buf = ""
         self._in_think = False
 
+    #: Harmony control tokens are dropped from the answer channel as they stream. The
+    #: full :func:`strip_reasoning` pass cannot run incrementally — it keeps the text
+    #: after the LAST channel marker, and which marker is last is unknowable mid-stream —
+    #: but suppressing the tokens themselves stops raw control glyphs rendering as prose.
+    _HARMONY = _HARMONY_TOKEN_RE
+
     def push(self, delta: str) -> tuple[str, str]:
         """Consume one delta; return the ``(answer, reasoning)`` text it contributed."""
         if not delta:
@@ -231,10 +237,10 @@ class InlineReasoningSplitter:
             if self._in_think:
                 end = self._buf.lower().find(self._CLOSE)
                 if end == -1:
-                    keep = self._partial_tag_len(self._CLOSE)
-                    if keep < len(self._buf):
-                        reasoning.append(self._buf[: len(self._buf) - keep])
-                        self._buf = self._buf[len(self._buf) - keep :]
+                    safe = self._safe_len()
+                    if safe:
+                        reasoning.append(self._buf[:safe])
+                        self._buf = self._buf[safe:]
                     break
                 reasoning.append(self._buf[:end])
                 self._buf = self._buf[end + len(self._CLOSE) :]
@@ -242,27 +248,29 @@ class InlineReasoningSplitter:
                 continue
             start = self._buf.lower().find(self._OPEN)
             if start == -1:
-                keep = self._partial_tag_len(self._OPEN)
-                if keep < len(self._buf):
-                    answer.append(self._buf[: len(self._buf) - keep])
-                    self._buf = self._buf[len(self._buf) - keep :]
+                safe = self._safe_len()
+                if safe:
+                    answer.append(self._buf[:safe])
+                    self._buf = self._buf[safe:]
                 break
             answer.append(self._buf[:start])
             self._buf = self._buf[start + len(self._OPEN) :]
             self._in_think = True
-        return "".join(answer), "".join(reasoning)
+        return self._HARMONY.sub("", "".join(answer)), "".join(reasoning)
 
     def flush(self) -> tuple[str, str]:
         """Drain whatever is still held back once the stream has ended."""
         rest, self._buf = self._buf, ""
         if not rest:
             return "", ""
-        return ("", rest) if self._in_think else (rest, "")
+        return ("", rest) if self._in_think else (self._HARMONY.sub("", rest), "")
 
-    def _partial_tag_len(self, tag: str) -> int:
-        """How many trailing chars of the buffer could still become ``tag``."""
-        tail = self._buf[-(len(tag) - 1) :].lower() if len(tag) > 1 else ""
-        for i in range(len(tail), 0, -1):
-            if tag.startswith(tail[-i:]):
-                return i
-        return 0
+    def _safe_len(self) -> int:
+        """How much of the buffer cannot still turn out to be part of a tag.
+
+        An unterminated ``<`` is held back wholesale rather than matched against a
+        specific tag: it may be the start of ``<think>``, but equally of a harmony
+        control token, and either way it must not reach the reader as prose.
+        """
+        start = self._buf.rfind("<")
+        return len(self._buf) if start == -1 or ">" in self._buf[start:] else start

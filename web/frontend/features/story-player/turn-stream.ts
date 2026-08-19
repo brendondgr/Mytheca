@@ -105,15 +105,31 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
       // A character's private thinking — folded into the SAME beat as their speech, so it
       // reads as one message (thought muted, between name + dialogue). The thought is
       // emitted before the speaker's action/dialogue, so it opens the beat.
+      //
+      // It delta-streams like visible prose, and is usually the FIRST thing a turn can
+      // show, so chunks must accumulate rather than replace. Tracked by `thoughtId`
+      // because the beat's own `id` belongs to the dialogue that follows.
+      const open = prev.findIndex((m) => m.thoughtId === event.id);
+      if (open !== -1) {
+        const next = prev.slice();
+        next[open] = { ...next[open], thought: (next[open].thought ?? "") + event.data.text };
+        return next;
+      }
       const last = prev[prev.length - 1];
       if (isOpenCharBeat(last, event.data.characterId) && last.thought === undefined) {
         const next = prev.slice();
-        next[next.length - 1] = { ...last, thought: event.data.text };
+        next[next.length - 1] = { ...last, thought: event.data.text, thoughtId: event.id };
         return next;
       }
       return [
         ...prev,
-        { kind: "char", id: event.id, who: event.data.characterId, thought: event.data.text },
+        {
+          kind: "char",
+          id: event.id,
+          thoughtId: event.id,
+          who: event.data.characterId,
+          thought: event.data.text,
+        },
       ];
     }
 

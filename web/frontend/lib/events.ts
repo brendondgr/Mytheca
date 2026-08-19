@@ -68,7 +68,8 @@ export interface BranchChoicesEvent extends PlayEnvelope {
  */
 export interface InternalThoughtEvent extends PlayEnvelope {
   type: "internal_thought";
-  data: { characterId: string; text: string };
+  /** Delta-streamed like visible prose: accumulate by `id` until `done`. */
+  data: { characterId: string; text: string; done: boolean };
 }
 
 /**

@@ -55,6 +55,22 @@ Verified against the code on 2026-08-04.
 
 ## Known defects and rough edges
 
+- **Later speakers do not stream their prose.** The continuity guard inspects a complete
+  candidate line and can reject it, so a beat it will judge cannot also be shown as it
+  arrives — the line would have to un-write itself. The turn's first character beat and
+  puppet beats stream fully; speakers after them emit once, after the verdict. Every beat
+  still streams the model's reasoning channel, so none of them is silent. The fix is an
+  incremental guard (judge the line as it grows, cutting the stream on a contradiction),
+  which is a genuine design problem, not threading.
+- **Streamed prose can diverge from the persisted row on a harmony-format endpoint.**
+  `strip_reasoning` keeps the text after the *last* `<|channel|>` marker, which cannot be
+  known mid-stream. `InlineReasoningSplitter` handles the `<think>` form exactly and
+  suppresses harmony control *tokens* as they pass, but a harmony endpoint that emits a
+  leading `final`/`analysis` label, or several channel markers, could stream a fragment
+  that the finished text then drops. Not reachable on the endpoint in use (it reports
+  `reasoning_content` as its own field, so `content` is clean); it would surface on a
+  model that inlines harmony channels.
+
 - **Dead code on the turn path.** `director_agent.who_is_up` and `director_agent.rerank` are the superseded one-shot speaker picker, called only from `utils/tests/backend/agents/test_director_agent.py`. Their prompt keys (`director.who_is_up`, `director.rerank`) remain editable through Options → Prompts, where they silently do nothing. Decide: delete both, or hide the keys.
 - **Stale module docstrings elsewhere in the tree.** The three worst offenders were corrected on 2026-08-04 (`services/turn_engine.py` described a "P3 single speaker / `_pick_speaker`" design that no longer exists, `main.py` said the brain and event stream were "added in later phases", and `graph_writer.py` called the edge/consequence writer unused machinery). Other modules have not been swept — treat any "this phase…" docstring as suspect until verified.
 - **`TurnContext.subgraph` is fetched but unused.** The scenario subgraph is assembled every turn; its only consumer is a boolean `available` flag in the diagnostic trace. The graph reaches the model solely via `graph_reader.relationship_context()`. Either render the subgraph into the prompt or stop assembling it.

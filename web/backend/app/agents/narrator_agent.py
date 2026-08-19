@@ -9,6 +9,8 @@ simply skips the interstitial.
 
 from __future__ import annotations
 
+from collections.abc import Generator
+
 from sqlalchemy.orm import Session
 
 from app.agents import prompt_registry
@@ -26,6 +28,43 @@ NARRATOR_EFFORT = ReasoningEffort.LOW
 # branch. Resolved per-turn text rides on ``ctx.prompts``.
 _SYSTEM = prompt_registry.default(prompt_registry.NARRATOR_SYSTEM)
 _SYSTEM_LONG = prompt_registry.default(prompt_registry.NARRATOR_SYSTEM_LONG)
+
+
+def _build_prompt(
+    ctx: TurnContext,
+    turn_beats: list[dict],
+    *,
+    lead: str | None,
+    long: bool,
+) -> tuple[str, str]:
+    """Build the ``(system, user)`` pair for a narration beat.
+
+    Shared by the blocking and streaming paths so the two cannot drift on setting flavor,
+    tagged files, the direction cue, or which system prompt a long beat gets.
+    """
+    setting = ""
+    if ctx.setting is not None:
+        flavor = ctx.setting.atmosphere or ctx.setting.current_state or ctx.setting.desc or ""
+        setting = f"Setting: {ctx.setting.name}{(' — ' + flavor) if flavor else ''}.\n"
+    transcript = _recent(ctx, turn_beats)
+    # The player's @-tagged files, placed BEFORE the direction cue so the cue stays nearest
+    # the ask: the notes ground the prose's facts, the direction still decides its content.
+    # (Note the narrator deliberately does NOT take ``ctx.retrieved_lore`` — the gated and
+    # the explicit channels are controlled independently.)
+    tagged = f"{ctx.tagged_notes.strip()}\n" if ctx.tagged_notes else ""
+    lead_line = f"Direction to follow: {lead}\n" if lead else ""
+    ask = (
+        "Write the narrator's opening/progression passage now."
+        if long
+        else "Write the narrator's transition beat now."
+    )
+    user = f"{setting}{tagged}{lead_line}Recent beats:\n{transcript}\n\n{ask}"
+    system = (
+        ctx.prompts.get(prompt_registry.NARRATOR_SYSTEM_LONG, _SYSTEM_LONG)
+        if long
+        else ctx.prompts.get(prompt_registry.NARRATOR_SYSTEM, _SYSTEM)
+    )
+    return system, user
 
 
 def interstitial(
@@ -52,28 +91,7 @@ def interstitial(
     except APIError:
         return None
 
-    setting = ""
-    if ctx.setting is not None:
-        flavor = ctx.setting.atmosphere or ctx.setting.current_state or ctx.setting.desc or ""
-        setting = f"Setting: {ctx.setting.name}{(' — ' + flavor) if flavor else ''}.\n"
-    transcript = _recent(ctx, turn_beats)
-    # The player's @-tagged files, placed BEFORE the direction cue so the cue stays nearest
-    # the ask: the notes ground the prose's facts, the direction still decides its content.
-    # (Note the narrator deliberately does NOT take ``ctx.retrieved_lore`` — the gated and
-    # the explicit channels are controlled independently.)
-    tagged = f"{ctx.tagged_notes.strip()}\n" if ctx.tagged_notes else ""
-    lead_line = f"Direction to follow: {lead}\n" if lead else ""
-    ask = (
-        "Write the narrator's opening/progression passage now."
-        if long
-        else "Write the narrator's transition beat now."
-    )
-    user = f"{setting}{tagged}{lead_line}Recent beats:\n{transcript}\n\n{ask}"
-    system = (
-        ctx.prompts.get(prompt_registry.NARRATOR_SYSTEM_LONG, _SYSTEM_LONG)
-        if long
-        else ctx.prompts.get(prompt_registry.NARRATOR_SYSTEM, _SYSTEM)
-    )
+    system, user = _build_prompt(ctx, turn_beats, lead=lead, long=long)
 
     try:
         text = llm.chat_complete(
@@ -89,6 +107,44 @@ def interstitial(
         return None
     # `chat_complete` already sanitizes reasoning/channel leakage centrally (see
     # `_common.strip_reasoning`), so the freeform narration arrives clean.
+    text = text.strip()
+    return text or None
+
+
+def stream_interstitial(
+    db: Session,
+    ctx: TurnContext,
+    turn_beats: list[dict],
+    *,
+    lead: str | None = None,
+    long: bool = False,
+) -> Generator[llm.StreamDelta, None, str | None]:
+    """Stream a narration beat; return the finished text, or ``None`` to skip it.
+
+    The streaming sibling of :func:`interstitial`, building the identical prompt. It
+    matters most for a scene's FIRST message, which is narrator-led — leaving it blocking
+    would mean the very first thing a new player sees is still a blank wait.
+
+    Best-effort in the same way: an unconfigured or failing endpoint yields nothing and
+    returns ``None``, and the turn simply carries on without a narrator beat.
+    """
+    try:
+        base_url, api_key, model, params = resolve_llm(db)
+    except APIError:
+        return None
+    system, user = _build_prompt(ctx, turn_beats, lead=lead, long=long)
+    try:
+        text, _ = yield from llm.chat_complete_stream(
+            base_url,
+            api_key,
+            model,
+            [{"role": "system", "content": f"{system}\n\n{ctx.stable_prefix}".strip()},
+             {"role": "user", "content": user}],
+            gen_params(params),
+            reasoning=NARRATOR_EFFORT,
+        )
+    except APIError:
+        return None
     text = text.strip()
     return text or None
 
