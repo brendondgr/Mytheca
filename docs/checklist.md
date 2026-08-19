@@ -67,7 +67,7 @@ Verified against the code on 2026-08-04.
   worker concurrency, 0/3 failures with `--maxWorkers=4`. The tests are correct; the
   budget is too tight. Fix by raising the per-test timeout on those two, not by loosening
   the assertions.
-- **Ollama is not a detected engine.** `LOCAL_LLM_BASE_URL` defaults to `http://localhost:11434` — Ollama's port — but `services/llm_backend.py` detects only vLLM (`GET /version`) and llama.cpp (`GET /props`). An Ollama user silently gets no reasoning budget.
+- **Ollama is still not *detected*, though it is no longer uncapped.** `LOCAL_LLM_BASE_URL` defaults to `http://localhost:11434` — Ollama's port — and `services/llm_backend.py` probes only vLLM (`GET /version`), llama.cpp (`GET /props`), and relays that name an upstream in `GET /models`. Ollama matches none, so it reports as `unknown`; since 2026-08-19 an unknown endpoint receives **both** engine budget keys, so the thinking budget is at least attempted. Whether Ollama honours either key is unverified — a native probe (`GET /api/tags`) and its own budget key remain unbuilt.
 - **`web/shared/contracts/` is empty** while both layers hand-maintain their own copy of the event contract. Either populate it or drop the directory and document the manual mirror as the intended design.
 - **`sr-only` inside a clipping container is a repo-wide latent bug.** Tailwind's
   `sr-only` is `position: absolute`; with no positioned ancestor its containing block is

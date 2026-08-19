@@ -49,8 +49,22 @@ Phase 4 but are independent of one another and may be parallelised across agents
    returns `{"detail":"Not Found"}` for both `/v1/version` and `/props`, but `GET /v1/models`
    reports `owned_by: "relay:llama.cpp · local"` and `relay.upstream_model` per entry.
    **Assumption:** detection gains a third path that reads the upstream engine from the
-   models listing, and an unknown engine falls back to sending *both* budget keys (each is
-   ignored by an engine that does not know it) rather than sending none.
+   models listing, and an unknown engine falls back to sending *both* budget keys rather
+   than sending none. **Verified against the live relay:** it accepts both keys together
+   without error, and `thinking_budget_tokens` measurably shortens the reasoning on the
+   llama.cpp upstream (build `b9692`, `gemma-4-26B-it`). Single-sample smoke test only —
+   the real before/after belongs to Phase 10's experiment.
+
+1b. **Where does the reasoning actually come out?** **Not** inline in `content` as
+   `<think>…</think>`. The upstream returns a dedicated `message.reasoning_content` field
+   (and `delta.reasoning_content` when streaming), which the app currently never reads.
+   Two consequences, both folded into the phases below: the live reasoning channel needs
+   no tag parsing at all (Phase 5 gets simpler and more robust), and the existing
+   `"The model hit its token limit before replying"` / `"returned an empty response"`
+   errors in `llm.chat_complete_usage()` are the expected result whenever the budget is
+   spent entirely on reasoning — `content` is empty while `reasoning_content` is full.
+   `strip_reasoning()` stays for models that *do* inline their thinking; it is now the
+   fallback rather than the only path.
 
 2. **What happens to the continuity guard once a beat has already streamed?**
    `consistency.review()` currently inspects a whole candidate line and can regenerate it
@@ -137,14 +151,23 @@ that improves things without any UI work, so it ships first.
   semantics for free — the read window applies *between chunks* instead of to the whole
   response, so a long generation no longer trips a five-minute wall.
 
-#### Step 2.2 — Keep reasoning-scrub working on a stream
-- **Locations:** `web/backend/app/agents/_common.py` — a stateful counterpart to
-  `strip_reasoning()` that can classify a growing buffer as *inside a `<think>` block*,
-  *inside a harmony channel*, or *final answer*, and expose the reasoning text separately
-  rather than discarding it.
-- **Rationale:** `strip_reasoning()` operates on a finished string. Streaming needs the
-  same decisions made incrementally, and Phase 5 needs the reasoning text it currently
-  throws away.
+#### Step 2.2 — Separate the reasoning channel from the answer channel
+- **Locations:** `web/backend/app/services/llm.py` — the stream parser reads
+  `delta.reasoning_content` and `delta.content` as two independent channels and surfaces
+  both to the caller; `web/backend/app/agents/_common.py` — a stateful counterpart to
+  `strip_reasoning()` for endpoints that instead inline `<think>` blocks or harmony
+  channels in `content`, so a growing buffer can be classified without waiting for the end.
+- **Rationale:** gap 1b — the configured endpoint already separates the two, so the
+  primary path needs no tag parsing. The incremental scrubber is the fallback for models
+  that inline their thinking. Phase 5 consumes whichever channel produced the reasoning.
+
+#### Step 2.4 — Stop treating a reasoning-only completion as an error
+- **Locations:** `web/backend/app/services/llm.py` — when `content` is empty but
+  `reasoning_content` is not, the message should say the budget was spent on reasoning and
+  name the setting that fixes it, rather than the current generic empty/limit errors.
+- **Rationale:** this is a live failure mode today (gap 1b), and Phase 1's budget cap makes
+  it *more* likely to be hit on a tight budget, not less. The diagnosis must be accurate
+  when it happens.
 
 #### Step 2.3 — Fall back cleanly when the endpoint cannot stream
 - **Locations:** `web/backend/app/services/llm.py` — on a non-200 or a non-SSE content type,
@@ -224,10 +247,11 @@ that improves things without any UI work, so it ships first.
 
 #### Step 5.1 — Emit in-flight reasoning as its own trace step
 - **Locations:** `web/backend/app/services/turn_engine.py` (a `reasoning` trace step fed by
-  the classifier from Step 2.2), `web/backend/app/agents/character_turn_agent.py`.
-- **Rationale:** the model's deliberation is currently detected and deleted. Routing it to
-  the existing trace channel costs nothing on the wire when the setting is off and gives the
-  most literal possible answer to "what is it thinking right now".
+  the `reasoning_content` channel from Step 2.2), `web/backend/app/agents/character_turn_agent.py`.
+- **Rationale:** the model's deliberation is currently discarded unread. Routing it to the
+  existing trace channel costs nothing on the wire when the setting is off and gives the most
+  literal possible answer to "what is it thinking right now". Per gap 1b this is a clean
+  field on the wire, not a parse.
 
 #### Step 5.2 — Add the three-position visibility setting
 - **Locations:** `web/backend/app/schemas/settings.py`,

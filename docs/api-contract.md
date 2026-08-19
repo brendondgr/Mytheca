@@ -271,15 +271,19 @@ key is **write-only**: it is stored server-side and never returned in clear.
   `400 bad_request`.
 - `POST /options/llm/test` — `{ baseUrl?, apiKey?, model, params? }`. Proxies a
   tiny `POST {baseUrl}/chat/completions` → `{ ok, model, latencyMs, sample }`.
-- `GET /options/llm/backend` — read-only diagnostics for the auto-detected local
+- `GET /options/llm/backend` — read-only diagnostics for the auto-detected
   inference engine of the configured endpoint → `{ "backend": "vllm" | "llamacpp" |
-  "unknown", "budgets": { "low": 256, "medium": 512, "high": 1024, "very_high": 2048,
-  "max": 4096 } }` (budget keys are the effort enum values, not camelized). The
-  engine is probed (`GET /version` → vLLM, `GET /props` →
-  llama.cpp), cached, and refreshed by a background poller. `unknown` (OpenAI /
-  unreachable) means no thinking budget is sent. See **Reasoning budget** below.
-  Surfaced read-only in the Options **About** tab (`getLlmBackend` in `lib/api.ts`):
-  the detected engine plus the budget ladder, degrading to "unavailable" on error.
+  "relay" | "unknown", "budgets": { "low": 256, "medium": 512, "high": 1024,
+  "very_high": 2048, "max": 4096 }, "budgetKeys": [...], "budgetApplied": true }`
+  (budget keys are the effort enum values, not camelized). The engine is probed in
+  order — `GET /version` → vLLM, `GET /props` → llama.cpp, then the OpenAI
+  `GET /models` listing, whose entries name an upstream engine when the endpoint is a
+  **relay** (`owned_by: "relay:llama.cpp · local"`) — then cached and refreshed by a
+  background poller. `budgetKeys` names the request key(s) the thinking budget rides
+  under and `budgetApplied` says whether any is sent; a `relay`/`unknown` endpoint gets
+  **both** keys rather than none. See **Reasoning budget** below. Surfaced read-only in
+  the Options **About** tab (`getLlmBackend` in `lib/api.ts`): the detected engine, how
+  the budget is delivered, and the budget ladder, degrading to "unavailable" on error.
 - `GET /options/llm/context-window` — returns the effective context-window token count
   for the currently configured LLM endpoint →
   `{ "maxContextTokens": 32768, "source": "detected" | "configured" }`. `source` is
@@ -365,9 +369,11 @@ toggle for it.
   drafts + the storyline agent's converse/plan calls = **Medium** (`DEFAULT_AUTHORING_EFFORT`).
 - **Transport:** `services/llm.chat_complete(..., reasoning=)` detects the engine and
   adds the matching key — **vLLM** `thinking_token_budget`, **llama.cpp**
-  `thinking_budget_tokens`. An OpenAI / unknown endpoint gets no key (unchanged
-  behaviour). Requires reasoning enabled server-side (vLLM `--reasoning-parser`;
-  llama.cpp `--jinja --reasoning on` with no CLI `--reasoning-budget`).
+  `thinking_budget_tokens`. A **relay** or **unknown** endpoint gets **both** keys: an
+  engine ignores a body key it does not recognise, whereas sending none leaves a
+  reasoning model to think until it exhausts `max_tokens` or the generation timeout.
+  Requires reasoning enabled server-side (vLLM `--reasoning-parser`; llama.cpp
+  `--jinja --reasoning on` with no CLI `--reasoning-budget`).
 
 ## Authoring Shapes (storyline creation agent)
 

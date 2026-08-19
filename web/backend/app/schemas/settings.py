@@ -168,14 +168,22 @@ class LlmTestResponse(CamelModel):
 class LlmBackendResponse(CamelModel):
     """Read-only diagnostics for the detected inference engine + budget map.
 
-    ``backend`` is ``vllm`` / ``llamacpp`` / ``unknown`` (the last when the endpoint
-    is OpenAI or unreachable — no reasoning budget is sent then). ``budgets`` maps
-    each reasoning effort to its thinking-token budget. Backend-controlled: the
-    effort itself is fixed per operation and not user-editable.
+    ``backend`` is ``vllm`` / ``llamacpp`` / ``relay`` / ``unknown`` — ``relay`` being an
+    OpenAI-protocol front end that names its upstream engine in the models listing, and
+    ``unknown`` an endpoint that matched no probe. ``budgets`` maps each reasoning effort
+    to its thinking-token budget; ``budget_keys`` names the request key(s) that budget is
+    actually sent under, and ``budget_applied`` says whether any is sent at all.
+
+    The last two exist because their absence hid a real defect: an unrecognised endpoint
+    used to receive no budget, so every per-operation effort was silently discarded and
+    generations ran until they timed out. The operator can now see that it is capped.
+    Backend-controlled: the effort itself is fixed per operation and not user-editable.
     """
 
     backend: str
     budgets: dict[str, int]
+    budget_keys: list[str] = []
+    budget_applied: bool = True
 
 
 class LlmContextWindowResponse(CamelModel):

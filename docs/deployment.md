@@ -93,9 +93,10 @@ Copy `.env.example` → `.env` (gitignored). This table is the complete set read
 | --- | --- | --- |
 | `LLM_PROVIDER` | `openai` | `openai` or `local` |
 | `OPENAI_API_KEY` | `""` | OpenAI key when provider = openai |
-| `LOCAL_LLM_BASE_URL` | `http://localhost:11434` | Local OpenAI-compatible endpoint. **Note:** only vLLM (`GET /version`) and llama.cpp (`GET /props`) are auto-detected for the reasoning budget — Ollama, whose default port this is, is not a recognized engine |
+| `LOCAL_LLM_BASE_URL` | `http://localhost:11434` | Local OpenAI-compatible endpoint. vLLM (`GET /version`), llama.cpp (`GET /props`), and relays naming their upstream in `GET /models` are auto-detected; anything else is capped with both engine budget keys rather than left uncapped |
 | `LLM_BACKEND_POLL_SECONDS` | `30` | How often the engine probe re-runs |
 | `LLM_BACKEND_CACHE_TTL_SECONDS` | `60` | Engine-detection cache lifetime |
+| `LLM_GEN_TIMEOUT_SECONDS` | `300` | Read window for a generation call. On a streaming generation it bounds the gap *between* chunks, not the whole call |
 | `COMFYUI_BASE_URL` | `http://localhost:8199` | Local ComfyUI server; workflows in `utils/workflows/` |
 | `MEDIA_DIR` | `<repo>/media` | Where generated WebP output is written; served at `/media` |
 

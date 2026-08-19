@@ -96,6 +96,14 @@ class Settings(BaseSettings):
     llm_backend_poll_seconds: int = 30
     llm_backend_cache_ttl_seconds: int = 60
 
+    # Read window for a *generation* call (``services/llm.py``). Listing models and the
+    # connection test keep their own short timeout; this one has to outlast a slow local
+    # reasoning model. A correctly-capped model should never reach it — an endpoint that
+    # does is either uncapped (see ``llm_backend.apply_reasoning``) or genuinely stuck —
+    # but the operator needs the dial when it happens. Streaming generations reset the
+    # window on every chunk, so this bounds the gap *between* tokens, not the whole call.
+    llm_gen_timeout_seconds: int = 300
+
     # ComfyUI image generation — a local Comfy server (HTTP + WebSocket protocol).
     comfyui_base_url: str = "http://localhost:8199"
 

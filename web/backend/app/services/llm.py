@@ -17,6 +17,7 @@ import time
 
 import httpx
 
+from app.core.config import get_settings
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmModelsResponse, LlmParams, LlmTestResponse
@@ -27,7 +28,16 @@ logger = logging.getLogger("mytheca.llm")
 # local or reasoning models that think for many tokens) needs a far longer read
 # window before we declare the endpoint unreachable.
 _TIMEOUT = httpx.Timeout(20.0, connect=5.0)
-_GEN_TIMEOUT = httpx.Timeout(300.0, connect=5.0)
+
+
+def _gen_timeout() -> httpx.Timeout:
+    """The generation read window, from ``LLM_GEN_TIMEOUT_SECONDS`` (default 300 s).
+
+    Resolved per call rather than at import so an operator override takes effect without
+    a restart. On a streaming call the read window applies *between* chunks, so this
+    bounds the silence between tokens rather than the length of the whole generation.
+    """
+    return httpx.Timeout(float(get_settings().llm_gen_timeout_seconds), connect=5.0)
 
 
 def get_http_client() -> httpx.Client:
@@ -223,11 +233,11 @@ def chat_complete_usage(
     known_limit = _CONTEXT_LIMITS.get(limit_key)
     if known_limit:
         _fit_max_tokens(body, known_limit)
-    res = _send("POST", url, headers=_headers(api_key), json=body, timeout=_GEN_TIMEOUT)
+    res = _send("POST", url, headers=_headers(api_key), json=body, timeout=_gen_timeout())
     if not res.is_success:
         limit = _learn_context_limit(limit_key, res)
         if limit and _fit_max_tokens(body, limit):
-            res = _send("POST", url, headers=_headers(api_key), json=body, timeout=_GEN_TIMEOUT)
+            res = _send("POST", url, headers=_headers(api_key), json=body, timeout=_gen_timeout())
     _ensure_ok(res)
     try:
         payload = res.json()
