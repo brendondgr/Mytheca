@@ -1,8 +1,27 @@
 # Live Turn Visibility
 
-**Status:** planned — not started
+**Status:** complete — all ten phases shipped 2026-08-19
 **Created:** 2026-08-19
 **Owner:** brendondgr
+
+> ## What the measurement changed about this plan
+>
+> [EXP-2026-08-003](../research/experiments/EXP-2026-08-003-live-turn-visibility/) tested
+> the two interventions this plan is built around, and **refuted the framing of both**.
+>
+> * Capping the reasoning budget did **not** reduce completion tokens (592 ± 108 → 607 ± 25).
+>   It cut the *dispersion* four-fold, which is consistent with bounding a tail — but that is
+>   a reading, not a result, and the timeout tail was not measured.
+> * Streaming did **not** collapse time-to-first-prose. On this model the first *answer*
+>   token arrives at 10.59 s against an 11.82 s total — about 90 % of the way through.
+>
+> What streaming actually buys is the **reasoning channel at 0.55 s**, roughly 20× earlier
+> than the first word of prose, in the same call. So **Phase 5 — the live reasoning channel —
+> is the load-bearing change**, not Phases 2/4 as written below. Phases 2–4 remain necessary
+> (they are what makes Phase 5 possible at all), but they are plumbing, not the payoff.
+>
+> The plan text below is left as written, because a plan that is quietly edited to match its
+> results stops being evidence of anything. The corrections live here and in RESULTS.md.
 
 ## 1. Introduction
 

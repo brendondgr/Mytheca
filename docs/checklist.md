@@ -55,6 +55,15 @@ Verified against the code on 2026-08-04.
 
 ## Known defects and rough edges
 
+- **The default Reasoning-visibility setting leaves the longest wait empty.**
+  EXP-2026-08-003 measured the model spending ~17 s of a ~20 s generation on
+  `reasoning_content` before writing its first word of prose. The live reasoning channel
+  covers that window, but it only streams at `full`; the default `summary` shows nothing
+  until the answer starts. The status-strip phases (which fire within ~1 s) are all a
+  default-configured player gets. Either the default should move to `full`, or the
+  character's `internal_thought` should be generated as its own earlier call — both are
+  product decisions, not oversights, and neither is made yet.
+
 - **Later speakers do not stream their prose.** The continuity guard inspects a complete
   candidate line and can reject it, so a beat it will judge cannot also be shown as it
   arrives — the line would have to un-write itself. The turn's first character beat and

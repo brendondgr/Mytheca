@@ -81,7 +81,7 @@ mytheca/
 │   │   ├── frontend/       # EMPTY (__init__.py only) — frontend tests are co-located
 │   │   └── tools/          # Research-record tooling tests (validator, scaffolder, capture)
 │   ├── scripts/            # check_contrast.py (WCAG-AA token gate)
-│   │   └── research/       # new_experiment · validate_research · gen_index · record · run_scene
+│   │   └── research/       # new_experiment · validate_research · gen_index · record · run_scene · run_moment · run_live_turn_visibility
 │   └── workflows/          # ZiT-Workflow.json — the ComfyUI workflow loaded by services/comfyui.py
 ├── .claude/                # Claude Code — skill pointers + launch.json + worktrees/
 ├── .agents/                # OpenAI Codex — skill pointers
