@@ -10,6 +10,8 @@ import type {
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
   NARRATOR_REASONING,
+  NO_DIRECTION,
+  applyDirection,
   applyActivity,
   applyReasoning,
   applyCharacterActivity,
@@ -929,5 +931,58 @@ describe("applyReasoning", () => {
     expect(
       applyReasoning(before, { type: "trace", n: 1, step: "x", title: "y", detail: "", data: {} } as TurnStreamFrame),
     ).toBe(before);
+  });
+});
+
+
+describe("applyDirection", () => {
+  const trace = (step: string, data: Record<string, unknown>): TurnStreamFrame =>
+    ({ type: "trace", n: 1, step, title: "", detail: "", data }) as TurnStreamFrame;
+
+  it("seeds the checklist from the declared requirements", () => {
+    const d = applyDirection(NO_DIRECTION, trace("direction", {
+      source: "message",
+      requirements: [{ text: "Beth confronts Mei" }, { text: "Mei admits the letter" }],
+    }));
+    expect(d.items.map((i) => i.text)).toEqual(["Beth confronts Mei", "Mei admits the letter"]);
+    expect(d.items.every((i) => !i.delivered)).toBe(true);
+  });
+
+  it("ticks an item off when the engine reports it delivered", () => {
+    let d = applyDirection(NO_DIRECTION, trace("direction", {
+      requirements: [{ text: "A" }, { text: "B" }],
+    }));
+    d = applyDirection(d, trace("direction", {
+      delivered: ["A"],
+      characterId: "beth",
+      outstanding: ["B"],
+    }));
+    expect(d.items).toEqual([
+      { text: "A", delivered: true, by: "beth" },
+      { text: "B", delivered: false },
+    ]);
+  });
+
+  it("keeps a delivered requirement it never saw declared", () => {
+    // The engine rebinds requirements when a character leaves mid-turn; progress the
+    // client cannot match must not be silently dropped.
+    const d = applyDirection(NO_DIRECTION, trace("direction", {
+      delivered: ["Rebound outcome"],
+      characterId: null,
+    }));
+    expect(d.items).toEqual([{ text: "Rebound outcome", delivered: true, by: null }]);
+  });
+
+  it("records what the scene's beat budget could not fit", () => {
+    let d = applyDirection(NO_DIRECTION, trace("direction", { requirements: [{ text: "A" }] }));
+    d = applyDirection(d, trace("plan", { end: true, undelivered: ["A"] }));
+    expect(d.undelivered).toEqual(["A"]);
+  });
+
+  it("returns the same reference when nothing changes", () => {
+    const start = { items: [{ text: "A", delivered: true }], undelivered: [] };
+    expect(applyDirection(start, trace("direction", { delivered: ["A"] }))).toBe(start);
+    expect(applyDirection(start, trace("lore", {}))).toBe(start);
+    expect(applyDirection(start, ev("narration", "n1", { text: "x", done: true }))).toBe(start);
   });
 });

@@ -27,7 +27,9 @@ import {
   type StatChip,
 } from "./scene-data";
 import {
+  NO_DIRECTION,
   applyActivity,
+  applyDirection,
   applyReasoning,
   applyCharacterActivity,
   applyTurnStatus,
@@ -48,6 +50,7 @@ import {
   type PresenceMap,
   rehydrateFromHistory,
   sessionIdOf,
+  type DirectionProgress,
   type TraceTurn,
 } from "./turn-stream";
 
@@ -141,6 +144,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // Live, per-character model deliberation (Reasoning visibility = "full"). Ephemeral:
   // never persisted, cleared as each beat finishes, and empty on resume.
   const [reasoningByChar, setReasoningByChar] = useState<Record<string, string>>({});
+  // What the player asked the scene to do this turn, and how much has landed.
+  const [direction, setDirection] = useState<DirectionProgress>(NO_DIRECTION);
   // Live "scene pulse" activity feed: newest entries first, capped at 12. Live-only by
   // design — not seeded from history. Both the Director rail (Phase 6) and the cast rail
   // read from this feed. Resets to [] automatically on new scene load (initial state).
@@ -326,6 +331,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setActivity((a) => applyActivity(a, frame));
     setActivityByChar((m) => applyCharacterActivity(m, frame));
     setTurnStatus((s) => applyTurnStatus(s, frame));
+    setDirection((d) => applyDirection(d, frame));
 
     if (frame.type === "reasoning") {
       setReasoningByChar((m) => applyReasoning(m, frame));
@@ -547,6 +553,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     streamError,
     traceTurns,
     reasoningByChar,
+    direction,
     sessionId,
     send,
     choose,

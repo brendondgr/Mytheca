@@ -16,15 +16,19 @@ export function Eyebrow({
   tracking = "0.16em",
   color = "var(--mute2)",
   className,
+  id,
 }: {
   children: React.ReactNode;
   size?: number | string;
   tracking?: string;
   color?: string;
   className?: string;
+  /** Set when a section uses this eyebrow as its `aria-labelledby` target. */
+  id?: string;
 }) {
   return (
     <span
+      id={id}
       className={cn("font-mono uppercase", className)}
       style={{ fontSize: size, letterSpacing: tracking, color }}
     >

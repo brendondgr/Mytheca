@@ -276,6 +276,7 @@ export function StoryPlayerView({
             stats={scene.stats}
             activity={scene.activity}
             charById={byId}
+            direction={scene.direction}
           />
         )}
 

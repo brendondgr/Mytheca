@@ -212,6 +212,78 @@ export function applyReasoning(
   return { ...prev, [key]: (prev[key] ?? "") + frame.text };
 }
 
+// ---- Scene direction progress ----
+
+/** One outcome the turn owes the player, and whether it has landed yet. */
+export interface DirectionItem {
+  text: string;
+  delivered: boolean;
+  /** Who carried it, once delivered (`null` → the narrator). */
+  by?: string | null;
+}
+
+/** What the player asked the scene to do this turn, and how far it has got. */
+export interface DirectionProgress {
+  items: DirectionItem[];
+  /** Requirements the scene's beat budget could not fit — reported at the end. */
+  undelivered: string[];
+}
+
+export const NO_DIRECTION: DirectionProgress = { items: [], undelivered: [] };
+
+/**
+ * Fold the `direction` and `plan` trace steps into a live checklist.
+ *
+ * The engine already broke the player's direction into requirements and already tracked
+ * which had landed — but only reported the *result*, at the end, in the Inspector. Folding
+ * the per-delivery steps turns that into progress the player can watch: the clearest
+ * signal in the app that a long turn is actually going somewhere.
+ *
+ * Returns the SAME reference when nothing changes (this sees every frame).
+ */
+export function applyDirection(
+  prev: DirectionProgress,
+  frame: TurnStreamFrame,
+): DirectionProgress {
+  if (frame.type !== "trace") return prev;
+
+  if (frame.step === "direction") {
+    // The opening step lists everything owed; later steps tick items off.
+    const declared = frame.data.requirements as { text?: string }[] | string[] | undefined;
+    if (Array.isArray(declared) && declared.length && !("delivered" in frame.data)) {
+      const items = declared
+        .map((r) => (typeof r === "string" ? r : (r.text ?? "")))
+        .filter(Boolean)
+        .map((text) => ({ text, delivered: false }));
+      return items.length ? { items, undelivered: [] } : prev;
+    }
+    const delivered = frame.data.delivered as string[] | undefined;
+    if (!Array.isArray(delivered) || !delivered.length) return prev;
+    const by = (frame.data.characterId as string | null | undefined) ?? null;
+    const done = new Set(delivered);
+    let changed = false;
+    const items = prev.items.map((item) => {
+      if (item.delivered || !done.has(item.text)) return item;
+      changed = true;
+      return { ...item, delivered: true, by };
+    });
+    // A requirement the engine rebound (or that the client never saw declared) still
+    // counts as progress — append it rather than dropping it on the floor.
+    const known = new Set(prev.items.map((i) => i.text));
+    const extra = delivered.filter((t) => !known.has(t)).map((text) => ({ text, delivered: true, by }));
+    if (!changed && !extra.length) return prev;
+    return { ...prev, items: [...items, ...extra] };
+  }
+
+  if (frame.step === "plan" && Array.isArray(frame.data.undelivered)) {
+    const undelivered = (frame.data.undelivered as string[]).filter(Boolean);
+    if (!undelivered.length && !prev.undelivered.length) return prev;
+    return { ...prev, undelivered };
+  }
+
+  return prev;
+}
+
 /** Map key for the narrator's own reasoning (it has no character id). */
 export const NARRATOR_REASONING = "__narrator__";
 

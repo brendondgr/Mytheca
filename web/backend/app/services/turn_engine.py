@@ -588,7 +588,7 @@ def run_turn(
             lead=_direction_lead(direction, owed, base=outcome), long=True,
         )
         if narrated_open:
-            direction.satisfy(owed)
+            yield from _delivered(tracer, ctx, direction, owed)
     elif scene_opening and not intent.directed_actors and not intent.addressed and intent.scope != "all":
         yield from tracer.emit(
             "plan",
@@ -601,7 +601,7 @@ def run_turn(
             lead=_direction_lead(direction, owed, base="Open the scene."), long=True,
         )
         if narrated_open:
-            direction.satisfy(owed)
+            yield from _delivered(tracer, ctx, direction, owed)
 
     # Puppet beats first: each directed character performs the player's direction in its
     # OWN voice (not a reply to the player's words). The POV character is excluded — the
@@ -626,7 +626,7 @@ def run_turn(
         # A puppeted character performs the direction, so their own requirements ride on the
         # very beat the player asked for rather than waiting for a later one.
         owed = direction.for_actor(speaker.id)
-        direction.satisfy(owed)
+        yield from _delivered(tracer, ctx, direction, owed, by=speaker.id)
         yield from _generate_speaker(
             db, ctx, speaker, emitter, turn_beats, consequences,
             show_reasoning=show_reasoning, guard_conn=guard_conn, directive=intent.directive, relationship_note=note,
@@ -695,8 +695,8 @@ def run_turn(
             scheduled = direction_agent.schedule(outstanding, remaining)
             if scheduled is None:
                 break
-            direction.satisfy(scheduled.requirements)
             owed = scheduled.requirements
+            yield from _delivered(tracer, ctx, direction, owed, by=scheduled.actor_id)
             forced_actor = ctx.cast_by_id(scheduled.actor_id) if scheduled.actor_id else None
             if forced_actor is None:
                 yield from tracer.emit(
@@ -759,7 +759,7 @@ def run_turn(
             # One narrator-owned requirement per narrated beat, so a multi-part direction
             # paces out across the turn instead of arriving as a single summary paragraph.
             owed = direction.for_actor(None)[:1]
-            direction.satisfy(owed)
+            yield from _delivered(tracer, ctx, direction, owed)
             yield from _narrator_interstitial(
                 db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
                 lead=_direction_lead(direction, owed) or None,
@@ -825,7 +825,7 @@ def run_turn(
         # One of this actor's own requirements rides on the beat the planner chose for them
         # (the rest, if any, wait for a later beat or the forced schedule above).
         owed = direction.for_actor(actor.id)[:1]
-        direction.satisfy(owed)
+        yield from _delivered(tracer, ctx, direction, owed, by=actor.id)
         yield from _generate_speaker(
             db, ctx, actor, emitter, turn_beats, consequences,
             show_reasoning=show_reasoning, guard_conn=guard_conn, relationship_note=note,
@@ -1012,6 +1012,32 @@ def _narrator_interstitial(
     yield from live.close()
     turn_beats.append({"role": "narrator", "text": live.text, "characterId": None})
     return True
+
+
+def _delivered(
+    tracer: _Tracer, ctx: TurnContext, direction: SceneDirection, owed: list[DirectionRequirement],
+    *, by: str | None = None,
+) -> Iterator[TurnTraceFrame]:
+    """Mark requirements delivered AND say so on the wire.
+
+    The engine already tracked what the turn still owed the player; it just never
+    reported the ticking-off, so a direction's progress was invisible until the turn
+    ended. ``by`` is the character who carried them (``None`` → the narrator).
+    """
+    if not owed:
+        return
+    direction.satisfy(owed)
+    who = _name_of(ctx, by) or "The narrator"
+    yield from tracer.emit(
+        "direction",
+        f"{who} delivered {len(owed)} part(s) of your direction",
+        detail="; ".join(r.text for r in owed),
+        data={
+            "delivered": [r.text for r in owed],
+            "characterId": by,
+            "outstanding": [r.text for r in direction.outstanding()],
+        },
+    )
 
 
 def _name_of(ctx: TurnContext, character_id: str | None) -> str | None:
