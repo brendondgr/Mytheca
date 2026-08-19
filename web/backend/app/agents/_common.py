@@ -191,3 +191,78 @@ def extract_json(raw: str) -> dict:
     if not isinstance(data, dict):
         raise APIError(502, "upstream_error", "The model did not return a JSON object.")
     return data
+
+
+class InlineReasoningSplitter:
+    """Split a *streaming* ``content`` channel into reasoning text and answer text.
+
+    The fallback for endpoints that inline their chain-of-thought in ``content`` as
+    ``<think>…</think>``. The endpoint Mytheca is normally pointed at does not do this —
+    it returns a separate ``reasoning_content`` field, which needs no parsing at all —
+    but a model that inlines its thinking would otherwise stream that thinking straight
+    into the story as if it were prose.
+
+    :func:`strip_reasoning` cannot be reused here because it operates on a finished
+    string: it takes the text after the *last* channel marker, which is unknowable while
+    the text is still arriving. This class makes the same split incrementally, at the
+    cost of only handling the ``<think>`` form (the harmony-channel form is still scrubbed
+    in one pass at the end, where the last marker IS known).
+
+    Feed it deltas with :meth:`push`; each call returns ``(answer, reasoning)`` for *that*
+    delta. A tag split across two deltas is held back until it resolves, so a partial
+    ``"<thi"`` is never emitted as prose.
+    """
+
+    _OPEN = "<think>"
+    _CLOSE = "</think>"
+
+    def __init__(self) -> None:
+        self._buf = ""
+        self._in_think = False
+
+    def push(self, delta: str) -> tuple[str, str]:
+        """Consume one delta; return the ``(answer, reasoning)`` text it contributed."""
+        if not delta:
+            return "", ""
+        self._buf += delta
+        answer: list[str] = []
+        reasoning: list[str] = []
+        while self._buf:
+            if self._in_think:
+                end = self._buf.lower().find(self._CLOSE)
+                if end == -1:
+                    keep = self._partial_tag_len(self._CLOSE)
+                    if keep < len(self._buf):
+                        reasoning.append(self._buf[: len(self._buf) - keep])
+                        self._buf = self._buf[len(self._buf) - keep :]
+                    break
+                reasoning.append(self._buf[:end])
+                self._buf = self._buf[end + len(self._CLOSE) :]
+                self._in_think = False
+                continue
+            start = self._buf.lower().find(self._OPEN)
+            if start == -1:
+                keep = self._partial_tag_len(self._OPEN)
+                if keep < len(self._buf):
+                    answer.append(self._buf[: len(self._buf) - keep])
+                    self._buf = self._buf[len(self._buf) - keep :]
+                break
+            answer.append(self._buf[:start])
+            self._buf = self._buf[start + len(self._OPEN) :]
+            self._in_think = True
+        return "".join(answer), "".join(reasoning)
+
+    def flush(self) -> tuple[str, str]:
+        """Drain whatever is still held back once the stream has ended."""
+        rest, self._buf = self._buf, ""
+        if not rest:
+            return "", ""
+        return ("", rest) if self._in_think else (rest, "")
+
+    def _partial_tag_len(self, tag: str) -> int:
+        """How many trailing chars of the buffer could still become ``tag``."""
+        tail = self._buf[-(len(tag) - 1) :].lower() if len(tag) > 1 else ""
+        for i in range(len(tail), 0, -1):
+            if tag.startswith(tail[-i:]):
+                return i
+        return 0
