@@ -28,6 +28,7 @@ import {
 } from "./scene-data";
 import {
   applyActivity,
+  applyReasoning,
   applyCharacterActivity,
   applyTurnStatus,
   type ActivityEntry,
@@ -137,6 +138,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // Ordered per-turn diagnostic trace (the Inspector panel). Populated only from the
   // opt-in `trace` frames the backend interleaves when we request them.
   const [traceTurns, setTraceTurns] = useState<TraceTurn[]>([]);
+  // Live, per-character model deliberation (Reasoning visibility = "full"). Ephemeral:
+  // never persisted, cleared as each beat finishes, and empty on resume.
+  const [reasoningByChar, setReasoningByChar] = useState<Record<string, string>>({});
   // Live "scene pulse" activity feed: newest entries first, capped at 12. Live-only by
   // design — not seeded from history. Both the Director rail (Phase 6) and the cast rail
   // read from this feed. Resets to [] automatically on new scene load (initial state).
@@ -322,6 +326,11 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setActivity((a) => applyActivity(a, frame));
     setActivityByChar((m) => applyCharacterActivity(m, frame));
     setTurnStatus((s) => applyTurnStatus(s, frame));
+
+    if (frame.type === "reasoning") {
+      setReasoningByChar((m) => applyReasoning(m, frame));
+      return;
+    }
 
     if (frame.type === "trace") {
       // The engine's `context` step carries the exact input-token count for the turn's
@@ -537,6 +546,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     sending,
     streamError,
     traceTurns,
+    reasoningByChar,
     sessionId,
     send,
     choose,

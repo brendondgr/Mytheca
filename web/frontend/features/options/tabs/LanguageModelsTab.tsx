@@ -4,7 +4,12 @@ import { useState } from "react";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { TextField } from "@/components/ui/TextField";
 import { Button } from "@/components/ui/Button";
-import { fetchLlmModels, testLlmConnection, type LlmParams } from "@/lib/api";
+import {
+  fetchLlmModels,
+  testLlmConnection,
+  type LlmParams,
+  type ReasoningVisibility,
+} from "@/lib/api";
 import type { OptionsState } from "@/features/options/useOptionsSettings";
 
 const PARAM_FIELDS: { key: keyof LlmParams; label: string; step: number; min: number; max: number }[] = [
@@ -13,6 +18,21 @@ const PARAM_FIELDS: { key: keyof LlmParams; label: string; step: number; min: nu
   { key: "topP", label: "Top P", step: 0.05, min: 0, max: 1 },
   { key: "frequencyPenalty", label: "Frequency penalty", step: 0.1, min: -2, max: 2 },
   { key: "presencePenalty", label: "Presence penalty", step: 0.1, min: -2, max: 2 },
+];
+
+/** The Reasoning-visibility choices, in increasing order of what they reveal. */
+const REASONING_CHOICES: { value: ReasoningVisibility; label: string; hint: string }[] = [
+  { value: "hidden", label: "Hidden", hint: "No thinking shown at all." },
+  {
+    value: "summary",
+    label: "Character's thought",
+    hint: "The muted in-voice line above what they say. This is the default.",
+  },
+  {
+    value: "full",
+    label: "Full reasoning",
+    hint: "Also streams the model's raw deliberation live, under a collapsed “working…” line. It often states what a character is about to say before they say it.",
+  },
 ];
 
 const DEFAULT_PARAMS: LlmParams = {
@@ -39,6 +59,9 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
   const [params, setParams] = useState<LlmParams>(llm?.params ?? DEFAULT_PARAMS);
   const [authoringConcurrency, setAuthoringConcurrency] = useState(llm?.authoringConcurrency ?? 3);
   const [maxContextTokens, setMaxContextTokens] = useState(llm?.maxContextTokens ?? 16384);
+  const [reasoningVisibility, setReasoningVisibility] = useState<ReasoningVisibility>(
+    llm?.reasoningVisibility ?? "summary",
+  );
 
   const [models, setModels] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
@@ -101,6 +124,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
         params,
         authoringConcurrency,
         maxContextTokens,
+        reasoningVisibility,
         ...(apiKey ? { apiKey } : {}),
       });
       setApiKey("");
@@ -238,6 +262,36 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
           <p className="mt-[4px] font-body text-[12.5px] text-ink-soft">
             Max context is the fallback used when the engine does not report a context
             window — set it to match your model&apos;s actual context length.
+          </p>
+        </fieldset>
+
+        <fieldset className="rounded-[4px] border border-cardbd p-[14px]">
+          <legend className="px-[6px] font-mono text-[9px] tracking-[0.14em] text-gold uppercase">
+            Reasoning visibility
+          </legend>
+          <div className="grid gap-[8px]">
+            {REASONING_CHOICES.map((choice) => (
+              <label key={choice.value} className="flex items-start gap-[9px]">
+                <input
+                  type="radio"
+                  name="reasoning-visibility"
+                  value={choice.value}
+                  checked={reasoningVisibility === choice.value}
+                  onChange={() => setReasoningVisibility(choice.value)}
+                  className="mt-[4px] flex-none accent-[var(--color-accent)]"
+                />
+                <span className="min-w-0">
+                  <span className="font-body text-[14px] text-ink">{choice.label}</span>
+                  <span className="block font-body text-[12.5px] text-ink-soft">
+                    {choice.hint}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="mt-[8px] font-body text-[12.5px] text-ink-soft">
+            How much of a turn&apos;s thinking you see while it is being written. Raw
+            reasoning is never written to the scene record — it is live only.
           </p>
         </fieldset>
 

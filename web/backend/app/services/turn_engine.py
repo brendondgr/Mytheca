@@ -51,7 +51,7 @@ from app.core.config import get_settings
 from app.core.errors import APIError
 from app.core.ids import new_id
 from app.events.envelope import StoryEvent
-from app.events.stream import TurnTraceFrame, build_event, chunk_text
+from app.events.stream import TurnReasoningFrame, TurnTraceFrame, build_event, chunk_text
 from app.memory import buffer
 from app.models import Scenario
 from app.schemas.base import EventType, Visibility
@@ -66,6 +66,7 @@ from app.services import (
     presence,
     reflection,
     relationships,
+    settings_store,
     stats,
     turn_writer,
     validator,
@@ -485,6 +486,10 @@ def run_turn(
     # generation would have failed first). Also used by the puppet beats below.
     guard_conn = _resolve_conn(db) if len(ctx.cast) > 1 else None
 
+    # Whether the model's raw deliberation streams to the player this turn. Resolved once
+    # (a settings read per beat would be wasteful) and threaded down to every generation.
+    show_reasoning = settings_store.get_llm(db).reasoning_visibility == "full"
+
     # Interpret the player's line: narrating, addressing someone, or DIRECTING a character
     # to act/speak (puppet)? This is what fixes attribution (Reactive Turn Director D1) —
     # a puppeted character performs the direction in its own voice; the addressed character
@@ -571,7 +576,7 @@ def run_turn(
         )
         owed = direction.for_actor(None)[:open_limit]
         narrated_open = yield from _narrator_interstitial(
-            db, ctx, turn_beats, emitter,
+            db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
             lead=_direction_lead(direction, owed, base=outcome), long=True,
         )
         if narrated_open:
@@ -584,7 +589,7 @@ def run_turn(
         )
         owed = direction.for_actor(None)[:open_limit]
         narrated_open = yield from _narrator_interstitial(
-            db, ctx, turn_beats, emitter,
+            db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
             lead=_direction_lead(direction, owed, base="Open the scene."), long=True,
         )
         if narrated_open:
@@ -616,7 +621,7 @@ def run_turn(
         direction.satisfy(owed)
         yield from _generate_speaker(
             db, ctx, speaker, emitter, turn_beats, consequences,
-            guard_conn=guard_conn, directive=intent.directive, relationship_note=note,
+            show_reasoning=show_reasoning, guard_conn=guard_conn, directive=intent.directive, relationship_note=note,
             direction=direction, requirements=owed, tracer=tracer,
         )
 
@@ -688,7 +693,7 @@ def run_turn(
                     data={"requirements": [r.text for r in owed]},
                 )
                 yield from _narrator_interstitial(
-                    db, ctx, turn_beats, emitter,
+                    db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
                     lead=_direction_lead(direction, owed),
                     # Several requirements bundled into one closing beat need a paragraph,
                     # not a two-sentence transition, to actually land them all.
@@ -706,7 +711,7 @@ def run_turn(
                 )
                 yield from _generate_speaker(
                     db, ctx, forced_actor, emitter, turn_beats, consequences,
-                    guard_conn=guard_conn, relationship_note=note,
+                    show_reasoning=show_reasoning, guard_conn=guard_conn, relationship_note=note,
                     direction=direction, requirements=owed, tracer=tracer,
                 )
                 acted.append(forced_actor.id)
@@ -743,7 +748,7 @@ def run_turn(
             owed = direction.for_actor(None)[:1]
             direction.satisfy(owed)
             yield from _narrator_interstitial(
-                db, ctx, turn_beats, emitter,
+                db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
                 lead=_direction_lead(direction, owed) or None,
             )
             beats += 1
@@ -798,7 +803,7 @@ def run_turn(
         direction.satisfy(owed)
         yield from _generate_speaker(
             db, ctx, actor, emitter, turn_beats, consequences,
-            guard_conn=guard_conn, relationship_note=note,
+            show_reasoning=show_reasoning, guard_conn=guard_conn, relationship_note=note,
             register=decision.register, stakes=decision.stakes,
             direction=direction, requirements=owed, tracer=tracer,
         )
@@ -952,9 +957,10 @@ def _narrator_interstitial(
     turn_beats: list[dict],
     emitter: _Emitter,
     *,
+    show_reasoning: bool = False,
     lead: str | None = None,
     long: bool = False,
-) -> Generator[StoryEvent, None, bool]:
+) -> Generator[StoryEvent | TurnReasoningFrame, None, bool]:
     """Emit an optional narrator beat; skip silently on failure. Returns whether a beat
     was actually emitted (so the caller can tell a real opening from a no-op).
 
@@ -969,6 +975,8 @@ def _narrator_interstitial(
     try:
         while True:
             delta = next(stream)
+            if delta.reasoning and show_reasoning:
+                yield TurnReasoningFrame(text=delta.reasoning)
             if delta.answer:
                 yield from live.delta(delta.answer)
     except StopIteration as stop:
@@ -1081,7 +1089,8 @@ def _stream_emission(
     owed: list[str],
     tracer: _Tracer,
     live: bool,
-) -> Generator[StoryEvent | TurnTraceFrame, None, tuple[str, int | None, int]]:
+    show_reasoning: bool = False,
+) -> Generator[StoryEvent | TurnTraceFrame | TurnReasoningFrame, None, tuple[str, int | None, int]]:
     """Drive one character generation as a stream; return ``(raw, prompt_tokens, impact)``.
 
     When ``live``, each segment is emitted, appended to ``turn_beats`` and traced the
@@ -1106,6 +1115,10 @@ def _stream_emission(
     try:
         while True:
             delta = next(stream)
+            if delta.reasoning and show_reasoning:
+                # Ephemeral: the model's scratchpad, streamed live and never persisted.
+                # Kept out of the story record deliberately — it is machinery, not prose.
+                yield TurnReasoningFrame(character_id=speaker.id, text=delta.reasoning)
             if not live or not delta.answer:
                 # Still feed the parser so the raw emission and segment list are the same
                 # on both paths — only the emitting is conditional.
@@ -1120,6 +1133,8 @@ def _stream_emission(
     except StopIteration as stop:
         raw, prompt_tokens = stop.value
 
+    if show_reasoning:
+        yield TurnReasoningFrame(character_id=speaker.id, done=True)
     if live:
         for seg in acc.finish():
             impact += yield from _emit_segment_delta(
@@ -1228,6 +1243,7 @@ def _generate_speaker(
     turn_beats: list[dict],
     consequences: list[Consequence],
     *,
+    show_reasoning: bool = False,
     guard_conn: LlmConn | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
@@ -1271,7 +1287,7 @@ def _generate_speaker(
         db, ctx, speaker, emitter, turn_beats, consequences,
         roster=roster, directive=directive, relationship_note=relationship_note,
         register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
-        tracer=tr, live=not guarded,
+        tracer=tr, live=not guarded, show_reasoning=show_reasoning,
     )
     segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
 

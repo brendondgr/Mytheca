@@ -983,6 +983,18 @@ character id the line was spoken as (`null` for the default guide/narrator line)
 frame; pre-flight failures (unknown scenario, empty text, bad session) are a normal error
 envelope before the 200 opens.
 
+**Live reasoning (opt-in, ephemeral).** When Options › Language models › *Reasoning
+visibility* is set to `full`, the turn interleaves
+`{ "type": "reasoning", "characterId", "text", "done" }` frames carrying the model's
+`reasoning_content` channel as it is produced — the deliberation behind the beat, visible
+while the player waits. It is **not** a story event and **not** persisted: no `seq`, no
+`events` row, no `turn_traces` row, absent from resume and export. `done` marks the end of
+one speaker's reasoning; a `characterId` of `null` is the narrator's. The default
+(`summary`) keeps these frames off the wire entirely, because raw deliberation routinely
+states what a character is about to say before they say it. `hidden` additionally
+suppresses the muted thought line client-side. Clients ignore unknown frame types, so a
+client that does not implement this is unaffected.
+
 **Diagnostic trace (opt-in).** Set `"trace": true` in the request body to interleave
 `{ "type": "trace", "n", "step", "title", "detail", "data" }` frames that narrate, **in
 order**, what the turn loop did and why — the story player's **Inspector** panel renders

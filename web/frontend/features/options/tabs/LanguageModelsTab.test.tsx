@@ -19,6 +19,7 @@ function makeOpts(overrides: Partial<OptionsState["settings"]> = {}): OptionsSta
         apiKeyHint: null,
         authoringConcurrency: 3,
         maxContextTokens: 16384,
+        reasoningVisibility: "summary" as const,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
       comfy: {
@@ -57,7 +58,8 @@ describe("LanguageModelsTab", () => {
         model: "llama-3.1-8b",
       }),
     );
-    expect(await screen.findByText(/saved/i)).toBeInTheDocument();
+    // Match the status region exactly — /saved/i alone also hits body copy on the page.
+    expect(await screen.findByText("Saved.")).toBeInTheDocument();
   });
 
   it("hydrates and saves the authoring concurrency", async () => {
@@ -86,6 +88,7 @@ describe("LanguageModelsTab", () => {
         apiKeyHint: "…AB12",
         authoringConcurrency: 3,
         maxContextTokens: 16384,
+        reasoningVisibility: "summary" as const,
       },
     });
     render(<LanguageModelsTab opts={opts} />);
@@ -123,6 +126,7 @@ describe("LanguageModelsTab", () => {
         apiKeyHint: null,
         authoringConcurrency: 3,
         maxContextTokens: 16384,
+        reasoningVisibility: "summary" as const,
       },
     });
     render(<LanguageModelsTab opts={opts} />);

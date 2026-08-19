@@ -869,6 +869,14 @@ export interface LlmParams {
   presencePenalty: number;
 }
 
+/**
+ * How much of a turn's thinking the player sees.
+ * - `hidden`  — none; the muted thought line is suppressed too.
+ * - `summary` — the character's own in-voice `internal_thought` (default).
+ * - `full`    — additionally streams the model's raw deliberation live.
+ */
+export type ReasoningVisibility = "hidden" | "summary" | "full";
+
 export interface LlmConfig {
   baseUrl: string;
   model: string;
@@ -887,6 +895,8 @@ export interface LlmConfig {
    * The live value is always available via `getLlmContextWindow()`.
    */
   maxContextTokens: number;
+  /** How much of a turn's thinking reaches the player. */
+  reasoningVisibility: ReasoningVisibility;
 }
 
 /** PATCH payload. Omit `apiKey` to keep the stored key; "" clears it. */
@@ -898,6 +908,7 @@ export interface LlmConfigUpdate {
   apiKey?: string;
   authoringConcurrency?: number;
   maxContextTokens?: number;
+  reasoningVisibility?: ReasoningVisibility;
 }
 
 export interface LibraryDefaults {

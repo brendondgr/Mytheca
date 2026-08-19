@@ -9,7 +9,9 @@ import type {
 } from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
+  NARRATOR_REASONING,
   applyActivity,
+  applyReasoning,
   applyCharacterActivity,
   applyTurnStatus,
   IDLE_TURN_STATUS,
@@ -157,6 +159,17 @@ describe("mergeFrame", () => {
     expect(msgs[0].who).toBe("mei");
     expect(msgs[1].who).toBe("kira");
     expect(msgs[1].thought).toBe("Hers.");
+  });
+
+  it("ignores a reasoning frame — it never touches the transcript", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, {
+      type: "reasoning",
+      characterId: "mei",
+      text: "weighing it",
+      done: false,
+    } as TurnStreamFrame);
+    expect(msgs).toEqual([]);
   });
 
   it("appends a scene_image as its own beat, in stream order", () => {
@@ -838,5 +851,52 @@ describe("applyTurnStatus", () => {
     const start: TurnStatus = { phase: "thinking", characterId: "mei", name: "Mei" };
     expect(applyTurnStatus(start, traceFrame("lore", 2))).toBe(start);
     expect(applyTurnStatus(start, ev("state_update", "s1", { patch: {}, stat: null }))).toBe(start);
+  });
+});
+
+
+describe("applyReasoning", () => {
+  const frame = (
+    characterId: string | null,
+    text: string,
+    done = false,
+  ): TurnStreamFrame => ({ type: "reasoning", characterId, text, done }) as TurnStreamFrame;
+
+  it("accumulates a character's live deliberation", () => {
+    let m: Record<string, string> = {};
+    m = applyReasoning(m, frame("mei", "She is "));
+    m = applyReasoning(m, frame("mei", "testing me."));
+    expect(m).toEqual({ mei: "She is testing me." });
+  });
+
+  it("clears the character's entry when the beat finishes", () => {
+    // The scratchpad belongs to the wait, not to the finished beat — leaving it under a
+    // landed line would make a transient artefact look like part of the story.
+    let m: Record<string, string> = {};
+    m = applyReasoning(m, frame("mei", "hmm"));
+    m = applyReasoning(m, frame("mei", "", true));
+    expect(m).toEqual({});
+  });
+
+  it("keeps two speakers' reasoning apart", () => {
+    let m: Record<string, string> = {};
+    m = applyReasoning(m, frame("mei", "A"));
+    m = applyReasoning(m, frame("kira", "B"));
+    expect(m).toEqual({ mei: "A", kira: "B" });
+  });
+
+  it("files the narrator's reasoning under its own key", () => {
+    const m = applyReasoning({}, frame(null, "setting the scene"));
+    expect(m).toEqual({ [NARRATOR_REASONING]: "setting the scene" });
+  });
+
+  it("returns the same reference when nothing changes", () => {
+    // A token stream must not re-render everything downstream on every frame.
+    const before: Record<string, string> = { mei: "A" };
+    expect(applyReasoning(before, frame("mei", ""))).toBe(before);
+    expect(applyReasoning(before, frame("kira", "", true))).toBe(before);
+    expect(
+      applyReasoning(before, { type: "trace", n: 1, step: "x", title: "y", detail: "", data: {} } as TurnStreamFrame),
+    ).toBe(before);
   });
 });

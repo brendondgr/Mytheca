@@ -95,6 +95,7 @@ function isOpenCharBeat(m: SceneMessage | undefined, who: string): m is SceneMes
 export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneMessage[] {
   if (frame.type === "error") return prev; // surfaced separately by the hook
   if (frame.type === "trace") return prev; // routed to the Inspector, not the transcript
+  if (frame.type === "reasoning") return prev; // live-only machinery, folded separately
   const event = frame as PlayEvent;
 
   switch (event.type) {
@@ -187,9 +188,39 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
   }
 }
 
+/**
+ * Fold a live `reasoning` frame into the per-character reasoning map.
+ *
+ * Keyed by character (the narrator's reasoning lands under `NARRATOR_REASONING`) and
+ * cleared when that character's beat opens for real, so the scratchpad is visible during
+ * the wait and does not linger under a finished beat. Returns the SAME reference when
+ * nothing changes, so a stream of tokens cannot cause needless re-renders elsewhere.
+ */
+export function applyReasoning(
+  prev: Record<string, string>,
+  frame: TurnStreamFrame,
+): Record<string, string> {
+  if (frame.type !== "reasoning") return prev;
+  const key = frame.characterId ?? NARRATOR_REASONING;
+  if (frame.done) {
+    if (!(key in prev)) return prev;
+    const next = { ...prev };
+    delete next[key];
+    return next;
+  }
+  if (!frame.text) return prev;
+  return { ...prev, [key]: (prev[key] ?? "") + frame.text };
+}
+
+/** Map key for the narrator's own reasoning (it has no character id). */
+export const NARRATOR_REASONING = "__narrator__";
+
 /** Capture the resolved session id from any envelope frame (for turn resume). */
 export function sessionIdOf(frame: TurnStreamFrame): string | null {
-  if (frame.type === "error" || frame.type === "trace") return null;
+  // Transport frames (error/trace/reasoning) carry no envelope — only story events do.
+  if (frame.type === "error" || frame.type === "trace" || frame.type === "reasoning") {
+    return null;
+  }
   return frame.sessionId || null;
 }
 

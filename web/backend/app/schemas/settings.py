@@ -13,6 +13,15 @@ from typing import Literal
 from app.schemas.base import CamelModel
 
 
+#: How much of a turn's thinking the player sees.
+#:  * ``hidden``  — no thinking at all; the muted thought line is suppressed too.
+#:  * ``summary`` — the character's own ``internal_thought`` (the default, and the only
+#:    behaviour that existed before): in-voice interiority, written for the reader.
+#:  * ``full``    — additionally streams the model's raw ``reasoning_content`` live.
+#: ``full`` is opt-in because raw deliberation frequently spoils the beat that follows it.
+ReasoningVisibility = Literal["hidden", "summary", "full"]
+
+
 class LlmParams(CamelModel):
     """Generation parameters passed through to the model endpoint."""
 
@@ -37,6 +46,8 @@ class LlmConfigRead(CamelModel):
     authoring_concurrency: int = 3
     # Fallback context-window size used when the engine does not report one.
     max_context_tokens: int = 16384
+    # How much of a turn's thinking reaches the player (see ``ReasoningVisibility``).
+    reasoning_visibility: ReasoningVisibility = "summary"
 
 
 class LlmConfigUpdate(CamelModel):
@@ -49,6 +60,7 @@ class LlmConfigUpdate(CamelModel):
     authoring_concurrency: int | None = None
     # ge=1024: a window smaller than 1 K is not useful and likely a config error.
     max_context_tokens: int | None = None
+    reasoning_visibility: ReasoningVisibility | None = None
 
 
 class LibraryDefaultsRead(CamelModel):

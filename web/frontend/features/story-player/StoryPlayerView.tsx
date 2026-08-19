@@ -185,6 +185,7 @@ export function StoryPlayerView({
                     onChoose={onChoose}
                     onOpenImage={setLightbox}
                     streaming={scene.sending && i === scene.messages.length - 1}
+                    reasoningByChar={scene.reasoningByChar}
                   />
                 </motion.div>
               ))}

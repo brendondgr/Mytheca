@@ -269,3 +269,132 @@ def test_a_guarded_later_beat_holds_its_prose_for_the_verdict(
     # At least one beat streamed (many frames) — the turn is not uniformly blocking.
     assert per_id, "expected at least one dialogue beat"
     assert max(per_id.values()) > 1
+
+
+# ---- the live reasoning channel --------------------------------------------
+
+
+def _sse_with_reasoning(reasoning: str, emission: str) -> str:
+    """A stream that thinks first (its own channel) and then answers."""
+    lines = [
+        f"data: {json.dumps({'choices': [{'index': 0, 'delta': {'reasoning_content': part}}]})}\n\n"
+        for part in (reasoning[: len(reasoning) // 2], reasoning[len(reasoning) // 2 :])
+    ]
+    lines += [
+        f"data: {json.dumps({'choices': [{'index': 0, 'delta': {'content': emission[i : i + 16]}}]})}\n\n"
+        for i in range(0, len(emission), 16)
+    ]
+    lines.append("data: [DONE]\n\n")
+    return "".join(lines)
+
+
+def _patch_reasoning_llm(monkeypatch, reasoning="She is testing me. Deflect."):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(404, json={"detail": "Not Found"})
+        if not json.loads(request.content).get("stream"):
+            return httpx.Response(200, json={"choices": [{"message": {"content": _EMISSION}}]})
+        return httpx.Response(
+            200,
+            text=_sse_with_reasoning(reasoning, _EMISSION),
+            headers={"content-type": "text/event-stream"},
+        )
+
+    monkeypatch.setattr(
+        llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    llm_backend.clear_cache()
+    llm._NO_STREAM.clear()
+
+
+def _set_visibility(client, value: str):
+    resp = client.patch("/api/options/llm", json={"reasoningVisibility": value})
+    assert resp.status_code == 200
+    assert resp.json()["reasoningVisibility"] == value
+
+
+def test_reasoning_is_off_the_wire_by_default(client, storyline_id, monkeypatch):
+    """Raw deliberation routinely states what a character is about to say — opt-in only."""
+    _configure_llm(client)
+    _patch_reasoning_llm(monkeypatch)
+    cast, scid = _scene(client, storyline_id)
+
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "I slide the pouch over.", "directedAt": cast[0]},
+        )
+    )
+    assert _of_type(events, "reasoning") == []
+
+
+def test_reasoning_streams_when_visibility_is_full(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    _set_visibility(client, "full")
+    _patch_reasoning_llm(monkeypatch)
+    cast, scid = _scene(client, storyline_id)
+
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "I slide the pouch over.", "directedAt": cast[0]},
+        )
+    )
+    frames = _of_type(events, "reasoning")
+
+    assert frames, "expected live reasoning frames"
+    assert "".join(f["text"] for f in frames) == "She is testing me. Deflect."
+    assert any(f["done"] for f in frames)
+
+
+def test_reasoning_arrives_before_any_prose(client, storyline_id, monkeypatch):
+    """The point of the channel: something to watch during the longest part of the wait."""
+    _configure_llm(client)
+    _set_visibility(client, "full")
+    _patch_reasoning_llm(monkeypatch)
+    cast, scid = _scene(client, storyline_id)
+
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "I slide the pouch over.", "directedAt": cast[0]},
+        )
+    )
+    first_reasoning = next(i for i, e in enumerate(events) if e.get("type") == "reasoning")
+    first_prose = next(
+        i
+        for i, e in enumerate(events)
+        if e.get("type") in ("internal_thought", "character_dialogue", "narration")
+    )
+    assert first_reasoning < first_prose
+
+
+def test_reasoning_is_never_persisted(client, storyline_id, monkeypatch):
+    """It is the model's scratchpad, not story record — it must not survive the turn."""
+    _configure_llm(client)
+    _set_visibility(client, "full")
+    _patch_reasoning_llm(monkeypatch)
+    cast, scid = _scene(client, storyline_id)
+
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "I slide the pouch over.", "directedAt": cast[0]},
+        )
+    )
+    session_id = next(e["sessionId"] for e in events if "sessionId" in e)
+
+    history = client.get(f"/api/play/{scid}/sessions/{session_id}").json()
+    assert all(e["type"] != "reasoning" for e in history["events"])
+    assert all(t["step"] != "reasoning" for t in history["traces"])
+    blob = json.dumps(history)
+    assert "She is testing me" not in blob
+
+
+def test_an_unknown_stored_visibility_falls_back_to_the_safe_default(client):
+    """A row written before the setting existed must not stream raw deliberation."""
+    from app.services.settings_store import _reasoning_visibility
+
+    assert _reasoning_visibility(None) == "summary"
+    assert _reasoning_visibility("nonsense") == "summary"
+    assert _reasoning_visibility("full") == "full"
