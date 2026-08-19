@@ -94,7 +94,7 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 
 ## Backend tests — `utils/tests/backend/`
 
-Five area folders: `api/` `agents/` `services/` `rag/` `data/`, plus a shared `conftest.py`. Add new tests to the matching folder as `test_<behavior>.py`. 948 cases pass today.
+Five area folders: `api/` `agents/` `services/` `rag/` `data/`, plus a shared `conftest.py`. Add new tests to the matching folder as `test_<behavior>.py`. 1110 cases pass today.
 
 ## Root-level essentials
 

@@ -55,6 +55,15 @@ Verified against the code on 2026-08-04.
 
 ## Known defects and rough edges
 
+- **The live reasoning channel is inert on the model the app is configured with.**
+  EXP-2026-08-004 ran the same code against the deployed `skynet` route (observed upstream
+  `qwen38-27B-awq`): it returns no `reasoning_content` field and no inline `<think>` block,
+  so `first_reasoning_s` was null in every run and setting Reasoning visibility to `full`
+  shows nothing. The feature degrades correctly and silently — the frame is simply never
+  emitted — but on this deployment the streamed-content and reasoning work is **latent
+  capability**, not a delivered win. It activates on the relay's `local` route, which does
+  expose the channel (EXP-2026-08-003). What works on any model is the trace-driven part:
+  the status-strip phases, the pending beat, and the direction checklist.
 - **The default Reasoning-visibility setting leaves the longest wait empty.**
   EXP-2026-08-003 measured the model spending ~17 s of a ~20 s generation on
   `reasoning_content` before writing its first word of prose. The live reasoning channel

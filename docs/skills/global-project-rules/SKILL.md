@@ -75,7 +75,7 @@ Plans and handoffs go in `docs/plans/` using the `planner` skill format.
 
 ## Validation Gate (definition of done)
 
-- **Backend:** `uv run pytest` passes (948 cases today).
+- **Backend:** `uv run pytest` passes (1110 cases today).
 - **Frontend:** `npm test` passes in `web/frontend/`.
 - **UI changes also require** an accessibility + responsive pass per the `accessibility-mobile` and `ada-compliance` skills: keyboard operability, visible focus, AA contrast, live-region announcements for streamed content, and layout at 320 / 375 / 768 / 1024 px.
 - **Theme-token changes also require** `uv run python utils/scripts/check_contrast.py`.

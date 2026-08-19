@@ -1,0 +1,10 @@
+arm,chars,completion_tokens,first_reasoning_s,run,ttft_s,wall_clock_s
+blocking-uncapped,279,475,None,1,47.204,47.204
+blocking-capped,421,511,None,1,6.284,6.284
+streaming-capped,315,507,None,1,4.69,5.274
+blocking-uncapped,328,642,None,2,6.173,6.173
+blocking-capped,451,514,None,2,3.092,3.092
+streaming-capped,235,505,None,2,5.55,5.995
+blocking-uncapped,288,520,None,3,6.139,6.139
+blocking-capped,257,587,None,3,5.934,5.934
+streaming-capped,238,567,None,3,2.382,2.879
