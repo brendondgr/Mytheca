@@ -58,3 +58,46 @@ trace-driven and model-independent, so they work regardless of which model is ro
 The streamed-content and reasoning-channel work is **latent capability** for this user
 until they point the app at a model that exposes a reasoning channel. Recorded in
 `docs/checklist.md` rather than presented as a delivered win.
+
+
+---
+
+## AMENDMENTS
+
+### 2026-08-19 — The headline finding was an instrument artefact, not a model property
+
+**What this experiment concluded:** that the deployed `skynet` route "returns no
+`reasoning_content` field and no inline `<think>` block", so "the reasoning channel is
+therefore **empty on this model**".
+
+**That is wrong.** The model does expose a reasoning channel; the measuring instrument was
+not reading it. vLLM streams deliberation as `delta.reasoning` (and returns
+`message.reasoning`), while llama.cpp uses `delta.reasoning_content`. The streaming parser
+in `services/llm.py` read only the `reasoning_content` spelling, so every reasoning token
+this endpoint produced was discarded before it could be counted — which is exactly what
+`first_reasoning_s: null` in 3/3 runs would look like either way.
+
+Confirmed directly on 2026-08-19:
+
+```
+delta: {"reasoning": "We"}            # skynet / qwen38-27B-awq, streaming
+message.reasoning: "The user wants…"  # skynet / qwen38-27B-awq, blocking
+```
+
+**Consequences.**
+
+* The `first_reasoning_s: null` result is **withdrawn**. It measured the parser, not the
+  model. The other measurements in this experiment — `ttft_s`, `wall_clock_s`,
+  `completion_tokens` — are unaffected, since they never depended on the reasoning field.
+* The product conclusion drawn from it — that the live reasoning channel is "latent
+  capability" on this deployment — is **withdrawn** with it.
+* The same bug also explains a failure this experiment did not investigate: a completion
+  that spends its whole budget thinking arrived as `content=""` with no reasoning the app
+  could see, and was reported to the player as "The model returned an empty response".
+  That accounted for 3 of 10 turns in EXP-2026-08-005.
+
+**Not amended in place.** The sections above are left exactly as written. A completed
+experiment whose conclusion is quietly edited to match later knowledge stops being a
+record of what was believed when. The fix is committed
+(`llm._reasoning_field` reads both spellings, with tests for each) and a re-measurement
+belongs in a new experiment, not in this one.

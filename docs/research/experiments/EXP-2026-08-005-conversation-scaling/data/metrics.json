@@ -1,0 +1,227 @@
+{
+  "aggregate": {},
+  "per_run": [
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-first",
+      "pass": 1,
+      "prompt_tokens": 1549,
+      "ttft_s": 1.272,
+      "turn": 10,
+      "wall_clock_s": 3.924
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-first",
+      "pass": 1,
+      "prompt_tokens": 5946,
+      "ttft_s": 1.963,
+      "turn": 50,
+      "wall_clock_s": 16.984
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-first",
+      "pass": 1,
+      "prompt_tokens": 11444,
+      "ttft_s": 3.672,
+      "turn": 100,
+      "wall_clock_s": 11.496
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-first",
+      "pass": 1,
+      "prompt_tokens": 22535,
+      "ttft_s": 7.23,
+      "turn": 200,
+      "wall_clock_s": 10.628
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-first",
+      "pass": 1,
+      "prompt_tokens": 44715,
+      "ttft_s": 15.467,
+      "turn": 400,
+      "wall_clock_s": 20.293
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-last",
+      "pass": 1,
+      "prompt_tokens": 1549,
+      "ttft_s": 0.552,
+      "turn": 10,
+      "wall_clock_s": 11.528
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-last",
+      "pass": 1,
+      "prompt_tokens": 5946,
+      "ttft_s": 1.942,
+      "turn": 50,
+      "wall_clock_s": 14.723
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": 0.4194,
+      "cached_tokens": 4800,
+      "layout": "volatile-last",
+      "pass": 1,
+      "prompt_tokens": 11444,
+      "ttft_s": 2.218,
+      "turn": 100,
+      "wall_clock_s": 19.656
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": 0.4615,
+      "cached_tokens": 10400,
+      "layout": "volatile-last",
+      "pass": 1,
+      "prompt_tokens": 22535,
+      "ttft_s": 4.24,
+      "turn": 200,
+      "wall_clock_s": 21.368
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": 0.4831,
+      "cached_tokens": 21600,
+      "layout": "volatile-last",
+      "pass": 1,
+      "prompt_tokens": 44715,
+      "ttft_s": 8.98,
+      "turn": 400,
+      "wall_clock_s": 24.379
+    },
+    {
+      "attempts": 3,
+      "error": "APIError: The model spent its whole budget thinking and never answered. Lower the thinking budget or raise Max tokens in Options.",
+      "layout": "volatile-last",
+      "pass": 2,
+      "turn": 10
+    },
+    {
+      "attempts": 2,
+      "cache_hit_ratio": 0.8073,
+      "cached_tokens": 4800,
+      "layout": "volatile-last",
+      "pass": 2,
+      "prompt_tokens": 5946,
+      "ttft_s": 1.028,
+      "turn": 50,
+      "wall_clock_s": 10.677
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": 0.4194,
+      "cached_tokens": 4800,
+      "layout": "volatile-last",
+      "pass": 2,
+      "prompt_tokens": 11444,
+      "ttft_s": 2.229,
+      "turn": 100,
+      "wall_clock_s": 14.516
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": 0.4615,
+      "cached_tokens": 10400,
+      "layout": "volatile-last",
+      "pass": 2,
+      "prompt_tokens": 22535,
+      "ttft_s": 4.24,
+      "turn": 200,
+      "wall_clock_s": 24.039
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": 0.4831,
+      "cached_tokens": 21600,
+      "layout": "volatile-last",
+      "pass": 2,
+      "prompt_tokens": 44715,
+      "ttft_s": 8.929,
+      "turn": 400,
+      "wall_clock_s": 22.571
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-first",
+      "pass": 2,
+      "prompt_tokens": 1549,
+      "ttft_s": 0.608,
+      "turn": 10,
+      "wall_clock_s": 6.709
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-first",
+      "pass": 2,
+      "prompt_tokens": 5946,
+      "ttft_s": 1.991,
+      "turn": 50,
+      "wall_clock_s": 14.792
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-first",
+      "pass": 2,
+      "prompt_tokens": 11444,
+      "ttft_s": 3.589,
+      "turn": 100,
+      "wall_clock_s": 13.43
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-first",
+      "pass": 2,
+      "prompt_tokens": 22535,
+      "ttft_s": 7.548,
+      "turn": 200,
+      "wall_clock_s": 9.768
+    },
+    {
+      "attempts": 1,
+      "cache_hit_ratio": null,
+      "cached_tokens": null,
+      "layout": "volatile-first",
+      "pass": 2,
+      "prompt_tokens": 44715,
+      "ttft_s": 15.417,
+      "turn": 400,
+      "wall_clock_s": 19.961
+    }
+  ],
+  "totals": {
+    "input_tokens": 0,
+    "llm_calls": 20,
+    "output_tokens": 0,
+    "wall_clock_seconds": 365.841
+  }
+}

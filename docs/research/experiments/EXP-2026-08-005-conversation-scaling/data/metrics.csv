@@ -1,0 +1,21 @@
+attempts,cache_hit_ratio,cached_tokens,error,layout,pass,prompt_tokens,ttft_s,turn,wall_clock_s
+1,None,None,,volatile-first,1,1549,1.272,10,3.924
+1,None,None,,volatile-first,1,5946,1.963,50,16.984
+1,None,None,,volatile-first,1,11444,3.672,100,11.496
+1,None,None,,volatile-first,1,22535,7.23,200,10.628
+1,None,None,,volatile-first,1,44715,15.467,400,20.293
+1,None,None,,volatile-last,1,1549,0.552,10,11.528
+1,None,None,,volatile-last,1,5946,1.942,50,14.723
+1,0.4194,4800,,volatile-last,1,11444,2.218,100,19.656
+1,0.4615,10400,,volatile-last,1,22535,4.24,200,21.368
+1,0.4831,21600,,volatile-last,1,44715,8.98,400,24.379
+3,,,APIError: The model spent its whole budget thinking and never answered. Lower the thinking budget or raise Max tokens in Options.,volatile-last,2,,,10,
+2,0.8073,4800,,volatile-last,2,5946,1.028,50,10.677
+1,0.4194,4800,,volatile-last,2,11444,2.229,100,14.516
+1,0.4615,10400,,volatile-last,2,22535,4.24,200,24.039
+1,0.4831,21600,,volatile-last,2,44715,8.929,400,22.571
+1,None,None,,volatile-first,2,1549,0.608,10,6.709
+1,None,None,,volatile-first,2,5946,1.991,50,14.792
+1,None,None,,volatile-first,2,11444,3.589,100,13.43
+1,None,None,,volatile-first,2,22535,7.548,200,9.768
+1,None,None,,volatile-first,2,44715,15.417,400,19.961

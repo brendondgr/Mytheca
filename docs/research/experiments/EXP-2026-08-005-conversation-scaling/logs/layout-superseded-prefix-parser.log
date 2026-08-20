@@ -1,0 +1,442 @@
+{
+  "notes": [
+    "pass 1 volatile-first turn 1 FAILED: APIError: The model hit its token limit before replying. Raise Max tokens in Options \u2014 reasoning models need extra headroom.",
+    "pass 2 volatile-last turn 10 FAILED: APIError: The model hit its token limit before replying. Raise Max tokens in Options \u2014 reasoning models need extra headroom.",
+    "2 turn(s) failed \u2014 NO aggregate computed. Per-turn rows are the result; see ISSUES.md."
+  ],
+  "failures": 2,
+  "rows": [
+    {
+      "error": "APIError: The model hit its token limit before replying. Raise Max tokens in Options \u2014 reasoning models need extra headroom.",
+      "attempts": 3,
+      "pass": 1,
+      "turn": 1,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 3.403,
+      "wall_clock_s": 3.606,
+      "prompt_tokens": 673,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 2,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 2.502,
+      "wall_clock_s": 2.698,
+      "prompt_tokens": 781,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 3,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 1.816,
+      "wall_clock_s": 2.021,
+      "prompt_tokens": 890,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 4,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 2.379,
+      "wall_clock_s": 2.584,
+      "prompt_tokens": 1000,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 5,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 10.762,
+      "wall_clock_s": 10.898,
+      "prompt_tokens": 1108,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 6,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 6.882,
+      "wall_clock_s": 7.176,
+      "prompt_tokens": 1220,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 7,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 2.288,
+      "wall_clock_s": 2.429,
+      "prompt_tokens": 1331,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 8,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 2.702,
+      "wall_clock_s": 2.879,
+      "prompt_tokens": 1438,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 9,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 3.127,
+      "wall_clock_s": 3.317,
+      "prompt_tokens": 1549,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 10,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 11.033,
+      "wall_clock_s": 11.31,
+      "prompt_tokens": 566,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 1,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 9.372,
+      "wall_clock_s": 9.504,
+      "prompt_tokens": 673,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 2,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 10.859,
+      "wall_clock_s": 11.051,
+      "prompt_tokens": 781,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 3,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 7.549,
+      "wall_clock_s": 7.832,
+      "prompt_tokens": 890,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 4,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 13.604,
+      "wall_clock_s": 13.844,
+      "prompt_tokens": 1000,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 5,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 9.056,
+      "wall_clock_s": 9.249,
+      "prompt_tokens": 1108,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 6,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 5.57,
+      "wall_clock_s": 5.765,
+      "prompt_tokens": 1220,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 7,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 17.391,
+      "wall_clock_s": 17.646,
+      "prompt_tokens": 1331,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 8,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 10.442,
+      "wall_clock_s": 10.636,
+      "prompt_tokens": 1438,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 9,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 11.52,
+      "wall_clock_s": 11.717,
+      "prompt_tokens": 1549,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 10,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 8.246,
+      "wall_clock_s": 8.444,
+      "prompt_tokens": 566,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 1,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 10.326,
+      "wall_clock_s": 10.421,
+      "prompt_tokens": 673,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 2,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 14.699,
+      "wall_clock_s": 15.022,
+      "prompt_tokens": 781,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 3,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 8.252,
+      "wall_clock_s": 8.467,
+      "prompt_tokens": 890,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 4,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 9.729,
+      "wall_clock_s": 9.877,
+      "prompt_tokens": 1000,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 5,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 8.179,
+      "wall_clock_s": 8.392,
+      "prompt_tokens": 1108,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 6,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 10.178,
+      "wall_clock_s": 10.411,
+      "prompt_tokens": 1220,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 7,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 10.977,
+      "wall_clock_s": 11.129,
+      "prompt_tokens": 1331,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 8,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 11.903,
+      "wall_clock_s": 12.0,
+      "prompt_tokens": 1438,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 9,
+      "layout": "volatile-last"
+    },
+    {
+      "error": "APIError: The model hit its token limit before replying. Raise Max tokens in Options \u2014 reasoning models need extra headroom.",
+      "attempts": 3,
+      "pass": 2,
+      "turn": 10,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 5.771,
+      "wall_clock_s": 5.963,
+      "prompt_tokens": 566,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 1,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 2.612,
+      "wall_clock_s": 2.766,
+      "prompt_tokens": 673,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 2,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 4.868,
+      "wall_clock_s": 4.983,
+      "prompt_tokens": 781,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 3,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 9.162,
+      "wall_clock_s": 9.329,
+      "prompt_tokens": 890,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 4,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 8.39,
+      "wall_clock_s": 8.615,
+      "prompt_tokens": 1000,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 5,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 13.397,
+      "wall_clock_s": 13.649,
+      "prompt_tokens": 1108,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 6,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 9.892,
+      "wall_clock_s": 10.093,
+      "prompt_tokens": 1220,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 7,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 2.523,
+      "wall_clock_s": 2.723,
+      "prompt_tokens": 1331,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 8,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 8.387,
+      "wall_clock_s": 8.593,
+      "prompt_tokens": 1438,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 9,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 6.591,
+      "wall_clock_s": 6.727,
+      "prompt_tokens": 1549,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 10,
+      "layout": "volatile-first"
+    }
+  ]
+}

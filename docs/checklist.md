@@ -55,23 +55,57 @@ Verified against the code on 2026-08-04.
 
 ## Known defects and rough edges
 
-- **The live reasoning channel is inert on the model the app is configured with.**
-  EXP-2026-08-004 ran the same code against the deployed `skynet` route (observed upstream
-  `qwen38-27B-awq`): it returns no `reasoning_content` field and no inline `<think>` block,
-  so `first_reasoning_s` was null in every run and setting Reasoning visibility to `full`
-  shows nothing. The feature degrades correctly and silently — the frame is simply never
-  emitted — but on this deployment the streamed-content and reasoning work is **latent
-  capability**, not a delivered win. It activates on the relay's `local` route, which does
-  expose the channel (EXP-2026-08-003). What works on any model is the trace-driven part:
-  the status-strip phases, the pending beat, and the direction checklist.
+- **The prompt cache is wasted, and it IS worth reclaiming at the configured settings.**
+  `character_turn_agent._build_user_prompt` puts the speaker's current stat values,
+  register-selected voice samples and recent lines in the HEAD of the user message, ahead
+  of the transcript. A prefix cache can only reuse a common prefix, so one stat change
+  invalidates everything after it. Measured over a real 10-turn scene (EXP-2026-08-005):
+  cached tokens pinned at **exactly 800** — the static system message — while the prompt
+  grew 1830 → 4678, hit rate 44 % → 17 %. A short-context comparison found no measurable
+  difference (0.59 s vs 0.55 s below 1.5 k tokens), but a long-context one is decisive:
+  at 100 / 200 / 400 turns of history (11 k / 22 k / 45 k tokens) reordering cuts
+  time-to-first-token by **~40 %** (3.67 → 2.22 s, 7.23 → 4.24 s, 15.47 → 8.98 s) and is
+  the only arm reporting any reuse at all (42–48 %). vLLM omits the cache field when the
+  hit is zero, so the current layout reporting nothing at every size *is* the measurement:
+  **it achieves no reuse whatsoever.** At `contextBeats = 100` a full scene reaches ~20 k
+  tokens, squarely in the paying range. The change is still prompt engineering with quality
+  consequences — the character sees the same content in a different order — so it wants a
+  quality check, not just a latency one. Both layout properties are pinned by
+  characterisation tests in `utils/tests/backend/agents/test_character_turn_agent.py`.
+- **The beat planner stalls, and a stall costs the player the full generation timeout.**
+  Two of ten turns in the post-fix run took 355 s and 272 s, attributed almost entirely to a
+  single `plan` call — **300.1 s** (exactly `LLM_GEN_TIMEOUT_SECONDS`) and 240.6 s. Because
+  the planner is best-effort, the turn does not error (`failures: 0`); the player simply
+  waits five minutes with no indication anything is wrong. Not a context-length effect: the
+  same run's largest prompt (6800 tokens) reached first prose in 9.4 s, and a controlled
+  sweep to 7355 tokens measured 1.2 s. **The fix is a per-operation timeout** — the planner
+  and intent calls are small JSON classifications that normally take 3–5 s, so a 20–30 s
+  ceiling would turn a five-minute stall into a hiccup, while prose generation keeps the
+  long window it needs.
+- **The beat planner is 41 % of all turn time.** It runs once per beat — three to six
+  times a turn at ~4 s each — and is the single largest cost in the app, ahead of character
+  generation (15 %), inline reflection (13 %) and the continuity guard (11 %, ~10 s each
+  time it fires). Of the ~10 s before a player sees any prose, roughly 7.5 s is `intent`
+  plus the first `plan` call, neither of which produces a word. Reducing the *number* of
+  sequential calls is the lever for perceived latency; context size is not.
+
+- ~~**The live reasoning channel is inert on the model the app is configured with.**~~
+  **Withdrawn 2026-08-19.** EXP-2026-08-004 recorded `first_reasoning_s` as null on the
+  deployed `skynet` route and concluded the model exposed no reasoning channel. It does:
+  vLLM spells the field `reasoning`, llama.cpp spells it `reasoning_content`, and the
+  parser read only the second. The null result measured the instrument. Fixed in
+  `llm._reasoning_field`; the first reasoning token on `skynet` measures at ~0.4 s
+  (EXP-2026-08-005). The experiment is amended rather than rewritten.
 - **The default Reasoning-visibility setting leaves the longest wait empty.**
-  EXP-2026-08-003 measured the model spending ~17 s of a ~20 s generation on
-  `reasoning_content` before writing its first word of prose. The live reasoning channel
-  covers that window, but it only streams at `full`; the default `summary` shows nothing
-  until the answer starts. The status-strip phases (which fire within ~1 s) are all a
-  default-configured player gets. Either the default should move to `full`, or the
-  character's `internal_thought` should be generated as its own earlier call — both are
-  product decisions, not oversights, and neither is made yet.
+  The model spends most of a generation deliberating before writing its first word of
+  prose: ~17 s of ~20 s on the `local` route (EXP-2026-08-003), and on the deployed
+  `skynet` route the first *reasoning* token arrives at ~0.4 s while the first *prose*
+  token takes seconds longer (EXP-2026-08-005). The live reasoning channel covers that
+  window — but it only streams at `full`, and the default `summary` shows nothing until
+  the answer starts, so the status-strip phases are all a default-configured player gets.
+  Now that the channel actually works on the deployed model, moving the default is a live
+  decision rather than a theoretical one: it trades spoiler risk against a visibly shorter
+  wait. Not made yet.
 
 - **Later speakers do not stream their prose.** The continuity guard inspects a complete
   candidate line and can reject it, so a beat it will judge cannot also be shown as it

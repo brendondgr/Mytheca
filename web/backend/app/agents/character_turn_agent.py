@@ -217,6 +217,7 @@ def stream_line(
     stakes: str = "",
     scene_direction: str = "",
     requirements: list[str] | None = None,
+    usage_out: dict | None = None,
 ) -> Generator[llm.StreamDelta, None, tuple[str, int | None]]:
     """Stream one character's emission; return ``(raw_emission, prompt_tokens)``.
 
@@ -245,6 +246,7 @@ def stream_line(
             [{"role": "system", "content": system}, {"role": "user", "content": user}],
             _voice_params(params, register),
             reasoning=reasoning,
+            usage_out=usage_out,
         )
     )
 

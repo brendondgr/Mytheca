@@ -681,3 +681,62 @@ def test_contract_states_a_direction_is_what_not_how(client, db_session, monkeyp
     )
     system = json.loads(capture["body"])["messages"][0]["content"]
     assert "It tells you WHAT, never HOW" in system
+
+
+# ---- prompt layout vs. the inference server's prefix cache ------------------
+
+
+def _user_message(capture: dict) -> str:
+    body = json.loads(capture["body"])
+    return next(m["content"] for m in body["messages"] if m["role"] == "user")
+
+
+def test_the_system_message_is_byte_identical_across_turns(client, db_session, monkeypatch):
+    """The cacheable region the design intends: it must not move between turns.
+
+    If the system message varied — with the player's line, a stat, the transcript — the
+    inference server could not reuse a single token of it and every call would re-read the
+    whole world primer.
+    """
+    _configure_llm(client)
+    ctx = _ctx()
+    systems = []
+    for beats in ([{"role": "player", "text": "turn one.", "characterId": None}],
+                  [{"role": "player", "text": "a much later, different line.", "characterId": None}]):
+        capture: dict = {}
+        _patch_llm(monkeypatch, capture)
+        ctx.recent_beats = beats
+        character_turn_agent.generate_line(db_session, ctx, ctx.cast[0], turn_beats=[])
+        body = json.loads(capture["body"])
+        systems.append(next(m["content"] for m in body["messages"] if m["role"] == "system"))
+
+    assert systems[0] == systems[1]
+    assert llm.prefix_cache_key(systems[0]) == llm.prefix_cache_key(systems[1])
+
+
+def test_the_transcript_sits_AFTER_the_volatile_block(client, db_session, monkeypatch):
+    """Characterisation test — this pins today's ordering, which costs the prompt cache.
+
+    ``_build_user_prompt`` puts the speaker's CURRENT STAT VALUES in the HEAD, ahead of the
+    transcript in the MIDDLE. A prefix cache can only reuse a common *prefix*, so a single
+    stat change invalidates everything after it — including the entire conversation. The
+    cost grows with the scene: the longer you play, the more is needlessly re-read.
+
+    Measured in EXP-2026-08-005. If this assertion ever flips, the reordering has been
+    done deliberately and the experiment's numbers should be re-taken.
+    """
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    ctx.recent_beats = [{"role": "player", "text": "A LINE OF HISTORY.", "characterId": None}]
+    character_turn_agent.generate_line(db_session, ctx, ctx.cast[0], turn_beats=[])
+
+    user = _user_message(capture)
+    stats_at = user.find("trust")
+    transcript_at = user.find("A LINE OF HISTORY.")
+    assert stats_at != -1 and transcript_at != -1
+    assert stats_at < transcript_at, (
+        "volatile per-turn state now sits after the transcript — if that was intentional, "
+        "re-run EXP-2026-08-005; the prompt-cache characteristic has changed."
+    )

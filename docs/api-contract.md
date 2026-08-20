@@ -995,7 +995,7 @@ is up rather than merely that they are.
 **Live reasoning (opt-in, ephemeral).** When Options › Language models › *Reasoning
 visibility* is set to `full`, the turn interleaves
 `{ "type": "reasoning", "characterId", "text", "done" }` frames carrying the model's
-`reasoning_content` channel as it is produced — the deliberation behind the beat, visible
+reasoning channel as it is produced (`reasoning_content` on llama.cpp, `reasoning` on vLLM) — the deliberation behind the beat, visible
 while the player waits. It is **not** a story event and **not** persisted: no `seq`, no
 `events` row, no `turn_traces` row, absent from resume and export. `done` marks the end of
 one speaker's reasoning; a `characterId` of `null` is the narrator's. The default
@@ -1036,7 +1036,7 @@ World Primer + stat guidance + RAG lore + transcript), the honest "context windo
 figure. It is emitted only when the endpoint reports usage (omitted otherwise) and, like
 every step, is **persisted**, so the story player seeds its context dial from the resumed
 session's last `context` step and updates it live each turn. The frontend falls back to a
-char/4 estimate only until a real `promptTokens` is known.
+char/4 estimate only until a real `promptTokens` is known. The same step carries **`data.cachedTokens`** when the endpoint reports `usage.prompt_tokens_details.cached_tokens` — how many of this call's prompt tokens the server served from its KV cache instead of re-processing. It is **omitted, not zeroed**, when the endpoint reports nothing, so "no data" stays distinguishable from "nothing was reused". A hit rate that collapses as a scene lengthens is what a prompt-cache regression looks like before it becomes visible as creeping latency.
 
 ### Rules
 

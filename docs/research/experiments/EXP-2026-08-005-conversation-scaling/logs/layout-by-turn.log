@@ -1,0 +1,442 @@
+{
+  "notes": [
+    "pass 1 volatile-first turn 1 FAILED: APIError: The model spent its whole budget thinking and never answered. Lower the thinking budget or raise Max tokens in Options.",
+    "pass 2 volatile-last turn 10 FAILED: APIError: The model spent its whole budget thinking and never answered. Lower the thinking budget or raise Max tokens in Options.",
+    "2 turn(s) failed \u2014 NO aggregate computed. Per-turn rows are the result; see ISSUES.md."
+  ],
+  "failures": 2,
+  "rows": [
+    {
+      "error": "APIError: The model spent its whole budget thinking and never answered. Lower the thinking budget or raise Max tokens in Options.",
+      "attempts": 3,
+      "pass": 1,
+      "turn": 1,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.315,
+      "wall_clock_s": 3.548,
+      "prompt_tokens": 673,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 2,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.332,
+      "wall_clock_s": 2.672,
+      "prompt_tokens": 781,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 3,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.419,
+      "wall_clock_s": 1.952,
+      "prompt_tokens": 890,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 4,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.393,
+      "wall_clock_s": 3.054,
+      "prompt_tokens": 1000,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 5,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.448,
+      "wall_clock_s": 10.793,
+      "prompt_tokens": 1108,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 6,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.472,
+      "wall_clock_s": 6.684,
+      "prompt_tokens": 1220,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 7,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.761,
+      "wall_clock_s": 2.46,
+      "prompt_tokens": 1331,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 8,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.525,
+      "wall_clock_s": 2.871,
+      "prompt_tokens": 1438,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 9,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.557,
+      "wall_clock_s": 3.3,
+      "prompt_tokens": 1549,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 10,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.325,
+      "wall_clock_s": 10.888,
+      "prompt_tokens": 566,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 1,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 1.122,
+      "wall_clock_s": 9.464,
+      "prompt_tokens": 673,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 2,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.34,
+      "wall_clock_s": 11.112,
+      "prompt_tokens": 781,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 3,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.367,
+      "wall_clock_s": 7.767,
+      "prompt_tokens": 890,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 4,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.441,
+      "wall_clock_s": 13.93,
+      "prompt_tokens": 1000,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 5,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.467,
+      "wall_clock_s": 9.242,
+      "prompt_tokens": 1108,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 6,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.468,
+      "wall_clock_s": 5.76,
+      "prompt_tokens": 1220,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 7,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.496,
+      "wall_clock_s": 17.314,
+      "prompt_tokens": 1331,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 8,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.746,
+      "wall_clock_s": 10.698,
+      "prompt_tokens": 1438,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 9,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.942,
+      "wall_clock_s": 11.643,
+      "prompt_tokens": 1549,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 10,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.675,
+      "wall_clock_s": 9.353,
+      "prompt_tokens": 566,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 1,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.485,
+      "wall_clock_s": 10.547,
+      "prompt_tokens": 673,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 2,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.335,
+      "wall_clock_s": 14.843,
+      "prompt_tokens": 781,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 3,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.441,
+      "wall_clock_s": 8.369,
+      "prompt_tokens": 890,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 4,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.397,
+      "wall_clock_s": 9.962,
+      "prompt_tokens": 1000,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 5,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.45,
+      "wall_clock_s": 8.339,
+      "prompt_tokens": 1108,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 6,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.499,
+      "wall_clock_s": 9.815,
+      "prompt_tokens": 1220,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 7,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.531,
+      "wall_clock_s": 11.087,
+      "prompt_tokens": 1331,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 8,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.529,
+      "wall_clock_s": 11.844,
+      "prompt_tokens": 1438,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 9,
+      "layout": "volatile-last"
+    },
+    {
+      "error": "APIError: The model spent its whole budget thinking and never answered. Lower the thinking budget or raise Max tokens in Options.",
+      "attempts": 3,
+      "pass": 2,
+      "turn": 10,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.512,
+      "wall_clock_s": 6.226,
+      "prompt_tokens": 566,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 1,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.626,
+      "wall_clock_s": 4.042,
+      "prompt_tokens": 673,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 2,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 1.43,
+      "wall_clock_s": 4.975,
+      "prompt_tokens": 781,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 3,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.363,
+      "wall_clock_s": 9.317,
+      "prompt_tokens": 890,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 4,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 1.111,
+      "wall_clock_s": 9.227,
+      "prompt_tokens": 1000,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 5,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.693,
+      "wall_clock_s": 13.518,
+      "prompt_tokens": 1108,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 6,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.603,
+      "wall_clock_s": 10.05,
+      "prompt_tokens": 1220,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 7,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.491,
+      "wall_clock_s": 2.62,
+      "prompt_tokens": 1331,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 8,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.55,
+      "wall_clock_s": 8.539,
+      "prompt_tokens": 1438,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 9,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.611,
+      "wall_clock_s": 6.82,
+      "prompt_tokens": 1549,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 10,
+      "layout": "volatile-first"
+    }
+  ]
+}
