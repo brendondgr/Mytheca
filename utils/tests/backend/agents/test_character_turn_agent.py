@@ -198,7 +198,10 @@ def test_prompt_requests_a_hidden_thinking_block(client, db_session, monkeypatch
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
     system = json.loads(capture["body"])["messages"][0]["content"]
-    assert "<thinking>" in system and "never shown" in system
+    # The block is still requested and still the character's own private voice; it is now
+    # asked to be brief, and it is the ONLY deliberation the turn pays for.
+    assert "<thinking>" in system
+    assert "in your character's own voice" in system
 
 
 def test_interior_disposition_injected_and_builds_thinking(client, db_session, monkeypatch):
@@ -238,12 +241,20 @@ def test_no_disposition_omits_inner_stance(client, db_session, monkeypatch):
     assert "let <thinking> build on it" not in user
 
 
-def test_thinking_contract_asks_for_a_fuller_in_voice_paragraph(client, db_session, monkeypatch):
-    # The <thinking> step is now a real in-voice deliberation (a short paragraph), and the
-    # turn runs at MEDIUM effort so the model has room to reason before speaking.
+def test_the_character_deliberates_once_in_voice_and_not_again_in_hidden_reasoning(
+    client, db_session, monkeypatch
+):
+    """One deliberation, not two.
+
+    The character already thinks *in the output* — the visible in-voice ``<thinking>``
+    block the player reads. Letting the model also fill a hidden reasoning channel first
+    means it works the same beat through twice and the player waits through both, while
+    only the second is ever shown. EXP-2026-08-006 measured that beat at ~35 s to its
+    thought and ~10 s more to its line, the largest single cost in a turn.
+    """
     from app.schemas.reasoning import ReasoningEffort
 
-    assert character_turn_agent.TURN_EFFORT == ReasoningEffort.MEDIUM
+    assert character_turn_agent.TURN_EFFORT == ReasoningEffort.NONE
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
@@ -252,9 +263,16 @@ def test_thinking_contract_asks_for_a_fuller_in_voice_paragraph(client, db_sessi
         db_session, ctx, ctx.cast[0],
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
-    system = json.loads(capture["body"])["messages"][0]["content"]
-    assert "short paragraph" in system
-    assert "one or two clipped sentences" not in system.lower()
+    body = json.loads(capture["body"])
+    system = body["messages"][0]["content"]
+    # The visible thought survives, and is asked to be brief rather than an essay.
+    assert "<thinking>" in system
+    assert "ONE or TWO sentences" in system
+    assert "short paragraph" not in system
+    # The hidden channel is switched off, not merely trimmed: a zero budget alone would
+    # let a template that always opens a thinking block spend it all opening one.
+    assert body.get("thinking_token_budget") == 0
+    assert body.get("chat_template_kwargs") == {"enable_thinking": False}
 
 
 def test_relationship_note_injected_into_prompt(client, db_session, monkeypatch):
@@ -371,7 +389,7 @@ def test_contract_grants_situational_manner_adaptation(client, db_session, monke
     assert "personality is CONSTANT" in system and "MANNER adapts" in system
     assert "on autopilot" in system
     # The <thinking> step appraises the moment BEFORE reasoning toward a response.
-    assert "FIRST read the moment" in system
+    assert "Read the moment as it actually stands" in system
 
 
 def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):

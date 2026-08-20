@@ -1,0 +1,60 @@
+{
+  "notes": [],
+  "failures": 0,
+  "rows": [
+    {
+      "run": 1,
+      "elapsed_s": 14.625,
+      "served_model": "qwen38-27B-awq",
+      "completion_tokens": 143,
+      "prompt_tokens": 77,
+      "tokens_per_s": 9.78,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 2,
+      "elapsed_s": 1.368,
+      "served_model": "qwen38-27B-awq",
+      "completion_tokens": 143,
+      "prompt_tokens": 77,
+      "tokens_per_s": 104.57,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 3,
+      "elapsed_s": 27.619,
+      "served_model": "qwen38-27B-awq",
+      "completion_tokens": 143,
+      "prompt_tokens": 77,
+      "tokens_per_s": 5.18,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 4,
+      "elapsed_s": 1.885,
+      "served_model": "qwen38-27B-awq",
+      "completion_tokens": 143,
+      "prompt_tokens": 77,
+      "tokens_per_s": 75.85,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 5,
+      "elapsed_s": 90.376,
+      "served_model": "qwen38-27B-awq",
+      "completion_tokens": 143,
+      "prompt_tokens": 77,
+      "tokens_per_s": 1.58,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 6,
+      "elapsed_s": 1.753,
+      "served_model": "qwen38-27B-awq",
+      "completion_tokens": 138,
+      "prompt_tokens": 77,
+      "tokens_per_s": 78.73,
+      "finish_reason": "stop"
+    }
+  ]
+}

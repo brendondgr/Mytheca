@@ -363,10 +363,16 @@ is set on the **backend** at each call-site and is **never exposed to the user**
 Storyline / Character / Setting creation — there is no request field or settings
 toggle for it.
 
-- **Efforts → thinking-token budget:** `low` 256 · `medium` 512 · `high` 1024 ·
+- **Efforts → thinking-token budget:** `none` 0 · `low` 256 · `medium` 512 · `high` 1024 ·
   `very_high` 2048 · `max` 4096 (`web/backend/app/schemas/reasoning.py`).
-- **Per call-site:** **Triage = Low**; the standalone storyline/character/setting
-  drafts + the storyline agent's converse/plan calls = **Medium** (`DEFAULT_AUTHORING_EFFORT`).
+- **`none` means do not think**, and is enforced with more than a zero budget: a model whose
+  chat template always opens a thinking block would spend the whole allowance opening one and
+  emit no answer, so a zero budget additionally sets `chat_template_kwargs.enable_thinking =
+  false` (the switch Qwen-family templates read; ignored elsewhere).
+- **Per call-site:** **the character turn = None** — it deliberates visibly in its
+  `<thinking>` block instead, and paying for a hidden pass as well was the largest single
+  cost in a turn; **Triage = Low**; the standalone storyline/character/setting drafts + the
+  storyline agent's converse/plan calls = **Medium** (`DEFAULT_AUTHORING_EFFORT`).
 - **Transport:** `services/llm.chat_complete(..., reasoning=)` detects the engine and
   adds the matching key — **vLLM** `thinking_token_budget`, **llama.cpp**
   `thinking_budget_tokens`. A **relay** or **unknown** endpoint gets **both** keys: an

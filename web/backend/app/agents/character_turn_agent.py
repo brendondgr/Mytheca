@@ -38,10 +38,13 @@ from app.services.stat_render import render_character_stats
 
 logger = logging.getLogger("mytheca.turn")
 
-# The visible <thinking> block is a real, in-voice deliberation (a short paragraph — a
-# person thinks through a situation before speaking), so the character needs room to
-# reason before emitting. MEDIUM gives that headroom without making the turn sluggish.
-TURN_EFFORT = ReasoningEffort.MEDIUM
+# The character already deliberates **in the output**: the visible in-voice ``<thinking>``
+# block is a real deliberation the player reads. Letting the model ALSO fill a hidden
+# reasoning channel first means it thinks the same beat through twice and the player waits
+# through both — and only the second one is ever shown. EXP-2026-08-006 measured the
+# character beat at ~35 s to its thought and ~10 s more to its line, the largest single
+# cost in a turn. One deliberation, in the character's own voice, is the one worth keeping.
+TURN_EFFORT = ReasoningEffort.NONE
 
 # Sampler tuning for in-character voice on small models (the turn-loop plan §7):
 # repetition/frequency penalties + a lower top_p rein in drift more reliably than

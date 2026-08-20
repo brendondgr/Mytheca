@@ -28,6 +28,30 @@ relay and the GPU host, not about Mytheca, and it is out of scope for this exper
 should be the *first* thing investigated before any further latency work on this app,
 because it is plausibly larger than everything measured here.
 
+## 1b. AMENDMENT — the variance measurement did not control for concurrent load
+
+**Raised by the owner, 2026-08-20, and correct.** Issue 1 attributes a 66× spread to "the
+endpoint", but nothing in the probe checked whether *something else was using the same GPU
+at the same time*. Concurrent load is a complete and ordinary explanation for exactly that
+pattern — identical output, wildly different wall-clock — and it was not ruled out.
+
+The claim as originally written (C-010) therefore overreaches. What the data actually
+supports is narrower: **the observed latency of this endpoint is not stable across the
+period measured**, for reasons not established. Whether that instability is intrinsic to
+the host or is contention from other work on it is exactly the question the probe should
+have answered and did not.
+
+A repeat run was armed immediately. On attempting it the endpoint was found **fully down** —
+`502 upstream error: ConnectError: All connection attempts failed`, returned in 7 ms, with
+the relay reporting `skynet` health `failed` for at least 30 s of polling. That is a
+separate observation from the variance and does not substitute for the controlled repeat:
+it shows the remote host comes and goes, not that contention was or was not the cause.
+
+**Status: the controlled repeat is pending.** Until it lands, treat issue 1's *conclusion*
+as unproven and its *observations* (the recorded elapsed times) as fact. The original,
+uncontrolled run is preserved verbatim at [`logs/decode-pass1-uncontrolled.log`](logs/decode-pass1-uncontrolled.log)
+rather than being overwritten.
+
 ## 2. An inference stated to the user mid-run, then refuted by direct measurement
 
 While the run was in flight, turn 3's "5 planner calls for 4 beats" was read as *the model

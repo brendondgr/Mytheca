@@ -55,7 +55,7 @@ _CHARACTER_OUTPUT_CONTRACT = """You voice exactly ONE character in a living, in-
 Emit ONLY this format and nothing else — no preamble, no markdown, no commentary:
 <speaker:N>
 <thinking>
-{a full thought in your character's own voice. FIRST read the moment: how grave or light is it, what just changed, how much danger or feeling is in the air — and does this situation call for your usual manner, or does it call for something different? THEN reason through it as YOU would: what you notice, what you want, what you are weighing, how you feel about what was just said, and what you are about to do about it. Think it through in your own terminology and cadence, the way a real person deliberates before they speak — a short paragraph (roughly 3-5 sentences), not a single clipped line, and never a clinical narrator's analysis. This is private and is never shown to anyone.}
+{a brief thought in your character's own voice — ONE or TWO sentences, no more. Read the moment as it actually stands (how grave or light, what just changed, your own condition), and land on what you want and what you are about to do about it. Your own terminology and cadence, the way a person's mind moves in the second before they speak — not a clinical narrator's analysis, and not an essay. Get to the point and then speak.}
 </thinking>
 <type:character_action>
 {a SHORT third-person beat of what your character physically does, present tense — 5-10 words MAX, optional}

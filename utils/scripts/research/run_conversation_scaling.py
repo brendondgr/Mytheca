@@ -554,40 +554,59 @@ def mode_plan(args, record: RunRecord) -> None:
         "Player's direction: (freeform).\n"
         "Characters who have ALREADY taken a beat this turn (roster numbers): none\n\n"
         "This turn so far:\nPlayer: I put the pouch on the table and wait.\n\n"
-        f"Plan the next {args.budget} beats, in order. Return "
-        '{"beats": [<beat>, <beat>, ...]} where each <beat> is the JSON object '
-        "described above. Stop the list early — with an \"end\" beat, or simply fewer "
-        "entries — if the turn should finish sooner. Judge each beat from the situation "
-        "as it will stand after the ones you planned before it."
     )
+    # Interleaved arms in ONE session — the methodology EXP-2026-08-006's own threats
+    # section says any future latency comparison on this app has to use. ``want=1`` is the
+    # pre-lookahead request, byte-identical to what ``next_beat`` sends.
     for run in range(1, args.turns + 1):
-        row: dict[str, Any] = {"run": run, "asked_for": args.budget}
-        try:
-            with httpx.Client(timeout=httpx.Timeout(300.0, connect=5.0)) as client:
-                res = client.post(f"{args.base_url}/chat/completions", json={
-                    "model": args.model,
-                    "messages": [{"role": "system", "content": system},
-                                 {"role": "user", "content": user}],
-                    "max_tokens": 2000, "temperature": 0.0,
-                    "thinking_token_budget": 512, "thinking_budget_tokens": 512,
+        for want in (1, args.budget) if run % 2 else (args.budget, 1):
+            ask = (
+                "What is the next beat?"
+                if want == 1
+                else (
+                    f"Plan the next {want} beats, in order. Return "
+                    '{"beats": [<beat>, <beat>, ...]} where each <beat> is the JSON object '
+                    "described above. Stop the list early — with an \"end\" beat, or simply "
+                    "fewer entries — if the turn should finish sooner. Judge each beat from "
+                    "the situation as it will stand after the ones you planned before it."
+                )
+            )
+            row: dict[str, Any] = {"run": run, "asked_for": want}
+            started = time.monotonic()
+            try:
+                with httpx.Client(timeout=httpx.Timeout(300.0, connect=5.0)) as client:
+                    res = client.post(f"{args.base_url}/chat/completions", json={
+                        "model": args.model,
+                        "messages": [{"role": "system", "content": system},
+                                     {"role": "user", "content": user + ask}],
+                        "max_tokens": 2000, "temperature": 0.0,
+                        "thinking_token_budget": 512, "thinking_budget_tokens": 512,
+                    })
+                    payload = res.json()
+                elapsed = time.monotonic() - started
+                message = (payload.get("choices") or [{}])[0].get("message") or {}
+                data = extract_json(message.get("content") or "")
+                beats = data.get("beats")
+                returned = len(beats) if isinstance(beats, list) else (1 if data.get("action") else 0)
+                row.update({
+                    "elapsed_s": round(elapsed, 3),
+                    "returned": returned,
+                    # Seconds per beat actually planned — the number that decides whether
+                    # asking for several is cheaper than asking repeatedly for one.
+                    "seconds_per_beat": round(elapsed / returned, 3) if returned else None,
+                    "shape": "beats-array" if isinstance(beats, list) else
+                             ("single-object" if data.get("action") else "unparseable"),
+                    "completion_tokens": (payload.get("usage") or {}).get("completion_tokens"),
+                    "served_model": payload.get("model"),
                 })
-                payload = res.json()
-            message = (payload.get("choices") or [{}])[0].get("message") or {}
-            data = extract_json(message.get("content") or "")
-            beats = data.get("beats")
-            row.update({
-                "returned": len(beats) if isinstance(beats, list) else (1 if data.get("action") else 0),
-                "shape": "beats-array" if isinstance(beats, list) else
-                         ("single-object" if data.get("action") else "unparseable"),
-                "served_model": payload.get("model"),
-            })
-        except Exception as exc:
-            row["error"] = f"{exc.__class__.__name__}: {exc}"
-            record.note(f"plan run {run} FAILED: {row['error']}")
-        record.add_run(row)
-        record.llm_calls += 1
-        print(f"run {run}: asked {row['asked_for']} → got {row.get('returned')} "
-              f"({row.get('shape')})", flush=True)
+            except Exception as exc:
+                row["error"] = f"{exc.__class__.__name__}: {exc}"
+                record.note(f"plan run {run} want={want} FAILED: {row['error']}")
+            record.add_run(row)
+            record.llm_calls += 1
+            print(f"run {run} want={want}: got {row.get('returned')} beat(s) in "
+                  f"{row.get('elapsed_s')}s = {row.get('seconds_per_beat')}s/beat "
+                  f"({row.get('shape')}, {row.get('completion_tokens')} tok)", flush=True)
 
 
 def main() -> int:

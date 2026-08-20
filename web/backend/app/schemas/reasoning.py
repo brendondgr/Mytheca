@@ -17,8 +17,13 @@ from enum import Enum
 
 
 class ReasoningEffort(str, Enum):
-    """How many thinking tokens an operation may spend (low → max)."""
+    """How many thinking tokens an operation may spend (none → max)."""
 
+    #: Do not think at all. For an operation that already deliberates *in the output* —
+    #: the character turn writes a visible in-voice ``<thinking>`` paragraph — hidden
+    #: channel reasoning is a second deliberation nobody reads, paid for in the wait
+    #: before the first word of prose. One or the other, not both.
+    NONE = "none"
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -28,6 +33,7 @@ class ReasoningEffort(str, Enum):
 
 # Effort → thinking-token budget. Values fixed by product spec.
 THINKING_BUDGET: dict[ReasoningEffort, int] = {
+    ReasoningEffort.NONE: 0,
     ReasoningEffort.LOW: 256,
     ReasoningEffort.MEDIUM: 512,
     ReasoningEffort.HIGH: 1024,

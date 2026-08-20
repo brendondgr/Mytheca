@@ -958,8 +958,11 @@ planner leans on **narration to PROGRESS the scene** to the next beat (especiall
 narrating what the characters are *doing* and carrying an action through to its consequence — and a
 character **speaks only after** the scene has moved and has a genuine point-of-view reaction, so
 characters stop over-talking; a **cold scene open** with no directed character is narrator-led. Each
-character always **`<thinking>`**s (a real in-voice deliberation — a short paragraph in their own
-terminology at turn effort **MEDIUM**, streamed `private_to_user` and kept out of `turn_beats`), but a
+character always **`<thinking>`**s (a real in-voice deliberation — **one or two sentences** in their
+own terminology, streamed `private_to_user` and kept out of `turn_beats`). That block is the turn's
+**only** deliberation: the character call runs at effort **NONE**, so the model does not also fill a
+hidden reasoning channel before it. Thinking the same beat through twice cost the player both waits
+and showed only the second (EXP-2026-08-006 measured the beat at ~35 s to its thought). But a
 spoken line is **optional** — in an action moment they act or simply think with no forced dialogue.
 **Situational voice adaptation** is driven by a **per-beat register**, not by asking the speaker to
 work the moment out for itself. `planner_agent.next_beat` returns `register` (`light` · `neutral` ·
