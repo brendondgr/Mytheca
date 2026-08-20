@@ -55,7 +55,7 @@ Player line
   → direction_agent (the player's direction → outcomes the turn owes, scheduled to fit)
   → ReAct loop: planner_agent.next_beat → speak | narrate | exit | end
        └ character_turn_agent (think → speak, one isolated call per beat)
-       └ emission parse → consistency guard → validator (clamp / drop)
+       └ emission parse → validator (clamp / drop)
   → NDJSON story events streamed to the browser
   → cold path: turn_writer → Neo4j · read-time: reflection → Redis
 ```
@@ -81,7 +81,7 @@ Implemented and exercised end to end:
 
 - Full CRUD for the four canonical objects, plus stats, context documents, and the Story-Graph type registry.
 - Agentic authoring: storyline draft + primer, conversational scope-aware storyline **editing** (`storyline_edit/`), **create-time world population** (`roster_agent` + `services/world_populate` — the generated cast + settings a new world starts with), character / setting / scenario creators, document triage, portrait + scene-art generation.
-- The runtime turn loop: intent → ReAct planner → per-character think→speak → validator → NDJSON stream, with presence tracking, POV play, follow-up suggestions, within-turn consistency guard, cold-path Neo4j writes, and read-time reflection.
+- The runtime turn loop: intent → ReAct planner → per-character think→speak → validator → NDJSON stream, with presence tracking, POV play, follow-up suggestions, cold-path Neo4j writes, and read-time reflection.
 - In-narrative images: a **Create image** control at the foot of the transcript writes an appearance-first prompt from the live scene (`moment_agent`) and renders it landscape through ComfyUI (`scene_moment`), persisted as a `scene_image` beat.
 - Persistent sessions: every turn and its diagnostic trace are stored (`events`, `turn_traces`); reopening a scenario resumes the latest session; sessions export as JSON or Markdown.
 - Hybrid RAG with embed-on-save and a conservative retrieval gate.

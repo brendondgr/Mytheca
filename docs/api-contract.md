@@ -1009,7 +1009,7 @@ client that does not implement this is unaffected.
 order**, what the turn loop did and why — the story player's **Inspector** panel renders
 these. `step` is a stable key (`turn` opens each turn, then `intent` / `assemble` / `lore` /
 `files` /
-`plan` / `speaker` / `thinking` / `consistency` / `relationship` / `action` / `dialogue` /
+`plan` / `speaker` / `thinking` / `relationship` / `action` / `dialogue` /
 `context` / `stat` / `relationship_change` / `branch` / `commit` / `reflection`); `n` orders
 within one turn. Trace frames stay **out of the story-event stream** (not story events, not in
 `story_event_adapter`), and the streaming flag defaults **off** so the default stream and
@@ -1045,7 +1045,7 @@ char/4 estimate only until a real `promptTokens` is known. The same step carries
 - Chunked/delta text sets `done: false` until the final chunk sets `done: true`.
 - **Deltas are live.** `narration`, `character_dialogue` and `internal_thought` are emitted as the model writes them (`services/llm.chat_complete_stream`), not sliced up after the completion is whole. The persisted row still holds the finished text with `done: true`, so a resumed session replays through the same reducers. On an endpoint that refuses `stream: true` the whole beat arrives as a single terminal delta — same shape, different timing.
 - `character_action` is delivered whole even on the live path: the client folds it into the speaker's open bubble, and that fold only works while the bubble has no spoken text yet.
-- **A beat the continuity guard will judge does not stream its prose.** The guard inspects a complete candidate and can reject it, so only beats it skips — the turn's first character beat, and puppet beats — stream. Later speakers emit once, after the verdict.
+- **Every character beat streams its prose**, including later speakers. The continuity guard that used to hold a later beat back for a complete-line verdict has been retired; nothing now waits on a finished line before showing it.
 - `internal_thought` streams with `visibility: private_to_user` (the inline thinking line, folded into the speaker's beat) but is kept out of other characters' context. It **delta-streams**: because the emission format is think→speak, the thought is normally the first thing a turn can show, completing while the spoken line is still being written.
 - The validator runs `parse → validate (incl. stat clamping) → repair/retry` before anything reaches the stream.
 

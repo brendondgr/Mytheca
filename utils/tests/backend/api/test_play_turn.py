@@ -609,12 +609,20 @@ def _reconstruct_dialogue(events: list[dict]) -> list[dict]:
     return sorted(out, key=lambda d: d["seq"])
 
 
-def test_consistency_guard_regenerates_a_contradicting_later_line(client, storyline_id, monkeypatch):
+def test_later_speakers_are_no_longer_held_for_a_continuity_check(client, storyline_id, monkeypatch):
+    """Every beat goes straight to the wire — there is no auditor call and no hold.
+
+    The continuity guard used to inspect a COMPLETE candidate line before a later beat
+    could be shown, which cost ~10 s per second speaker (EXP-2026-08-005 put it at 11 %
+    of turn time) and was the only reason a later beat could not stream as it was
+    written. It is gone; this pins that it stays gone.
+    """
     _configure_llm(client)
     mei, kira, _jax, sid = _three(client, storyline_id)
     scid = _scenario(client, storyline_id, [mei, kira], sid)
 
     plan = iter([{"action": "speak", "actor": 1}, {"action": "speak", "actor": 2}, {"action": "end"}])
+    auditor_calls: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         if not request.url.path.endswith("/chat/completions"):
@@ -628,25 +636,27 @@ def test_consistency_guard_regenerates_a_contradicting_later_line(client, storyl
                 return _resp(json.dumps(next(plan)))
             except StopIteration:
                 return _resp(json.dumps({"action": "end"}))
-        if "continuity auditor" in system:  # flag Kira's first attempt
-            return _resp(json.dumps({"consistent": False, "reason": "the lantern was just lit"}))
+        if "continuity auditor" in system:
+            auditor_calls.append(system)
+            return _resp(json.dumps({"consistent": True}))
         if "private inner voice" in system:
             return _resp("{}")
         m = re.search(r"You are \[(\d+)\] (\w+)", user)
         num = m.group(1) if m else "1"
         if num == "1":
             return _resp('<speaker:1>\n<type:character_dialogue>\n"The lantern is lit."')
-        if "broke continuity" in user:  # Kira's redo
-            return _resp('<speaker:2>\n<type:character_dialogue>\n"I step toward the lit lantern."')
-        return _resp('<speaker:2>\n<type:character_dialogue>\n"The lantern is dark."')  # contradiction
+        return _resp('<speaker:2>\n<type:character_dialogue>\n"I step toward it."')
 
     monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
-    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I address the room."}))
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "I address the room.", "trace": True})
+    )
 
     texts = [line["text"] for line in _reconstruct_dialogue(events)]
-    assert any(t == '"The lantern is lit."' for t in texts)  # Mei (first speaker, no guard)
-    assert any("lit lantern" in t for t in texts)  # Kira's corrected line
-    assert all("dark" not in t for t in texts)  # the contradiction was never emitted
+    assert any(t == '"The lantern is lit."' for t in texts)   # first speaker
+    assert any(t == '"I step toward it."' for t in texts)     # second speaker, unheld
+    assert auditor_calls == []                                 # no extra LLM round trip
+    assert all(e.get("step") != "consistency" for e in events if e["type"] == "trace")
 
 
 def test_universal_reflection_writes_interior_for_the_whole_cast(client, storyline_id, monkeypatch):

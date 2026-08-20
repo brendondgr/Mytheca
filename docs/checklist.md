@@ -48,7 +48,7 @@ Verified against the code on 2026-08-04.
 - **A live scene state.** `Setting.current_state` and `Setting.atmosphere` are written at world creation and **never again during play**. The character prompt no longer misrepresents them as the present moment, but nothing yet maintains a rolling "what this place is like now" line from the transcript.
 - **Reflection effort is pinned to `LOW`.** The disposition it produces is now 2–3 sentences and sits in the character prompt's recency tail, so it carries real weight — but `dispatch_reflection` runs **inline** by default (`TURN_ASYNC_FINALIZE` is off) and a crowd (cast > 2) reflects **universally**, so raising `REFLECTION_EFFORT` to `MEDIUM` would put a whole cast's reasoning budget on the turn tail. Revisit together with async finalize, or gate the effort on cast size.
 - **Nothing measures whether the register works.** Phases 1–5 of `docs/plans/character-dialogue-flexibility.md` are validated structurally (the register reaches the prompt, the right samples are selected, the sampler moves) — no experiment shows that output quality improved. A grave-beat manner-adaptation eval belongs in `docs/research/experiments/`.
-- **Composure as a stat, and a tonal redo pass** — the two rejected arms of the same design (ideas 4 and 6). The stat machinery already renders bands to prose, and `consistency.review`'s correction seam already re-runs a beat; both are cheap to revisit if the register alone proves insufficient.
+- **Composure as a stat, and a tonal redo pass** — the two rejected arms of the same design (ideas 4 and 6). The stat machinery already renders bands to prose; the beat-redo seam that used to live on the continuity guard went with it, so a tonal redo would now need its own. Both are cheap enough to revisit if the register alone proves insufficient.
 - **`end_scene` / `move_scene` verbs** — the presence/action bus is built to take them.
 - **YAML config loaders** in `app/content/` — only the Markdown stat-guidance loader exists. Entities live in Postgres, so this may simply be unnecessary; decide rather than leave it pending.
 - **Dice-based resolution** — explicitly dropped (decision D11), not merely deferred. The `CheckCard` renderer was removed. Reopen only as a deliberate reversal.
@@ -85,7 +85,8 @@ Verified against the code on 2026-08-04.
 - **The beat planner is 41 % of all turn time.** It runs once per beat — three to six
   times a turn at ~4 s each — and is the single largest cost in the app, ahead of character
   generation (15 %), inline reflection (13 %) and the continuity guard (11 %, ~10 s each
-  time it fires). Of the ~10 s before a player sees any prose, roughly 7.5 s is `intent`
+  time it fired — **retired 2026-08-20**). Of the ~10 s before a player sees any prose,
+  roughly 7.5 s is `intent`
   plus the first `plan` call, neither of which produces a word. Reducing the *number* of
   sequential calls is the lever for perceived latency; context size is not.
 
@@ -107,13 +108,13 @@ Verified against the code on 2026-08-04.
   decision rather than a theoretical one: it trades spoiler risk against a visibly shorter
   wait. Not made yet.
 
-- **Later speakers do not stream their prose.** The continuity guard inspects a complete
-  candidate line and can reject it, so a beat it will judge cannot also be shown as it
-  arrives — the line would have to un-write itself. The turn's first character beat and
-  puppet beats stream fully; speakers after them emit once, after the verdict. Every beat
-  still streams the model's reasoning channel, so none of them is silent. The fix is an
-  incremental guard (judge the line as it grows, cutting the stream on a contradiction),
-  which is a genuine design problem, not threading.
+- ~~**Later speakers do not stream their prose.**~~ **Resolved 2026-08-20.** The
+  continuity guard was the sole reason a later beat had to hold its prose for a
+  complete-line verdict. EXP-2026-08-005 measured the guard at 11 % of turn time (~10 s
+  every time it fired), and it was retired rather than made incremental: every character
+  beat now streams as it is written. Reopen only if continuity errors actually show up in
+  play — at which point the incremental form (judge the line as it grows, cut the stream
+  on a contradiction) is the design to build, not the blocking one.
 - **Streamed prose can diverge from the persisted row on a harmony-format endpoint.**
   `strip_reasoning` keeps the text after the *last* `<|channel|>` marker, which cannot be
   known mid-stream. `InlineReasoningSplitter` handles the `<think>` form exactly and

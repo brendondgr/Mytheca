@@ -43,7 +43,6 @@ FastAPI, Python 3.13, `uv`.
 | Context assembly | `app/services/assembler.py` |
 | Emission parsing | `app/services/emission.py` |
 | Validation / clamping | `app/services/validator.py` |
-| Within-turn continuity | `app/services/consistency.py` |
 | Event envelope + NDJSON | `app/events/` |
 | Persistence | `app/models/`, `app/services/events_store.py`, `crud.py` |
 | Config, clients, preflight | `app/core/` |

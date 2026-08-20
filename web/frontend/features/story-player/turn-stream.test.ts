@@ -882,8 +882,8 @@ describe("applyTurnStatus", () => {
 
   it("returns the same reference for frames it does not care about", () => {
     const start: TurnStatus = { phase: "thinking", characterId: "mei", name: "Mei" };
-    // `consistency` names no phase — unlike assemble/lore/files/intent/plan, which now do.
-    expect(applyTurnStatus(start, traceFrame("consistency", 2))).toBe(start);
+    // `relationship` names no phase — unlike assemble/lore/files/intent/plan, which now do.
+    expect(applyTurnStatus(start, traceFrame("relationship", 2))).toBe(start);
     expect(applyTurnStatus(start, ev("state_update", "s1", { patch: {}, stat: null }))).toBe(start);
   });
 });

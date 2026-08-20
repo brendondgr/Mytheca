@@ -28,7 +28,7 @@ _STEP_LABELS = {
     "plan": "Planner",
     "speaker": "Speaker",
     "thinking": "Thinking",
-    "consistency": "Consistency check",
+    "consistency": "Consistency check",  # historical — the guard was retired
     "relationship": "Relationship context",
     "action": "Action",
     "dialogue": "Dialogue",

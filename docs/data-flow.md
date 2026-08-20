@@ -67,8 +67,6 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
               folded into the prompt) → services.llm.chat_complete
             emission.parse_emission: thin <speaker:N>/<type:…> tags → typed segments
               (name→id; out-of-roster drop)
-            consistency.review (only once >1 cast member and a prior beat exists this
-              turn; regenerates once on a clear contradiction, best-effort)
             validator: parse → validate (incl. stat clamping) → repair/retry
             _Emitter: assign per-session seq · persist (Postgres) · push buffer
               · internal_thought → private_to_user (NOT pushed to turn_beats, so later
@@ -940,9 +938,11 @@ cast **concurrently** (`services/concurrency.run_all`, capped by `TURN_MAX_CONCU
 (`concurrency.submit_background`; inline + deterministic by default / on SQLite). Multi-party turns
 also add a **live speaker queue**: a high-impact beat (Σ|stat delta|) re-consults the Director
 mid-turn (`director_agent.rerank`) and **cascades** a disposition refresh to the not-yet-spoken
-(`reflection.refresh_dispositions`, width scaled to impact), and a **consistency guard**
-(`services/consistency.py`) checks each later line against the established beats before it streams,
-regenerating once on a clear contradiction. All best-effort (Redis/LLM down → the turn still runs).
+(`reflection.refresh_dispositions`, width scaled to impact). All best-effort (Redis/LLM down →
+the turn still runs). A within-turn **continuity guard** used to check each later line against the
+established beats before it streamed; it was retired after EXP-2026-08-005 measured it at 11 % of
+turn time (~10 s per later speaker) and identified it as the sole reason later beats could not
+stream their prose.
 
 **Reactive Turn Director (Produce band overhaul).** The player's line is first **interpreted**
 (`agents/intent_agent`) into narrate / address / **puppet** / whole-group intent; a puppeted

@@ -123,7 +123,6 @@ def generate_line(
     *,
     turn_beats: list[dict],
     reasoning: ReasoningEffort = TURN_EFFORT,
-    correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
     register: str | None = None,
@@ -137,7 +136,7 @@ def generate_line(
     """
     raw, _ = generate_line_with_usage(
         db, ctx, speaker, turn_beats=turn_beats, reasoning=reasoning,
-        correction=correction, directive=directive, relationship_note=relationship_note,
+        directive=directive, relationship_note=relationship_note,
         register=register, stakes=stakes,
         scene_direction=scene_direction, requirements=requirements,
     )
@@ -151,7 +150,6 @@ def generate_line_with_usage(
     *,
     turn_beats: list[dict],
     reasoning: ReasoningEffort = TURN_EFFORT,
-    correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
     register: str | None = None,
@@ -170,8 +168,7 @@ def generate_line_with_usage(
     ``turn_beats`` is the chronological this-turn transcript so far (the player's
     line, then any earlier speakers' lines) — so a later speaker genuinely reacts to
     its predecessor (the immediate predecessor sits last, where recency attention is
-    strongest). ``correction`` re-runs the beat after the consistency guard (§P10)
-    flagged a continuity break, folding the reason into the act-now tail. ``directive``
+    strongest). ``directive``
     is a **puppet** performance (Reactive Turn Director D1): the player directed this
     character to do/say something, so the character performs it **in their own voice**
     rather than reacting to the player's words as if spoken to them.
@@ -189,7 +186,7 @@ def generate_line_with_usage(
     # prefix-cache id so warm-prefix reuse across the turn's calls is observable (§P11).
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(
-        ctx, speaker, turn_beats, correction=correction, directive=directive,
+        ctx, speaker, turn_beats, directive=directive,
         relationship_note=relationship_note, register=register, stakes=stakes,
         scene_direction=scene_direction, requirements=requirements,
     )
@@ -210,7 +207,6 @@ def stream_line(
     *,
     turn_beats: list[dict],
     reasoning: ReasoningEffort = TURN_EFFORT,
-    correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
     register: str | None = None,
@@ -234,7 +230,7 @@ def stream_line(
     system = f"{contract}\n\n{ctx.stable_prefix}".strip()
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(
-        ctx, speaker, turn_beats, correction=correction, directive=directive,
+        ctx, speaker, turn_beats, directive=directive,
         relationship_note=relationship_note, register=register, stakes=stakes,
         scene_direction=scene_direction, requirements=requirements,
     )
@@ -263,7 +259,6 @@ def _build_user_prompt(
     speaker: CastMember,
     turn_beats: list[dict],
     *,
-    correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
     register: str | None = None,
@@ -387,12 +382,6 @@ def _build_user_prompt(
             f"{speaker.disposition} That is your condition now — carry it in. If it means "
             "you cannot keep up your usual manner, don't; let <thinking> build on it in "
             "your own voice rather than restating it."
-        )
-    if correction:
-        # Consistency guard flagged the prior attempt (§P10) — steer the redo.
-        tail.append(
-            f"Your previous line broke continuity ({correction}). Redo it consistently "
-            "with the established beats above."
         )
     if directive:
         # Puppet performance (D1): the player directed you — perform it in your own voice.
