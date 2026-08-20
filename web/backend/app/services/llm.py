@@ -34,14 +34,22 @@ logger = logging.getLogger("mytheca.llm")
 _TIMEOUT = httpx.Timeout(20.0, connect=5.0)
 
 
-def _gen_timeout() -> httpx.Timeout:
+def _gen_timeout(seconds: float | None = None) -> httpx.Timeout:
     """The generation read window, from ``LLM_GEN_TIMEOUT_SECONDS`` (default 300 s).
 
     Resolved per call rather than at import so an operator override takes effect without
     a restart. On a streaming call the read window applies *between* chunks, so this
     bounds the silence between tokens rather than the length of the whole generation.
+
+    ``seconds`` overrides it for one call. That matters because the default is sized for
+    *prose* — a character writing a paragraph legitimately takes minutes — while the
+    structural calls that decide what a turn even does (intent, the beat planner) are
+    small JSON judgements that finish in seconds. Sharing one window meant a stalled
+    decision cost the player the full prose budget in silence; see
+    ``llm_decision_timeout_seconds``.
     """
-    return httpx.Timeout(float(get_settings().llm_gen_timeout_seconds), connect=5.0)
+    window = float(get_settings().llm_gen_timeout_seconds if seconds is None else seconds)
+    return httpx.Timeout(window, connect=5.0)
 
 
 def get_http_client() -> httpx.Client:
@@ -213,6 +221,7 @@ def chat_complete(
     *,
     reasoning: ReasoningEffort | None = None,
     extra_body: dict | None = None,
+    timeout_s: float | None = None,
 ) -> str:
     """Run one chat completion and return the assistant's (scrubbed) text.
 
@@ -220,7 +229,8 @@ def chat_complete(
     Thin wrapper over :func:`chat_complete_usage` that discards the usage figure.
     """
     text, _ = chat_complete_usage(
-        base_url, api_key, model, messages, params, reasoning=reasoning, extra_body=extra_body
+        base_url, api_key, model, messages, params, reasoning=reasoning,
+        extra_body=extra_body, timeout_s=timeout_s,
     )
     return text
 
@@ -235,6 +245,7 @@ def chat_complete_usage(
     reasoning: ReasoningEffort | None = None,
     extra_body: dict | None = None,
     usage_out: dict | None = None,
+    timeout_s: float | None = None,
 ) -> tuple[str, int | None]:
     """Run one chat completion; return ``(scrubbed_text, prompt_tokens)``.
 
@@ -262,11 +273,12 @@ def chat_complete_usage(
     url, body, limit_key = _completion_request(
         base_url, api_key, model, messages, params, reasoning=reasoning, extra_body=extra_body
     )
-    res = _send("POST", url, headers=_headers(api_key), json=body, timeout=_gen_timeout())
+    window = _gen_timeout(timeout_s)
+    res = _send("POST", url, headers=_headers(api_key), json=body, timeout=window)
     if not res.is_success:
         limit = _learn_context_limit(limit_key, res)
         if limit and _fit_max_tokens(body, limit):
-            res = _send("POST", url, headers=_headers(api_key), json=body, timeout=_gen_timeout())
+            res = _send("POST", url, headers=_headers(api_key), json=body, timeout=window)
     _ensure_ok(res)
     try:
         payload = res.json()
@@ -338,6 +350,7 @@ def chat_complete_stream(
     reasoning: ReasoningEffort | None = None,
     extra_body: dict | None = None,
     usage_out: dict | None = None,
+    timeout_s: float | None = None,
 ) -> Generator[StreamDelta, None, tuple[str, int | None]]:
     """Stream one chat completion, yielding deltas; return ``(scrubbed_text, prompt_tokens)``.
 
@@ -360,7 +373,7 @@ def chat_complete_stream(
     if stream_key in _NO_STREAM:
         return (yield from _blocking_as_stream(
             base_url, api_key, model, messages, params, reasoning=reasoning,
-            extra_body=extra_body, usage_out=usage_out,
+            extra_body=extra_body, usage_out=usage_out, timeout_s=timeout_s,
         ))
 
     url, body, limit_key = _completion_request(
@@ -381,7 +394,8 @@ def chat_complete_stream(
     try:
         with client:
             with client.stream(
-                "POST", url, headers=_headers(api_key), json=body, timeout=_gen_timeout()
+                "POST", url, headers=_headers(api_key), json=body,
+                timeout=_gen_timeout(timeout_s),
             ) as res:
                 if not res.is_success or "event-stream" not in res.headers.get("content-type", ""):
                     res.read()
@@ -393,6 +407,7 @@ def chat_complete_stream(
                     return (yield from _blocking_as_stream(
                         base_url, api_key, model, messages, params,
                         reasoning=reasoning, extra_body=extra_body, usage_out=usage_out,
+                        timeout_s=timeout_s,
                     ))
                 for line in res.iter_lines():
                     chunk = _sse_payload(line)
@@ -483,6 +498,7 @@ def _blocking_as_stream(
     reasoning: ReasoningEffort | None,
     extra_body: dict | None,
     usage_out: dict | None = None,
+    timeout_s: float | None = None,
 ) -> Generator[StreamDelta, None, tuple[str, int | None]]:
     """Run the blocking path and present it as a one-delta stream.
 
@@ -492,7 +508,7 @@ def _blocking_as_stream(
     """
     text, prompt_tokens = chat_complete_usage(
         base_url, api_key, model, messages, params, reasoning=reasoning,
-        extra_body=extra_body, usage_out=usage_out,
+        extra_body=extra_body, usage_out=usage_out, timeout_s=timeout_s,
     )
     yield StreamDelta(answer=text)
     return text, prompt_tokens

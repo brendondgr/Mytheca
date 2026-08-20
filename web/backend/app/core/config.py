@@ -104,6 +104,16 @@ class Settings(BaseSettings):
     # window on every chunk, so this bounds the gap *between* tokens, not the whole call.
     llm_gen_timeout_seconds: int = 300
 
+    # Read window for a *structural* call — the small JSON judgements that decide what a
+    # turn does (intent, the beat planner, the direction packer, triage). These emit no
+    # prose and finished in 3.6 s and 4.9 s respectively when EXP-2026-08-005 measured
+    # them, so they have no business sharing prose generation's five-minute patience:
+    # a stalled one used to cost the player the whole window in silence, which is what
+    # "the app takes five minutes and never says why" actually was. Every one of these
+    # agents already falls back to a heuristic, so a timeout degrades the turn instead of
+    # ending it.
+    llm_decision_timeout_seconds: int = 25
+
     # ComfyUI image generation — a local Comfy server (HTTP + WebSocket protocol).
     comfyui_base_url: str = "http://localhost:8199"
 

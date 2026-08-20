@@ -23,7 +23,7 @@ from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 
-from app.agents._common import extract_json, gen_params, resolve_llm, world_context
+from app.agents._common import decision_timeout, extract_json, gen_params, resolve_llm, world_context
 from app.core.errors import APIError
 from app.schemas.context_document import (
     TriageDoc,
@@ -158,7 +158,7 @@ def triage_documents(
     data = extract_json(
         llm.chat_complete(
             base_url, api_key, model, messages, gen_params(params),
-            reasoning=ReasoningEffort.LOW,
+            reasoning=ReasoningEffort.LOW, timeout_s=decision_timeout(),
         )
     )
 
@@ -201,7 +201,7 @@ def classify_document(
     data = extract_json(
         llm.chat_complete(
             base_url, api_key, model, messages, gen_params(params),
-            reasoning=ReasoningEffort.LOW,
+            reasoning=ReasoningEffort.LOW, timeout_s=decision_timeout(),
         )
     )
     return _coerce_item(doc.name, data)

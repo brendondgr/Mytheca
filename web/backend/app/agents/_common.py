@@ -38,6 +38,18 @@ DEFAULT_AUTHORING_EFFORT = ReasoningEffort.MEDIUM
 GEN_MIN_TOKENS = 8192
 
 
+def decision_timeout() -> float:
+    """Read window for a structural (JSON-returning, prose-free) agent call.
+
+    The turn's decision calls are seconds-long by nature; prose generation is not. Sharing
+    one window meant a stalled planner cost the player the whole prose budget in silence.
+    Resolved per call so an operator override takes effect without a restart.
+    """
+    from app.core.config import get_settings
+
+    return float(get_settings().llm_decision_timeout_seconds)
+
+
 def gen_params(params: LlmParams) -> LlmParams:
     """Return params with ``max_tokens`` floored for authoring generations."""
     if params.max_tokens >= GEN_MIN_TOKENS:

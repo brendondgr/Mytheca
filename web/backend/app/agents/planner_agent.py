@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.agents import prompt_registry
-from app.agents._common import extract_json, resolve_llm
+from app.agents._common import decision_timeout, extract_json, resolve_llm
 from app.agents.direction_agent import SceneDirection
 from app.agents.intent_agent import TurnIntent
 from app.core.errors import APIError
@@ -140,6 +140,7 @@ def next_beat(
             ],
             params,
             reasoning=PLANNER_EFFORT,
+            timeout_s=decision_timeout(),
         )
         data = extract_json(raw)
     except APIError:

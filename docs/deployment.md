@@ -97,6 +97,7 @@ Copy `.env.example` → `.env` (gitignored). This table is the complete set read
 | `LLM_BACKEND_POLL_SECONDS` | `30` | How often the engine probe re-runs |
 | `LLM_BACKEND_CACHE_TTL_SECONDS` | `60` | Engine-detection cache lifetime |
 | `LLM_GEN_TIMEOUT_SECONDS` | `300` | Read window for a generation call. On a streaming generation it bounds the gap *between* chunks, not the whole call |
+| `LLM_DECISION_TIMEOUT_SECONDS` | `25` | Read window for the prose-free structural calls (intent, beat planner, direction packer, triage). Each falls back to a heuristic on timeout, so a stall degrades a turn instead of hanging it |
 | `COMFYUI_BASE_URL` | `http://localhost:8199` | Local ComfyUI server; workflows in `utils/workflows/` |
 | `MEDIA_DIR` | `<repo>/media` | Where generated WebP output is written; served at `/media` |
 
