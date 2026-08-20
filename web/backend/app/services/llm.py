@@ -428,6 +428,7 @@ def chat_complete_stream(
             502, "bad_gateway", f"Could not reach the model endpoint: {exc.__class__.__name__}."
         ) from exc
 
+    delta_count = len(answer_parts)
     tail_answer, tail_reasoning = splitter.flush()
     if tail_answer or tail_reasoning:
         answer_parts.append(tail_answer)
@@ -436,8 +437,19 @@ def chat_complete_stream(
 
     # The harmony-channel scrub can only run once the whole reply is known (it keeps the
     # text after the LAST channel marker), so it lands here rather than per delta.
-    text = strip_reasoning("".join(answer_parts))
+    joined = "".join(answer_parts)
+    text = strip_reasoning(joined)
     if not text:
+        # An empty completion after a seemingly-normal stream is otherwise undiagnosable:
+        # the player sees one opaque sentence and the server records nothing. Log what
+        # actually arrived — how many deltas, how much raw text, and whether the scrub is
+        # what emptied it — so a recurrence can be told apart from a silent upstream.
+        logger.warning(
+            "Empty completion from %s model=%s: %d delta(s), %d raw answer char(s), "
+            "%d reasoning char(s), finish_reason=%r, raw=%r",
+            _normalize(base_url), model, delta_count, len(joined),
+            len("".join(reasoning_parts)), finish_reason, joined[:400],
+        )
         _raise_empty_completion(finish_reason, "".join(reasoning_parts))
     return text, prompt_tokens
 
