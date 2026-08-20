@@ -55,23 +55,23 @@ Verified against the code on 2026-08-04.
 
 ## Known defects and rough edges
 
-- **The live reasoning channel is inert on the model the app is configured with.**
-  EXP-2026-08-004 ran the same code against the deployed `skynet` route (observed upstream
-  `qwen38-27B-awq`): it returns no `reasoning_content` field and no inline `<think>` block,
-  so `first_reasoning_s` was null in every run and setting Reasoning visibility to `full`
-  shows nothing. The feature degrades correctly and silently — the frame is simply never
-  emitted — but on this deployment the streamed-content and reasoning work is **latent
-  capability**, not a delivered win. It activates on the relay's `local` route, which does
-  expose the channel (EXP-2026-08-003). What works on any model is the trace-driven part:
-  the status-strip phases, the pending beat, and the direction checklist.
+- ~~**The live reasoning channel is inert on the model the app is configured with.**~~
+  **Withdrawn 2026-08-19.** EXP-2026-08-004 recorded `first_reasoning_s` as null on the
+  deployed `skynet` route and concluded the model exposed no reasoning channel. It does:
+  vLLM spells the field `reasoning`, llama.cpp spells it `reasoning_content`, and the
+  parser read only the second. The null result measured the instrument. Fixed in
+  `llm._reasoning_field`; the first reasoning token on `skynet` measures at ~0.4 s
+  (EXP-2026-08-005). The experiment is amended rather than rewritten.
 - **The default Reasoning-visibility setting leaves the longest wait empty.**
-  EXP-2026-08-003 measured the model spending ~17 s of a ~20 s generation on
-  `reasoning_content` before writing its first word of prose. The live reasoning channel
-  covers that window, but it only streams at `full`; the default `summary` shows nothing
-  until the answer starts. The status-strip phases (which fire within ~1 s) are all a
-  default-configured player gets. Either the default should move to `full`, or the
-  character's `internal_thought` should be generated as its own earlier call — both are
-  product decisions, not oversights, and neither is made yet.
+  The model spends most of a generation deliberating before writing its first word of
+  prose: ~17 s of ~20 s on the `local` route (EXP-2026-08-003), and on the deployed
+  `skynet` route the first *reasoning* token arrives at ~0.4 s while the first *prose*
+  token takes seconds longer (EXP-2026-08-005). The live reasoning channel covers that
+  window — but it only streams at `full`, and the default `summary` shows nothing until
+  the answer starts, so the status-strip phases are all a default-configured player gets.
+  Now that the channel actually works on the deployed model, moving the default is a live
+  decision rather than a theoretical one: it trades spoiler risk against a visibly shorter
+  wait. Not made yet.
 
 - **Later speakers do not stream their prose.** The continuity guard inspects a complete
   candidate line and can reject it, so a beat it will judge cannot also be shown as it

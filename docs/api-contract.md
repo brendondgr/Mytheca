@@ -995,7 +995,7 @@ is up rather than merely that they are.
 **Live reasoning (opt-in, ephemeral).** When Options › Language models › *Reasoning
 visibility* is set to `full`, the turn interleaves
 `{ "type": "reasoning", "characterId", "text", "done" }` frames carrying the model's
-`reasoning_content` channel as it is produced — the deliberation behind the beat, visible
+reasoning channel as it is produced (`reasoning_content` on llama.cpp, `reasoning` on vLLM) — the deliberation behind the beat, visible
 while the player waits. It is **not** a story event and **not** persisted: no `seq`, no
 `events` row, no `turn_traces` row, absent from resume and export. `done` marks the end of
 one speaker's reasoning; a `characterId` of `null` is the narrator's. The default
