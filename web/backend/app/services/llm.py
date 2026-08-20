@@ -277,7 +277,7 @@ def chat_complete_usage(
         # Reasoning endpoints report their deliberation in its own field. Reading it
         # here is what lets an empty answer be diagnosed as "spent the budget thinking"
         # rather than a bare blank reply.
-        raw_reasoning = str(message.get("reasoning_content") or "")
+        raw_reasoning = _reasoning_field(message)
         finish_reason = choice.get("finish_reason")
         prompt_tokens = _prompt_tokens(payload)
         _record_usage(usage_out, payload)
@@ -411,7 +411,7 @@ def chat_complete_stream(
                     finish_reason = choice.get("finish_reason") or finish_reason
                     delta = choice.get("delta") or {}
                     out = StreamDelta()
-                    raw_reasoning = delta.get("reasoning_content") or ""
+                    raw_reasoning = _reasoning_field(delta)
                     if raw_reasoning:
                         out.reasoning += str(raw_reasoning)
                     raw_content = delta.get("content") or ""
@@ -517,6 +517,27 @@ def _raise_empty_completion(finish_reason: str | None, reasoning: str) -> None:
             "Options — reasoning models need extra headroom.",
         )
     raise APIError(502, "upstream_error", "The model returned an empty response.")
+
+
+#: Field names carrying a model's deliberation, in the order they are checked.
+#:
+#: There is no standard here, and the difference is not cosmetic: reading only one spelling
+#: silently discards the whole channel on any endpoint that uses the other, which then
+#: looks like "this model does no reasoning" rather than "we did not read it".
+#:  * ``reasoning_content`` — llama.cpp.
+#:  * ``reasoning``         — vLLM (observed on qwen38-27B-awq behind the relay).
+_REASONING_FIELDS = ("reasoning_content", "reasoning")
+
+
+def _reasoning_field(payload: dict) -> str:
+    """The deliberation text from a delta or message, whichever spelling it uses."""
+    if not isinstance(payload, dict):
+        return ""
+    for name in _REASONING_FIELDS:
+        value = payload.get(name)
+        if value:
+            return str(value)
+    return ""
 
 
 def _cached_tokens(payload: dict) -> int | None:

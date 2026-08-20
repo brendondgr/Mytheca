@@ -407,3 +407,60 @@ def test_usage_out_survives_the_streaming_fallback(monkeypatch):
         )
     )
     assert usage == {"prompt_tokens": 50, "cached_tokens": 40}
+
+
+# ---- the reasoning channel has two spellings -------------------------------
+
+
+def test_vllm_style_reasoning_field_is_read(monkeypatch):
+    """vLLM streams `delta.reasoning`; llama.cpp streams `delta.reasoning_content`.
+
+    Reading only one spelling silently discards the whole channel on the other endpoint —
+    which looks like "this model does no reasoning" rather than "we never read it", and
+    turns a budget spent entirely on thinking into a bare "empty response" error.
+    """
+    body = _sse(
+        {"choices": [{"index": 0, "delta": {"reasoning": "weighing it"}}]},
+        {"choices": [{"index": 0, "delta": {"reasoning": " up"}}]},
+        _delta(content="I was home."),
+    )
+    _patch(monkeypatch, _streaming_handler(body))
+
+    deltas, (text, _) = _drain(
+        llm.chat_complete_stream("http://x/v1", "", "m", [{"role": "user", "content": "hi"}])
+    )
+
+    assert "".join(d.reasoning for d in deltas) == "weighing it up"
+    assert text == "I was home."
+
+
+def test_a_reasoning_only_completion_is_diagnosed_not_called_empty(monkeypatch):
+    """The failure mode this spelling bug produced: all budget spent thinking, reported
+    as though the model had returned nothing at all."""
+    body = _sse(
+        {"choices": [{"index": 0, "delta": {"reasoning": "still thinking"},
+                      "finish_reason": "length"}]},
+    )
+    _patch(monkeypatch, _streaming_handler(body))
+
+    with pytest.raises(APIError) as excinfo:
+        _drain(
+            llm.chat_complete_stream("http://x/v1", "", "m", [{"role": "user", "content": "hi"}])
+        )
+    assert "thinking" in excinfo.value.message.lower()
+
+
+def test_blocking_path_reads_the_vllm_spelling_too(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(404, json={"detail": "Not Found"})
+        return httpx.Response(200, json={
+            "choices": [{"message": {"content": "", "reasoning": "deliberating"},
+                         "finish_reason": "length"}]
+        })
+
+    _patch(monkeypatch, handler)
+
+    with pytest.raises(APIError) as excinfo:
+        llm.chat_complete("http://x/v1", "", "m", [{"role": "user", "content": "hi"}])
+    assert "thinking" in excinfo.value.message.lower()
