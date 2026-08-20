@@ -82,3 +82,21 @@ one first and it absorbs the whole gap while the other reads 0.0 s.
 first.
 **Resolution:** none — accepted. Read `first_visible` as the milestone and ignore the
 paired zero.
+
+## 2026-08-19 — The first layout probe did not measure what it claimed to (superseded)
+
+**Impact:** the first layout run is **superseded**. Its numbers
+(`volatile-first` ≈ 5.7 s vs `volatile-last` ≈ 10.5 s mean TTFT) must not be read as a
+prefill comparison. Kept at `logs/layout-superseded-prefix-parser.log`.
+**Cause:** two compounding faults. `ttft_s` was defined as "time to the first token of any
+channel", which is a prefill proxy only if reasoning tokens count — and the probe ran
+against the parser that could not see vLLM's `delta.reasoning`, so it actually measured
+time-to-first-**answer**. On a model that thinks before it writes, that is dominated by
+deliberation, not by prompt ingestion. The comparison therefore could not detect a prefill
+difference at all, and the result it did produce (the *proposed* layout looking twice as
+slow) is not interpretable.
+**Resolution:** re-run against the fixed parser, where the first reasoning token follows
+prefill directly. Recorded here rather than quietly replaced, because the failure mode —
+a proxy metric that stops being a proxy when an unrelated bug is present — is worth
+remembering.
+**Paper implication:** cite only the re-run for the layout comparison.
