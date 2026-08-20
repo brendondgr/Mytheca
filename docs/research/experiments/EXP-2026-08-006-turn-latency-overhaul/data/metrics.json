@@ -1,0 +1,53 @@
+{
+  "aggregate": {},
+  "per_run": [
+    {
+      "asked_for": 3,
+      "returned": 3,
+      "run": 1,
+      "served_model": "qwen38-27B-awq",
+      "shape": "beats-array"
+    },
+    {
+      "asked_for": 3,
+      "returned": 3,
+      "run": 2,
+      "served_model": "qwen38-27B-awq",
+      "shape": "beats-array"
+    },
+    {
+      "asked_for": 3,
+      "returned": 3,
+      "run": 3,
+      "served_model": "qwen38-27B-awq",
+      "shape": "beats-array"
+    },
+    {
+      "asked_for": 3,
+      "returned": 3,
+      "run": 4,
+      "served_model": "qwen38-27B-awq",
+      "shape": "beats-array"
+    },
+    {
+      "asked_for": 3,
+      "returned": 3,
+      "run": 5,
+      "served_model": "qwen38-27B-awq",
+      "shape": "beats-array"
+    },
+    {
+      "asked_for": 3,
+      "returned": 3,
+      "run": 6,
+      "served_model": "qwen38-27B-awq",
+      "shape": "beats-array"
+    }
+  ],
+  "totals": {
+    "input_tokens": 0,
+    "llm_calls": 6,
+    "output_tokens": 0,
+    "wall_clock_seconds": 260.702
+  }
+}

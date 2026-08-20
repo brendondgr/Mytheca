@@ -1,9 +1,36 @@
 # Turn Latency Overhaul — fewer calls, bounded waits, and a prompt cache that grows
 
-**Status:** phases 1–5 complete; phase 6 (measurement) running
+**Status:** complete — measured 2026-08-20 ([EXP-2026-08-006](../research/experiments/EXP-2026-08-006-turn-latency-overhaul/RESULTS.md))
 **Created:** 2026-08-20
 **Owner:** brendondgr
 **Baseline:** [EXP-2026-08-005](../research/experiments/EXP-2026-08-005-conversation-scaling/RESULTS.md)
+
+> ## What the measurement changed about this plan
+>
+> [EXP-2026-08-006](../research/experiments/EXP-2026-08-006-turn-latency-overhaul/RESULTS.md)
+> ran the plan's own protocol against the same endpoint one day after the baseline, and the
+> headline is not the one this plan expected.
+>
+> * **The cache work landed, and it is the one result measured with counters rather than
+>   clocks.** Reusable prefix climbs 72 % → 90 % across a scene; the server's own hit counter
+>   reads 62–77 % against a baseline that decayed 44 % → 17 %. H3 supported.
+> * **The continuity guard's cost is gone** and every beat streams. H2 supported structurally.
+> * **Multi-beat planning works but barely pays here.** The model returns a well-formed
+>   three-beat plan 6/6 when asked — but the median turn is 2 beats, so there is nothing to
+>   look ahead over. Calls fell 34 → 27, not ~3×. H1 not supported, for a reason that is
+>   about the scene configuration rather than the mechanism.
+> * **The plan's central premise — that the app's structure is what makes turns slow —
+>   could not be tested, and is now in doubt.** A control probe found the endpoint takes
+>   **1.4 s to 90.4 s to produce byte-identical 143-token output**. Every wall-clock
+>   comparison here is unusable, and EXP-2026-08-005's reading of its two ~300 s turns as
+>   *planner* stalls is unsupported. Fixing the relay/GPU host now outranks anything in this
+>   plan.
+> * **A methodological lesson worth more than the numbers:** these arms were code versions
+>   measured a day apart because the prompt reorder is not flag-gated. Against a 66×-variable
+>   endpoint that design cannot work. Future latency comparisons must interleave arms inside
+>   one session.
+>
+> The plan text below is left as written. The corrections live here and in RESULTS.md.
 
 ## 1. Introduction
 

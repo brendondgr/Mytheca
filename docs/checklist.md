@@ -74,16 +74,38 @@ Verified against the code on 2026-08-04.
   both condition on a *six-beat* window that slides every beat, so there is no stable
   prefix to protect and reordering them would be prompt churn for no measurable gain.
   Revisit only if either grows a longer window.
-- **The beat planner stalls, and a stall costs the player the full generation timeout.**
-  Two of ten turns in the post-fix run took 355 s and 272 s, attributed almost entirely to a
-  single `plan` call — **300.1 s** (exactly `LLM_GEN_TIMEOUT_SECONDS`) and 240.6 s. Because
-  the planner is best-effort, the turn does not error (`failures: 0`); the player simply
-  waits five minutes with no indication anything is wrong. Not a context-length effect: the
-  same run's largest prompt (6800 tokens) reached first prose in 9.4 s, and a controlled
-  sweep to 7355 tokens measured 1.2 s. **The fix is a per-operation timeout** — the planner
-  and intent calls are small JSON classifications that normally take 3–5 s, so a 20–30 s
-  ceiling would turn a five-minute stall into a hiccup, while prose generation keeps the
-  long window it needs.
+- **The inference endpoint's throughput varies 66× on identical work — and it is probably
+  the biggest thing standing between the player and a fast turn.** EXP-2026-08-006's control
+  probe: one fixed prompt, temperature 0, same served model (`qwen38-27B-awq`), **identical
+  143-token output in 5 of 6 runs**, elapsed 1.4 / 1.8 / 1.9 / 14.6 / 27.6 / 90.4 s.
+  Corroborated on prefill — two prompts that took 1.94 s and 2.22 s one day took 30.1 s and
+  30.3 s the next, with the same cached-token count. **This supersedes the reading that "the
+  beat planner stalls":** EXP-2026-08-005 saw two turns at ~300 s and attributed them to the
+  planner; the same endpoint produces 90 s for 143 tokens with no planner involved. The
+  planner-stall entry is withdrawn. Investigating the relay / GPU host is now the first thing
+  to do before any further app-side latency work — and until it is stable, **no app-side
+  latency change can be measured at all** on this endpoint. Nothing in the repository can fix
+  it; it is not a Mytheca defect.
+- **Multi-beat planning barely pays at `maxTurns = 5`.** The mechanism works — the model
+  returned a well-formed three-beat plan 6/6 when asked (EXP-2026-08-006 `logs/plan.log`) —
+  but the median turn is **2 beats**, and each turn needs one final planner call to say
+  `end`, so lookahead has almost nothing to save. Planner calls fell only 34 → 27 over ten
+  turns. It should pay progressively more as `maxTurns` rises; `TURN_PLANNER_LOOKAHEAD=1`
+  restores the old per-beat loop exactly if it ever proves harmful.
+- **Reflection is now the largest non-planner step by share** (6 % → 21 % of turn time
+  between EXP-2026-08-005 and EXP-2026-08-006, though shares on this endpoint are soft). It
+  was deliberately left untouched at the owner's request. `TURN_ASYNC_FINALIZE` already
+  exists to move it off the request path if that changes.
+- **The prompt reorder has not been checked for writing quality by anything but a read.**
+  Identity and voice samples moved from primacy to recency. Ten turns were read and showed
+  no obvious regression — n = 1, unblinded, by the author of the change. A blinded
+  matched-scene comparison against the old ordering is the experiment that would settle it,
+  and it relates directly to C-001, which is itself unsupported.
+- **App-side latency work is unmeasurable until that is fixed, and future comparisons must
+  be interleaved arms in one run.** EXP-2026-08-006 compared code versions a day apart
+  because the prompt reorder is not flag-gated. Given the variance above, day-to-day
+  comparison is worthless. Anything measured next needs both arms alternating inside a
+  single session.
 - **The beat planner is 41 % of all turn time.** It runs once per beat — three to six
   times a turn at ~4 s each — and is the single largest cost in the app, ahead of character
   generation (15 %), inline reflection (13 %) and the continuity guard (11 %, ~10 s each

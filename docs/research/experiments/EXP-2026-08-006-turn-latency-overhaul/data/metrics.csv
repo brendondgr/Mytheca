@@ -1,0 +1,7 @@
+asked_for,returned,run,served_model,shape
+3,3,1,qwen38-27B-awq,beats-array
+3,3,2,qwen38-27B-awq,beats-array
+3,3,3,qwen38-27B-awq,beats-array
+3,3,4,qwen38-27B-awq,beats-array
+3,3,5,qwen38-27B-awq,beats-array
+3,3,6,qwen38-27B-awq,beats-array
