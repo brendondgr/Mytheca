@@ -55,7 +55,7 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
         of requirements, each rebound to the narrator if its owner is absent/POV
       puppet beats (if any): the directed character performs it in-voice, up front,
         carrying their own requirements
-      ReAct loop — planner_agent.next_beat re-decides after every beat, bounded by
+      ReAct loop — planner_agent.plan_beats decides up to N beats per call, bounded by
         scenario.max_turns (hard per-scene ceiling on every emitted beat) and a runaway
         backstop max(TURN_MAX_BEATS, 2*cast+6); only `present` cast members are
         selectable and the POV character is locked out of the AI roster. The planner
@@ -947,7 +947,7 @@ stream their prose.
 **Reactive Turn Director (Produce band overhaul).** The player's line is first **interpreted**
 (`agents/intent_agent`) into narrate / address / **puppet** / whole-group intent; a puppeted
 character then *performs* the direction in its own voice (not a bystander answering the player).
-A **ReAct planner** (`agents/planner_agent.next_beat`) drives the turn beat-by-beat — after each
+A **ReAct planner** (`agents/planner_agent.plan_beats`) drives the turn — it decides up to `TURN_PLANNER_LOOKAHEAD` beats per call and the engine executes them, re-planning when the queue empties or a beat goes stale (a character exits, presence changes, the direction takes the schedule over) — after each
 beat it re-decides the next (a character speaks/acts, the narrator sets context, or the turn ends).
 The back-and-forth is bounded by the scenario's **`max_turns`** (a hard per-scene ceiling on
 **every emitted beat — character replies AND narrator beats** — for one player message, default

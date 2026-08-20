@@ -307,7 +307,7 @@ key is **write-only**: it is stored server-side and never returned in clear.
   `director.pov_branch` (POV-mode follow-up suggestions, `director_agent.propose_pov_lines`), `planner.system`.
   **`director.who_is_up` and `director.rerank` are inert on the live turn path** — `director_agent.who_is_up`
   and `director_agent.rerank` are dead code, called only from `utils/tests/backend/agents/test_director_agent.py`;
-  the per-beat decision on a real turn is made by `planner_agent.next_beat`. Overriding either key has no
+  the per-beat decision on a real turn is made by `planner_agent.plan_beats`. Overriding either key has no
   effect on actual play.
 - `overrides` — the current global overrides map (`{registryKey: text}`); only keys with active
   overrides appear.

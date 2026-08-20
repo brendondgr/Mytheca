@@ -85,6 +85,7 @@ Copy `.env.example` → `.env` (gitignored). This table is the complete set read
 | `TURN_TTFT_SLO_MS` | `1200` | Informational time-to-first-token target for logging |
 | `TURN_ASYNC_FINALIZE` | `false` | Runs reflection off the request thread; never used on SQLite |
 | `TURN_MAX_BEATS` | `24` | Runaway backstop for the ReAct loop — the effective ceiling is `max(TURN_MAX_BEATS, 2·cast + 6)`, not a feature cap |
+| `TURN_PLANNER_LOOKAHEAD` | `3` | How many beats the planner decides per call. `1` restores the original once-per-beat ReAct loop; higher trades planner calls for prediction, and the engine re-plans whenever a plan goes stale |
 | `BUILD_MAX_CONCURRENCY` | `3` | Seeds the user-facing `authoringConcurrency` setting |
 
 ### AI + media

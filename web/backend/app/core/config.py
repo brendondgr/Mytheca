@@ -65,6 +65,14 @@ class Settings(BaseSettings):
     # ceiling is max(turn_max_beats, 2*cast + 6) so a large cast is never clipped.
     turn_max_beats: int = 24
 
+    # How many beats the planner decides in ONE call. It was 41 % of all turn time in
+    # EXP-2026-08-005 — not from prompt size (it carries only this turn's beats) but from
+    # running once per beat at ~4 s a time. Planning ahead trades calls for prediction:
+    # a beat planned three ahead reads a moment that has not happened yet, so the engine
+    # re-plans whenever the plan runs out or reality diverges from it. ``1`` restores the
+    # original once-per-beat ReAct loop exactly.
+    turn_planner_lookahead: int = 3
+
     # --- Authoring parallelism (the world build + RAG batch indexing) ---
     # Default upper bound on how many characters/settings are drafted concurrently in
     # the "Build the whole world" flow, and how many entities are embedded concurrently

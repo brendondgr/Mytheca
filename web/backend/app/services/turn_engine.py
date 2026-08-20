@@ -12,9 +12,12 @@ the full text). ``character_action`` streams as one full event; ``internal_thoug
 but is kept OUT of ``turn_beats`` — later speakers never condition on it. ``_Emitter``
 centralizes the seq + persist + buffer + withhold-hidden plumbing every phase reuses.
 
-Speaker selection is a **per-beat ReAct loop**: ``planner_agent.next_beat`` decides one
-beat at a time (``speak`` / ``narrate`` / ``exit`` / ``end``) from the *present* roster,
-with the POV character locked out. The loop is bounded by the scene's ``max_turns`` and a
+Speaker selection is a **ReAct loop with lookahead**: ``planner_agent.plan_beats`` decides
+the next few beats (``speak`` / ``narrate`` / ``exit`` / ``end``) from the *present* roster
+in one call, with the POV character locked out, and the loop executes them until the plan
+runs out or reality diverges from it — a character exits, presence changes, the direction
+takes the schedule over — at which point it re-plans. ``TURN_PLANNER_LOOKAHEAD`` sets the
+depth (1 restores the original once-per-beat behaviour). The loop is bounded by the scene's ``max_turns`` and a
 runaway backstop of ``max(TURN_MAX_BEATS, 2 * len(cast) + 6)``. This replaced the earlier
 one-shot director (``director_agent.who_is_up`` / ``rerank``), which is now dead code kept
 only for its unit tests.
@@ -641,6 +644,11 @@ def run_turn(
     scene_beats = len(puppet_members) + (1 if narrated_open else 0)
     needs_branch = False
     beats = 0
+    # Beats the planner has decided but the loop has not run yet. The planner was 41 % of
+    # all turn time purely because it ran once per beat (EXP-2026-08-005), so it is asked
+    # for several at once and re-consulted only when this queue empties or is invalidated.
+    planned: list[planner_agent.BeatDecision] = []
+    lookahead = max(1, get_settings().turn_planner_lookahead)
     while beats < max_beats:
         # Presence can change mid-turn (an exit beat, a vital stat bottoming out), so re-own
         # any requirement whose character just left before scheduling against it.
@@ -670,21 +678,32 @@ def run_turn(
         decision: planner_agent.BeatDecision | None = None
         forced_reason = "the rest of your direction has to fit the beats that are left"
         if not outstanding or len(outstanding) < remaining:
-            yield from tracer.emit(
-                "planning",
-                "Deciding who speaks next",
-                detail=f"{remaining} beat(s) left in the scene's budget.",
-            )
-            decision = planner_agent.next_beat(
-                db, ctx, intent, turn_beats, acted,
-                scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
-                direction=direction if direction.active else None, remaining_beats=remaining,
-            )
+            if not planned:
+                depth = min(lookahead, max(1, remaining))
+                yield from tracer.emit(
+                    "planning",
+                    "Deciding who speaks next" if depth == 1 else f"Planning the next {depth} beats",
+                    detail=f"{remaining} beat(s) left in the scene's budget.",
+                )
+                planned = planner_agent.plan_beats(
+                    db, ctx, intent, turn_beats, acted, lookahead=depth,
+                    scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
+                    direction=direction if direction.active else None, remaining_beats=remaining,
+                )
+            # A planned beat is a prediction, and presence can change under it — a character
+            # who was cut down two beats ago must not be picked because a stale plan said so.
+            while planned and not _plan_still_valid(ctx, planned[0], locked_id=pov_id):
+                planned.pop(0)
+            decision = planned.pop(0) if planned else None
             # An "end" while the player is still owed something is not the planner's call.
-            if decision.action == "end" and outstanding:
+            if decision is not None and decision.action == "end" and outstanding:
                 decision = None
+                planned.clear()
                 forced_reason = "your direction is not delivered yet"
         if decision is None:
+            # The engine is taking the schedule over, so anything the planner had queued is
+            # answering a question that no longer applies.
+            planned.clear()
             scheduled = direction_agent.schedule(outstanding, remaining)
             if scheduled is None:
                 break
@@ -776,6 +795,9 @@ def run_turn(
             yield from _apply_presence_change(
                 emitter, leaver, decision.status, decision.reason, auto=True, tracer=tracer
             )
+            # The roster just changed shape, so anything planned against the old one is
+            # answering the wrong question — re-plan rather than execute a stale queue.
+            planned.clear()
             beats += 1
             continue
         actor = ctx.cast_by_id(decision.actor_id) if decision.actor_id else None
@@ -1058,6 +1080,33 @@ def _direction_lead(
             + ". Narrate it as events in the scene — do not restate the direction."
         )
     return " ".join(parts)
+
+
+def _plan_still_valid(
+    ctx: TurnContext,
+    decision: planner_agent.BeatDecision,
+    *,
+    locked_id: str | None,
+) -> bool:
+    """Is a beat the planner decided *earlier* still runnable now?
+
+    Planning ahead trades one LLM call for a prediction, and the prediction can go stale
+    inside the same turn: a character can be cut down, walk out, or have a vital stat
+    bottom out between the plan and its turn to speak. ``narrate`` and ``end`` are always
+    runnable; anything naming a character is only runnable while that character is still
+    present.
+
+    A beat naming the POV character is deliberately **not** filtered here — the loop's own
+    backstop handles that case, and it says so on the wire instead of dropping the beat
+    silently.
+    """
+    del locked_id  # see the docstring: the POV backstop is the loop's, not this check's
+    if decision.action in ("narrate", "end"):
+        return True
+    if decision.actor_id is None:
+        return False
+    member = ctx.cast_by_id(decision.actor_id)
+    return member is not None and member.is_present
 
 
 def _relationship_note(ctx: TurnContext, speaker_id: str, other_ids: list[str]) -> str:
