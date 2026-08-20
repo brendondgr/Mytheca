@@ -304,29 +304,44 @@ def _time_call(args, system: str, user: str) -> dict[str, Any]:
     from app.services import llm
 
     usage: dict = {}
-    started = time.monotonic()
-    first = None
     # Enough headroom that a reasoning model reaches a visible answer; this call's
     # COMPLETION is irrelevant, only how long the prompt took to ingest.
     params = LlmParams(temperature=0.0, max_tokens=2048)
-    try:
-        stream = llm.chat_complete_stream(
-            args.base_url, "", args.model,
-            [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            params, usage_out=usage,
-        )
-        while True:
-            try:
-                delta = next(stream)
-            except StopIteration:
-                break
-            if first is None and (delta.answer or delta.reasoning):
-                first = time.monotonic() - started
-    except Exception as exc:
-        return {"error": f"{exc.__class__.__name__}: {exc}"}
+    started = time.monotonic()
+    first: float | None = None
+    attempts = 0
+    last_error = ""
+    # The deployed endpoint intermittently returns an empty completion (~30% of turns in
+    # the conversation run). Retrying stops a transient upstream failure from deleting a
+    # cache measurement; the attempt count is recorded as evidence of the failure rate
+    # rather than hidden by the retry.
+    for attempt in range(1, args.retries + 2):
+        attempts = attempt
+        usage.clear()
+        started = time.monotonic()
+        first = None
+        try:
+            stream = llm.chat_complete_stream(
+                args.base_url, "", args.model,
+                [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                params, usage_out=usage,
+            )
+            while True:
+                try:
+                    delta = next(stream)
+                except StopIteration:
+                    break
+                if first is None and (delta.answer or delta.reasoning):
+                    first = time.monotonic() - started
+            break
+        except Exception as exc:
+            last_error = f"{exc.__class__.__name__}: {exc}"
+    else:
+        return {"error": last_error, "attempts": attempts}
     total = time.monotonic() - started
     pt, ct = usage.get("prompt_tokens"), usage.get("cached_tokens")
     return {
+        "attempts": attempts,
         "ttft_s": round(first, 3) if first is not None else None,
         "wall_clock_s": round(total, 3),
         "prompt_tokens": pt,
@@ -348,16 +363,28 @@ def mode_layout(args, record: RunRecord) -> None:
     confound that made EXP-2026-08-003's cross-arm numbers unusable.
     """
     layouts = ("volatile-first", "volatile-last")
+    # Either walk every history length 1..turns (the conversation-shaped default) or sample
+    # specific ones. Sampling is what makes a LONG-context question affordable: the effect
+    # under test scales with transcript size, and a probe that stops at ~1.5k tokens cannot
+    # see something that only matters at 20k.
+    sizes = (
+        [int(n) for n in args.sizes.split(",") if n.strip()]
+        if args.sizes else list(range(1, args.turns + 1))
+    )
     for pass_no in range(1, args.passes + 1):
         order = layouts if pass_no % 2 else tuple(reversed(layouts))
         for layout in order:
             salt = f"\n\n[cache-probe pass {pass_no} {layout}]"
             system = SYSTEM + salt
-            for turn in range(1, args.turns + 1):
+            for turn in sizes:
+                # A plain ask: the app's thin-tag output contract is not what is under
+                # test, and an instruction the model sometimes answers with nothing costs
+                # measurements without telling us anything about the cache.
+                ask = "\n\nReply with one short sentence of dialogue for Mei."
                 user = (
-                    _volatile(turn) + _transcript(turn) + "\nAct now."
+                    _volatile(turn) + _transcript(turn) + ask
                     if layout == "volatile-first"
-                    else _transcript(turn) + "\n" + _volatile(turn) + "Act now."
+                    else _transcript(turn) + "\n" + _volatile(turn) + ask
                 )
                 row = _time_call(args, system, user)
                 if row.get("error"):
@@ -382,6 +409,11 @@ def main() -> int:
     parser.add_argument("--context-beats", type=int, default=100)
     parser.add_argument("--base-url", default="http://localhost:4000/v1")
     parser.add_argument("--model", default="skynet")
+    parser.add_argument("--sizes", default="",
+                        help="layout mode: comma-separated history lengths to sample "
+                             "(e.g. 10,50,100,200,400) instead of walking 1..turns")
+    parser.add_argument("--retries", type=int, default=2,
+                        help="retries per call; the deployed endpoint intermittently returns empty")
     parser.add_argument("--passes", type=int, default=2,
                         help="layout mode: how many counterbalanced passes to run")
     parser.add_argument("--experiment", type=Path, required=True)
