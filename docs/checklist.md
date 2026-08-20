@@ -55,6 +55,26 @@ Verified against the code on 2026-08-04.
 
 ## Known defects and rough edges
 
+- **The prompt cache is wasted, and it is not worth reclaiming yet.**
+  `character_turn_agent._build_user_prompt` puts the speaker's current stat values,
+  register-selected voice samples and recent lines in the HEAD of the user message, ahead
+  of the transcript. A prefix cache can only reuse a common prefix, so one stat change
+  invalidates everything after it. Measured over a real 10-turn scene (EXP-2026-08-005):
+  cached tokens pinned at **exactly 800** — the static system message — while the prompt
+  grew 1830 → 4678, hit rate 44 % → 17 %. **But a controlled layout comparison found no
+  measurable prefill difference** (0.59 s vs 0.55 s across ten history lengths), because at
+  1–5 k tokens prefill costs a few hundred ms on this GPU. Reordering the prompt is a
+  prompt-engineering change with quality consequences and, at these scene lengths, no
+  latency payoff. Revisit if scenes routinely exceed ~20 k tokens; the probe tops out at
+  1549 and cannot speak to that range. Both prompt-layout properties are pinned by
+  characterisation tests in `utils/tests/backend/agents/test_character_turn_agent.py`.
+- **The beat planner is 41 % of all turn time.** It runs once per beat — three to six
+  times a turn at ~4 s each — and is the single largest cost in the app, ahead of character
+  generation (15 %), inline reflection (13 %) and the continuity guard (11 %, ~10 s each
+  time it fires). Of the ~10 s before a player sees any prose, roughly 7.5 s is `intent`
+  plus the first `plan` call, neither of which produces a word. Reducing the *number* of
+  sequential calls is the lever for perceived latency; context size is not.
+
 - ~~**The live reasoning channel is inert on the model the app is configured with.**~~
   **Withdrawn 2026-08-19.** EXP-2026-08-004 recorded `first_reasoning_s` as null on the
   deployed `skynet` route and concluded the model exposed no reasoning channel. It does:

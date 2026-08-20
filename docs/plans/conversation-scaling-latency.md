@@ -1,8 +1,34 @@
 # Conversation-Scaling Latency & Prompt-Cache Correctness
 
-**Status:** planned — not started
+**Status:** complete — measured 2026-08-19
 **Created:** 2026-08-19
 **Owner:** brendondgr
+
+> ## What the measurement changed about this plan
+>
+> [EXP-2026-08-005](../research/experiments/EXP-2026-08-005-conversation-scaling/) answered
+> both questions, and **the cache hypothesis this plan is built around was half right in a
+> way that changes the recommendation**.
+>
+> * **The cache IS wasted, exactly as predicted.** Cached tokens sat at *exactly* 800 on
+>   every turn — the static system message — while the prompt grew 1830 → 4678. Hit rate
+>   44 % → 17 %.
+> * **But reordering the prompt is not worth doing.** A controlled comparison found no
+>   measurable prefill difference between the current layout and the proposed one
+>   (0.59 s vs 0.55 s across ten history lengths, two counterbalanced passes). Phase 4's
+>   instinct — record the finding, do not refactor — turns out to have been the right call
+>   for a reason the plan did not anticipate: at these context sizes the waste is real but
+>   costs less than the noise.
+> * **A longer scene is not measurably slower.** Time to first prose was flat at ~10 s
+>   across all ten turns. H1 is not supported. The cost is the *number of sequential LLM
+>   calls per turn* — the beat planner alone is 41 % of all turn time — not the size of any
+>   one prompt.
+> * **The experiment found a live bug it was not looking for**: vLLM spells the reasoning
+>   field `reasoning`, llama.cpp spells it `reasoning_content`, and the parser read only the
+>   second. That killed 3 turns in 10 and had already produced a wrong conclusion in
+>   EXP-2026-08-004.
+>
+> The plan text below is left as written. The corrections live here and in RESULTS.md.
 
 ## 1. Introduction
 
