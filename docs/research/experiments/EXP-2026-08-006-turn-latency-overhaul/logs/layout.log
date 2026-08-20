@@ -1,0 +1,72 @@
+{
+  "notes": [],
+  "failures": 0,
+  "rows": [
+    {
+      "attempts": 1,
+      "ttft_s": 1.582,
+      "wall_clock_s": 4.27,
+      "prompt_tokens": 1549,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 10,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 1.873,
+      "wall_clock_s": 32.783,
+      "prompt_tokens": 5946,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 50,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 3.909,
+      "wall_clock_s": 29.94,
+      "prompt_tokens": 11444,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 100,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.928,
+      "wall_clock_s": 62.017,
+      "prompt_tokens": 1549,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 10,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 30.081,
+      "wall_clock_s": 30.375,
+      "prompt_tokens": 5946,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 50,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 30.308,
+      "wall_clock_s": 30.748,
+      "prompt_tokens": 11444,
+      "cached_tokens": 4800,
+      "cache_hit_ratio": 0.4194,
+      "pass": 1,
+      "turn": 100,
+      "layout": "volatile-last"
+    }
+  ]
+}

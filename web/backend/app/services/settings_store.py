@@ -61,6 +61,15 @@ def _mask(api_key: str) -> str | None:
 # ---- LLM config ------------------------------------------------------------
 
 
+#: The product default for how much of a turn's thinking the player sees. ``full`` because
+#: the first reasoning token arrives at ~0.4 s against roughly ten seconds before any prose
+#: (EXP-2026-08-005), so it is the largest reduction in *perceived* wait available — and
+#: because a wait that shows nothing is the complaint this whole line of work started from.
+#: One constant, so a stored row missing the key and a stored row holding nonsense both
+#: resolve to the same place as a fresh install.
+_DEFAULT_REASONING_VISIBILITY: ReasoningVisibility = "full"
+
+
 def _llm_defaults() -> dict:
     s = get_settings()
     return {
@@ -71,17 +80,15 @@ def _llm_defaults() -> dict:
         "_apiKey": s.openai_api_key or "",
         "authoringConcurrency": s.build_max_concurrency,
         "maxContextTokens": _DEFAULT_MAX_CONTEXT_TOKENS,
-        "reasoningVisibility": "summary",
+        "reasoningVisibility": _DEFAULT_REASONING_VISIBILITY,
     }
 
 
 def _reasoning_visibility(value: object) -> ReasoningVisibility:
-    """Coerce a stored value to a known visibility, defaulting to the safe middle.
-
-    A row written before the setting existed (or by hand) must not make the turn loop
-    stream raw deliberation it was never asked for.
-    """
-    return value if value in ("hidden", "summary", "full") else "summary"  # type: ignore[return-value]
+    """Coerce a stored value to a known visibility, else the product default."""
+    if value in ("hidden", "summary", "full"):
+        return value  # type: ignore[return-value]
+    return _DEFAULT_REASONING_VISIBILITY
 
 
 def _llm_doc(db: Session) -> dict:

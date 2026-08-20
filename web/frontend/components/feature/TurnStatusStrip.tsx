@@ -107,7 +107,10 @@ function labelFor(phase: TurnStatus["phase"], who: string): string {
     case "reading":
       return "Reading your message";
     case "planning":
-      return "Deciding who speaks next";
+      // Deliberately not "deciding who speaks next": the planner now decides several
+      // beats in one pass (TURN_PLANNER_LOOKAHEAD), so a label promising one choice
+      // would misdescribe the wait it is covering.
+      return "Working out what happens next";
     case "thinking":
       return `${who} is thinking`;
     case "speaking":

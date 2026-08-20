@@ -20,6 +20,9 @@ const STEP_META: Record<string, { tag: string; color: string }> = {
   director: { tag: "Director", color: "#d97706" },
   speaker: { tag: "Speaker", color: "#2563eb" },
   thinking: { tag: "Thinks", color: "#7c3aed" },
+  // Historical only — the continuity guard was retired (it cost ~10s per later
+  // speaker and blocked their prose from streaming). Kept so traces recorded
+  // before that still render with a label instead of a raw step name.
   consistency: { tag: "Check", color: "#64748b" },
   relationship: { tag: "Ties", color: "#db2777" },
   action: { tag: "Acts", color: "#0891b2" },

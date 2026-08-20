@@ -48,44 +48,69 @@ Verified against the code on 2026-08-04.
 - **A live scene state.** `Setting.current_state` and `Setting.atmosphere` are written at world creation and **never again during play**. The character prompt no longer misrepresents them as the present moment, but nothing yet maintains a rolling "what this place is like now" line from the transcript.
 - **Reflection effort is pinned to `LOW`.** The disposition it produces is now 2–3 sentences and sits in the character prompt's recency tail, so it carries real weight — but `dispatch_reflection` runs **inline** by default (`TURN_ASYNC_FINALIZE` is off) and a crowd (cast > 2) reflects **universally**, so raising `REFLECTION_EFFORT` to `MEDIUM` would put a whole cast's reasoning budget on the turn tail. Revisit together with async finalize, or gate the effort on cast size.
 - **Nothing measures whether the register works.** Phases 1–5 of `docs/plans/character-dialogue-flexibility.md` are validated structurally (the register reaches the prompt, the right samples are selected, the sampler moves) — no experiment shows that output quality improved. A grave-beat manner-adaptation eval belongs in `docs/research/experiments/`.
-- **Composure as a stat, and a tonal redo pass** — the two rejected arms of the same design (ideas 4 and 6). The stat machinery already renders bands to prose, and `consistency.review`'s correction seam already re-runs a beat; both are cheap to revisit if the register alone proves insufficient.
+- **Composure as a stat, and a tonal redo pass** — the two rejected arms of the same design (ideas 4 and 6). The stat machinery already renders bands to prose; the beat-redo seam that used to live on the continuity guard went with it, so a tonal redo would now need its own. Both are cheap enough to revisit if the register alone proves insufficient.
 - **`end_scene` / `move_scene` verbs** — the presence/action bus is built to take them.
 - **YAML config loaders** in `app/content/` — only the Markdown stat-guidance loader exists. Entities live in Postgres, so this may simply be unnecessary; decide rather than leave it pending.
 - **Dice-based resolution** — explicitly dropped (decision D11), not merely deferred. The `CheckCard` renderer was removed. Reopen only as a deliberate reversal.
 
 ## Known defects and rough edges
 
-- **The prompt cache is wasted, and it IS worth reclaiming at the configured settings.**
-  `character_turn_agent._build_user_prompt` puts the speaker's current stat values,
-  register-selected voice samples and recent lines in the HEAD of the user message, ahead
-  of the transcript. A prefix cache can only reuse a common prefix, so one stat change
-  invalidates everything after it. Measured over a real 10-turn scene (EXP-2026-08-005):
-  cached tokens pinned at **exactly 800** — the static system message — while the prompt
-  grew 1830 → 4678, hit rate 44 % → 17 %. A short-context comparison found no measurable
-  difference (0.59 s vs 0.55 s below 1.5 k tokens), but a long-context one is decisive:
-  at 100 / 200 / 400 turns of history (11 k / 22 k / 45 k tokens) reordering cuts
-  time-to-first-token by **~40 %** (3.67 → 2.22 s, 7.23 → 4.24 s, 15.47 → 8.98 s) and is
-  the only arm reporting any reuse at all (42–48 %). vLLM omits the cache field when the
-  hit is zero, so the current layout reporting nothing at every size *is* the measurement:
-  **it achieves no reuse whatsoever.** At `contextBeats = 100` a full scene reaches ~20 k
-  tokens, squarely in the paying range. The change is still prompt engineering with quality
-  consequences — the character sees the same content in a different order — so it wants a
-  quality check, not just a latency one. Both layout properties are pinned by
-  characterisation tests in `utils/tests/backend/agents/test_character_turn_agent.py`.
-- **The beat planner stalls, and a stall costs the player the full generation timeout.**
-  Two of ten turns in the post-fix run took 355 s and 272 s, attributed almost entirely to a
-  single `plan` call — **300.1 s** (exactly `LLM_GEN_TIMEOUT_SECONDS`) and 240.6 s. Because
-  the planner is best-effort, the turn does not error (`failures: 0`); the player simply
-  waits five minutes with no indication anything is wrong. Not a context-length effect: the
-  same run's largest prompt (6800 tokens) reached first prose in 9.4 s, and a controlled
-  sweep to 7355 tokens measured 1.2 s. **The fix is a per-operation timeout** — the planner
-  and intent calls are small JSON classifications that normally take 3–5 s, so a 20–30 s
-  ceiling would turn a five-minute stall into a hiccup, while prose generation keeps the
-  long window it needs.
+- ~~**The prompt cache is wasted, and it IS worth reclaiming at the configured settings.**~~
+  **Reclaimed 2026-08-20.** `_build_user_prompt` put the speaker's current stat values,
+  register-selected voice samples and recent lines ahead of the transcript, so one stat
+  change invalidated everything after it. Over a real 10-turn scene (EXP-2026-08-005)
+  cached tokens sat at **exactly 800** — the static system message — while the prompt grew
+  1830 → 4678, hit rate 44 % → 17 %; at 100 / 200 / 400 turns of history the reordered arm
+  cut time-to-first-token by **~40 %** and was the only one reporting any reuse at all.
+  The prompt is now ordered stable → transcript → volatile, and the transcript window is
+  **block-anchored** (`buffer.anchored_turns`) so its first line does not move every turn —
+  without that, the reorder would have stopped paying at exactly the scene length it was
+  meant to help. `reflection_agent` got the same treatment, since every present character
+  reflects on one identical transcript. Pinned by
+  `utils/tests/backend/services/test_prompt_cache_prefix.py` and the ordering assertions in
+  `test_character_turn_agent.py`. Latency measured in EXP-2026-08-006; the **writing-quality**
+  consequence of moving identity from primacy to recency is recorded there too.
+- **The narrator and director prompts still lead with volatile text.** Deliberately left:
+  both condition on a *six-beat* window that slides every beat, so there is no stable
+  prefix to protect and reordering them would be prompt churn for no measurable gain.
+  Revisit only if either grows a longer window.
+- **The inference endpoint's throughput varies 66× on identical work — and it is probably
+  the biggest thing standing between the player and a fast turn.** EXP-2026-08-006's control
+  probe: one fixed prompt, temperature 0, same served model (`qwen38-27B-awq`), **identical
+  143-token output in 5 of 6 runs**, elapsed 1.4 / 1.8 / 1.9 / 14.6 / 27.6 / 90.4 s.
+  Corroborated on prefill — two prompts that took 1.94 s and 2.22 s one day took 30.1 s and
+  30.3 s the next, with the same cached-token count. **This supersedes the reading that "the
+  beat planner stalls":** EXP-2026-08-005 saw two turns at ~300 s and attributed them to the
+  planner; the same endpoint produces 90 s for 143 tokens with no planner involved. The
+  planner-stall entry is withdrawn. Investigating the relay / GPU host is now the first thing
+  to do before any further app-side latency work — and until it is stable, **no app-side
+  latency change can be measured at all** on this endpoint. Nothing in the repository can fix
+  it; it is not a Mytheca defect.
+- **Multi-beat planning barely pays at `maxTurns = 5`.** The mechanism works — the model
+  returned a well-formed three-beat plan 6/6 when asked (EXP-2026-08-006 `logs/plan.log`) —
+  but the median turn is **2 beats**, and each turn needs one final planner call to say
+  `end`, so lookahead has almost nothing to save. Planner calls fell only 34 → 27 over ten
+  turns. It should pay progressively more as `maxTurns` rises; `TURN_PLANNER_LOOKAHEAD=1`
+  restores the old per-beat loop exactly if it ever proves harmful.
+- **Reflection is now the largest non-planner step by share** (6 % → 21 % of turn time
+  between EXP-2026-08-005 and EXP-2026-08-006, though shares on this endpoint are soft). It
+  was deliberately left untouched at the owner's request. `TURN_ASYNC_FINALIZE` already
+  exists to move it off the request path if that changes.
+- **The prompt reorder has not been checked for writing quality by anything but a read.**
+  Identity and voice samples moved from primacy to recency. Ten turns were read and showed
+  no obvious regression — n = 1, unblinded, by the author of the change. A blinded
+  matched-scene comparison against the old ordering is the experiment that would settle it,
+  and it relates directly to C-001, which is itself unsupported.
+- **App-side latency work is unmeasurable until that is fixed, and future comparisons must
+  be interleaved arms in one run.** EXP-2026-08-006 compared code versions a day apart
+  because the prompt reorder is not flag-gated. Given the variance above, day-to-day
+  comparison is worthless. Anything measured next needs both arms alternating inside a
+  single session.
 - **The beat planner is 41 % of all turn time.** It runs once per beat — three to six
   times a turn at ~4 s each — and is the single largest cost in the app, ahead of character
   generation (15 %), inline reflection (13 %) and the continuity guard (11 %, ~10 s each
-  time it fires). Of the ~10 s before a player sees any prose, roughly 7.5 s is `intent`
+  time it fired — **retired 2026-08-20**). Of the ~10 s before a player sees any prose,
+  roughly 7.5 s is `intent`
   plus the first `plan` call, neither of which produces a word. Reducing the *number* of
   sequential calls is the lever for perceived latency; context size is not.
 
@@ -96,24 +121,22 @@ Verified against the code on 2026-08-04.
   parser read only the second. The null result measured the instrument. Fixed in
   `llm._reasoning_field`; the first reasoning token on `skynet` measures at ~0.4 s
   (EXP-2026-08-005). The experiment is amended rather than rewritten.
-- **The default Reasoning-visibility setting leaves the longest wait empty.**
-  The model spends most of a generation deliberating before writing its first word of
-  prose: ~17 s of ~20 s on the `local` route (EXP-2026-08-003), and on the deployed
-  `skynet` route the first *reasoning* token arrives at ~0.4 s while the first *prose*
-  token takes seconds longer (EXP-2026-08-005). The live reasoning channel covers that
-  window — but it only streams at `full`, and the default `summary` shows nothing until
-  the answer starts, so the status-strip phases are all a default-configured player gets.
-  Now that the channel actually works on the deployed model, moving the default is a live
-  decision rather than a theoretical one: it trades spoiler risk against a visibly shorter
-  wait. Not made yet.
-
-- **Later speakers do not stream their prose.** The continuity guard inspects a complete
-  candidate line and can reject it, so a beat it will judge cannot also be shown as it
-  arrives — the line would have to un-write itself. The turn's first character beat and
-  puppet beats stream fully; speakers after them emit once, after the verdict. Every beat
-  still streams the model's reasoning channel, so none of them is silent. The fix is an
-  incremental guard (judge the line as it grows, cutting the stream on a contradiction),
-  which is a genuine design problem, not threading.
+- ~~**The default Reasoning-visibility setting leaves the longest wait empty.**~~
+  **Decided 2026-08-20: the default is now `full`.** The model spends most of a generation
+  deliberating before writing its first word — ~17 s of ~20 s on the `local` route
+  (EXP-2026-08-003), and on the deployed `skynet` route the first *reasoning* token arrives
+  at ~0.4 s while the first *prose* token takes seconds longer (EXP-2026-08-005). The live
+  reasoning channel covers that window, and now that it actually works on the deployed
+  model the trade was worth taking: a visibly shorter wait against the risk that
+  deliberation spoils the line it precedes. `summary` remains one click away in Options and
+  the copy there says plainly what it costs.
+- ~~**Later speakers do not stream their prose.**~~ **Resolved 2026-08-20.** The
+  continuity guard was the sole reason a later beat had to hold its prose for a
+  complete-line verdict. EXP-2026-08-005 measured the guard at 11 % of turn time (~10 s
+  every time it fired), and it was retired rather than made incremental: every character
+  beat now streams as it is written. Reopen only if continuity errors actually show up in
+  play — at which point the incremental form (judge the line as it grows, cut the stream
+  on a contradiction) is the design to build, not the blocking one.
 - **Streamed prose can diverge from the persisted row on a harmony-format endpoint.**
   `strip_reasoning` keeps the text after the *last* `<|channel|>` marker, which cannot be
   known mid-stream. `InlineReasoningSplitter` handles the `<think>` form exactly and

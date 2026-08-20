@@ -86,7 +86,7 @@ describe("TurnStatusStrip — the wait is legible", () => {
     const cases: [TurnStatus["phase"], string][] = [
       ["gathering", "Gathering the scene"],
       ["reading", "Reading your message"],
-      ["planning", "Deciding who speaks next"],
+      ["planning", "Working out what happens next"],
     ];
     for (const [phase, label] of cases) {
       const { unmount } = render(
@@ -126,6 +126,6 @@ describe("TurnStatusStrip — the wait is legible", () => {
 
   it("renders no detail line when the engine offered no reason", () => {
     render(<TurnStatusStrip status={{ phase: "planning" }} streaming charById={charById} />);
-    expect(screen.getByText("Deciding who speaks next")).toBeInTheDocument();
+    expect(screen.getByText("Working out what happens next")).toBeInTheDocument();
   });
 });

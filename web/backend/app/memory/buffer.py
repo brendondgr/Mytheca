@@ -8,7 +8,9 @@ helper no-ops (writes) or returns empty (reads), so the turn still runs and
 persists to Postgres.
 
 Stored as a capped Redis list ``buffer:{session_id}`` (newest first via ``LPUSH`` +
-``LTRIM``); :func:`recent_turns` returns it oldest→newest for prompt assembly.
+``LTRIM``); :func:`recent_turns` returns it oldest→newest for prompt assembly, and
+:func:`anchored_turns` returns a window whose **start moves in blocks** so the rendered
+transcript keeps a byte-stable prefix from turn to turn (see its docstring).
 """
 
 from __future__ import annotations
@@ -86,6 +88,44 @@ def recent_turns(session_id: str, limit: int | None = None) -> list[dict[str, An
             continue
     beats.reverse()  # stored newest-first; return chronological
     return beats
+
+
+def anchored_turns(
+    session_id: str,
+    window: int,
+    block: int,
+) -> list[dict[str, Any]]:
+    """Return a recent-beat window whose **start advances in blocks of ``block``**.
+
+    A plain "last N beats" window is the quiet killer of prompt-cache reuse. Once a scene
+    is longer than the window, every new beat drops the oldest one, which changes the
+    first token of the rendered transcript — and a prefix cache matches from the first
+    token, so the whole transcript has to be re-read even though it only grew at the end.
+
+    Anchoring the start to a multiple of ``block`` means the window's first beat stays put
+    for ``block`` turns at a time: the transcript grows at the tail (fully reusable) and
+    re-anchors once every ``block`` beats, paying one cold prefill instead of every turn.
+    The returned window therefore holds between ``window`` and ``window + block`` beats.
+
+    Falls back to plain :func:`recent_turns` behaviour when the buffer holds no more than
+    the window — there is nothing to slide yet — and when Redis is unavailable.
+    """
+    client = _redis()
+    if client is None:
+        return []
+    window = max(1, window)
+    block = max(1, block)
+    key = _KEY.format(session_id=session_id)
+    try:
+        total = int(client.llen(key))
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("buffer.anchored_turns llen failed: %s", exc)
+        return recent_turns(session_id, limit=window)
+    if total <= window:
+        return recent_turns(session_id, limit=total or window)
+    # ``start`` counts from the OLDEST beat; quantising it is what holds the prefix still.
+    start = ((total - window) // block) * block
+    return recent_turns(session_id, limit=total - start)
 
 
 def clear(session_id: str) -> None:

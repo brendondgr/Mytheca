@@ -53,9 +53,9 @@ Player line
   → assembler (cast + clamped stats + Redis buffer + gated RAG + prompt prefix)
   → intent_agent (narrate / address / puppet / whole-group; + direction requirements)
   → direction_agent (the player's direction → outcomes the turn owes, scheduled to fit)
-  → ReAct loop: planner_agent.next_beat → speak | narrate | exit | end
+  → ReAct loop: planner_agent.plan_beats (up to N beats/call) → speak | narrate | exit | end
        └ character_turn_agent (think → speak, one isolated call per beat)
-       └ emission parse → consistency guard → validator (clamp / drop)
+       └ emission parse → validator (clamp / drop)
   → NDJSON story events streamed to the browser
   → cold path: turn_writer → Neo4j · read-time: reflection → Redis
 ```
@@ -65,10 +65,10 @@ Detail: `architecture.md` (decisions), `data-flow.md` (the turn walkthrough), `a
 ## Major Decisions
 
 - **Event-driven rendering** — the AI emits typed events, the backend validates, the frontend renders. 8 event types.
-- **Per-beat ReAct planner** — `planner_agent.next_beat` decides one beat at a time from the present roster. It replaced the older one-shot `director_agent.who_is_up` / `rerank`, which are now **dead code kept only for their unit tests**.
+- **ReAct planner with lookahead** — `planner_agent.plan_beats` decides up to `TURN_PLANNER_LOOKAHEAD` beats per call from the present roster, and the engine re-plans when the queue empties or a planned beat goes stale. It replaced the older one-shot `director_agent.who_is_up` / `rerank`, which are now **dead code kept only for their unit tests**. Deciding one beat at a time made this agent 41 % of all turn time (EXP-2026-08-005); `next_beat` remains as the one-beat wrapper.
 - **The player's direction is a contract, not a hint** — `direction_agent` turns it into ordered requirements and the engine schedules them into the scene's `maxTurns` budget, taking the decision off the planner once the budget is as tight as the direction is long. Each beat is told the outcome it owes, never the words.
 - **One isolated LLM call per speaker** — no shared multi-POV prompt, to keep voices distinct.
-- **Situational adaptation is computed, not requested** — `planner_agent.next_beat` returns the beat's **register** (`light`/`neutral`/`tense`/`grave`) and **stakes** on the call it was already making. The register is stated as fact in the character prompt's recency tail, selects which voice samples the speaker is shown, and tunes the sampler. Telling a character in prose to "adapt to the moment" loses to the concrete voice samples proving how it sounds at rest; giving it a different set of samples does not.
+- **Situational adaptation is computed, not requested** — `planner_agent.plan_beats` returns the beat's **register** (`light`/`neutral`/`tense`/`grave`) and **stakes** on the call it was already making. The register is stated as fact in the character prompt's recency tail, selects which voice samples the speaker is shown, and tunes the sampler. Telling a character in prose to "adapt to the moment" loses to the concrete voice samples proving how it sounds at rest; giving it a different set of samples does not.
 - **Server-side clamping** — proposed stat / relationship / presence changes are proposals; `validator.py` clamps or drops them.
 - **Best-effort substrates** — Neo4j, Qdrant, Redis and ComfyUI each degrade to a no-op when absent. CRUD and the full test suite run with none of them.
 - **No dice** — narrative resolution only; `branch_choices` carry `label` + `outcome`.
@@ -81,7 +81,7 @@ Implemented and exercised end to end:
 
 - Full CRUD for the four canonical objects, plus stats, context documents, and the Story-Graph type registry.
 - Agentic authoring: storyline draft + primer, conversational scope-aware storyline **editing** (`storyline_edit/`), **create-time world population** (`roster_agent` + `services/world_populate` — the generated cast + settings a new world starts with), character / setting / scenario creators, document triage, portrait + scene-art generation.
-- The runtime turn loop: intent → ReAct planner → per-character think→speak → validator → NDJSON stream, with presence tracking, POV play, follow-up suggestions, within-turn consistency guard, cold-path Neo4j writes, and read-time reflection.
+- The runtime turn loop: intent → ReAct planner → per-character think→speak → validator → NDJSON stream, with presence tracking, POV play, follow-up suggestions, cold-path Neo4j writes, and read-time reflection.
 - In-narrative images: a **Create image** control at the foot of the transcript writes an appearance-first prompt from the live scene (`moment_agent`) and renders it landscape through ComfyUI (`scene_moment`), persisted as a `scene_image` beat.
 - Persistent sessions: every turn and its diagnostic trace are stored (`events`, `turn_traces`); reopening a scenario resumes the latest session; sessions export as JSON or Markdown.
 - Hybrid RAG with embed-on-save and a conservative retrieval gate.

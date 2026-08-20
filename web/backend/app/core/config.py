@@ -42,10 +42,8 @@ class Settings(BaseSettings):
     # The recent-turn buffer + per-character interior state live in Redis; like the
     # Neo4j/Qdrant seams the engine is best-effort (Redis down → no buffer/interior,
     # the turn still runs and persists to Postgres). Blank ``REDIS_URL`` disables it.
-    # ``turn_buffer_size`` caps the recent-turn buffer. It is the *retention* ceiling —
-    # how many recent beats stay available to draw from — and must be ≥ the largest
-    # per-scene ``context_beats`` (max 100) so a high context setting is never clipped;
-    # the assembler fetches only the scene's ``context_beats`` from it. ``turn_max_concurrency``
+    # ``turn_buffer_size`` caps the recent-turn buffer (see its own note below).
+    # ``turn_max_concurrency``
     # bounds the off-hot-path / independent worker pool (sequential speech stays
     # sequential regardless). ``turn_reflection_enabled`` toggles the read-time
     # reflection interlude (per-character interior state). ``turn_ttft_slo_ms`` is an
@@ -54,7 +52,18 @@ class Settings(BaseSettings):
     # thread (P11) so the stream closes the instant the last visible event is yielded;
     # it stays **off** by default (inline = deterministic for the offline test/dev path)
     # and is never used on SQLite (no independent connection to hand a worker).
-    turn_buffer_size: int = 100
+    # Redis recent-beat retention. Must exceed the largest per-scene ``context_beats``
+    # (100) by at least ``turn_transcript_anchor_block``, or the anchored window below has
+    # no headroom to slide within and degrades to a plain last-N window.
+    turn_buffer_size: int = 160
+
+    # How far the rendered transcript's START jumps when it has to move. A "last N beats"
+    # window drops its oldest beat every turn, which changes the transcript's first token
+    # and invalidates the whole prompt-cache prefix behind it — the reason reordering the
+    # prompt alone would stop paying at exactly the scene length it is meant to help.
+    # Quantising the start means one cold prefill every ``block`` beats instead of one
+    # every beat. ``1`` restores the old per-beat slide.
+    turn_transcript_anchor_block: int = 20
     turn_max_concurrency: int = 4
     turn_reflection_enabled: bool = True
     turn_ttft_slo_ms: int = 1200
@@ -64,6 +73,14 @@ class Settings(BaseSettings):
     # the whole cast); this only stops a planner that never says "end". The effective
     # ceiling is max(turn_max_beats, 2*cast + 6) so a large cast is never clipped.
     turn_max_beats: int = 24
+
+    # How many beats the planner decides in ONE call. It was 41 % of all turn time in
+    # EXP-2026-08-005 — not from prompt size (it carries only this turn's beats) but from
+    # running once per beat at ~4 s a time. Planning ahead trades calls for prediction:
+    # a beat planned three ahead reads a moment that has not happened yet, so the engine
+    # re-plans whenever the plan runs out or reality diverges from it. ``1`` restores the
+    # original once-per-beat ReAct loop exactly.
+    turn_planner_lookahead: int = 3
 
     # --- Authoring parallelism (the world build + RAG batch indexing) ---
     # Default upper bound on how many characters/settings are drafted concurrently in
@@ -103,6 +120,16 @@ class Settings(BaseSettings):
     # but the operator needs the dial when it happens. Streaming generations reset the
     # window on every chunk, so this bounds the gap *between* tokens, not the whole call.
     llm_gen_timeout_seconds: int = 300
+
+    # Read window for a *structural* call — the small JSON judgements that decide what a
+    # turn does (intent, the beat planner, the direction packer, triage). These emit no
+    # prose and finished in 3.6 s and 4.9 s respectively when EXP-2026-08-005 measured
+    # them, so they have no business sharing prose generation's five-minute patience:
+    # a stalled one used to cost the player the whole window in silence, which is what
+    # "the app takes five minutes and never says why" actually was. Every one of these
+    # agents already falls back to a heuristic, so a timeout degrades the turn instead of
+    # ending it.
+    llm_decision_timeout_seconds: int = 25
 
     # ComfyUI image generation — a local Comfy server (HTTP + WebSocket protocol).
     comfyui_base_url: str = "http://localhost:8199"

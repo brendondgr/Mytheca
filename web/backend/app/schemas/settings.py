@@ -17,8 +17,12 @@ from app.schemas.base import CamelModel
 #:  * ``hidden``  — no thinking at all; the muted thought line is suppressed too.
 #:  * ``summary`` — the character's own ``internal_thought`` (the default, and the only
 #:    behaviour that existed before): in-voice interiority, written for the reader.
-#:  * ``full``    — additionally streams the model's raw ``reasoning_content`` live.
-#: ``full`` is opt-in because raw deliberation frequently spoils the beat that follows it.
+#:  * ``full``    — additionally streams the model's raw reasoning channel live.
+#: ``full`` is the **default**: on the deployed endpoint the first reasoning token arrives
+#: at ~0.4 s against roughly ten seconds before any prose (EXP-2026-08-005), so it is the
+#: single largest reduction in *perceived* wait available. The cost is real — raw
+#: deliberation can spoil the line it precedes — which is why `summary` and `hidden`
+#: remain one click away in Options.
 ReasoningVisibility = Literal["hidden", "summary", "full"]
 
 
@@ -47,7 +51,7 @@ class LlmConfigRead(CamelModel):
     # Fallback context-window size used when the engine does not report one.
     max_context_tokens: int = 16384
     # How much of a turn's thinking reaches the player (see ``ReasoningVisibility``).
-    reasoning_visibility: ReasoningVisibility = "summary"
+    reasoning_visibility: ReasoningVisibility = "full"
 
 
 class LlmConfigUpdate(CamelModel):

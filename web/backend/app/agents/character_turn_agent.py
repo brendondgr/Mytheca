@@ -3,10 +3,13 @@
 One LLM call per active speaker (per-character isolation — no shared multi-POV
 prompt, so voices stay distinct). The model emits the thin tag format
 (``<speaker:N>`` + ``<type:...>`` + free prose); the backend owns the envelope
-(``services.emission``). The prompt is **bookended** (the turn-loop plan §11.4): the
-character's identity + state lead (primacy), the transcript sits in the middle, and
-the "respond now" instruction is last (recency). The cacheable stable region (World
-Primer + stat guidance) rides in the system message.
+(``services.emission``). The prompt is ordered **stable → append-only → volatile** so an
+inference server's prefix cache can reuse it across beats and turns: the scene as authored
+leads, the transcript follows (append-only, with a block-anchored start), and everything
+that changes per beat — this speaker's identity, voice samples, live stat values, the
+register, the "respond now" cue — comes last, where recency attention is strongest anyway.
+The stable region (output contract + World Primer + stat guidance) rides in the system
+message. See ``_build_user_prompt`` for why the ordering is load-bearing.
 
 P3 is single-pass (speak only). The hidden ``<thinking>`` conditioning block + in-voice
 sampler tuning are layered on in the think→speak phase; this module is where they land.
@@ -21,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.agents import prompt_registry
 from app.agents._common import gen_params, resolve_llm
+from app.core.config import get_settings
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmParams
 from app.services import llm
@@ -123,7 +127,6 @@ def generate_line(
     *,
     turn_beats: list[dict],
     reasoning: ReasoningEffort = TURN_EFFORT,
-    correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
     register: str | None = None,
@@ -137,7 +140,7 @@ def generate_line(
     """
     raw, _ = generate_line_with_usage(
         db, ctx, speaker, turn_beats=turn_beats, reasoning=reasoning,
-        correction=correction, directive=directive, relationship_note=relationship_note,
+        directive=directive, relationship_note=relationship_note,
         register=register, stakes=stakes,
         scene_direction=scene_direction, requirements=requirements,
     )
@@ -151,7 +154,6 @@ def generate_line_with_usage(
     *,
     turn_beats: list[dict],
     reasoning: ReasoningEffort = TURN_EFFORT,
-    correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
     register: str | None = None,
@@ -170,8 +172,7 @@ def generate_line_with_usage(
     ``turn_beats`` is the chronological this-turn transcript so far (the player's
     line, then any earlier speakers' lines) — so a later speaker genuinely reacts to
     its predecessor (the immediate predecessor sits last, where recency attention is
-    strongest). ``correction`` re-runs the beat after the consistency guard (§P10)
-    flagged a continuity break, folding the reason into the act-now tail. ``directive``
+    strongest). ``directive``
     is a **puppet** performance (Reactive Turn Director D1): the player directed this
     character to do/say something, so the character performs it **in their own voice**
     rather than reacting to the player's words as if spoken to them.
@@ -189,7 +190,7 @@ def generate_line_with_usage(
     # prefix-cache id so warm-prefix reuse across the turn's calls is observable (§P11).
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(
-        ctx, speaker, turn_beats, correction=correction, directive=directive,
+        ctx, speaker, turn_beats, directive=directive,
         relationship_note=relationship_note, register=register, stakes=stakes,
         scene_direction=scene_direction, requirements=requirements,
     )
@@ -210,7 +211,6 @@ def stream_line(
     *,
     turn_beats: list[dict],
     reasoning: ReasoningEffort = TURN_EFFORT,
-    correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
     register: str | None = None,
@@ -234,10 +234,18 @@ def stream_line(
     system = f"{contract}\n\n{ctx.stable_prefix}".strip()
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(
-        ctx, speaker, turn_beats, correction=correction, directive=directive,
+        ctx, speaker, turn_beats, directive=directive,
         relationship_note=relationship_note, register=register, stakes=stakes,
         scene_direction=scene_direction, requirements=requirements,
     )
+    if usage_out is not None:
+        # How much of this prompt is byte-identical to the previous character call in this
+        # session — the prompt-cache metric the layout actually controls, and the one the
+        # endpoint cannot hide from us (vLLM omits its own counter when the hit is zero).
+        usage_out["reusable_prefix_chars"] = llm.shared_prefix_chars(
+            ctx.session_id, f"{system}\n{user}"
+        )
+        usage_out["prompt_chars"] = len(system) + len(user) + 1
     return (
         yield from llm.chat_complete_stream(
             base_url,
@@ -263,7 +271,6 @@ def _build_user_prompt(
     speaker: CastMember,
     turn_beats: list[dict],
     *,
-    correction: str | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
     register: str | None = None,
@@ -271,15 +278,76 @@ def _build_user_prompt(
     scene_direction: str = "",
     requirements: list[str] | None = None,
 ) -> str:
-    """Bookended volatile suffix: identity/state (front) · scene+transcript (middle) · act-now (tail)."""
+    """Ordered stable → append-only → volatile, so the prompt cache can keep up.
+
+    The prompt is built in three regions, and the ordering is load-bearing rather than
+    stylistic. An inference server's prefix cache matches from the **first token** and
+    stops at the first byte that differs, so whatever changes earliest decides how much of
+    the prompt can be reused:
+
+    * **STABLE** — the setting and the roster. Byte-identical for every speaker and every
+      beat of the scene, and it sits behind an equally stable system message (output
+      contract + World Primer + stat guidance).
+    * **APPEND-ONLY** — the transcript. It only ever grows at the end, and its start is
+      held still by ``buffer.anchored_turns``, so turn N+1 matches turn N up to the beats
+      that are genuinely new.
+    * **VOLATILE** — everything that changes per beat: retrieved lore, the player's tagged
+      files, this speaker's identity and voice samples, their live stat values, the beat's
+      register, and the act-now cue.
+
+    This replaced a bookended layout (identity first for primacy, transcript in the
+    middle). That layout put the speaker's live stat values ahead of the largest reusable
+    block in the prompt, which pinned cache reuse to the system message alone —
+    EXP-2026-08-005 measured cached tokens at *exactly* 800 on all ten turns of a scene
+    while the prompt grew 1830 → 4678, and the reordered arm of its layout probe cut
+    time-to-first-token ~40 % at 100+ turns of history.
+
+    Moving identity from primacy to recency is a real change to what the model attends to,
+    not a free win: it is the strongest position in the prompt on this model class, but it
+    is a different position than the one the voice samples were tuned in. That is a
+    writing-quality question, measured alongside the timings rather than assumed.
+    """
     number = _speaker_number(ctx, speaker)
 
-    # HEAD — identity + interiority (primacy).
-    head = [f"You are [{number}] {speaker.name} — {speaker.role}."]
+    # ---- STABLE — the scene as authored. Identical across speakers and across turns. ----
+    stable: list[str] = []
+    if ctx.setting is not None:
+        # The authored description of the PLACE — written once at world creation and never
+        # rewritten during play. It is scenery, not a report of the current mood; the live
+        # read of the moment comes from the transcript and the beat's register, not here.
+        flavor = ctx.setting.atmosphere or ctx.setting.current_state or ctx.setting.desc or ""
+        stable.append(
+            f"Where this happens: {ctx.setting.name}{(' — ' + flavor) if flavor else ''} "
+            "(the place as authored; how it feels right now is whatever the beats below show)."
+            if flavor
+            else f"Where this happens: {ctx.setting.name}."
+        )
+    roster = ", ".join(f"[{i + 1}] {m.name}" for i, m in enumerate(ctx.cast))
+    stable.append(f"Cast in the scene: {roster}.")
+
+    # ---- APPEND-ONLY — the transcript, ending on the most recent line. ----
+    # Nothing volatile may be inserted above this block: everything below it is re-read by
+    # the model on every call, and everything above it is what the cache can keep.
+    middle: list[str] = []
+    transcript = _transcript(ctx, turn_beats)
+    if transcript:
+        middle.append(f"Recent beats:\n{transcript}")
+
+    # ---- VOLATILE — changes beat to beat. Ordered context first, instruction last. ----
+    tail: list[str] = []
+    if ctx.retrieved_lore:
+        tail.append(ctx.retrieved_lore.strip())  # fenced reference lore (gated)
+    if ctx.tagged_notes:
+        # The player's @-tagged files. Deliberately ahead of the direction line below, so
+        # the direction keeps the recency advantage: a tagged file informs HOW this
+        # character speaks, never WHERE the scene goes.
+        tail.append(ctx.tagged_notes.strip())
+
+    tail.append(f"You are [{number}] {speaker.name} — {speaker.role}.")
     if speaker.speech:
-        head.append(f"Speech style (your default voice): {speaker.speech}")
+        tail.append(f"Speech style (your default voice): {speaker.speech}")
     if speaker.traits:
-        head.append(f"Traits: {speaker.traits}")
+        tail.append(f"Traits: {speaker.traits}")
     # Concrete situation → sample-response pairs authored for this character — the ground
     # truth for *how* they sound, and the single highest-salience block in this prompt.
     # Selected by the beat's register (untagged pairs always apply, and an unmatched or
@@ -290,12 +358,12 @@ def _build_user_prompt(
     ) or speaker.voice_samples
     if selected:
         if register:
-            head.append(
+            tail.append(
                 f"Voice samples — how you sound in a moment like this one. Keep the person; "
                 f"match the pitch of the moment, not a habit:\n{selected}"
             )
         else:
-            head.append(
+            tail.append(
                 "Voice samples — your baseline voice (how you sound at rest; keep the person, but "
                 f"let the register flex with the moment):\n{selected}"
             )
@@ -305,52 +373,23 @@ def _build_user_prompt(
         # (not a bare k=v). Falls back to the compact k=v when there are no defs.
         state = render_character_stats(ctx.stat_defs, speaker.stats, speaker.name)
         if state:
-            head.append(state)
+            tail.append(state)
         else:
             flat = ", ".join(f"{k}={v}" for k, v in speaker.stats.items())
-            head.append(f"Your current state: {flat}")
+            tail.append(f"Your current state: {flat}")
     if speaker.recent_lines:
         anchors = "  ".join(f"“{line}”" for line in speaker.recent_lines)
-        head.append(f"Your recent lines (a reference for your voice, not a script): {anchors}")
-
-    # MIDDLE — scene + roster + transcript (context, not driver). The transcript ends
-    # with the most recent line (the player, or the predecessor who just spoke).
-    middle: list[str] = []
-    if ctx.setting is not None:
-        # The authored description of the PLACE — written once at world creation and never
-        # rewritten during play. It is scenery, not a report of the current mood; the live
-        # read of the moment comes from the transcript and the beat's register, not here.
-        flavor = ctx.setting.atmosphere or ctx.setting.current_state or ctx.setting.desc or ""
-        middle.append(
-            f"Where this happens: {ctx.setting.name}{(' — ' + flavor) if flavor else ''} "
-            "(the place as authored; how it feels right now is whatever the beats below show)."
-            if flavor
-            else f"Where this happens: {ctx.setting.name}."
-        )
-    roster = ", ".join(f"[{i + 1}] {m.name}" for i, m in enumerate(ctx.cast))
-    middle.append(f"Cast in the scene: {roster}.")
-    if ctx.retrieved_lore:
-        middle.append(ctx.retrieved_lore.strip())  # fenced reference lore (gated)
-    if ctx.tagged_notes:
-        # The player's @-tagged files. Deliberately in the MIDDLE (context) and deliberately
-        # ABOVE the direction line below, so the direction keeps the recency advantage: a
-        # tagged file informs HOW this character speaks, never WHERE the scene goes.
-        middle.append(ctx.tagged_notes.strip())
+        tail.append(f"Your recent lines (a reference for your voice, not a script): {anchors}")
     if relationship_note:
         # How this character actually relates to whom they're addressing (from the graph,
         # incl. 2-hop shared ties) so the reply is relationship-appropriate (D4).
-        middle.append(f"Your ties in this scene: {relationship_note}")
+        tail.append(f"Your ties in this scene: {relationship_note}")
     if scene_direction.strip():
         # Where the player is steering the scene. Every speaker sees it — including one with
         # no requirement of their own — so the whole cast plays toward the same destination
         # instead of only the character who happens to be carrying a beat of it.
-        middle.append(f"Where this scene is going (the player's direction): {scene_direction.strip()}")
-    transcript = _transcript(ctx, turn_beats)
-    if transcript:
-        middle.append(f"Recent beats:\n{transcript}")
+        tail.append(f"Where this scene is going (the player's direction): {scene_direction.strip()}")
 
-    # TAIL — act-now (recency).
-    tail: list[str] = []
     # Situational adaptation cue (recency, strongest attention): read the moment before
     # defaulting to habit, and point at the character's own condition so the
     # manner-adaptation rule actually fires. The mood is deliberately NOT restated from
@@ -379,20 +418,13 @@ def _build_user_prompt(
     if speaker.disposition:
         # Carried in from the previous turn's reflection (§P9). This is the only signal in
         # the prompt that tracks how events have actually CHANGED this character, so it sits
-        # in the recency TAIL beside the register rather than buried in the HEAD, where the
-        # voice-sample block outweighed it. Stated as a condition the character is already
-        # in, with explicit license to break their habitual manner because of it.
+        # in the recency TAIL beside the register rather than above the voice samples,
+        # which would outweigh it.
         tail.append(
             f"You do not come into this beat neutral. Where the last one left you: "
             f"{speaker.disposition} That is your condition now — carry it in. If it means "
             "you cannot keep up your usual manner, don't; let <thinking> build on it in "
             "your own voice rather than restating it."
-        )
-    if correction:
-        # Consistency guard flagged the prior attempt (§P10) — steer the redo.
-        tail.append(
-            f"Your previous line broke continuity ({correction}). Redo it consistently "
-            "with the established beats above."
         )
     if directive:
         # Puppet performance (D1): the player directed you — perform it in your own voice.
@@ -420,13 +452,13 @@ def _build_user_prompt(
             "and never break character to acknowledge it."
         )
 
-    return "\n".join(["\n".join(head), "", "\n".join(middle), "", "\n".join(tail)])
+    return "\n".join(["\n".join(stable), "", "\n".join(middle), "", "\n".join(tail)])
 
 
-# Cap the rendered transcript so a crowded, many-speaker turn keeps the bookended
-# prompt bounded (§P10 — "bookended prompt under scale"). The most recent beats matter
-# most for recency; older context lives in the buffer/graph, not this window. The depth is
-# the per-scene ``context_beats`` (5–100); this is only the fallback when it is unset.
+# Cap the rendered transcript so a crowded, many-speaker turn keeps the prompt bounded
+# (§P10 — "bookended prompt under scale"). The most recent beats matter most for recency;
+# older context lives in the buffer/graph, not this window. The depth is the per-scene
+# ``context_beats`` (5–100); this is only the fallback when it is unset.
 _TRANSCRIPT_MAX_BEATS = 14
 
 
@@ -434,10 +466,17 @@ def _transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
     """Render prior history + this-turn beats as a short transcript (chronological).
 
     The window depth is the scene's ``context_beats`` — the same "how much context the
-    character sees" the player configures — capped at the last N combined beats.
+    character sees" the player configures.
+
+    The cap here allows a whole anchor block ABOVE that depth on purpose. ``recent_beats``
+    already arrives block-anchored (``buffer.anchored_turns``), which is what holds the
+    transcript's first line still between re-anchors; re-trimming it to exactly
+    ``context_beats`` here would slide the start by one beat per turn again and undo the
+    anchoring entirely — the prompt-cache prefix would collapse back to the system message.
     """
     names = {m.id: m.name for m in ctx.cast}
     depth = max(1, ctx.context_beats or _TRANSCRIPT_MAX_BEATS)
+    depth += max(1, get_settings().turn_transcript_anchor_block)
     lines: list[str] = []
     for beat in [*ctx.recent_beats, *turn_beats][-depth:]:
         text = str(beat.get("text", "")).strip()

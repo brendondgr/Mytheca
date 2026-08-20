@@ -172,13 +172,13 @@ def test_stray_speak_pov_is_coerced_to_end(client, storyline_id, monkeypatch):
 
     calls = {"n": 0}
 
-    def fake_next_beat(db, ctx, intent, turn_beats, acted, **_kwargs):
+    def fake_plan_beats(db, ctx, intent, turn_beats, acted, **_kwargs):
         calls["n"] += 1
         if calls["n"] == 1:
-            return BeatDecision("speak", actor_id=mei)  # a stray reply naming the POV char
-        return BeatDecision("end")
+            return [BeatDecision("speak", actor_id=mei)]  # a stray reply naming the POV char
+        return [BeatDecision("end")]
 
-    monkeypatch.setattr(planner_agent, "next_beat", fake_next_beat)
+    monkeypatch.setattr(planner_agent, "plan_beats", fake_plan_beats)
     events = _stream(
         client.post(
             f"/api/play/{scid}/turn",

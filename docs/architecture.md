@@ -33,8 +33,8 @@ FastAPI, Python 3.13, `uv`.
 | Concern | Where it actually lives |
 | --- | --- |
 | Turn loop / coordination | `app/services/turn_engine.py` |
-| Who acts next | `app/agents/planner_agent.py` (`next_beat`) — a per-beat ReAct decision |
-| How grave the moment is | `app/agents/planner_agent.py` (`next_beat` → `register` + `stakes`, no extra call) |
+| Who acts next | `app/agents/planner_agent.py` (`plan_beats`) — up to `TURN_PLANNER_LOOKAHEAD` beats per ReAct call; `next_beat` is the one-beat wrapper |
+| How grave the moment is | `app/agents/planner_agent.py` (`plan_beats` → per-beat `register` + `stakes`, no extra call) |
 | Voicing one character | `app/agents/character_turn_agent.py` (think → speak, one isolated call) |
 | Narration interstitials | `app/agents/narrator_agent.py` |
 | Player-intent reading | `app/agents/intent_agent.py` |
@@ -43,7 +43,6 @@ FastAPI, Python 3.13, `uv`.
 | Context assembly | `app/services/assembler.py` |
 | Emission parsing | `app/services/emission.py` |
 | Validation / clamping | `app/services/validator.py` |
-| Within-turn continuity | `app/services/consistency.py` |
 | Event envelope + NDJSON | `app/events/` |
 | Persistence | `app/models/`, `app/services/events_store.py`, `crud.py` |
 | Config, clients, preflight | `app/core/` |

@@ -11,6 +11,14 @@ the narrator can fill context *between* speakers regardless of mode.
 Structure-only + roster-constrained + **best-effort**: a missing/failed/malformed reply
 falls back to a simple heuristic (honor an explicit group/addressed target, else end), so
 a turn never stalls. It emits no prose.
+
+**One call, several beats.** EXP-2026-08-005 measured this agent at 41 % of all turn
+time — not because its prompt is large (it carries only this turn's beats) but because it
+ran once per beat, three to six times a turn at ~4 s each. :func:`plan_beats` asks for the
+next few beats in a single call and the engine executes them, re-planning when the plan
+runs out or when reality diverges from it (a character exits, a requirement is delivered,
+the budget tightens). :func:`next_beat` is the one-beat wrapper and keeps the original
+contract for callers that genuinely want a single decision.
 """
 
 from __future__ import annotations
@@ -21,7 +29,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.agents import prompt_registry
-from app.agents._common import extract_json, resolve_llm
+from app.agents._common import decision_timeout, extract_json, resolve_llm
 from app.agents.direction_agent import SceneDirection
 from app.agents.intent_agent import TurnIntent
 from app.core.errors import APIError
@@ -67,6 +75,183 @@ class BeatDecision:
     stakes: str = ""
 
 
+def plan_beats(
+    db: Session,
+    ctx: TurnContext,
+    intent: TurnIntent,
+    turn_beats: list[dict],
+    acted: list[str],
+    *,
+    lookahead: int = 1,
+    scene_opening: bool = False,
+    locked_id: str | None = None,
+    direction: SceneDirection | None = None,
+    remaining_beats: int | None = None,
+) -> list[BeatDecision]:
+    """Decide the next ``lookahead`` beats in ONE call (best-effort; never raises).
+
+    Returns at least one decision. The list is truncated at the first ``end`` — beats
+    planned after the turn stops are meaningless — and every entry is roster-checked, so
+    the caller still has to re-validate against presence, which can change mid-turn.
+
+    A ``lookahead`` of 1 reproduces the original single-beat behaviour exactly, including
+    the request shape, so an operator who has overridden the planner prompt is unaffected.
+    Above 1 the multi-beat contract is appended to the **user** message rather than the
+    system one, so it survives a customised system prompt.
+
+    The trade this makes is honest and worth stating: a beat planned three ahead reads a
+    moment that has not happened yet, so its ``register`` is a prediction. That is why the
+    engine re-plans on divergence instead of executing a whole turn blind.
+    """
+    if not ctx.cast:
+        return [BeatDecision("end", reason="no cast")]
+    present = [m for m in ctx.cast if m.is_present and m.id != locked_id]
+    if not present:
+        return [BeatDecision("end", reason="no one present")]
+    try:
+        base_url, api_key, model, params = resolve_llm(db)
+    except APIError:
+        return [_fallback_beat(
+            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
+            direction=direction,
+        )]
+
+    roster_ids = {i + 1: m.id for i, m in enumerate(present)}
+    want = max(1, min(int(lookahead), remaining_beats if remaining_beats else int(lookahead)))
+    user = _plan_prompt(
+        ctx, intent, turn_beats, acted, roster_ids,
+        scene_opening=scene_opening, direction=direction, remaining_beats=remaining_beats,
+        want=want,
+    )
+    try:
+        raw = llm.chat_complete(
+            base_url,
+            api_key,
+            model,
+            [
+                {"role": "system", "content": ctx.prompts.get(prompt_registry.PLANNER_SYSTEM, _SYSTEM)},
+                {"role": "user", "content": user},
+            ],
+            params,
+            reasoning=PLANNER_EFFORT,
+            timeout_s=decision_timeout(),
+        )
+        data = extract_json(raw)
+    except APIError:
+        return [_fallback_beat(
+            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
+            direction=direction,
+        )]
+
+    rows = data.get("beats")
+    if not isinstance(rows, list) or not rows:
+        rows = [data]  # a single-object reply, which is what lookahead=1 asks for
+    decisions: list[BeatDecision] = []
+    for row in rows[:want]:
+        if not isinstance(row, dict):
+            continue
+        decision = _decision_from(row, roster_ids)
+        if decision is None:
+            break  # a malformed entry invalidates everything planned after it
+        decisions.append(decision)
+        if decision.action == "end":
+            break
+    if not decisions:
+        return [_fallback_beat(
+            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
+            direction=direction,
+        )]
+    return decisions
+
+
+def _decision_from(data: dict, roster_ids: dict[int, str]) -> BeatDecision | None:
+    """Parse ONE planned beat; ``None`` when it is malformed or names nobody real."""
+    action = str(data.get("action", "")).lower()
+    if action not in _ACTIONS:
+        return None
+    # The read of the moment rides on every action (it describes the situation, not the
+    # beat), so parse it once up front. An unrecognized value degrades to None rather than
+    # reaching the character prompt as noise.
+    register = str(data.get("register", "")).strip().lower() or None
+    if register not in _REGISTERS:
+        register = None
+    stakes = str(data.get("stakes", "") or "").strip()
+    if action == "end":
+        return BeatDecision(
+            "end", reason=str(data.get("reason", "")),
+            needs_branch=bool(data.get("needsBranch", False)),
+            register=register, stakes=stakes,
+        )
+    if action == "narrate":
+        return BeatDecision(
+            "narrate", reason=str(data.get("reason", "")), register=register, stakes=stakes
+        )
+    if action == "exit":
+        actor_id = roster_ids.get(_as_int(data.get("actor")) or -1)
+        status = str(data.get("status", "")).strip().lower()
+        if actor_id is None or status not in _EXIT_STATUSES:
+            return None  # don't guess a removal
+        return BeatDecision(
+            "exit", actor_id=actor_id, status=status, reason=str(data.get("reason", "")),
+            register=register, stakes=stakes,
+        )
+    actor_id = roster_ids.get(_as_int(data.get("actor")) or -1)
+    if actor_id is None:
+        return None
+    return BeatDecision(
+        "speak",
+        actor_id=actor_id,
+        addressing_id=roster_ids.get(_as_int(data.get("addressing")) or -1),
+        reason=str(data.get("reason", "")),
+        register=register,
+        stakes=stakes,
+    )
+
+
+def _plan_prompt(
+    ctx: TurnContext,
+    intent: TurnIntent,
+    turn_beats: list[dict],
+    acted: list[str],
+    roster_ids: dict[int, str],
+    *,
+    scene_opening: bool,
+    direction: SceneDirection | None,
+    remaining_beats: int | None,
+    want: int,
+) -> str:
+    """The planner's user message. Byte-identical to the pre-lookahead one when ``want`` is 1."""
+    roster = "\n".join(f"[{n}] {ctx.cast_by_id(cid).name} — {ctx.cast_by_id(cid).role}"  # type: ignore[union-attr]
+                       for n, cid in roster_ids.items())
+    acted_nums = [str(n) for n, cid in roster_ids.items() if cid in set(acted)]
+    scope_note = " The player addressed the WHOLE GROUP." if intent.scope == "all" else ""
+    opening_note = (
+        " This is the SCENE OPENING (nothing has happened yet) — open with a narrator beat unless the player directed a specific character."
+        if scene_opening
+        else ""
+    )
+    ask = (
+        "What is the next beat?"
+        if want == 1
+        else (
+            f"Plan the next {want} beats, in order. Return "
+            '{"beats": [<beat>, <beat>, ...]} where each <beat> is the JSON object '
+            "described above. Stop the list early — with an \"end\" beat, or simply "
+            "fewer entries — if the turn should finish sooner. Judge each beat from the "
+            "situation as it will stand after the ones you planned before it."
+        )
+    )
+    return (
+        f"Roster:\n{roster}\n\n"
+        f"Player's direction: {intent.directive or '(freeform)'}.{scope_note}{opening_note}\n"
+        f"{_owed(direction, roster_ids, remaining_beats)}"
+        f"Characters who have ALREADY taken a beat this turn (roster numbers): "
+        f"{', '.join(acted_nums) or 'none'}\n\n"
+        f"This turn so far:\n{_recent(ctx, turn_beats)}\n\n"
+        f"{ask}"
+    )
+
+
 def next_beat(
     db: Session,
     ctx: TurnContext,
@@ -95,109 +280,11 @@ def next_beat(
     hands (``direction_agent.schedule``) only once the budget is as tight as the direction
     is long, so a satisfied direction is never left to chance.
     """
-    if not ctx.cast:
-        return BeatDecision("end", reason="no cast")
-    # Only PRESENT characters are selectable; a dead/departed/unconscious one stays in the
-    # cast for context but never appears on the roster, so the planner can't pick them. The
-    # POV character (``locked_id``) is likewise removed — the player voices them.
-    present = [m for m in ctx.cast if m.is_present and m.id != locked_id]
-    if not present:
-        return BeatDecision("end", reason="no one present")
-    try:
-        base_url, api_key, model, params = resolve_llm(db)
-    except APIError:
-        return _fallback_beat(
-            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
-            direction=direction,
-        )
-
-    roster_ids = {i + 1: m.id for i, m in enumerate(present)}
-    roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(present))
-    acted_nums = [str(n) for n, cid in roster_ids.items() if cid in set(acted)]
-    scope_note = " The player addressed the WHOLE GROUP." if intent.scope == "all" else ""
-    opening_note = (
-        " This is the SCENE OPENING (nothing has happened yet) — open with a narrator beat unless the player directed a specific character."
-        if scene_opening
-        else ""
-    )
-    user = (
-        f"Roster:\n{roster}\n\n"
-        f"Player's direction: {intent.directive or '(freeform)'}.{scope_note}{opening_note}\n"
-        f"{_owed(direction, roster_ids, remaining_beats)}"
-        f"Characters who have ALREADY taken a beat this turn (roster numbers): "
-        f"{', '.join(acted_nums) or 'none'}\n\n"
-        f"This turn so far:\n{_recent(ctx, turn_beats)}\n\n"
-        "What is the next beat?"
-    )
-    try:
-        raw = llm.chat_complete(
-            base_url,
-            api_key,
-            model,
-            [
-                {"role": "system", "content": ctx.prompts.get(prompt_registry.PLANNER_SYSTEM, _SYSTEM)},
-                {"role": "user", "content": user},
-            ],
-            params,
-            reasoning=PLANNER_EFFORT,
-        )
-        data = extract_json(raw)
-    except APIError:
-        return _fallback_beat(
-            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
-            direction=direction,
-        )
-
-    action = str(data.get("action", "")).lower()
-    if action not in _ACTIONS:
-        return _fallback_beat(
-            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
-            direction=direction,
-        )
-    # The read of the moment rides on every action (it describes the situation, not the
-    # beat), so parse it once up front. An unrecognized value degrades to None rather than
-    # reaching the character prompt as noise.
-    register = str(data.get("register", "")).strip().lower() or None
-    if register not in _REGISTERS:
-        register = None
-    stakes = str(data.get("stakes", "") or "").strip()
-    if action == "end":
-        return BeatDecision(
-            "end", reason=str(data.get("reason", "")),
-            needs_branch=bool(data.get("needsBranch", False)),
-            register=register, stakes=stakes,
-        )
-    if action == "narrate":
-        return BeatDecision(
-            "narrate", reason=str(data.get("reason", "")), register=register, stakes=stakes
-        )
-    if action == "exit":
-        actor_id = roster_ids.get(_as_int(data.get("actor")) or -1)
-        status = str(data.get("status", "")).strip().lower()
-        if actor_id is None or status not in _EXIT_STATUSES:
-            # Malformed exit (no valid target/status) → don't guess a removal; fall back.
-            return _fallback_beat(
-                ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
-                direction=direction,
-            )
-        return BeatDecision(
-            "exit", actor_id=actor_id, status=status, reason=str(data.get("reason", "")),
-            register=register, stakes=stakes,
-        )
-    actor_id = roster_ids.get(_as_int(data.get("actor")) or -1)
-    if actor_id is None:
-        return _fallback_beat(
-            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
-            direction=direction,
-        )
-    return BeatDecision(
-        "speak",
-        actor_id=actor_id,
-        addressing_id=roster_ids.get(_as_int(data.get("addressing")) or -1),
-        reason=str(data.get("reason", "")),
-        register=register,
-        stakes=stakes,
-    )
+    return plan_beats(
+        db, ctx, intent, turn_beats, acted, lookahead=1,
+        scene_opening=scene_opening, locked_id=locked_id, direction=direction,
+        remaining_beats=remaining_beats,
+    )[0]
 
 
 def _fallback_beat(

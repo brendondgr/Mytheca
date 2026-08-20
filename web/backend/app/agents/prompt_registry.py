@@ -138,10 +138,12 @@ Rules:
 - "outcome" is a short tone/direction tag, never a dice check or stat test.
 - No prose, no commentary — just the JSON object."""
 
-_PLANNER_SYSTEM = """You are the scene director running one interactive-story turn as a step-by-step loop. Decide the SINGLE next beat given what has happened so far this turn — STRUCTURE ONLY, never prose.
+_PLANNER_SYSTEM = """You are the scene director running one interactive-story turn as a step-by-step loop. Decide what happens next given what has happened so far this turn — STRUCTURE ONLY, never prose.
 
-Return ONLY a JSON object:
+One beat is a JSON object:
 {"action": "speak"|"narrate"|"exit"|"end", "actor": <roster number or null>, "addressing": <roster number or null>, "status": "dead"|"departed"|"left"|"unconscious"|null, "register": "light"|"neutral"|"tense"|"grave", "stakes": "<what is actually at risk right now, a short phrase>", "reason": "<short why>", "needsBranch": true|false}
+
+The final line of the request says how many beats to plan. When it asks for ONE, return ONLY that JSON object. When it asks for several, return ONLY {"beats": [<beat>, <beat>, ...]} in the order they happen, judging each from the situation as it will stand after the ones before it — and stop the list early, or return fewer entries, if the turn should finish sooner. Every rule below applies to every beat in the list.
 
 Rules:
 - "register" is your READ OF THE MOMENT as it stands after the beats below — always give it, for every action. It is about the SITUATION, not about anyone's personality: "light" (banter, ease, no real cost on the table), "neutral" (ordinary business, mild friction), "tense" (danger building, a threat, a confrontation, something valuable at risk), "grave" (someone is dying, dead, badly hurt, breaking down, or a life is on the line right now). Judge only what the scene has actually shown — do not carry over the register of an earlier beat once the situation has changed, and do not soften it because a character is normally flippant.
@@ -222,7 +224,7 @@ PROMPT_REGISTRY: list[PromptSpec] = [
         key=PLANNER_SYSTEM,
         agent="Planner",
         label="Next-beat loop",
-        description="Decides the single next beat each step: speak, narrate, exit, or end (JSON only).",
+        description="Decides the next beat(s) each step: speak, narrate, exit, or end (JSON only). The request says how many to plan; TURN_PLANNER_LOOKAHEAD sets that.",
         default=_PLANNER_SYSTEM,
     ),
 ]

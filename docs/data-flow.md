@@ -55,7 +55,7 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
         of requirements, each rebound to the narrator if its owner is absent/POV
       puppet beats (if any): the directed character performs it in-voice, up front,
         carrying their own requirements
-      ReAct loop — planner_agent.next_beat re-decides after every beat, bounded by
+      ReAct loop — planner_agent.plan_beats decides up to N beats per call, bounded by
         scenario.max_turns (hard per-scene ceiling on every emitted beat) and a runaway
         backstop max(TURN_MAX_BEATS, 2*cast+6); only `present` cast members are
         selectable and the POV character is locked out of the AI roster. The planner
@@ -63,12 +63,11 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
         fill them, direction_agent.schedule picks the beat instead:
           decision.action == "speak" →
             graph_reader.relationship_context (via turn_engine._relationship_note) →
-            character_turn_agent.generate_line (bookended LLM call, relationship note
-              folded into the prompt) → services.llm.chat_complete
+            character_turn_agent.stream_line (prompt ordered stable → transcript →
+              volatile for prefix-cache reuse; relationship note folded into the tail)
+              → services.llm.chat_complete_stream
             emission.parse_emission: thin <speaker:N>/<type:…> tags → typed segments
               (name→id; out-of-roster drop)
-            consistency.review (only once >1 cast member and a prior beat exists this
-              turn; regenerates once on a clear contradiction, best-effort)
             validator: parse → validate (incl. stat clamping) → repair/retry
             _Emitter: assign per-session seq · persist (Postgres) · push buffer
               · internal_thought → private_to_user (NOT pushed to turn_beats, so later
@@ -940,14 +939,16 @@ cast **concurrently** (`services/concurrency.run_all`, capped by `TURN_MAX_CONCU
 (`concurrency.submit_background`; inline + deterministic by default / on SQLite). Multi-party turns
 also add a **live speaker queue**: a high-impact beat (Σ|stat delta|) re-consults the Director
 mid-turn (`director_agent.rerank`) and **cascades** a disposition refresh to the not-yet-spoken
-(`reflection.refresh_dispositions`, width scaled to impact), and a **consistency guard**
-(`services/consistency.py`) checks each later line against the established beats before it streams,
-regenerating once on a clear contradiction. All best-effort (Redis/LLM down → the turn still runs).
+(`reflection.refresh_dispositions`, width scaled to impact). All best-effort (Redis/LLM down →
+the turn still runs). A within-turn **continuity guard** used to check each later line against the
+established beats before it streamed; it was retired after EXP-2026-08-005 measured it at 11 % of
+turn time (~10 s per later speaker) and identified it as the sole reason later beats could not
+stream their prose.
 
 **Reactive Turn Director (Produce band overhaul).** The player's line is first **interpreted**
 (`agents/intent_agent`) into narrate / address / **puppet** / whole-group intent; a puppeted
 character then *performs* the direction in its own voice (not a bystander answering the player).
-A **ReAct planner** (`agents/planner_agent.next_beat`) drives the turn beat-by-beat — after each
+A **ReAct planner** (`agents/planner_agent.plan_beats`) drives the turn — it decides up to `TURN_PLANNER_LOOKAHEAD` beats per call and the engine executes them, re-planning when the queue empties or a beat goes stale (a character exits, presence changes, the direction takes the schedule over) — after each
 beat it re-decides the next (a character speaks/acts, the narrator sets context, or the turn ends).
 The back-and-forth is bounded by the scenario's **`max_turns`** (a hard per-scene ceiling on
 **every emitted beat — character replies AND narrator beats** — for one player message, default
@@ -987,7 +988,14 @@ The authored `Setting.atmosphere` is **not** a live mood signal — it is writte
 creation and never rewritten during play, so the prompt presents it as the description of the place
 and never as "the scene right now". The
 character conditions on the scene's **`context_beats`** most-recent beats (5–100; `assembler` fetches
-that depth from the Redis buffer, which retains up to `turn_buffer_size` = 100). At the **end of
+that depth from the Redis buffer, which retains up to `turn_buffer_size` = 160). That window is
+**block-anchored**, not sliding: `buffer.anchored_turns` quantises its *start* to a multiple of
+`turn_transcript_anchor_block` (20), so it holds between `context_beats` and `context_beats + block`
+beats and its first line only moves once every 20 beats. A window that dropped its oldest beat every
+turn would change the transcript's first token every turn, and a prefix cache matches from the first
+token — the whole conversation would be re-read each turn even though it only grew at the end.
+`character_turn_agent._transcript` deliberately allows one anchor block above `context_beats` for the
+same reason: re-trimming to exactly that depth would undo the anchoring. At the **end of
 every turn**, up to the scenario's **`suggestions_count`** (0–4; `0` disables) follow-up suggestions
 are generated from the **recent beat sequence** (`director_agent.propose_branches(count=…)`, which
 feeds the last ~6 beats via `_recent_sequence` **in chronological order**, newest last) and emitted

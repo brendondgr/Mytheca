@@ -363,10 +363,10 @@ def build(exp: Path, out: Path) -> None:
         rows = [["Scene length", "Story size", "As it is now", "Reordered", "Saving"]]
         for size in sorted({k[1] for k in agg}):
             f = agg.get(("volatile-first", size), [])
-            l = agg.get(("volatile-last", size), [])
-            if not f or not l:
+            last = agg.get(("volatile-last", size), [])
+            if not f or not last:
                 continue
-            fm, lm = sum(f) / len(f), sum(l) / len(l)
+            fm, lm = sum(f) / len(f), sum(last) / len(last)
             rows.append([f"{size} turns", f"{tokens.get(size, 0):,} tokens",
                          f"{fm:.2f}s", f"{lm:.2f}s",
                          f"{(fm - lm) / fm:.0%}" if fm else "—"])
@@ -538,10 +538,10 @@ def build(exp: Path, out: Path) -> None:
         rows = [["History (turns)", "Story size", "As it is now (s)", "Reordered (s)"]]
         for size in sorted({k[1] for k in agg}):
             f = agg.get(("volatile-first", size), [])
-            l = agg.get(("volatile-last", size), [])
+            last = agg.get(("volatile-last", size), [])
             rows.append([str(size), f"{tokens.get(size, 0):,}",
                          f"{sum(f) / len(f):.2f}" if f else "—",
-                         f"{sum(l) / len(l):.2f}" if l else "—"])
+                         f"{sum(last) / len(last):.2f}" if last else "—"])
         A(table(rows, [30 * mm, 28 * mm, 34 * mm, 30 * mm], st))
 
     out.parent.mkdir(parents=True, exist_ok=True)

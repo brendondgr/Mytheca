@@ -12,9 +12,12 @@ the full text). ``character_action`` streams as one full event; ``internal_thoug
 but is kept OUT of ``turn_beats`` — later speakers never condition on it. ``_Emitter``
 centralizes the seq + persist + buffer + withhold-hidden plumbing every phase reuses.
 
-Speaker selection is a **per-beat ReAct loop**: ``planner_agent.next_beat`` decides one
-beat at a time (``speak`` / ``narrate`` / ``exit`` / ``end``) from the *present* roster,
-with the POV character locked out. The loop is bounded by the scene's ``max_turns`` and a
+Speaker selection is a **ReAct loop with lookahead**: ``planner_agent.plan_beats`` decides
+the next few beats (``speak`` / ``narrate`` / ``exit`` / ``end``) from the *present* roster
+in one call, with the POV character locked out, and the loop executes them until the plan
+runs out or reality diverges from it — a character exits, presence changes, the direction
+takes the schedule over — at which point it re-plans. ``TURN_PLANNER_LOOKAHEAD`` sets the
+depth (1 restores the original once-per-beat behaviour). The loop is bounded by the scene's ``max_turns`` and a
 runaway backstop of ``max(TURN_MAX_BEATS, 2 * len(cast) + 6)``. This replaced the earlier
 one-shot director (``director_agent.who_is_up`` / ``rerank``), which is now dead code kept
 only for its unit tests.
@@ -44,9 +47,7 @@ from app.agents import (
     narrator_agent,
     planner_agent,
 )
-from app.agents._common import resolve_llm
 from app.agents.direction_agent import DirectionRequirement, SceneDirection
-from app.agents.reflection_agent import LlmConn
 from app.core.config import get_settings
 from app.core.errors import APIError
 from app.core.ids import new_id
@@ -58,7 +59,6 @@ from app.schemas.base import EventType, Visibility
 from app.schemas.play import TurnRequest
 from app.services import (
     assembler,
-    consistency,
     crud,
     emission,
     events_store,
@@ -482,10 +482,6 @@ def run_turn(
     # the branch/stat phase); routed off the hot path by the cold-path turn-writer.
     consequences: list[Consequence] = []
 
-    # The continuity guard connection (resolved once; the LLM is already configured or
-    # generation would have failed first). Also used by the puppet beats below.
-    guard_conn = _resolve_conn(db) if len(ctx.cast) > 1 else None
-
     # Whether the model's raw deliberation streams to the player this turn. Resolved once
     # (a settings read per beat would be wasteful) and threaded down to every generation.
     show_reasoning = settings_store.get_llm(db).reasoning_visibility == "full"
@@ -629,7 +625,7 @@ def run_turn(
         yield from _delivered(tracer, ctx, direction, owed, by=speaker.id)
         yield from _generate_speaker(
             db, ctx, speaker, emitter, turn_beats, consequences,
-            show_reasoning=show_reasoning, guard_conn=guard_conn, directive=intent.directive, relationship_note=note,
+            show_reasoning=show_reasoning, directive=intent.directive, relationship_note=note,
             direction=direction, requirements=owed, tracer=tracer,
         )
 
@@ -648,6 +644,11 @@ def run_turn(
     scene_beats = len(puppet_members) + (1 if narrated_open else 0)
     needs_branch = False
     beats = 0
+    # Beats the planner has decided but the loop has not run yet. The planner was 41 % of
+    # all turn time purely because it ran once per beat (EXP-2026-08-005), so it is asked
+    # for several at once and re-consulted only when this queue empties or is invalidated.
+    planned: list[planner_agent.BeatDecision] = []
+    lookahead = max(1, get_settings().turn_planner_lookahead)
     while beats < max_beats:
         # Presence can change mid-turn (an exit beat, a vital stat bottoming out), so re-own
         # any requirement whose character just left before scheduling against it.
@@ -677,21 +678,32 @@ def run_turn(
         decision: planner_agent.BeatDecision | None = None
         forced_reason = "the rest of your direction has to fit the beats that are left"
         if not outstanding or len(outstanding) < remaining:
-            yield from tracer.emit(
-                "planning",
-                "Deciding who speaks next",
-                detail=f"{remaining} beat(s) left in the scene's budget.",
-            )
-            decision = planner_agent.next_beat(
-                db, ctx, intent, turn_beats, acted,
-                scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
-                direction=direction if direction.active else None, remaining_beats=remaining,
-            )
+            if not planned:
+                depth = min(lookahead, max(1, remaining))
+                yield from tracer.emit(
+                    "planning",
+                    "Deciding who speaks next" if depth == 1 else f"Planning the next {depth} beats",
+                    detail=f"{remaining} beat(s) left in the scene's budget.",
+                )
+                planned = planner_agent.plan_beats(
+                    db, ctx, intent, turn_beats, acted, lookahead=depth,
+                    scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
+                    direction=direction if direction.active else None, remaining_beats=remaining,
+                )
+            # A planned beat is a prediction, and presence can change under it — a character
+            # who was cut down two beats ago must not be picked because a stale plan said so.
+            while planned and not _plan_still_valid(ctx, planned[0], locked_id=pov_id):
+                planned.pop(0)
+            decision = planned.pop(0) if planned else None
             # An "end" while the player is still owed something is not the planner's call.
-            if decision.action == "end" and outstanding:
+            if decision is not None and decision.action == "end" and outstanding:
                 decision = None
+                planned.clear()
                 forced_reason = "your direction is not delivered yet"
         if decision is None:
+            # The engine is taking the schedule over, so anything the planner had queued is
+            # answering a question that no longer applies.
+            planned.clear()
             scheduled = direction_agent.schedule(outstanding, remaining)
             if scheduled is None:
                 break
@@ -724,7 +736,7 @@ def run_turn(
                 )
                 yield from _generate_speaker(
                     db, ctx, forced_actor, emitter, turn_beats, consequences,
-                    show_reasoning=show_reasoning, guard_conn=guard_conn, relationship_note=note,
+                    show_reasoning=show_reasoning, relationship_note=note,
                     direction=direction, requirements=owed, tracer=tracer,
                 )
                 acted.append(forced_actor.id)
@@ -783,6 +795,9 @@ def run_turn(
             yield from _apply_presence_change(
                 emitter, leaver, decision.status, decision.reason, auto=True, tracer=tracer
             )
+            # The roster just changed shape, so anything planned against the old one is
+            # answering the wrong question — re-plan rather than execute a stale queue.
+            planned.clear()
             beats += 1
             continue
         actor = ctx.cast_by_id(decision.actor_id) if decision.actor_id else None
@@ -828,7 +843,7 @@ def run_turn(
         yield from _delivered(tracer, ctx, direction, owed, by=actor.id)
         yield from _generate_speaker(
             db, ctx, actor, emitter, turn_beats, consequences,
-            show_reasoning=show_reasoning, guard_conn=guard_conn, relationship_note=note,
+            show_reasoning=show_reasoning, relationship_note=note,
             register=decision.register, stakes=decision.stakes,
             direction=direction, requirements=owed, tracer=tracer,
         )
@@ -1067,17 +1082,31 @@ def _direction_lead(
     return " ".join(parts)
 
 
-def _resolve_conn(db: Session) -> LlmConn | None:
-    """Resolve the LLM connection for the mid-turn guards; ``None`` when unconfigured."""
-    try:
-        return resolve_llm(db)
-    except APIError:
-        return None
+def _plan_still_valid(
+    ctx: TurnContext,
+    decision: planner_agent.BeatDecision,
+    *,
+    locked_id: str | None,
+) -> bool:
+    """Is a beat the planner decided *earlier* still runnable now?
 
+    Planning ahead trades one LLM call for a prediction, and the prediction can go stale
+    inside the same turn: a character can be cut down, walk out, or have a vital stat
+    bottom out between the plan and its turn to speak. ``narrate`` and ``end`` are always
+    runnable; anything naming a character is only runnable while that character is still
+    present.
 
-def _has_prior_character_beat(turn_beats: list[dict]) -> bool:
-    """True once a character has already spoken this turn (the guard's precondition)."""
-    return any(b.get("role") == "character" for b in turn_beats)
+    A beat naming the POV character is deliberately **not** filtered here — the loop's own
+    backstop handles that case, and it says so on the wire instead of dropping the beat
+    silently.
+    """
+    del locked_id  # see the docstring: the POV backstop is the loop's, not this check's
+    if decision.action in ("narrate", "end"):
+        return True
+    if decision.actor_id is None:
+        return False
+    member = ctx.cast_by_id(decision.actor_id)
+    return member is not None and member.is_present
 
 
 def _relationship_note(ctx: TurnContext, speaker_id: str, other_ids: list[str]) -> str:
@@ -1103,26 +1132,6 @@ def _relationship_note(ctx: TurnContext, speaker_id: str, other_ids: list[str]) 
     return " ".join(lines[:8])
 
 
-def _prior_transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
-    """Render the beats established so far THIS turn (the continuity guard's context)."""
-    names = {m.id: m.name for m in ctx.cast}
-    lines: list[str] = []
-    for beat in turn_beats:
-        text = str(beat.get("text", "")).strip()
-        if not text:
-            continue
-        role = beat.get("role")
-        if role == "player":
-            who = "Player"
-        elif role == "narrator":
-            who = "Narrator"
-        else:
-            cid = beat.get("characterId")
-            who = names.get(cid, "Someone") if cid else "Someone"
-        lines.append(f"{who}: {text}")
-    return "\n".join(lines)
-
-
 def _stream_emission(
     db: Session,
     ctx: TurnContext,
@@ -1139,20 +1148,16 @@ def _stream_emission(
     scene_direction: str,
     owed: list[str],
     tracer: _Tracer,
-    live: bool,
     show_reasoning: bool = False,
     usage_out: dict | None = None,
 ) -> Generator[StoryEvent | TurnTraceFrame | TurnReasoningFrame, None, tuple[str, int | None, int]]:
     """Drive one character generation as a stream; return ``(raw, prompt_tokens, impact)``.
 
-    When ``live``, each segment is emitted, appended to ``turn_beats`` and traced the
-    moment the parser recognises it — so the character's private thought completes while
-    their spoken line is still being written, which is the whole point of the exercise.
-    When not (a beat the continuity guard will judge), nothing is emitted here and the
-    caller runs the ordinary post-verdict path; the raw emission is identical either way.
-
-    ``impact`` (Σ|stat delta|) is only meaningful on the live path — the guarded path
-    computes its own from the post-verdict segments.
+    Each segment is emitted, appended to ``turn_beats`` and traced the moment the parser
+    recognises it — so the character's private thought completes while their spoken line
+    is still being written, which is the whole point of the exercise. Every beat takes
+    this path: the continuity guard that used to make a later beat hold its prose for a
+    verdict is gone, so nothing waits on a complete line any more.
     """
     stream = character_turn_agent.stream_line(
         db, ctx, speaker, turn_beats=turn_beats, directive=directive,
@@ -1171,11 +1176,7 @@ def _stream_emission(
                 # Ephemeral: the model's scratchpad, streamed live and never persisted.
                 # Kept out of the story record deliberately — it is machinery, not prose.
                 yield TurnReasoningFrame(character_id=speaker.id, text=delta.reasoning)
-            if not live or not delta.answer:
-                # Still feed the parser so the raw emission and segment list are the same
-                # on both paths — only the emitting is conditional.
-                if delta.answer:
-                    acc.push(delta.answer)
+            if not delta.answer:
                 continue
             for seg in acc.push(delta.answer):
                 impact += yield from _emit_segment_delta(
@@ -1187,17 +1188,16 @@ def _stream_emission(
 
     if show_reasoning:
         yield TurnReasoningFrame(character_id=speaker.id, done=True)
-    if live:
-        for seg in acc.finish():
-            impact += yield from _emit_segment_delta(
-                db, ctx, speaker, emitter, turn_beats, consequences,
-                seg, open_segments, buffered, tracer,
-            )
-        # A stream that ended mid-segment (a truncated completion) must not leave an
-        # event open and unpersisted.
-        for live_seg in open_segments.values():
-            yield from live_seg.close()
-        open_segments.clear()
+    for seg in acc.finish():
+        impact += yield from _emit_segment_delta(
+            db, ctx, speaker, emitter, turn_beats, consequences,
+            seg, open_segments, buffered, tracer,
+        )
+    # A stream that ended mid-segment (a truncated completion) must not leave an event
+    # open and unpersisted.
+    for live_seg in open_segments.values():
+        yield from live_seg.close()
+    open_segments.clear()
     return raw, prompt_tokens, impact
 
 
@@ -1296,7 +1296,6 @@ def _generate_speaker(
     consequences: list[Consequence],
     *,
     show_reasoning: bool = False,
-    guard_conn: LlmConn | None = None,
     directive: str | None = None,
     relationship_note: str | None = None,
     register: str | None = None,
@@ -1305,8 +1304,8 @@ def _generate_speaker(
     requirements: list[DirectionRequirement] | None = None,
     tracer: _Tracer | None = None,
 ) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
-    """Generate one speaker's beat, guard it for continuity, emit its events, append them
-    to ``turn_beats``, and return the beat's impact (Σ|stat delta|) for the live queue.
+    """Generate one speaker's beat, emit its events as they arrive, append them to
+    ``turn_beats``, and return the beat's impact (Σ|stat delta|) for the live queue.
 
     ``register``/``stakes`` are the planner's read of this beat's moment (see
     ``planner_agent.BeatDecision``); they reach the character prompt's recency tail so the
@@ -1327,54 +1326,17 @@ def _generate_speaker(
     roster = {i + 1: m.id for i, m in enumerate(ctx.cast)}
     scene_direction = direction.text.strip() if direction is not None else ""
     owed = [r.text for r in requirements or []]
-    # The continuity guard inspects a COMPLETE candidate line and can reject it, so a beat
-    # it will judge cannot also be shown as it arrives — a rejected line would have to
-    # un-write itself on screen. It only runs once someone has already spoken this turn,
-    # which splits the work cleanly: the turn's first beat (the longest wait, and the one
-    # the player is actually staring at) streams its prose live, while a later beat holds
-    # its prose for the verdict. Both stream the model's REASONING either way, so every
-    # beat shows something happening rather than nothing.
-    guarded = guard_conn is not None and not directive and _has_prior_character_beat(turn_beats)
     # Filled by the transport with this call's token figures. ``cached_tokens`` is how
     # much of the prompt the server reused from its KV cache rather than re-reading — the
     # only signal that catches a prompt-cache regression before it shows up as latency
     # that creeps upward as a scene gets longer.
     usage: dict = {}
-    raw, prompt_tokens, streamed_impact = yield from _stream_emission(
+    _raw, prompt_tokens, streamed_impact = yield from _stream_emission(
         db, ctx, speaker, emitter, turn_beats, consequences,
         roster=roster, directive=directive, relationship_note=relationship_note,
         register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
-        tracer=tr, live=not guarded, show_reasoning=show_reasoning, usage_out=usage,
+        tracer=tr, show_reasoning=show_reasoning, usage_out=usage,
     )
-    segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
-
-    # Consistency guard (§P10): once a character has already spoken this turn, a later
-    # line must not contradict the established beats. Regenerate once with the reason if
-    # it does; best-effort (an unconfigured/failed guard leaves the line as-is).
-    if guarded:
-        assert guard_conn is not None
-        candidate = " ".join(
-            s.text for s in segments if s.type in ("character_action", "character_dialogue")
-        )
-        verdict = consistency.review(
-            guard_conn,
-            stable_prefix=ctx.stable_prefix,
-            prior=_prior_transcript(ctx, turn_beats),
-            candidate=candidate,
-        )
-        yield from tr.emit(
-            "consistency",
-            "Continuity check",
-            detail=("passed" if verdict.consistent else f"contradiction — regenerating: {verdict.reason}"),
-            data={"characterId": speaker.id, "consistent": verdict.consistent},
-        )
-        if not verdict.consistent:
-            raw, prompt_tokens = character_turn_agent.generate_line_with_usage(
-                db, ctx, speaker, turn_beats=turn_beats, correction=verdict.reason,
-                relationship_note=relationship_note, register=register, stakes=stakes,
-                scene_direction=scene_direction, requirements=owed,
-            )
-            segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
 
     # Exact context-window usage: the server-reported input-token count for this
     # character call — the real size of everything actually sent (output contract +
@@ -1382,74 +1344,37 @@ def _generate_speaker(
     # tracer writes it regardless of the opt-in) so the story player's context dial
     # reads the truth, not a char/4 estimate. Omitted when the endpoint reports no
     # usage (the dial then keeps its heuristic fallback).
-    if prompt_tokens is not None:
+    reusable = usage.get("reusable_prefix_chars")
+    prompt_chars = usage.get("prompt_chars")
+    if prompt_tokens is not None or reusable is not None:
+        detail = (
+            f"{prompt_tokens:,} tokens sent to the model"
+            if prompt_tokens is not None
+            else "context sent to the model"
+        )
+        if reusable and prompt_chars:
+            detail += f" · {round(100 * reusable / prompt_chars)}% reusable prefix"
         yield from tr.emit(
             "context",
             "Context window",
-            detail=f"{prompt_tokens:,} tokens sent to the model",
+            detail=detail,
             data={
                 "characterId": speaker.id,
-                "promptTokens": prompt_tokens,
-                # Omitted (not zeroed) when the endpoint reports no cache details, so
-                # "no data" stays distinguishable from "nothing was cached".
+                # Omitted (not zeroed) when the endpoint reports nothing, so "no data"
+                # stays distinguishable from "nothing was cached".
+                **({"promptTokens": prompt_tokens} if prompt_tokens is not None else {}),
                 **({"cachedTokens": usage["cached_tokens"]}
                    if usage.get("cached_tokens") is not None else {}),
+                # How much of this prompt was byte-identical to the previous character
+                # call in this session. Unlike cachedTokens this is computed locally, so
+                # it is always present and cannot be hidden by an endpoint that omits its
+                # own counter — it is the layout regression alarm.
+                **({"reusablePrefixChars": reusable} if reusable is not None else {}),
+                **({"promptChars": prompt_chars} if prompt_chars is not None else {}),
             },
         )
 
-    if not guarded:
-        # The live path already emitted, appended and traced every segment as it arrived.
-        return streamed_impact
-
-    impact = 0
-    for seg in segments:
-        if seg.type == "internal_thought":
-            # The character's private thought: streamed to the PLAYER as its own "thinking"
-            # bubble (visibility private_to_user), and surfaced in the Inspector trace — but
-            # kept OUT of ``turn_beats`` so later speakers never condition on it (it is the
-            # character's interiority, not shared dialogue).
-            yield from emitter.emit(
-                "internal_thought",
-                {"characterId": seg.character_id, "text": seg.text},
-                visibility="private_to_user",
-            )
-            yield from tr.emit(
-                "thinking",
-                f"{speaker.name} thinks (private)",
-                detail=seg.text,
-                data={"characterId": seg.character_id},
-            )
-        elif seg.type == "character_action":
-            yield from emitter.emit(
-                "character_action",
-                {"characterId": seg.character_id, "text": seg.text},
-                buffer_role="character",
-                character_id=seg.character_id,
-            )
-            turn_beats.append({"role": "character", "text": seg.text, "characterId": seg.character_id})
-            yield from tr.emit(
-                "action", f"{speaker.name} acts", detail=seg.text, data={"characterId": seg.character_id}
-            )
-        elif seg.type == "character_dialogue":
-            yield from emitter.emit_streamed(
-                "character_dialogue",
-                seg.text,
-                character_id=seg.character_id,
-                buffer_role="character",
-            )
-            turn_beats.append({"role": "character", "text": seg.text, "characterId": seg.character_id})
-            yield from tr.emit(
-                "dialogue", f"{speaker.name} speaks", detail=seg.text, data={"characterId": seg.character_id}
-            )
-        elif seg.type == "state_update":
-            impact += yield from _apply_stat_change(
-                db, ctx, seg.character_id, seg.text, emitter, consequences, tracer=tr
-            )
-        elif seg.type == "relationship_update":
-            yield from _apply_relationship_change(ctx, seg.character_id, seg.text, consequences, tr)
-        elif seg.type == "presence_change":
-            yield from _apply_declared_presence(ctx, seg.character_id, seg.text, emitter, tr)
-    return impact
+    return streamed_impact
 
 
 def _apply_declared_presence(

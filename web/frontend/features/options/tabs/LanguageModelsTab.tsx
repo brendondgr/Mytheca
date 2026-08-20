@@ -26,12 +26,12 @@ const REASONING_CHOICES: { value: ReasoningVisibility; label: string; hint: stri
   {
     value: "summary",
     label: "Character's thought",
-    hint: "The muted in-voice line above what they say. This is the default.",
+    hint: "The muted in-voice line above what they say, and nothing more.",
   },
   {
     value: "full",
     label: "Full reasoning",
-    hint: "Also streams the model's raw deliberation live, under a collapsed “working…” line. It often states what a character is about to say before they say it.",
+    hint: "Also streams the model's raw deliberation live, under a collapsed “working…” line. This is the default: it starts about half a second in, where prose takes several seconds, so the wait shows something. The trade is that the deliberation often states what a character is about to say before they say it — switch to “Character's thought” if that spoils it for you.",
   },
 ];
 
@@ -60,7 +60,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
   const [authoringConcurrency, setAuthoringConcurrency] = useState(llm?.authoringConcurrency ?? 3);
   const [maxContextTokens, setMaxContextTokens] = useState(llm?.maxContextTokens ?? 16384);
   const [reasoningVisibility, setReasoningVisibility] = useState<ReasoningVisibility>(
-    llm?.reasoningVisibility ?? "summary",
+    llm?.reasoningVisibility ?? "full",
   );
 
   const [models, setModels] = useState<string[]>([]);

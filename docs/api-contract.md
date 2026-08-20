@@ -307,7 +307,7 @@ key is **write-only**: it is stored server-side and never returned in clear.
   `director.pov_branch` (POV-mode follow-up suggestions, `director_agent.propose_pov_lines`), `planner.system`.
   **`director.who_is_up` and `director.rerank` are inert on the live turn path** — `director_agent.who_is_up`
   and `director_agent.rerank` are dead code, called only from `utils/tests/backend/agents/test_director_agent.py`;
-  the per-beat decision on a real turn is made by `planner_agent.next_beat`. Overriding either key has no
+  the per-beat decision on a real turn is made by `planner_agent.plan_beats`. Overriding either key has no
   effect on actual play.
 - `overrides` — the current global overrides map (`{registryKey: text}`); only keys with active
   overrides appear.
@@ -992,16 +992,20 @@ finished, and the real waits went unlabelled. The `speaker` step additionally ca
 planner's `reason`, `register` and `stakes`, so the player can be told *why* this character
 is up rather than merely that they are.
 
-**Live reasoning (opt-in, ephemeral).** When Options › Language models › *Reasoning
-visibility* is set to `full`, the turn interleaves
+**Live reasoning (on by default, ephemeral).** When Options › Language models › *Reasoning
+visibility* is `full` — **the default** — the turn interleaves
 `{ "type": "reasoning", "characterId", "text", "done" }` frames carrying the model's
 reasoning channel as it is produced (`reasoning_content` on llama.cpp, `reasoning` on vLLM) — the deliberation behind the beat, visible
 while the player waits. It is **not** a story event and **not** persisted: no `seq`, no
 `events` row, no `turn_traces` row, absent from resume and export. `done` marks the end of
-one speaker's reasoning; a `characterId` of `null` is the narrator's. The default
-(`summary`) keeps these frames off the wire entirely, because raw deliberation routinely
-states what a character is about to say before they say it. `hidden` additionally
-suppresses the muted thought line client-side. Clients ignore unknown frame types, so a
+one speaker's reasoning; a `characterId` of `null` is the narrator's. `full` is the default
+because the first reasoning token arrives at ~0.4 s on the deployed endpoint against
+roughly ten seconds before any prose (EXP-2026-08-005) — it is what makes the longest part
+of a turn show something. Setting `summary` keeps these frames off the wire entirely, for
+players who mind that raw deliberation routinely states what a character is about to say
+before they say it; `hidden` additionally suppresses the muted thought line client-side.
+A stored value that is missing or unrecognised resolves to the same default (`full`), so
+an older config behaves like a fresh one rather than like a third mode nobody chose. Clients ignore unknown frame types, so a
 client that does not implement this is unaffected.
 
 **Diagnostic trace (opt-in).** Set `"trace": true` in the request body to interleave
@@ -1009,7 +1013,7 @@ client that does not implement this is unaffected.
 order**, what the turn loop did and why — the story player's **Inspector** panel renders
 these. `step` is a stable key (`turn` opens each turn, then `intent` / `assemble` / `lore` /
 `files` /
-`plan` / `speaker` / `thinking` / `consistency` / `relationship` / `action` / `dialogue` /
+`plan` / `speaker` / `thinking` / `relationship` / `action` / `dialogue` /
 `context` / `stat` / `relationship_change` / `branch` / `commit` / `reflection`); `n` orders
 within one turn. Trace frames stay **out of the story-event stream** (not story events, not in
 `story_event_adapter`), and the streaming flag defaults **off** so the default stream and
@@ -1038,6 +1042,8 @@ every step, is **persisted**, so the story player seeds its context dial from th
 session's last `context` step and updates it live each turn. The frontend falls back to a
 char/4 estimate only until a real `promptTokens` is known. The same step carries **`data.cachedTokens`** when the endpoint reports `usage.prompt_tokens_details.cached_tokens` — how many of this call's prompt tokens the server served from its KV cache instead of re-processing. It is **omitted, not zeroed**, when the endpoint reports nothing, so "no data" stays distinguishable from "nothing was reused". A hit rate that collapses as a scene lengthens is what a prompt-cache regression looks like before it becomes visible as creeping latency.
 
+The step also carries **`data.reusablePrefixChars`** and **`data.promptChars`** — how much of this prompt was byte-identical to the previous character call in the same session, measured locally. `cachedTokens` alone cannot be trusted as an alarm: vLLM omits `prompt_tokens_details` entirely when the hit is zero, so a total cache loss reports as *missing data* rather than as a zero. The local figure is always present, and it measures the thing the prompt layout actually controls (see `character_turn_agent._build_user_prompt`). Both are omitted when unavailable, and `promptTokens` is omitted when the endpoint reports no usage — so the step can appear carrying only the local figures.
+
 ### Rules
 
 - `seq` is monotonic per session (DB-authoritative: `max(seq)+1`, guarded by a
@@ -1045,7 +1051,7 @@ char/4 estimate only until a real `promptTokens` is known. The same step carries
 - Chunked/delta text sets `done: false` until the final chunk sets `done: true`.
 - **Deltas are live.** `narration`, `character_dialogue` and `internal_thought` are emitted as the model writes them (`services/llm.chat_complete_stream`), not sliced up after the completion is whole. The persisted row still holds the finished text with `done: true`, so a resumed session replays through the same reducers. On an endpoint that refuses `stream: true` the whole beat arrives as a single terminal delta — same shape, different timing.
 - `character_action` is delivered whole even on the live path: the client folds it into the speaker's open bubble, and that fold only works while the bubble has no spoken text yet.
-- **A beat the continuity guard will judge does not stream its prose.** The guard inspects a complete candidate and can reject it, so only beats it skips — the turn's first character beat, and puppet beats — stream. Later speakers emit once, after the verdict.
+- **Every character beat streams its prose**, including later speakers. The continuity guard that used to hold a later beat back for a complete-line verdict has been retired; nothing now waits on a finished line before showing it.
 - `internal_thought` streams with `visibility: private_to_user` (the inline thinking line, folded into the speaker's beat) but is kept out of other characters' context. It **delta-streams**: because the emission format is think→speak, the thought is normally the first thing a turn can show, completing while the spoken line is still being written.
 - The validator runs `parse → validate (incl. stat clamping) → repair/retry` before anything reaches the stream.
 

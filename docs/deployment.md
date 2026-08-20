@@ -79,12 +79,14 @@ Copy `.env.example` → `.env` (gitignored). This table is the complete set read
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `TURN_BUFFER_SIZE` | `100` | Redis recent-turn retention ceiling. Must be ≥ the largest per-scene `context_beats` (max 100) |
+| `TURN_BUFFER_SIZE` | `160` | Redis recent-turn retention ceiling. Must exceed the largest per-scene `context_beats` (max 100) by at least `TURN_TRANSCRIPT_ANCHOR_BLOCK`, or the anchored window has no headroom |
+| `TURN_TRANSCRIPT_ANCHOR_BLOCK` | `20` | How far the transcript window's **start** jumps when it moves. Holds the prompt-cache prefix still for `block` beats at a time; `1` restores the per-beat slide |
 | `TURN_MAX_CONCURRENCY` | `4` | Bounds the off-hot-path worker pool (speech stays sequential) |
 | `TURN_REFLECTION_ENABLED` | `true` | Toggles the read-time reflection interlude |
 | `TURN_TTFT_SLO_MS` | `1200` | Informational time-to-first-token target for logging |
 | `TURN_ASYNC_FINALIZE` | `false` | Runs reflection off the request thread; never used on SQLite |
 | `TURN_MAX_BEATS` | `24` | Runaway backstop for the ReAct loop — the effective ceiling is `max(TURN_MAX_BEATS, 2·cast + 6)`, not a feature cap |
+| `TURN_PLANNER_LOOKAHEAD` | `3` | How many beats the planner decides per call. `1` restores the original once-per-beat ReAct loop; higher trades planner calls for prediction, and the engine re-plans whenever a plan goes stale |
 | `BUILD_MAX_CONCURRENCY` | `3` | Seeds the user-facing `authoringConcurrency` setting |
 
 ### AI + media
@@ -97,6 +99,7 @@ Copy `.env.example` → `.env` (gitignored). This table is the complete set read
 | `LLM_BACKEND_POLL_SECONDS` | `30` | How often the engine probe re-runs |
 | `LLM_BACKEND_CACHE_TTL_SECONDS` | `60` | Engine-detection cache lifetime |
 | `LLM_GEN_TIMEOUT_SECONDS` | `300` | Read window for a generation call. On a streaming generation it bounds the gap *between* chunks, not the whole call |
+| `LLM_DECISION_TIMEOUT_SECONDS` | `25` | Read window for the prose-free structural calls (intent, beat planner, direction packer, triage). Each falls back to a heuristic on timeout, so a stall degrades a turn instead of hanging it |
 | `COMFYUI_BASE_URL` | `http://localhost:8199` | Local ComfyUI server; workflows in `utils/workflows/` |
 | `MEDIA_DIR` | `<repo>/media` | Where generated WebP output is written; served at `/media` |
 

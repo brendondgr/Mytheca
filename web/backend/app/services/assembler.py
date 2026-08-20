@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from sqlalchemy.orm import Session
 
 from app.agents import _common, prompt_registry
+from app.core.config import get_settings
 from app.memory import buffer, interior
 from app.models import Character, ContextDocument, Scenario, Setting
 from app.models.stat import StatDefinition
@@ -162,10 +163,14 @@ def assemble_context(
     guidance = {
         sd.key: text for sd in stat_defs if (text := stat_guidance.guidance_for(sd))
     }
-    # Per-scene context depth (5–100), clamped defensively; fetch exactly that many recent
-    # beats from the buffer (which retains up to ``turn_buffer_size``).
+    # Per-scene context depth (5–100), clamped defensively. The window is **anchored**
+    # rather than sliding: its start only moves in blocks, so the rendered transcript keeps
+    # a byte-stable prefix from turn to turn and the model's prompt cache survives. See
+    # ``buffer.anchored_turns``.
     context_beats = max(5, min(int(scenario.context_beats or 14), 100))
-    recent_beats = buffer.recent_turns(session_id, limit=context_beats)
+    recent_beats = buffer.anchored_turns(
+        session_id, context_beats, get_settings().turn_transcript_anchor_block
+    )
     # Runtime scene presence, folded from this session's status-change event log.
     presence_map = presence.current_presence(db, session_id)
     cast = _build_cast(db, scenario, session_id, stat_defs, recent_beats, presence_map)

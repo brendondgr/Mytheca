@@ -1,0 +1,48 @@
+{
+  "notes": [],
+  "failures": 0,
+  "rows": [
+    {
+      "run": 1,
+      "asked_for": 3,
+      "returned": 3,
+      "shape": "beats-array",
+      "served_model": "qwen38-27B-awq"
+    },
+    {
+      "run": 2,
+      "asked_for": 3,
+      "returned": 3,
+      "shape": "beats-array",
+      "served_model": "qwen38-27B-awq"
+    },
+    {
+      "run": 3,
+      "asked_for": 3,
+      "returned": 3,
+      "shape": "beats-array",
+      "served_model": "qwen38-27B-awq"
+    },
+    {
+      "run": 4,
+      "asked_for": 3,
+      "returned": 3,
+      "shape": "beats-array",
+      "served_model": "qwen38-27B-awq"
+    },
+    {
+      "run": 5,
+      "asked_for": 3,
+      "returned": 3,
+      "shape": "beats-array",
+      "served_model": "qwen38-27B-awq"
+    },
+    {
+      "run": 6,
+      "asked_for": 3,
+      "returned": 3,
+      "shape": "beats-array",
+      "served_model": "qwen38-27B-awq"
+    }
+  ]
+}

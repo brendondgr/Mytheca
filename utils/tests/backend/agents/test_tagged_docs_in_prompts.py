@@ -4,9 +4,9 @@ The whole feature rests on tagged text reading as *reference* rather than *direc
 Two of the four guarantees are enforced structurally elsewhere (tagged text never reaches
 ``intent_agent``/``direction_agent``, so it cannot become a requirement, and never reaches
 ``planner_agent``, so it cannot change whose beat it is). The two pinned here are
-positional: the block sits in the character prompt's MIDDLE — after the gated lore, before
-the player's direction, and well before the act-now TAIL — and ahead of the narrator's
-direction cue.
+positional: in the character prompt the block sits at the head of the VOLATILE region —
+after the transcript and the gated lore, before the player's direction, and well before
+the act-now cue — and ahead of the narrator's direction cue.
 """
 
 from __future__ import annotations
@@ -126,7 +126,9 @@ def test_tagged_block_sits_below_the_direction_and_above_the_tail(
     tagged_at = user.index("Reference files the player attached")
     direction_at = user.index("Where this scene is going")
     transcript_at = user.index("Recent beats:")
-    assert tagged_at < direction_at < transcript_at
+    # Both are volatile per turn, so both sit AFTER the transcript (the prompt-cache
+    # ordering); within that region the direction still keeps the recency advantage.
+    assert transcript_at < tagged_at < direction_at
 
 
 def test_tagged_block_sits_after_the_gated_lore(client, db_session, monkeypatch):

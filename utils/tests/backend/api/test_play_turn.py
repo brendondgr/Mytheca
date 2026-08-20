@@ -58,6 +58,17 @@ def _stream(resp) -> list[dict]:
     return [json.loads(line) for line in resp.text.splitlines() if line.strip()]
 
 
+# `trace`, `error` and `reasoning` frames share the wire with story events but are NOT
+# story events — they carry no envelope id/seq and are absent from `story_event_adapter`.
+# Reasoning frames are on by default now (Reasoning visibility defaults to `full`), so a
+# test that means "every story event" has to say so.
+_TRANSPORT_ONLY = ("trace", "error", "reasoning")
+
+
+def _story(events: list[dict]) -> list[dict]:
+    return [e for e in events if e["type"] not in _TRANSPORT_ONLY]
+
+
 def _by_id(events: list[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = defaultdict(list)
     for e in events:
@@ -132,7 +143,7 @@ def test_every_streamed_line_validates(client, storyline_id, monkeypatch):
     _patch_llm(monkeypatch)
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
-    for e in _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid})):
+    for e in _story(_stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))):
         story_event_adapter.validate_python(e)
 
 
@@ -141,7 +152,7 @@ def test_seq_is_monotonic_and_per_event_unique(client, storyline_id, monkeypatch
     _patch_llm(monkeypatch)
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
-    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+    events = _story(_stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid})))
     seqs = [e["seq"] for e in events]
     assert seqs == sorted(seqs)  # non-decreasing (chunks of one event share a seq)
     # distinct logical events (by id) have distinct seqs
@@ -155,14 +166,14 @@ def test_session_resumes_and_seq_continues(client, storyline_id, monkeypatch):
     _patch_llm(monkeypatch)
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
-    first = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "one", "directedAt": cid}))
+    first = _story(_stream(client.post(f"/api/play/{scid}/turn", json={"text": "one", "directedAt": cid})))
     session_id = first[0]["sessionId"]
-    second = _stream(
+    second = _story(_stream(
         client.post(
             f"/api/play/{scid}/turn",
             json={"text": "two", "directedAt": cid, "sessionId": session_id},
         )
-    )
+    ))
     assert all(e["sessionId"] == session_id for e in second)
     assert min(e["seq"] for e in second) > max(e["seq"] for e in first)
 
@@ -609,12 +620,20 @@ def _reconstruct_dialogue(events: list[dict]) -> list[dict]:
     return sorted(out, key=lambda d: d["seq"])
 
 
-def test_consistency_guard_regenerates_a_contradicting_later_line(client, storyline_id, monkeypatch):
+def test_later_speakers_are_no_longer_held_for_a_continuity_check(client, storyline_id, monkeypatch):
+    """Every beat goes straight to the wire — there is no auditor call and no hold.
+
+    The continuity guard used to inspect a COMPLETE candidate line before a later beat
+    could be shown, which cost ~10 s per second speaker (EXP-2026-08-005 put it at 11 %
+    of turn time) and was the only reason a later beat could not stream as it was
+    written. It is gone; this pins that it stays gone.
+    """
     _configure_llm(client)
     mei, kira, _jax, sid = _three(client, storyline_id)
     scid = _scenario(client, storyline_id, [mei, kira], sid)
 
     plan = iter([{"action": "speak", "actor": 1}, {"action": "speak", "actor": 2}, {"action": "end"}])
+    auditor_calls: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         if not request.url.path.endswith("/chat/completions"):
@@ -628,25 +647,27 @@ def test_consistency_guard_regenerates_a_contradicting_later_line(client, storyl
                 return _resp(json.dumps(next(plan)))
             except StopIteration:
                 return _resp(json.dumps({"action": "end"}))
-        if "continuity auditor" in system:  # flag Kira's first attempt
-            return _resp(json.dumps({"consistent": False, "reason": "the lantern was just lit"}))
+        if "continuity auditor" in system:
+            auditor_calls.append(system)
+            return _resp(json.dumps({"consistent": True}))
         if "private inner voice" in system:
             return _resp("{}")
         m = re.search(r"You are \[(\d+)\] (\w+)", user)
         num = m.group(1) if m else "1"
         if num == "1":
             return _resp('<speaker:1>\n<type:character_dialogue>\n"The lantern is lit."')
-        if "broke continuity" in user:  # Kira's redo
-            return _resp('<speaker:2>\n<type:character_dialogue>\n"I step toward the lit lantern."')
-        return _resp('<speaker:2>\n<type:character_dialogue>\n"The lantern is dark."')  # contradiction
+        return _resp('<speaker:2>\n<type:character_dialogue>\n"I step toward it."')
 
     monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
-    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I address the room."}))
+    events = _stream(
+        client.post(f"/api/play/{scid}/turn", json={"text": "I address the room.", "trace": True})
+    )
 
     texts = [line["text"] for line in _reconstruct_dialogue(events)]
-    assert any(t == '"The lantern is lit."' for t in texts)  # Mei (first speaker, no guard)
-    assert any("lit lantern" in t for t in texts)  # Kira's corrected line
-    assert all("dark" not in t for t in texts)  # the contradiction was never emitted
+    assert any(t == '"The lantern is lit."' for t in texts)   # first speaker
+    assert any(t == '"I step toward it."' for t in texts)     # second speaker, unheld
+    assert auditor_calls == []                                 # no extra LLM round trip
+    assert all(e.get("step") != "consistency" for e in events if e["type"] == "trace")
 
 
 def test_universal_reflection_writes_interior_for_the_whole_cast(client, storyline_id, monkeypatch):
@@ -736,7 +757,7 @@ def test_trace_frames_when_requested_and_story_events_still_validate(client, sto
     assert ns == sorted(ns) and len(set(ns)) == len(ns)  # ordered, unique
     # Trace frames are transport-only; every real story event still validates.
     for e in events:
-        if e["type"] not in ("trace", "error"):
+        if e["type"] not in _TRANSPORT_ONLY:
             story_event_adapter.validate_python(e)
 
 
@@ -859,8 +880,16 @@ def test_context_trace_reports_exact_prompt_tokens(client, db_session, storyline
     assert rows and rows[-1].data["promptTokens"] == 4096
 
 
-def test_context_trace_absent_when_endpoint_omits_usage(client, storyline_id, monkeypatch):
-    # No usage block → no context step (the dial keeps its char/4 heuristic fallback).
+def test_context_trace_reports_no_token_count_when_the_endpoint_omits_usage(
+    client, storyline_id, monkeypatch
+):
+    """No usage block → no `promptTokens`, so the dial keeps its char/4 fallback.
+
+    The step itself still appears: it also carries the locally-computed reusable-prefix
+    figure, which does not depend on the endpoint reporting anything. That is deliberate —
+    vLLM omits its own cache counter exactly when the hit is zero, so a prompt-cache
+    regression would otherwise look like missing data instead of a number going down.
+    """
     _configure_llm(client)
     _patch_llm(monkeypatch)  # the default mock omits `usage`
     cid, sid = _refs(client, storyline_id)
@@ -868,7 +897,9 @@ def test_context_trace_absent_when_endpoint_omits_usage(client, storyline_id, mo
     events = _stream(
         client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid, "trace": True})
     )
-    assert all(not (e["type"] == "trace" and e["step"] == "context") for e in events)
+    steps = [e for e in events if e["type"] == "trace" and e["step"] == "context"]
+    assert all("promptTokens" not in e["data"] for e in steps)
+    assert all("reusablePrefixChars" in e["data"] for e in steps)
 
 
 # ---- Reactive Turn Director P1: puppet performance + attribution ---------------

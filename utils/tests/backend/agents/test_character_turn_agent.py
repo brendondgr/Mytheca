@@ -1,8 +1,9 @@
-"""Character turn agent — bookended prompt assembly + emission passthrough (mocked LLM)."""
+"""Character turn agent — stable→transcript→volatile prompt assembly + emission passthrough."""
 
 from __future__ import annotations
 
 import json
+import os
 
 import httpx
 
@@ -106,7 +107,7 @@ def test_generate_line_with_usage_none_when_endpoint_omits_usage(client, db_sess
     assert prompt_tokens is None
 
 
-def test_prompt_is_bookended_and_grounded(client, db_session, monkeypatch):
+def test_prompt_is_ordered_stable_first_and_grounded(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
@@ -124,12 +125,13 @@ def test_prompt_is_bookended_and_grounded(client, db_session, monkeypatch):
     assert "You voice exactly ONE character" in system
     assert "Embergate is a rain-soaked harbor city." in system
 
-    # HEAD (primacy): identity + state + in-voice anchor at the front of the volatile block.
-    assert user.startswith("You are [1] Mei")
+    # STABLE region leads: the scene as authored, identical for every speaker and turn.
+    assert user.startswith("Where this happens:") or user.startswith("Cast in the scene:")
+    # Everything volatile is still present — it has moved, not gone.
     assert "short, clipped lines" in user
     assert "trust=38" in user
     assert "You always pay twice on these docks." in user
-    # MIDDLE: roster + the player's current action.
+    assert "You are [1] Mei" in user
     assert "I slide the pouch over." in user
     # TAIL (recency): act-now is last.
     assert user.rstrip().endswith("Emit only the tagged format.")
@@ -387,23 +389,40 @@ def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     assert body["presence_penalty"] == 0.3
 
 
-def test_transcript_window_follows_context_beats(client, db_session, monkeypatch):
-    # The rendered transcript depth is the scene's context_beats (not a fixed 14): with
-    # context_beats=5 over 10 prior beats + the player line, only the newest 5 appear.
+def test_transcript_window_follows_context_beats_plus_one_anchor_block(
+    client, db_session, monkeypatch
+):
+    """The depth is the scene's ``context_beats`` plus room for one anchor block.
+
+    ``recent_beats`` arrives block-anchored from the assembler, holding between
+    ``context_beats`` and ``context_beats + block`` beats; that overshoot is exactly what
+    keeps the transcript's first line still between re-anchors. Re-trimming to
+    ``context_beats`` here would slide it by one beat per turn and throw the prompt cache
+    away again — so the cap allows the block, and only clips beyond it.
+    """
+    from app.core.config import get_settings
+
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
+    block = get_settings().turn_transcript_anchor_block
     ctx = _ctx()
     ctx.context_beats = 5
-    ctx.recent_beats = [{"role": "narrator", "text": f"beat{i}", "characterId": None} for i in range(10)]
+    total = 5 + block + 10  # comfortably past the cap
+    ctx.recent_beats = [
+        {"role": "narrator", "text": f"beat{i}", "characterId": None} for i in range(total)
+    ]
     character_turn_agent.generate_line(
         db_session, ctx, ctx.cast[0],
         turn_beats=[{"role": "player", "text": "myturn", "characterId": None}],
     )
     user = json.loads(capture["body"])["messages"][1]["content"]
-    # combined [beat0..beat9, myturn] sliced to the last 5 → beat6..beat9 + myturn.
-    assert "beat9" in user and "beat6" in user and "myturn" in user
-    assert "beat5" not in user and "beat0" not in user
+    kept = 5 + block  # + the player line
+    assert "myturn" in user
+    assert f"beat{total - 1}" in user                     # newest kept
+    assert f"beat{total - kept + 1}" in user              # inside the window
+    assert f"beat{total - kept - 1}" not in user          # clipped
+    assert "beat0" not in user
 
 
 def test_dialogue_is_optional_but_thinking_is_always_required(client, db_session, monkeypatch):
@@ -714,16 +733,19 @@ def test_the_system_message_is_byte_identical_across_turns(client, db_session, m
     assert llm.prefix_cache_key(systems[0]) == llm.prefix_cache_key(systems[1])
 
 
-def test_the_transcript_sits_AFTER_the_volatile_block(client, db_session, monkeypatch):
-    """Characterisation test — this pins today's ordering, which costs the prompt cache.
+def test_the_transcript_sits_BEFORE_everything_volatile(client, db_session, monkeypatch):
+    """The prompt-cache invariant, stated as an assertion.
 
-    ``_build_user_prompt`` puts the speaker's CURRENT STAT VALUES in the HEAD, ahead of the
-    transcript in the MIDDLE. A prefix cache can only reuse a common *prefix*, so a single
-    stat change invalidates everything after it — including the entire conversation. The
-    cost grows with the scene: the longer you play, the more is needlessly re-read.
+    A prefix cache matches from the first token and stops at the first byte that differs.
+    ``_build_user_prompt`` used to put the speaker's CURRENT STAT VALUES in the HEAD, ahead
+    of the transcript — so a single stat change invalidated everything after it, including
+    the whole conversation. EXP-2026-08-005 measured the result: cached tokens pinned at
+    exactly 800 (the system message) on all ten turns of a scene while the prompt grew
+    1830 → 4678.
 
-    Measured in EXP-2026-08-005. If this assertion ever flips, the reordering has been
-    done deliberately and the experiment's numbers should be re-taken.
+    Now the order is stable → transcript → volatile. If this assertion ever flips, the
+    reusable prefix has collapsed back to the system message and the reordering has been
+    undone — re-run EXP-2026-08-006 before accepting it.
     """
     _configure_llm(client)
     capture: dict = {}
@@ -733,10 +755,31 @@ def test_the_transcript_sits_AFTER_the_volatile_block(client, db_session, monkey
     character_turn_agent.generate_line(db_session, ctx, ctx.cast[0], turn_beats=[])
 
     user = _user_message(capture)
-    stats_at = user.find("trust")
     transcript_at = user.find("A LINE OF HISTORY.")
-    assert stats_at != -1 and transcript_at != -1
-    assert stats_at < transcript_at, (
-        "volatile per-turn state now sits after the transcript — if that was intentional, "
-        "re-run EXP-2026-08-005; the prompt-cache characteristic has changed."
-    )
+    assert transcript_at != -1
+    for volatile in ("trust", "You are [1] Mei", "Respond now, in Mei's voice"):
+        at = user.find(volatile)
+        assert at != -1, volatile
+        assert at > transcript_at, (
+            f"{volatile!r} now sits above the transcript — every token after it is "
+            "re-read on every call. If that was intentional, re-run EXP-2026-08-006."
+        )
+
+
+def test_the_stable_region_is_identical_for_every_speaker(client, db_session, monkeypatch):
+    """Two speakers in one turn must share a prefix, or the cache cannot span a turn."""
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    ctx.recent_beats = [{"role": "player", "text": "A LINE OF HISTORY.", "characterId": None}]
+
+    prompts = []
+    for member in ctx.cast[:2]:
+        character_turn_agent.generate_line(db_session, ctx, member, turn_beats=[])
+        prompts.append(_user_message(capture))
+    if len(prompts) < 2:
+        return  # single-cast fixture — nothing to compare
+    shared = os.path.commonprefix(prompts)
+    assert "Cast in the scene:" in shared
+    assert "A LINE OF HISTORY." in shared  # the transcript is shared too, not just the header

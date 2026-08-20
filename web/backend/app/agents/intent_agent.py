@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
-from app.agents._common import extract_json, resolve_llm
+from app.agents._common import decision_timeout, extract_json, resolve_llm
 from app.agents.direction_agent import (
     REQUIREMENTS_RULES,
     REQUIREMENTS_SCHEMA,
@@ -106,6 +106,7 @@ def interpret(db: Session, ctx: TurnContext, text: str) -> TurnIntent:
             [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": user}],
             params,
             reasoning=INTENT_EFFORT,
+            timeout_s=decision_timeout(),
         )
         data = extract_json(raw)
     except APIError:

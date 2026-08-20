@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
-from app.agents._common import extract_json, resolve_llm
+from app.agents._common import decision_timeout, extract_json, resolve_llm
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
@@ -201,6 +201,7 @@ def parse(db: Session, ctx: TurnContext, text: str) -> SceneDirection:
             [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": user}],
             params,
             reasoning=DIRECTION_EFFORT,
+            timeout_s=decision_timeout(),
         )
         data = extract_json(raw)
     except APIError:
