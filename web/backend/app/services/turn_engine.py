@@ -1344,18 +1344,33 @@ def _generate_speaker(
     # tracer writes it regardless of the opt-in) so the story player's context dial
     # reads the truth, not a char/4 estimate. Omitted when the endpoint reports no
     # usage (the dial then keeps its heuristic fallback).
-    if prompt_tokens is not None:
+    reusable = usage.get("reusable_prefix_chars")
+    prompt_chars = usage.get("prompt_chars")
+    if prompt_tokens is not None or reusable is not None:
+        detail = (
+            f"{prompt_tokens:,} tokens sent to the model"
+            if prompt_tokens is not None
+            else "context sent to the model"
+        )
+        if reusable and prompt_chars:
+            detail += f" · {round(100 * reusable / prompt_chars)}% reusable prefix"
         yield from tr.emit(
             "context",
             "Context window",
-            detail=f"{prompt_tokens:,} tokens sent to the model",
+            detail=detail,
             data={
                 "characterId": speaker.id,
-                "promptTokens": prompt_tokens,
-                # Omitted (not zeroed) when the endpoint reports no cache details, so
-                # "no data" stays distinguishable from "nothing was cached".
+                # Omitted (not zeroed) when the endpoint reports nothing, so "no data"
+                # stays distinguishable from "nothing was cached".
+                **({"promptTokens": prompt_tokens} if prompt_tokens is not None else {}),
                 **({"cachedTokens": usage["cached_tokens"]}
                    if usage.get("cached_tokens") is not None else {}),
+                # How much of this prompt was byte-identical to the previous character
+                # call in this session. Unlike cachedTokens this is computed locally, so
+                # it is always present and cannot be hidden by an endpoint that omits its
+                # own counter — it is the layout regression alarm.
+                **({"reusablePrefixChars": reusable} if reusable is not None else {}),
+                **({"promptChars": prompt_chars} if prompt_chars is not None else {}),
             },
         )
 

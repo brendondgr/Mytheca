@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.core.config import get_settings
 from app.memory import buffer
 from app.models import Character, Scenario, Setting, Storyline
 from app.models.stat import CharacterStat, StatDefinition
@@ -163,8 +164,8 @@ def test_in_voice_anchors_pulled_per_character(db_session, monkeypatch):
     session = events_store.create_session(db_session, sc.id)
     monkeypatch.setattr(
         buffer,
-        "recent_turns",
-        lambda sid, limit=None: [
+        "anchored_turns",
+        lambda sid, window, block: [
             {"role": "player", "text": "I slide the pouch.", "characterId": None},
             {"role": "character", "text": "Coin's easy.", "characterId": "c_mei"},
             {"role": "character", "text": "Quiet's cheaper.", "characterId": "c_mei"},
@@ -259,13 +260,14 @@ def test_context_beats_is_the_buffer_fetch_depth(db_session, monkeypatch):
     db_session.commit()
     captured: dict = {}
 
-    def fake_recent(session_id, limit=None):
-        captured["limit"] = limit
+    def fake_anchored(session_id, window, block):
+        captured.update({"window": window, "block": block})
         return []
 
-    monkeypatch.setattr(assembler.buffer, "recent_turns", fake_recent)
+    monkeypatch.setattr(assembler.buffer, "anchored_turns", fake_anchored)
     ctx = assembler.assemble_context(db_session, sc, "ps1")
-    assert captured["limit"] == 40
+    assert captured["window"] == 40
+    assert captured["block"] == get_settings().turn_transcript_anchor_block
     assert ctx.context_beats == 40
 
 
@@ -276,7 +278,7 @@ def test_context_beats_out_of_range_is_clamped(db_session, monkeypatch):
     sc = _scenario(db_session, ["c_mei"])
     sc.context_beats = 500
     db_session.commit()
-    monkeypatch.setattr(assembler.buffer, "recent_turns", lambda session_id, limit=None: [])
+    monkeypatch.setattr(assembler.buffer, "anchored_turns", lambda session_id, window, block: [])
     ctx = assembler.assemble_context(db_session, sc, "ps1")
     assert ctx.context_beats == 100
 

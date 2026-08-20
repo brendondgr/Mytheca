@@ -10,14 +10,14 @@ The HTTP client is built by ``get_http_client`` so tests can inject an
 
 from __future__ import annotations
 
-from collections.abc import Generator
-from dataclasses import dataclass
-
 import hashlib
 import json
 import logging
 import re
 import time
+from collections import OrderedDict
+from collections.abc import Generator
+from dataclasses import dataclass
 
 import httpx
 
@@ -66,6 +66,39 @@ def prefix_cache_key(prefix: str) -> str:
     the KV cache instead of recomputed per speaker. This id lets the engine log which
     turns share a warm prefix (an empty prefix returns a stable sentinel)."""
     return hashlib.sha256((prefix or "").encode("utf-8")).hexdigest()[:12]
+
+
+# Last prompt seen per scope (session id), for :func:`shared_prefix_chars`. Bounded so a
+# long-lived process cannot accumulate one entry per session forever; the newest scopes are
+# the only ones anyone asks about.
+_LAST_PROMPT: OrderedDict[str, str] = OrderedDict()
+_LAST_PROMPT_MAX = 64
+
+
+def shared_prefix_chars(scope: str, prompt: str) -> int:
+    """How much of ``prompt`` is a byte-identical prefix of the previous one in ``scope``.
+
+    This is the prompt-cache metric we actually control. The server-side counter
+    (``usage.prompt_tokens_details.cached_tokens``) is not dependable: vLLM omits the field
+    entirely when the hit is zero, which is exactly the case worth catching, so a
+    regression would look like missing data rather than a number going down.
+
+    The shared prefix between one call and the next is computed locally, is always
+    available, and is the quantity the prompt layout decides. Returns 0 for the first
+    prompt in a scope (nothing to compare against).
+    """
+    previous = _LAST_PROMPT.get(scope)
+    _LAST_PROMPT[scope] = prompt
+    _LAST_PROMPT.move_to_end(scope)
+    while len(_LAST_PROMPT) > _LAST_PROMPT_MAX:
+        _LAST_PROMPT.popitem(last=False)
+    if previous is None:
+        return 0
+    limit = min(len(previous), len(prompt))
+    i = 0
+    while i < limit and previous[i] == prompt[i]:
+        i += 1
+    return i
 
 
 def _normalize(base_url: str) -> str:

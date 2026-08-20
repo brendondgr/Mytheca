@@ -64,8 +64,16 @@ def reflect(
     branch_tags = [str(b.get("outcome") or b.get("label") or "").strip() for b in (branches or [])]
     branch_tags = [t for t in branch_tags if t]
 
-    head = f"You are {name} — {role}."
-    body = [head, "", f"What just happened:\n{transcript or '(scene opening)'}"]
+    # Ordered transcript-first on purpose. Every present character reflects on the SAME
+    # transcript at the end of a turn, so leading with it makes one shared prefix that all
+    # of those calls hit; leading with "You are <name>" made every one of them a cold
+    # prompt. Same reasoning as ``character_turn_agent._build_user_prompt``: whatever
+    # changes earliest decides how much of the prompt can be reused.
+    body = [
+        f"What just happened:\n{transcript or '(scene opening)'}",
+        "",
+        f"You are {name} — {role}.",
+    ]
     if branch_tags:
         body.append("\nThe player faces a fork. Branch options (tags): " + ", ".join(branch_tags))
         body.append("Give a branch stance for each tag.")

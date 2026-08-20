@@ -869,8 +869,16 @@ def test_context_trace_reports_exact_prompt_tokens(client, db_session, storyline
     assert rows and rows[-1].data["promptTokens"] == 4096
 
 
-def test_context_trace_absent_when_endpoint_omits_usage(client, storyline_id, monkeypatch):
-    # No usage block → no context step (the dial keeps its char/4 heuristic fallback).
+def test_context_trace_reports_no_token_count_when_the_endpoint_omits_usage(
+    client, storyline_id, monkeypatch
+):
+    """No usage block → no `promptTokens`, so the dial keeps its char/4 fallback.
+
+    The step itself still appears: it also carries the locally-computed reusable-prefix
+    figure, which does not depend on the endpoint reporting anything. That is deliberate —
+    vLLM omits its own cache counter exactly when the hit is zero, so a prompt-cache
+    regression would otherwise look like missing data instead of a number going down.
+    """
     _configure_llm(client)
     _patch_llm(monkeypatch)  # the default mock omits `usage`
     cid, sid = _refs(client, storyline_id)
@@ -878,7 +886,9 @@ def test_context_trace_absent_when_endpoint_omits_usage(client, storyline_id, mo
     events = _stream(
         client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid, "trace": True})
     )
-    assert all(not (e["type"] == "trace" and e["step"] == "context") for e in events)
+    steps = [e for e in events if e["type"] == "trace" and e["step"] == "context"]
+    assert all("promptTokens" not in e["data"] for e in steps)
+    assert all("reusablePrefixChars" in e["data"] for e in steps)
 
 
 # ---- Reactive Turn Director P1: puppet performance + attribution ---------------

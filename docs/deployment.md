@@ -79,7 +79,8 @@ Copy `.env.example` → `.env` (gitignored). This table is the complete set read
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `TURN_BUFFER_SIZE` | `100` | Redis recent-turn retention ceiling. Must be ≥ the largest per-scene `context_beats` (max 100) |
+| `TURN_BUFFER_SIZE` | `160` | Redis recent-turn retention ceiling. Must exceed the largest per-scene `context_beats` (max 100) by at least `TURN_TRANSCRIPT_ANCHOR_BLOCK`, or the anchored window has no headroom |
+| `TURN_TRANSCRIPT_ANCHOR_BLOCK` | `20` | How far the transcript window's **start** jumps when it moves. Holds the prompt-cache prefix still for `block` beats at a time; `1` restores the per-beat slide |
 | `TURN_MAX_CONCURRENCY` | `4` | Bounds the off-hot-path worker pool (speech stays sequential) |
 | `TURN_REFLECTION_ENABLED` | `true` | Toggles the read-time reflection interlude |
 | `TURN_TTFT_SLO_MS` | `1200` | Informational time-to-first-token target for logging |

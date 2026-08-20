@@ -63,8 +63,9 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
         fill them, direction_agent.schedule picks the beat instead:
           decision.action == "speak" →
             graph_reader.relationship_context (via turn_engine._relationship_note) →
-            character_turn_agent.generate_line (bookended LLM call, relationship note
-              folded into the prompt) → services.llm.chat_complete
+            character_turn_agent.stream_line (prompt ordered stable → transcript →
+              volatile for prefix-cache reuse; relationship note folded into the tail)
+              → services.llm.chat_complete_stream
             emission.parse_emission: thin <speaker:N>/<type:…> tags → typed segments
               (name→id; out-of-roster drop)
             validator: parse → validate (incl. stat clamping) → repair/retry
@@ -987,7 +988,14 @@ The authored `Setting.atmosphere` is **not** a live mood signal — it is writte
 creation and never rewritten during play, so the prompt presents it as the description of the place
 and never as "the scene right now". The
 character conditions on the scene's **`context_beats`** most-recent beats (5–100; `assembler` fetches
-that depth from the Redis buffer, which retains up to `turn_buffer_size` = 100). At the **end of
+that depth from the Redis buffer, which retains up to `turn_buffer_size` = 160). That window is
+**block-anchored**, not sliding: `buffer.anchored_turns` quantises its *start* to a multiple of
+`turn_transcript_anchor_block` (20), so it holds between `context_beats` and `context_beats + block`
+beats and its first line only moves once every 20 beats. A window that dropped its oldest beat every
+turn would change the transcript's first token every turn, and a prefix cache matches from the first
+token — the whole conversation would be re-read each turn even though it only grew at the end.
+`character_turn_agent._transcript` deliberately allows one anchor block above `context_beats` for the
+same reason: re-trimming to exactly that depth would undo the anchoring. At the **end of
 every turn**, up to the scenario's **`suggestions_count`** (0–4; `0` disables) follow-up suggestions
 are generated from the **recent beat sequence** (`director_agent.propose_branches(count=…)`, which
 feeds the last ~6 beats via `_recent_sequence` **in chronological order**, newest last) and emitted

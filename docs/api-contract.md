@@ -1038,6 +1038,8 @@ every step, is **persisted**, so the story player seeds its context dial from th
 session's last `context` step and updates it live each turn. The frontend falls back to a
 char/4 estimate only until a real `promptTokens` is known. The same step carries **`data.cachedTokens`** when the endpoint reports `usage.prompt_tokens_details.cached_tokens` — how many of this call's prompt tokens the server served from its KV cache instead of re-processing. It is **omitted, not zeroed**, when the endpoint reports nothing, so "no data" stays distinguishable from "nothing was reused". A hit rate that collapses as a scene lengthens is what a prompt-cache regression looks like before it becomes visible as creeping latency.
 
+The step also carries **`data.reusablePrefixChars`** and **`data.promptChars`** — how much of this prompt was byte-identical to the previous character call in the same session, measured locally. `cachedTokens` alone cannot be trusted as an alarm: vLLM omits `prompt_tokens_details` entirely when the hit is zero, so a total cache loss reports as *missing data* rather than as a zero. The local figure is always present, and it measures the thing the prompt layout actually controls (see `character_turn_agent._build_user_prompt`). Both are omitted when unavailable, and `promptTokens` is omitted when the endpoint reports no usage — so the step can appear carrying only the local figures.
+
 ### Rules
 
 - `seq` is monotonic per session (DB-authoritative: `max(seq)+1`, guarded by a
