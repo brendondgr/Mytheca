@@ -124,9 +124,31 @@ reordering would improve prefill is not supported at 0.5–1.5 k tokens.**
 That is consistent with the conversation run rather than in tension with it: prefill of a
 one-to-two-thousand-token prompt on this GPU costs a few hundred milliseconds, so the
 several hundred tokens the reordering would additionally cache are worth far less than the
-measurement noise. **The cache is genuinely being wasted (measured directly, below), but at
-these context sizes the waste is not worth reclaiming.** Whether it becomes worth it at
-20 k+ tokens is untested; the probe tops out at 1549.
+measurement noise.
+
+**But that conclusion does not survive contact with a long scene.** The probe above tops
+out at 1549 tokens, and a follow-up sampling 10 / 50 / 100 / 200 / 400 turns of history
+shows the effect appearing sharply once the transcript passes roughly 10 k tokens:
+
+| history (turns) | prompt tokens | `volatile-first` (now) | `volatile-last` (reordered) | reused, reordered |
+| --- | --- | --- | --- | --- |
+| 10 | 1,549 | 1.27 s | 0.55 s | — |
+| 50 | 5,946 | 1.96 s | 1.94 s | — |
+| 100 | 11,444 | 3.67 s | **2.22 s** | 4,800 (42 %) |
+| 200 | 22,535 | 7.23 s | **4.24 s** | 10,400 (46 %) |
+| 400 | 44,715 | 15.47 s | **8.98 s** | 21,600 (48 %) |
+
+At and above 100 turns of history the reordering cuts time-to-first-token by **roughly
+40 %**, and it is the *only* arm that reports any cache reuse at all. That column is direct
+evidence rather than a proxy: vLLM omits `prompt_tokens_details` when the hit is zero, so
+`volatile-first` reporting nothing at every size is itself the measurement — **the current
+layout achieves no reuse whatsoever, at any conversation length.**
+
+**Revised conclusion.** The earlier "not worth reclaiming" holds only for short scenes. At
+`contextBeats = 100` a fully-populated scene reaches roughly 20 k tokens, which is squarely
+in the range where the reordering pays. H3 is **supported at long context and not supported
+at short** — and a probe that had stopped at 1549 tokens would have concluded the opposite
+of the truth for the configuration actually in use.
 
 ## The thinking budget is load-bearing on this endpoint
 

@@ -55,19 +55,33 @@ Verified against the code on 2026-08-04.
 
 ## Known defects and rough edges
 
-- **The prompt cache is wasted, and it is not worth reclaiming yet.**
+- **The prompt cache is wasted, and it IS worth reclaiming at the configured settings.**
   `character_turn_agent._build_user_prompt` puts the speaker's current stat values,
   register-selected voice samples and recent lines in the HEAD of the user message, ahead
   of the transcript. A prefix cache can only reuse a common prefix, so one stat change
   invalidates everything after it. Measured over a real 10-turn scene (EXP-2026-08-005):
   cached tokens pinned at **exactly 800** — the static system message — while the prompt
-  grew 1830 → 4678, hit rate 44 % → 17 %. **But a controlled layout comparison found no
-  measurable prefill difference** (0.59 s vs 0.55 s across ten history lengths), because at
-  1–5 k tokens prefill costs a few hundred ms on this GPU. Reordering the prompt is a
-  prompt-engineering change with quality consequences and, at these scene lengths, no
-  latency payoff. Revisit if scenes routinely exceed ~20 k tokens; the probe tops out at
-  1549 and cannot speak to that range. Both prompt-layout properties are pinned by
+  grew 1830 → 4678, hit rate 44 % → 17 %. A short-context comparison found no measurable
+  difference (0.59 s vs 0.55 s below 1.5 k tokens), but a long-context one is decisive:
+  at 100 / 200 / 400 turns of history (11 k / 22 k / 45 k tokens) reordering cuts
+  time-to-first-token by **~40 %** (3.67 → 2.22 s, 7.23 → 4.24 s, 15.47 → 8.98 s) and is
+  the only arm reporting any reuse at all (42–48 %). vLLM omits the cache field when the
+  hit is zero, so the current layout reporting nothing at every size *is* the measurement:
+  **it achieves no reuse whatsoever.** At `contextBeats = 100` a full scene reaches ~20 k
+  tokens, squarely in the paying range. The change is still prompt engineering with quality
+  consequences — the character sees the same content in a different order — so it wants a
+  quality check, not just a latency one. Both layout properties are pinned by
   characterisation tests in `utils/tests/backend/agents/test_character_turn_agent.py`.
+- **The beat planner stalls, and a stall costs the player the full generation timeout.**
+  Two of ten turns in the post-fix run took 355 s and 272 s, attributed almost entirely to a
+  single `plan` call — **300.1 s** (exactly `LLM_GEN_TIMEOUT_SECONDS`) and 240.6 s. Because
+  the planner is best-effort, the turn does not error (`failures: 0`); the player simply
+  waits five minutes with no indication anything is wrong. Not a context-length effect: the
+  same run's largest prompt (6800 tokens) reached first prose in 9.4 s, and a controlled
+  sweep to 7355 tokens measured 1.2 s. **The fix is a per-operation timeout** — the planner
+  and intent calls are small JSON classifications that normally take 3–5 s, so a 20–30 s
+  ceiling would turn a five-minute stall into a hiccup, while prose generation keeps the
+  long window it needs.
 - **The beat planner is 41 % of all turn time.** It runs once per beat — three to six
   times a turn at ~4 s each — and is the single largest cost in the app, ahead of character
   generation (15 %), inline reflection (13 %) and the continuity guard (11 %, ~10 s each
