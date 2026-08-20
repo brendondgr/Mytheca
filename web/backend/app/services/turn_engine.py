@@ -1141,6 +1141,7 @@ def _stream_emission(
     tracer: _Tracer,
     live: bool,
     show_reasoning: bool = False,
+    usage_out: dict | None = None,
 ) -> Generator[StoryEvent | TurnTraceFrame | TurnReasoningFrame, None, tuple[str, int | None, int]]:
     """Drive one character generation as a stream; return ``(raw, prompt_tokens, impact)``.
 
@@ -1156,7 +1157,7 @@ def _stream_emission(
     stream = character_turn_agent.stream_line(
         db, ctx, speaker, turn_beats=turn_beats, directive=directive,
         relationship_note=relationship_note, register=register, stakes=stakes,
-        scene_direction=scene_direction, requirements=owed,
+        scene_direction=scene_direction, requirements=owed, usage_out=usage_out,
     )
     acc = emission.EmissionAccumulator(roster=roster, fallback_speaker_id=speaker.id)
     open_segments: dict[int, _LiveSegment] = {}
@@ -1334,11 +1335,16 @@ def _generate_speaker(
     # its prose for the verdict. Both stream the model's REASONING either way, so every
     # beat shows something happening rather than nothing.
     guarded = guard_conn is not None and not directive and _has_prior_character_beat(turn_beats)
+    # Filled by the transport with this call's token figures. ``cached_tokens`` is how
+    # much of the prompt the server reused from its KV cache rather than re-reading — the
+    # only signal that catches a prompt-cache regression before it shows up as latency
+    # that creeps upward as a scene gets longer.
+    usage: dict = {}
     raw, prompt_tokens, streamed_impact = yield from _stream_emission(
         db, ctx, speaker, emitter, turn_beats, consequences,
         roster=roster, directive=directive, relationship_note=relationship_note,
         register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
-        tracer=tr, live=not guarded, show_reasoning=show_reasoning,
+        tracer=tr, live=not guarded, show_reasoning=show_reasoning, usage_out=usage,
     )
     segments = emission.parse_emission(raw, roster=roster, fallback_speaker_id=speaker.id)
 
@@ -1381,7 +1387,14 @@ def _generate_speaker(
             "context",
             "Context window",
             detail=f"{prompt_tokens:,} tokens sent to the model",
-            data={"characterId": speaker.id, "promptTokens": prompt_tokens},
+            data={
+                "characterId": speaker.id,
+                "promptTokens": prompt_tokens,
+                # Omitted (not zeroed) when the endpoint reports no cache details, so
+                # "no data" stays distinguishable from "nothing was cached".
+                **({"cachedTokens": usage["cached_tokens"]}
+                   if usage.get("cached_tokens") is not None else {}),
+            },
         )
 
     if not guarded:

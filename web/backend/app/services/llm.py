@@ -234,8 +234,12 @@ def chat_complete_usage(
     *,
     reasoning: ReasoningEffort | None = None,
     extra_body: dict | None = None,
+    usage_out: dict | None = None,
 ) -> tuple[str, int | None]:
     """Run one chat completion; return ``(scrubbed_text, prompt_tokens)``.
+
+    ``usage_out``, when given, is filled with ``prompt_tokens`` and ``cached_tokens``
+    (the prefix-cache hit) for this call — see :func:`_record_usage`.
 
     ``prompt_tokens`` is the server-reported ``usage.prompt_tokens`` — the **exact**
     number of input tokens the model actually saw for this call — or ``None`` when the
@@ -276,6 +280,7 @@ def chat_complete_usage(
         raw_reasoning = str(message.get("reasoning_content") or "")
         finish_reason = choice.get("finish_reason")
         prompt_tokens = _prompt_tokens(payload)
+        _record_usage(usage_out, payload)
     except (ValueError, AttributeError, IndexError, TypeError) as exc:
         raise APIError(
             502, "upstream_error", "The model endpoint returned an unexpected response."
@@ -332,8 +337,12 @@ def chat_complete_stream(
     *,
     reasoning: ReasoningEffort | None = None,
     extra_body: dict | None = None,
+    usage_out: dict | None = None,
 ) -> Generator[StreamDelta, None, tuple[str, int | None]]:
     """Stream one chat completion, yielding deltas; return ``(scrubbed_text, prompt_tokens)``.
+
+    ``usage_out``, when given, is filled with ``prompt_tokens`` and ``cached_tokens``
+    for this call (the usage frame arrives last, so it is filled near the end).
 
     The streaming counterpart to :func:`chat_complete_usage`, and the reason a turn can
     show anything before it is finished. Two differences beyond timing:
@@ -350,7 +359,8 @@ def chat_complete_stream(
     stream_key = (_normalize(base_url), model)
     if stream_key in _NO_STREAM:
         return (yield from _blocking_as_stream(
-            base_url, api_key, model, messages, params, reasoning=reasoning, extra_body=extra_body
+            base_url, api_key, model, messages, params, reasoning=reasoning,
+            extra_body=extra_body, usage_out=usage_out,
         ))
 
     url, body, limit_key = _completion_request(
@@ -382,7 +392,7 @@ def chat_complete_stream(
                         _NO_STREAM.add(stream_key)
                     return (yield from _blocking_as_stream(
                         base_url, api_key, model, messages, params,
-                        reasoning=reasoning, extra_body=extra_body,
+                        reasoning=reasoning, extra_body=extra_body, usage_out=usage_out,
                     ))
                 for line in res.iter_lines():
                     chunk = _sse_payload(line)
@@ -393,6 +403,7 @@ def chat_complete_stream(
                     usage_tokens = _prompt_tokens(chunk)
                     if usage_tokens is not None:
                         prompt_tokens = usage_tokens
+                        _record_usage(usage_out, chunk)
                     choices = chunk.get("choices") or []
                     if not choices:
                         continue
@@ -459,6 +470,7 @@ def _blocking_as_stream(
     *,
     reasoning: ReasoningEffort | None,
     extra_body: dict | None,
+    usage_out: dict | None = None,
 ) -> Generator[StreamDelta, None, tuple[str, int | None]]:
     """Run the blocking path and present it as a one-delta stream.
 
@@ -467,7 +479,8 @@ def _blocking_as_stream(
     arrives at the end instead of the text arriving gradually.
     """
     text, prompt_tokens = chat_complete_usage(
-        base_url, api_key, model, messages, params, reasoning=reasoning, extra_body=extra_body
+        base_url, api_key, model, messages, params, reasoning=reasoning,
+        extra_body=extra_body, usage_out=usage_out,
     )
     yield StreamDelta(answer=text)
     return text, prompt_tokens
@@ -492,6 +505,37 @@ def _raise_empty_completion(finish_reason: str | None, reasoning: str) -> None:
             "Options — reasoning models need extra headroom.",
         )
     raise APIError(502, "upstream_error", "The model returned an empty response.")
+
+
+def _cached_tokens(payload: dict) -> int | None:
+    """Extract ``usage.prompt_tokens_details.cached_tokens`` — the prefix-cache hit.
+
+    How many of this call's prompt tokens the server served from its KV cache instead of
+    re-processing. It is the only honest measure of whether the prompt is laid out so a
+    conversation's history can be reused between turns, and without it a cache regression
+    is completely silent: latency simply creeps up as the scene gets longer.
+
+    ``None`` when the endpoint reports no ``prompt_tokens_details`` (many do not).
+    """
+    usage = payload.get("usage") if isinstance(payload, dict) else None
+    details = usage.get("prompt_tokens_details") if isinstance(usage, dict) else None
+    value = details.get("cached_tokens") if isinstance(details, dict) else None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
+
+
+def _record_usage(sink: dict | None, payload: dict) -> None:
+    """Fill a caller-supplied dict with this call's token figures, if one was given.
+
+    An out-parameter rather than a widened return type: ``(text, prompt_tokens)`` is
+    unpacked in a dozen places and the cache figure is diagnostic, so paying for it with
+    an optional kwarg keeps every existing caller untouched.
+    """
+    if sink is None:
+        return
+    sink["prompt_tokens"] = _prompt_tokens(payload)
+    sink["cached_tokens"] = _cached_tokens(payload)
 
 
 def _prompt_tokens(payload: dict) -> int | None:
