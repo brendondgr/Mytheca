@@ -99,17 +99,15 @@ Verified against the code on 2026-08-04.
   parser read only the second. The null result measured the instrument. Fixed in
   `llm._reasoning_field`; the first reasoning token on `skynet` measures at ~0.4 s
   (EXP-2026-08-005). The experiment is amended rather than rewritten.
-- **The default Reasoning-visibility setting leaves the longest wait empty.**
-  The model spends most of a generation deliberating before writing its first word of
-  prose: ~17 s of ~20 s on the `local` route (EXP-2026-08-003), and on the deployed
-  `skynet` route the first *reasoning* token arrives at ~0.4 s while the first *prose*
-  token takes seconds longer (EXP-2026-08-005). The live reasoning channel covers that
-  window — but it only streams at `full`, and the default `summary` shows nothing until
-  the answer starts, so the status-strip phases are all a default-configured player gets.
-  Now that the channel actually works on the deployed model, moving the default is a live
-  decision rather than a theoretical one: it trades spoiler risk against a visibly shorter
-  wait. Not made yet.
-
+- ~~**The default Reasoning-visibility setting leaves the longest wait empty.**~~
+  **Decided 2026-08-20: the default is now `full`.** The model spends most of a generation
+  deliberating before writing its first word — ~17 s of ~20 s on the `local` route
+  (EXP-2026-08-003), and on the deployed `skynet` route the first *reasoning* token arrives
+  at ~0.4 s while the first *prose* token takes seconds longer (EXP-2026-08-005). The live
+  reasoning channel covers that window, and now that it actually works on the deployed
+  model the trade was worth taking: a visibly shorter wait against the risk that
+  deliberation spoils the line it precedes. `summary` remains one click away in Options and
+  the copy there says plainly what it costs.
 - ~~**Later speakers do not stream their prose.**~~ **Resolved 2026-08-20.** The
   continuity guard was the sole reason a later beat had to hold its prose for a
   complete-line verdict. EXP-2026-08-005 measured the guard at 11 % of turn time (~10 s

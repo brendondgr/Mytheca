@@ -992,16 +992,20 @@ finished, and the real waits went unlabelled. The `speaker` step additionally ca
 planner's `reason`, `register` and `stakes`, so the player can be told *why* this character
 is up rather than merely that they are.
 
-**Live reasoning (opt-in, ephemeral).** When Options › Language models › *Reasoning
-visibility* is set to `full`, the turn interleaves
+**Live reasoning (on by default, ephemeral).** When Options › Language models › *Reasoning
+visibility* is `full` — **the default** — the turn interleaves
 `{ "type": "reasoning", "characterId", "text", "done" }` frames carrying the model's
 reasoning channel as it is produced (`reasoning_content` on llama.cpp, `reasoning` on vLLM) — the deliberation behind the beat, visible
 while the player waits. It is **not** a story event and **not** persisted: no `seq`, no
 `events` row, no `turn_traces` row, absent from resume and export. `done` marks the end of
-one speaker's reasoning; a `characterId` of `null` is the narrator's. The default
-(`summary`) keeps these frames off the wire entirely, because raw deliberation routinely
-states what a character is about to say before they say it. `hidden` additionally
-suppresses the muted thought line client-side. Clients ignore unknown frame types, so a
+one speaker's reasoning; a `characterId` of `null` is the narrator's. `full` is the default
+because the first reasoning token arrives at ~0.4 s on the deployed endpoint against
+roughly ten seconds before any prose (EXP-2026-08-005) — it is what makes the longest part
+of a turn show something. Setting `summary` keeps these frames off the wire entirely, for
+players who mind that raw deliberation routinely states what a character is about to say
+before they say it; `hidden` additionally suppresses the muted thought line client-side.
+A stored value that is missing or unrecognised resolves to the same default (`full`), so
+an older config behaves like a fresh one rather than like a third mode nobody chose. Clients ignore unknown frame types, so a
 client that does not implement this is unaffected.
 
 **Diagnostic trace (opt-in).** Set `"trace": true` in the request body to interleave

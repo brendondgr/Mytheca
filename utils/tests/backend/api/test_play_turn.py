@@ -58,6 +58,17 @@ def _stream(resp) -> list[dict]:
     return [json.loads(line) for line in resp.text.splitlines() if line.strip()]
 
 
+# `trace`, `error` and `reasoning` frames share the wire with story events but are NOT
+# story events — they carry no envelope id/seq and are absent from `story_event_adapter`.
+# Reasoning frames are on by default now (Reasoning visibility defaults to `full`), so a
+# test that means "every story event" has to say so.
+_TRANSPORT_ONLY = ("trace", "error", "reasoning")
+
+
+def _story(events: list[dict]) -> list[dict]:
+    return [e for e in events if e["type"] not in _TRANSPORT_ONLY]
+
+
 def _by_id(events: list[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = defaultdict(list)
     for e in events:
@@ -132,7 +143,7 @@ def test_every_streamed_line_validates(client, storyline_id, monkeypatch):
     _patch_llm(monkeypatch)
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
-    for e in _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid})):
+    for e in _story(_stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))):
         story_event_adapter.validate_python(e)
 
 
@@ -141,7 +152,7 @@ def test_seq_is_monotonic_and_per_event_unique(client, storyline_id, monkeypatch
     _patch_llm(monkeypatch)
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
-    events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
+    events = _story(_stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid})))
     seqs = [e["seq"] for e in events]
     assert seqs == sorted(seqs)  # non-decreasing (chunks of one event share a seq)
     # distinct logical events (by id) have distinct seqs
@@ -155,14 +166,14 @@ def test_session_resumes_and_seq_continues(client, storyline_id, monkeypatch):
     _patch_llm(monkeypatch)
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
-    first = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "one", "directedAt": cid}))
+    first = _story(_stream(client.post(f"/api/play/{scid}/turn", json={"text": "one", "directedAt": cid})))
     session_id = first[0]["sessionId"]
-    second = _stream(
+    second = _story(_stream(
         client.post(
             f"/api/play/{scid}/turn",
             json={"text": "two", "directedAt": cid, "sessionId": session_id},
         )
-    )
+    ))
     assert all(e["sessionId"] == session_id for e in second)
     assert min(e["seq"] for e in second) > max(e["seq"] for e in first)
 
@@ -746,7 +757,7 @@ def test_trace_frames_when_requested_and_story_events_still_validate(client, sto
     assert ns == sorted(ns) and len(set(ns)) == len(ns)  # ordered, unique
     # Trace frames are transport-only; every real story event still validates.
     for e in events:
-        if e["type"] not in ("trace", "error"):
+        if e["type"] not in _TRANSPORT_ONLY:
             story_event_adapter.validate_python(e)
 
 

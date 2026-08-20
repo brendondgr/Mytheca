@@ -313,9 +313,30 @@ def _set_visibility(client, value: str):
     assert resp.json()["reasoningVisibility"] == value
 
 
-def test_reasoning_is_off_the_wire_by_default(client, storyline_id, monkeypatch):
-    """Raw deliberation routinely states what a character is about to say — opt-in only."""
+def test_reasoning_is_on_the_wire_by_default(client, storyline_id, monkeypatch):
+    """The default is `full`: the wait shows the model's deliberation rather than nothing.
+
+    The first reasoning token lands ~0.4 s in against roughly ten seconds before any prose
+    (EXP-2026-08-005). The cost is that raw deliberation often states what a character is
+    about to say — which is what `summary` is for, one click away in Options.
+    """
     _configure_llm(client)
+    _patch_reasoning_llm(monkeypatch)
+    cast, scid = _scene(client, storyline_id)
+
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "I slide the pouch over.", "directedAt": cast[0]},
+        )
+    )
+    assert _of_type(events, "reasoning") != []
+
+
+def test_reasoning_is_suppressed_at_summary(client, storyline_id, monkeypatch):
+    """The opt-OUT has to work — it is the whole answer to the spoiler trade-off."""
+    _configure_llm(client)
+    _set_visibility(client, "summary")
     _patch_reasoning_llm(monkeypatch)
     cast, scid = _scene(client, storyline_id)
 
@@ -391,13 +412,19 @@ def test_reasoning_is_never_persisted(client, storyline_id, monkeypatch):
     assert "She is testing me" not in blob
 
 
-def test_an_unknown_stored_visibility_falls_back_to_the_safe_default(client):
-    """A row written before the setting existed must not stream raw deliberation."""
-    from app.services.settings_store import _reasoning_visibility
+def test_an_unknown_stored_visibility_falls_back_to_the_product_default(client):
+    """A row missing the key, or holding nonsense, lands where a fresh install does.
 
-    assert _reasoning_visibility(None) == "summary"
-    assert _reasoning_visibility("nonsense") == "summary"
-    assert _reasoning_visibility("full") == "full"
+    There is deliberately ONE default rather than two: a config written before the setting
+    existed should behave like a config written today, not like a third mode nobody chose.
+    """
+    from app.services.settings_store import _DEFAULT_REASONING_VISIBILITY, _reasoning_visibility
+
+    assert _DEFAULT_REASONING_VISIBILITY == "full"
+    assert _reasoning_visibility(None) == "full"
+    assert _reasoning_visibility("nonsense") == "full"
+    assert _reasoning_visibility("summary") == "summary"
+    assert _reasoning_visibility("hidden") == "hidden"
 
 
 # ---- the wait is narrated ---------------------------------------------------
