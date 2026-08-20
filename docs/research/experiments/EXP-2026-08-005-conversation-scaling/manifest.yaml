@@ -14,10 +14,10 @@ hypothesis: (1) Per-turn total grows across ten turns. (2) The growth is in the 
   pre-generation steps. (3) The prompt cache is largely wasted because the volatile block sits ahead of
   the transcript in the user message. Full statements and falsification conditions in PROTOCOL.md.
 code:
-  commit: 2e6a963396b06fb9dd8cdb13258368d3a6be55b5
+  commit: a25101f19aaff8413a0df9d0ffb96a29aba4b6bd
   branch: conversation-scaling-latency
-  entrypoint: uv run python -m utils.scripts.research.run_conversation_scaling --mode conversation --turns
-    10 --max-turns 5 --suggestions 0 --context-beats 100 --experiment docs/research/experiments/EXP-2026-08-005-conversation-scaling
+  entrypoint: uv run python -m utils.scripts.research.run_conversation_scaling --mode layout --turns 10
+    --max-turns 5 --suggestions 0 --context-beats 100 --experiment docs/research/experiments/EXP-2026-08-005-conversation-scaling
   dirty: true
 config:
   path: null
@@ -37,7 +37,7 @@ environment:
   container: null
 compute:
   hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
-  wall_clock_hours: 0.281
+  wall_clock_hours: 0.1016
   estimated_cost_usd: 0.0
 llm:
   model: relay/skynet
@@ -56,8 +56,40 @@ llm:
     the question is how the numbers CHANGE from turn to turn, and a mean over a growing series hides exactly
     that.'
 metrics:
-  primary: cache_hit_ratio
-  values: {}
+  primary: cached_tokens.every_turn
+  values:
+    cache_hit_ratio.turn_2:
+      mean: 0.4195
+      n: 1
+    cache_hit_ratio.turn_10:
+      mean: 0.1176
+      n: 1
+    cached_tokens.every_turn:
+      mean: 800.0
+      std: 0.0
+      n: 9
+    planner_stall_seconds.max:
+      mean: 300.1
+      n: 1
+    layout_saving.10_turns:
+      mean: 0.566
+      n: 1
+    layout_saving.50_turns:
+      mean: 0.2472
+      n: 2
+      std: 0.2365
+    layout_saving.100_turns:
+      mean: 0.3875
+      n: 2
+      std: 0.0085
+    layout_saving.200_turns:
+      mean: 0.4259
+      n: 2
+      std: 0.0124
+    layout_saving.400_turns:
+      mean: 0.4201
+      n: 2
+      std: 0.0007
 baselines_compared:
 - turn 1 (least history)
 - volatile-first layout (current code)

@@ -142,7 +142,30 @@ READABLE = {
     "step:commit": "Saving the turn",
     "step:lore": "World-lore lookup",
     "first_narration": "Reaching the narrator's first words",
+    "step:thinking": "A character's private thought",
+    "step:action": "A character acting",
+    "step:relationship": "Looking up who knows whom",
+    "step:files": "Attaching your tagged files",
+    "step:branch": "Preparing follow-up suggestions",
 }
+
+
+def planner_profile(rows: list[dict]) -> tuple[float, float]:
+    """Share of turn time spent in the planner, and seconds per planner call.
+
+    Callers pass only the turns they want represented. The stalled turns are excluded from
+    the headline figure deliberately: a 300-second hang is a separate problem with its own
+    section, and letting it inflate the "typical turn" number would describe neither
+    situation accurately.
+    """
+    total = count = grand = 0.0
+    for r in rows:
+        grand += r.get("total_s") or 0
+        for step, gap in (r.get("step_gaps") or {}).items():
+            if step.split("#")[0] == "step:plan":
+                total += gap
+                count += 1
+    return (total / grand if grand else 0.0), (total / count if count else 0.0)
 
 
 def build(exp: Path, out: Path) -> None:
@@ -168,24 +191,34 @@ def build(exp: Path, out: Path) -> None:
     A(Paragraph("The short version", st["h1"]))
     A(Paragraph(
         "Your scene is <b>not</b> getting slower as the conversation grows. The time before "
-        "you see the first words held steady at about ten seconds across all ten turns, even "
-        "though the amount of story being sent to the model more than doubled.", st["body"]))
+        "you see the first words held steady at about ten seconds for eight of the ten turns, "
+        "even though the amount of story being sent to the model more than tripled. The other "
+        "two turns took minutes, for a reason that has nothing to do with length.", st["body"]))
     A(Paragraph(
         "What makes a turn slow is <b>how many times the app talks to the model</b>, not how "
         "much it sends each time. A single turn makes six to twelve separate model calls, one "
         "after another, and you wait for all of them.", st["body"]))
     A(Spacer(1, 4))
+    typical = [r for r in conv if (r.get("total_s") or 0) < 120]
+    share, per_call = planner_profile(typical)
     A(callout(
         "<b>The single biggest cost is the beat planner.</b> It runs once per beat to decide "
-        "who speaks next, takes about five seconds each time, and accounts for <b>41% of all "
-        "turn time</b> — more than actually writing the characters' words.", st))
+        f"who speaks next, takes about {per_call:.0f} seconds each time, and accounts for "
+        f"<b>{share:.0%} of a normal turn</b> — more than actually writing the characters' "
+        "words.", st))
+    A(Spacer(1, 8))
+    A(Spacer(1, 4))
+    A(callout(
+        "<b>And the thing that makes a turn take <i>forever</i> is different again.</b> Two turns "
+        "in ten took four to six minutes. Both were the planner getting stuck — one for exactly "
+        "300 seconds, which is the app's own give-up limit. The turn does not even report an "
+        "error; you simply wait.", st))
     A(Spacer(1, 8))
     A(Paragraph(
-        "Caching is half-working. The bot does still have all your earlier conversation — "
-        "nothing is being forgotten. But the server re-reads that conversation from scratch on "
-        "every single call instead of reusing its earlier work. That is genuinely wasteful, and "
-        "it is <b>not</b> worth fixing yet: I tested the fix and it saved nothing measurable at "
-        "your scene lengths.", st["body"]))
+        "Caching is half-working. The bot does still have all your earlier conversation — nothing "
+        "is being forgotten. But the server re-reads that conversation from scratch on every "
+        "single call instead of reusing its earlier work. In a short scene that costs almost "
+        "nothing. In a long one it is worth about <b>40% of the wait</b>.", st["body"]))
     A(Spacer(1, 4))
     A(callout(
         "<b>The most valuable thing found was an accident.</b> A bug in the app was throwing "
@@ -211,11 +244,38 @@ def build(exp: Path, out: Path) -> None:
                          f"{tot / n:.1f}s" if n else "—"])
         A(table(rows, [62 * mm, 22 * mm, 18 * mm, 22 * mm, 20 * mm], st))
         A(Spacer(1, 6))
-        A(Paragraph(
-            f"Across {len(conv)} completed turns the app spent {grand:.0f} seconds in total, "
-            f"an average of {grand / len(conv):.0f} seconds per turn.", st["small"]))
+        stalled = [r for r in conv if (r.get("total_s") or 0) >= 120]
+        note = (f"Across {len(conv)} completed turns the app spent {grand:.0f} seconds in "
+                f"total, an average of {grand / len(conv):.0f} seconds per turn.")
+        if stalled:
+            note += (f" Two of those turns stalled (see below), which is why the planner row "
+                     f"looks worse here than the "
+                     f"{planner_profile([r for r in conv if (r.get('total_s') or 0) < 120])[0]:.0%} "
+                     f"a normal turn spends there.")
+        A(Paragraph(note, st["small"]))
     else:
         A(Paragraph("No completed conversation turns were recorded.", st["body"]))
+
+    A(Paragraph("The turns that take minutes, not seconds", st["h2"]))
+    A(Paragraph(
+        "Averages hide the thing you actually notice. Eight of the ten turns reached their "
+        "first words in six to fifteen seconds. Two took <b>five and a half minutes</b> and "
+        "<b>four and a half minutes</b>.", st["body"]))
+    A(Paragraph(
+        "Both were the same thing: the call that decides who speaks next got stuck. One of them "
+        "sat there for 300.1 seconds — the app's own give-up limit, to the decimal. Because that "
+        "particular call is treated as optional, nothing failed and nothing was logged; the turn "
+        "simply carried on afterwards as though nothing had happened.", st["body"]))
+    A(Paragraph(
+        "This is not about long conversations. The largest story of the whole run went through "
+        "in nine seconds, and a separate test sending even more story returned in about one "
+        "second.", st["body"]))
+    A(Spacer(1, 4))
+    A(callout(
+        "<b>If a turn ever seems to hang for minutes, this is almost certainly what happened.</b> "
+        "The fix is to stop letting a small decision share the same five-minute patience limit as "
+        "writing a whole scene.", st))
+    A(Spacer(1, 8))
 
     A(Paragraph("What you are waiting for before the first word", st["h2"]))
     A(Paragraph(
@@ -269,11 +329,11 @@ def build(exp: Path, out: Path) -> None:
         "changed <i>from the very beginning</i>. One stat ticking over therefore invalidates "
         "everything after it, including the entire story so far.", st["body"]))
 
-    A(Paragraph("Should you fix it? Not yet.", st["h2"]))
+    A(Paragraph("Should you fix it? Yes — once a scene gets long.", st["h2"]))
     A(Paragraph(
-        "I built the fixed version and measured it against the current one, at ten different "
-        "conversation lengths, twice each, alternating the order to be fair. It made no "
-        "difference worth having.", st["body"]))
+        "I built the fixed version and measured it against the current one, twice each, "
+        "alternating the order to be fair. In <b>short</b> scenes it makes no difference worth "
+        "having:", st["body"]))
     if by_turn:
         agg = defaultdict(list)
         for r in by_turn:
@@ -287,18 +347,45 @@ def build(exp: Path, out: Path) -> None:
         A(table(rows, [50 * mm, 50 * mm, 22 * mm], st))
     A(Spacer(1, 6))
     A(Paragraph(
-        "<b>My own prediction was wrong here.</b> I expected the reordering to help and it did "
-        "not. At the size your scenes actually reach, re-reading the story costs a few hundred "
-        "milliseconds — less than the ordinary variation between calls. Reordering the prompt "
-        "changes what every character sees and in what order, which carries a real risk to "
-        "writing quality, and there is no speed gain to pay for that risk.", st["body"]))
+        "But that only holds for short scenes, and it nearly led me to the wrong advice. Pushing "
+        "the history out to realistic lengths changes the answer completely:", st["body"]))
     if longctx:
-        sizes = sorted({r["turn"] for r in longctx})
-        big = max(r.get("prompt_tokens") or 0 for r in longctx)
-        A(Paragraph(
-            f"A follow-up probe pushed the history out to {max(sizes)} turns "
-            f"(about {big:,} tokens) to find where this stops being true — see the appendix.",
-            st["small"]))
+        agg = defaultdict(list)
+        tokens: dict[int, int] = {}
+        cached: dict[int, int] = {}
+        for r in longctx:
+            if r.get("ttft_s") is not None:
+                agg[(r["layout"], r["turn"])].append(r["ttft_s"])
+            if r.get("prompt_tokens"):
+                tokens[r["turn"]] = r["prompt_tokens"]
+            if r.get("cached_tokens") and r["layout"] == "volatile-last":
+                cached[r["turn"]] = r["cached_tokens"]
+        rows = [["Scene length", "Story size", "As it is now", "Reordered", "Saving"]]
+        for size in sorted({k[1] for k in agg}):
+            f = agg.get(("volatile-first", size), [])
+            l = agg.get(("volatile-last", size), [])
+            if not f or not l:
+                continue
+            fm, lm = sum(f) / len(f), sum(l) / len(l)
+            rows.append([f"{size} turns", f"{tokens.get(size, 0):,} tokens",
+                         f"{fm:.2f}s", f"{lm:.2f}s",
+                         f"{(fm - lm) / fm:.0%}" if fm else "—"])
+        A(table(rows, [26 * mm, 30 * mm, 28 * mm, 26 * mm, 20 * mm], st))
+        A(Spacer(1, 6))
+        A(callout(
+            "Past roughly a hundred turns of history the reordering cuts the wait by about "
+            "<b>40%</b> — and it is the only version that reuses anything at all. Your setting of "
+            "100 context beats puts a full scene squarely in that range.", st, GOOD))
+        A(Spacer(1, 8))
+    A(Paragraph(
+        "<b>I had this wrong at first.</b> My short-scene test found nothing and I told you not to "
+        "bother. That test could not have found the effect — it stopped at a story size roughly "
+        "fifteen times smaller than a full scene at your settings. The lesson is in the report "
+        "rather than quietly removed from it.", st["body"]))
+    A(Paragraph(
+        "One caveat that has not changed: reordering the prompt changes what every character sees "
+        "and in what order. That is a writing-quality change as much as a speed one, so it wants "
+        "checking on quality too, not only on the clock.", st["body"]))
 
     # ---- the bug -----------------------------------------------------------
     A(PageBreak())
@@ -369,6 +456,13 @@ def build(exp: Path, out: Path) -> None:
     A(PageBreak())
     A(Paragraph("What I would do next", st["h1"]))
     for n, (head, text) in enumerate([
+        ("Put a shorter time limit on the small decision-making calls",
+         "This is the fix for the turns that take five minutes. Two calls per turn — working "
+         "out what your message meant, and choosing who speaks next — are small yes/no "
+         "decisions that normally finish in three to five seconds. They currently share the "
+         "same five-minute patience limit as writing a whole scene, so when one of them gets "
+         "stuck, you wait the full five minutes and the app never reports a problem. Giving "
+         "them a twenty- or thirty-second limit instead would turn that into a hiccup."),
         ("Reduce the number of model calls per turn",
          "This is where the time is. The planner runs once per beat at about five seconds a "
          "time. Deciding several beats at once, or skipping the planner when only one "
@@ -386,10 +480,11 @@ def build(exp: Path, out: Path) -> None:
          "seconds — against roughly ten seconds before any prose. It is currently off by "
          "default. The trade-off is that reading a character's reasoning can spoil the line "
          "they are about to say."),
-        ("Leave the prompt cache alone for now",
-         "It is genuinely wasteful, but fixing it measurably saved nothing at your scene "
-         "lengths and carries a real risk to writing quality. Revisit if scenes start running "
-         "much longer than they do today."),
+        ("Reorder the prompt so the story can be reused",
+         "Worth about 40% of the wait once a scene passes roughly a hundred turns of history, "
+         "which your settings allow. It is a change to what each character sees and in what "
+         "order, so it should be checked for writing quality as well as speed — but the speed "
+         "case is now clear, where earlier in this investigation it was not."),
     ], start=1):
         A(Paragraph(f"{n}. {head}", st["h2"]))
         A(Paragraph(text, st["body"]))

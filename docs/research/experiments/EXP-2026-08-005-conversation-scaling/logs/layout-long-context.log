@@ -1,0 +1,225 @@
+{
+  "notes": [
+    "pass 2 volatile-last turn 10 FAILED: APIError: The model spent its whole budget thinking and never answered. Lower the thinking budget or raise Max tokens in Options.",
+    "1 turn(s) failed \u2014 NO aggregate computed. Per-turn rows are the result; see ISSUES.md."
+  ],
+  "failures": 1,
+  "rows": [
+    {
+      "attempts": 1,
+      "ttft_s": 1.272,
+      "wall_clock_s": 3.924,
+      "prompt_tokens": 1549,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 10,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 1.963,
+      "wall_clock_s": 16.984,
+      "prompt_tokens": 5946,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 50,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 3.672,
+      "wall_clock_s": 11.496,
+      "prompt_tokens": 11444,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 100,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 7.23,
+      "wall_clock_s": 10.628,
+      "prompt_tokens": 22535,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 200,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 15.467,
+      "wall_clock_s": 20.293,
+      "prompt_tokens": 44715,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 400,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.552,
+      "wall_clock_s": 11.528,
+      "prompt_tokens": 1549,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 10,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 1.942,
+      "wall_clock_s": 14.723,
+      "prompt_tokens": 5946,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 1,
+      "turn": 50,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 2.218,
+      "wall_clock_s": 19.656,
+      "prompt_tokens": 11444,
+      "cached_tokens": 4800,
+      "cache_hit_ratio": 0.4194,
+      "pass": 1,
+      "turn": 100,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 4.24,
+      "wall_clock_s": 21.368,
+      "prompt_tokens": 22535,
+      "cached_tokens": 10400,
+      "cache_hit_ratio": 0.4615,
+      "pass": 1,
+      "turn": 200,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 8.98,
+      "wall_clock_s": 24.379,
+      "prompt_tokens": 44715,
+      "cached_tokens": 21600,
+      "cache_hit_ratio": 0.4831,
+      "pass": 1,
+      "turn": 400,
+      "layout": "volatile-last"
+    },
+    {
+      "error": "APIError: The model spent its whole budget thinking and never answered. Lower the thinking budget or raise Max tokens in Options.",
+      "attempts": 3,
+      "pass": 2,
+      "turn": 10,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 2,
+      "ttft_s": 1.028,
+      "wall_clock_s": 10.677,
+      "prompt_tokens": 5946,
+      "cached_tokens": 4800,
+      "cache_hit_ratio": 0.8073,
+      "pass": 2,
+      "turn": 50,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 2.229,
+      "wall_clock_s": 14.516,
+      "prompt_tokens": 11444,
+      "cached_tokens": 4800,
+      "cache_hit_ratio": 0.4194,
+      "pass": 2,
+      "turn": 100,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 4.24,
+      "wall_clock_s": 24.039,
+      "prompt_tokens": 22535,
+      "cached_tokens": 10400,
+      "cache_hit_ratio": 0.4615,
+      "pass": 2,
+      "turn": 200,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 8.929,
+      "wall_clock_s": 22.571,
+      "prompt_tokens": 44715,
+      "cached_tokens": 21600,
+      "cache_hit_ratio": 0.4831,
+      "pass": 2,
+      "turn": 400,
+      "layout": "volatile-last"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 0.608,
+      "wall_clock_s": 6.709,
+      "prompt_tokens": 1549,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 10,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 1.991,
+      "wall_clock_s": 14.792,
+      "prompt_tokens": 5946,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 50,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 3.589,
+      "wall_clock_s": 13.43,
+      "prompt_tokens": 11444,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 100,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 7.548,
+      "wall_clock_s": 9.768,
+      "prompt_tokens": 22535,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 200,
+      "layout": "volatile-first"
+    },
+    {
+      "attempts": 1,
+      "ttft_s": 15.417,
+      "wall_clock_s": 19.961,
+      "prompt_tokens": 44715,
+      "cached_tokens": null,
+      "cache_hit_ratio": null,
+      "pass": 2,
+      "turn": 400,
+      "layout": "volatile-first"
+    }
+  ]
+}

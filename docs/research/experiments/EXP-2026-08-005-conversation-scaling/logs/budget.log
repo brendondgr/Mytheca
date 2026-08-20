@@ -1,0 +1,166 @@
+{
+  "notes": [],
+  "failures": 0,
+  "rows": [
+    {
+      "run": 1,
+      "condition": "none",
+      "reasoning_chars": 3075,
+      "content_chars": 0,
+      "completion_tokens": 800,
+      "finish_reason": "length"
+    },
+    {
+      "run": 1,
+      "condition": "vllm-key",
+      "reasoning_chars": 532,
+      "content_chars": 42,
+      "completion_tokens": 143,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 1,
+      "condition": "llamacpp-key",
+      "reasoning_chars": 3075,
+      "content_chars": 0,
+      "completion_tokens": 800,
+      "finish_reason": "length"
+    },
+    {
+      "run": 1,
+      "condition": "both-keys",
+      "reasoning_chars": 532,
+      "content_chars": 42,
+      "completion_tokens": 143,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 2,
+      "condition": "none",
+      "reasoning_chars": 3075,
+      "content_chars": 0,
+      "completion_tokens": 800,
+      "finish_reason": "length"
+    },
+    {
+      "run": 2,
+      "condition": "vllm-key",
+      "reasoning_chars": 532,
+      "content_chars": 42,
+      "completion_tokens": 143,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 2,
+      "condition": "llamacpp-key",
+      "reasoning_chars": 3075,
+      "content_chars": 0,
+      "completion_tokens": 800,
+      "finish_reason": "length"
+    },
+    {
+      "run": 2,
+      "condition": "both-keys",
+      "reasoning_chars": 532,
+      "content_chars": 42,
+      "completion_tokens": 143,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 3,
+      "condition": "none",
+      "reasoning_chars": 3075,
+      "content_chars": 0,
+      "completion_tokens": 800,
+      "finish_reason": "length"
+    },
+    {
+      "run": 3,
+      "condition": "vllm-key",
+      "reasoning_chars": 532,
+      "content_chars": 42,
+      "completion_tokens": 143,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 3,
+      "condition": "llamacpp-key",
+      "reasoning_chars": 3075,
+      "content_chars": 0,
+      "completion_tokens": 800,
+      "finish_reason": "length"
+    },
+    {
+      "run": 3,
+      "condition": "both-keys",
+      "reasoning_chars": 532,
+      "content_chars": 42,
+      "completion_tokens": 143,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 4,
+      "condition": "none",
+      "reasoning_chars": 3075,
+      "content_chars": 0,
+      "completion_tokens": 800,
+      "finish_reason": "length"
+    },
+    {
+      "run": 4,
+      "condition": "vllm-key",
+      "reasoning_chars": 532,
+      "content_chars": 42,
+      "completion_tokens": 143,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 4,
+      "condition": "llamacpp-key",
+      "reasoning_chars": 3075,
+      "content_chars": 0,
+      "completion_tokens": 800,
+      "finish_reason": "length"
+    },
+    {
+      "run": 4,
+      "condition": "both-keys",
+      "reasoning_chars": 532,
+      "content_chars": 42,
+      "completion_tokens": 143,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 5,
+      "condition": "none",
+      "reasoning_chars": 3075,
+      "content_chars": 0,
+      "completion_tokens": 800,
+      "finish_reason": "length"
+    },
+    {
+      "run": 5,
+      "condition": "vllm-key",
+      "reasoning_chars": 532,
+      "content_chars": 42,
+      "completion_tokens": 143,
+      "finish_reason": "stop"
+    },
+    {
+      "run": 5,
+      "condition": "llamacpp-key",
+      "reasoning_chars": 3075,
+      "content_chars": 0,
+      "completion_tokens": 800,
+      "finish_reason": "length"
+    },
+    {
+      "run": 5,
+      "condition": "both-keys",
+      "reasoning_chars": 532,
+      "content_chars": 42,
+      "completion_tokens": 143,
+      "finish_reason": "stop"
+    }
+  ]
+}

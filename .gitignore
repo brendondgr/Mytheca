@@ -64,6 +64,12 @@ coverage.xml
 
 # Django stuff:
 *.log
+
+# ...but an experiment's run logs ARE the research record. `data/metrics.json` holds the
+# summary; the per-turn detail (step timings, per-call rows, the notes a run captured while
+# it happened) lives in these, and RESULTS.md cites them. A record that cannot be rebuilt
+# from the repository is not a record.
+!docs/research/experiments/**/logs/*.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal

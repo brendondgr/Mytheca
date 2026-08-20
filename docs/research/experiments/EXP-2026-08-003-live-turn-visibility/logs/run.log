@@ -1,0 +1,7 @@
+{
+  "notes": [
+    "detected engine for http://localhost:4000/v1: relay",
+    "budget keys sent when capped: ('thinking_token_budget', 'thinking_budget_tokens')"
+  ],
+  "failures": 0
+}
