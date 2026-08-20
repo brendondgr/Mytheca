@@ -1,0 +1,64 @@
+id: EXP-2026-08-005
+slug: conversation-scaling
+title: <one line, specific enough to read in a table>
+status: complete
+date_started: 2026-08-20
+date_completed: null
+authors:
+- <name>
+purpose: 'One paragraph. What question does this answer, and which paper claim does it support or refute?
+
+  '
+hypothesis: 'Stated before the run. If exploratory, write "exploratory — no prior hypothesis".
+
+  '
+code:
+  commit: b0f4ec0a39d554cfc40b37cc86077f35c0a4d1e5
+  branch: conversation-scaling-latency
+  entrypoint: uv run python -m utils.scripts.research.run_conversation_scaling --mode layout --turns 2
+    --max-turns 5 --suggestions 0 --context-beats 100 --experiment docs/research/experiments/EXP-2026-08-005-conversation-scaling
+  dirty: true
+config:
+  path: <path to the config, or null if the entrypoint is fully self-describing>
+  hash: sha256:...
+data:
+  name: <dataset or world>
+  version: <version>
+  split: <split>
+  n_examples: 0
+  dvc_path: null
+  hash: md5:...
+seeds: []
+n_runs: 2
+environment:
+  python: '3.13'
+  lockfile: env/requirements.lock
+  container: null
+compute:
+  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
+  wall_clock_hours: 0.0096
+  estimated_cost_usd: 0.0
+llm:
+  model: relay/skynet
+  temperature: 0.0
+  top_p: 1.0
+  max_tokens: 8000
+  prompt_files: []
+  prompt_hash: sha256:0cbe6d81ed95838ff10c6a9f294771e27aa9ec25a791d350d1409e71af20a108
+  tool_schema_hash: null
+  total_input_tokens: 0
+  total_output_tokens: 0
+  nondeterminism_note: 'Provider-side nondeterminism remains even at temperature 0; results are reported
+    as mean ± std over n_runs.
+
+    '
+metrics:
+  primary: <metric name, matching a key in values>
+  values: {}
+baselines_compared: []
+statistical_test: null
+supports_claims: []
+figures: []
+supersedes: null
+superseded_by: null
+related: []
