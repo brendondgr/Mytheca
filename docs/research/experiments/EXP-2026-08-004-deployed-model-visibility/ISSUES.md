@@ -37,3 +37,15 @@ in every run) does not depend on arm ordering at all.
 characterise. Recorded in the manifest's `nondeterminism_note`.
 **Paper implication:** results describe "the deployed skynet route on 2026-08-19", not a
 named model.
+
+## 2026-08-19 — The reasoning-channel result was measured with a parser that could not see it
+
+**Impact:** `first_reasoning_s` is withdrawn for every row. The latency metrics stand.
+**Cause:** vLLM spells the field `reasoning`; llama.cpp spells it `reasoning_content`. The
+parser read only the latter, so the deployed endpoint's reasoning was discarded unread and
+recorded as absent.
+**Resolution:** fixed in `services/llm.py` (`_reasoning_field` checks both), with tests
+for both spellings. This experiment is amended, not rewritten — see RESULTS.md
+§AMENDMENTS.
+**Paper implication:** do not cite this experiment for any claim about whether a model
+exposes deliberation. Cite it only for wall-clock and token counts.

@@ -1,64 +1,71 @@
 id: EXP-2026-08-005
 slug: conversation-scaling
-title: <one line, specific enough to read in a table>
-status: complete
+title: Where a conversation's latency goes, and why the prompt cache stops helping
+status: failed
 date_started: 2026-08-20
 date_completed: null
 authors:
-- <name>
-purpose: 'One paragraph. What question does this answer, and which paper claim does it support or refute?
-
-  '
-hypothesis: 'Stated before the run. If exploratory, write "exploratory — no prior hypothesis".
-
-  '
+- brendondgr
+purpose: A single-generation measurement (EXP-2026-08-003/004) cannot explain the reported symptom that
+  a scene gets slower as it goes. This drives a real 10-turn conversation at maxTurns=5, suggestionsCount=0,
+  contextBeats=100, times every step of every turn, and asks whether the prompt is laid out so the server
+  can reuse the conversation between turns.
+hypothesis: (1) Per-turn total grows across ten turns. (2) The growth is in the character calls, not the
+  pre-generation steps. (3) The prompt cache is largely wasted because the volatile block sits ahead of
+  the transcript in the user message. Full statements and falsification conditions in PROTOCOL.md.
 code:
-  commit: b0f4ec0a39d554cfc40b37cc86077f35c0a4d1e5
+  commit: 0067a83a4b1a21cb17880be2028a5e545cd45916
   branch: conversation-scaling-latency
-  entrypoint: uv run python -m utils.scripts.research.run_conversation_scaling --mode layout --turns 2
-    --max-turns 5 --suggestions 0 --context-beats 100 --experiment docs/research/experiments/EXP-2026-08-005-conversation-scaling
+  entrypoint: uv run python -m utils.scripts.research.run_conversation_scaling --mode conversation --turns
+    10 --max-turns 5 --suggestions 0 --context-beats 100 --experiment docs/research/experiments/EXP-2026-08-005-conversation-scaling
   dirty: true
 config:
-  path: <path to the config, or null if the entrypoint is fully self-describing>
-  hash: sha256:...
+  path: null
+  hash: null
 data:
-  name: <dataset or world>
-  version: <version>
-  split: <split>
-  n_examples: 0
+  name: scripted 10-turn conversation over a runner-built world
+  version: inline in utils/scripts/research/run_conversation_scaling.py
+  split: n/a — systems latency measurement
+  n_examples: 10
   dvc_path: null
-  hash: md5:...
+  hash: null
 seeds: []
-n_runs: 2
+n_runs: 10
 environment:
   python: '3.13'
   lockfile: env/requirements.lock
   container: null
 compute:
-  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
-  wall_clock_hours: 0.0096
+  hardware: captured at run time
+  wall_clock_hours: 0.134
   estimated_cost_usd: 0.0
 llm:
-  model: relay/skynet
-  temperature: 0.0
+  model: relay/skynet (routes dynamically; observed qwen38-27B-awq)
+  temperature: 0.7
   top_p: 1.0
-  max_tokens: 8000
-  prompt_files: []
+  max_tokens: 8192
+  prompt_files:
+  - utils/scripts/research/run_conversation_scaling.py
   prompt_hash: sha256:0cbe6d81ed95838ff10c6a9f294771e27aa9ec25a791d350d1409e71af20a108
   tool_schema_hash: null
   total_input_tokens: 0
   total_output_tokens: 0
-  nondeterminism_note: 'Provider-side nondeterminism remains even at temperature 0; results are reported
-    as mean ± std over n_runs.
-
-    '
+  nondeterminism_note: 'skynet declares upstream_model: auto, so the routed model can change between calls
+    — and did: some rows carry a cached_tokens figure and others do not, which is itself evidence the
+    route moved. Results describe the deployed route on 2026-08-19. No aggregate is computed over turns:
+    the question is how the numbers CHANGE from turn to turn, and a mean over a growing series hides exactly
+    that.'
 metrics:
-  primary: <metric name, matching a key in values>
+  primary: cache_hit_ratio
   values: {}
-baselines_compared: []
+baselines_compared:
+- turn 1 (least history)
+- volatile-first layout (current code)
 statistical_test: null
-supports_claims: []
-figures: []
+supports_claims:
+- C-009
+figures:
+- scaling
 supersedes: null
 superseded_by: null
 related: []
