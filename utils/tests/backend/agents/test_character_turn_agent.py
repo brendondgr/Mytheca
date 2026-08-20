@@ -201,7 +201,7 @@ def test_prompt_requests_a_hidden_thinking_block(client, db_session, monkeypatch
     # The block is still requested and still the character's own private voice; it is now
     # asked to be brief, and it is the ONLY deliberation the turn pays for.
     assert "<thinking>" in system
-    assert "in your character's own voice" in system
+    assert "in your own voice" in system
 
 
 def test_interior_disposition_injected_and_builds_thinking(client, db_session, monkeypatch):
@@ -267,7 +267,7 @@ def test_the_character_deliberates_once_in_voice_and_not_again_in_hidden_reasoni
     system = body["messages"][0]["content"]
     # The visible thought survives, and is asked to be brief rather than an essay.
     assert "<thinking>" in system
-    assert "ONE or TWO sentences" in system
+    assert "at most 2 sentences and at most 40 words" in system
     assert "short paragraph" not in system
     # The hidden channel is switched off by the budget key alone — measured on the
     # deployed route, a 0 budget yields 0 reasoning characters. Forcing the chat
@@ -391,7 +391,7 @@ def test_contract_grants_situational_manner_adaptation(client, db_session, monke
     assert "personality is CONSTANT" in system and "MANNER adapts" in system
     assert "on autopilot" in system
     # The <thinking> step appraises the moment BEFORE reasoning toward a response.
-    assert "Read the moment as it actually stands" in system
+    assert "what you notice about this exact moment" in system
 
 
 def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):

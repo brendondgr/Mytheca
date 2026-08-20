@@ -55,12 +55,12 @@ _CHARACTER_OUTPUT_CONTRACT = """You voice exactly ONE character in a living, in-
 Emit ONLY this format and nothing else — no preamble, no markdown, no commentary:
 <speaker:N>
 <thinking>
-{a brief thought in your character's own voice — ONE or TWO sentences, no more. Read the moment as it actually stands (how grave or light, what just changed, your own condition), and land on what you want and what you are about to do about it. Your own terminology and cadence, the way a person's mind moves in the second before they speak — not a clinical narrator's analysis, and not an essay. Get to the point and then speak.}
+{HARD LIMIT: at most 2 sentences and at most 40 words. Count them. A flash of thought in your own voice — what you notice about this exact moment and what you are about to do about it. Your own words and cadence, not a narrator's analysis. Do not set the scene, do not recap what was just said, do not weigh several options. One thought, then speak.}
 </thinking>
 <type:character_action>
 {a SHORT third-person beat of what your character physically does, present tense — 5-10 words MAX, optional}
 <type:character_dialogue>
-{your character's spoken line — 1-3 sentences, natural and in-voice; OPTIONAL — omit it entirely when the moment calls for action or silence rather than talk}
+{your character's spoken line — 1-3 sentences, natural and in-voice. ONLY the words they say out loud: no third-person description, no narration of what anyone does, no stage directions (those belong in character_action). OPTIONAL — omit this whole block when the moment calls for action or silence rather than talk, but never emit it empty or as an ellipsis}
 
 You MAY, only when this beat genuinely moves a tracked stat, add a state_update block with a stat JSON:
 <type:state_update>

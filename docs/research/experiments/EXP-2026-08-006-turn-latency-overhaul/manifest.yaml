@@ -23,7 +23,7 @@ hypothesis: 'H1 the planner''s share falls below 25% and its call count falls ~3
 
   '
 code:
-  commit: 35a46cb7213188bd899ed3277204ec4192a993c8
+  commit: 85f782b5b3b478f28bc0cd86da6865912b315eff
   branch: main
   entrypoint: uv run python -m utils.scripts.research.run_conversation_scaling --mode conversation --turns
     5 --max-turns 5 --suggestions 0 --context-beats 100 --experiment docs/research/experiments/EXP-2026-08-006-turn-latency-overhaul
@@ -46,7 +46,7 @@ environment:
   container: null
 compute:
   hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
-  wall_clock_hours: 0.0441
+  wall_clock_hours: 0.0685
   estimated_cost_usd: 0.0
 llm:
   model: relay/skynet
