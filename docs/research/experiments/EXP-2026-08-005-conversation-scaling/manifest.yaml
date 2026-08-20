@@ -14,10 +14,10 @@ hypothesis: (1) Per-turn total grows across ten turns. (2) The growth is in the 
   pre-generation steps. (3) The prompt cache is largely wasted because the volatile block sits ahead of
   the transcript in the user message. Full statements and falsification conditions in PROTOCOL.md.
 code:
-  commit: 85b9802e5080d4f58556ee4ecba72dc1486d6bd3
+  commit: 2e6a963396b06fb9dd8cdb13258368d3a6be55b5
   branch: conversation-scaling-latency
-  entrypoint: uv run python -m utils.scripts.research.run_conversation_scaling --mode budget --turns 5
-    --max-turns 5 --suggestions 0 --context-beats 100 --experiment docs/research/experiments/EXP-2026-08-005-conversation-scaling
+  entrypoint: uv run python -m utils.scripts.research.run_conversation_scaling --mode conversation --turns
+    10 --max-turns 5 --suggestions 0 --context-beats 100 --experiment docs/research/experiments/EXP-2026-08-005-conversation-scaling
   dirty: true
 config:
   path: null
@@ -30,14 +30,14 @@ data:
   dvc_path: null
   hash: null
 seeds: []
-n_runs: 5
+n_runs: 10
 environment:
   python: '3.13'
   lockfile: env/requirements.lock
   container: null
 compute:
   hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
-  wall_clock_hours: 0.0244
+  wall_clock_hours: 0.281
   estimated_cost_usd: 0.0
 llm:
   model: relay/skynet

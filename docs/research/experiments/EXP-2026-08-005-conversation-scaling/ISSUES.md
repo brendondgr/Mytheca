@@ -100,3 +100,20 @@ prefill directly. Recorded here rather than quietly replaced, because the failur
 a proxy metric that stops being a proxy when an unrelated bug is present — is worth
 remembering.
 **Paper implication:** cite only the re-run for the layout comparison.
+
+## 2026-08-19 — The slow turns were a hanging planner call, not conversation length
+
+**Impact:** an intermediate reading of the post-fix run — that latency has a cliff above
+~5700 prompt tokens — was **wrong and is withdrawn**. It was inferred from two adjacent
+outliers (turns 8 and 9) before the run finished.
+**Cause:** turns 8 and 9 took 355 s and 272 s. The step breakdown attributes them almost
+entirely to a single `plan` call: **300.1 s** (exactly `LLM_GEN_TIMEOUT_SECONDS`) and
+240.6 s. Two independent facts refute the length explanation: turn 10 carried the *largest*
+prompt of the run (6800 tokens) and reached first prose in 9.4 s, and a controlled sweep at
+2464 / 4873 / 7355 prompt tokens measured time-to-first-token at 1.77 / 1.17 / 1.23 s.
+**Resolution:** the finding is re-stated as a **tail**, not a trend: 2 turns in 10 stalled
+in the beat planner, one of them for the full timeout. Because the planner is best-effort,
+the turn did not even error — `failures: 0` — so the player simply waits five minutes.
+**Paper implication:** report per-turn latency as a distribution with a heavy tail, never as
+a mean, and do not attribute the tail to context size. The lesson for the method: two
+adjacent outliers are not a trend, and the run had two more turns left to prove it.
