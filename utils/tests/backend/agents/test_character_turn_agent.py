@@ -269,10 +269,12 @@ def test_the_character_deliberates_once_in_voice_and_not_again_in_hidden_reasoni
     assert "<thinking>" in system
     assert "ONE or TWO sentences" in system
     assert "short paragraph" not in system
-    # The hidden channel is switched off, not merely trimmed: a zero budget alone would
-    # let a template that always opens a thinking block spend it all opening one.
+    # The hidden channel is switched off by the budget key alone — measured on the
+    # deployed route, a 0 budget yields 0 reasoning characters. Forcing the chat
+    # template's own `enable_thinking` flag off as well was tried and rejected: it
+    # suppressed nothing extra and made the model terser.
     assert body.get("thinking_token_budget") == 0
-    assert body.get("chat_template_kwargs") == {"enable_thinking": False}
+    assert "chat_template_kwargs" not in body
 
 
 def test_relationship_note_injected_into_prompt(client, db_session, monkeypatch):

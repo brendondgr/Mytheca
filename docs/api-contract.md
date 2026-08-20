@@ -365,10 +365,10 @@ toggle for it.
 
 - **Efforts → thinking-token budget:** `none` 0 · `low` 256 · `medium` 512 · `high` 1024 ·
   `very_high` 2048 · `max` 4096 (`web/backend/app/schemas/reasoning.py`).
-- **`none` means do not think**, and is enforced with more than a zero budget: a model whose
-  chat template always opens a thinking block would spend the whole allowance opening one and
-  emit no answer, so a zero budget additionally sets `chat_template_kwargs.enable_thinking =
-  false` (the switch Qwen-family templates read; ignored elsewhere).
+- **`none` means do not think**, carried by the ordinary budget key: measured on the deployed
+  vLLM route, a `0` budget produced 0 reasoning characters where `512` produced 826–2084.
+  Also forcing `chat_template_kwargs.enable_thinking = false` was tried and **rejected** — it
+  suppressed nothing extra and made the model terser (15–63 completion tokens against 67–76).
 - **Per call-site:** **the character turn = None** — it deliberates visibly in its
   `<thinking>` block instead, and paying for a hidden pass as well was the largest single
   cost in a turn; **Triage = Low**; the standalone storyline/character/setting drafts + the

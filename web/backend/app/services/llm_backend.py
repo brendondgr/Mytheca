@@ -299,21 +299,16 @@ def apply_reasoning(
     the ``UNKNOWN`` no-op used to produce. Verified against the relay in use: both keys
     together are accepted, and the llama.cpp upstream honours its own.
 
-    A budget of **0** (``ReasoningEffort.NONE``) means "do not think", which a budget key
-    alone does not reliably deliver: a model whose chat template always opens a thinking
-    block will spend the whole allowance opening one and emit no answer — the empty
-    completion EXP-2026-08-005 diagnosed. So a zero budget additionally sets
-    ``chat_template_kwargs.enable_thinking = false``, the switch Qwen-family templates
-    read. An engine or template that does not know the key ignores it, leaving the
-    budget keys as the fallback.
+    A budget of **0** (``ReasoningEffort.NONE``) means "do not think", and the budget key
+    alone delivers it: measured on the deployed vLLM route, a 0 budget produced 0 reasoning
+    characters across three runs where a 512 budget produced 826-2084. Setting
+    ``chat_template_kwargs.enable_thinking = false`` as well was tried and **rejected** —
+    it suppressed nothing extra and made the model measurably terser (15-63 completion
+    tokens against 67-76), which is a behavioural change with no benefit to buy it.
 
     Mutates and returns ``body`` for convenience.
     """
     budget = budget_for(effort)
     for key in budget_keys_for(backend):
         body[key] = budget
-    if budget == 0:
-        kwargs = dict(body.get("chat_template_kwargs") or {})
-        kwargs["enable_thinking"] = False
-        body["chat_template_kwargs"] = kwargs
     return body
