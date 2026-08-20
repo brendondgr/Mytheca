@@ -154,6 +154,13 @@ def run_turn(scenario: str, session: str | None, text: str) -> dict[str, Any]:
     steps: list[str] = []
     prompt_tokens: list[int] = []
     cached_tokens: list[int] = []
+    # Locally-computed prompt reuse (see api-contract "reusablePrefixChars"): the share of
+    # each character prompt that was byte-identical to the previous one in this session.
+    # Recorded separately from `cached_tokens` because this endpoint omits its own cache
+    # counter when the hit is zero — the case most worth catching.
+    reuse_ratios: list[float] = []
+    reasoning_frames = 0
+    first_reasoning: float | None = None
     beats = 0
     session_id = session
     error: str | None = None
@@ -189,6 +196,16 @@ def run_turn(scenario: str, session: str | None, text: str) -> dict[str, Any]:
                         prompt_tokens.append(data["promptTokens"])
                     if isinstance(data.get("cachedTokens"), int):
                         cached_tokens.append(data["cachedTokens"])
+                    reusable = data.get("reusablePrefixChars")
+                    chars = data.get("promptChars")
+                    if isinstance(reusable, int) and isinstance(chars, int) and chars:
+                        reuse_ratios.append(reusable / chars)
+            elif kind == "reasoning":
+                # On the wire by default since the visibility change — and the first thing
+                # the player actually sees, so it is the honest "time to something".
+                reasoning_frames += 1
+                if first_reasoning is None:
+                    first_reasoning = now
             elif kind == "error":
                 error = frame.get("message")
             elif kind in VISIBLE:
@@ -223,6 +240,15 @@ def run_turn(scenario: str, session: str | None, text: str) -> dict[str, Any]:
             round(max(cached_tokens) / max(prompt_tokens), 4)
             if prompt_tokens and cached_tokens and max(prompt_tokens) else None
         ),
+        # Mean over the turn's character calls, not max: every call's reuse matters, and a
+        # single warm call would not tell you the layout is working.
+        "reuse_ratio_mean": (
+            round(sum(reuse_ratios) / len(reuse_ratios), 4) if reuse_ratios else None
+        ),
+        "reuse_ratio_min": round(min(reuse_ratios), 4) if reuse_ratios else None,
+        "planner_calls": len([s for s in steps if s == "planning"]),
+        "reasoning_frames": reasoning_frames,
+        "first_reasoning_s": round(first_reasoning, 3) if first_reasoning is not None else None,
         "trace_steps": len(steps),
     }
 
@@ -246,7 +272,8 @@ def mode_conversation(args, record: RunRecord) -> None:
         print(
             f"turn {turn:>2}: first_visible={row.get('first_visible_s')}s "
             f"total={row.get('total_s')}s beats={row.get('beats')} "
-            f"prompt={row.get('prompt_tokens_max')} cached={row.get('cached_tokens_max')} "
+            f"prompt={row.get('prompt_tokens_max')} reuse={row.get('reuse_ratio_mean')} "
+            f"plan_calls={row.get('planner_calls')} first_reason={row.get('first_reasoning_s')} "
             f"hit={row.get('cache_hit_ratio')}",
             flush=True,
         )

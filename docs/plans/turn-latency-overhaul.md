@@ -1,6 +1,6 @@
 # Turn Latency Overhaul — fewer calls, bounded waits, and a prompt cache that grows
 
-**Status:** in progress
+**Status:** phases 1–5 complete; phase 6 (measurement) running
 **Created:** 2026-08-20
 **Owner:** brendondgr
 **Baseline:** [EXP-2026-08-005](../research/experiments/EXP-2026-08-005-conversation-scaling/RESULTS.md)
@@ -186,10 +186,13 @@ side by side, not only stopwatches it.
   computed locally, always available, and is the thing actually under our control.
 
 #### Step 4.4 — Same discipline for the other transcript-carrying prompts
-- **Locations:** `web/backend/app/agents/narrator_agent.py`, `director_agent.py`,
-  `web/backend/app/services/reflection.py`.
-- **Rationale:** cheap to do once the pattern exists, and it keeps a future edit from
-  reintroducing volatile-before-transcript ordering by imitation.
+- **Locations:** `web/backend/app/agents/reflection_agent.py`.
+- **Rationale:** every present character reflects on the *same* transcript at the end of a
+  turn, so leading with it makes one shared prefix that all of those calls hit.
+- **Narrator and director deliberately excluded.** Both condition on a six-beat window that
+  slides every beat, so there is no stable prefix to protect; reordering them would be
+  prompt churn with a quality risk and no measurable gain. Recorded in `docs/checklist.md`
+  rather than done silently.
 
 > *Action: `uv run pytest utils/tests/backend/services/ utils/tests/backend/agents/`; frontend tests + typecheck. Commit: `[Turn Latency] (4/6) Complete: The prompt is ordered stable → transcript → volatile, behind an anchored window.`*
 
