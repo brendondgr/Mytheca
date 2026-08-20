@@ -400,9 +400,66 @@ def mode_layout(args, record: RunRecord) -> None:
                 )
 
 
+# ---- budget mode ------------------------------------------------------------
+
+
+def mode_budget(args, record: RunRecord) -> None:
+    """Does this endpoint actually honour a thinking-token budget?
+
+    It matters because a model that thinks past its budget produces no prose at all, which
+    reaches the player as a failed turn — 3 of 10 in the conversation run. The app detects
+    the relay as RELAY and therefore sends BOTH engine keys; this checks whether that has
+    any effect, against sending one or none, on a prompt that invites deliberation.
+    """
+    import httpx
+
+    from app.services import llm
+
+    conditions = {
+        "none": {},
+        "vllm-key": {"thinking_token_budget": args.budget},
+        "llamacpp-key": {"thinking_budget_tokens": args.budget},
+        "both-keys": {
+            "thinking_token_budget": args.budget,
+            "thinking_budget_tokens": args.budget,
+        },
+    }
+    messages = [{"role": "user", "content":
+                 "Think carefully about what a fence in a harbour city would say to a "
+                 "stranger offering coin, then reply with one short sentence."}]
+
+    for run in range(1, args.turns + 1):
+        for name, extra in conditions.items():
+            body = {"model": args.model, "messages": messages, "max_tokens": 800,
+                    "temperature": 0.0, **extra}
+            row: dict[str, Any] = {"run": run, "condition": name}
+            try:
+                with httpx.Client(timeout=httpx.Timeout(300.0, connect=5.0)) as client:
+                    res = client.post(f"{args.base_url}/chat/completions", json=body)
+                    payload = res.json()
+                choice = (payload.get("choices") or [{}])[0]
+                message = choice.get("message") or {}
+                reasoning = llm._reasoning_field(message)
+                row.update({
+                    "reasoning_chars": len(reasoning),
+                    "content_chars": len(message.get("content") or ""),
+                    "completion_tokens": (payload.get("usage") or {}).get("completion_tokens"),
+                    "finish_reason": choice.get("finish_reason"),
+                })
+            except Exception as exc:
+                row["error"] = f"{exc.__class__.__name__}: {exc}"
+                record.note(f"run {run} {name} FAILED: {row['error']}")
+            record.add_run(row)
+            record.llm_calls += 1
+            print(f"run {run} {name:<13}: reasoning={row.get('reasoning_chars')} "
+                  f"content={row.get('content_chars')} "
+                  f"completion_tokens={row.get('completion_tokens')} "
+                  f"finish={row.get('finish_reason')}", flush=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("conversation", "layout"), required=True)
+    parser.add_argument("--mode", choices=("conversation", "layout", "budget"), required=True)
     parser.add_argument("--turns", type=int, default=10)
     parser.add_argument("--max-turns", type=int, default=5)
     parser.add_argument("--suggestions", type=int, default=0)
@@ -412,6 +469,8 @@ def main() -> int:
     parser.add_argument("--sizes", default="",
                         help="layout mode: comma-separated history lengths to sample "
                              "(e.g. 10,50,100,200,400) instead of walking 1..turns")
+    parser.add_argument("--budget", type=int, default=128,
+                        help="budget mode: thinking-token budget to request")
     parser.add_argument("--retries", type=int, default=2,
                         help="retries per call; the deployed endpoint intermittently returns empty")
     parser.add_argument("--passes", type=int, default=2,
@@ -431,7 +490,8 @@ def main() -> int:
     )
     record = RunRecord(entrypoint=entrypoint)
     started = time.monotonic()
-    (mode_conversation if args.mode == "conversation" else mode_layout)(args, record)
+    {"conversation": mode_conversation, "layout": mode_layout,
+     "budget": mode_budget}[args.mode](args, record)
     record.wall_clock_seconds = time.monotonic() - started
 
     failures = sum(1 for r in record.per_run if r.get("error"))

@@ -104,9 +104,56 @@ fixes the *diagnosis*: a model that spends its whole budget thinking still produ
 prose, and whether the thinking budget is honoured by this vLLM build is a separate
 question.
 
-## Prompt layout vs. prefill
+## Prompt layout vs. prefill — no measurable difference at these sizes
 
-_Filled in from the re-run; see ISSUES.md for why the first attempt is superseded._
+Ten history lengths × two layouts × two counterbalanced passes, against the fixed parser
+(so the timed first token is the first *reasoning* token, which follows prefill directly).
+
+| history (turns) | prompt tokens | `volatile-first` TTFT (s) | `volatile-last` TTFT (s) |
+| --- | --- | --- | --- |
+| 1 | 566 | 0.51 | 0.50 |
+| 3 | 781 | 0.88 | 0.34 |
+| 5 | 1000 | 0.75 | 0.42 |
+| 7 | 1220 | 0.54 | 0.48 |
+| 10 | 1549 | 0.58 | 0.94 |
+
+Means across all ten lengths: **0.59 s vs 0.55 s**. There is no effect here — the two
+series interleave, and neither grows meaningfully with prompt size. **H3's prediction that
+reordering would improve prefill is not supported at 0.5–1.5 k tokens.**
+
+That is consistent with the conversation run rather than in tension with it: prefill of a
+one-to-two-thousand-token prompt on this GPU costs a few hundred milliseconds, so the
+several hundred tokens the reordering would additionally cache are worth far less than the
+measurement noise. **The cache is genuinely being wasted (measured directly, below), but at
+these context sizes the waste is not worth reclaiming.** Whether it becomes worth it at
+20 k+ tokens is untested; the probe tops out at 1549.
+
+## The thinking budget is load-bearing on this endpoint
+
+Five runs per condition at temperature 0, on a prompt that invites deliberation. Every run
+in a condition returned **identical** figures, so the effect is not subtle:
+
+| budget keys sent | reasoning chars | answer chars | completion tokens | finish reason |
+| --- | --- | --- | --- | --- |
+| none | 3075 | **0** | 800 | **length** |
+| `thinking_token_budget` (vLLM) | 532 | 42 | 143 | stop |
+| `thinking_budget_tokens` (llama.cpp) | 3075 | **0** | 800 | **length** |
+| both | 532 | 42 | 143 | stop |
+
+**Without the vLLM key this prompt never produces an answer** — 5/5 runs thought for 3075
+characters, emitted nothing, and died at the token limit. That is the turn failure,
+reproduced deterministically. With the key, reasoning drops 5.8× and the model answers in
+143 tokens instead of exhausting 800.
+
+The llama.cpp key alone does nothing here, and sending both is indistinguishable from
+sending the vLLM key alone — so the relay-detection change from EXP-2026-08-003 (classify
+an unpinnable endpoint as `RELAY` and send **both** keys rather than none) is validated:
+on this endpoint it is the difference between a scene that works and one that fails.
+
+This also bounds a claim EXP-2026-08-003 could not settle. There, capping the reasoning did
+not reduce completion tokens on the `local` route (592 ± 108 → 607 ± 25). Here it reduces
+them 800 → 143. The cap's value is endpoint-specific, and on the deployed GPU it is the
+difference between an answer and no answer at all.
 
 ## Threats to validity
 
