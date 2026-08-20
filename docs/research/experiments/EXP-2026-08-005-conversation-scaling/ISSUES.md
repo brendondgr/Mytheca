@@ -45,3 +45,40 @@ their spoken line are one beat, not two.
 "first visible" (it is the first thing a player sees) but not toward the beat cap.
 **Paper implication:** none, but it is a reminder that a cap "exceeded" by one is more
 often an instrument error than an engine error.
+
+## 2026-08-19 — 3 of 10 turns died mid-turn, and the cause was a bug in the app
+
+**Impact:** turns 1, 2 and 4 of the conversation run terminated early with an error frame,
+so their beat counts and totals describe truncated turns. They are kept in the record and
+marked; no aggregate is computed over the survivors.
+**Cause:** `The model returned an empty response.` The diagnostic logging added during
+this experiment identified it: `0 delta(s), 0 raw answer char(s), 0 reasoning char(s),
+finish_reason='length'`. The model had spent its entire budget on reasoning — which the
+app could not see, because vLLM streams deliberation as `delta.reasoning` while the parser
+read only llama.cpp's `delta.reasoning_content`.
+**Resolution:** `llm._reasoning_field` now reads both spellings. Note this fixes the
+*diagnosis*, not necessarily the failure: a model that spends its whole budget thinking
+still produces no prose. Whether the thinking budget is honoured by this vLLM build is a
+separate question, measured below.
+**Paper implication:** the pre-fix failure rate (3/10) is a property of the app as shipped
+on 2026-08-19, not of the model. Quote it as such.
+
+## 2026-08-19 — The layout probe ran against the pre-fix parser
+
+**Impact:** none on `ttft_s`, which is what the layout comparison uses. The probe's
+`cached_tokens` was already unavailable on this endpoint, and its reasoning was never part
+of the measurement.
+**Cause:** the probe process was started before the `_reasoning_field` fix landed and kept
+the old module in memory.
+**Resolution:** none needed — disclosed rather than silently re-run, since the metric in
+question does not touch the affected code path.
+
+## 2026-08-19 — Two milestone marks can share a timestamp, so one shows a zero gap
+
+**Impact:** cosmetic, in the step-gap table only. `first_visible` and `first_narration`
+are recorded at the same instant when narration is the first visible frame; sorting puts
+one first and it absorbs the whole gap while the other reads 0.0 s.
+**Cause:** `_gaps` attributes the interval to whichever of two equal timestamps sorts
+first.
+**Resolution:** none — accepted. Read `first_visible` as the milestone and ignore the
+paired zero.
