@@ -650,6 +650,12 @@ def run_turn(
         acted.append(pov_id)
     max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
     scene_beats = len(puppet_members) + (1 if narrated_open else 0)
+    # How many characters have actually spoken prose this turn (puppets included — the
+    # player directed them, but they still took a beat). The exchange guard below reads it.
+    spoke = len(puppet_members)
+    # The guard fires at most once a turn: it is there to stop a scene ending on a single
+    # line, not to keep a conversation going by force.
+    forced_exchange = False
     needs_branch = False
     # The turn stopped to ask the player where the story should go (planner "ask"). It is
     # the last word of the turn: no holding narration, no follow-up suggestions stacked
@@ -765,6 +771,7 @@ def run_turn(
                     direction=direction, requirements=owed, tracer=tracer,
                 )
                 acted.append(forced_actor.id)
+                spoke += 1
             beats += 1
             scene_beats += 1
             continue
@@ -780,6 +787,53 @@ def run_turn(
             )
             break
         if decision.action == "end":
+            # A room with two people in it should not answer the player with one line and
+            # stop. The owner's word for what is wanted is "back and forth", and the
+            # ps_c015c506b1 export is the failure: two characters present, the player asks
+            # for a moment between THEM, and the turn is Fennel alone followed by "the turn
+            # ends — direction satisfied". Valdar never answers.
+            #
+            # So the planner's first `end` is refused once, when a present character has
+            # not spoken at all and fewer than two have. Once only, and never when the cast
+            # is a single character: this is a floor under the exchange, not a quota.
+            others = [m for m in ctx.cast if m.is_present and m.id != pov_id]
+            silent = [m for m in others if m.id not in acted]
+            if not forced_exchange and spoke < 2 and silent and len(others) >= 2:
+                forced_exchange = True
+                planned.clear()
+                responder = silent[0]
+                yield from tracer.emit(
+                    "speaker",
+                    f"{responder.name} answers",
+                    detail=(
+                        "The turn would have ended on one line with someone still in the "
+                        "room who had not spoken."
+                    ),
+                    # ``register``/``stakes`` ride on every speaker step so the client never
+                    # has to guess whether the engine omitted them or the planner had
+                    # nothing to say (an empty string means the latter).
+                    data={
+                        "characterId": responder.id,
+                        "name": responder.name,
+                        "exchange": True,
+                        "register": decision.register or "",
+                        "stakes": decision.stakes or "",
+                    },
+                )
+                note = _relationship_note(
+                    ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id]
+                )
+                yield from _generate_speaker(
+                    db, ctx, responder, emitter, turn_beats, consequences,
+                    show_reasoning=show_reasoning, relationship_note=note,
+                    register=decision.register, stakes=decision.stakes,
+                    direction=direction, tracer=tracer,
+                )
+                acted.append(responder.id)
+                beats += 1
+                scene_beats += 1
+                spoke += 1
+                continue
             # Every step that stops the beat loop carries ``data.end = True`` — the
             # structured signal the story player's turn-status strip reads to say "the turn
             # is ending". The titles are prose and will drift; the flag will not.
@@ -900,6 +954,7 @@ def run_turn(
         acted.append(actor.id)
         beats += 1
         scene_beats += 1
+        spoke += 1
     # A player who typed a line always gets a scene back. The beat loop can reach `end`
     # having produced nothing at all — a planner that misreads the moment, a fallback with
     # nobody selectable, an intent aimed at a character who cannot be chosen. Turns 8 and 9
@@ -922,7 +977,13 @@ def run_turn(
                 "speaker",
                 f"{responder.name} responds",
                 detail="Nothing had been played yet this turn — the scene answers rather than ending in silence.",
-                data={"characterId": responder.id, "name": responder.name, "backstop": True},
+                data={
+                    "characterId": responder.id,
+                    "name": responder.name,
+                    "backstop": True,
+                    "register": "",
+                    "stakes": "",
+                },
             )
             note = _relationship_note(
                 ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id]
