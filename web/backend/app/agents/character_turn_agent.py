@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from app.agents import prompt_registry
 from app.agents._common import gen_params, resolve_llm
 from app.core.config import get_settings
+from app.schemas.base import DEFAULT_BEAT_LENGTH
 from app.schemas.reasoning import ReasoningEffort, budget_for
 from app.schemas.settings import LlmParams
 from app.services import llm
@@ -127,6 +128,43 @@ _REGISTER_DIRECTIVES = {
         "be cocky, do not deflect with a joke."
     ),
 }
+
+# How much this character says in one beat — the per-scene ``beat_length``, set from the
+# scene config menu. Stated as a PARAGRAPH count, deliberately, and never as a word count.
+#
+# A countable word target has already been tried on this codebase and failed: a "usually
+# 80–200 words" instruction moved the average passage *up* rather than down
+# (EXP-2026-08-007 § Secondary finding). A model cannot count words while writing, so a
+# numeric target reads to it as a description of the register — long, careful prose — and it
+# obliges. Paragraphs are different in kind: the model is already producing them
+# deliberately and reliably (3.89 ± 1.29 measured in EXP-2026-08-009), so a paragraph count
+# asks it to control an axis it already controls.
+#
+# Quoted dialogue is exempted from the per-paragraph sentence guidance in so many words. A
+# spoken line is not a sentence of description, and charging it as one would make the
+# instruction trade away the very thing the prose fix was for.
+#
+# The tiers are the owner's, verbatim. Note that ``long`` is LONGER than what shipped before
+# this control existed; ``medium`` is the default and the closest match to it.
+_BEAT_LENGTH_DIRECTIVES = {
+    "short": (
+        "LENGTH: keep this beat SHORT — one or two paragraphs, no more. Say the one thing "
+        "that matters and stop; leave the rest for your next turn."
+    ),
+    "medium": (
+        "LENGTH: two to four paragraphs for this beat."
+    ),
+    "long": (
+        "LENGTH: give this beat room — five or six paragraphs. Let it breathe: what you "
+        "notice, what you do, what you say, and what it costs you."
+    ),
+}
+#: Appended to whichever directive applies. Split out because it is the same rule at every
+#: tier and repeating it three times invites the three copies to drift.
+_BEAT_LENGTH_SHAPE = (
+    " Keep each paragraph to three or four sentences at most — lines of spoken dialogue do "
+    "not count toward that."
+)
 
 # Default output contract text now lives in ``prompt_registry`` (single source of truth
 # for editable writing prompts); resolved per-turn text rides on ``ctx.prompts``.
@@ -500,6 +538,17 @@ def _build_user_prompt(
             "let it shape how you come across. Drop your usual manner if the moment calls for it "
             "(grief, fear, urgency, tenderness); don't answer on autopilot."
         )
+    # How much to say. In the TAIL, not the STABLE head: it is per-scenario, and a
+    # per-scenario value in the head would break the byte-stable prompt-cache prefix
+    # (`test_prompt_cache_prefix.py`). Placed after the register directive — which shapes
+    # *how* the beat sounds — because length is a property of the delivery, not of the
+    # moment, and before the owed-requirements block, which has to stay last.
+    tail.append(
+        _BEAT_LENGTH_DIRECTIVES.get(
+            getattr(ctx, "beat_length", DEFAULT_BEAT_LENGTH), _BEAT_LENGTH_DIRECTIVES["medium"]
+        )
+        + _BEAT_LENGTH_SHAPE
+    )
     if ctx.directed_at == speaker.id:
         tail.append("The player addressed you directly.")
     if speaker.disposition:

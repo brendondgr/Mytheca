@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.core.config import get_settings
 from app.memory import buffer
 from app.models import Character, Scenario, Setting, Storyline
@@ -317,3 +319,41 @@ def test_selection_falls_back_to_all_when_nothing_matches():
 def test_selection_tolerates_junk_rows():
     assert assembler.select_voice_samples(None, "tense") == []
     assert assembler.select_voice_samples(["not a dict", 7], "tense") == []
+
+
+def test_beat_length_is_carried_onto_the_context(db_session):
+    """The per-scene tier reaches `TurnContext`, which is the only way it reaches the prompt.
+
+    `character_turn_agent` takes a `TurnContext`, never a `Scenario`, so a tier that stops
+    here never reaches a beat and the dropdown does nothing.
+    """
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")
+    sc = _scenario(db_session, ["c_mei"])
+    sc.beat_length = "long"
+    db_session.commit()
+    session = events_store.create_session(db_session, sc.id)
+
+    assert assembler.assemble_context(db_session, sc, session.id).beat_length == "long"
+
+
+# `None` is absent deliberately: the column is NOT NULL, so a null tier cannot be stored
+# and asserting on it here would be testing SQLite rather than the normalisation. The
+# in-memory `None` case is covered where it is reachable —
+# `agents/test_beat_length_directive.py`, on a directly-constructed context.
+@pytest.mark.parametrize("stored", ["", "tiny", "SHORT", "extra-long"])
+def test_an_unknown_stored_tier_normalises_to_medium(db_session, stored):
+    """Normalised at the assembler, not at the prompt.
+
+    The schema rejects an unknown tier on the way in, but a legacy row written before the
+    column existed, a hand-edited database, or a fixture built straight from the model can
+    still carry one. Resolving it here means every consumer downstream sees a real tier.
+    """
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")
+    sc = _scenario(db_session, ["c_mei"])
+    sc.beat_length = stored
+    db_session.commit()
+    session = events_store.create_session(db_session, sc.id)
+
+    assert assembler.assemble_context(db_session, sc, session.id).beat_length == "medium"

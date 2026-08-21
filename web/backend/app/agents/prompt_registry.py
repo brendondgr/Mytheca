@@ -62,7 +62,7 @@ He does not move. Neither do I.
 
 Write yours the same way:
 - Say something out loud, in "double quotes", inside the passage. A scene where nobody speaks is not a scene. Stay silent only if you are alone, or if refusing to answer IS your move.
-- Put a blank line between paragraphs. Two or three of them. Never one block of text.
+- Put a blank line between paragraphs. Never one block of text.
 - Ordinary sentences that end. Never one long breathless line.
 - What you notice, what you do, and what you say, woven together — not listed.
 
