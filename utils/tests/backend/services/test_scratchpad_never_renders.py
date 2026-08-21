@@ -79,3 +79,26 @@ def test_scene_prose_without_the_vocabulary_is_never_caught():
 def test_an_empty_passage_is_not_a_leak():
     assert looks_like_scratchpad("") is False
     assert looks_like_scratchpad("   \n ") is False
+
+
+def test_a_passage_that_opens_lowercase_never_started():
+    """Observed live: a 62-character fragment of the model's own notes reached the page.
+
+    ``looks_like_scratchpad`` cannot see it — it contains "my", so the first-person test
+    exempts it, and its vocabulary is ordinary. What gives it away is that it begins in the
+    middle of a sentence.
+    """
+    from app.services.emission import starts_mid_sentence
+
+    assert starts_mid_sentence("flat composure build in my own voice rather than restating it.")
+    assert starts_mid_sentence("and then the door") is True
+
+
+def test_an_ordinary_opening_is_not_a_fragment():
+    from app.services.emission import starts_mid_sentence
+
+    assert starts_mid_sentence(GOOD) is False
+    assert starts_mid_sentence('"You already knew," I say.') is False  # opens on a quote
+    assert starts_mid_sentence("— and there it is.") is False  # opens on a dash
+    assert starts_mid_sentence("...I let it sit.") is False  # opens on an ellipsis
+    assert starts_mid_sentence("") is False

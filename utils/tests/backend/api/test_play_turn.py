@@ -128,7 +128,10 @@ def test_reasoning_leak_stripped_from_character_emission(client, storyline_id, m
         '* Dialogue: "A storm is a chaotic thing."\n'
         "<channel|>\n"
         "<speaker:1>\n"
-        "slowly circles them, scent intensifying\n"
+        # Capitalised because a passage opening on a lowercase letter is discarded as a
+        # fragment (``emission.starts_mid_sentence``); the lowercase opening was the old
+        # ``character_action`` fragment style, which is not what this test is about.
+        "She slowly circles them, scent intensifying\n"
         '"A storm is a chaotic thing—loud, frantic."'
     )
     _configure_llm(client)

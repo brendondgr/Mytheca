@@ -1387,6 +1387,14 @@ def _stream_emission(
             )
         held.append(seg)
         held_text += seg.text
+        # A passage that opens on a lowercase letter never started — it is the tail of
+        # something the model was saying to itself, and it is judged on the first word
+        # rather than on the window, because the early release below would let it through
+        # (the observed fragment said "my", so the first-person test exempted it).
+        if emission.starts_mid_sentence(held_text):
+            scratchpad = True
+            held = []
+            return 0
         # Release the moment the passage proves itself — a first-person pronoun is what a
         # leaked scratchpad never has, and most passages clear it inside their first
         # sentence. Without this early exit the hold would turn every short beat into a

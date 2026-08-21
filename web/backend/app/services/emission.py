@@ -182,6 +182,24 @@ def in_the_scene(text: str) -> bool:
     return bool(_FIRST_PERSON_RE.search(text or ""))
 
 
+def starts_mid_sentence(text: str) -> bool:
+    """True when a passage opens on a lowercase letter — a fragment, not an opening.
+
+    The contract says to start in the scene on the first word, and a passage that begins
+    lowercase has not started: it is the tail of something the model was saying to itself.
+    A live beat came through as the 62-character *"flat composure build in my own voice
+    rather than restating it."*, which :func:`looks_like_scratchpad` cannot see — it says
+    "my", so the first-person test exempts it, and its vocabulary is ordinary.
+
+    Deliberately narrow: only a lowercase LETTER counts, so a passage opening on a quote
+    mark, an ellipsis or a dash is untouched. Stylised all-lowercase prose is a real style
+    and this would cost it one regeneration; that is the trade, and it is worth it against
+    a fragment reaching the page.
+    """
+    stripped = (text or "").lstrip()
+    return bool(stripped) and stripped[0].isalpha() and stripped[0].islower()
+
+
 def _clean(body: str) -> str:
     """Strip any residual emission tags from a body and trim."""
     return _TAG_CLEAN.sub("", body).strip()
