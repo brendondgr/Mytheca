@@ -498,7 +498,7 @@ def run_turn(
         "Reading your message",
         detail="Working out whether you are narrating, addressing someone, or directing.",
     )
-    intent = intent_agent.interpret(db, ctx, text)
+    intent = intent_agent.interpret(db, ctx, text, locked_id=pov_id)
     # A UI-set target (e.g. a branch selection) addresses that character explicitly.
     if (
         req.directed_at
@@ -850,6 +850,49 @@ def run_turn(
         acted.append(actor.id)
         beats += 1
         scene_beats += 1
+    # A player who typed a line always gets a scene back. The beat loop can reach `end`
+    # having produced nothing at all — a planner that misreads the moment, a fallback with
+    # nobody selectable, an intent aimed at a character who cannot be chosen. Turns 8 and 9
+    # of the ps_0bf9ddc13b session were exactly that: intent → planning → "the turn ends",
+    # no prose, no explanation. The upstream causes are fixed above; this is the defence
+    # that does not depend on having diagnosed all of them.
+    # ``scene_beats`` counts only prose the ENGINE produced this turn — it starts at the
+    # puppet beats plus a narrated open, and rises per beat. Deliberately not a scan of
+    # ``turn_beats``: under Player POV the player's own line is seeded there as a character
+    # beat, so that would read the player's own words back as "the scene answered".
+    if scene_beats == 0:
+        responder = next(
+            (m for m in ctx.cast if m.is_present and m.id != pov_id and m.id in intent.addressed),
+            next((m for m in ctx.cast if m.is_present and m.id != pov_id), None),
+        )
+        if responder is not None:
+            yield from tracer.emit(
+                "speaker",
+                f"{responder.name} responds",
+                detail="Nothing had been played yet this turn — the scene answers rather than ending in silence.",
+                data={"characterId": responder.id, "name": responder.name, "backstop": True},
+            )
+            note = _relationship_note(
+                ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id]
+            )
+            yield from _generate_speaker(
+                db, ctx, responder, emitter, turn_beats, consequences,
+                show_reasoning=show_reasoning, relationship_note=note,
+                direction=direction, tracer=tracer,
+            )
+            beats += 1
+        elif ctx.cast:
+            yield from tracer.emit(
+                "plan",
+                "The narrator carries the moment",
+                detail="Nobody was selectable, so the scene is narrated rather than left blank.",
+                data={"backstop": True},
+            )
+            yield from _narrator_interstitial(
+                db, ctx, turn_beats, emitter, show_reasoning=show_reasoning
+            )
+            beats += 1
+
     if beats >= max_beats:  # loop exhausted without an explicit end (runaway backstop)
         yield from tracer.emit(
             "plan",

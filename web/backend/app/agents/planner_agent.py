@@ -307,7 +307,12 @@ def _fallback_beat(
     An outstanding ``direction`` outranks all of that: what the player asked for is owed
     whether or not the planner call succeeded, so the next unsatisfied requirement picks
     the beat (its owner speaks; a narrator-owned one narrates)."""
-    acted_set = set(acted)
+    # The POV character is pre-marked as having acted so a broadcast never re-selects the
+    # character the player voices. That is NOT the same as "the turn has been answered", and
+    # conflating the two is what ended turns 8 and 9 of the ps_0bf9ddc13b session in silence:
+    # under POV `acted` is never empty, so the "somebody responds" last resort below could
+    # never fire. Only beats taken by a selectable character count as an answer.
+    acted_set = {cid for cid in acted if cid != locked_id}
     present = [m for m in ctx.cast if m.is_present and m.id != locked_id]  # only selectable
     if not present:
         return BeatDecision("end", reason="no one present")
@@ -326,7 +331,7 @@ def _fallback_beat(
         member = ctx.cast_by_id(cid)
         if cid != locked_id and cid not in acted_set and member is not None and member.is_present:
             return BeatDecision("speak", actor_id=cid, reason="addressed")
-    if not acted and not scene_opening:  # freeform mid-scene — one character responds
+    if not acted_set and not scene_opening:  # freeform mid-scene — one character responds
         return BeatDecision("speak", actor_id=present[0].id, reason="responds")
     return BeatDecision("end", reason="direction satisfied")
 
