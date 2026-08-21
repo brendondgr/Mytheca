@@ -299,7 +299,7 @@ def test_the_beat_bounds_both_the_scratchpad_and_the_passage(
     # and set to 48,000 on the install where this was found, from being spent on one spoken
     # beat. Passing it through produced a 48,000-token generation that took the endpoint down.
     assert character_turn_agent._VOICE_PROSE_TOKENS == 2048
-    assert body["max_tokens"] == 1024 + 2048
+    assert body["max_tokens"] == 1024 * character_turn_agent._SCRATCHPAD_HEADROOM + 2048
     # The character still deliberates in POV, inside the passage.
     assert "from inside that character, in their own voice" in system
     assert "<thinking>" not in system
@@ -783,7 +783,7 @@ def test_the_operators_global_max_tokens_is_not_spent_on_one_beat():
     from app.schemas.settings import LlmParams
 
     out = character_turn_agent._voice_params(LlmParams(max_tokens=48_000))
-    assert out.max_tokens == 1024 + 2048
+    assert out.max_tokens == 1024 * character_turn_agent._SCRATCHPAD_HEADROOM + 2048
     # ...and the stock 512 default never reaches the request either: it is a default rather
     # than a decision and cannot even cover 1,024 tokens of thinking.
     assert character_turn_agent._voice_params(LlmParams()).max_tokens > 512
@@ -799,8 +799,17 @@ def test_a_ceiling_put_back_is_added_to_the_thinking_budget_not_taken_from_it(mo
     from app.schemas.reasoning import ReasoningEffort, budget_for
     from app.schemas.settings import LlmParams
 
+    from app.agents._common import GEN_MIN_TOKENS
+
     monkeypatch.setattr(character_turn_agent, "_VOICE_PROSE_TOKENS", 1200)
-    for effort in (ReasoningEffort.QUICK, ReasoningEffort.HIGH, ReasoningEffort.MAX):
+    for effort in (ReasoningEffort.QUICK, ReasoningEffort.HIGH):
         out = character_turn_agent._voice_params(LlmParams(), reasoning=effort)
-        # Whatever the effort, the passage is left the same room to be written in.
-        assert out.max_tokens - budget_for(effort) == 1200
+        # Whatever the effort, the passage is left the same room to be written in — the
+        # scratchpad's headroom scales with its budget, the prose allowance does not.
+        headroom = budget_for(effort) * character_turn_agent._SCRATCHPAD_HEADROOM
+        assert out.max_tokens - headroom == 1200
+
+    # ...unless the operator's own budget is smaller than the sum, in which case theirs
+    # wins. At MAX the scratchpad's headroom alone (8,192) already fills the floor.
+    out = character_turn_agent._voice_params(LlmParams(), reasoning=ReasoningEffort.MAX)
+    assert out.max_tokens == GEN_MIN_TOKENS

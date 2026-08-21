@@ -155,6 +155,13 @@ _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONT
 #: endpoint.
 _VOICE_PROSE_TOKENS: int | None = 2048
 
+#: How much of the thinking budget to actually pay for. ``thinking_token_budget`` is a hint
+#: on this endpoint, not a hard stop, so a deliberation can run past it and eat the room the
+#: passage needs — which is how a beat in the live verification run came back as reasoning
+#: with no prose. Two is generous enough that the overshoot never reaches the passage and
+#: costs nothing when it does not happen: the model stops when it is done, not at the cap.
+_SCRATCHPAD_HEADROOM = 2
+
 
 def _voice_params(
     params: LlmParams,
@@ -171,9 +178,18 @@ def _voice_params(
     Capping the request at the passage allowance alone starves the answer: with the two set
     equal at 1,200, a live turn spent the whole budget deliberating and came back as
     reasoning with no prose at all ("the model spent its whole budget thinking and never
-    answered"). The cap applies to the ``gen_params`` floor, not to the operator's raw
-    ``max_tokens`` — that field defaults to 512, which is a default rather than a choice
-    and would starve every beat on a stock install.
+    answered").
+
+    The scratchpad is given :data:`_SCRATCHPAD_HEADROOM` times its budget, because
+    ``thinking_token_budget`` is a HINT on this endpoint rather than a hard stop — a probe
+    at a 1,024-token budget came back with 4,193 and 3,121 characters of reasoning, which
+    hovers at the budget and can pass it. Without the headroom a long deliberation eats the
+    passage's room and the beat returns nothing; a beat starved exactly this way in the live
+    verification run. It costs nothing when it is not used, since the model stops on its own.
+
+    The cap applies to the ``gen_params`` floor, not to the operator's raw ``max_tokens`` —
+    that field defaults to 512, which is a default rather than a choice and would starve
+    every beat on a stock install.
     """
     top_p, frequency, presence = _REGISTER_SAMPLER.get(
         register or "", (_VOICE_TOP_P, _VOICE_FREQUENCY_PENALTY, _VOICE_PRESENCE_PENALTY)
@@ -187,7 +203,7 @@ def _voice_params(
     )
     if not _VOICE_PROSE_TOKENS:
         return tuned
-    budget = budget_for(reasoning) + _VOICE_PROSE_TOKENS
+    budget = budget_for(reasoning) * _SCRATCHPAD_HEADROOM + _VOICE_PROSE_TOKENS
     return tuned.model_copy(update={"max_tokens": min(tuned.max_tokens, budget)})
 
 

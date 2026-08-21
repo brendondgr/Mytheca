@@ -26,3 +26,19 @@ characters with 8/10/10 terminators and 4/6/4 quote characters.
   therefore contaminated for any held-out use.
 - No significance test. See `PROTOCOL.md` § Analysis for why, and read the standard
   deviations rather than the means alone.
+
+## Incidental observation: `thinking_token_budget` is a hint, not a hard stop
+
+Not a metric of this experiment and not in `manifest.yaml` — recorded here because it was
+measured during the same session and a number that is stated anywhere has to be traceable.
+
+Two direct probes against the same endpoint, with `thinking_token_budget: 1024` and the
+shipped character contract, returned **4,193** and **3,121** characters of reasoning
+(`max_tokens` 3072 and 8192 respectively). Reasoning therefore hovers around the requested
+budget and can pass it. n = 2, one prompt, no arms — an observation, not a finding.
+
+It matters because thinking and answer share one `max_tokens`: an overshooting scratchpad
+eats the room the passage needs, and a beat in the live verification run came back as
+reasoning with no prose for exactly that reason. `character_turn_agent._SCRATCHPAD_HEADROOM`
+pays for twice the budget as a result. Establishing the actual distribution would need its
+own experiment.
