@@ -260,10 +260,10 @@ def test_no_disposition_omits_inner_stance(client, db_session, monkeypatch):
     assert "let <thinking> build on it" not in user
 
 
-def test_the_beat_has_a_bounded_scratchpad_and_an_unbounded_passage(
+def test_the_beat_bounds_both_the_scratchpad_and_the_passage(
     client, db_session, monkeypatch
 ):
-    """Thinking is capped at 1024 tokens; the prose is not capped at all.
+    """Thinking is capped at 1024 tokens; the passage at a generous ~900 words.
 
     Running with the reasoning channel OFF left deliberation nowhere to go, and a live run
     caught the model writing its scratchpad into the passage and degenerating into a
@@ -287,8 +287,12 @@ def test_the_beat_has_a_bounded_scratchpad_and_an_unbounded_passage(
     body = json.loads(capture["body"])
     system = body["messages"][0]["content"]
     assert body.get("thinking_token_budget") == 1024
-    # The passage is not held to a length: no cap below the operator's own ceiling.
-    assert body["max_tokens"] >= 8192
+    # The passage ceiling is generous — several long paragraphs — but it exists. Uncapped
+    # output was measured twice and made the writing worse: beats averaged 8,228 then
+    # 10,184 characters of drift, and prompt guidance did not bind it.
+    # The ceiling only ever caps — an operator configuring less still gets less.
+    assert body["max_tokens"] <= character_turn_agent._VOICE_MAX_TOKENS
+    assert character_turn_agent._VOICE_MAX_TOKENS == 1200
     # The character still deliberates in POV, inside the passage.
     assert "from inside that character, in their own voice" in system
     assert "<thinking>" not in system

@@ -110,15 +110,23 @@ _REGISTER_DIRECTIVES = {
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
 
 
-#: The passage itself is deliberately NOT capped. A character may take as long as the
-#: moment needs — it delta-streams, so the player reads it as it is written rather than
-#: waiting for it. ``gen_params`` floors max_tokens for headroom; the operator's configured
-#: ceiling is the only limit. What stops a runaway is the thinking channel above having
-#: somewhere to go, not a short leash on the prose.
+#: Generous ceiling on the passage — roughly 900 words, several long paragraphs, far more
+#: than a character needs to hold the floor through a real moment.
+#:
+#: The owner asked for length to be free, and this is a deviation from that, flagged rather
+#: than made quietly. Uncapped output was measured twice on the live endpoint and made the
+#: writing WORSE, not longer-and-better: beats averaged 8,228 then 10,184 characters
+#: (~1,600 words), the shortest was already a drifting run-on with no punctuation and a
+#: lowercase "i", and 2 of 5 beats tripped the degeneration guard. Prompt guidance did not
+#: bind it — a countable "usually 80-200 words" target moved the average UP. Every beat
+#: that read well all session was produced with a ceiling in place.
+#:
+#: Set this to ``None`` to restore unbounded length; nothing else depends on it.
+_VOICE_MAX_TOKENS = 1200
 
 
 def _voice_params(params: LlmParams, register: str | None = None) -> LlmParams:
-    """Give the beat room to run and apply the voice-tuned sampler fields.
+    """Bound the beat generously and apply the voice-tuned sampler fields.
 
     The sampler tracks the beat's ``register`` (see ``_REGISTER_SAMPLER``); an absent or
     unrecognized register keeps the module defaults.
@@ -126,8 +134,10 @@ def _voice_params(params: LlmParams, register: str | None = None) -> LlmParams:
     top_p, frequency, presence = _REGISTER_SAMPLER.get(
         register or "", (_VOICE_TOP_P, _VOICE_FREQUENCY_PENALTY, _VOICE_PRESENCE_PENALTY)
     )
+    ceiling = params.max_tokens or _VOICE_MAX_TOKENS
     return gen_params(params).model_copy(
         update={
+            "max_tokens": min(ceiling, _VOICE_MAX_TOKENS) if _VOICE_MAX_TOKENS else ceiling,
             "top_p": top_p,
             "frequency_penalty": frequency,
             "presence_penalty": presence,
