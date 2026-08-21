@@ -1,82 +1,136 @@
-# Experiment manifest — the machine-readable record.
-#
-# Every field below is required unless marked OPTIONAL. `make new-experiment`
-# pre-fills id, slug, dates, and the whole `code:` block from git.
-#
-# Do not delete a field you cannot fill. Write `unknown` and explain in ISSUES.md.
-# A back-filled experiment with three honest fields beats one with ten invented ones.
-
 id: EXP-2026-08-007
 slug: prose-form
-title: <one line, specific enough to read in a table>
-status: planned            # planned | running | complete | failed | superseded
+title: In-voice frequency/presence penalties destroy sentence structure in character prose
+status: complete
 date_started: 2026-08-21
-date_completed: null       # null until status is complete or failed
-authors: [<name>]
+date_completed: '2026-08-21'
+authors:
+- brendondgr
+purpose: 'The character passage form ships and does not read like a scene: run-ons with no punctuation,
+  no spoken dialogue, one unbroken block. This asks whether the in-voice sampler penalties applied by
+  character_turn_agent._voice_params are the cause, so the fix can be set from a measurement rather than
+  a prior.
 
-purpose: >
-  One paragraph. What question does this answer, and which paper claim
-  does it support or refute?
+  '
+hypothesis: 'The penalties are the cause. They fall on every token, and the tokens prose is made of are
+  its most repeated ones (the full stop, the comma, the double quote, "I", "the"), so penalising them
+  should show up as few sentence terminators per hundred words, no quotation marks and no paragraph breaks.
+  Predicted direction: removing them increases all three.
 
-hypothesis: >
-  Stated before the run. If exploratory, write "exploratory — no prior hypothesis".
-
-# --- Reproducibility block (all fields mandatory) ---
+  '
 code:
-  commit: bb7f24afc34f71cf129d445a491f0879bc8a1a8d
+  commit: d7572b8cbc5f17345401920a82714075ec226a3e
   branch: prose-that-reads-like-a-scene
-  entrypoint: "<the exact command that runs this>"
-  dirty: true             # uncommitted changes at run time? if true, explain in ISSUES.md
+  entrypoint: uv run python -m utils.scripts.research.run_prose_form --experiment docs/research/experiments/EXP-2026-08-007-prose-form
+    --samples 2
+  dirty: true
 config:
-  path: <path to the config, or null if the entrypoint is fully self-describing>
-  hash: sha256:...
+  path: utils/scripts/research/run_prose_form.py
+  hash: sha256:545a9f86b2b86abf8394e632c518e19b916e1f26f8e46318b98ddd57ee69e444
 data:
-  name: <dataset or world>
-  version: <version>
-  split: <split>
-  n_examples: 0
-  dvc_path: null           # OPTIONAL — null if not DVC-tracked
-  hash: md5:...
+  name: five scene prompts written for this experiment (shipped in the runner)
+  version: '2026-08-21'
+  split: n/a — not a held-out set; contaminated by shipping in the repository
+  n_examples: 5
+  dvc_path: null
+  hash: sha256:545a9f86b2b86abf8394e632c518e19b916e1f26f8e46318b98ddd57ee69e444
 seeds: []
-n_runs: 0
+n_runs: 30
 environment:
-  python: "3.13"
+  python: '3.13'
   lockfile: env/requirements.lock
-  container: null          # OPTIONAL
+  container: null
 compute:
-  hardware: "<GPU/CPU, RAM>"
-  wall_clock_hours: 0.0
+  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
+  wall_clock_hours: 0.1816
   estimated_cost_usd: 0.0
-
-# --- LLM / agentic block ---
-# Mytheca is an LLM system. Do not omit this block; if a run genuinely made no LLM
-# call, write `llm: null` and say why in PROTOCOL.md.
 llm:
-  model: "<provider>/<model>@<version-or-date>"
-  temperature: 0.0
-  top_p: 1.0
-  max_tokens: 8000         # the local reasoning model 502s below ~8000
-  prompt_files: []
-  prompt_hash: sha256:...
-  tool_schema_hash: null   # OPTIONAL — null if no tool schema is involved
-  total_input_tokens: 0
-  total_output_tokens: 0
-  nondeterminism_note: >
-    Provider-side nondeterminism remains even at temperature 0; results
-    are reported as mean ± std over n_runs.
+  model: relay/skynet
+  temperature: 0.8
+  top_p: 0.92
+  max_tokens: 2224
+  prompt_files:
+  - web/backend/app/agents/prompt_registry.py::CHARACTER_OUTPUT_CONTRACT
+  prompt_hash: sha256:a344aa1d30adc1756873c4d878a7cf99d799043e6305f8ca4a78626c3e372060
+  tool_schema_hash: null
+  total_input_tokens: 18882
+  total_output_tokens: 41200
+  nondeterminism_note: 'Temperature 0.8 by design — this measures the sampler, so sampling is the subject.
+    Arms are interleaved per prompt so endpoint drift spreads across them instead of landing on one. Results
+    are reported as mean +/- population std over n=10 per arm, with every per-run value printed in RESULTS.md
+    because the spread is part of the finding.
 
-# --- Results block ---
-# `status: complete` with an empty `values` map fails validation. That is intentional.
+    '
 metrics:
-  primary: <metric name, matching a key in values>
-  values: {}
-    # <metric>: {mean: 0.0, std: 0.0, n: 0}
+  primary: off.sentences_per_100_words
+  values:
+    half.chars:
+      mean: 1919.1
+      n: 10
+      std: 1883.065079
+    half.has_speech:
+      mean: 0.7
+      n: 10
+      std: 0.458258
+    half.is_scratchpad:
+      mean: 0.0
+      n: 10
+      std: 0.0
+    half.paragraph_breaks:
+      mean: 1.8
+      n: 10
+      std: 1.077033
+    half.sentences_per_100_words:
+      mean: 3.8032
+      n: 10
+      std: 3.070202
+    off.chars:
+      mean: 674.4
+      n: 10
+      std: 471.130598
+    off.has_speech:
+      mean: 1.0
+      n: 10
+      std: 0.0
+    off.is_scratchpad:
+      mean: 0.0
+      n: 10
+      std: 0.0
+    off.paragraph_breaks:
+      mean: 3.8
+      n: 10
+      std: 2.56125
+    off.sentences_per_100_words:
+      mean: 11.4157
+      n: 10
+      std: 3.956224
+    shipped.chars:
+      mean: 2182.9
+      n: 10
+      std: 1770.635787
+    shipped.has_speech:
+      mean: 0.8
+      n: 10
+      std: 0.4
+    shipped.is_scratchpad:
+      mean: 0.0
+      n: 10
+      std: 0.0
+    shipped.paragraph_breaks:
+      mean: 1.2
+      n: 10
+      std: 1.16619
+    shipped.sentences_per_100_words:
+      mean: 1.3235
+      n: 10
+      std: 1.160871
 baselines_compared: []
-statistical_test: null     # OPTIONAL — null if none was run, but then say so in RESULTS.md
-
-# --- Linkage ---
-supports_claims: []        # every ID must exist in ../../CLAIMS.md
-figures: []                # every entry must have a file in figures/, and vice versa
+statistical_test: null
+supports_claims:
+- C-012
+figures:
+- penalties
 supersedes: null
 superseded_by: null
-related: []
+related:
+- EXP-2026-08-006

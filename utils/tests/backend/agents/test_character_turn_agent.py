@@ -8,6 +8,7 @@ import os
 import httpx
 
 from app.agents import character_turn_agent
+from app.agents._common import GEN_MIN_TOKENS
 from app.models import Scenario
 from app.models.stat import StatDefinition
 from app.services import assembler, llm
@@ -287,17 +288,15 @@ def test_the_beat_bounds_both_the_scratchpad_and_the_passage(
     body = json.loads(capture["body"])
     system = body["messages"][0]["content"]
     assert body.get("thinking_token_budget") == 1024
-    # The passage ceiling is generous — several long paragraphs — but it exists. Uncapped
-    # output was measured twice and made the writing worse: beats averaged 8,228 then
-    # 10,184 characters of drift, and prompt guidance did not bind it.
-    assert character_turn_agent._VOICE_PROSE_TOKENS == 1200
-    # ...and the thinking budget is added ON TOP of it, never shared with it. Setting the
-    # request budget to the passage allowance alone starved the answer on a live turn: the
-    # model spent all 1,200 tokens deliberating and returned no prose.
-    assert body["max_tokens"] == 1024 + character_turn_agent._VOICE_PROSE_TOKENS
-    # ...and the low stock default never reaches the request: 512 is what LlmParams ships
-    # with, not a decision, and it cannot cover 1,024 tokens of thinking.
-    assert body["max_tokens"] > 512
+    # The PASSAGE, by contrast, is not bounded at all: the owner asked twice for a
+    # character to speak for as long as they want. A 1200-token ceiling sat here for a
+    # while on the theory that uncapped output rambled; EXP-2026-08-007 found the rambling
+    # was the sampler penalties, and with those at zero a passage averages 674 ± 471
+    # characters and its longest run was 1,923 — nowhere near any ceiling.
+    assert character_turn_agent._VOICE_PROSE_TOKENS is None
+    # ...so the request keeps the authoring floor, which comfortably covers the scratchpad.
+    assert body["max_tokens"] == GEN_MIN_TOKENS
+    assert body["max_tokens"] > 1024
     # The character still deliberates in POV, inside the passage.
     assert "from inside that character, in their own voice" in system
     assert "<thinking>" not in system
@@ -397,8 +396,12 @@ def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     )
     body = json.loads(capture["body"])
     assert body["top_p"] == 0.92
-    assert body["frequency_penalty"] == 0.4
-    assert body["presence_penalty"] == 0.3
+    # The frequency/presence penalties are ZERO by measurement, not by omission. They fall
+    # on every token, including the full stop, the comma and the double quote — with them
+    # at 0.40/0.30 a passage averaged 1.32 sentences per 100 words against 11.42 with them
+    # off, and the arms did not overlap (EXP-2026-08-007, n=10 each).
+    assert body["frequency_penalty"] == 0.0
+    assert body["presence_penalty"] == 0.0
 
 
 def test_transcript_window_follows_context_beats_plus_one_anchor_block(
@@ -549,9 +552,9 @@ def _sampler(capture: dict) -> tuple[float, float, float]:
     return body["top_p"], body["frequency_penalty"], body["presence_penalty"]
 
 
-def test_grave_beat_damps_the_novelty_penalties(client, db_session, monkeypatch):
-    # Frequency/presence penalties push the model toward unused tokens — toward flourish
-    # and quips. A grave beat wants the plain, sincere, even repetitive word instead.
+def test_grave_beat_narrows_to_the_plain_word(client, db_session, monkeypatch):
+    # A grave beat wants the obvious, sincere word, so top_p narrows. The novelty penalties
+    # that used to move with the register are zero everywhere now (EXP-2026-08-007).
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
@@ -562,10 +565,13 @@ def test_grave_beat_damps_the_novelty_penalties(client, db_session, monkeypatch)
         register="grave",
     )
     top_p, frequency, presence = _sampler(capture)
-    assert top_p == 0.85 and frequency == 0.20 and presence == 0.15
+    assert top_p == 0.85 and frequency == 0.0 and presence == 0.0
 
 
-def test_light_beat_keeps_banter_varied(client, db_session, monkeypatch):
+def test_light_beat_widens_the_word_choice_without_penalties(client, db_session, monkeypatch):
+    """The light register once carried the HIGHEST penalties, which made banter the worst
+    prose in the app — the ps_c015c506b1 export's light beat came back as
+    "There — *chirp!* — there you are ! Just one sip … no wait" with no sentence in it."""
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
@@ -576,7 +582,7 @@ def test_light_beat_keeps_banter_varied(client, db_session, monkeypatch):
         register="light",
     )
     top_p, frequency, presence = _sampler(capture)
-    assert top_p == 0.95 and frequency == 0.45 and presence == 0.35
+    assert top_p == 0.95 and frequency == 0.0 and presence == 0.0
 
 
 def test_registerless_beat_keeps_the_original_sampler(client, db_session, monkeypatch):
@@ -589,7 +595,7 @@ def test_registerless_beat_keeps_the_original_sampler(client, db_session, monkey
         db_session, ctx, ctx.cast[0],
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
-    assert _sampler(capture) == (0.92, 0.4, 0.3)
+    assert _sampler(capture) == (0.92, 0.0, 0.0)
     # An unrecognized register lands on the same defaults rather than a partial update.
     capture.clear()
     character_turn_agent.generate_line(
@@ -597,7 +603,7 @@ def test_registerless_beat_keeps_the_original_sampler(client, db_session, monkey
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
         register="apocalyptic",
     )
-    assert _sampler(capture) == (0.92, 0.4, 0.3)
+    assert _sampler(capture) == (0.92, 0.0, 0.0)
 
 
 # ---- The scene direction (Narrator-Guided Scenes) --------------------------
@@ -763,28 +769,32 @@ def test_the_stable_region_is_identical_for_every_speaker(client, db_session, mo
     assert "A LINE OF HISTORY." in shared  # the transcript is shared too, not just the header
 
 
-def test_the_thinking_budget_is_added_to_the_passage_allowance_not_taken_from_it():
-    """The regression: a request budget equal to the passage allowance returns no prose.
+def test_an_unbounded_passage_keeps_the_authoring_floor():
+    """No ceiling means the request carries ``gen_params``' floor, not the operator's 512.
 
-    Thinking and answer are paid out of one ``max_tokens`` on this endpoint. A live turn
-    ran with both set to 1,200 and came back as pure reasoning — "the model spent its whole
-    budget thinking and never answered" — because 1,024 of the 1,200 went to the scratchpad
-    before the first word of the passage.
+    ``LlmParams`` ships ``max_tokens = 512``, which is a default rather than a decision and
+    cannot even cover 1,024 tokens of thinking — a beat sent at 512 comes back as pure
+    reasoning ("the model spent its whole budget thinking and never answered").
+    """
+    from app.schemas.settings import LlmParams
+
+    out = character_turn_agent._voice_params(LlmParams())
+    assert out.max_tokens == GEN_MIN_TOKENS
+    assert out.max_tokens > 512
+
+
+def test_a_ceiling_put_back_is_added_to_the_thinking_budget_not_taken_from_it(monkeypatch):
+    """Restoring a ceiling must not re-create the starvation that the first one caused.
+
+    Thinking and answer are paid out of one ``max_tokens`` upstream. A live turn ran with
+    the request budget set to the passage allowance alone (1,200) and came back as pure
+    reasoning, because 1,024 of the 1,200 went to the scratchpad before the first word.
     """
     from app.schemas.reasoning import ReasoningEffort, budget_for
     from app.schemas.settings import LlmParams
 
+    monkeypatch.setattr(character_turn_agent, "_VOICE_PROSE_TOKENS", 1200)
     for effort in (ReasoningEffort.QUICK, ReasoningEffort.HIGH, ReasoningEffort.MAX):
         out = character_turn_agent._voice_params(LlmParams(), reasoning=effort)
-        assert out.max_tokens == budget_for(effort) + character_turn_agent._VOICE_PROSE_TOKENS
         # Whatever the effort, the passage is left the same room to be written in.
-        assert out.max_tokens - budget_for(effort) == character_turn_agent._VOICE_PROSE_TOKENS
-
-
-def test_removing_the_passage_ceiling_leaves_the_budget_untouched(monkeypatch):
-    """``_VOICE_PROSE_TOKENS = None`` is the documented way back to unbounded length."""
-    from app.agents._common import GEN_MIN_TOKENS
-    from app.schemas.settings import LlmParams
-
-    monkeypatch.setattr(character_turn_agent, "_VOICE_PROSE_TOKENS", None)
-    assert character_turn_agent._voice_params(LlmParams()).max_tokens == GEN_MIN_TOKENS
+        assert out.max_tokens - budget_for(effort) == 1200

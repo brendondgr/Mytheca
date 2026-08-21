@@ -51,31 +51,54 @@ logger = logging.getLogger("mytheca.turn")
 # interiority.
 TURN_EFFORT = ReasoningEffort.HIGH
 
-# Sampler tuning for in-character voice on small models (the turn-loop plan §7):
-# repetition/frequency penalties + a lower top_p rein in drift more reliably than
-# raising temperature. Applied per turn-call (a per-storyline/character voice setting
-# is a recorded seam). Temperature + max_tokens are kept from the operator's config.
+# Sampler tuning for in-character voice on small models (the turn-loop plan §7): a lower
+# top_p reins in drift more reliably than raising temperature. Applied per turn-call (a
+# per-storyline/character voice setting is a recorded seam). Temperature + max_tokens are
+# kept from the operator's config.
+#
+# The frequency/presence penalties that used to sit here are ZERO, and that is a measured
+# decision rather than a default. EXP-2026-08-007 ran three arms, n=10 each, on the live
+# endpoint with only these two fields varying. They fall on every token, and the tokens
+# prose is made of are its most repeated ones — the full stop, the comma, the double quote,
+# "I", "the" — so penalising them penalises sentences:
+#
+#     sentences per 100 words   0.40/0.30: 1.32 ± 1.16   0.20/0.15: 3.80 ± 3.07   off: 11.42 ± 3.96
+#     passages containing speech       80%                     70%                    100%
+#     characters per passage    2183 ± 1771            1919 ± 1883             674 ± 471
+#
+# The arms do not overlap on the primary metric: the worst run with the penalties off
+# (8.9) beats the best run with them on (3.7). They are also what made length
+# uncontrollable — the rambling that a passage ceiling was once added to contain was the
+# penalties, not the freedom.
+#
+# The trade, stated rather than made quietly: the penalties were added to fight in-character
+# drift, and removing them may bring some of it back. Grammar first. A repetitive but
+# well-formed paragraph is readable; a punctuation-free 180-word sentence is not.
 _VOICE_TOP_P = 0.92
-_VOICE_FREQUENCY_PENALTY = 0.4
-_VOICE_PRESENCE_PENALTY = 0.3
+_VOICE_FREQUENCY_PENALTY = 0.0
+_VOICE_PRESENCE_PENALTY = 0.0
 
 # Per-register sampler tuning: (top_p, frequency_penalty, presence_penalty).
 #
-# Frequency and presence penalties push the model toward tokens it has NOT used yet —
-# toward novelty and flourish, which is exactly the quip-seeking behavior that reads as
-# a character performing instead of reacting. So they come DOWN as the moment gets
-# graver, letting plain, direct, even repetitive language through (people repeat
-# themselves when frightened), and up in a light moment where banter should stay varied.
-# ``top_p`` narrows alongside them so a grave beat stays on the obvious, sincere word.
+# ``top_p`` narrows as the moment gets graver, so a grave beat stays on the obvious,
+# sincere word while a light one can reach for the unexpected one. That is a choice about
+# WORD CHOICE and it survives.
+#
+# The penalties are zero at every register. They used to rise for a light moment
+# (0.45/0.35) on the theory that banter should stay varied — which made the LIGHTEST beats
+# the most damaged ones, and is visible in the ps_c015c506b1 export, where the banter beat
+# came back as "There — *chirp!* — there you are ! Just one sip … no wait" with no sentence
+# in it. See ``_VOICE_FREQUENCY_PENALTY`` above for the measurement (EXP-2026-08-007).
+# The column is kept rather than removed so the shape of the table stays obvious and a
+# future measurement can put something back in it.
 #
 # A beat with no register (planner fallback, puppet beat, test context) resolves to the
-# module defaults above — byte-identical to the pre-register behavior. Temperature and
-# max_tokens stay under the operator's config either way.
+# module defaults above. Temperature and max_tokens stay under the operator's config.
 _REGISTER_SAMPLER = {
-    "light": (0.95, 0.45, 0.35),
-    "neutral": (0.92, 0.40, 0.30),
-    "tense": (0.88, 0.30, 0.20),
-    "grave": (0.85, 0.20, 0.15),
+    "light": (0.95, 0.0, 0.0),
+    "neutral": (0.92, 0.0, 0.0),
+    "tense": (0.88, 0.0, 0.0),
+    "grave": (0.85, 0.0, 0.0),
 }
 
 # Per-register performance directives, stated in the recency TAIL as an established fact
@@ -110,21 +133,23 @@ _REGISTER_DIRECTIVES = {
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
 
 
-#: Generous ceiling on the PASSAGE — roughly 900 words, several long paragraphs, far more
-#: than a character needs to hold the floor through a real moment. This is the prose
-#: allowance only; the request budget adds the thinking budget on top (see
-#: :func:`_voice_params`).
+#: No ceiling on the passage. The owner asked twice for a character to be able to speak for
+#: as long as they want, and it streams, so length costs the reader nothing.
 #:
-#: The owner asked for length to be free, and this is a deviation from that, flagged rather
-#: than made quietly. Uncapped output was measured twice on the live endpoint and made the
-#: writing WORSE, not longer-and-better: beats averaged 8,228 then 10,184 characters
-#: (~1,600 words), the shortest was already a drifting run-on with no punctuation and a
-#: lowercase "i", and 2 of 5 beats tripped the degeneration guard. Prompt guidance did not
-#: bind it — a countable "usually 80-200 words" target moved the average UP. Every beat
-#: that read well all session was produced with a ceiling in place.
+#: A ceiling of 1200 tokens was imposed here for a while, against that instruction, because
+#: uncapped beats had been measured at 8,228 then 10,184 characters of drift and prompt
+#: guidance would not bind them. That diagnosis was wrong about the cause. EXP-2026-08-007
+#: found the rambling was the in-voice frequency/presence penalties, not the freedom: with
+#: them at 0.40/0.30 a passage averaged 2183 ± 1771 characters and reached 6,641; with them
+#: off it averaged **674 ± 471** and its longest run was 1,923 — nowhere near any ceiling.
+#: Removing the real cause removed the need for the workaround, so the workaround goes.
 #:
-#: Set this to ``None`` to restore unbounded length; nothing else depends on it.
-_VOICE_PROSE_TOKENS = 1200
+#: What makes an unbounded passage safe is not a length limit but the two guards that
+#: replaced it: ``emission.looks_degenerate`` cuts a generation that has stopped producing
+#: language, and ``emission.repeats_itself`` cuts one writing the same paragraph again.
+#:
+#: Set this to a token count to put a ceiling back; nothing else depends on it.
+_VOICE_PROSE_TOKENS: int | None = None
 
 
 def _voice_params(

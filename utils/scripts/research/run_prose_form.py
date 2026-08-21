@@ -268,6 +268,10 @@ def main() -> int:
                 "wall_clock_hours": round(record.wall_clock_seconds / 3600, 4),
                 "estimated_cost_usd": 0.0,
             },
+            # The aggregate goes in the manifest as well as data/metrics.json: a status of
+            # `complete` with an empty `metrics.values` fails validation, and deliberately
+            # so — a finished experiment that records no number is not a finished experiment.
+            "metrics": {"values": values},
             "llm": {
                 "model": f"relay/{args.model}",
                 "temperature": FIXED["temperature"],
