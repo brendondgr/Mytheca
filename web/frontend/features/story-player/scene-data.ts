@@ -20,6 +20,10 @@ export interface SceneMessage {
   kind: SceneMessageKind;
   who?: string;
   action?: string;
+  /**
+   * The beat's prose — and, on a `choices` beat, the planner's question to the player
+   * (empty for the ordinary end-of-turn follow-ups, which are offered rather than asked).
+   */
   text?: string;
   /** Set on `kind: "image"` beats — the rendered picture and its caption. */
   image?: SceneImage;

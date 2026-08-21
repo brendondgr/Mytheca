@@ -648,6 +648,22 @@ def run_turn(
     max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
     scene_beats = len(puppet_members) + (1 if narrated_open else 0)
     needs_branch = False
+    # The turn stopped to ask the player where the story should go (planner "ask"). It is
+    # the last word of the turn: no holding narration, no follow-up suggestions stacked
+    # under it, and the next turn may not ask again.
+    asked_question = False
+    # When the planner is ALLOWED to ask. The conditions are the engine's, not the model's:
+    # nothing has happened yet this turn (a question after the scene has moved is answering
+    # nothing), the player's line is freeform rather than a direction the turn already owes,
+    # and the previous turn did not already stop to ask. A planner that may ask will ask too
+    # often, and a scene that stops moving is worse than a mediocre guess.
+    may_ask = (
+        not scene_opening
+        and not narrated_open
+        and not direction.active
+        and not puppet_members
+        and not events_store.ended_on_a_question(db, session.id, before_seq=seq0)
+    )
     beats = 0
     # Beats the planner has decided but the loop has not run yet. The planner was 41 % of
     # all turn time purely because it ran once per beat (EXP-2026-08-005), so it is asked
@@ -694,6 +710,7 @@ def run_turn(
                     db, ctx, intent, turn_beats, acted, lookahead=depth,
                     scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
                     direction=direction if direction.active else None, remaining_beats=remaining,
+                    may_ask=may_ask and beats == 0,
                 )
             # A planned beat is a prediction, and presence can change under it — a character
             # who was cut down two beats ago must not be picked because a stale plan said so.
@@ -769,6 +786,31 @@ def run_turn(
                 "The turn ends",
                 detail=decision.reason or "The direction is satisfied.",
                 data={"end": True},
+            )
+            break
+        if decision.action == "ask":
+            # The direction is genuinely open and guessing would commit the scene to
+            # something the player never chose. Put the question to them and stop — it
+            # rides on ``branch_choices`` so it renders and round-trips into the composer
+            # through machinery that already works.
+            asked_question = True
+            yield from emitter.emit(
+                "branch_choices",
+                {
+                    "prompt": decision.question,
+                    "choices": [{"label": o, "outcome": ""} for o in decision.options],
+                },
+            )
+            yield from tracer.emit(
+                "plan",
+                "Asking you where this goes",
+                detail=decision.reason or decision.question,
+                data={
+                    "end": True,
+                    "ask": True,
+                    "question": decision.question,
+                    "choices": decision.options,
+                },
             )
             break
         if decision.action == "narrate":
@@ -865,7 +907,9 @@ def run_turn(
     # puppet beats plus a narrated open, and rises per beat. Deliberately not a scan of
     # ``turn_beats``: under Player POV the player's own line is seeded there as a character
     # beat, so that would read the player's own words back as "the scene answered".
-    if scene_beats == 0:
+    # A turn that stopped to ask the player a question is not silent — it is waiting, and
+    # answering it with a beat would bury the question under the prose it was asked instead of.
+    if scene_beats == 0 and not asked_question:
         responder = next(
             (m for m in ctx.cast if m.is_present and m.id != pov_id and m.id in intent.addressed),
             next((m for m in ctx.cast if m.is_present and m.id != pov_id), None),
@@ -924,7 +968,7 @@ def run_turn(
 
     # Nobody produced anything at all (no narration, no character) → a quiet holding
     # narration. A narrator-only open / branch progression already spoke, so skip it then.
-    if not acted and not narrated_open:
+    if not acted and not narrated_open and not asked_question:
         yield from emitter.emit(
             "narration", {"text": "The scene waits, quiet.", "done": True}, buffer_role="narrator"
         )
@@ -935,7 +979,8 @@ def run_turn(
     # ``needs_branch`` now only colors the trace copy. Stats inform which options surface,
     # but never gate the choice mechanically (no dice — D11).
     branches: list[dict] = []
-    suggestions_count = max(0, min(scenario.suggestions_count, 4))
+    # A question already IS the turn's fork; stacking generic follow-ups under it buries it.
+    suggestions_count = 0 if asked_question else max(0, min(scenario.suggestions_count, 4))
     if suggestions_count > 0:
         # Under Player POV, the follow-ups must read like something the POV character would
         # say next (they flow into the composer as the player's own next line), so use the

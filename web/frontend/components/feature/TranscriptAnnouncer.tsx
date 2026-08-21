@@ -9,7 +9,10 @@ function describe(message: SceneMessage, nameOf: (id?: string) => string): strin
     case "narrator":
       return `Narrator. ${message.text ?? ""}`;
     case "choices":
-      return "Your move — choose a path.";
+      // A planner question is the point of the beat — read it, not the generic label.
+      return message.text?.trim()
+        ? `The story is asking you. ${message.text}`
+        : "Your move — choose a path.";
     case "player":
       return `You said. ${message.text ?? ""}`;
     case "image":

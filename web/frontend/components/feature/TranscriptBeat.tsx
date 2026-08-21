@@ -226,24 +226,39 @@ export function CharacterMessage({
   );
 }
 
-/** `branch_choices` — centered ◆ choice rows. */
+/**
+ * `branch_choices` — centered ◆ choice rows, under an optional question.
+ *
+ * With no `prompt` these are follow-up suggestions: the turn is over and these are things
+ * the player might say next. With one, the planner stopped the turn to ask where the story
+ * should go rather than commit the scene to a guess — so the question leads, and the rows
+ * below it are suggested answers the player is free to ignore in favour of the composer.
+ * A question with no suggestions renders alone, which is why the rows are conditional.
+ */
 export function BranchChoices({
   choices,
   onChoose,
+  prompt,
 }: {
   choices: SceneChoice[];
   onChoose: (choice: SceneChoice) => void;
+  /** The planner's question, when it asked instead of guessing. */
+  prompt?: string;
 }) {
   // 3–4 follow-ups lay out in a 2-column grid (4 → a 2×2 grid); 1–2 stack in a column.
   const layout = choices.length >= 3 ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2";
+  const asked = Boolean(prompt?.trim());
   return (
     <div className="w-full max-w-[600px] self-center">
       <div className="mb-[10px] text-center">
         <Eyebrow tracking="0.16em" color="var(--accent)">
-          Your move — choose a path
+          {asked ? "The story is asking you" : "Your move — choose a path"}
         </Eyebrow>
+        {asked && (
+          <p className="mt-[8px] font-display text-[17px] leading-[1.5] text-ink">{prompt}</p>
+        )}
       </div>
-      <div className={layout}>
+      <div className={choices.length === 0 ? "hidden" : layout}>
         {choices.map((ch) => (
           <button
             key={ch.id}
@@ -299,7 +314,7 @@ export function TranscriptBeat({
   if (m.kind === "image")
     return m.image ? <SceneImageBeat image={m.image} onOpen={onOpenImage} /> : null;
   if (m.kind === "choices")
-    return <BranchChoices choices={choices} onChoose={onChoose} />;
+    return <BranchChoices choices={choices} onChoose={onChoose} prompt={m.text} />;
   const c = charById(m.who ?? "");
   if (!c) return null;
   // Player POV: a `char` beat the player authored (they spoke AS this character) renders on

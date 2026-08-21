@@ -831,13 +831,31 @@ Each maps to one frontend component.
 | `character_action` | Action label on the speaker's beat | `characterId`, `text` |
 | `internal_thought` | **Inline thinking** — a muted line folded into the speaker's beat, between the name and the spoken bubble (`visibility: private_to_user`) | `characterId`, `text`, `done` (delta-streams to the player; kept out of other characters' context) |
 | `state_update` | Updates side panels (no chat message) | `patch` — partial scenario state; **stat changes ride here** |
-| `branch_choices` | Branch-choices panel | `choices[]` (`label`, `outcome`) |
+| `branch_choices` | Branch-choices panel | `prompt` (a planner question, usually empty), `choices[]` (`label`, `outcome`) |
 | `character_status_change` | Updates the cast rail (no chat message); an `auto` change also raises an **Undo** toast | `characterId`, `status` (`present`\|`unconscious`\|`departed`\|`left`\|`dead`), `reason`, `auto` |
 | `scene_image` | Centered, clickable landscape picture of the moment in the transcript (enlarges in a lightbox) | `url` (relative `/media/moments/…`), `prompt`, `negative`, `caption` (alt text), `characterIds` |
 
 **No dice (D11):** `branch_choices` options carry `label` + `outcome` (a narrative-direction
 tag) only — there is no `check` field. A branch is a narrative fork resolved by the player's
 selection + the characters' in-character response, never a stat test.
+
+**The planner may ask (`prompt`):** when the player's line leaves the direction genuinely
+open, the planner can return an **`ask`** beat instead of guessing — a question plus up to
+four suggested answers. It rides on the same `branch_choices` event with `data.prompt` set,
+so it renders, round-trips into the composer and replays with no new event type; the client
+leads with the question instead of the "Your move" eyebrow, and a question that arrived with
+no options renders alone (the player answers in the composer). `prompt` is empty for the
+ordinary end-of-turn follow-ups, which are *offered* rather than asked.
+
+Asking is bounded hard, because a planner that can ask will ask instead of deciding. The
+**engine** owns the permission (`may_ask`) and grants it only when nothing has happened yet
+this turn, the scene is not opening, no scene direction is outstanding, nobody is being
+puppeted, and the previous turn did not already end on a question
+(`events_store.ended_on_a_question`). The planner may only place the question as the turn's
+**first** beat, and anything it planned after one is discarded — the answer decides what
+follows. A turn that asked emits no holding narration, no follow-up suggestions and no
+silent-turn backstop beat: the question is the turn's last word, which is also what makes
+"never twice in a row" a single-row check.
 
 **Scene presence (`character_status_change`):** a character's runtime status within the scene.
 `present` is the only **selectable** status (the planner may pick them to speak); the others

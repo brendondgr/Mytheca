@@ -71,7 +71,16 @@ export interface BranchChoiceOption {
 
 export interface BranchChoicesEvent extends PlayEnvelope {
   type: "branch_choices";
-  data: { choices: BranchChoiceOption[] };
+  data: {
+    /**
+     * A question from the planner, when it stopped the turn rather than guess where the
+     * story goes. Empty for the ordinary end-of-turn follow-ups, which are offered rather
+     * than asked. When set, the choices are suggested answers — the player may ignore them
+     * and type their own.
+     */
+    prompt?: string;
+    choices: BranchChoiceOption[];
+  };
 }
 
 /**

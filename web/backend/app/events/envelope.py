@@ -89,6 +89,15 @@ class BranchChoiceOption(CamelModel):
 
 
 class BranchChoicesData(CamelModel):
+    """Follow-up options for the player — and, optionally, a question above them.
+
+    ``prompt`` is set only when the **planner** stopped the turn to ask where the story
+    should go (its ``ask`` action): the player's line left the direction genuinely open,
+    and guessing would commit the scene to something they did not choose. Empty for the
+    ordinary end-of-turn suggestions, which are offered, not asked.
+    """
+
+    prompt: str = ""
     choices: list[BranchChoiceOption] = Field(default_factory=list)
 
 
