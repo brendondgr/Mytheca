@@ -1,9 +1,10 @@
 """Character turn agent — voice ONE character for the current beat.
 
 One LLM call per active speaker (per-character isolation — no shared multi-POV
-prompt, so voices stay distinct). The model emits the thin tag format
-(``<speaker:N>`` + ``<type:...>`` + free prose); the backend owns the envelope
-(``services.emission``). The prompt is ordered **stable → append-only → volatile** so an
+prompt, so voices stay distinct). The model emits **one untagged first-person passage** —
+what the character notices, does and says, woven together with the speech in double quotes
+inline — optionally followed by a JSON block (``<type:state_update>`` and friends); the
+backend owns the envelope (``services.emission``). The prompt is ordered **stable → append-only → volatile** so an
 inference server's prefix cache can reuse it across beats and turns: the scene as authored
 leads, the transcript follows (append-only, with a block-anchored start), and everything
 that changes per beat — this speaker's identity, voice samples, live stat values, the
@@ -11,8 +12,10 @@ register, the "respond now" cue — comes last, where recency attention is stron
 The stable region (output contract + World Primer + stat guidance) rides in the system
 message. See ``_build_user_prompt`` for why the ordering is load-bearing.
 
-P3 is single-pass (speak only). The hidden ``<thinking>`` conditioning block + in-voice
-sampler tuning are layered on in the think→speak phase; this module is where they land.
+The character deliberates **in POV, inside the passage** — first person, in their own
+voice — rather than in a fenced-off block or a hidden reasoning channel. Both of those
+existed once; running both meant thinking the beat through twice and showing only the
+second. In-voice sampler tuning is layered on here.
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ from collections.abc import Generator
 from sqlalchemy.orm import Session
 
 from app.agents import prompt_registry
-from app.agents._common import gen_params, resolve_llm
+from app.agents._common import resolve_llm
 from app.core.config import get_settings
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmParams
@@ -38,12 +41,11 @@ from app.services.stat_render import render_character_stats
 
 logger = logging.getLogger("mytheca.turn")
 
-# The character already deliberates **in the output**: the visible in-voice ``<thinking>``
-# block is a real deliberation the player reads. Letting the model ALSO fill a hidden
-# reasoning channel first means it thinks the same beat through twice and the player waits
-# through both — and only the second one is ever shown. EXP-2026-08-006 measured the
-# character beat at ~35 s to its thought and ~10 s more to its line, the largest single
-# cost in a turn. One deliberation, in the character's own voice, is the one worth keeping.
+# The character deliberates **in the output** — the first-person passage is the thinking,
+# in the character's own mindset, and it is what the player reads. Letting the model ALSO
+# fill a hidden reasoning channel first means it works the same beat through twice and the
+# player waits through both while only the second is ever shown. EXP-2026-08-006 measured
+# that double pass at ~35 s per beat, the largest single cost in a turn.
 TURN_EFFORT = ReasoningEffort.NONE
 
 # Sampler tuning for in-character voice on small models (the turn-loop plan §7):
@@ -105,8 +107,19 @@ _REGISTER_DIRECTIVES = {
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
 
 
+#: Hard ceiling on a character beat's completion. A passage is at most a few paragraphs,
+#: so ~900 tokens is generous — and the ceiling is the point: with the thinking channel off
+#: and no tag scaffolding, a model that loses the thread writes its scratchpad into the
+#: prose and can degenerate into a repetition loop. One beat in a live 4-turn run reached
+#: **29,660 characters** of leaked deliberation ending in "Rex Rex Rex …", which also blew
+#: the prompt to 13.5k tokens on the next turn. ``gen_params`` FLOORS max_tokens to 8192 for
+#: reasoning headroom; a beat that does no hidden reasoning needs none of it, and an
+#: unbounded ceiling turns a bad generation into an unbounded one.
+_VOICE_MAX_TOKENS = 900
+
+
 def _voice_params(params: LlmParams, register: str | None = None) -> LlmParams:
-    """Floor max_tokens (reasoning headroom) and apply the voice-tuned sampler fields.
+    """Cap max_tokens for a prose beat and apply the voice-tuned sampler fields.
 
     The sampler tracks the beat's ``register`` (see ``_REGISTER_SAMPLER``); an absent or
     unrecognized register keeps the module defaults.
@@ -114,8 +127,9 @@ def _voice_params(params: LlmParams, register: str | None = None) -> LlmParams:
     top_p, frequency, presence = _REGISTER_SAMPLER.get(
         register or "", (_VOICE_TOP_P, _VOICE_FREQUENCY_PENALTY, _VOICE_PRESENCE_PENALTY)
     )
-    return gen_params(params).model_copy(
+    return params.model_copy(
         update={
+            "max_tokens": min(params.max_tokens or _VOICE_MAX_TOKENS, _VOICE_MAX_TOKENS),
             "top_p": top_p,
             "frequency_penalty": frequency,
             "presence_penalty": presence,
