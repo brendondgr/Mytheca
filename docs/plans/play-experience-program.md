@@ -121,6 +121,22 @@ full suite runs with none of them and that must stay true.
 
 ---
 
+## Decisions taken — 2026-08-21
+
+Three of the questions below were put to the owner before implementation began and are **settled**.
+They are recorded verbatim at the top of the Gaps section of every plan they touch.
+
+| # | Question | Ruling |
+| --- | --- | --- |
+| 1 | Stat lifecycle / session scoping *(Depth §2.2 + Control H-1)* | **(C)** Per-stat `carry_over` flag with **session-scoped stat values**. New `session_character_stats` row set; resolution is session value → carried character value → authored baseline. Rewind replays surviving `state_update` events instead of relying on `StatPatch.fromValue`; branch copies the rows at the fork point. Gets its own phase in Control. |
+| 8 | Compaction default *(Legible §G-A)* | **Ship OFF.** `TURN_CONTEXT_COMPACTION` defaults disabled until the interleaved two-arm experiment reports. The flip is one line and must not be made on a read-through. |
+| 12 | `sr-only` fix *(Reach §9)* | **Redefine the utility once** — `@utility sr-only { position: fixed }`. No per-file sweep. Pinned by a regression test and the offline CSS gate. |
+
+The remaining questions below stand, each with a default already implemented in its plan. They are
+recorded so the choice is visible, not because they block work.
+
+---
+
 ## Open questions — "Human intervention is needed to answer this question"
 
 Consolidated across all five plans. Several are the same decision reached from different sides;

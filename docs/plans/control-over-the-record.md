@@ -29,6 +29,47 @@ call the same code.
 
 ## 2. Gaps & Unanswered Questions
 
+### Decisions taken by the owner — 2026-08-21 (supersede the gaps below)
+
+These three were asked and answered before implementation began. Where the text further down
+states a different default, **this block wins** and that text is superseded.
+
+**D-1 — Stat values become session-scoped, with a per-stat `carry_over` flag.**
+(Answers Control H-1 and Depth §2.2 together — they were the same decision asked from two sides.)
+`StatDefinition` gains a `carry_over` boolean. Stat *values* move to a session scope: a new
+`session_character_stats` row set keyed `(session_id, character_id, key)`. Resolution order when
+the engine reads a stat is: the open session's value → else, if `carry_over` is true, the
+character-global value → else the authored baseline. Consequences that the phases below must
+absorb:
+  * **Rewind** no longer needs `StatPatch.fromValue` as its un-apply mechanism. It deletes the
+    session's stat rows and **replays the surviving `state_update` events** from the authored
+    baseline — deterministic, needs no per-event provenance, and works for legacy rows written
+    before this program. Keep `fromValue` only if it earns its place for the Inspector's display;
+    it is no longer load-bearing.
+  * **Branch** copies the source session's stat rows to the fork at the fork point, so the two
+    play-throughs diverge instead of sharing.
+  * **Two play-throughs of one scenario no longer disagree** — they are simply separate, which was
+    the defect H-1 named.
+  * `GET /characters/{id}/stats` keeps returning the character-global values (the authored/carried
+    baseline). Play surfaces read the session-scoped values. Say which is which at every call site.
+  * This is additive-but-not-trivial: it is a new table plus a change to every stat read and write
+    (`services/stats.py`, `services/stat_render.py`, `beat_runner`'s stat application, the cast
+    rail, the dossier, and `useScenePlay`'s baseline load). Give it **its own phase** rather than
+    smuggling it into the rewind phase.
+
+**D-2 — Context compaction ships OFF by default.**
+`TURN_CONTEXT_COMPACTION` defaults to disabled. Long scenes keep today's behaviour (older history
+falls out of the window) until the interleaved two-arm experiment reports. The flag flip is a
+one-line change and is explicitly *not* to be made on the strength of a read-through. This
+supersedes any "ship on" reading of the compaction phases.
+
+**D-3 — The `sr-only` defect is fixed by redefining the utility once.**
+`@utility sr-only { position: fixed }` — one change, covering all existing call sites and every
+future one. The per-file sweep is **not** done. The change must be pinned by a regression test and
+must pass the offline CSS gate (`node utils/scripts/check_frontend_css.mjs`).
+
+---
+
 ### Simple gaps — assumption stated, proceeding
 
 **G-1 — Where alternate takes are stored.** *Decision: a `takes` array plus `activeTake` on the
