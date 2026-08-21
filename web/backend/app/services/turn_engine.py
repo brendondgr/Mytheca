@@ -1246,14 +1246,18 @@ def _stream_emission(
     tracer: _Tracer,
     show_reasoning: bool = False,
     usage_out: dict | None = None,
-) -> Generator[StoryEvent | TurnTraceFrame | TurnReasoningFrame, None, tuple[str, int | None, int]]:
-    """Drive one character generation as a stream; return ``(raw, prompt_tokens, impact)``.
+): 
+    """Drive one character generation as a stream; return ``(raw, prompt_tokens, impact, blocked)``.
 
     Each segment is emitted, appended to ``turn_beats`` and traced the moment the parser
     recognises it — so the character's private thought completes while their spoken line
     is still being written, which is the whole point of the exercise. Every beat takes
     this path: the continuity guard that used to make a later beat hold its prose for a
     verdict is gone, so nothing waits on a complete line any more.
+
+    ``blocked`` says the passage was withheld because it was the model briefing itself
+    rather than a character speaking (see :func:`emission.looks_like_scratchpad`). Nothing
+    was shown or persisted, so the caller may simply try again.
     """
     stream = character_turn_agent.stream_line(
         db, ctx, speaker, turn_beats=turn_beats, directive=directive,
@@ -1272,6 +1276,57 @@ def _stream_emission(
     # "Rex Rex Rex" / "AT AT AT AAAA". Watching the tail lets the ceiling stay off.
     written = 0
     degenerate = False
+    # The passage's OPENING is held back rather than streamed on arrival. Two live beats
+    # were persisted and rendered as a character's prose while being the model briefing
+    # itself — the output contract read back ("then main passage then optional structured
+    # blocks each opening tag own line JSON…"), and third-person planning about the
+    # character it was supposed to BE. Both are well-formed language, so the degeneration
+    # guard passes them; the only way to keep them off the page is to look before showing
+    # anything. A few hundred characters of delay, against a first-word latency measured in
+    # seconds, is a trade worth making. Only the passage is gated — a private thought is
+    # machinery the reader has already opted into seeing.
+    held: list[emission.SegmentDelta] = []
+    held_text = ""
+    gate_open = False
+    scratchpad = False
+
+    def _pass(seg: emission.SegmentDelta) -> Generator[Any, None, int]:
+        """Emit one parsed delta, holding the passage's opening until it has been judged."""
+        nonlocal held, held_text, gate_open, scratchpad
+        if scratchpad or seg.type != emission.PROSE_TYPE or gate_open:
+            if scratchpad and seg.type == emission.PROSE_TYPE:
+                return 0  # the withheld passage never becomes an event
+            return (
+                yield from _emit_segment_delta(
+                    db, ctx, speaker, emitter, turn_beats, consequences,
+                    seg, open_segments, buffered, tracer,
+                )
+            )
+        held.append(seg)
+        held_text += seg.text
+        # Release the moment the passage proves itself — a first-person pronoun is what a
+        # leaked scratchpad never has, and most passages clear it inside their first
+        # sentence. Without this early exit the hold would turn every short beat into a
+        # lump that arrives whole at the end of the stream.
+        if not emission.in_the_scene(held_text):
+            # Otherwise judge once there is enough to judge — or at the end of a passage
+            # shorter than the window, which must still be released rather than stranded.
+            if not seg.done and len(held_text) < emission.SCRATCHPAD_WINDOW:
+                return 0
+        if emission.looks_like_scratchpad(held_text):
+            scratchpad = True
+            held = []
+            return 0
+        gate_open = True
+        pending, held = held, []
+        total = 0
+        for delta in pending:
+            total += yield from _emit_segment_delta(
+                db, ctx, speaker, emitter, turn_beats, consequences,
+                delta, open_segments, buffered, tracer,
+            )
+        return total
+
     try:
         while True:
             delta = next(stream)
@@ -1283,10 +1338,10 @@ def _stream_emission(
                 continue
             written += len(delta.answer)
             for seg in acc.push(delta.answer):
-                impact += yield from _emit_segment_delta(
-                    db, ctx, speaker, emitter, turn_beats, consequences,
-                    seg, open_segments, buffered, tracer,
-                )
+                impact += yield from _pass(seg)
+            if scratchpad:
+                stream.close()
+                break
             # Only worth checking once the beat is longer than any ordinary one, so a
             # short repetitive line — which people do write — is never mistaken for it.
             if written > _DEGENERATE_AFTER_CHARS:
@@ -1312,19 +1367,21 @@ def _stream_emission(
             data={"characterId": speaker.id, "degenerate": True},
         )
 
+    # The beat's prose lands before the reasoning display is told to clear. A short passage
+    # with no first-person pronoun in it ("Hm.") is held by the scratchpad gate until here,
+    # and the reader should not watch the deliberation vanish and then wait for the words.
+    for seg in acc.finish():
+        impact += yield from _pass(seg)
     if show_reasoning:
         yield TurnReasoningFrame(character_id=speaker.id, done=True)
-    for seg in acc.finish():
-        impact += yield from _emit_segment_delta(
-            db, ctx, speaker, emitter, turn_beats, consequences,
-            seg, open_segments, buffered, tracer,
-        )
+    if scratchpad:
+        raw, prompt_tokens = "", None
     # A stream that ended mid-segment (a truncated completion) must not leave an event
     # open and unpersisted.
     for live_seg in open_segments.values():
         yield from live_seg.close()
     open_segments.clear()
-    return raw, prompt_tokens, impact
+    return raw, prompt_tokens, impact, scratchpad
 
 
 def _emit_segment_delta(
@@ -1465,12 +1522,43 @@ def _generate_speaker(
     # only signal that catches a prompt-cache regression before it shows up as latency
     # that creeps upward as a scene gets longer.
     usage: dict = {}
-    _raw, prompt_tokens, streamed_impact = yield from _stream_emission(
+    _raw, prompt_tokens, streamed_impact, blocked = yield from _stream_emission(
         db, ctx, speaker, emitter, turn_beats, consequences,
         roster=roster, directive=directive, relationship_note=relationship_note,
         register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
         tracer=tr, show_reasoning=show_reasoning, usage_out=usage,
     )
+    if blocked:
+        # The passage was the model briefing itself, and was withheld before the reader saw
+        # a word of it — so nothing needs undoing and the speaker simply goes again. Once:
+        # a beat that leaks twice is a bad prompt or a bad moment, not bad luck, and the
+        # turn is better served moving on than spending a third generation on it. An empty
+        # turn is already covered by the silent-turn backstop at the end of the beat loop.
+        yield from tr.emit(
+            "prose",
+            f"{speaker.name} starts again",
+            detail=(
+                "The first attempt came back as notes about the task rather than the "
+                "character's own words, so it was withheld and the beat regenerated."
+            ),
+            data={"characterId": speaker.id, "scratchpad": True},
+        )
+        _raw, prompt_tokens, streamed_impact, blocked = yield from _stream_emission(
+            db, ctx, speaker, emitter, turn_beats, consequences,
+            roster=roster, directive=directive, relationship_note=relationship_note,
+            register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
+            tracer=tr, show_reasoning=show_reasoning, usage_out=usage,
+        )
+        if blocked:
+            yield from tr.emit(
+                "prose",
+                f"{speaker.name}'s beat was dropped",
+                detail=(
+                    "The second attempt came back as notes as well. The beat is skipped "
+                    "rather than shown, and the turn carries on."
+                ),
+                data={"characterId": speaker.id, "scratchpad": True, "dropped": True},
+            )
 
     # Exact context-window usage: the server-reported input-token count for this
     # character call — the real size of everything actually sent (output contract +

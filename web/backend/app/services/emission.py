@@ -119,6 +119,62 @@ def looks_degenerate(text: str) -> bool:
     return sum(tail.count(mark) for mark in _SENTENCE_MARKS) < _DEGENERATE_MIN_PUNCTUATION
 
 
+#: Vocabulary that belongs to the job, not to the story. A passage is written from inside a
+#: character; these are the words a model reaches for when it is talking to itself ABOUT
+#: writing one.
+_SCRATCHPAD_TERMS = (
+    "the player", "roster", "beat", "tag", "json", "instruction", "passage", "prose",
+    "output", "format", "block", "response", "structured", "final answer", "type:",
+)
+#: How much of the opening to judge, and how many distinct production terms it takes.
+_SCRATCHPAD_WINDOW = 400
+_SCRATCHPAD_MIN_TERMS = 2
+#: The contract asks for first person, present tense. Four hundred characters of a real
+#: passage without a single first-person pronoun does not happen; four hundred characters
+#: of a model briefing itself never has one. This is the half of the rule that does the
+#: work — the vocabulary alone would catch a character who says "my heart beat".
+#:
+#: Word-boundary matching is load-bearing: a substring test for ``i'`` matched the ``i’`` in
+#: a character's name ("Mei's fence") and exempted a leak that had no first person in it.
+_FIRST_PERSON_RE = re.compile(r"\b(?:i|i['’]\w+|my|me|mine|myself)\b", re.IGNORECASE)
+
+
+def looks_like_scratchpad(text: str) -> bool:
+    """True when a passage is the model briefing itself rather than a character speaking.
+
+    Two live beats were persisted and rendered as prose. One was the output contract read
+    back — *"then main passage then optional structured blocks each opening tag own line
+    JSON below NO closing tag per instructions…"*. The other was third-person planning about
+    the character the model was supposed to BE — *"Kira's condition right now — …; must
+    carry that into response to what just happened (… player named drowned ledger). Beat
+    direct…"*. Both are well-formed language, so ``looks_degenerate`` passes them, and
+    nothing else was looking.
+
+    The rule is a conjunction on the OPENING, because a real passage starts in the scene on
+    its first word: production vocabulary AND no first-person pronoun. Either alone would
+    be too eager.
+    """
+    opening = (text or "")[:_SCRATCHPAD_WINDOW].lower()
+    if not opening.strip():
+        return False
+    if _FIRST_PERSON_RE.search(opening):
+        return False
+    padded = f" {opening} "
+    hits = {term for term in _SCRATCHPAD_TERMS if term in padded}
+    return len(hits) >= _SCRATCHPAD_MIN_TERMS
+
+
+def in_the_scene(text: str) -> bool:
+    """True once a passage has proved itself to be a character speaking.
+
+    A first-person pronoun is the thing a leaked scratchpad never has and a passage in the
+    required form always has, so its arrival ends any need to keep holding the opening
+    back. Most passages clear this within their first sentence, which is what keeps the
+    guard in :func:`looks_like_scratchpad` from turning streaming prose into a lump.
+    """
+    return bool(_FIRST_PERSON_RE.search(text or ""))
+
+
 def _clean(body: str) -> str:
     """Strip any residual emission tags from a body and trim."""
     return _TAG_CLEAN.sub("", body).strip()
@@ -451,3 +507,9 @@ class EmissionAccumulator:
 
 
 #: The type a tag-free emission collapses to (see :class:`EmissionAccumulator.finish`).
+#: Public so the turn engine can gate on the passage specifically.
+PROSE_TYPE = _PROSE
+#: How much of a passage's opening the engine holds back before showing any of it, so a
+#: leaked scratchpad can be caught before the reader sees a word of it (see
+#: :func:`looks_like_scratchpad`).
+SCRATCHPAD_WINDOW = _SCRATCHPAD_WINDOW
