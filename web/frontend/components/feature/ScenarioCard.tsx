@@ -50,7 +50,8 @@ export function ScenarioCard({
             className="pointer-events-none"
           />
           <div
-            className="pointer-events-none"
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
             style={{ background: CARD_SCRIM }}
           />
         </>

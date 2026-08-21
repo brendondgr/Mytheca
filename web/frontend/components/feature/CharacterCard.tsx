@@ -57,7 +57,8 @@ export function CharacterCard({
       />
       {hasPortrait ? (
         <div
-          className="pointer-events-none"
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
           style={{ background: PORTRAIT_SCRIM }}
         />
       ) : null}

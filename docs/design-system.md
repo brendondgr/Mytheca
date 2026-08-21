@@ -246,6 +246,14 @@ darkening, and was caught by exactly that assertion). `PORTRAIT_SCRIM` deliberat
 its text is a narrow bottom band already at 0.72–0.92 alpha, and a wash over a portrait would dim
 the face for nothing.
 
+**The scrim element must be `absolute inset-0`.** Both constants are `background` values applied
+to a sibling div layered between the `SmartImage` and the text. A div carrying only
+`pointer-events-none` is an empty in-flow block with **zero height**, so it paints nothing — the
+artwork sits directly behind the text and the computed guarantees above describe a layer the
+browser never draws. All six scrims (`CharacterCard`, `SettingCard`, `ScenarioCard`,
+`ScenarioCarousel` hero + cast tiles, `SceneLoader`) regressed this way at once; the carousel
+hero also carried a hand-rolled copy of the gradient and now uses `CARD_SCRIM` like the rest.
+
 ## Motion Tokens (the timing system)
 
 **No component may hardcode a duration or an easing.** Inconsistent timing is the single most

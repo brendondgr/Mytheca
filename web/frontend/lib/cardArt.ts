@@ -24,6 +24,13 @@
 //
 // Fixed dark values (theme-independent) since the artwork is the same in every
 // theme.
+//
+// USAGE: the element carrying one of these MUST be `absolute inset-0` inside
+// the positioned box that holds the art. A scrim div with only
+// `pointer-events-none` is an empty in-flow block with no height, so it paints
+// nothing at all — the art then sits directly behind the text and every
+// contrast guarantee in `cardArt.test.ts` measures a layer the browser is not
+// drawing. That is exactly how all six scrims silently stopped working.
 export const CARD_SCRIM =
   "linear-gradient(95deg, rgba(16,11,4,0.95) 0%, rgba(16,11,4,0.90) 34%, rgba(16,11,4,0.80) 58%, rgba(16,11,4,0.50) 78%, rgba(16,11,4,0.06) 100%), " +
   "linear-gradient(0deg, rgba(12,8,3,0.5) 0%, rgba(12,8,3,0) 42%), " +

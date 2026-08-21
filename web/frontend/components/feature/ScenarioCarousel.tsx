@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { mediaUrl } from "@/lib/api";
 import { Monogram } from "@/components/ui/Monogram";
 import { SmartImage } from "@/components/ui/SmartImage";
-import { PORTRAIT_SCRIM, OVER_ART } from "@/lib/cardArt";
+import { CARD_SCRIM, PORTRAIT_SCRIM, OVER_ART } from "@/lib/cardArt";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 
 // Theme-aware hero palette — all values reference CSS design tokens so the
@@ -124,11 +124,9 @@ export function ScenarioCarousel({
                   near-clear on the right so the scene art reads boldly. Keeps the
                   left text column at AA while letting the artwork show through. */}
               <div
-                className="pointer-events-none"
-                style={{
-                  background:
-                    "linear-gradient(96deg, rgba(18,12,5,0.9) 0%, rgba(18,12,5,0.74) 38%, rgba(18,12,5,0.34) 70%, rgba(18,12,5,0.12) 100%), linear-gradient(0deg, rgba(14,9,4,0.55) 0%, rgba(14,9,4,0) 42%)",
-                }}
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{ background: CARD_SCRIM }}
               />
 
               {/* Text content above the overlay — capped width for readable
@@ -424,7 +422,8 @@ function CastCard({
 
         {/* Transparent bottom scrim — name/role read over the lower portrait. */}
         <div
-          className="pointer-events-none"
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
           style={{ background: PORTRAIT_SCRIM }}
         />
 

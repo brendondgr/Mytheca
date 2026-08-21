@@ -43,7 +43,7 @@ export function SceneLoader({
       ) : null}
       <div
         aria-hidden
-        className="pointer-events-none"
+        className="pointer-events-none absolute inset-0"
         style={{ background: hasArt ? CARD_SCRIM : undefined }}
       />
 
