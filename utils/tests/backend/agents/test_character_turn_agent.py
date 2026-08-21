@@ -122,7 +122,7 @@ def test_prompt_is_ordered_stable_first_and_grounded(client, db_session, monkeyp
     user = body["messages"][1]["content"]
 
     # System carries the output contract + the cacheable stable prefix.
-    assert "You voice exactly ONE character" in system
+    assert "the way it would appear in a novel" in system
     assert "Embergate is a rain-soaked harbor city." in system
 
     # STABLE region leads: the scene as authored, identical for every speaker and turn.
@@ -136,6 +136,47 @@ def test_prompt_is_ordered_stable_first_and_grounded(client, db_session, monkeyp
     # TAIL (recency): act-now is last.
     assert user.rstrip().endswith("Emit only the tagged format.")
     assert "Respond now, in Mei's voice" in user
+
+
+def test_the_contract_is_short_and_shows_the_form(client, db_session, monkeypatch):
+    """The contract teaches by example and stays short enough to follow.
+
+    It grew to ~5k characters of rules and the model lost the thread — one live beat came
+    back as the model's own scratchpad. Brevity is the feature here, so it is pinned.
+    """
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    contract = json.loads(capture["body"])["messages"][0]["content"].split("WORLD PRIMER")[0]
+    assert len(contract) < 2500, "the output contract is creeping back toward a wall of rules"
+
+    # The form, stated once and then shown.
+    assert "the way it would appear in a novel" in contract
+    assert "First person, present tense" in contract
+    assert "double quotes" in contract
+    assert "blank line between paragraphs" in contract
+    # A worked example, not just description.
+    assert "Like this:" in contract
+    assert '"You are asking me the wrong thing," I say.' in contract
+    # The three failures the live output actually showed, each asked for directly rather
+    # than left to be inferred from the example (ps_c015c506b1: no speech anywhere, one
+    # unbroken block, a 180-word sentence with no full stop in it).
+    assert "A scene where nobody speaks is not a scene." in contract
+    assert "Never one block of text." in contract
+    assert "Ordinary sentences that end." in contract
+    # The rules that earn their place.
+    assert "Only your character" in contract
+    assert "No markdown, no tags, no labels" in contract
+    assert "Never write about the task" in contract
+    assert "manner moves with the moment" in contract
+    # And no scaffolding for prose.
+    assert "<thinking>" not in contract
+    assert "<type:character_dialogue>" not in contract
 
 
 def test_stat_defs_inject_current_band_named_to_the_character(client, db_session, monkeypatch):
@@ -188,22 +229,6 @@ def test_retrieved_lore_is_injected_into_the_prompt(client, db_session, monkeypa
     assert "the Ashford fire: a smuggling deal gone wrong." in user
 
 
-def test_prompt_requests_a_hidden_thinking_block(client, db_session, monkeypatch):
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    system = json.loads(capture["body"])["messages"][0]["content"]
-    # The block is still requested and still the character's own private voice; it is now
-    # asked to be brief, and it is the ONLY deliberation the turn pays for.
-    assert "<thinking>" in system
-    assert "in your own voice" in system
-
-
 def test_interior_disposition_injected_and_builds_thinking(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}
@@ -241,20 +266,22 @@ def test_no_disposition_omits_inner_stance(client, db_session, monkeypatch):
     assert "let <thinking> build on it" not in user
 
 
-def test_the_character_deliberates_once_in_voice_and_not_again_in_hidden_reasoning(
+def test_the_beat_bounds_both_the_scratchpad_and_the_passage(
     client, db_session, monkeypatch
 ):
-    """One deliberation, not two.
+    """Thinking is capped at 1024 tokens; the passage at a generous ~900 words.
 
-    The character already thinks *in the output* — the visible in-voice ``<thinking>``
-    block the player reads. Letting the model also fill a hidden reasoning channel first
-    means it works the same beat through twice and the player waits through both, while
-    only the second is ever shown. EXP-2026-08-006 measured that beat at ~35 s to its
-    thought and ~10 s more to its line, the largest single cost in a turn.
+    Running with the reasoning channel OFF left deliberation nowhere to go, and a live run
+    caught the model writing its scratchpad into the passage and degenerating into a
+    repetition loop at 29,660 characters. The channel is what keeps that out of the prose —
+    so it is bounded rather than removed, and the passage itself is left free to run for as
+    long as the moment needs, because it delta-streams to the player as it is written.
     """
-    from app.schemas.reasoning import ReasoningEffort
+    from app.schemas.reasoning import ReasoningEffort, budget_for
 
-    assert character_turn_agent.TURN_EFFORT == ReasoningEffort.NONE
+    assert character_turn_agent.TURN_EFFORT == ReasoningEffort.HIGH
+    assert budget_for(character_turn_agent.TURN_EFFORT) == 1024
+
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
@@ -265,16 +292,17 @@ def test_the_character_deliberates_once_in_voice_and_not_again_in_hidden_reasoni
     )
     body = json.loads(capture["body"])
     system = body["messages"][0]["content"]
-    # The visible thought survives, and is asked to be brief rather than an essay.
-    assert "<thinking>" in system
-    assert "at most 2 sentences and at most 40 words" in system
-    assert "short paragraph" not in system
-    # The hidden channel is switched off by the budget key alone — measured on the
-    # deployed route, a 0 budget yields 0 reasoning characters. Forcing the chat
-    # template's own `enable_thinking` flag off as well was tried and rejected: it
-    # suppressed nothing extra and made the model terser.
-    assert body.get("thinking_token_budget") == 0
-    assert "chat_template_kwargs" not in body
+    assert body.get("thinking_token_budget") == 1024
+    # The PASSAGE gets 2,048 tokens on top of that — about four times the worst measured
+    # beat (EXP-2026-08-007: 674 ± 471 characters, longest of thirty 1,923). It is not an
+    # editorial limit; it stops the operator's GLOBAL maxTokens, shared with authoring flows
+    # and set to 48,000 on the install where this was found, from being spent on one spoken
+    # beat. Passing it through produced a 48,000-token generation that took the endpoint down.
+    assert character_turn_agent._VOICE_PROSE_TOKENS == 2048
+    assert body["max_tokens"] == 1024 * character_turn_agent._SCRATCHPAD_HEADROOM + 2048
+    # The character still deliberates in POV, inside the passage.
+    assert "from inside that character, in their own voice" in system
+    assert "<thinking>" not in system
 
 
 def test_relationship_note_injected_into_prompt(client, db_session, monkeypatch):
@@ -360,40 +388,6 @@ def test_no_voice_samples_omits_the_block(client, db_session, monkeypatch):
     assert "Voice samples" not in user
 
 
-def test_thinking_contract_anchors_to_voice(client, db_session, monkeypatch):
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    system = json.loads(capture["body"])["messages"][0]["content"]
-    # The (character-agnostic) thinking rule steers the hidden thought into voice too — but
-    # the voice's register bends with the stakes rather than being locked to the samples.
-    assert "same underlying person as your speech style and voice samples" in system
-    assert "BEND WITH THE STAKES" in system
-
-
-def test_contract_grants_situational_manner_adaptation(client, db_session, monkeypatch):
-    # Personality is constant, manner adapts: the contract must tell the character to read the
-    # moment and drop the habitual act when the situation turns grave (the core fix).
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    system = json.loads(capture["body"])["messages"][0]["content"]
-    assert "personality is CONSTANT" in system and "MANNER adapts" in system
-    assert "on autopilot" in system
-    # The <thinking> step appraises the moment BEFORE reasoning toward a response.
-    assert "what you notice about this exact moment" in system
-
-
 def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}
@@ -405,8 +399,12 @@ def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     )
     body = json.loads(capture["body"])
     assert body["top_p"] == 0.92
-    assert body["frequency_penalty"] == 0.4
-    assert body["presence_penalty"] == 0.3
+    # The frequency/presence penalties are ZERO by measurement, not by omission. They fall
+    # on every token, including the full stop, the comma and the double quote — with them
+    # at 0.40/0.30 a passage averaged 1.32 sentences per 100 words against 11.42 with them
+    # off, and the arms did not overlap (EXP-2026-08-007, n=10 each).
+    assert body["frequency_penalty"] == 0.0
+    assert body["presence_penalty"] == 0.0
 
 
 def test_transcript_window_follows_context_beats_plus_one_anchor_block(
@@ -443,24 +441,6 @@ def test_transcript_window_follows_context_beats_plus_one_anchor_block(
     assert f"beat{total - kept + 1}" in user              # inside the window
     assert f"beat{total - kept - 1}" not in user          # clipped
     assert "beat0" not in user
-
-
-def test_dialogue_is_optional_but_thinking_is_always_required(client, db_session, monkeypatch):
-    # Fix for over-talking: the character ALWAYS thinks, but a spoken line is optional — in
-    # action moments they may act or think without talking.
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    system = json.loads(capture["body"])["messages"][0]["content"]
-    assert "character_dialogue is OPTIONAL" in system
-    assert "ALWAYS required" in system  # <thinking> stays mandatory every beat
-    assert "over-talking" in system
-    assert "action-only" in system and "thinking-only" in system
 
 
 def test_register_states_the_moment_as_fact_in_the_tail(client, db_session, monkeypatch):
@@ -575,9 +555,9 @@ def _sampler(capture: dict) -> tuple[float, float, float]:
     return body["top_p"], body["frequency_penalty"], body["presence_penalty"]
 
 
-def test_grave_beat_damps_the_novelty_penalties(client, db_session, monkeypatch):
-    # Frequency/presence penalties push the model toward unused tokens — toward flourish
-    # and quips. A grave beat wants the plain, sincere, even repetitive word instead.
+def test_grave_beat_narrows_to_the_plain_word(client, db_session, monkeypatch):
+    # A grave beat wants the obvious, sincere word, so top_p narrows. The novelty penalties
+    # that used to move with the register are zero everywhere now (EXP-2026-08-007).
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
@@ -588,10 +568,13 @@ def test_grave_beat_damps_the_novelty_penalties(client, db_session, monkeypatch)
         register="grave",
     )
     top_p, frequency, presence = _sampler(capture)
-    assert top_p == 0.85 and frequency == 0.20 and presence == 0.15
+    assert top_p == 0.85 and frequency == 0.0 and presence == 0.0
 
 
-def test_light_beat_keeps_banter_varied(client, db_session, monkeypatch):
+def test_light_beat_widens_the_word_choice_without_penalties(client, db_session, monkeypatch):
+    """The light register once carried the HIGHEST penalties, which made banter the worst
+    prose in the app — the ps_c015c506b1 export's light beat came back as
+    "There — *chirp!* — there you are ! Just one sip … no wait" with no sentence in it."""
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
@@ -602,7 +585,7 @@ def test_light_beat_keeps_banter_varied(client, db_session, monkeypatch):
         register="light",
     )
     top_p, frequency, presence = _sampler(capture)
-    assert top_p == 0.95 and frequency == 0.45 and presence == 0.35
+    assert top_p == 0.95 and frequency == 0.0 and presence == 0.0
 
 
 def test_registerless_beat_keeps_the_original_sampler(client, db_session, monkeypatch):
@@ -615,7 +598,7 @@ def test_registerless_beat_keeps_the_original_sampler(client, db_session, monkey
         db_session, ctx, ctx.cast[0],
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
-    assert _sampler(capture) == (0.92, 0.4, 0.3)
+    assert _sampler(capture) == (0.92, 0.0, 0.0)
     # An unrecognized register lands on the same defaults rather than a partial update.
     capture.clear()
     character_turn_agent.generate_line(
@@ -623,7 +606,7 @@ def test_registerless_beat_keeps_the_original_sampler(client, db_session, monkey
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
         register="apocalyptic",
     )
-    assert _sampler(capture) == (0.92, 0.4, 0.3)
+    assert _sampler(capture) == (0.92, 0.0, 0.0)
 
 
 # ---- The scene direction (Narrator-Guided Scenes) --------------------------
@@ -709,22 +692,6 @@ def test_a_requirement_composes_with_a_puppet_directive(client, db_session, monk
     assert user.index("THIS BEAT MUST MAKE THIS TRUE") > user.index("directing you to")
 
 
-def test_contract_states_a_direction_is_what_not_how(client, db_session, monkeypatch):
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    system = json.loads(capture["body"])["messages"][0]["content"]
-    assert "It tells you WHAT, never HOW" in system
-
-
-# ---- prompt layout vs. the inference server's prefix cache ------------------
-
-
 def _user_message(capture: dict) -> str:
     body = json.loads(capture["body"])
     return next(m["content"] for m in body["messages"] if m["role"] == "user")
@@ -803,3 +770,46 @@ def test_the_stable_region_is_identical_for_every_speaker(client, db_session, mo
     shared = os.path.commonprefix(prompts)
     assert "Cast in the scene:" in shared
     assert "A LINE OF HISTORY." in shared  # the transcript is shared too, not just the header
+
+
+def test_the_operators_global_max_tokens_is_not_spent_on_one_beat():
+    """The bug this bounds: ``maxTokens`` is global, and a beat is not an authoring run.
+
+    That field is shared with world building and storyline generation, where a very long
+    output is the point — 48,000 on the install where this was found. Handed to a character
+    beat it produced a single 48,000-token generation over 684 seconds, which timed out the
+    relay's health probe, left the upstream marked failed, and 400'd the next three turns.
+    """
+    from app.schemas.settings import LlmParams
+
+    out = character_turn_agent._voice_params(LlmParams(max_tokens=48_000))
+    assert out.max_tokens == 1024 * character_turn_agent._SCRATCHPAD_HEADROOM + 2048
+    # ...and the stock 512 default never reaches the request either: it is a default rather
+    # than a decision and cannot even cover 1,024 tokens of thinking.
+    assert character_turn_agent._voice_params(LlmParams()).max_tokens > 512
+
+
+def test_a_ceiling_put_back_is_added_to_the_thinking_budget_not_taken_from_it(monkeypatch):
+    """Restoring a ceiling must not re-create the starvation that the first one caused.
+
+    Thinking and answer are paid out of one ``max_tokens`` upstream. A live turn ran with
+    the request budget set to the passage allowance alone (1,200) and came back as pure
+    reasoning, because 1,024 of the 1,200 went to the scratchpad before the first word.
+    """
+    from app.schemas.reasoning import ReasoningEffort, budget_for
+    from app.schemas.settings import LlmParams
+
+    from app.agents._common import GEN_MIN_TOKENS
+
+    monkeypatch.setattr(character_turn_agent, "_VOICE_PROSE_TOKENS", 1200)
+    for effort in (ReasoningEffort.QUICK, ReasoningEffort.HIGH):
+        out = character_turn_agent._voice_params(LlmParams(), reasoning=effort)
+        # Whatever the effort, the passage is left the same room to be written in — the
+        # scratchpad's headroom scales with its budget, the prose allowance does not.
+        headroom = budget_for(effort) * character_turn_agent._SCRATCHPAD_HEADROOM
+        assert out.max_tokens - headroom == 1200
+
+    # ...unless the operator's own budget is smaller than the sum, in which case theirs
+    # wins. At MAX the scratchpad's headroom alone (8,192) already fills the floor.
+    out = character_turn_agent._voice_params(LlmParams(), reasoning=ReasoningEffort.MAX)
+    assert out.max_tokens == GEN_MIN_TOKENS

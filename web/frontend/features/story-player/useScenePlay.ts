@@ -381,7 +381,10 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     }
     if (frame.type === "branch_choices") {
       setChoices(branchOptionsToChoices(frame.data.choices));
-      setMessages((m) => [...m.filter((x) => x.kind !== "choices"), { kind: "choices" }]);
+      // The planner's question (when it asked rather than guessed) rides on the beat, so it
+      // survives the replace-the-open-choices filter and renders above its own options.
+      const prompt = frame.data.prompt ?? "";
+      setMessages((m) => [...m.filter((x) => x.kind !== "choices"), { kind: "choices", text: prompt }]);
       return;
     }
     setMessages((prev) => mergeFrame(prev, frame));

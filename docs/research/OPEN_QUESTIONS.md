@@ -174,3 +174,47 @@ Appended as each `RESULTS.md` §7 is written.
 - [ ] **Judge image fidelity, not just prompt grounding.** `appearance_coverage` reads
       the prompt; nothing yet checks whether the painted figure resembles the authored
       character. Needs a VLM judge or human raters.
+
+### From EXP-2026-08-008 (`complete` — the prose form through the live turn engine)
+
+- [ ] **Measure in-character drift with the penalties off.** EXP-2026-08-007 removed
+      `frequency_penalty`/`presence_penalty` because they destroyed sentence structure, but
+      those penalties were added to fight drift and neither experiment measures drift. The
+      trade was taken on one side of the ledger only. Needs a long-session eval —
+      repetition of a character's own phrasings over time, or blinded speaker attribution —
+      run with the penalties off and on.
+      → `experiments/EXP-2026-08-008-prose-end-to-end/ISSUES.md`
+- [ ] **Re-run the sampler arms on a second model.** EXP-2026-08-007 is entirely
+      `qwen38-27B-awq`; only the shipped configuration has been observed on
+      `gemma4-26B-mtp`. Until the arms are re-run there, the finding does not transfer.
+- [ ] **Give the player an identity in the prompt rather than a label.** The transcript
+      labelled the human's line `Player:`, and the models reached for that label as a name
+      for a person in the room. The fix here is second person plus a guard; a scenario-level
+      player name (or a mandatory POV character) would remove the ambiguity at the root
+      instead of instructing around it.
+- [ ] **Add an opening-gate seam to narration.** The character path can discard a bad
+      opening and regenerate; narration delta-streams from its first token by design,
+      because it is the first thing a new player sees. That means a narration leak has no
+      backstop but the prompt. Worth deciding whether a short hold on the *first* narration
+      of a turn is worth its latency.
+- [ ] **Score the writing, not only its shape.** Every metric here is a countable shadow of
+      "reads like a scene". Nothing measures whether a passage is *good*, and the read that
+      says so is unblinded and by the author of the change.
+
+### From EXP-2026-08-009 (`complete` — second person instead of a label)
+
+- [ ] **Find out why passages got 66 % longer** (780 → 1292 chars) when the player's label
+      changed, and whether it survives sessions with a different dramatic arc. If the second
+      person genuinely lengthens beats that is a finding; if it was this session escalating
+      into a forced door, it is noise currently sitting in a results file.
+      → `experiments/EXP-2026-08-009-prose-second-person/RESULTS.md` §6
+- [ ] **Build a config seam for arm-level prompt tests.** Every prompt comparison in this
+      record — EXP-2026-08-009 included — is a before/after across two runs, because the turn
+      engine cannot serve two prompt variants inside one session. That is the ceiling on all
+      of this evidence, and it is a build task, not a research one.
+- [ ] **Widen the leak detector or stop trusting it.** `names_the_player` is two phrases; a
+      model that writes "the human" or "whoever is typing" passes it.
+- [ ] **Check the `Player:` labels left in `planner_agent`, `director_agent` and
+      `intent_agent`.** They were left alone because their outputs are structure, not prose —
+      but `director_agent` writes branch labels the player reads, so that is untested rather
+      than safe.

@@ -24,6 +24,16 @@ function StreamCaret() {
   return <span aria-hidden="true" className="stream-caret" />;
 }
 
+/**
+ * The colour a character's spoken words take: their own, mixed 30% toward the theme's
+ * `--quote-tint`. On the dark themes that lifts the hue off the bubble; on parchment the
+ * tint is the ink colour instead, because a straight lighten washes out on cream. Only
+ * quoted speech is tinted — the surrounding prose stays plain body text.
+ */
+function speechColor(color: string | undefined): string | undefined {
+  return color ? `color-mix(in oklab, ${color} 70%, var(--quote-tint))` : undefined;
+}
+
 /** `narration` → teal-accented card (upright, not italic — feedback #6). */
 export function NarratorCard({ text, streaming }: { text: string; streaming?: boolean }) {
   return (
@@ -31,7 +41,7 @@ export function NarratorCard({ text, streaming }: { text: string; streaming?: bo
       <Eyebrow size={8} tracking="0.18em" color="#1F8A82" className="mb-[6px] block">
         Narrator
       </Eyebrow>
-      <p className="font-body text-[15.5px] leading-[1.55] text-ink">
+      <p className="font-body text-[15.5px] leading-[1.55] whitespace-pre-line text-ink">
         <QuotedText text={text} />
         {streaming ? <StreamCaret /> : null}
       </p>
@@ -49,7 +59,7 @@ export function PlayerMessage({ text }: { text: string }) {
             You
           </Eyebrow>
         </div>
-        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-[#F6ECDA]">
+        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] whitespace-pre-line text-[#F6ECDA]">
           <QuotedText text={text} />
         </div>
       </div>
@@ -93,7 +103,7 @@ export function PlayerAsCharacterMessage({
             ring={1.5}
           />
         </div>
-        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-[#F6ECDA]">
+        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] whitespace-pre-line text-[#F6ECDA]">
           <QuotedText text={text} />
         </div>
       </div>
@@ -198,11 +208,14 @@ export function CharacterMessage({
             ) : null}
             {text ? (
               <p
-                className={`font-body text-[15.5px] leading-[1.5] text-ink${
+                // `whitespace-pre-line` keeps the paragraph breaks inside a first-person
+                // passage, which may legitimately run to two or three paragraphs. Plain
+                // body text throughout — only the quoted speech is bolded, by QuotedText.
+                className={`font-body text-[15.5px] leading-[1.5] whitespace-pre-line text-ink${
                   thought ? " mt-[8px] border-t border-hair pt-[8px]" : ""
                 }`}
               >
-                <QuotedText text={text} />
+                <QuotedText text={text} color={speechColor(c.color)} />
                 {streaming ? <StreamCaret /> : null}
               </p>
             ) : null}
@@ -213,24 +226,39 @@ export function CharacterMessage({
   );
 }
 
-/** `branch_choices` — centered ◆ choice rows. */
+/**
+ * `branch_choices` — centered ◆ choice rows, under an optional question.
+ *
+ * With no `prompt` these are follow-up suggestions: the turn is over and these are things
+ * the player might say next. With one, the planner stopped the turn to ask where the story
+ * should go rather than commit the scene to a guess — so the question leads, and the rows
+ * below it are suggested answers the player is free to ignore in favour of the composer.
+ * A question with no suggestions renders alone, which is why the rows are conditional.
+ */
 export function BranchChoices({
   choices,
   onChoose,
+  prompt,
 }: {
   choices: SceneChoice[];
   onChoose: (choice: SceneChoice) => void;
+  /** The planner's question, when it asked instead of guessing. */
+  prompt?: string;
 }) {
   // 3–4 follow-ups lay out in a 2-column grid (4 → a 2×2 grid); 1–2 stack in a column.
   const layout = choices.length >= 3 ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2";
+  const asked = Boolean(prompt?.trim());
   return (
     <div className="w-full max-w-[600px] self-center">
       <div className="mb-[10px] text-center">
         <Eyebrow tracking="0.16em" color="var(--accent)">
-          Your move — choose a path
+          {asked ? "The story is asking you" : "Your move — choose a path"}
         </Eyebrow>
+        {asked && (
+          <p className="mt-[8px] font-display text-[17px] leading-[1.5] text-ink">{prompt}</p>
+        )}
       </div>
-      <div className={layout}>
+      <div className={choices.length === 0 ? "hidden" : layout}>
         {choices.map((ch) => (
           <button
             key={ch.id}
@@ -286,7 +314,7 @@ export function TranscriptBeat({
   if (m.kind === "image")
     return m.image ? <SceneImageBeat image={m.image} onOpen={onOpenImage} /> : null;
   if (m.kind === "choices")
-    return <BranchChoices choices={choices} onChoose={onChoose} />;
+    return <BranchChoices choices={choices} onChoose={onChoose} prompt={m.text} />;
   const c = charById(m.who ?? "");
   if (!c) return null;
   // Player POV: a `char` beat the player authored (they spoke AS this character) renders on

@@ -27,6 +27,7 @@ _STEP_LABELS = {
     "lore": "RAG / lore look-up",
     "plan": "Planner",
     "speaker": "Speaker",
+    "prose": "Prose",
     "thinking": "Thinking",
     "consistency": "Consistency check",  # historical — the guard was retired
     "relationship": "Relationship context",
@@ -138,6 +139,11 @@ def _beat_md(beat: dict[str, Any]) -> str:
     kind = beat["type"]
     if kind == "narration":
         return f"> {text}" if text else ""
+    if kind == "character_prose":
+        # One passage, already first-person with its speech quoted inline. Only the
+        # speaker's name is added, so the export reads as prose rather than as a
+        # reassembled transcript.
+        return f"**{who}**\n\n{text}" if text else ""
     if kind == "internal_thought":
         return f"*{who} thinks:* {text}"
     if kind == "character_action":

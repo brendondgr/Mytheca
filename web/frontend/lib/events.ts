@@ -24,6 +24,18 @@ export interface NarrationEvent extends PlayEnvelope {
   data: { text: string; done: boolean };
 }
 
+/**
+ * A character's whole beat as one first-person passage — what they notice, do and say,
+ * woven together, with spoken words in double quotes inline. Delta-streamed (same id,
+ * incremental `text`, `done`). This is the form a character beat takes now;
+ * `character_dialogue` / `character_action` / `internal_thought` remain for sessions
+ * recorded in the older three-fragment shape.
+ */
+export interface CharacterProseEvent extends PlayEnvelope {
+  type: "character_prose";
+  data: { characterId: string; text: string; done: boolean };
+}
+
 /** A character's spoken line. Delta-streamed (same id, incremental `text`, `done`). */
 export interface CharacterDialogueEvent extends PlayEnvelope {
   type: "character_dialogue";
@@ -59,7 +71,16 @@ export interface BranchChoiceOption {
 
 export interface BranchChoicesEvent extends PlayEnvelope {
   type: "branch_choices";
-  data: { choices: BranchChoiceOption[] };
+  data: {
+    /**
+     * A question from the planner, when it stopped the turn rather than guess where the
+     * story goes. Empty for the ordinary end-of-turn follow-ups, which are offered rather
+     * than asked. When set, the choices are suggested answers — the player may ignore them
+     * and type their own.
+     */
+    prompt?: string;
+    choices: BranchChoiceOption[];
+  };
 }
 
 /**
@@ -108,6 +129,7 @@ export interface SceneImageEvent extends PlayEnvelope {
 /** Any story event on the turn stream. */
 export type PlayEvent =
   | NarrationEvent
+  | CharacterProseEvent
   | CharacterDialogueEvent
   | CharacterActionEvent
   | StateUpdateEvent

@@ -24,6 +24,10 @@ class ReasoningEffort(str, Enum):
     #: channel reasoning is a second deliberation nobody reads, paid for in the wait
     #: before the first word of prose. One or the other, not both.
     NONE = "none"
+    #: Quick and instinctual — enough to read the room and answer, not to deliberate.
+    #: The beat planner runs here: it decides who is up next after EVERY beat, so the
+    #: cost is paid once per beat and a slow answer is felt directly by the player.
+    QUICK = "quick"
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -34,6 +38,7 @@ class ReasoningEffort(str, Enum):
 # Effort → thinking-token budget. Values fixed by product spec.
 THINKING_BUDGET: dict[ReasoningEffort, int] = {
     ReasoningEffort.NONE: 0,
+    ReasoningEffort.QUICK: 128,
     ReasoningEffort.LOW: 256,
     ReasoningEffort.MEDIUM: 512,
     ReasoningEffort.HIGH: 1024,

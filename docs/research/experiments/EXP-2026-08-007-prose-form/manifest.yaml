@@ -1,0 +1,136 @@
+id: EXP-2026-08-007
+slug: prose-form
+title: In-voice frequency/presence penalties destroy sentence structure in character prose
+status: complete
+date_started: 2026-08-21
+date_completed: '2026-08-21'
+authors:
+- brendondgr
+purpose: 'The character passage form ships and does not read like a scene: run-ons with no punctuation,
+  no spoken dialogue, one unbroken block. This asks whether the in-voice sampler penalties applied by
+  character_turn_agent._voice_params are the cause, so the fix can be set from a measurement rather than
+  a prior.
+
+  '
+hypothesis: 'The penalties are the cause. They fall on every token, and the tokens prose is made of are
+  its most repeated ones (the full stop, the comma, the double quote, "I", "the"), so penalising them
+  should show up as few sentence terminators per hundred words, no quotation marks and no paragraph breaks.
+  Predicted direction: removing them increases all three.
+
+  '
+code:
+  commit: d7572b8cbc5f17345401920a82714075ec226a3e
+  branch: prose-that-reads-like-a-scene
+  entrypoint: uv run python -m utils.scripts.research.run_prose_form --experiment docs/research/experiments/EXP-2026-08-007-prose-form
+    --samples 2
+  dirty: true
+config:
+  path: utils/scripts/research/run_prose_form.py
+  hash: sha256:545a9f86b2b86abf8394e632c518e19b916e1f26f8e46318b98ddd57ee69e444
+data:
+  name: five scene prompts written for this experiment (shipped in the runner)
+  version: '2026-08-21'
+  split: n/a — not a held-out set; contaminated by shipping in the repository
+  n_examples: 5
+  dvc_path: null
+  hash: sha256:545a9f86b2b86abf8394e632c518e19b916e1f26f8e46318b98ddd57ee69e444
+seeds: []
+n_runs: 30
+environment:
+  python: '3.13'
+  lockfile: env/requirements.lock
+  container: null
+compute:
+  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
+  wall_clock_hours: 0.1816
+  estimated_cost_usd: 0.0
+llm:
+  model: relay/skynet
+  temperature: 0.8
+  top_p: 0.92
+  max_tokens: 2224
+  prompt_files:
+  - web/backend/app/agents/prompt_registry.py::CHARACTER_OUTPUT_CONTRACT
+  prompt_hash: sha256:a344aa1d30adc1756873c4d878a7cf99d799043e6305f8ca4a78626c3e372060
+  tool_schema_hash: null
+  total_input_tokens: 18882
+  total_output_tokens: 41200
+  nondeterminism_note: 'Temperature 0.8 by design — this measures the sampler, so sampling is the subject.
+    Arms are interleaved per prompt so endpoint drift spreads across them instead of landing on one. Results
+    are reported as mean +/- population std over n=10 per arm, with every per-run value printed in RESULTS.md
+    because the spread is part of the finding.
+
+    '
+metrics:
+  primary: off.sentences_per_100_words
+  values:
+    half.chars:
+      mean: 1919.1
+      n: 10
+      std: 1883.065079
+    half.has_speech:
+      mean: 0.7
+      n: 10
+      std: 0.458258
+    half.is_scratchpad:
+      mean: 0.0
+      n: 10
+      std: 0.0
+    half.paragraph_breaks:
+      mean: 1.8
+      n: 10
+      std: 1.077033
+    half.sentences_per_100_words:
+      mean: 3.8032
+      n: 10
+      std: 3.070202
+    off.chars:
+      mean: 674.4
+      n: 10
+      std: 471.130598
+    off.has_speech:
+      mean: 1.0
+      n: 10
+      std: 0.0
+    off.is_scratchpad:
+      mean: 0.0
+      n: 10
+      std: 0.0
+    off.paragraph_breaks:
+      mean: 3.8
+      n: 10
+      std: 2.56125
+    off.sentences_per_100_words:
+      mean: 11.4157
+      n: 10
+      std: 3.956224
+    shipped.chars:
+      mean: 2182.9
+      n: 10
+      std: 1770.635787
+    shipped.has_speech:
+      mean: 0.8
+      n: 10
+      std: 0.4
+    shipped.is_scratchpad:
+      mean: 0.0
+      n: 10
+      std: 0.0
+    shipped.paragraph_breaks:
+      mean: 1.2
+      n: 10
+      std: 1.16619
+    shipped.sentences_per_100_words:
+      mean: 1.3235
+      n: 10
+      std: 1.160871
+baselines_compared: []
+statistical_test: null
+supports_claims:
+- C-012
+figures:
+- penalties
+supersedes: null
+superseded_by: null
+related:
+- EXP-2026-08-006

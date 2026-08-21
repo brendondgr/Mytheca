@@ -1,0 +1,111 @@
+id: EXP-2026-08-008
+slug: prose-end-to-end
+title: The prose form end to end — does a live turn read like a scene, and at what cost in discarded beats?
+status: complete
+date_started: 2026-08-21
+date_completed: 2026-08-21
+authors:
+- brendondgr
+purpose: 'EXP-2026-08-007 measured the sampler by calling the relay directly, with the shipped character
+  contract as the only system message — isolating the sampler and leaving out the planner, the assembled
+  context, the emission parser and the four guards that can discard a passage. This asks the question
+  the owner actually asks: does the prose read like a scene when it comes out of the real turn engine,
+  over a real multi-turn session, and without paying for it in beats the guards had to throw away? It
+  is the verification phase of docs/plans/prose-that-reads-like-a-scene.md.
+
+  '
+hypothesis: 'Stated before the run. Yes, and without paying for it in discarded beats: every character
+  beat carries quoted speech and a paragraph break, no beat duplicates another in the session, sentences_per_100_words
+  lands in the range EXP-2026-08-007''s `off` arm produced (11.42 +/- 3.96), and discards stay in single
+  figures. The structural fixes are prompt-independent and the sampler finding removed what broke the
+  form.
+
+  '
+code:
+  commit: 59ba9f5be0b4ec6a86b72cf3d5728f3628752363
+  branch: prose-that-reads-like-a-scene
+  entrypoint: uv run python -m utils.scripts.research.run_prose_end_to_end --experiment docs/research/experiments/EXP-2026-08-008-prose-end-to-end
+    --turns 6
+  dirty: true
+config:
+  path: null
+  hash: null
+data:
+  name: throwaway world built by the runner (Salt and Ledgers; Mei/Kira/Aldous)
+  version: run_conversation_scaling.build_world @ this commit
+  split: n/a — a live session, not a dataset
+  n_examples: 6
+  dvc_path: null
+  hash: null
+seeds: []
+n_runs: 18
+environment:
+  python: '3.13'
+  lockfile: env/requirements.lock
+  container: null
+compute:
+  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
+  wall_clock_hours: 0.3345
+  estimated_cost_usd: 0.0
+llm:
+  model: relay/skynet -> gemma4-26B-mtp
+  temperature: 0.8
+  top_p: 0.92
+  max_tokens: 4096
+  prompt_files:
+  - web/backend/app/agents/prompt_registry.py
+  prompt_hash: sha256:08484a181420c46465ebc6259eafe23bf9226079e98df85fd464cea0129f3336
+  tool_schema_hash: null
+  total_input_tokens: 0
+  total_output_tokens: 0
+  nondeterminism_note: 'Provider-side nondeterminism remains even at temperature 0; results are reported
+    as mean ± std over n_runs.
+
+    '
+metrics:
+  primary: has_speech
+  values:
+    is_distinct:
+      mean: 1.0
+      std: 0.0
+      n: 18
+    names_the_player:
+      mean: 0.722222
+      std: 0.447903
+      n: 18
+    sentences_per_100_words:
+      mean: 5.653222
+      n: 18
+      std: 1.478363
+    has_speech:
+      mean: 1.0
+      n: 18
+      std: 0.0
+    paragraph_breaks:
+      mean: 2.277778
+      n: 18
+      std: 0.447903
+    is_scratchpad:
+      mean: 0.0
+      n: 18
+      std: 0.0
+    starts_mid_sentence:
+      mean: 0.0
+      n: 18
+      std: 0.0
+    chars:
+      mean: 780.277778
+      n: 18
+      std: 139.670169
+baselines_compared:
+- EXP-2026-08-007 off arm
+- pre-change live database (plan section 1)
+statistical_test: null
+supports_claims: []
+figures:
+- prose_end_to_end
+supersedes: null
+superseded_by: null
+related:
+- EXP-2026-08-007
+- EXP-2026-08-006

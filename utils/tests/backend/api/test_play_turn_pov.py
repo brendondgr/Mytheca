@@ -22,7 +22,7 @@ from app.services import llm
 
 _EMISSION = (
     "<speaker:1>\n"
-    '<type:character_dialogue>\n"I hear you."'
+    '"I hear you."'
 )
 
 
@@ -74,7 +74,7 @@ def _plan_routed(monkeypatch, decisions, *, narration="A hush falls over the roo
             return _resp(narration)
         m = re.search(r"You are \[(\d+)\] (\w+)", user)
         num, name = (m.group(1), m.group(2)) if m else ("1", "Someone")
-        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."')
+        return _resp(f'<speaker:{num}>\n"{name} speaks now."')
 
     monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
 
@@ -94,7 +94,7 @@ def _by_id(events: list[dict]) -> dict[str, list[dict]]:
 def _reconstruct_dialogue(events: list[dict]) -> list[dict]:
     out: list[dict] = []
     for _eid, evs in _by_id(events).items():
-        if evs[0]["type"] != "character_dialogue":
+        if evs[0]["type"] != "character_prose":
             continue
         out.append({"characterId": evs[-1]["data"].get("characterId"), "seq": evs[0]["seq"]})
     return sorted(out, key=lambda d: d["seq"])
@@ -128,7 +128,7 @@ def test_pov_line_not_emitted_and_other_char_reacts(client, db_session, storylin
     # No visible character beat is attributed to the POV character (Mei)…
     mei_beats = [
         e for e in events
-        if e["type"] in ("character_dialogue", "character_action")
+        if e["type"] in ("character_prose",)
         and e.get("data", {}).get("characterId") == mei
     ]
     assert mei_beats == []
@@ -156,7 +156,7 @@ def test_solo_pov_ends_naturally_no_ai_dialogue(client, storyline_id, monkeypatc
     _plan_routed(monkeypatch, [{"action": "end"}])
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I wait alone.", "povCharacterId": mei}))
     assert all(e["type"] != "error" for e in events)
-    assert all(e["type"] != "character_dialogue" for e in events)  # the AI voiced no one
+    assert all(e["type"] != "character_prose" for e in events)  # the AI voiced no one
 
 
 def test_stray_speak_pov_is_coerced_to_end(client, storyline_id, monkeypatch):
@@ -192,7 +192,7 @@ def test_stray_speak_pov_is_coerced_to_end(client, storyline_id, monkeypatch):
     )
     mei_beats = [
         e for e in events
-        if e["type"] in ("character_dialogue", "character_action")
+        if e["type"] in ("character_prose",)
         and e.get("data", {}).get("characterId") == mei
     ]
     assert mei_beats == []

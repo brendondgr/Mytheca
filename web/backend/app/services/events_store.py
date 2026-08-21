@@ -179,6 +179,29 @@ def session_events(db: Session, session_id: str) -> list[Event]:
     )
 
 
+def ended_on_a_question(db: Session, session_id: str, *, before_seq: int | None = None) -> bool:
+    """True when the PREVIOUS turn ended on the planner's own question to the player.
+
+    The planner may ask the player where the story should go, but never twice running — a
+    scene that only asks has stopped being a scene. Its question is by construction the
+    final event of the turn that asked it (the engine breaks the beat loop and suppresses
+    both the holding narration and the ordinary follow-up suggestions), so one row answers
+    this.
+
+    ``before_seq`` is the seq the current turn starts writing at: by the time the engine
+    needs this, the player's own ``user_turn`` row is already persisted, so "the last
+    event" would be that line rather than the answer to it.
+    """
+    q = select(Event).where(Event.session_id == session_id)
+    if before_seq is not None:
+        q = q.where(Event.seq < before_seq)
+    row = db.scalars(q.order_by(Event.seq.desc()).limit(1)).first()
+    if row is None or row.type != "branch_choices":
+        return False
+    data = row.data if isinstance(row.data, dict) else {}
+    return bool(str(data.get("prompt") or "").strip())
+
+
 def session_traces(db: Session, session_id: str) -> list[TurnTrace]:
     """Every persisted diagnostic trace step for a session, ordered by ``(turn, n)``."""
     return list(

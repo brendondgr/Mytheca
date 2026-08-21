@@ -28,12 +28,29 @@ _THINKING_RE = re.compile(r"<thinking>(.*?)</thinking>", re.IGNORECASE | re.DOTA
 # Belt-and-suspenders scrub for any residual emission tag left inside a body. The type/
 # speaker name is OPTIONAL so a **bare** closing tag the model sometimes appends
 # (``</type>``, ``</speaker>``) is scrubbed too, not just the named form (``</type:…>``).
+#: Wrapper tags the contract never asks for and models invent anyway — a whole passage
+#: delivered inside ``<response>…</response>`` or opening on a bare ``<passage>``. Both were
+#: observed live and both were persisted verbatim into the rendered prose, because nothing
+#: recognised them. As a complete tag these four words are never prose, so they are scrubbed
+#: like any other emission tag rather than shown.
+_WRAPPERS = "response|passage|answer|output|prose"
 _TAG_CLEAN = re.compile(
-    r"</?(?:type(?::\s*[a-z_]+)?|thinking|speaker(?::\s*\d+)?)\s*>", re.IGNORECASE
+    rf"</?(?:type(?::\s*[a-z_]+)?|thinking|speaker(?::\s*\d+)?|{_WRAPPERS})\s*>",
+    re.IGNORECASE,
 )
 
-# Prose types a character may emit (internal_thought is hidden conditioning).
-_PROSE_TYPES = {"character_action", "character_dialogue"}
+# A character beat is ONE untagged first-person passage. There are no prose tags any more,
+# and a ``<type:...>`` naming a prose kind is therefore **ignored** rather than honoured:
+# models still emit stray ``</type:character_dialogue>`` from the old contract, and each one
+# used to *open a new segment*, so a completion that repeated itself became several
+# byte-identical persisted events. One live turn produced four. Ignoring them keeps the
+# passage whole — a repeating model then yields one ugly beat instead of four duplicates,
+# which is a writing-quality problem rather than a correctness one.
+_PROSE = "character_prose"
+_PROSE_TYPES = {_PROSE}
+#: ``<thinking>`` is no longer requested, but a model that emits it is putting deliberation
+#: there — kept as a private ``internal_thought`` so it cannot reach the visible passage.
+_THINKING_TYPE = "internal_thought"
 # A character may also propose a stat change, a relationship change, or a presence change
 # (leaving/collapsing) as a JSON body (validated downstream); their ``text`` is the raw
 # JSON block, kept verbatim.
@@ -41,6 +58,179 @@ _STAT_TYPE = "state_update"
 _REL_TYPE = "relationship_update"
 _PRESENCE_TYPE = "presence_change"
 _JSON_TYPES = {_STAT_TYPE, _REL_TYPE, _PRESENCE_TYPE}
+
+
+#: How much of the tail to inspect for degeneration, and how little variety it takes to
+#: call it. A passage is never length-capped — a character may hold the floor for as long
+#: as the moment needs — but a generation that has stopped producing language should not be
+#: streamed into the story. Live runs produced 29,660 and 48,167-character beats that began
+#: as prose, drifted into the model's own notes, and ended in "Rex Rex Rex" and "AT AT AT
+#: AAAA". Detecting that is what lets the length stay unbounded.
+_DEGENERATE_WINDOW = 400
+_DEGENERATE_MIN_DISTINCT_WORDS = 12
+#: Prose punctuates. A 400-character stretch — roughly seventy words — with **no** mark of
+#: punctuation at all is not a sentence any more. This catches the *second* observed
+#: collapse mode, which the variety check above cannot see: a drift into an unrelated word
+#: list ("… sediment erosion weathering transport deposition compaction lithification …"),
+#: where every word differs so lexical variety stays high while the language is gone.
+#:
+#: One is the threshold rather than two because a single comma in seventy words is still a
+#: sentence — a deliberate run-on is a real style, and an earlier draft of this rule cut it.
+_DEGENERATE_MIN_PUNCTUATION = 1
+_SENTENCE_MARKS = ".,;:!?\"'“”’—"
+
+#: How much verbatim text has to recur before a passage is called a repeat. A model that
+#: has lost the thread restates its whole passage — one live beat contained the same
+#: ~2,400 characters five times over. Two hundred characters is roughly thirty words: long
+#: enough that no writer produces it twice by accident, short enough to catch the loop on
+#: its second pass rather than its fifth.
+_REPEAT_WINDOW = 200
+
+
+def repeats_itself(text: str) -> bool:
+    """True when the tail of ``text`` has already appeared verbatim earlier in it.
+
+    Distinct from :func:`looks_degenerate`, which asks whether the text has stopped being
+    language: a repeat is perfectly good prose, delivered again. Both were the same defect
+    while the parser split a repeating emission into one event per pass — five well-formed
+    rows that each looked correct. With the passage kept whole the repetition is visible in
+    one body, and this is what sees it.
+    """
+    body = text or ""
+    if len(body) < 2 * _REPEAT_WINDOW:
+        return False
+    tail = body[-_REPEAT_WINDOW:]
+    first = body.find(tail)
+    return first != -1 and first < len(body) - _REPEAT_WINDOW
+
+
+def looks_degenerate(text: str) -> bool:
+    """True when the tail of ``text`` has stopped being language.
+
+    Two collapse modes, both observed live and both deliberately conservative:
+
+    * **A token loop** — almost no distinct words ("Rex Rex Rex …", "AT AT AT AAAA").
+    * **A word list** — plenty of distinct words but no sentence structure at all.
+
+    The check is on the TAIL rather than the whole passage, because the observed shape is a
+    beat that opens as ordinary prose and collapses later. Neither rule fires on real
+    writing: an incantatory, deliberately repetitive line still punctuates, and ordinary
+    prose never runs seventy words without a comma.
+    """
+    tail = (text or "")[-_DEGENERATE_WINDOW:]
+    words = tail.split()
+    if len(words) < 20:
+        return False
+    if len(set(words)) < _DEGENERATE_MIN_DISTINCT_WORDS:
+        return True
+    return sum(tail.count(mark) for mark in _SENTENCE_MARKS) < _DEGENERATE_MIN_PUNCTUATION
+
+
+#: Vocabulary that belongs to the job, not to the story. A passage is written from inside a
+#: character; these are the words a model reaches for when it is talking to itself ABOUT
+#: writing one.
+_SCRATCHPAD_TERMS = (
+    "the player", "roster", "beat", "tag", "json", "instruction", "passage", "prose",
+    "output", "format", "block", "response", "structured", "final answer", "type:",
+)
+#: How much of the opening to judge, and how many distinct production terms it takes.
+_SCRATCHPAD_WINDOW = 400
+_SCRATCHPAD_MIN_TERMS = 2
+#: The contract asks for first person, present tense. Four hundred characters of a real
+#: passage without a single first-person pronoun does not happen; four hundred characters
+#: of a model briefing itself never has one. This is the half of the rule that does the
+#: work — the vocabulary alone would catch a character who says "my heart beat".
+#:
+#: Word-boundary matching is load-bearing: a substring test for ``i'`` matched the ``i’`` in
+#: a character's name ("Mei's fence") and exempted a leak that had no first person in it.
+_FIRST_PERSON_RE = re.compile(r"\b(?:i|i['’]\w+|my|me|mine|myself)\b", re.IGNORECASE)
+
+
+def looks_like_scratchpad(text: str) -> bool:
+    """True when a passage is the model briefing itself rather than a character speaking.
+
+    Two live beats were persisted and rendered as prose. One was the output contract read
+    back — *"then main passage then optional structured blocks each opening tag own line
+    JSON below NO closing tag per instructions…"*. The other was third-person planning about
+    the character the model was supposed to BE — *"Kira's condition right now — …; must
+    carry that into response to what just happened (… player named drowned ledger). Beat
+    direct…"*. Both are well-formed language, so ``looks_degenerate`` passes them, and
+    nothing else was looking.
+
+    The rule is a conjunction on the OPENING, because a real passage starts in the scene on
+    its first word: production vocabulary AND no first-person pronoun. Either alone would
+    be too eager.
+    """
+    opening = (text or "")[:_SCRATCHPAD_WINDOW].lower()
+    if not opening.strip():
+        return False
+    if _FIRST_PERSON_RE.search(opening):
+        return False
+    padded = f" {opening} "
+    hits = {term for term in _SCRATCHPAD_TERMS if term in padded}
+    return len(hits) >= _SCRATCHPAD_MIN_TERMS
+
+
+def in_the_scene(text: str) -> bool:
+    """True once a passage has proved itself to be a character speaking.
+
+    A first-person pronoun is the thing a leaked scratchpad never has and a passage in the
+    required form always has, so its arrival ends any need to keep holding the opening
+    back. Most passages clear this within their first sentence, which is what keeps the
+    guard in :func:`looks_like_scratchpad` from turning streaming prose into a lump.
+    """
+    return bool(_FIRST_PERSON_RE.search(text or ""))
+
+
+#: "the player" / "the user" — a production label for a person, used as if it were a name.
+#: ``\s+`` rather than a literal space so a line break between the two words still matches,
+#: and the ``the`` must be adjacent: "the lute player" and "the other players" are ordinary
+#: prose and must survive.
+_NAMES_THE_PLAYER_RE = re.compile(r"\bthe\s+(?:player|user)(?:['’]s)?\b", re.IGNORECASE)
+
+
+def names_the_player(text: str, *, window: int | None = None) -> bool:
+    """True when a passage calls the person in the room "the player".
+
+    The character and narrator transcripts label the human's line, and for a long time that
+    label was ``Player:``. The models used it as a name: in the EXP-2026-08-008 verification
+    run **13 of 18 character beats and 6 of 10 narration beats** said "the player" — *"The
+    player's question feels like a stone dropped into a well"*, *"I feel the player's gaze
+    sweep over us"*, *"his eyes lock onto the player"*. The prose was otherwise exactly right,
+    which is why nothing caught it: :func:`looks_like_scratchpad` needs production vocabulary
+    AND no first-person pronoun, and these say "I" throughout;
+    :func:`starts_mid_sentence` needs a lowercase open, and these begin on a capital.
+
+    The fix is at the source — the line is labelled ``You:`` and both prompts ask for the
+    second person — so this is a backstop and a measurement, not the primary defence.
+
+    ``window`` limits the check to the opening, which is what the engine's gate wants: it
+    judges a passage before releasing it, and a beat that reaches a card table in its fourth
+    paragraph is writing a scene, not reading its own prompt. Omit it to measure a whole
+    passage, which is what the research runner does.
+    """
+    body = text or ""
+    if window is not None:
+        body = body[:window]
+    return bool(_NAMES_THE_PLAYER_RE.search(body))
+
+
+def starts_mid_sentence(text: str) -> bool:
+    """True when a passage opens on a lowercase letter — a fragment, not an opening.
+
+    The contract says to start in the scene on the first word, and a passage that begins
+    lowercase has not started: it is the tail of something the model was saying to itself.
+    A live beat came through as the 62-character *"flat composure build in my own voice
+    rather than restating it."*, which :func:`looks_like_scratchpad` cannot see — it says
+    "my", so the first-person test exempts it, and its vocabulary is ordinary.
+
+    Deliberately narrow: only a lowercase LETTER counts, so a passage opening on a quote
+    mark, an ellipsis or a dash is untouched. Stylised all-lowercase prose is a real style
+    and this would cost it one regeneration; that is the trade, and it is worth it against
+    a fragment reaching the page.
+    """
+    stripped = (text or "").lstrip()
+    return bool(stripped) and stripped[0].isalpha() and stripped[0].islower()
 
 
 def _clean(body: str) -> str:
@@ -73,31 +263,58 @@ def parse_emission(
 
     segments: list[Segment] = []
 
-    thinking = _THINKING_RE.search(text)
-    if thinking:
-        body = _clean(thinking.group(1))
-        if body:
-            segments.append(Segment("internal_thought", body, speaker_id))
-        text = text[: thinking.start()] + text[thinking.end() :]
+    # EVERY ``<thinking>`` block comes out of the passage, not just the first: a model
+    # that repeats its whole emission repeats the scratchpad with it, and leaving the
+    # later ones in would land the deliberation in the visible prose once the tags were
+    # scrubbed. Only the first becomes a segment — the rest are the same thought again.
+    blocks = list(_THINKING_RE.finditer(text))
+    if blocks:
+        # Only a block that arrives BEFORE the passage is a thought. One that arrives after
+        # it is a model looping back to the top of its own emission, and keeping it would
+        # both invent a second deliberation and disagree with the streaming parser, which
+        # cannot un-send a passage it has already begun.
+        first = blocks[0]
+        if not _clean(text[: first.start()]):
+            body = _clean(first.group(1))
+            if body:
+                segments.append(Segment("internal_thought", body, speaker_id))
+        for block in reversed(blocks):
+            text = text[: block.start()] + text[block.end() :]
 
-    type_marks = list(_TYPE_RE.finditer(text))
+    # Only a JSON block interrupts the passage. A prose-named tag is scrubbed with the
+    # rest of the text, so stray closers cannot fragment one beat into several.
+    type_marks = [m for m in _TYPE_RE.finditer(text) if m.group(1).lower() in _JSON_TYPES]
     if not type_marks:
-        # Model ignored the tag format — treat the remaining prose as one spoken line.
+        # The expected shape: no tags at all, one first-person passage.
         body = _clean(text)
         if body:
-            segments.append(Segment("character_dialogue", body, speaker_id))
+            segments.append(Segment(_PROSE, body, speaker_id))
         return segments
 
+    # Prose before the first tag is the beat itself, not a preamble to discard: the
+    # expected emission is plain prose optionally followed by a JSON block
+    # (``<type:state_update>`` and friends). Keeping it here is what makes the batch and
+    # incremental parsers agree on a hybrid emission.
+    lead = _clean(text[: type_marks[0].start()])
+    if lead:
+        segments.append(Segment(_PROSE, lead, speaker_id))
+
+    open_kind: str | None = None
     for i, mark in enumerate(type_marks):
         kind = mark.group(1).lower()
         body_end = type_marks[i + 1].start() if i + 1 < len(type_marks) else len(text)
+        # The closer for the block that is currently open ends it; anything after it is
+        # trailing text, not a new block (see the accumulator for why this matters).
+        if mark.group(0).lstrip().startswith("</") and open_kind == kind:
+            open_kind = None
+            continue
         # state_update / relationship_update carry a JSON body; prose is scrubbed.
         raw_body = text[mark.end() : body_end].strip()
-        body = raw_body if kind in _JSON_TYPES else _clean(raw_body)
-        if not body:
+        if kind not in _JSON_TYPES:
             continue
-        if kind in _PROSE_TYPES or kind in _JSON_TYPES:
-            segments.append(Segment(kind, body, speaker_id))
+        open_kind = kind
+        if raw_body:
+            segments.append(Segment(kind, raw_body, speaker_id))
     return segments
 
 
@@ -110,7 +327,8 @@ def parse_emission(
 #: Every emission tag, in one pattern, so the scanner can find the next one of any kind.
 #: The optional leading slash and optional ``:value`` mirror the tolerances above.
 _ANY_TAG_RE = re.compile(
-    r"</?(?:speaker(?::\s*\d+)?|type(?::\s*[a-z_]+)?|thinking)\s*>", re.IGNORECASE
+    rf"</?(?:speaker(?::\s*\d+)?|type(?::\s*[a-z_]+)?|thinking|{_WRAPPERS})\s*>",
+    re.IGNORECASE,
 )
 
 
@@ -160,8 +378,21 @@ class EmissionAccumulator:
         self._open_type: str | None = None
         self._open_text = ""
         self._pending_ws = ""
-        self._held = ""  # preamble: prose seen before any <type:> mark
+        # Untagged text opens a ``character_prose`` segment and streams from the first
+        # character. It used to be *held* until ``finish()`` and released as one spoken
+        # line, which meant the ordinary case — a model emitting plain prose — showed the
+        # player nothing until the whole beat existed.
         self._saw_type_mark = False
+        # A beat is ONE passage. Once a ``character_prose`` segment has been opened, no tag
+        # may split it and no later text may start a second one — see :meth:`_consume_text`.
+        # Without this a model that repeated its emission became one persisted event per
+        # repetition: a single live beat produced five byte-identical rows, which read as
+        # five beats by the same character. Making the second segment unrepresentable turns
+        # that into one ugly passage, which ``repeats_itself`` can then act on.
+        self._prose_seen = False
+        # True between a ``<thinking>`` and its closer while a passage is already open: the
+        # deliberation is swallowed rather than allowed to interrupt the prose.
+        self._swallowing = False
         self._segments: list[Segment] = []
 
     @property
@@ -196,14 +427,6 @@ class EmissionAccumulator:
             out.extend(self._consume_text(self._buf))
             self._buf = ""
         out.extend(self._close_open())
-        if not self._saw_type_mark:
-            # The model ignored the tag format — the held prose is one spoken line.
-            body = _clean(self._held)
-            if body:
-                out.extend(self._open(_DIALOGUE))
-                out.extend(self._grow(body))
-                out.extend(self._close_open())
-        self._held = ""
         return out
 
     # -- internals -----------------------------------------------------------
@@ -220,6 +443,20 @@ class EmissionAccumulator:
             return []
         lowered = tag.lower()
         if "thinking" in lowered:
+            # The contract no longer asks for <thinking>, but a model that emits it anyway
+            # is putting DELIBERATION there — which must not land in the visible passage.
+            # Before the passage starts it is kept as its own private segment: a safety
+            # valve that keeps scratchpad out of the story rather than folding it in.
+            #
+            # Once the passage has started, the block is SWALLOWED instead. A closing tag
+            # used to close the open segment, so the next word began a second
+            # ``character_prose`` — which is how one repeating generation became five
+            # identical persisted beats. A deliberation arriving mid-passage is a model
+            # that has looped back to the top of its own emission; it is not a new beat and
+            # it is not part of the prose.
+            if self._prose_seen:
+                self._swallowing = not lowered.startswith("</")
+                return []
             if lowered.startswith("</"):
                 return self._close_open()
             out = self._close_open()
@@ -227,25 +464,49 @@ class EmissionAccumulator:
             return out
         type_match = _TYPE_RE.fullmatch(tag)
         if type_match:
-            self._saw_type_mark = True
-            self._held = ""  # preamble before the first mark is discarded, as in batch
             kind = type_match.group(1).lower()
+            if kind not in _JSON_TYPES:
+                # A prose-named tag (usually a stray closer left over from the old
+                # contract). Scrubbed: the passage continues in the segment already open.
+                return []
+            # ``<type:X>`` and ``</type:X>`` are deliberately treated alike, because some
+            # models use a closer as the delimiter BETWEEN blocks. The exception is the
+            # closer for the block that is open right now: that one genuinely ends it, and
+            # reading it as another opener made the text after a JSON block into a second
+            # ``state_update`` whose body was the model's trailing prose.
+            if tag.lstrip().startswith("</") and self._open_type == kind:
+                return self._close_open()
+            self._saw_type_mark = True
             out = self._close_open()
-            if kind in _PROSE_TYPES or kind in _JSON_TYPES:
-                out.extend(self._open(kind))
+            out.extend(self._open(kind))
             return out
-        # A bare </type> / </speaker> closes nothing and is simply scrubbed.
+        # A bare </type> / </speaker>, or an invented wrapper the model put the whole
+        # passage inside (``<response>``, ``<passage>``), closes nothing and is scrubbed —
+        # the passage carries on in whatever segment is open.
         return []
 
     def _consume_text(self, text: str) -> list[SegmentDelta]:
-        if not text:
+        if not text or self._swallowing:
             return []
         if self._open_type is None:
-            self._held += text
-            return []
+            # Prose arriving outside any tag IS the beat. Open a passage and stream it.
+            # Whitespace alone does not open one, so a newline after ``<speaker:1>`` does
+            # not start a segment that then holds nothing.
+            if not text.strip():
+                return []
+            # ...but only the FIRST time. Text arriving after the passage has closed — a
+            # model still talking after its ``<type:state_update>`` block, or looping back
+            # to the top of its own emission — is not a second beat by the same character.
+            if self._prose_seen:
+                return []
+            out = self._open(_PROSE)
+            out.extend(self._grow(text))
+            return out
         return self._grow(text)
 
     def _open(self, kind: str) -> list[SegmentDelta]:
+        if kind == _PROSE:
+            self._prose_seen = True
         self._index += 1
         self._open_type = kind
         self._open_text = ""
@@ -307,4 +568,9 @@ class EmissionAccumulator:
 
 
 #: The type a tag-free emission collapses to (see :class:`EmissionAccumulator.finish`).
-_DIALOGUE = "character_dialogue"
+#: Public so the turn engine can gate on the passage specifically.
+PROSE_TYPE = _PROSE
+#: How much of a passage's opening the engine holds back before showing any of it, so a
+#: leaked scratchpad can be caught before the reader sees a word of it (see
+#: :func:`looks_like_scratchpad`).
+SCRATCHPAD_WINDOW = _SCRATCHPAD_WINDOW

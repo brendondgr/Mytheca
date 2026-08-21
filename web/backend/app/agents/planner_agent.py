@@ -24,7 +24,7 @@ contract for callers that genuinely want a single decision.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
@@ -37,10 +37,16 @@ from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
 from app.services.assembler import TurnContext
 
-# Deciding one beat is a cheap structural call — keep the thinking budget low.
-PLANNER_EFFORT = ReasoningEffort.LOW
+# Deciding who is up next runs after EVERY beat, so it is paid once per beat and the
+# player feels it directly. It wants a quick read of the room, not deliberation — the
+# judgement is "who has something to say about what just happened", which a person makes
+# instinctually. QUICK (128 tokens) is deliberately below LOW.
+PLANNER_EFFORT = ReasoningEffort.QUICK
 
-_ACTIONS = {"speak", "narrate", "exit", "end"}
+_ACTIONS = {"speak", "narrate", "exit", "end", "ask"}
+# How many options may ride with a clarifying question. The player can always ignore
+# them and type their own answer, so this bounds the UI, not the player.
+_MAX_ASK_OPTIONS = 4
 # The beat's REGISTER — the planner's read of how the situation stands right now, on one
 # axis from banter to life-and-death. It is the situational-adaptation signal the character
 # prompt was previously asking each speaker to infer for itself while its own voice samples
@@ -60,7 +66,7 @@ _SYSTEM = prompt_registry.default(prompt_registry.PLANNER_SYSTEM)
 class BeatDecision:
     """The next beat to run this turn (or ``end``)."""
 
-    action: str  # "speak" | "narrate" | "exit" | "end"
+    action: str  # "speak" | "narrate" | "exit" | "end" | "ask"
     actor_id: str | None = None
     addressing_id: str | None = None
     reason: str = ""
@@ -73,6 +79,11 @@ class BeatDecision:
     # something unrecognized — consumers then fall back to their pre-register behavior.
     register: str | None = None
     stakes: str = ""
+    # For an "ask" beat: the question to put to the player, and up to
+    # :data:`_MAX_ASK_OPTIONS` short answers to offer alongside it. ``question`` is
+    # required — an "ask" without one is malformed, not a beat with a blank question.
+    question: str = ""
+    options: list[str] = field(default_factory=list)
 
 
 def plan_beats(
@@ -87,6 +98,7 @@ def plan_beats(
     locked_id: str | None = None,
     direction: SceneDirection | None = None,
     remaining_beats: int | None = None,
+    may_ask: bool = False,
 ) -> list[BeatDecision]:
     """Decide the next ``lookahead`` beats in ONE call (best-effort; never raises).
 
@@ -98,6 +110,14 @@ def plan_beats(
     the request shape, so an operator who has overridden the planner prompt is unaffected.
     Above 1 the multi-beat contract is appended to the **user** message rather than the
     system one, so it survives a customised system prompt.
+
+    ``may_ask`` opens the ``ask`` action — stop and put a question to the player instead of
+    guessing where the story goes. The caller owns that permission because the conditions
+    for it are the engine's (nothing has happened this turn, no direction is outstanding,
+    the previous turn did not already ask). An ``ask`` returned without it is dropped along
+    with everything planned after it: a question the engine cannot deliver is worse than a
+    guess. It may also only be the FIRST beat of a plan — a question that arrives after two
+    beats have already committed the scene is answering nothing.
 
     The trade this makes is honest and worth stating: a beat planned three ahead reads a
     moment that has not happened yet, so its ``register`` is a prediction. That is why the
@@ -121,7 +141,7 @@ def plan_beats(
     user = _plan_prompt(
         ctx, intent, turn_beats, acted, roster_ids,
         scene_opening=scene_opening, direction=direction, remaining_beats=remaining_beats,
-        want=want,
+        want=want, may_ask=may_ask,
     )
     try:
         raw = llm.chat_complete(
@@ -153,8 +173,10 @@ def plan_beats(
         decision = _decision_from(row, roster_ids)
         if decision is None:
             break  # a malformed entry invalidates everything planned after it
+        if decision.action == "ask" and (not may_ask or decisions):
+            break  # not allowed, or not first — and nothing planned after it still applies
         decisions.append(decision)
-        if decision.action == "end":
+        if decision.action in ("end", "ask"):
             break
     if not decisions:
         return [_fallback_beat(
@@ -180,6 +202,20 @@ def _decision_from(data: dict, roster_ids: dict[int, str]) -> BeatDecision | Non
         return BeatDecision(
             "end", reason=str(data.get("reason", "")),
             needs_branch=bool(data.get("needsBranch", False)),
+            register=register, stakes=stakes,
+        )
+    if action == "ask":
+        question = str(data.get("question", "") or "").strip()
+        if not question:
+            return None  # an "ask" with nothing to ask is malformed, not a blank question
+        raw_options = data.get("options")
+        options = [
+            str(o).strip()
+            for o in (raw_options if isinstance(raw_options, list) else [])
+            if str(o).strip()
+        ][:_MAX_ASK_OPTIONS]
+        return BeatDecision(
+            "ask", question=question, options=options, reason=str(data.get("reason", "")),
             register=register, stakes=stakes,
         )
     if action == "narrate":
@@ -219,8 +255,15 @@ def _plan_prompt(
     direction: SceneDirection | None,
     remaining_beats: int | None,
     want: int,
+    may_ask: bool = False,
 ) -> str:
-    """The planner's user message. Byte-identical to the pre-lookahead one when ``want`` is 1."""
+    """The planner's user message. Byte-identical to the pre-lookahead one when ``want`` is 1.
+
+    The ``ask`` contract rides here rather than in the system prompt for two reasons: the
+    system message is byte-identical across the turn's calls and is what an inference
+    server's prefix cache keys on, and an operator who has overridden the planner prompt
+    still gets the action.
+    """
     roster = "\n".join(f"[{n}] {ctx.cast_by_id(cid).name} — {ctx.cast_by_id(cid).role}"  # type: ignore[union-attr]
                        for n, cid in roster_ids.items())
     acted_nums = [str(n) for n, cid in roster_ids.items() if cid in set(acted)]
@@ -241,6 +284,17 @@ def _plan_prompt(
             "situation as it will stand after the ones you planned before it."
         )
     )
+    ask_note = (
+        '\n\nIf — and only if — you genuinely cannot tell where the player wants this to go, '
+        'you may instead return {"action": "ask", "question": "<one short question, in the '
+        'story\'s voice>", "options": ["<a short answer>", "<another>"], "register": "...", '
+        '"stakes": "..."} to put the question to them and stop the turn there. Ask only when '
+        "the line is genuinely open — two or more real directions and no way to choose — never "
+        "to check a detail you could simply decide, and never when the scene has an obvious "
+        "next move. Guessing well is the job; asking is for when there is nothing to guess from."
+        if may_ask
+        else ""
+    )
     return (
         f"Roster:\n{roster}\n\n"
         f"Player's direction: {intent.directive or '(freeform)'}.{scope_note}{opening_note}\n"
@@ -248,7 +302,7 @@ def _plan_prompt(
         f"Characters who have ALREADY taken a beat this turn (roster numbers): "
         f"{', '.join(acted_nums) or 'none'}\n\n"
         f"This turn so far:\n{_recent(ctx, turn_beats)}\n\n"
-        f"{ask}"
+        f"{ask}{ask_note}"
     )
 
 
@@ -263,6 +317,7 @@ def next_beat(
     locked_id: str | None = None,
     direction: SceneDirection | None = None,
     remaining_beats: int | None = None,
+    may_ask: bool = False,
 ) -> BeatDecision:
     """Decide the next beat (best-effort; never raises).
 
@@ -283,7 +338,7 @@ def next_beat(
     return plan_beats(
         db, ctx, intent, turn_beats, acted, lookahead=1,
         scene_opening=scene_opening, locked_id=locked_id, direction=direction,
-        remaining_beats=remaining_beats,
+        remaining_beats=remaining_beats, may_ask=may_ask,
     )[0]
 
 
@@ -307,7 +362,12 @@ def _fallback_beat(
     An outstanding ``direction`` outranks all of that: what the player asked for is owed
     whether or not the planner call succeeded, so the next unsatisfied requirement picks
     the beat (its owner speaks; a narrator-owned one narrates)."""
-    acted_set = set(acted)
+    # The POV character is pre-marked as having acted so a broadcast never re-selects the
+    # character the player voices. That is NOT the same as "the turn has been answered", and
+    # conflating the two is what ended turns 8 and 9 of the ps_0bf9ddc13b session in silence:
+    # under POV `acted` is never empty, so the "somebody responds" last resort below could
+    # never fire. Only beats taken by a selectable character count as an answer.
+    acted_set = {cid for cid in acted if cid != locked_id}
     present = [m for m in ctx.cast if m.is_present and m.id != locked_id]  # only selectable
     if not present:
         return BeatDecision("end", reason="no one present")
@@ -326,7 +386,7 @@ def _fallback_beat(
         member = ctx.cast_by_id(cid)
         if cid != locked_id and cid not in acted_set and member is not None and member.is_present:
             return BeatDecision("speak", actor_id=cid, reason="addressed")
-    if not acted and not scene_opening:  # freeform mid-scene — one character responds
+    if not acted_set and not scene_opening:  # freeform mid-scene — one character responds
         return BeatDecision("speak", actor_id=present[0].id, reason="responds")
     return BeatDecision("end", reason="direction satisfied")
 

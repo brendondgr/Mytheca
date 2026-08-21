@@ -16,7 +16,7 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 
 - **No authentication exists.** No `User` model, no auth routes, no sessions or tokens. Nothing is gated.
 - **8 story-event types**, not 5: `narration` · `character_dialogue` · `character_action` · `internal_thought` · `state_update` · `branch_choices` · `character_status_change` · `scene_image` (the player's in-narrative picture).
-- **Streaming is NDJSON in the turn POST response.** No SSE endpoint, no WebSocket for story events, no `message_start`/`message_delta`/`message_end` frames — delta streaming re-emits the *same* event `id`+`seq` with growing `text` and `done: false → true`.
+- **Streaming is NDJSON in the turn POST response.** No SSE endpoint, no WebSocket for story events, no `message_start`/`message_delta`/`message_end` frames — delta streaming re-emits the *same* event `id`+`seq` with an **incremental** `text` chunk and `done: false`, and the final frame carries `done: true` with an **empty** `text`. Accumulate by `id`; the persisted row holds the full text. Reading the text off the `done` frame alone gets you `""` for every streamed beat.
 - **Alembic is in use** (12 migrations), coexisting with `create_all` + an additive reconciler.
 - **`director_agent.who_is_up` and `rerank` are dead code** — tests only. `planner_agent.plan_beats` makes the real decision (up to `TURN_PLANNER_LOOKAHEAD` beats per call; `next_beat` is its one-beat wrapper), and its reply also carries each beat's **register** (`light`/`neutral`/`tense`/`grave`) + `stakes`, which drive the character prompt's tail, voice-sample selection, and sampler.
 - **The graph reaches the prompt via `graph_reader.relationship_context()`**, not `TurnContext.subgraph` (which is diagnostics-only).

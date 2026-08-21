@@ -179,8 +179,9 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
       ];
     }
 
+    case "character_prose":
     case "character_dialogue": {
-      // Already accumulating this dialogue? extend it.
+      // Already accumulating this passage? extend it.
       if (prev.some((m) => m.id === event.id)) {
         return mergeDelta(prev, event.id, { kind: "char", who: event.data.characterId }, event.data.text);
       }
@@ -583,8 +584,8 @@ export function applyActivity(list: ActivityEntry[], frame: TurnStreamFrame): Ac
     return [entry, ...list].slice(0, ACTIVITY_MAX);
   }
 
-  if (event.type === "character_dialogue") {
-    // One entry for the whole dialogue stream — dedup by id.
+  if (event.type === "character_prose" || event.type === "character_dialogue") {
+    // One entry for the whole passage — dedup by id.
     if (list.some((e) => e.id === `dialogue-${event.id}`)) return list;
     const cid = event.data.characterId;
     const entry: ActivityEntry = {
@@ -679,7 +680,7 @@ export function applyCharacterActivity(
     return { ...map, [cid]: "thinking" };
   }
 
-  if (event.type === "character_dialogue") {
+  if (event.type === "character_prose" || event.type === "character_dialogue") {
     const cid = event.data.characterId;
     if (event.data.done) {
       if (map[cid] === "idle" || map[cid] === undefined) return map;
@@ -824,7 +825,7 @@ function nextTurnStatus(prev: TurnStatus, frame: TurnStreamFrame): TurnStatus {
     return forCharacter("acting", event.data.characterId, prev);
   }
 
-  if (event.type === "character_dialogue") {
+  if (event.type === "character_prose" || event.type === "character_dialogue") {
     if (event.data.done) return IDLE_TURN_STATUS;
     return forCharacter("speaking", event.data.characterId, prev);
   }

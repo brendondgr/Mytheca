@@ -1,0 +1,110 @@
+id: EXP-2026-08-009
+slug: prose-second-person
+title: Second person instead of a label — does relabelling the player's line stop characters calling them
+  "the player"?
+status: complete
+date_started: 2026-08-21
+date_completed: 2026-08-21
+authors:
+- brendondgr
+purpose: 'EXP-2026-08-008 found that 13 of 18 character beats and 6 of 10 narration beats called the person
+  in the room "the player". The cause was the prompt: both transcript builders labelled the human''s line
+  `Player:`, the only name either prompt gave to someone present in the scene. This measures whether relabelling
+  it `You:` and asking both prompts for the second person stops the leak WITHOUT costing the prose form
+  EXP-2026-08-008 showed was working — a fix that removes the leak by making the passages worse is not
+  a fix.
+
+  '
+hypothesis: 'Stated before the run. names_the_player falls from 0.72 +/- 0.45 to <= 0.10 over character
+  beats and narration falls from 6/10 toward zero, while has_speech stays at 1.0, paragraph_breaks stays
+  at or above 2.28, is_distinct stays at 1.0, is_scratchpad and starts_mid_sentence stay at 0.0, and discards
+  stay in single figures. The label was the mechanism, so removing it removes the supply.
+
+  '
+code:
+  commit: 78cd532b9f26cb5df9309a769100d387d58be050
+  branch: prose-that-reads-like-a-scene
+  entrypoint: uv run python -m utils.scripts.research.run_prose_end_to_end --experiment docs/research/experiments/EXP-2026-08-009-prose-second-person
+    --turns 6
+  dirty: true
+config:
+  path: null
+  hash: null
+data:
+  name: throwaway world built by the runner (Salt and Ledgers; Mei/Kira/Aldous)
+  version: run_conversation_scaling.build_world @ this commit
+  split: n/a — a live session, not a dataset
+  n_examples: 6
+  dvc_path: null
+  hash: null
+seeds: []
+n_runs: 19
+environment:
+  python: '3.13'
+  lockfile: env/requirements.lock
+  container: null
+compute:
+  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
+  wall_clock_hours: 0.0838
+  estimated_cost_usd: 0.0
+llm:
+  model: relay/skynet -> gemma4-26B-mtp
+  temperature: 0.8
+  top_p: 0.92
+  max_tokens: 4096
+  prompt_files:
+  - web/backend/app/agents/prompt_registry.py
+  prompt_hash: sha256:4902bb4c642c767b1846ee12f633b63fa245a202e71a985c089a121ef047a495
+  tool_schema_hash: null
+  total_input_tokens: 0
+  total_output_tokens: 0
+  nondeterminism_note: 'Provider-side nondeterminism remains even at temperature 0; results are reported
+    as mean ± std over n_runs.
+
+    '
+metrics:
+  primary: names_the_player
+  values:
+    sentences_per_100_words:
+      mean: 6.688842
+      n: 19
+      std: 0.891646
+    has_speech:
+      mean: 1.0
+      n: 19
+      std: 0.0
+    paragraph_breaks:
+      mean: 3.894737
+      n: 19
+      std: 1.293495
+    is_scratchpad:
+      mean: 0.0
+      n: 19
+      std: 0.0
+    starts_mid_sentence:
+      mean: 0.0
+      n: 19
+      std: 0.0
+    names_the_player:
+      mean: 0.0
+      n: 19
+      std: 0.0
+    is_distinct:
+      mean: 1.0
+      n: 19
+      std: 0.0
+    chars:
+      mean: 1291.526316
+      n: 19
+      std: 378.146918
+baselines_compared:
+- EXP-2026-08-008
+statistical_test: null
+supports_claims: []
+figures:
+- second_person
+supersedes: null
+superseded_by: null
+related:
+- EXP-2026-08-008
+- EXP-2026-08-007

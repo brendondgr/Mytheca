@@ -71,8 +71,39 @@ from app.services import (
     turn_writer,
     validator,
 )
+
 from app.services.assembler import CastMember, TurnContext
 from app.services.turn_writer import Consequence
+
+#: A beat is only checked for degeneration once it is longer than any ordinary one, so a
+#: short, deliberately repetitive line is never mistaken for a collapsed generation. The
+#: same threshold gates the repetition check: the parser now keeps a looping generation in
+#: ONE passage (``emission`` — one beat is one passage), which is what makes the loop
+#: visible in a single body instead of arriving as several plausible-looking beats.
+_DEGENERATE_AFTER_CHARS = 2000
+
+#: Hard stop on a single beat, whatever it is writing — the passage allowance expressed in
+#: characters, so the two cannot drift apart.
+#:
+#: ``max_tokens`` alone does not bound the prose, because thinking and answer share it: the
+#: scratchpad's headroom is fungible, and a beat that deliberates briefly can spend the rest
+#: on writing. A verification run produced an 11,998-character beat that way, well inside its
+#: token budget. Long beats then feed on themselves — the transcript carries them into the
+#: next prompt and the next beat imitates their length (prompt tokens went 1,069 -> 11,606
+#: across five turns in that run).
+#:
+#: It is also what protects the endpoint. An earlier run produced ONE generation of 48,000
+#: completion tokens over 684 seconds; the relay's health probe timed out three times against
+#: the busy upstream, marked the endpoint failed, and every turn after that came back 400.
+#: One beat cost the player the rest of the scene. Neither quality guard could see it — the
+#: runaway was well-formed, non-repeating prose the whole way.
+#:
+#: This is not an editorial limit. Nothing in the contract tells a character to be brief, and
+#: with the sampler fixed (EXP-2026-08-007) a passage averages 674 characters with a measured
+#: worst case of 1,923 — so the stop sits about four times past the worst honest beat and
+#: will not be reached by writing.
+_CHARS_PER_TOKEN = 4
+_RUNAWAY_CHARS = (character_turn_agent._VOICE_PROSE_TOKENS or 2048) * _CHARS_PER_TOKEN
 
 
 class _Emitter:
@@ -498,7 +529,7 @@ def run_turn(
         "Reading your message",
         detail="Working out whether you are narrating, addressing someone, or directing.",
     )
-    intent = intent_agent.interpret(db, ctx, text)
+    intent = intent_agent.interpret(db, ctx, text, locked_id=pov_id)
     # A UI-set target (e.g. a branch selection) addresses that character explicitly.
     if (
         req.directed_at
@@ -642,7 +673,33 @@ def run_turn(
         acted.append(pov_id)
     max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
     scene_beats = len(puppet_members) + (1 if narrated_open else 0)
+    # How many characters have actually spoken prose this turn (puppets included — the
+    # player directed them, but they still took a beat). The exchange guard below reads it.
+    spoke = len(puppet_members)
+    # Character beats attempted this turn, and the ones that came back empty. Collected
+    # rather than raised: whether the player sees an error is decided at the end, by whether
+    # every attempt failed (see ``_beat_or_skip``).
+    tally: dict = {"attempts": 0, "failures": []}
+    # The guard fires at most once a turn: it is there to stop a scene ending on a single
+    # line, not to keep a conversation going by force.
+    forced_exchange = False
     needs_branch = False
+    # The turn stopped to ask the player where the story should go (planner "ask"). It is
+    # the last word of the turn: no holding narration, no follow-up suggestions stacked
+    # under it, and the next turn may not ask again.
+    asked_question = False
+    # When the planner is ALLOWED to ask. The conditions are the engine's, not the model's:
+    # nothing has happened yet this turn (a question after the scene has moved is answering
+    # nothing), the player's line is freeform rather than a direction the turn already owes,
+    # and the previous turn did not already stop to ask. A planner that may ask will ask too
+    # often, and a scene that stops moving is worse than a mediocre guess.
+    may_ask = (
+        not scene_opening
+        and not narrated_open
+        and not direction.active
+        and not puppet_members
+        and not events_store.ended_on_a_question(db, session.id, before_seq=seq0)
+    )
     beats = 0
     # Beats the planner has decided but the loop has not run yet. The planner was 41 % of
     # all turn time purely because it ran once per beat (EXP-2026-08-005), so it is asked
@@ -689,6 +746,7 @@ def run_turn(
                     db, ctx, intent, turn_beats, acted, lookahead=depth,
                     scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
                     direction=direction if direction.active else None, remaining_beats=remaining,
+                    may_ask=may_ask and beats == 0,
                 )
             # A planned beat is a prediction, and presence can change under it — a character
             # who was cut down two beats ago must not be picked because a stale plan said so.
@@ -734,12 +792,18 @@ def run_turn(
                 note = _relationship_note(
                     ctx, forced_actor.id, [m.id for m in ctx.cast if m.id != forced_actor.id]
                 )
-                yield from _generate_speaker(
-                    db, ctx, forced_actor, emitter, turn_beats, consequences,
+                played = yield from _beat_or_skip(
+                    tracer, forced_actor, tally,
+                    db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
+                    consequences=consequences,
                     show_reasoning=show_reasoning, relationship_note=note,
-                    direction=direction, requirements=owed, tracer=tracer,
+                    direction=direction, requirements=owed,
                 )
                 acted.append(forced_actor.id)
+                spoke += 1 if played else 0
+                scene_beats += 1 if played else 0
+                beats += 1
+                continue
             beats += 1
             scene_beats += 1
             continue
@@ -755,6 +819,58 @@ def run_turn(
             )
             break
         if decision.action == "end":
+            # A room with two people in it should not answer the player with one line and
+            # stop. The owner's word for what is wanted is "back and forth", and the
+            # ps_c015c506b1 export is the failure: two characters present, the player asks
+            # for a moment between THEM, and the turn is Fennel alone followed by "the turn
+            # ends — direction satisfied". Valdar never answers.
+            #
+            # So the planner's first `end` is refused once, when a present character has
+            # not spoken at all and fewer than two have. Once only, and never when the cast
+            # is a single character: this is a floor under the exchange, not a quota.
+            others = [m for m in ctx.cast if m.is_present and m.id != pov_id]
+            silent = [m for m in others if m.id not in acted]
+            if not forced_exchange and spoke < 2 and silent and len(others) >= 2:
+                forced_exchange = True
+                planned.clear()
+                responder = silent[0]
+                yield from tracer.emit(
+                    "speaker",
+                    f"{responder.name} answers",
+                    detail=(
+                        "The turn would have ended on one line with someone still in the "
+                        "room who had not spoken."
+                    ),
+                    # ``register``/``stakes`` ride on every speaker step so the client never
+                    # has to guess whether the engine omitted them or the planner had
+                    # nothing to say (an empty string means the latter).
+                    data={
+                        "characterId": responder.id,
+                        "name": responder.name,
+                        "exchange": True,
+                        "register": decision.register or "",
+                        "stakes": decision.stakes or "",
+                    },
+                )
+                note = _relationship_note(
+                    ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id]
+                )
+                played = yield from _beat_or_skip(
+                    tracer, responder, tally,
+                    db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
+                    consequences=consequences,
+                    show_reasoning=show_reasoning, relationship_note=note,
+                    register=decision.register, stakes=decision.stakes,
+                    direction=direction,
+                )
+                acted.append(responder.id)
+                beats += 1
+                # A beat that did not come back is not a beat the scene played: counting it
+                # would tell the exchange guard and the silent-turn backstop that the player
+                # has been answered when they have not.
+                scene_beats += 1 if played else 0
+                spoke += 1 if played else 0
+                continue
             # Every step that stops the beat loop carries ``data.end = True`` — the
             # structured signal the story player's turn-status strip reads to say "the turn
             # is ending". The titles are prose and will drift; the flag will not.
@@ -764,6 +880,31 @@ def run_turn(
                 "The turn ends",
                 detail=decision.reason or "The direction is satisfied.",
                 data={"end": True},
+            )
+            break
+        if decision.action == "ask":
+            # The direction is genuinely open and guessing would commit the scene to
+            # something the player never chose. Put the question to them and stop — it
+            # rides on ``branch_choices`` so it renders and round-trips into the composer
+            # through machinery that already works.
+            asked_question = True
+            yield from emitter.emit(
+                "branch_choices",
+                {
+                    "prompt": decision.question,
+                    "choices": [{"label": o, "outcome": ""} for o in decision.options],
+                },
+            )
+            yield from tracer.emit(
+                "plan",
+                "Asking you where this goes",
+                detail=decision.reason or decision.question,
+                data={
+                    "end": True,
+                    "ask": True,
+                    "question": decision.question,
+                    "choices": decision.options,
+                },
             )
             break
         if decision.action == "narrate":
@@ -841,15 +982,79 @@ def run_turn(
         # (the rest, if any, wait for a later beat or the forced schedule above).
         owed = direction.for_actor(actor.id)[:1]
         yield from _delivered(tracer, ctx, direction, owed, by=actor.id)
-        yield from _generate_speaker(
-            db, ctx, actor, emitter, turn_beats, consequences,
+        played = yield from _beat_or_skip(
+            tracer, actor, tally,
+            db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
+            consequences=consequences,
             show_reasoning=show_reasoning, relationship_note=note,
             register=decision.register, stakes=decision.stakes,
-            direction=direction, requirements=owed, tracer=tracer,
+            direction=direction, requirements=owed,
         )
         acted.append(actor.id)
         beats += 1
-        scene_beats += 1
+        scene_beats += 1 if played else 0
+        spoke += 1 if played else 0
+    # A player who typed a line always gets a scene back. The beat loop can reach `end`
+    # having produced nothing at all — a planner that misreads the moment, a fallback with
+    # nobody selectable, an intent aimed at a character who cannot be chosen. Turns 8 and 9
+    # of the ps_0bf9ddc13b session were exactly that: intent → planning → "the turn ends",
+    # no prose, no explanation. The upstream causes are fixed above; this is the defence
+    # that does not depend on having diagnosed all of them.
+    # ``scene_beats`` counts only prose the ENGINE produced this turn — it starts at the
+    # puppet beats plus a narrated open, and rises per beat. Deliberately not a scan of
+    # ``turn_beats``: under Player POV the player's own line is seeded there as a character
+    # beat, so that would read the player's own words back as "the scene answered".
+    # A turn that stopped to ask the player a question is not silent — it is waiting, and
+    # answering it with a beat would bury the question under the prose it was asked instead of.
+    if scene_beats == 0 and not asked_question:
+        responder = next(
+            (m for m in ctx.cast if m.is_present and m.id != pov_id and m.id in intent.addressed),
+            next((m for m in ctx.cast if m.is_present and m.id != pov_id), None),
+        )
+        if responder is not None:
+            yield from tracer.emit(
+                "speaker",
+                f"{responder.name} responds",
+                detail="Nothing had been played yet this turn — the scene answers rather than ending in silence.",
+                data={
+                    "characterId": responder.id,
+                    "name": responder.name,
+                    "backstop": True,
+                    "register": "",
+                    "stakes": "",
+                },
+            )
+            note = _relationship_note(
+                ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id]
+            )
+            yield from _beat_or_skip(
+                tracer, responder, tally,
+                db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
+                consequences=consequences,
+                show_reasoning=show_reasoning, relationship_note=note,
+                direction=direction,
+            )
+            beats += 1
+        elif ctx.cast:
+            yield from tracer.emit(
+                "plan",
+                "The narrator carries the moment",
+                detail="Nobody was selectable, so the scene is narrated rather than left blank.",
+                data={"backstop": True},
+            )
+            yield from _narrator_interstitial(
+                db, ctx, turn_beats, emitter, show_reasoning=show_reasoning
+            )
+            beats += 1
+
+    # An endpoint that is genuinely down fails EVERY attempt and leaves the turn with nothing
+    # to show. That is when the player needs an error rather than a scene which quietly says
+    # nothing — not the moment a single generation comes back empty, which is a skipped beat.
+    # The silent-turn backstop above has already had its own attempt by this point, so by
+    # here "every attempt failed" really does mean the turn has nothing.
+    if tally["failures"] and len(tally["failures"]) == tally["attempts"] and not narrated_open:
+        raise tally["failures"][-1]
+
     if beats >= max_beats:  # loop exhausted without an explicit end (runaway backstop)
         yield from tracer.emit(
             "plan",
@@ -876,7 +1081,7 @@ def run_turn(
 
     # Nobody produced anything at all (no narration, no character) → a quiet holding
     # narration. A narrator-only open / branch progression already spoke, so skip it then.
-    if not acted and not narrated_open:
+    if not acted and not narrated_open and not asked_question:
         yield from emitter.emit(
             "narration", {"text": "The scene waits, quiet.", "done": True}, buffer_role="narrator"
         )
@@ -887,7 +1092,8 @@ def run_turn(
     # ``needs_branch`` now only colors the trace copy. Stats inform which options surface,
     # but never gate the choice mechanically (no dice — D11).
     branches: list[dict] = []
-    suggestions_count = max(0, min(scenario.suggestions_count, 4))
+    # A question already IS the turn's fork; stacking generic follow-ups under it buries it.
+    suggestions_count = 0 if asked_question else max(0, min(scenario.suggestions_count, 4))
     if suggestions_count > 0:
         # Under Player POV, the follow-ups must read like something the POV character would
         # say next (they flow into the composer as the player's own next line), so use the
@@ -1150,14 +1356,18 @@ def _stream_emission(
     tracer: _Tracer,
     show_reasoning: bool = False,
     usage_out: dict | None = None,
-) -> Generator[StoryEvent | TurnTraceFrame | TurnReasoningFrame, None, tuple[str, int | None, int]]:
-    """Drive one character generation as a stream; return ``(raw, prompt_tokens, impact)``.
+): 
+    """Drive one character generation as a stream; return ``(raw, prompt_tokens, impact, blocked)``.
 
     Each segment is emitted, appended to ``turn_beats`` and traced the moment the parser
     recognises it — so the character's private thought completes while their spoken line
     is still being written, which is the whole point of the exercise. Every beat takes
     this path: the continuity guard that used to make a later beat hold its prose for a
     verdict is gone, so nothing waits on a complete line any more.
+
+    ``blocked`` says the passage was withheld because it was the model briefing itself
+    rather than a character speaking (see :func:`emission.looks_like_scratchpad`). Nothing
+    was shown or persisted, so the caller may simply try again.
     """
     stream = character_turn_agent.stream_line(
         db, ctx, speaker, turn_beats=turn_beats, directive=directive,
@@ -1169,6 +1379,81 @@ def _stream_emission(
     buffered: dict[int, str] = {}
     impact = 0
 
+    # A passage is never length-capped: a character may hold the floor for as long as the
+    # moment needs, and it streams, so length costs the reader nothing. What IS bounded is a
+    # generation that has stopped producing language — live runs produced 29,660 and 48,167
+    # character beats that opened as prose, drifted into the model's own notes and ended in
+    # "Rex Rex Rex" / "AT AT AT AAAA". Watching the tail lets the ceiling stay off.
+    written = 0
+    degenerate = False
+    # The passage's OPENING is held back rather than streamed on arrival. Two live beats
+    # were persisted and rendered as a character's prose while being the model briefing
+    # itself — the output contract read back ("then main passage then optional structured
+    # blocks each opening tag own line JSON…"), and third-person planning about the
+    # character it was supposed to BE. Both are well-formed language, so the degeneration
+    # guard passes them; the only way to keep them off the page is to look before showing
+    # anything. A few hundred characters of delay, against a first-word latency measured in
+    # seconds, is a trade worth making. Only the passage is gated — a private thought is
+    # machinery the reader has already opted into seeing.
+    held: list[emission.SegmentDelta] = []
+    held_text = ""
+    gate_open = False
+    scratchpad = False
+
+    def _pass(seg: emission.SegmentDelta) -> Generator[Any, None, int]:
+        """Emit one parsed delta, holding the passage's opening until it has been judged."""
+        nonlocal held, held_text, gate_open, scratchpad
+        if scratchpad or seg.type != emission.PROSE_TYPE or gate_open:
+            if scratchpad and seg.type == emission.PROSE_TYPE:
+                return 0  # the withheld passage never becomes an event
+            return (
+                yield from _emit_segment_delta(
+                    db, ctx, speaker, emitter, turn_beats, consequences,
+                    seg, open_segments, buffered, tracer,
+                )
+            )
+        held.append(seg)
+        held_text += seg.text
+        # A passage that opens on a lowercase letter never started — it is the tail of
+        # something the model was saying to itself, and it is judged on the first word
+        # rather than on the window, because the early release below would let it through
+        # (the observed fragment said "my", so the first-person test exempted it).
+        if emission.starts_mid_sentence(held_text):
+            scratchpad = True
+            held = []
+            return 0
+        # "The player's question feels like a stone dropped into a well" — the transcript's
+        # label for the human, used as a name for a person in the room. Judged here rather
+        # than after the early release below, because these passages are full of first-person
+        # pronouns and would sail through it. The real fix is the label (`You:`) and the
+        # contract rule; this only catches an opening, which is all the gate can see.
+        if emission.names_the_player(held_text, window=emission.SCRATCHPAD_WINDOW):
+            scratchpad = True
+            held = []
+            return 0
+        # Release the moment the passage proves itself — a first-person pronoun is what a
+        # leaked scratchpad never has, and most passages clear it inside their first
+        # sentence. Without this early exit the hold would turn every short beat into a
+        # lump that arrives whole at the end of the stream.
+        if not emission.in_the_scene(held_text):
+            # Otherwise judge once there is enough to judge — or at the end of a passage
+            # shorter than the window, which must still be released rather than stranded.
+            if not seg.done and len(held_text) < emission.SCRATCHPAD_WINDOW:
+                return 0
+        if emission.looks_like_scratchpad(held_text) or _echoes_a_beat(held_text, turn_beats):
+            scratchpad = True
+            held = []
+            return 0
+        gate_open = True
+        pending, held = held, []
+        total = 0
+        for delta in pending:
+            total += yield from _emit_segment_delta(
+                db, ctx, speaker, emitter, turn_beats, consequences,
+                delta, open_segments, buffered, tracer,
+            )
+        return total
+
     try:
         while True:
             delta = next(stream)
@@ -1178,27 +1463,58 @@ def _stream_emission(
                 yield TurnReasoningFrame(character_id=speaker.id, text=delta.reasoning)
             if not delta.answer:
                 continue
+            written += len(delta.answer)
             for seg in acc.push(delta.answer):
-                impact += yield from _emit_segment_delta(
-                    db, ctx, speaker, emitter, turn_beats, consequences,
-                    seg, open_segments, buffered, tracer,
-                )
+                impact += yield from _pass(seg)
+            if scratchpad:
+                stream.close()
+                break
+            # The hard stop comes first: it is the one that protects the endpoint, and it
+            # must not depend on a quality judgement that a well-formed runaway passes.
+            if written > _RUNAWAY_CHARS:
+                degenerate = True
+                stream.close()
+                break
+            # Only worth checking once the beat is longer than any ordinary one, so a
+            # short repetitive line — which people do write — is never mistaken for it.
+            if written > _DEGENERATE_AFTER_CHARS:
+                open_text = "".join(
+                    live.text for live in open_segments.values()
+                ) or acc.segments[-1].text if acc.segments else ""
+                if emission.looks_degenerate(open_text) or emission.repeats_itself(open_text):
+                    degenerate = True
+                    stream.close()
+                    break
     except StopIteration as stop:
         raw, prompt_tokens = stop.value
+    if degenerate:
+        raw, prompt_tokens = "", None
+        yield from tracer.emit(
+            "prose",
+            f"{speaker.name}'s beat was cut short",
+            detail=(
+                "The generation stopped producing language, began writing the same passage "
+                "again, or ran past the point where any beat ends, and was cut rather than "
+                "streamed further. The beat keeps what it had written."
+            ),
+            data={"characterId": speaker.id, "degenerate": True},
+        )
 
+    # The beat's prose lands before the reasoning display is told to clear. A short passage
+    # with no first-person pronoun in it ("Hm.") is held by the scratchpad gate until here,
+    # and the reader should not watch the deliberation vanish and then wait for the words.
+    for seg in acc.finish():
+        impact += yield from _pass(seg)
     if show_reasoning:
         yield TurnReasoningFrame(character_id=speaker.id, done=True)
-    for seg in acc.finish():
-        impact += yield from _emit_segment_delta(
-            db, ctx, speaker, emitter, turn_beats, consequences,
-            seg, open_segments, buffered, tracer,
-        )
+    if scratchpad:
+        raw, prompt_tokens = "", None
     # A stream that ended mid-segment (a truncated completion) must not leave an event
     # open and unpersisted.
     for live_seg in open_segments.values():
         yield from live_seg.close()
     open_segments.clear()
-    return raw, prompt_tokens, impact
+    return raw, prompt_tokens, impact, scratchpad
 
 
 def _emit_segment_delta(
@@ -1215,13 +1531,14 @@ def _emit_segment_delta(
 ) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
     """Route one parsed increment to the wire; return the stat impact it carried.
 
-    Prose that reads well arriving piecemeal (``internal_thought``, ``character_dialogue``)
-    delta-streams. ``character_action`` is held and sent whole: it is one short beat, and
-    the client folds it into the speaker's open bubble — a rule that only works while the
-    bubble has no spoken text yet. The JSON types are held because half an object is not
-    parseable, and are applied through the same handlers the batch path uses.
+    Prose that reads well arriving piecemeal (``character_prose``, and the older
+    ``internal_thought`` / ``character_dialogue``) delta-streams. ``character_action`` is
+    held and sent whole: it is one short beat, and the client folds it into the speaker's
+    open bubble — a rule that only works while the bubble has no spoken text yet. The JSON
+    types are held because half an object is not parseable, and are applied through the
+    same handlers the batch path uses.
     """
-    if seg.type in ("internal_thought", "character_dialogue"):
+    if seg.type in ("character_prose", "internal_thought", "character_dialogue"):
         live_seg = open_segments.get(seg.index)
         if live_seg is None:
             live_seg = emitter.open_stream(
@@ -1239,17 +1556,24 @@ def _emit_segment_delta(
             open_segments.pop(seg.index, None)
             if seg.type == "internal_thought":
                 # Kept OUT of turn_beats: it is the character's interiority, not shared
-                # dialogue, and later speakers must never condition on it.
+                # dialogue, and later speakers must never condition on it. Only the older
+                # three-fragment shape produces this; a ``character_prose`` beat carries
+                # its interiority in the passage the next speaker reads (see below).
                 yield from tracer.emit(
                     "thinking", f"{speaker.name} thinks (private)",
                     detail=text, data={"characterId": seg.character_id},
                 )
             else:
+                # A prose beat goes into turn_beats whole — including the interiority
+                # woven through it. That is a deliberate consequence of the single-passage
+                # form: the next speaker reads the passage as written, the way a reader
+                # does, rather than a stripped-down "spoken line only" version of it.
                 turn_beats.append(
                     {"role": "character", "text": text, "characterId": seg.character_id}
                 )
                 yield from tracer.emit(
-                    "dialogue", f"{speaker.name} speaks",
+                    "dialogue" if seg.type == "character_dialogue" else "prose",
+                    f"{speaker.name} speaks",
                     detail=text, data={"characterId": seg.character_id},
                 )
         return 0
@@ -1285,6 +1609,70 @@ def _emit_segment_delta(
     if seg.type == "presence_change":
         yield from _apply_declared_presence(ctx, seg.character_id, body, emitter, tracer)
     return 0
+
+
+#: How much of two beats' openings have to match before one is called an echo of the other.
+#: Long enough that a shared first clause ("The rain has not stopped") is not an echo, short
+#: enough to catch the case that matters — a whole passage repeated in someone else's mouth.
+_ECHO_PREFIX = 120
+
+
+def _echoes_a_beat(opening: str, turn_beats: list[dict]) -> bool:
+    """True when this passage is starting the same way one already played this turn.
+
+    Two characters returning byte-identical passages is not a parser fault — it is two
+    separate calls whose prompts differ only by a name and a role, which is what happens
+    when a cast has no traits, voice samples or stats to tell them apart. It was visible in
+    the owner's own export (Valdar's beat restating Fennel's imagery) and in a live run
+    (three pairs of byte-identical beats attributed to different characters, one pair
+    fourteen seconds apart).
+
+    Checked on the opening because that is all the gate is holding, and regenerating costs
+    one call — the same machinery a leaked scratchpad already uses.
+    """
+    head = (opening or "").strip()[:_ECHO_PREFIX]
+    if len(head) < _ECHO_PREFIX:
+        return False
+    return any(
+        (beat.get("text") or "").strip().startswith(head)
+        for beat in turn_beats
+        if beat.get("role") == "character"
+    )
+
+
+def _beat_or_skip(
+    tracer: "_Tracer",
+    speaker: CastMember,
+    tally: dict,
+    **kwargs,
+) -> Generator[StoryEvent | TurnTraceFrame, None, bool]:
+    """Run one beat; return whether it played. A failure is traced and skipped, never fatal.
+
+    A single call can come back with nothing in it — most often "the model spent its whole
+    budget thinking and never answered", which happens when the deliberation runs past its
+    (advisory) budget. Left alone that raises out of the beat loop as a terminal error frame
+    and takes the whole turn with it: one live run lost a turn that had already streamed
+    three beats, and another lost one to its very first beat.
+
+    The failure is recorded in ``tally`` rather than swallowed. Whether it reaches the player
+    is decided at the END of the turn, by whether EVERY attempt failed — a one-off starved
+    generation is a skipped beat, and an endpoint that is genuinely down fails all of them,
+    shows nothing, and surfaces as an error. That is a better test than guessing at the
+    moment it happens, and it is why the attempts are counted and not just the failures.
+    """
+    tally["attempts"] += 1
+    try:
+        yield from _generate_speaker(speaker=speaker, tracer=tracer, **kwargs)
+        return True
+    except APIError as exc:
+        tally["failures"].append(exc)
+        yield from tracer.emit(
+            "prose",
+            f"{speaker.name}'s beat did not come back",
+            detail=f"{exc.message} The turn carries on with what it has.",
+            data={"characterId": speaker.id, "skipped": True},
+        )
+        return False
 
 
 def _generate_speaker(
@@ -1331,12 +1719,44 @@ def _generate_speaker(
     # only signal that catches a prompt-cache regression before it shows up as latency
     # that creeps upward as a scene gets longer.
     usage: dict = {}
-    _raw, prompt_tokens, streamed_impact = yield from _stream_emission(
+    _raw, prompt_tokens, streamed_impact, blocked = yield from _stream_emission(
         db, ctx, speaker, emitter, turn_beats, consequences,
         roster=roster, directive=directive, relationship_note=relationship_note,
         register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
         tracer=tr, show_reasoning=show_reasoning, usage_out=usage,
     )
+    if blocked:
+        # The passage was the model briefing itself, and was withheld before the reader saw
+        # a word of it — so nothing needs undoing and the speaker simply goes again. Once:
+        # a beat that leaks twice is a bad prompt or a bad moment, not bad luck, and the
+        # turn is better served moving on than spending a third generation on it. An empty
+        # turn is already covered by the silent-turn backstop at the end of the beat loop.
+        yield from tr.emit(
+            "prose",
+            f"{speaker.name} starts again",
+            detail=(
+                "The first attempt was not this character speaking — notes about the task, "
+                "a fragment starting mid-sentence, or the previous beat repeated back — so "
+                "it was withheld and the beat regenerated."
+            ),
+            data={"characterId": speaker.id, "scratchpad": True},
+        )
+        _raw, prompt_tokens, streamed_impact, blocked = yield from _stream_emission(
+            db, ctx, speaker, emitter, turn_beats, consequences,
+            roster=roster, directive=directive, relationship_note=relationship_note,
+            register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
+            tracer=tr, show_reasoning=show_reasoning, usage_out=usage,
+        )
+        if blocked:
+            yield from tr.emit(
+                "prose",
+                f"{speaker.name}'s beat was dropped",
+                detail=(
+                    "The second attempt was no better. The beat is skipped rather than "
+                    "shown, and the turn carries on."
+                ),
+                data={"characterId": speaker.id, "scratchpad": True, "dropped": True},
+            )
 
     # Exact context-window usage: the server-reported input-token count for this
     # character call — the real size of everything actually sent (output contract +

@@ -65,8 +65,11 @@ PLAYER_LINES = [
 # (it is the first thing a player sees) but NOT as a beat — the scenario's maxTurns caps
 # emitted BEATS, and counting a character's thought and their spoken line as two would
 # make a 5-beat cap look as though it had been exceeded.
-VISIBLE = {"narration", "internal_thought", "character_dialogue", "character_action"}
-BEATS = {"narration", "character_dialogue", "character_action"}
+# ``character_prose`` is the current form of a character beat (one first-person passage);
+# the other three are the older three-fragment shape, kept so a recorded session still
+# measures. Omitting the new type made a perfectly good turn read as `beats=0`.
+VISIBLE = {"narration", "character_prose", "internal_thought", "character_dialogue", "character_action"}
+BEATS = {"narration", "character_prose", "character_dialogue", "character_action"}
 
 
 def _post(path: str, payload: dict) -> dict:

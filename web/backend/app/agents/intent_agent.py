@@ -87,8 +87,20 @@ def _freeform(text: str) -> TurnIntent:
     return TurnIntent(kind="freeform", directive=(text or "").strip())
 
 
-def interpret(db: Session, ctx: TurnContext, text: str) -> TurnIntent:
-    """Classify the player's line into a :class:`TurnIntent` (best-effort → freeform)."""
+def interpret(
+    db: Session, ctx: TurnContext, text: str, *, locked_id: str | None = None
+) -> TurnIntent:
+    """Classify the player's line into a :class:`TurnIntent` (best-effort → freeform).
+
+    ``locked_id`` is the Player POV character. Under POV the player **is** that character,
+    so their line can never be *addressed to* or *puppeting* them — and a roster that still
+    listed them let exactly that happen: in the session that prompted this fix, the player
+    wrote as Valdar and the intent came back "tell Valdar you want to be inside of him".
+    The planner then (correctly) drops the POV character from its own roster, so the only
+    character the turn was aimed at was not selectable and the turn ended in silence.
+    Removing them from the roster shown here makes that misreading unrepresentable rather
+    than merely unlikely.
+    """
     if not ctx.cast:
         return _freeform(text)
     try:
@@ -96,7 +108,10 @@ def interpret(db: Session, ctx: TurnContext, text: str) -> TurnIntent:
     except APIError:
         return _freeform(text)
 
-    roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(ctx.cast))
+    selectable = [m for m in ctx.cast if m.id != locked_id]
+    if not selectable:
+        return _freeform(text)
+    roster = "\n".join(f"[{i + 1}] {m.name} — {m.role}" for i, m in enumerate(selectable))
     user = f"Roster:\n{roster}\n\nPlayer's line:\n{text}\n\nInterpret it."
     try:
         raw = llm.chat_complete(
@@ -112,7 +127,7 @@ def interpret(db: Session, ctx: TurnContext, text: str) -> TurnIntent:
     except APIError:
         return _freeform(text)
 
-    roster_ids = {i + 1: m.id for i, m in enumerate(ctx.cast)}
+    roster_ids = {i + 1: m.id for i, m in enumerate(selectable)}
     kind = str(data.get("kind", "")).lower()
     if kind not in _KINDS:
         kind = "freeform"

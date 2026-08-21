@@ -26,6 +26,7 @@ const STEP_META: Record<string, { tag: string; color: string }> = {
   consistency: { tag: "Check", color: "#64748b" },
   relationship: { tag: "Ties", color: "#db2777" },
   action: { tag: "Acts", color: "#0891b2" },
+  prose: { tag: "Writes", color: "#059669" },
   dialogue: { tag: "Speaks", color: "#059669" },
   stat: { tag: "Stat", color: "#ca8a04" },
   relationship_change: { tag: "Bond", color: "#db2777" },

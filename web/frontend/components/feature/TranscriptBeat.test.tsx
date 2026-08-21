@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import type { Character } from "@/lib/types";
-import type { SceneMessage } from "@/features/story-player/scene-data";
-import { CharacterMessage, TranscriptBeat } from "./TranscriptBeat";
+import type { SceneChoice, SceneMessage } from "@/features/story-player/scene-data";
+import { BranchChoices, CharacterMessage, TranscriptBeat } from "./TranscriptBeat";
 
 const MEI: Character = {
   id: "mei",
@@ -170,5 +170,56 @@ describe("CharacterMessage — live reasoning", () => {
     );
     expect(screen.getByText(/I was home\./)).toBeInTheDocument();
     expect(screen.getByText(/Lie\./)).toBeInTheDocument();
+  });
+});
+
+describe("BranchChoices", () => {
+  const CHOICES: SceneChoice[] = [
+    { id: "1", label: "Follow him", outcome: "escalate", player: "", follow: { who: "", text: "" } },
+    { id: "2", label: "Let him go", outcome: "de-escalate", player: "", follow: { who: "", text: "" } },
+  ];
+
+  it("offers follow-ups without a question when the planner did not ask", () => {
+    render(<BranchChoices choices={CHOICES} onChoose={vi.fn()} />);
+    expect(screen.getByText("Your move — choose a path")).toBeInTheDocument();
+    expect(screen.getByText("Follow him")).toBeInTheDocument();
+  });
+
+  it("leads with the planner's question when it asked instead of guessing", () => {
+    render(
+      <BranchChoices
+        choices={CHOICES}
+        onChoose={vi.fn()}
+        prompt="Do you want to go after him, or let him go?"
+      />,
+    );
+    expect(screen.getByText("The story is asking you")).toBeInTheDocument();
+    expect(
+      screen.getByText("Do you want to go after him, or let him go?"),
+    ).toBeInTheDocument();
+    // The options are suggested answers, still pickable.
+    expect(screen.getByText("Let him go")).toBeInTheDocument();
+  });
+
+  it("renders a question that came with no options at all", () => {
+    // The player answers in the composer; an empty options grid must not take up space.
+    const { container } = render(
+      <BranchChoices choices={[]} onChoose={vi.fn()} prompt="Where do you want this to go?" />,
+    );
+    expect(screen.getByText("Where do you want this to go?")).toBeInTheDocument();
+    expect(container.querySelector(".hidden")).not.toBeNull();
+  });
+
+  it("routes the question through the transcript beat that carries it", () => {
+    render(
+      <TranscriptBeat
+        message={{ kind: "choices", text: "Follow, or let him go?" }}
+        charById={() => undefined}
+        onProfile={vi.fn()}
+        choices={CHOICES}
+        onChoose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Follow, or let him go?")).toBeInTheDocument();
   });
 });

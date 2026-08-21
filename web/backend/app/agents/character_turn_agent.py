@@ -1,9 +1,10 @@
 """Character turn agent — voice ONE character for the current beat.
 
 One LLM call per active speaker (per-character isolation — no shared multi-POV
-prompt, so voices stay distinct). The model emits the thin tag format
-(``<speaker:N>`` + ``<type:...>`` + free prose); the backend owns the envelope
-(``services.emission``). The prompt is ordered **stable → append-only → volatile** so an
+prompt, so voices stay distinct). The model emits **one untagged first-person passage** —
+what the character notices, does and says, woven together with the speech in double quotes
+inline — optionally followed by a JSON block (``<type:state_update>`` and friends); the
+backend owns the envelope (``services.emission``). The prompt is ordered **stable → append-only → volatile** so an
 inference server's prefix cache can reuse it across beats and turns: the scene as authored
 leads, the transcript follows (append-only, with a block-anchored start), and everything
 that changes per beat — this speaker's identity, voice samples, live stat values, the
@@ -11,8 +12,10 @@ register, the "respond now" cue — comes last, where recency attention is stron
 The stable region (output contract + World Primer + stat guidance) rides in the system
 message. See ``_build_user_prompt`` for why the ordering is load-bearing.
 
-P3 is single-pass (speak only). The hidden ``<thinking>`` conditioning block + in-voice
-sampler tuning are layered on in the think→speak phase; this module is where they land.
+The character deliberates **in POV, inside the passage** — first person, in their own
+voice — rather than in a fenced-off block or a hidden reasoning channel. Both of those
+existed once; running both meant thinking the beat through twice and showing only the
+second. In-voice sampler tuning is layered on here.
 """
 
 from __future__ import annotations
@@ -25,7 +28,7 @@ from sqlalchemy.orm import Session
 from app.agents import prompt_registry
 from app.agents._common import gen_params, resolve_llm
 from app.core.config import get_settings
-from app.schemas.reasoning import ReasoningEffort
+from app.schemas.reasoning import ReasoningEffort, budget_for
 from app.schemas.settings import LlmParams
 from app.services import llm
 from app.services.assembler import (
@@ -38,39 +41,64 @@ from app.services.stat_render import render_character_stats
 
 logger = logging.getLogger("mytheca.turn")
 
-# The character already deliberates **in the output**: the visible in-voice ``<thinking>``
-# block is a real deliberation the player reads. Letting the model ALSO fill a hidden
-# reasoning channel first means it thinks the same beat through twice and the player waits
-# through both — and only the second one is ever shown. EXP-2026-08-006 measured the
-# character beat at ~35 s to its thought and ~10 s more to its line, the largest single
-# cost in a turn. One deliberation, in the character's own voice, is the one worth keeping.
-TURN_EFFORT = ReasoningEffort.NONE
+# The beat needs a place to think that is NOT the prose. Running with the channel off
+# entirely (and no <thinking> block either) left deliberation nowhere to go, and a live run
+# caught the model writing its own scratchpad into the passage — "need to produce Mei's
+# beat. User is player? The cast: [1] Mei…" — before degenerating into a repetition loop at
+# 29,660 characters. HIGH caps that channel at 1024 tokens: enough to work the moment out,
+# bounded enough that the player is not waiting on an essay nobody reads. The character's
+# in-POV deliberation still appears in the passage itself; this is the scratchpad, not the
+# interiority.
+TURN_EFFORT = ReasoningEffort.HIGH
 
-# Sampler tuning for in-character voice on small models (the turn-loop plan §7):
-# repetition/frequency penalties + a lower top_p rein in drift more reliably than
-# raising temperature. Applied per turn-call (a per-storyline/character voice setting
-# is a recorded seam). Temperature + max_tokens are kept from the operator's config.
+# Sampler tuning for in-character voice on small models (the turn-loop plan §7): a lower
+# top_p reins in drift more reliably than raising temperature. Applied per turn-call (a
+# per-storyline/character voice setting is a recorded seam). Temperature + max_tokens are
+# kept from the operator's config.
+#
+# The frequency/presence penalties that used to sit here are ZERO, and that is a measured
+# decision rather than a default. EXP-2026-08-007 ran three arms, n=10 each, on the live
+# endpoint with only these two fields varying. They fall on every token, and the tokens
+# prose is made of are its most repeated ones — the full stop, the comma, the double quote,
+# "I", "the" — so penalising them penalises sentences:
+#
+#     sentences per 100 words   0.40/0.30: 1.32 ± 1.16   0.20/0.15: 3.80 ± 3.07   off: 11.42 ± 3.96
+#     passages containing speech       80%                     70%                    100%
+#     characters per passage    2183 ± 1771            1919 ± 1883             674 ± 471
+#
+# The arms do not overlap on the primary metric: the worst run with the penalties off
+# (8.9) beats the best run with them on (3.7). They are also what made length
+# uncontrollable — the rambling that a passage ceiling was once added to contain was the
+# penalties, not the freedom.
+#
+# The trade, stated rather than made quietly: the penalties were added to fight in-character
+# drift, and removing them may bring some of it back. Grammar first. A repetitive but
+# well-formed paragraph is readable; a punctuation-free 180-word sentence is not.
 _VOICE_TOP_P = 0.92
-_VOICE_FREQUENCY_PENALTY = 0.4
-_VOICE_PRESENCE_PENALTY = 0.3
+_VOICE_FREQUENCY_PENALTY = 0.0
+_VOICE_PRESENCE_PENALTY = 0.0
 
 # Per-register sampler tuning: (top_p, frequency_penalty, presence_penalty).
 #
-# Frequency and presence penalties push the model toward tokens it has NOT used yet —
-# toward novelty and flourish, which is exactly the quip-seeking behavior that reads as
-# a character performing instead of reacting. So they come DOWN as the moment gets
-# graver, letting plain, direct, even repetitive language through (people repeat
-# themselves when frightened), and up in a light moment where banter should stay varied.
-# ``top_p`` narrows alongside them so a grave beat stays on the obvious, sincere word.
+# ``top_p`` narrows as the moment gets graver, so a grave beat stays on the obvious,
+# sincere word while a light one can reach for the unexpected one. That is a choice about
+# WORD CHOICE and it survives.
+#
+# The penalties are zero at every register. They used to rise for a light moment
+# (0.45/0.35) on the theory that banter should stay varied — which made the LIGHTEST beats
+# the most damaged ones, and is visible in the ps_c015c506b1 export, where the banter beat
+# came back as "There — *chirp!* — there you are ! Just one sip … no wait" with no sentence
+# in it. See ``_VOICE_FREQUENCY_PENALTY`` above for the measurement (EXP-2026-08-007).
+# The column is kept rather than removed so the shape of the table stays obvious and a
+# future measurement can put something back in it.
 #
 # A beat with no register (planner fallback, puppet beat, test context) resolves to the
-# module defaults above — byte-identical to the pre-register behavior. Temperature and
-# max_tokens stay under the operator's config either way.
+# module defaults above. Temperature and max_tokens stay under the operator's config.
 _REGISTER_SAMPLER = {
-    "light": (0.95, 0.45, 0.35),
-    "neutral": (0.92, 0.40, 0.30),
-    "tense": (0.88, 0.30, 0.20),
-    "grave": (0.85, 0.20, 0.15),
+    "light": (0.95, 0.0, 0.0),
+    "neutral": (0.92, 0.0, 0.0),
+    "tense": (0.88, 0.0, 0.0),
+    "grave": (0.85, 0.0, 0.0),
 }
 
 # Per-register performance directives, stated in the recency TAIL as an established fact
@@ -105,22 +133,78 @@ _REGISTER_DIRECTIVES = {
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
 
 
-def _voice_params(params: LlmParams, register: str | None = None) -> LlmParams:
-    """Floor max_tokens (reasoning headroom) and apply the voice-tuned sampler fields.
+#: Room for the passage itself, in tokens — roughly 8,000 characters, or 1,300 words.
+#:
+#: This is NOT an editorial limit. Nothing in the contract tells a character to be brief,
+#: and the owner asked twice for one to be able to speak for as long as they want. What it
+#: stops is the OPERATOR'S GLOBAL ``maxTokens`` being spent on a single spoken beat. That
+#: field is one number shared with every authoring flow — world building, storyline
+#: generation — where a very long output is the point; on this install it is 48,000. Passing
+#: it through to a character beat is how one live generation ran to 48,000 completion tokens
+#: over 684 seconds, timed out the relay's health probe three times, left the upstream marked
+#: failed, and 400'd the next three turns. One beat cost the player the rest of the scene.
+#:
+#: The value is set from measurement, not caution. With the sampler fixed (EXP-2026-08-007) a
+#: passage averages 674 ± 471 characters and the longest of thirty was 1,923 — so 2,048
+#: tokens is about four times the worst honest case and will not be reached by writing.
+#: An earlier ceiling of 1,200 WAS an editorial one, imposed on the theory that uncapped
+#: passages rambled; that theory was wrong (the rambling was the sampler) and it is gone.
+#:
+#: Set to ``None`` to hand the operator's own ``maxTokens`` to every beat; the streaming
+#: stop in ``turn_engine._RUNAWAY_CHARS`` is then the only thing between a runaway and the
+#: endpoint.
+_VOICE_PROSE_TOKENS: int | None = 2048
+
+#: How much of the thinking budget to actually pay for. ``thinking_token_budget`` is a hint
+#: on this endpoint, not a hard stop, so a deliberation can run past it and eat the room the
+#: passage needs — which is how a beat in the live verification run came back as reasoning
+#: with no prose. Two is generous enough that the overshoot never reaches the passage and
+#: costs nothing when it does not happen: the model stops when it is done, not at the cap.
+_SCRATCHPAD_HEADROOM = 2
+
+
+def _voice_params(
+    params: LlmParams,
+    register: str | None = None,
+    reasoning: ReasoningEffort = TURN_EFFORT,
+) -> LlmParams:
+    """Bound the beat generously and apply the voice-tuned sampler fields.
 
     The sampler tracks the beat's ``register`` (see ``_REGISTER_SAMPLER``); an absent or
     unrecognized register keeps the module defaults.
+
+    ``max_tokens`` buys the hidden thinking **and** the answer out of one budget, so the
+    passage allowance is added ON TOP of the thinking budget rather than shared with it.
+    Capping the request at the passage allowance alone starves the answer: with the two set
+    equal at 1,200, a live turn spent the whole budget deliberating and came back as
+    reasoning with no prose at all ("the model spent its whole budget thinking and never
+    answered").
+
+    The scratchpad is given :data:`_SCRATCHPAD_HEADROOM` times its budget, because
+    ``thinking_token_budget`` is a HINT on this endpoint rather than a hard stop — a probe
+    at a 1,024-token budget came back with 4,193 and 3,121 characters of reasoning, which
+    hovers at the budget and can pass it. Without the headroom a long deliberation eats the
+    passage's room and the beat returns nothing; a beat starved exactly this way in the live
+    verification run. It costs nothing when it is not used, since the model stops on its own.
+
+    The cap applies to the ``gen_params`` floor, not to the operator's raw ``max_tokens`` —
+    that field defaults to 512, which is a default rather than a choice and would starve
+    every beat on a stock install.
     """
     top_p, frequency, presence = _REGISTER_SAMPLER.get(
         register or "", (_VOICE_TOP_P, _VOICE_FREQUENCY_PENALTY, _VOICE_PRESENCE_PENALTY)
     )
-    return gen_params(params).model_copy(
+    tuned = gen_params(params).model_copy(
         update={
             "top_p": top_p,
             "frequency_penalty": frequency,
             "presence_penalty": presence,
         }
     )
+    if not _VOICE_PROSE_TOKENS:
+        return tuned
+    budget = budget_for(reasoning) * _SCRATCHPAD_HEADROOM + _VOICE_PROSE_TOKENS
+    return tuned.model_copy(update={"max_tokens": min(tuned.max_tokens, budget)})
 
 
 def generate_line(
@@ -202,7 +286,7 @@ def generate_line_with_usage(
         api_key,
         model,
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        _voice_params(params, register),
+        _voice_params(params, register, reasoning),
         reasoning=reasoning,
     )
 
@@ -255,7 +339,7 @@ def stream_line(
             api_key,
             model,
             [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            _voice_params(params, register),
+            _voice_params(params, register, reasoning),
             reasoning=reasoning,
             usage_out=usage_out,
         )
@@ -487,7 +571,12 @@ def _transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
             continue
         role = beat.get("role")
         if role == "player":
-            who = "Player"
+            # NOT "Player". That label was the only name the model had for the person in
+            # the room with it, and it used it: 13 of 18 character beats in the
+            # EXP-2026-08-008 verification run wrote "the player" into the prose. Every
+            # other line here carries a character's name, including this speaker's own, so
+            # "You" is unambiguous — and it is already the form the passage should use.
+            who = "You"
         elif role == "narrator":
             who = "Narrator"
         else:

@@ -112,7 +112,7 @@ def test_llm_backend_endpoint_reports_detected_engine(client, monkeypatch):
     assert body["backend"] == "vllm"
     # The budget map is exposed for visibility.
     assert body["budgets"] == {
-        "none": 0, "low": 256, "medium": 512, "high": 1024, "very_high": 2048, "max": 4096,
+        "none": 0, "quick": 128, "low": 256, "medium": 512, "high": 1024, "very_high": 2048, "max": 4096,
     }
     llm_backend.clear_cache()
 
