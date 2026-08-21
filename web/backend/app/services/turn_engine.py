@@ -71,8 +71,13 @@ from app.services import (
     turn_writer,
     validator,
 )
+
 from app.services.assembler import CastMember, TurnContext
 from app.services.turn_writer import Consequence
+
+#: A beat is only checked for degeneration once it is longer than any ordinary one, so a
+#: short, deliberately repetitive line is never mistaken for a collapsed generation.
+_DEGENERATE_AFTER_CHARS = 2000
 
 
 class _Emitter:
@@ -1212,6 +1217,13 @@ def _stream_emission(
     buffered: dict[int, str] = {}
     impact = 0
 
+    # A passage is never length-capped: a character may hold the floor for as long as the
+    # moment needs, and it streams, so length costs the reader nothing. What IS bounded is a
+    # generation that has stopped producing language — live runs produced 29,660 and 48,167
+    # character beats that opened as prose, drifted into the model's own notes and ended in
+    # "Rex Rex Rex" / "AT AT AT AAAA". Watching the tail lets the ceiling stay off.
+    written = 0
+    degenerate = False
     try:
         while True:
             delta = next(stream)
@@ -1221,13 +1233,35 @@ def _stream_emission(
                 yield TurnReasoningFrame(character_id=speaker.id, text=delta.reasoning)
             if not delta.answer:
                 continue
+            written += len(delta.answer)
             for seg in acc.push(delta.answer):
                 impact += yield from _emit_segment_delta(
                     db, ctx, speaker, emitter, turn_beats, consequences,
                     seg, open_segments, buffered, tracer,
                 )
+            # Only worth checking once the beat is longer than any ordinary one, so a
+            # short repetitive line — which people do write — is never mistaken for it.
+            if written > _DEGENERATE_AFTER_CHARS:
+                open_text = "".join(
+                    live.text for live in open_segments.values()
+                ) or acc.segments[-1].text if acc.segments else ""
+                if emission.looks_degenerate(open_text):
+                    degenerate = True
+                    stream.close()
+                    break
     except StopIteration as stop:
         raw, prompt_tokens = stop.value
+    if degenerate:
+        raw, prompt_tokens = "", None
+        yield from tracer.emit(
+            "prose",
+            f"{speaker.name}'s beat was cut short",
+            detail=(
+                "The generation stopped producing language and was cut rather than "
+                "streamed further. The beat keeps what it had written."
+            ),
+            data={"characterId": speaker.id, "degenerate": True},
+        )
 
     if show_reasoning:
         yield TurnReasoningFrame(character_id=speaker.id, done=True)

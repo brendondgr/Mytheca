@@ -53,6 +53,31 @@ _PRESENCE_TYPE = "presence_change"
 _JSON_TYPES = {_STAT_TYPE, _REL_TYPE, _PRESENCE_TYPE}
 
 
+#: How much of the tail to inspect for degeneration, and how little variety it takes to
+#: call it. A passage is never length-capped — a character may hold the floor for as long
+#: as the moment needs — but a generation that has stopped producing language should not be
+#: streamed into the story. Live runs produced 29,660 and 48,167-character beats that began
+#: as prose, drifted into the model's own notes, and ended in "Rex Rex Rex" and "AT AT AT
+#: AAAA". Detecting that is what lets the length stay unbounded.
+_DEGENERATE_WINDOW = 400
+_DEGENERATE_MIN_DISTINCT_WORDS = 12
+
+
+def looks_degenerate(text: str) -> bool:
+    """True when the tail of ``text`` has stopped being language.
+
+    Deliberately conservative — it only fires on a tail with almost no lexical variety,
+    which ordinary prose (even a repetitive, incantatory passage) does not produce. The
+    check is on the TAIL rather than the whole passage so a beat that starts well and then
+    collapses is caught, which is exactly the observed shape.
+    """
+    tail = (text or "")[-_DEGENERATE_WINDOW:]
+    words = tail.split()
+    if len(words) < 20:
+        return False
+    return len(set(words)) < _DEGENERATE_MIN_DISTINCT_WORDS
+
+
 def _clean(body: str) -> str:
     """Strip any residual emission tags from a body and trim."""
     return _TAG_CLEAN.sub("", body).strip()
