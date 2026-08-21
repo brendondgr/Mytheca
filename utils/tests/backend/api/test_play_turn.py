@@ -18,9 +18,9 @@ from app.services import llm
 
 _EMISSION = (
     "<speaker:1>\n"
-    "<type:character_action>\n"
+    ""
     "Mei doesn't touch the pouch. Her eyes flick once to Kira at the bar, then back.\n"
-    "<type:character_dialogue>\n"
+    ""
     '"Coin\'s easy. It\'s what comes after the coin I don\'t trust."'
 )
 
@@ -77,7 +77,10 @@ def _by_id(events: list[dict]) -> dict[str, list[dict]]:
     return grouped
 
 
-def test_turn_streams_action_and_dialogue(client, storyline_id, monkeypatch):
+def test_a_beat_arrives_as_one_passage_carrying_action_and_speech(
+    client, storyline_id, monkeypatch
+):
+    """Action and speech are no longer separate events — they are one passage."""
     _configure_llm(client)
     _patch_llm(monkeypatch)
     cid, sid = _refs(client, storyline_id)
@@ -89,10 +92,13 @@ def test_turn_streams_action_and_dialogue(client, storyline_id, monkeypatch):
     assert resp.status_code == 200
     events = _stream(resp)
     types = {e["type"] for e in events}
-    assert "character_action" in types and "character_dialogue" in types
-    action = next(e for e in events if e["type"] == "character_action")
-    assert action["data"]["characterId"] == cid
-    assert "doesn't touch the pouch" in action["data"]["text"]
+    assert "character_prose" in types
+    assert "character_action" not in types and "character_dialogue" not in types
+    passage = [e for e in events if e["type"] == "character_prose"]
+    assert all(e["data"]["characterId"] == cid for e in passage)
+    whole = "".join(e["data"]["text"] for e in passage)
+    assert "doesn't touch the pouch" in whole  # the action
+    assert "Coin's easy." in whole  # and the speech, in the same passage
 
 
 def test_dialogue_delta_chunks_accumulate_to_full_line(client, storyline_id, monkeypatch):
@@ -101,14 +107,16 @@ def test_dialogue_delta_chunks_accumulate_to_full_line(client, storyline_id, mon
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
-    dialogue_chunks = [e for e in events if e["type"] == "character_dialogue"]
+    dialogue_chunks = [e for e in events if e["type"] == "character_prose"]
     assert len(dialogue_chunks) > 1  # actually delta-streamed in pieces
     # all chunks share one id + seq; only the final chunk is done.
     assert len({e["id"] for e in dialogue_chunks}) == 1
     assert len({e["seq"] for e in dialogue_chunks}) == 1
     assert [e["data"]["done"] for e in dialogue_chunks] == [False] * (len(dialogue_chunks) - 1) + [True]
     reconstructed = "".join(e["data"]["text"] for e in dialogue_chunks)
-    assert reconstructed == '"Coin\'s easy. It\'s what comes after the coin I don\'t trust."'
+    assert reconstructed.endswith(
+        '"Coin\'s easy. It\'s what comes after the coin I don\'t trust."'
+    )
 
 
 def test_reasoning_leak_stripped_from_character_emission(client, storyline_id, monkeypatch):
@@ -120,22 +128,21 @@ def test_reasoning_leak_stripped_from_character_emission(client, storyline_id, m
         '* Dialogue: "A storm is a chaotic thing."\n'
         "<channel|>\n"
         "<speaker:1>\n"
-        "<type:character_action>\nslowly circles them, scent intensifying\n"
-        '<type:character_dialogue>\n"A storm is a chaotic thing—loud, frantic."'
+        "slowly circles them, scent intensifying\n"
+        '"A storm is a chaotic thing—loud, frantic."'
     )
     _configure_llm(client)
     _patch_llm(monkeypatch, leaked)
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
-    dialogue = "".join(e["data"]["text"] for e in events if e["type"] == "character_dialogue")
-    action = " ".join(e["data"]["text"] for e in events if e["type"] == "character_action")
-    assert dialogue == '"A storm is a chaotic thing—loud, frantic."'
-    assert "slowly circles them" in action
+    passage = "".join(e["data"]["text"] for e in events if e["type"] == "character_prose")
+    # One passage now carries both the physical beat and the spoken line.
+    assert '"A storm is a chaotic thing—loud, frantic."' in passage
+    assert "slowly circles them" in passage
     # None of the reasoning scaffolding or the channel token leaks into the beat.
-    for blob in (dialogue, action):
-        assert "Constraint check" not in blob
-        assert "channel" not in blob.lower()
+    assert "Constraint check" not in passage
+    assert "channel" not in passage.lower()
 
 
 def test_every_streamed_line_validates(client, storyline_id, monkeypatch):
@@ -203,7 +210,7 @@ def test_internal_thought_streams_as_private_to_user(client, db_session, storyli
     emission = (
         "<speaker:1>\n"
         "<thinking>Coin first, favor later. Let him sweat.</thinking>\n"
-        "<type:character_dialogue>\n\"Coin's easy.\""
+        "\"Coin's easy.\""
     )
     _patch_llm(monkeypatch, emission)
     cid, sid = _refs(client, storyline_id)
@@ -252,7 +259,7 @@ def _plan_routed(monkeypatch, decisions, *, narration="A hush falls over the roo
             return _resp(narration)
         m = re.search(r"You are \[(\d+)\] (\w+)", user)
         num, name = (m.group(1), m.group(2)) if m else ("1", "Someone")
-        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."')
+        return _resp(f'<speaker:{num}>\n"{name} speaks now."')
 
     monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
 
@@ -277,8 +284,8 @@ def test_planner_can_insert_a_narrator_beat(client, storyline_id, monkeypatch):
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
     types = [e["type"] for e in _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi"}))]
-    assert "narration" in types and "character_dialogue" in types
-    assert types.index("narration") < types.index("character_dialogue")  # the narrator leads
+    assert "narration" in types and "character_prose" in types
+    assert types.index("narration") < types.index("character_prose")  # the narrator leads
 
 
 def test_no_narration_when_planner_does_not_ask(client, storyline_id, monkeypatch):
@@ -300,10 +307,10 @@ def test_scene_opens_with_narration_before_any_character(client, storyline_id, m
     cid, sid = _refs(client, storyline_id)
     scid = _scenario(client, storyline_id, [cid], sid)
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "I step inside."}))
-    types = [e["type"] for e in events if e["type"] in ("narration", "character_dialogue")]
+    types = [e["type"] for e in events if e["type"] in ("narration", "character_prose")]
     assert types and types[0] == "narration"  # the narrator opens
     # No character dialogue precedes the opening narration.
-    dialogue = [e for e in events if e["type"] == "character_dialogue"]
+    dialogue = [e for e in events if e["type"] == "character_prose"]
     if dialogue:
         first_narration_seq = next(e["seq"] for e in events if e["type"] == "narration")
         assert min(e["seq"] for e in dialogue) > first_narration_seq
@@ -427,7 +434,7 @@ def test_broadcast_runs_the_whole_cast_uncapped(client, storyline_id, monkeypatc
             return _resp("{}")
         m = re.search(r"You are \[(\d+)\] (\w+)", user)
         num, name = (m.group(1), m.group(2)) if m else ("1", "X")
-        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."')
+        return _resp(f'<speaker:{num}>\n"{name} speaks now."')
 
     monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "Everyone introduces themselves."}))
@@ -451,7 +458,7 @@ def test_stat_change_streams_clamped_state_update_and_applies(client, storyline_
     scid = _scenario(client, storyline_id, [cid], sid)
     emission = (
         "<speaker:1>\n"
-        '<type:character_dialogue>\n"Don\'t pretend you forgot."\n'
+        '"Don\'t pretend you forgot."\n'
         '<type:state_update>\n{"key":"suspicion","delta":12,"reason":"old guilt, raised guard"}'
     )
     _patch_llm(monkeypatch, emission)
@@ -470,7 +477,7 @@ def test_unknown_proposed_stat_is_dropped_no_event(client, storyline_id, monkeyp
     scid = _scenario(client, storyline_id, [cid], sid)
     emission = (
         "<speaker:1>\n"
-        '<type:character_dialogue>\n"Fine."\n'
+        '"Fine."\n'
         '<type:state_update>\n{"key":"mana","delta":5}'
     )
     _patch_llm(monkeypatch, emission)
@@ -529,7 +536,7 @@ def test_closing_style_tags_do_not_leak_into_the_stream(client, storyline_id, mo
     emission = (
         "<speaker:1>\n"
         "<type:character_action> Sylvarra glides forward, tracing a slow line. "
-        "</type:character_dialogue> Then bloom for me, my precious thing. "
+        " Then bloom for me, my precious thing. "
         '</type:state_update> {"key": "sensation", "delta": 10, "reason": "the grove"}'
     )
     _patch_llm(monkeypatch, emission)
@@ -540,7 +547,7 @@ def test_closing_style_tags_do_not_leak_into_the_stream(client, storyline_id, mo
         text = e.get("data", {}).get("text", "")
         assert "type:" not in text and "{" not in text
     # A proper dialogue bubble + a real state_update (not prose) both arrived.
-    dialogue = "".join(e["data"]["text"] for e in events if e["type"] == "character_dialogue")
+    dialogue = "".join(e["data"]["text"] for e in events if e["type"] == "character_prose")
     assert "Then bloom for me, my precious thing." in dialogue
     su = next(e for e in events if e["type"] == "state_update")
     assert su["data"]["stat"]["key"] == "sensation" and su["data"]["stat"]["value"] == 20
@@ -585,7 +592,7 @@ def test_turn_writes_interior_state_after_stream(client, storyline_id, monkeypat
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "hi", "directedAt": cid}))
 
     # The visible stream is unaffected (reflection is off the hot path) …
-    assert any(e["type"] == "character_dialogue" for e in events)
+    assert any(e["type"] == "character_prose" for e in events)
     assert all(e["type"] != "error" for e in events)
     # … and the speaker's interior state was written for the next turn to read.
     session_id = events[0]["sessionId"]
@@ -608,7 +615,7 @@ def _reconstruct_dialogue(events: list[dict]) -> list[dict]:
     """Collapse delta chunks → one {characterId, text, seq} per dialogue event, seq-ordered."""
     out: list[dict] = []
     for eid, evs in _by_id(events).items():
-        if evs[0]["type"] != "character_dialogue":
+        if evs[0]["type"] != "character_prose":
             continue
         out.append(
             {
@@ -655,8 +662,8 @@ def test_later_speakers_are_no_longer_held_for_a_continuity_check(client, storyl
         m = re.search(r"You are \[(\d+)\] (\w+)", user)
         num = m.group(1) if m else "1"
         if num == "1":
-            return _resp('<speaker:1>\n<type:character_dialogue>\n"The lantern is lit."')
-        return _resp('<speaker:2>\n<type:character_dialogue>\n"I step toward it."')
+            return _resp('<speaker:1>\n"The lantern is lit."')
+        return _resp('<speaker:2>\n"I step toward it."')
 
     monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
     events = _stream(
@@ -809,7 +816,7 @@ def test_trace_commit_reports_graph_changes_on_a_stat_turn(client, storyline_id,
     scid = _scenario(client, storyline_id, [cid], sid)
     emission = (
         "<speaker:1>\n"
-        '<type:character_dialogue>\n"Don\'t pretend you forgot."\n'
+        '"Don\'t pretend you forgot."\n'
         '<type:state_update>\n{"key":"suspicion","delta":12,"reason":"old guilt"}'
     )
     _patch_llm(monkeypatch, emission)
@@ -830,7 +837,7 @@ def test_trace_surfaces_hidden_thinking(client, storyline_id, monkeypatch):
     _configure_llm(client)
     emission = (
         "<speaker:1>\n<thinking>Coin first, favor later.</thinking>\n"
-        '<type:character_dialogue>\n"Fine."'
+        '"Fine."'
     )
     _patch_llm(monkeypatch, emission)
     cid, sid = _refs(client, storyline_id)
@@ -930,7 +937,7 @@ def test_puppeted_character_performs_then_target_reacts(client, storyline_id, mo
             return _resp("{}")
         m = re.search(r"You are \[(\d+)\] (\w+)", user)
         num, name = (m.group(1), m.group(2)) if m else ("1", "X")
-        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."')
+        return _resp(f'<speaker:{num}>\n"{name} speaks now."')
 
     monkeypatch.setattr(llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
     events = _stream(
@@ -961,7 +968,7 @@ def test_relationship_update_records_a_relational_consequence(client, storyline_
     # Mei (addressed) speaks and declares a relationship shift toward Beth.
     emission = (
         "<speaker:2>\n"
-        '<type:character_dialogue>\n"I know what you did, Beth."\n'
+        '"I know what you did, Beth."\n'
         '<type:relationship_update>\n{"target": "Beth", "type": "resents", "reason": "the betrayal"}'
     )
     _patch_llm(monkeypatch, emission)
@@ -975,7 +982,7 @@ def test_relationship_update_records_a_relational_consequence(client, storyline_
     commit = next(t for t in events if t["type"] == "trace" and t["step"] == "commit")
     assert commit["data"]["consequences"] >= 1
     # No leaked JSON in the visible dialogue.
-    dialogue = "".join(e["data"]["text"] for e in events if e["type"] == "character_dialogue")
+    dialogue = "".join(e["data"]["text"] for e in events if e["type"] == "character_prose")
     assert "know what you did" in dialogue and "{" not in dialogue
 
 
@@ -1054,7 +1061,7 @@ def test_planner_exit_emits_status_change_and_stops_selection(client, storyline_
     data = status_events[0]["data"]
     assert data["characterId"] == cid_mei and data["status"] == "dead" and data["auto"] is True
     # Mei never speaks after being removed (no dialogue attributed to her).
-    mei_lines = [e for e in events if e.get("data", {}).get("characterId") == cid_mei and e["type"] in ("character_dialogue", "character_action")]
+    mei_lines = [e for e in events if e.get("data", {}).get("characterId") == cid_mei and e["type"] in ("character_prose",)]
     assert mei_lines == []
 
 
@@ -1084,13 +1091,13 @@ def test_status_change_persists_and_folds_into_presence(client, storyline_id, mo
 
 _HEALTH_EMISSION = (
     "<speaker:1>\n"
-    "<type:character_action>\nMei crumples to the floor\n"
+    "Mei crumples to the floor\n"
     '<type:state_update>\n{"key": "health", "delta": -100, "reason": "stabbed"}'
 )
 
 _LEAVE_EMISSION = (
     "<speaker:1>\n"
-    "<type:character_action>\nturns and walks out\n"
+    "turns and walks out\n"
     '<type:presence_change>\n{"status": "left", "reason": "done here"}'
 )
 

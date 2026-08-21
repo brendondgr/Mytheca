@@ -46,7 +46,7 @@ def _patch_llm(monkeypatch):
         # Echo whichever roster slot the prompt is voicing, so attribution is real.
         m = re.search(r"You are \[(\d+)\]", user)
         num = m.group(1) if m else "1"
-        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"Something is said."')
+        return _resp(f'<speaker:{num}>\n"Something is said."')
 
     monkeypatch.setattr(
         llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
@@ -101,7 +101,7 @@ def test_one_planner_call_covers_several_beats(client, storyline_id, monkeypatch
     # the queue emptied. The old loop would have called it four times.
     assert len(calls) == 2
     assert calls[0] > 1  # the lookahead actually reached the agent
-    spoke = {e["data"]["characterId"] for e in events if e["type"] == "character_dialogue"}
+    spoke = {e["data"]["characterId"] for e in events if e["type"] == "character_prose"}
     assert spoke == {mei, kira}
 
 
@@ -124,7 +124,7 @@ def test_a_plan_is_dropped_once_its_speaker_has_left(client, storyline_id, monke
     events = _stream(client.post(f"/api/play/{scid}/turn", json={"text": "Say something."}))
 
     assert all(e["type"] != "error" for e in events)
-    spoke = [e["data"]["characterId"] for e in events if e["type"] == "character_dialogue"]
+    spoke = [e["data"]["characterId"] for e in events if e["type"] == "character_prose"]
     assert kira not in spoke  # the stale beat was never run
     assert mei in spoke
 

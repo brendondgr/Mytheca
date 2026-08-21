@@ -114,22 +114,22 @@ def test_the_thought_completes_before_the_dialogue_starts():
     """The reason the whole feature exists: interiority lands early."""
     raw = (
         "<speaker:1><thinking>I should lie.</thinking>"
-        '<type:character_dialogue>"Nothing happened."</type:character_dialogue>'
+        'I do not look up. "Nothing happened."'
     )
     _, deltas = _accumulate(raw)
 
     thought_done = next(
         i for i, d in enumerate(deltas) if d.type == "internal_thought" and d.done
     )
-    first_dialogue = next(i for i, d in enumerate(deltas) if d.type == "character_dialogue")
+    first_dialogue = next(i for i, d in enumerate(deltas) if d.type == "character_prose")
     assert thought_done < first_dialogue
 
 
 def test_prose_arrives_in_pieces_rather_than_all_at_once():
-    raw = '<speaker:1><type:character_dialogue>"One two three four five."</type:character_dialogue>'
+    raw = '<speaker:1>I hold the cup. "One two three four five."'
     _, deltas = _accumulate(raw, chunks=[raw[:40], raw[40:]])
 
-    text_deltas = [d for d in deltas if d.type == "character_dialogue" and d.text]
+    text_deltas = [d for d in deltas if d.type == "character_prose" and d.text]
     assert len(text_deltas) > 1
 
 
@@ -185,13 +185,13 @@ def test_a_late_thought_streams_late_rather_than_being_reordered():
     two agree in practice — this pins the difference rather than hiding it.
     """
     raw = (
-        '<type:character_dialogue>"Fine."</type:character_dialogue>'
+        '"Fine."'
         "<speaker:1><thinking>Actually not fine.</thinking>"
     )
     acc, _ = _accumulate(raw)
 
-    assert [s.type for s in acc.segments] == ["character_dialogue", "internal_thought"]
-    assert [s.type for s in _batch(raw)] == ["internal_thought", "character_dialogue"]
+    assert [s.type for s in acc.segments] == ["character_prose", "internal_thought"]
+    assert [s.type for s in _batch(raw)] == ["internal_thought", "character_prose"]
     # Same segments, same bodies — only the order differs.
     assert sorted((s.type, s.text) for s in acc.segments) == sorted(
         (s.type, s.text) for s in _batch(raw)

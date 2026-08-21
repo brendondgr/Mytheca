@@ -16,8 +16,8 @@ from app.services import llm
 _EMISSION = (
     "<speaker:1>\n"
     "<thinking>Coin first, favor later.</thinking>\n"
-    "<type:character_action>\nMei doesn't touch the pouch.\n"
-    '<type:character_dialogue>\n"Coin\'s easy."'
+    "Mei doesn't touch the pouch.\n"
+    '"Coin\'s easy."'
 )
 
 
@@ -75,7 +75,7 @@ def test_history_returns_events_thoughts_and_persisted_trace(client, storyline_i
     types = [e["type"] for e in body["events"]]
     assert "user_turn" in types  # the player line is part of the record
     assert "internal_thought" in types  # the hidden thought was persisted
-    assert "character_dialogue" in types
+    assert "character_prose" in types
     # The graph/RAG diagnostics survive even though trace was never requested on the wire.
     steps = {t["step"] for t in body["traces"]}
     assert {"turn", "lore", "commit"} <= steps
@@ -107,7 +107,7 @@ def test_export_json_is_structured_by_turn(client, storyline_id, monkeypatch):
     assert turn["player"]["text"].startswith("I slide the coin")
     assert turn["player"]["directedAt"] == "Mei"  # id resolved to name
     kinds = {b["type"] for b in turn["beats"]}
-    assert {"internal_thought", "character_dialogue"} <= kinds
+    assert {"internal_thought", "character_prose"} <= kinds
     # Graph + RAG activity is present in the exported trace.
     assert {s["step"] for s in turn["trace"]} >= {"lore", "commit"}
 

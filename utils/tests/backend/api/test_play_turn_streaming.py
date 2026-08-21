@@ -22,9 +22,9 @@ from app.services import llm, llm_backend
 _EMISSION = (
     "<speaker:1>"
     "<thinking>The coin is a test. He wants to see if I take it.</thinking>"
-    "<type:character_action>Mei leaves the pouch where it lies.</type:character_action>"
+    "<type:character_action>Mei leaves the pouch where it lies."
     '<type:character_dialogue>"Coin\'s easy. It\'s after the coin I don\'t trust."'
-    "</type:character_dialogue>"
+    ""
 )
 
 
@@ -100,7 +100,7 @@ def test_dialogue_arrives_as_many_deltas_not_one_block(client, storyline_id, mon
         f"/api/play/{scid}/turn", json={"text": "I slide the pouch over.", "directedAt": cast[0]}
     )
     assert resp.status_code == 200
-    dialogue = _of_type(_stream(resp), "character_dialogue")
+    dialogue = _of_type(_stream(resp), "character_prose")
 
     # More than one frame, exactly one terminal frame, and the pieces reassemble.
     assert len(dialogue) > 2
@@ -132,7 +132,7 @@ def test_the_thought_finishes_before_the_dialogue_begins(client, storyline_id, m
         if e.get("type") == "internal_thought" and e["data"]["done"]
     )
     first_dialogue = next(
-        i for i, e in enumerate(events) if e.get("type") == "character_dialogue"
+        i for i, e in enumerate(events) if e.get("type") == "character_prose"
     )
     assert thought_done < first_dialogue
 
@@ -171,29 +171,29 @@ def test_the_persisted_row_holds_the_whole_line_not_a_fragment(
     session_id = next(e["sessionId"] for e in events if "sessionId" in e)
 
     history = client.get(f"/api/play/{scid}/sessions/{session_id}").json()
-    dialogue = [e for e in history["events"] if e["type"] == "character_dialogue"]
+    dialogue = [e for e in history["events"] if e["type"] == "character_prose"]
     assert len(dialogue) == 1
-    assert dialogue[0]["data"]["text"].startswith('"Coin')
+    assert '"Coin' in dialogue[0]['data']['text']
     assert dialogue[0]["data"]["done"] is True
 
 
-def test_an_action_is_still_delivered_whole(client, storyline_id, monkeypatch):
-    """`character_action` is one short beat the client folds into the open bubble —
-    splitting it would break that fold, so it is held even on the live path."""
+def test_a_physical_beat_rides_inside_the_passage(client, storyline_id, monkeypatch):
+    """There is no separate action event any more — the passage carries the action.
+
+    The old contract emitted `character_action` as its own whole-delivered event so the
+    client could fold it into the speaker's bubble. A first-person passage says what the
+    character does in the same flow, so the fold has nothing left to do.
+    """
     _configure_llm(client)
-    _patch_streaming_llm(monkeypatch)
+    _patch_reasoning_llm(monkeypatch)
     cast, scid = _scene(client, storyline_id)
 
-    events = _stream(
-        client.post(
-            f"/api/play/{scid}/turn",
-            json={"text": "I slide the pouch over.", "directedAt": cast[0]},
-        )
-    )
-    actions = _of_type(events, "character_action")
-
-    assert len(actions) == 1
-    assert actions[0]["data"]["text"] == "Mei leaves the pouch where it lies."
+    events = _stream(client.post(
+        f"/api/play/{scid}/turn",
+        json={"text": "I slide the pouch over.", "directedAt": cast[0]},
+    ))
+    assert _of_type(events, "character_action") == []
+    assert _of_type(events, "character_prose") != []
 
 
 def test_streaming_and_blocking_produce_the_same_transcript(
@@ -224,7 +224,7 @@ def test_streaming_and_blocking_produce_the_same_transcript(
 
     def transcript(events):
         out = []
-        for kind in ("internal_thought", "character_action", "character_dialogue"):
+        for kind in ("internal_thought", "character_action", "character_prose"):
             joined = "".join(e["data"]["text"] for e in _of_type(events, kind))
             if joined:
                 out.append((kind, joined))
@@ -264,7 +264,7 @@ def test_a_guarded_later_beat_holds_its_prose_for_the_verdict(
     )
 
     per_id: dict[str, int] = defaultdict(int)
-    for e in _of_type(events, "character_dialogue"):
+    for e in _of_type(events, "character_prose"):
         per_id[e["id"]] += 1
     # At least one beat streamed (many frames) — the turn is not uniformly blocking.
     assert per_id, "expected at least one dialogue beat"
@@ -385,7 +385,7 @@ def test_reasoning_arrives_before_any_prose(client, storyline_id, monkeypatch):
     first_prose = next(
         i
         for i, e in enumerate(events)
-        if e.get("type") in ("internal_thought", "character_dialogue", "narration")
+        if e.get("type") in ("internal_thought", "character_prose", "narration")
     )
     assert first_reasoning < first_prose
 

@@ -32,11 +32,18 @@ _TAG_CLEAN = re.compile(
     r"</?(?:type(?::\s*[a-z_]+)?|thinking|speaker(?::\s*\d+)?)\s*>", re.IGNORECASE
 )
 
-# Prose types a character may emit. ``character_prose`` is the current form — one
-# first-person passage per beat, untagged. The other two are the older three-fragment
-# shape, kept so a recorded session (or a model that still emits tags) parses.
+# A character beat is ONE untagged first-person passage. There are no prose tags any more,
+# and a ``<type:...>`` naming a prose kind is therefore **ignored** rather than honoured:
+# models still emit stray ``</type:character_dialogue>`` from the old contract, and each one
+# used to *open a new segment*, so a completion that repeated itself became several
+# byte-identical persisted events. One live turn produced four. Ignoring them keeps the
+# passage whole — a repeating model then yields one ugly beat instead of four duplicates,
+# which is a writing-quality problem rather than a correctness one.
 _PROSE = "character_prose"
-_PROSE_TYPES = {_PROSE, "character_action", "character_dialogue"}
+_PROSE_TYPES = {_PROSE}
+#: ``<thinking>`` is no longer requested, but a model that emits it is putting deliberation
+#: there — kept as a private ``internal_thought`` so it cannot reach the visible passage.
+_THINKING_TYPE = "internal_thought"
 # A character may also propose a stat change, a relationship change, or a presence change
 # (leaving/collapsing) as a JSON body (validated downstream); their ``text`` is the raw
 # JSON block, kept verbatim.
@@ -83,7 +90,9 @@ def parse_emission(
             segments.append(Segment("internal_thought", body, speaker_id))
         text = text[: thinking.start()] + text[thinking.end() :]
 
-    type_marks = list(_TYPE_RE.finditer(text))
+    # Only a JSON block interrupts the passage. A prose-named tag is scrubbed with the
+    # rest of the text, so stray closers cannot fragment one beat into several.
+    type_marks = [m for m in _TYPE_RE.finditer(text) if m.group(1).lower() in _JSON_TYPES]
     if not type_marks:
         # The expected shape: no tags at all, one first-person passage.
         body = _clean(text)
@@ -104,11 +113,10 @@ def parse_emission(
         body_end = type_marks[i + 1].start() if i + 1 < len(type_marks) else len(text)
         # state_update / relationship_update carry a JSON body; prose is scrubbed.
         raw_body = text[mark.end() : body_end].strip()
-        body = raw_body if kind in _JSON_TYPES else _clean(raw_body)
-        if not body:
+        if kind not in _JSON_TYPES:
             continue
-        if kind in _PROSE_TYPES or kind in _JSON_TYPES:
-            segments.append(Segment(kind, body, speaker_id))
+        if raw_body:
+            segments.append(Segment(kind, raw_body, speaker_id))
     return segments
 
 
@@ -226,6 +234,10 @@ class EmissionAccumulator:
             return []
         lowered = tag.lower()
         if "thinking" in lowered:
+            # The contract no longer asks for <thinking>, but a model that emits it anyway
+            # is putting DELIBERATION there — which must not land in the visible passage.
+            # Kept as its own private segment: a safety valve that keeps scratchpad out of
+            # the story rather than folding it in.
             if lowered.startswith("</"):
                 return self._close_open()
             out = self._close_open()
@@ -233,11 +245,14 @@ class EmissionAccumulator:
             return out
         type_match = _TYPE_RE.fullmatch(tag)
         if type_match:
-            self._saw_type_mark = True
             kind = type_match.group(1).lower()
+            if kind not in _JSON_TYPES:
+                # A prose-named tag (usually a stray closer left over from the old
+                # contract). Scrubbed: the passage continues in the segment already open.
+                return []
+            self._saw_type_mark = True
             out = self._close_open()
-            if kind in _PROSE_TYPES or kind in _JSON_TYPES:
-                out.extend(self._open(kind))
+            out.extend(self._open(kind))
             return out
         # A bare </type> / </speaker> closes nothing and is simply scrubbed.
         return []
