@@ -61,21 +61,38 @@ _JSON_TYPES = {_STAT_TYPE, _REL_TYPE, _PRESENCE_TYPE}
 #: AAAA". Detecting that is what lets the length stay unbounded.
 _DEGENERATE_WINDOW = 400
 _DEGENERATE_MIN_DISTINCT_WORDS = 12
+#: Prose punctuates. A 400-character stretch — roughly seventy words — with **no** mark of
+#: punctuation at all is not a sentence any more. This catches the *second* observed
+#: collapse mode, which the variety check above cannot see: a drift into an unrelated word
+#: list ("… sediment erosion weathering transport deposition compaction lithification …"),
+#: where every word differs so lexical variety stays high while the language is gone.
+#:
+#: One is the threshold rather than two because a single comma in seventy words is still a
+#: sentence — a deliberate run-on is a real style, and an earlier draft of this rule cut it.
+_DEGENERATE_MIN_PUNCTUATION = 1
+_SENTENCE_MARKS = ".,;:!?\"'“”’—"
 
 
 def looks_degenerate(text: str) -> bool:
     """True when the tail of ``text`` has stopped being language.
 
-    Deliberately conservative — it only fires on a tail with almost no lexical variety,
-    which ordinary prose (even a repetitive, incantatory passage) does not produce. The
-    check is on the TAIL rather than the whole passage so a beat that starts well and then
-    collapses is caught, which is exactly the observed shape.
+    Two collapse modes, both observed live and both deliberately conservative:
+
+    * **A token loop** — almost no distinct words ("Rex Rex Rex …", "AT AT AT AAAA").
+    * **A word list** — plenty of distinct words but no sentence structure at all.
+
+    The check is on the TAIL rather than the whole passage, because the observed shape is a
+    beat that opens as ordinary prose and collapses later. Neither rule fires on real
+    writing: an incantatory, deliberately repetitive line still punctuates, and ordinary
+    prose never runs seventy words without a comma.
     """
     tail = (text or "")[-_DEGENERATE_WINDOW:]
     words = tail.split()
     if len(words) < 20:
         return False
-    return len(set(words)) < _DEGENERATE_MIN_DISTINCT_WORDS
+    if len(set(words)) < _DEGENERATE_MIN_DISTINCT_WORDS:
+        return True
+    return sum(tail.count(mark) for mark in _SENTENCE_MARKS) < _DEGENERATE_MIN_PUNCTUATION
 
 
 def _clean(body: str) -> str:

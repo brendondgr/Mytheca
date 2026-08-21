@@ -47,6 +47,32 @@ def test_only_the_tail_matters_so_a_beat_that_collapses_late_is_caught():
     assert looks_degenerate(GOOD + " " + "AAAA " * 90) is True
 
 
+def test_a_word_salad_is_flagged_even_though_every_word_differs():
+    """The second observed mode, which the variety check alone cannot see.
+
+    A live beat drifted into an unrelated geology word list — every word distinct, so
+    lexical variety stayed high while the language was gone. What it had lost was sentence
+    structure: seventy words without a mark of punctuation.
+    """
+    salad = (
+        "mineral weathered transported deposited sediment erosion weathering transport "
+        "deposition compaction lithification metamorphism igneous intrusive extrusive "
+        "volcanic lava magma plutonic dike sill batholith stock laccolite lopolite "
+        "kimberlite xenolith xenocryst inclusion bubble vesicle porosity permeability"
+    )
+    assert looks_degenerate(salad) is True
+
+
+def test_unpunctuated_prose_is_not_flagged_when_it_is_still_a_sentence():
+    """One comma in seventy words is enough — the rule is deliberately conservative."""
+    text = (
+        "I walk out into the rain and I do not look back at the house or the light in "
+        "the window or the shape of him standing in it and I keep walking until the "
+        "road turns and the noise of the place is gone behind me, finally"
+    )
+    assert looks_degenerate(text) is False
+
+
 def test_a_short_string_is_never_flagged():
     """Too little text to judge — never guess on a fragment."""
     assert looks_degenerate("Rex Rex Rex") is False
