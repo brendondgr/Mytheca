@@ -82,21 +82,28 @@ from app.services.turn_writer import Consequence
 #: visible in a single body instead of arriving as several plausible-looking beats.
 _DEGENERATE_AFTER_CHARS = 2000
 
-#: Hard stop on a single beat, whatever it is writing. This is an OPERATIONAL backstop, not
-#: an editorial one: the owner asked for a character to be able to speak for as long as they
-#: want, and nothing in the prompt tells them to be brief.
+#: Hard stop on a single beat, whatever it is writing — the passage allowance expressed in
+#: characters, so the two cannot drift apart.
 #:
-#: But a generation that never stops does not just make a long beat. A live verification run
-#: produced ONE generation of 48,000 completion tokens over 684 seconds; the relay's health
-#: probe timed out three times against the busy upstream, marked the endpoint failed, and
-#: every turn after that came back 400. The beat cost the player the next three turns.
+#: ``max_tokens`` alone does not bound the prose, because thinking and answer share it: the
+#: scratchpad's headroom is fungible, and a beat that deliberates briefly can spend the rest
+#: on writing. A verification run produced an 11,998-character beat that way, well inside its
+#: token budget. Long beats then feed on themselves — the transcript carries them into the
+#: next prompt and the next beat imitates their length (prompt tokens went 1,069 -> 11,606
+#: across five turns in that run).
 #:
-#: The quality guards cannot catch this — the runaway stayed well-formed, non-repeating
-#: prose, so ``looks_degenerate`` and ``repeats_itself`` both passed it. Only length sees it.
-#: The value is set far beyond any real passage rather than near one: with the sampler fixed
-#: (EXP-2026-08-007) a beat averages 674 characters and the longest of thirty was 1,923, so
-#: this is roughly six times the worst honest case and will not be reached by writing.
-_RUNAWAY_CHARS = 12_000
+#: It is also what protects the endpoint. An earlier run produced ONE generation of 48,000
+#: completion tokens over 684 seconds; the relay's health probe timed out three times against
+#: the busy upstream, marked the endpoint failed, and every turn after that came back 400.
+#: One beat cost the player the rest of the scene. Neither quality guard could see it — the
+#: runaway was well-formed, non-repeating prose the whole way.
+#:
+#: This is not an editorial limit. Nothing in the contract tells a character to be brief, and
+#: with the sampler fixed (EXP-2026-08-007) a passage averages 674 characters with a measured
+#: worst case of 1,923 — so the stop sits about four times past the worst honest beat and
+#: will not be reached by writing.
+_CHARS_PER_TOKEN = 4
+_RUNAWAY_CHARS = (character_turn_agent._VOICE_PROSE_TOKENS or 2048) * _CHARS_PER_TOKEN
 
 
 class _Emitter:

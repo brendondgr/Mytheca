@@ -93,5 +93,10 @@ def test_the_runaway_stop_is_far_beyond_any_honest_passage():
     """
     from app.services.turn_engine import _DEGENERATE_AFTER_CHARS, _RUNAWAY_CHARS
 
-    assert _RUNAWAY_CHARS >= 6 * 1923
+    assert _RUNAWAY_CHARS >= 4 * 1923
     assert _RUNAWAY_CHARS > _DEGENERATE_AFTER_CHARS
+    # Derived from the passage allowance rather than chosen independently, so a change to
+    # one cannot silently leave the other behind.
+    from app.agents import character_turn_agent
+
+    assert _RUNAWAY_CHARS == (character_turn_agent._VOICE_PROSE_TOKENS or 2048) * 4
