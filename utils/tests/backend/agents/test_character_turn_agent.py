@@ -290,9 +290,14 @@ def test_the_beat_bounds_both_the_scratchpad_and_the_passage(
     # The passage ceiling is generous — several long paragraphs — but it exists. Uncapped
     # output was measured twice and made the writing worse: beats averaged 8,228 then
     # 10,184 characters of drift, and prompt guidance did not bind it.
-    # The ceiling only ever caps — an operator configuring less still gets less.
-    assert body["max_tokens"] <= character_turn_agent._VOICE_MAX_TOKENS
-    assert character_turn_agent._VOICE_MAX_TOKENS == 1200
+    assert character_turn_agent._VOICE_PROSE_TOKENS == 1200
+    # ...and the thinking budget is added ON TOP of it, never shared with it. Setting the
+    # request budget to the passage allowance alone starved the answer on a live turn: the
+    # model spent all 1,200 tokens deliberating and returned no prose.
+    assert body["max_tokens"] == 1024 + character_turn_agent._VOICE_PROSE_TOKENS
+    # ...and the low stock default never reaches the request: 512 is what LlmParams ships
+    # with, not a decision, and it cannot cover 1,024 tokens of thinking.
+    assert body["max_tokens"] > 512
     # The character still deliberates in POV, inside the passage.
     assert "from inside that character, in their own voice" in system
     assert "<thinking>" not in system
@@ -756,3 +761,30 @@ def test_the_stable_region_is_identical_for_every_speaker(client, db_session, mo
     shared = os.path.commonprefix(prompts)
     assert "Cast in the scene:" in shared
     assert "A LINE OF HISTORY." in shared  # the transcript is shared too, not just the header
+
+
+def test_the_thinking_budget_is_added_to_the_passage_allowance_not_taken_from_it():
+    """The regression: a request budget equal to the passage allowance returns no prose.
+
+    Thinking and answer are paid out of one ``max_tokens`` on this endpoint. A live turn
+    ran with both set to 1,200 and came back as pure reasoning — "the model spent its whole
+    budget thinking and never answered" — because 1,024 of the 1,200 went to the scratchpad
+    before the first word of the passage.
+    """
+    from app.schemas.reasoning import ReasoningEffort, budget_for
+    from app.schemas.settings import LlmParams
+
+    for effort in (ReasoningEffort.QUICK, ReasoningEffort.HIGH, ReasoningEffort.MAX):
+        out = character_turn_agent._voice_params(LlmParams(), reasoning=effort)
+        assert out.max_tokens == budget_for(effort) + character_turn_agent._VOICE_PROSE_TOKENS
+        # Whatever the effort, the passage is left the same room to be written in.
+        assert out.max_tokens - budget_for(effort) == character_turn_agent._VOICE_PROSE_TOKENS
+
+
+def test_removing_the_passage_ceiling_leaves_the_budget_untouched(monkeypatch):
+    """``_VOICE_PROSE_TOKENS = None`` is the documented way back to unbounded length."""
+    from app.agents._common import GEN_MIN_TOKENS
+    from app.schemas.settings import LlmParams
+
+    monkeypatch.setattr(character_turn_agent, "_VOICE_PROSE_TOKENS", None)
+    assert character_turn_agent._voice_params(LlmParams()).max_tokens == GEN_MIN_TOKENS

@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 from app.agents import prompt_registry
 from app.agents._common import gen_params, resolve_llm
 from app.core.config import get_settings
-from app.schemas.reasoning import ReasoningEffort
+from app.schemas.reasoning import ReasoningEffort, budget_for
 from app.schemas.settings import LlmParams
 from app.services import llm
 from app.services.assembler import (
@@ -110,8 +110,10 @@ _REGISTER_DIRECTIVES = {
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
 
 
-#: Generous ceiling on the passage — roughly 900 words, several long paragraphs, far more
-#: than a character needs to hold the floor through a real moment.
+#: Generous ceiling on the PASSAGE — roughly 900 words, several long paragraphs, far more
+#: than a character needs to hold the floor through a real moment. This is the prose
+#: allowance only; the request budget adds the thinking budget on top (see
+#: :func:`_voice_params`).
 #:
 #: The owner asked for length to be free, and this is a deviation from that, flagged rather
 #: than made quietly. Uncapped output was measured twice on the live endpoint and made the
@@ -122,27 +124,42 @@ _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONT
 #: that read well all session was produced with a ceiling in place.
 #:
 #: Set this to ``None`` to restore unbounded length; nothing else depends on it.
-_VOICE_MAX_TOKENS = 1200
+_VOICE_PROSE_TOKENS = 1200
 
 
-def _voice_params(params: LlmParams, register: str | None = None) -> LlmParams:
+def _voice_params(
+    params: LlmParams,
+    register: str | None = None,
+    reasoning: ReasoningEffort = TURN_EFFORT,
+) -> LlmParams:
     """Bound the beat generously and apply the voice-tuned sampler fields.
 
     The sampler tracks the beat's ``register`` (see ``_REGISTER_SAMPLER``); an absent or
     unrecognized register keeps the module defaults.
+
+    ``max_tokens`` buys the hidden thinking **and** the answer out of one budget, so the
+    passage allowance is added ON TOP of the thinking budget rather than shared with it.
+    Capping the request at the passage allowance alone starves the answer: with the two set
+    equal at 1,200, a live turn spent the whole budget deliberating and came back as
+    reasoning with no prose at all ("the model spent its whole budget thinking and never
+    answered"). The cap applies to the ``gen_params`` floor, not to the operator's raw
+    ``max_tokens`` — that field defaults to 512, which is a default rather than a choice
+    and would starve every beat on a stock install.
     """
     top_p, frequency, presence = _REGISTER_SAMPLER.get(
         register or "", (_VOICE_TOP_P, _VOICE_FREQUENCY_PENALTY, _VOICE_PRESENCE_PENALTY)
     )
-    ceiling = params.max_tokens or _VOICE_MAX_TOKENS
-    return gen_params(params).model_copy(
+    tuned = gen_params(params).model_copy(
         update={
-            "max_tokens": min(ceiling, _VOICE_MAX_TOKENS) if _VOICE_MAX_TOKENS else ceiling,
             "top_p": top_p,
             "frequency_penalty": frequency,
             "presence_penalty": presence,
         }
     )
+    if not _VOICE_PROSE_TOKENS:
+        return tuned
+    budget = budget_for(reasoning) + _VOICE_PROSE_TOKENS
+    return tuned.model_copy(update={"max_tokens": min(tuned.max_tokens, budget)})
 
 
 def generate_line(
@@ -224,7 +241,7 @@ def generate_line_with_usage(
         api_key,
         model,
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        _voice_params(params, register),
+        _voice_params(params, register, reasoning),
         reasoning=reasoning,
     )
 
@@ -277,7 +294,7 @@ def stream_line(
             api_key,
             model,
             [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            _voice_params(params, register),
+            _voice_params(params, register, reasoning),
             reasoning=reasoning,
             usage_out=usage_out,
         )
