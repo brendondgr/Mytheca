@@ -109,9 +109,15 @@ def test_long_progression_uses_the_paragraph_system_prompt(client, db_session, m
     assert "escalate the confrontation" in seen["user"]  # the lead direction folded in
 
 
-def test_system_prompts_drive_action_and_progression(client, db_session, monkeypatch):
-    # Both narrator prompts push the story to the NEXT BEAT — narrate what characters are
-    # DOING, don't linger on setting — and still never write dialogue.
+def test_system_prompts_point_forward_rather_than_recap(client, db_session, monkeypatch):
+    """Both narrator prompts move the story somewhere new and never write dialogue.
+
+    The ps_c015c506b1 export is why "never recap" is stated outright: the narrator beat
+    landed after both characters and summarised them — "the first question slips free
+    before either can stop it, followed by a low answer that tugs both into a quick,
+    breathless exchange". That is a recap wearing narration's clothes, and the previous
+    prompt (which already said "PROGRESS the story") did not rule it out.
+    """
     seen: dict[str, str] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -128,8 +134,13 @@ def test_system_prompts_drive_action_and_progression(client, db_session, monkeyp
     _configure_llm(client)
     narrator_agent.interstitial(db_session, _ctx(), [])
     short = seen["system"]
-    assert "next beat" in short and "DOING" in short
+    assert "MOVE THE STORY somewhere it has not been yet" in short
+    assert "Never restate what has already happened" in short
+    assert "Never summarise an exchange" in short
+    assert "End where a character can react." in short
     assert "Never speak for a character or write dialogue" in short
     narrator_agent.interstitial(db_session, _ctx(), [], long=True)
     long = seen["system"]
-    assert "PROGRESSES the story forward" in long and "DOING" in long
+    assert "SETS UP THE NEXT FEW BEATS" in long
+    assert "Never restate what has already happened" in long
+    assert "Never speak for a character or write dialogue" in long
