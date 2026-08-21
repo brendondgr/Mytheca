@@ -781,10 +781,12 @@ def run_turn(
                 note = _relationship_note(
                     ctx, forced_actor.id, [m.id for m in ctx.cast if m.id != forced_actor.id]
                 )
-                yield from _generate_speaker(
-                    db, ctx, forced_actor, emitter, turn_beats, consequences,
+                yield from _beat_or_skip(
+                    tracer, forced_actor, salvage=spoke > 0,
+                    db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
+                    consequences=consequences,
                     show_reasoning=show_reasoning, relationship_note=note,
-                    direction=direction, requirements=owed, tracer=tracer,
+                    direction=direction, requirements=owed,
                 )
                 acted.append(forced_actor.id)
                 spoke += 1
@@ -839,11 +841,13 @@ def run_turn(
                 note = _relationship_note(
                     ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id]
                 )
-                yield from _generate_speaker(
-                    db, ctx, responder, emitter, turn_beats, consequences,
+                yield from _beat_or_skip(
+                    tracer, responder, salvage=spoke > 0,
+                    db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
+                    consequences=consequences,
                     show_reasoning=show_reasoning, relationship_note=note,
                     register=decision.register, stakes=decision.stakes,
-                    direction=direction, tracer=tracer,
+                    direction=direction,
                 )
                 acted.append(responder.id)
                 beats += 1
@@ -961,11 +965,13 @@ def run_turn(
         # (the rest, if any, wait for a later beat or the forced schedule above).
         owed = direction.for_actor(actor.id)[:1]
         yield from _delivered(tracer, ctx, direction, owed, by=actor.id)
-        yield from _generate_speaker(
-            db, ctx, actor, emitter, turn_beats, consequences,
+        yield from _beat_or_skip(
+            tracer, actor, salvage=spoke > 0,
+            db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
+            consequences=consequences,
             show_reasoning=show_reasoning, relationship_note=note,
             register=decision.register, stakes=decision.stakes,
-            direction=direction, requirements=owed, tracer=tracer,
+            direction=direction, requirements=owed,
         )
         acted.append(actor.id)
         beats += 1
@@ -1559,6 +1565,39 @@ def _emit_segment_delta(
     if seg.type == "presence_change":
         yield from _apply_declared_presence(ctx, seg.character_id, body, emitter, tracer)
     return 0
+
+
+def _beat_or_skip(
+    tracer: "_Tracer",
+    speaker: CastMember,
+    *,
+    salvage: bool,
+    **kwargs,
+) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
+    """Run one character beat, surviving an upstream failure once the turn has content.
+
+    A single generation can come back with nothing in it — most often "the model spent its
+    whole budget thinking and never answered", which happens on the SECOND beat of a turn,
+    where the transcript is longer and the deliberation runs past its (advisory) budget.
+    Left alone that raises out of the beat loop as a terminal error frame and takes the
+    whole turn with it, discarding beats the player has already watched arrive.
+
+    So once the turn has shown something, a failed beat is traced and skipped and the scene
+    carries on. Before that it still propagates: a genuinely misconfigured or dead endpoint
+    has to reach the player as an error rather than as a scene that quietly says nothing.
+    """
+    try:
+        return (yield from _generate_speaker(speaker=speaker, tracer=tracer, **kwargs))
+    except APIError as exc:
+        if not salvage:
+            raise
+        yield from tracer.emit(
+            "prose",
+            f"{speaker.name}'s beat did not come back",
+            detail=f"{exc.message} The turn carries on with what it has.",
+            data={"characterId": speaker.id, "skipped": True},
+        )
+        return 0
 
 
 def _generate_speaker(
