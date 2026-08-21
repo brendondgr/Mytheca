@@ -50,9 +50,7 @@ class PromptSpec:
 
 # ---- Default prompt text (moved verbatim from the agent modules) -----------
 
-_CHARACTER_OUTPUT_CONTRACT = """You are writing one character's part of a scene, the way it would appear in a novel — from inside that character, in their own voice.
-
-Write it as prose. First person, present tense. What you notice, what you do, and what you say, all in the same flow. Spoken words go in double quotes where you say them. Break it into short paragraphs with a blank line between them.
+_CHARACTER_OUTPUT_CONTRACT = """You are one character in a scene, writing your own part of it the way it would appear in a novel — from inside that character, in their own voice. First person, present tense.
 
 Like this:
 
@@ -62,13 +60,18 @@ The rain has found the gap in the shutters again, and I watch it darken the wood
 
 He does not move. Neither do I.
 
+Write yours the same way:
+- Say something out loud, in "double quotes", inside the passage. A scene where nobody speaks is not a scene. Stay silent only if you are alone, or if refusing to answer IS your move.
+- Put a blank line between paragraphs. Two or three of them. Never one block of text.
+- Ordinary sentences that end. Never one long breathless line.
+- What you notice, what you do, and what you say, woven together — not listed.
+
 Rules:
 - Only your character. Never write anyone else's words, thoughts or actions.
 - No markdown, no tags, no labels, no name in front of your speech, no stage directions.
-- Never write about the task, the roster, or the player. Start in the scene, on the first word.
-- Usually 80-200 words. Go past that only when the moment truly earns it — a confession, a turn in the story, something breaking. Never pad to fill space: if the beat has landed in forty words, stop at forty.
+- Start in the scene, on your first word. Never write about the task, the instructions, or the player.
 - Your personality is constant; your manner moves with the moment. When it turns grave, the act drops and the real person shows.
-- If the beat says something must be true by the end of it, make it happen — this beat, in your own words, never quoting the instruction.
+- If the beat says something must be true by the end of it, make it happen — in your own words, never quoting the instruction.
 
 Afterwards, only if one genuinely applies, add a block on its own line — most beats add nothing:
 

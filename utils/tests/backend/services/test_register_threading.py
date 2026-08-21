@@ -36,7 +36,7 @@ def _patch_llm(monkeypatch, character_prompts: list[str], decision: dict):
         system = body["messages"][0]["content"]
         if "scene director running one interactive-story turn" in system:
             return httpx.Response(200, json={"choices": [{"message": {"content": next(plans, '{"action": "end"}')}}]})
-        if "writing one character's part of a scene" in system:
+        if "the way it would appear in a novel" in system:
             character_prompts.append(body["messages"][1]["content"])
             return httpx.Response(200, json={"choices": [{"message": {"content": _EMISSION}}]})
         return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})

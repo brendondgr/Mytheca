@@ -123,7 +123,7 @@ def test_prompt_is_ordered_stable_first_and_grounded(client, db_session, monkeyp
     user = body["messages"][1]["content"]
 
     # System carries the output contract + the cacheable stable prefix.
-    assert "writing one character's part of a scene" in system
+    assert "the way it would appear in a novel" in system
     assert "Embergate is a rain-soaked harbor city." in system
 
     # STABLE region leads: the scene as authored, identical for every speaker and turn.
@@ -160,10 +160,16 @@ def test_the_contract_is_short_and_shows_the_form(client, db_session, monkeypatc
     assert "the way it would appear in a novel" in contract
     assert "First person, present tense" in contract
     assert "double quotes" in contract
-    assert "blank line between them" in contract
+    assert "blank line between paragraphs" in contract
     # A worked example, not just description.
     assert "Like this:" in contract
     assert '"You are asking me the wrong thing," I say.' in contract
+    # The three failures the live output actually showed, each asked for directly rather
+    # than left to be inferred from the example (ps_c015c506b1: no speech anywhere, one
+    # unbroken block, a 180-word sentence with no full stop in it).
+    assert "A scene where nobody speaks is not a scene." in contract
+    assert "Never one block of text." in contract
+    assert "Ordinary sentences that end." in contract
     # The rules that earn their place.
     assert "Only your character" in contract
     assert "No markdown, no tags, no labels" in contract

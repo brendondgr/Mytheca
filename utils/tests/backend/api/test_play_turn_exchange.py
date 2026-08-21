@@ -43,7 +43,7 @@ def _patch_llm(monkeypatch) -> dict:
             return httpx.Response(404)
         body = json.loads(request.content.decode())
         system = body["messages"][0]["content"]
-        if "from inside that character" in system:
+        if "the way it would appear in a novel" in system:
             return httpx.Response(200, json={"choices": [{"message": {"content": PASSAGE}}]})
         if "scene director running one interactive-story turn" in system:
             state["plans"] += 1

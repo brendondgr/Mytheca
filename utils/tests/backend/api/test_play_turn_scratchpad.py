@@ -35,7 +35,7 @@ def _configure_llm(client):
 #: A turn makes many model calls — intent, planner, reflection — and only the character
 #: ones matter here. The character call is the one carrying the output contract in its
 #: system message, so the handler routes on that rather than on call order.
-_CONTRACT_MARK = "from inside that character"
+_CONTRACT_MARK = "the way it would appear in a novel"
 
 
 def _patch_llm_sequence(monkeypatch, replies: list[str]) -> dict:
