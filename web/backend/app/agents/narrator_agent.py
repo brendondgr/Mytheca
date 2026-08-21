@@ -159,7 +159,9 @@ def _recent(ctx: TurnContext, turn_beats: list[dict], limit: int = 6) -> str:
         role = beat.get("role")
         cid = beat.get("characterId")
         if role == "player":
-            who = "Player"
+            # NOT "Player" — see character_turn_agent._transcript. 6 of 10 narration beats
+            # in the EXP-2026-08-008 run narrated "the player" as if it were a name.
+            who = "You"
         elif cid:
             who = names.get(cid, "Someone")
         else:

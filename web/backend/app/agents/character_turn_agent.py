@@ -571,7 +571,12 @@ def _transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
             continue
         role = beat.get("role")
         if role == "player":
-            who = "Player"
+            # NOT "Player". That label was the only name the model had for the person in
+            # the room with it, and it used it: 13 of 18 character beats in the
+            # EXP-2026-08-008 verification run wrote "the player" into the prose. Every
+            # other line here carries a character's name, including this speaker's own, so
+            # "You" is unambiguous — and it is already the form the passage should use.
+            who = "You"
         elif role == "narrator":
             who = "Narrator"
         else:

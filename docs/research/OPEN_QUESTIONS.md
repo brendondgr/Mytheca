@@ -174,3 +174,29 @@ Appended as each `RESULTS.md` §7 is written.
 - [ ] **Judge image fidelity, not just prompt grounding.** `appearance_coverage` reads
       the prompt; nothing yet checks whether the painted figure resembles the authored
       character. Needs a VLM judge or human raters.
+
+### From EXP-2026-08-008 (`complete` — the prose form through the live turn engine)
+
+- [ ] **Measure in-character drift with the penalties off.** EXP-2026-08-007 removed
+      `frequency_penalty`/`presence_penalty` because they destroyed sentence structure, but
+      those penalties were added to fight drift and neither experiment measures drift. The
+      trade was taken on one side of the ledger only. Needs a long-session eval —
+      repetition of a character's own phrasings over time, or blinded speaker attribution —
+      run with the penalties off and on.
+      → `experiments/EXP-2026-08-008-prose-end-to-end/ISSUES.md`
+- [ ] **Re-run the sampler arms on a second model.** EXP-2026-08-007 is entirely
+      `qwen38-27B-awq`; only the shipped configuration has been observed on
+      `gemma4-26B-mtp`. Until the arms are re-run there, the finding does not transfer.
+- [ ] **Give the player an identity in the prompt rather than a label.** The transcript
+      labelled the human's line `Player:`, and the models reached for that label as a name
+      for a person in the room. The fix here is second person plus a guard; a scenario-level
+      player name (or a mandatory POV character) would remove the ambiguity at the root
+      instead of instructing around it.
+- [ ] **Add an opening-gate seam to narration.** The character path can discard a bad
+      opening and regenerate; narration delta-streams from its first token by design,
+      because it is the first thing a new player sees. That means a narration leak has no
+      backstop but the prompt. Worth deciding whether a short hold on the *first* narration
+      of a turn is worth its latency.
+- [ ] **Score the writing, not only its shape.** Every metric here is a countable shadow of
+      "reads like a scene". Nothing measures whether a passage is *good*, and the read that
+      says so is unblinded and by the author of the change.

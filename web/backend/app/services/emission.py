@@ -182,6 +182,39 @@ def in_the_scene(text: str) -> bool:
     return bool(_FIRST_PERSON_RE.search(text or ""))
 
 
+#: "the player" / "the user" — a production label for a person, used as if it were a name.
+#: ``\s+`` rather than a literal space so a line break between the two words still matches,
+#: and the ``the`` must be adjacent: "the lute player" and "the other players" are ordinary
+#: prose and must survive.
+_NAMES_THE_PLAYER_RE = re.compile(r"\bthe\s+(?:player|user)(?:['’]s)?\b", re.IGNORECASE)
+
+
+def names_the_player(text: str, *, window: int | None = None) -> bool:
+    """True when a passage calls the person in the room "the player".
+
+    The character and narrator transcripts label the human's line, and for a long time that
+    label was ``Player:``. The models used it as a name: in the EXP-2026-08-008 verification
+    run **13 of 18 character beats and 6 of 10 narration beats** said "the player" — *"The
+    player's question feels like a stone dropped into a well"*, *"I feel the player's gaze
+    sweep over us"*, *"his eyes lock onto the player"*. The prose was otherwise exactly right,
+    which is why nothing caught it: :func:`looks_like_scratchpad` needs production vocabulary
+    AND no first-person pronoun, and these say "I" throughout;
+    :func:`starts_mid_sentence` needs a lowercase open, and these begin on a capital.
+
+    The fix is at the source — the line is labelled ``You:`` and both prompts ask for the
+    second person — so this is a backstop and a measurement, not the primary defence.
+
+    ``window`` limits the check to the opening, which is what the engine's gate wants: it
+    judges a passage before releasing it, and a beat that reaches a card table in its fourth
+    paragraph is writing a scene, not reading its own prompt. Omit it to measure a whole
+    passage, which is what the research runner does.
+    """
+    body = text or ""
+    if window is not None:
+        body = body[:window]
+    return bool(_NAMES_THE_PLAYER_RE.search(body))
+
+
 def starts_mid_sentence(text: str) -> bool:
     """True when a passage opens on a lowercase letter — a fragment, not an opening.
 

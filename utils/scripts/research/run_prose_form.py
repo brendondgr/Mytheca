@@ -119,10 +119,10 @@ FIXED = {
     "thinking_token_budget": 1024,
 }
 
-_TERMINATORS = re.compile(r"[.!?]")
+TERMINATORS = re.compile(r"[.!?]")
 #: A *paired* run of double quotes — one stray quote mark is not a spoken line. Straight
 #: and curly pairs both count, because the model produces either.
-_SPOKEN = re.compile(r'"[^"]+"|“[^”]+”')
+SPOKEN = re.compile(r'"[^"]+"|“[^”]+”')
 
 METRIC_KEYS = [
     "sentences_per_100_words",
@@ -140,9 +140,9 @@ def measure(passage: str) -> dict[str, Any]:
         "chars": len(passage),
         "words": words,
         "sentences_per_100_words": (
-            round(100 * len(_TERMINATORS.findall(passage)) / words, 3) if words else 0.0
+            round(100 * len(TERMINATORS.findall(passage)) / words, 3) if words else 0.0
         ),
-        "has_speech": 1 if _SPOKEN.search(passage) else 0,
+        "has_speech": 1 if SPOKEN.search(passage) else 0,
         "paragraph_breaks": passage.count("\n\n"),
         "is_scratchpad": 1 if emission.looks_like_scratchpad(passage) else 0,
     }

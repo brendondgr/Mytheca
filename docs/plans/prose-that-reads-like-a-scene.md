@@ -193,11 +193,20 @@ punctuation-free 180-word sentence is not.
 ### Phase 6 — Read the output, not the tests
 
 #### Step 6.1 — Live run, then read every passage
-- **Locations:** `docs/research/experiments/EXP-2026-08-007-prose-form/` (`RESULTS.md`),
-  a multi-turn live run at the owner's settings.
+- **Locations:** `docs/research/experiments/EXP-2026-08-008-prose-end-to-end/`,
+  `utils/scripts/research/run_prose_end_to_end.py`, a multi-turn live run at the owner's
+  settings.
 - **Rationale:** every defect in this plan was found by reading real output and none by
-  running the suite. The same three metrics from Phase 3 are re-measured end to end, and the
+  running the suite. The same metrics from Phase 3 are re-measured end to end, and the
   passages are read.
+- **Note (revised during execution):** this was written to land in EXP-2026-08-007's
+  `RESULTS.md`. It gets its own experiment instead, for two reasons. EXP-2026-08-007 is a
+  *controlled* three-arm measurement against the bare contract; a single-condition
+  observation through the whole engine is a different question and does not belong in its
+  results. And the development runs behind this phase had been driven through
+  `run_conversation_scaling` pointed at EXP-2026-08-006's folder, which overwrote a
+  completed experiment's record — restored in `59ba9f5`, disclosed in the new experiment's
+  `ISSUES.md`. A measurement with no home of its own is how that happened.
 
 > *Action: full gate — `uv run pytest`; `npm test`, `npm run typecheck`, `npm run lint`; `check_contrast.py`; `check_frontend_css.mjs`; `make validate-research`. Commit: `[Prose] (6/6) Complete: Verified against live output.`*
 

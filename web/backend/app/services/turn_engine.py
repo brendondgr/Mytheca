@@ -1422,6 +1422,15 @@ def _stream_emission(
             scratchpad = True
             held = []
             return 0
+        # "The player's question feels like a stone dropped into a well" — the transcript's
+        # label for the human, used as a name for a person in the room. Judged here rather
+        # than after the early release below, because these passages are full of first-person
+        # pronouns and would sail through it. The real fix is the label (`You:`) and the
+        # contract rule; this only catches an opening, which is all the gate can see.
+        if emission.names_the_player(held_text, window=emission.SCRATCHPAD_WINDOW):
+            scratchpad = True
+            held = []
+            return 0
         # Release the moment the passage proves itself — a first-person pronoun is what a
         # leaked scratchpad never has, and most passages clear it inside their first
         # sentence. Without this early exit the hold would turn every short beat into a

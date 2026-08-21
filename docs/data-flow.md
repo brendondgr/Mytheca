@@ -970,11 +970,20 @@ work the moment out for itself. `planner_agent.next_beat` returns `register` (`l
 runs once per beat, so this costs no extra LLM call — and the turn engine threads both into the
 character prompt's recency TAIL, where a per-register directive states the situation as fact
 (`grave` explicitly revokes the habitual act: no wit, no cocky deflection). The register also
-**selects which voice samples** are injected (above) and **tunes the sampler**: frequency
-and presence penalties push the model toward tokens it has not used yet — toward novelty
-and flourish — so they come down as the moment gets graver (`grave` = `top_p 0.85`,
-`freq 0.20`, `presence 0.15`) and up when it is light (`0.95 / 0.45 / 0.35`), with the
-register-less path keeping the original `0.92 / 0.40 / 0.30`. It is always
+**selects which voice samples** are injected (above) and **tunes `top_p`**: it narrows as the
+moment gets graver (`grave` = `0.85`, `tense` = `0.88`, `neutral` = `0.92`, `light` = `0.95`,
+register-less = `0.92`), so a grave beat stays on the obvious, sincere word while a light one
+can reach for the unexpected one. The **frequency and presence penalties are 0.0 on every
+register.** They used to rise with lightness (up to `0.45 / 0.35`) to push the model toward
+tokens it had not used yet, but a penalty falls on *every* token and the tokens prose is made
+of are its most repeated ones — the full stop, the comma, the double quote, `I`, `the`.
+EXP-2026-08-007 measured the shipped `0.40 / 0.30` against `0.00 / 0.00` across three
+interleaved arms with every other field identical: **1.32 ± 1.16 vs 11.42 ± 3.96 sentences per
+100 words, 80 % vs 100 % of passages containing speech, no overlap between the arms on the
+primary metric.** The penalised arm wrote 180-word sentences with no full stop. The column is
+kept in `_REGISTER_SAMPLER` so a future measurement can put something back in it. The trade is
+recorded rather than made quietly: the penalties were originally added against in-character
+drift, and that experiment does not measure drift. The register is always
 optional: a planner fallback, a puppet beat, or a directly-constructed `TurnContext` yields
 `register=None`, and the TAIL then falls back to the generic "read the moment" cue. The
 `<thinking>` step still appraises the moment first, and the output contract's manner-adaptation rule
