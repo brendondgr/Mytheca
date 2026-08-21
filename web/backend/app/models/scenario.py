@@ -44,6 +44,13 @@ class Scenario(Base):
     max_turns: Mapped[int] = mapped_column(Integer, default=5, server_default="5")
     suggestions_count: Mapped[int] = mapped_column(Integer, default=4, server_default="4")
     context_beats: Mapped[int] = mapped_column(Integer, default=14, server_default="14")
+    # ``beat_length`` is how much a CHARACTER says in one beat — short 1-2 paragraphs,
+    # medium 2-4 (the default, and closest to what shipped before this existed), long 5-6,
+    # each paragraph at most 3-4 sentences not counting quoted dialogue. It shapes the
+    # character prompt's recency TAIL and the per-tier prose allowance; it does NOT touch
+    # narration, which has its own sentence spec. A string rather than a number because it
+    # is an enum the UI names, not a quantity anything does arithmetic on.
+    beat_length: Mapped[str] = mapped_column(String, default="medium", server_default="medium")
     # Per-scenario writing-prompt overrides ({registry key -> prompt text}) — override the
     # storyline's prompts for THIS scene only. Empty {} inherits storyline/global/default.
     # Nullable (older rows read as {}); resolved by ``prompt_registry.resolve_prompts``.

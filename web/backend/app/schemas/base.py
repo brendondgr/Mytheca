@@ -34,6 +34,14 @@ BranchTag = Literal[
     "character_action",
 ]
 
+# How much a CHARACTER says in one beat, set per scenario from the scene config menu.
+# Short 1–2 paragraphs, medium 2–4 (the default, and the closest match to what shipped
+# before this control existed), long 5–6 — each paragraph at most 3–4 sentences, not
+# counting quoted dialogue. It shapes the character prompt's recency TAIL and the per-tier
+# prose allowance. Narration is untouched: it has its own sentence spec and the owner's
+# request was about what a character says.
+BeatLength = Literal["short", "medium", "long"]
+
 # The live story-event types carried on the NDJSON stream (see app/events).
 # ``internal_thought`` defaults to ``visibility: hidden``, but the turn engine emits it
 # ``private_to_user`` so it streams to the player as a distinct "thinking" bubble while

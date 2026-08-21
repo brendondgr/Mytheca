@@ -56,6 +56,9 @@ def test_scenario_scene_controls_defaults(client, storyline_id):
     assert body["maxTurns"] == 5
     assert body["suggestionsCount"] == 4
     assert body["contextBeats"] == 14
+    # `medium` is the default because it is the closest match to what shipped before
+    # this control existed — an untouched scenario must read the same as it did.
+    assert body["beatLength"] == "medium"
 
 
 def test_scenario_scene_controls_roundtrip_and_clamp(client, storyline_id):
@@ -84,6 +87,33 @@ def test_scenario_scene_controls_roundtrip_and_clamp(client, storyline_id):
     assert client.patch(f"/api/scenarios/{scid}", json={"maxTurns": 0}).status_code == 422
     assert client.patch(f"/api/scenarios/{scid}", json={"contextBeats": 4}).status_code == 422
     assert client.patch(f"/api/scenarios/{scid}", json={"contextBeats": 101}).status_code == 422
+
+
+def test_scenario_beat_length_roundtrip_and_reject(client, storyline_id):
+    """beatLength persists via create + PATCH; an unknown tier is a 422, not a shrug.
+
+    The `Literal` at the schema boundary is the whole point: an unknown tier must fail
+    here rather than reach `character_turn_agent`, where an unrecognised value would
+    silently fall back to medium and the scene would quietly ignore the setting.
+    """
+    cid, sid = _make_refs(client, storyline_id)
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Scene", "castIds": [cid], "settingId": sid, "beatLength": "short"},
+    ).json()["id"]
+    assert client.get(f"/api/scenarios/{scid}").json()["beatLength"] == "short"
+
+    for tier in ("medium", "long", "short"):
+        patched = client.patch(f"/api/scenarios/{scid}", json={"beatLength": tier})
+        assert patched.status_code == 200
+        assert patched.json()["beatLength"] == tier
+
+    for bad in ("tiny", "SHORT", "", "extra-long", 2):
+        assert (
+            client.patch(f"/api/scenarios/{scid}", json={"beatLength": bad}).status_code == 422
+        ), bad
+    # ...and the rejected patches left the stored value alone.
+    assert client.get(f"/api/scenarios/{scid}").json()["beatLength"] == "short"
 
 
 def test_scenario_image_default_null(client, storyline_id):
