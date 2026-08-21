@@ -28,8 +28,15 @@ _THINKING_RE = re.compile(r"<thinking>(.*?)</thinking>", re.IGNORECASE | re.DOTA
 # Belt-and-suspenders scrub for any residual emission tag left inside a body. The type/
 # speaker name is OPTIONAL so a **bare** closing tag the model sometimes appends
 # (``</type>``, ``</speaker>``) is scrubbed too, not just the named form (``</type:…>``).
+#: Wrapper tags the contract never asks for and models invent anyway — a whole passage
+#: delivered inside ``<response>…</response>`` or opening on a bare ``<passage>``. Both were
+#: observed live and both were persisted verbatim into the rendered prose, because nothing
+#: recognised them. As a complete tag these four words are never prose, so they are scrubbed
+#: like any other emission tag rather than shown.
+_WRAPPERS = "response|passage|answer|output|prose"
 _TAG_CLEAN = re.compile(
-    r"</?(?:type(?::\s*[a-z_]+)?|thinking|speaker(?::\s*\d+)?)\s*>", re.IGNORECASE
+    rf"</?(?:type(?::\s*[a-z_]+)?|thinking|speaker(?::\s*\d+)?|{_WRAPPERS})\s*>",
+    re.IGNORECASE,
 )
 
 # A character beat is ONE untagged first-person passage. There are no prose tags any more,
@@ -269,7 +276,8 @@ def parse_emission(
 #: Every emission tag, in one pattern, so the scanner can find the next one of any kind.
 #: The optional leading slash and optional ``:value`` mirror the tolerances above.
 _ANY_TAG_RE = re.compile(
-    r"</?(?:speaker(?::\s*\d+)?|type(?::\s*[a-z_]+)?|thinking)\s*>", re.IGNORECASE
+    rf"</?(?:speaker(?::\s*\d+)?|type(?::\s*[a-z_]+)?|thinking|{_WRAPPERS})\s*>",
+    re.IGNORECASE,
 )
 
 
@@ -421,7 +429,9 @@ class EmissionAccumulator:
             out = self._close_open()
             out.extend(self._open(kind))
             return out
-        # A bare </type> / </speaker> closes nothing and is simply scrubbed.
+        # A bare </type> / </speaker>, or an invented wrapper the model put the whole
+        # passage inside (``<response>``, ``<passage>``), closes nothing and is scrubbed —
+        # the passage carries on in whatever segment is open.
         return []
 
     def _consume_text(self, text: str) -> list[SegmentDelta]:

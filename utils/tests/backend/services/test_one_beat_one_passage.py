@@ -103,3 +103,34 @@ def test_repetition_is_not_confused_with_a_refrain():
 def test_a_short_passage_is_never_called_a_repeat():
     assert repeats_itself("") is False
     assert repeats_itself("Again. Again. Again.") is False
+
+
+def test_an_invented_wrapper_tag_is_scrubbed_not_rendered():
+    """Observed live twice: a whole passage delivered inside a tag nobody asked for.
+
+    A verification run produced ``<response>\\nThe mist clings to my cheeks…\\n</response>``
+    and the tag was persisted into the rendered prose; an earlier beat opened on a bare
+    ``<passage>``. As a complete tag these words are never prose.
+    """
+    raw = '<response>\nThe mist clings to my cheeks.\n\n"Deeper," I whisper.\n</response>'
+    acc = _accumulate(raw)
+    assert [(s.type, s.text) for s in acc.segments] == [
+        ("character_prose", 'The mist clings to my cheeks.\n\n"Deeper," I whisper.')
+    ]
+    assert [(s.type, s.text) for s in _batch(raw)] == [(s.type, s.text) for s in acc.segments]
+
+
+def test_the_wrapper_never_reaches_the_stream_either():
+    """Scrubbed at parse time, so it does not flicker on screen before the beat closes."""
+    acc = EmissionAccumulator(roster=ROSTER, fallback_speaker_id=FALLBACK)
+    deltas = []
+    for piece in list("<passage>I hold still at the edge of him."):
+        deltas.extend(acc.push(piece))
+    deltas.extend(acc.finish())
+    assert "<" not in "".join(d.text for d in deltas)
+
+
+def test_a_word_that_merely_contains_a_wrapper_name_is_untouched():
+    """"The passage behind the kitchen" is prose; only a complete tag is scrubbed."""
+    raw = "I take the passage behind the kitchen and wait for his answer."
+    assert _batch(raw)[0].text == raw
