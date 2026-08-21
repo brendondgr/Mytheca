@@ -1,6 +1,6 @@
 # Scene Planning & Prose Form — a turn that decides where the story goes, written as literature
 
-**Status:** in progress
+**Status:** complete (2026-08-21)
 **Created:** 2026-08-21
 **Owner:** brendondgr
 **Evidence:** the `ps_0bf9ddc13b` session export ("First Bloom of Two"), turns 1–9.

@@ -1,6 +1,6 @@
 # Prose That Reads Like A Scene — dialogue, paragraphs, and one beat per beat
 
-**Status:** in progress
+**Status:** complete (2026-08-21)
 **Created:** 2026-08-21
 **Owner:** brendondgr
 **Evidence:** the `ps_c015c506b1` export ("A Slow Burn in the Golden Grass", turns 1–2) and

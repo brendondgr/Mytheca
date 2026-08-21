@@ -200,3 +200,21 @@ Appended as each `RESULTS.md` §7 is written.
 - [ ] **Score the writing, not only its shape.** Every metric here is a countable shadow of
       "reads like a scene". Nothing measures whether a passage is *good*, and the read that
       says so is unblinded and by the author of the change.
+
+### From EXP-2026-08-009 (`complete` — second person instead of a label)
+
+- [ ] **Find out why passages got 66 % longer** (780 → 1292 chars) when the player's label
+      changed, and whether it survives sessions with a different dramatic arc. If the second
+      person genuinely lengthens beats that is a finding; if it was this session escalating
+      into a forced door, it is noise currently sitting in a results file.
+      → `experiments/EXP-2026-08-009-prose-second-person/RESULTS.md` §6
+- [ ] **Build a config seam for arm-level prompt tests.** Every prompt comparison in this
+      record — EXP-2026-08-009 included — is a before/after across two runs, because the turn
+      engine cannot serve two prompt variants inside one session. That is the ceiling on all
+      of this evidence, and it is a build task, not a research one.
+- [ ] **Widen the leak detector or stop trusting it.** `names_the_player` is two phrases; a
+      model that writes "the human" or "whoever is typing" passes it.
+- [ ] **Check the `Player:` labels left in `planner_agent`, `director_agent` and
+      `intent_agent`.** They were left alone because their outputs are structure, not prose —
+      but `director_agent` writes branch labels the player reads, so that is untested rather
+      than safe.

@@ -1,0 +1,14 @@
+{
+  "source": "logs/transcript.json",
+  "detector": "app.services.emission.names_the_player (whole passage, no window)",
+  "character": {
+    "total": 19,
+    "leaking": 0
+  },
+  "character_beats": [],
+  "narration": {
+    "total": 10,
+    "leaking": 0
+  },
+  "narration_beats": []
+}
