@@ -8,7 +8,6 @@ import os
 import httpx
 
 from app.agents import character_turn_agent
-from app.agents._common import GEN_MIN_TOKENS
 from app.models import Scenario
 from app.models.stat import StatDefinition
 from app.services import assembler, llm
@@ -294,15 +293,13 @@ def test_the_beat_bounds_both_the_scratchpad_and_the_passage(
     body = json.loads(capture["body"])
     system = body["messages"][0]["content"]
     assert body.get("thinking_token_budget") == 1024
-    # The PASSAGE, by contrast, is not bounded at all: the owner asked twice for a
-    # character to speak for as long as they want. A 1200-token ceiling sat here for a
-    # while on the theory that uncapped output rambled; EXP-2026-08-007 found the rambling
-    # was the sampler penalties, and with those at zero a passage averages 674 ± 471
-    # characters and its longest run was 1,923 — nowhere near any ceiling.
-    assert character_turn_agent._VOICE_PROSE_TOKENS is None
-    # ...so the request keeps the authoring floor, which comfortably covers the scratchpad.
-    assert body["max_tokens"] == GEN_MIN_TOKENS
-    assert body["max_tokens"] > 1024
+    # The PASSAGE gets 2,048 tokens on top of that — about four times the worst measured
+    # beat (EXP-2026-08-007: 674 ± 471 characters, longest of thirty 1,923). It is not an
+    # editorial limit; it stops the operator's GLOBAL maxTokens, shared with authoring flows
+    # and set to 48,000 on the install where this was found, from being spent on one spoken
+    # beat. Passing it through produced a 48,000-token generation that took the endpoint down.
+    assert character_turn_agent._VOICE_PROSE_TOKENS == 2048
+    assert body["max_tokens"] == 1024 + 2048
     # The character still deliberates in POV, inside the passage.
     assert "from inside that character, in their own voice" in system
     assert "<thinking>" not in system
@@ -775,18 +772,21 @@ def test_the_stable_region_is_identical_for_every_speaker(client, db_session, mo
     assert "A LINE OF HISTORY." in shared  # the transcript is shared too, not just the header
 
 
-def test_an_unbounded_passage_keeps_the_authoring_floor():
-    """No ceiling means the request carries ``gen_params``' floor, not the operator's 512.
+def test_the_operators_global_max_tokens_is_not_spent_on_one_beat():
+    """The bug this bounds: ``maxTokens`` is global, and a beat is not an authoring run.
 
-    ``LlmParams`` ships ``max_tokens = 512``, which is a default rather than a decision and
-    cannot even cover 1,024 tokens of thinking — a beat sent at 512 comes back as pure
-    reasoning ("the model spent its whole budget thinking and never answered").
+    That field is shared with world building and storyline generation, where a very long
+    output is the point — 48,000 on the install where this was found. Handed to a character
+    beat it produced a single 48,000-token generation over 684 seconds, which timed out the
+    relay's health probe, left the upstream marked failed, and 400'd the next three turns.
     """
     from app.schemas.settings import LlmParams
 
-    out = character_turn_agent._voice_params(LlmParams())
-    assert out.max_tokens == GEN_MIN_TOKENS
-    assert out.max_tokens > 512
+    out = character_turn_agent._voice_params(LlmParams(max_tokens=48_000))
+    assert out.max_tokens == 1024 + 2048
+    # ...and the stock 512 default never reaches the request either: it is a default rather
+    # than a decision and cannot even cover 1,024 tokens of thinking.
+    assert character_turn_agent._voice_params(LlmParams()).max_tokens > 512
 
 
 def test_a_ceiling_put_back_is_added_to_the_thinking_budget_not_taken_from_it(monkeypatch):

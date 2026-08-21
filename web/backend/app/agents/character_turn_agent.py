@@ -133,23 +133,27 @@ _REGISTER_DIRECTIVES = {
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
 
 
-#: No ceiling on the passage. The owner asked twice for a character to be able to speak for
-#: as long as they want, and it streams, so length costs the reader nothing.
+#: Room for the passage itself, in tokens — roughly 8,000 characters, or 1,300 words.
 #:
-#: A ceiling of 1200 tokens was imposed here for a while, against that instruction, because
-#: uncapped beats had been measured at 8,228 then 10,184 characters of drift and prompt
-#: guidance would not bind them. That diagnosis was wrong about the cause. EXP-2026-08-007
-#: found the rambling was the in-voice frequency/presence penalties, not the freedom: with
-#: them at 0.40/0.30 a passage averaged 2183 ± 1771 characters and reached 6,641; with them
-#: off it averaged **674 ± 471** and its longest run was 1,923 — nowhere near any ceiling.
-#: Removing the real cause removed the need for the workaround, so the workaround goes.
+#: This is NOT an editorial limit. Nothing in the contract tells a character to be brief,
+#: and the owner asked twice for one to be able to speak for as long as they want. What it
+#: stops is the OPERATOR'S GLOBAL ``maxTokens`` being spent on a single spoken beat. That
+#: field is one number shared with every authoring flow — world building, storyline
+#: generation — where a very long output is the point; on this install it is 48,000. Passing
+#: it through to a character beat is how one live generation ran to 48,000 completion tokens
+#: over 684 seconds, timed out the relay's health probe three times, left the upstream marked
+#: failed, and 400'd the next three turns. One beat cost the player the rest of the scene.
 #:
-#: What makes an unbounded passage safe is not a length limit but the two guards that
-#: replaced it: ``emission.looks_degenerate`` cuts a generation that has stopped producing
-#: language, and ``emission.repeats_itself`` cuts one writing the same paragraph again.
+#: The value is set from measurement, not caution. With the sampler fixed (EXP-2026-08-007) a
+#: passage averages 674 ± 471 characters and the longest of thirty was 1,923 — so 2,048
+#: tokens is about four times the worst honest case and will not be reached by writing.
+#: An earlier ceiling of 1,200 WAS an editorial one, imposed on the theory that uncapped
+#: passages rambled; that theory was wrong (the rambling was the sampler) and it is gone.
 #:
-#: Set this to a token count to put a ceiling back; nothing else depends on it.
-_VOICE_PROSE_TOKENS: int | None = None
+#: Set to ``None`` to hand the operator's own ``maxTokens`` to every beat; the streaming
+#: stop in ``turn_engine._RUNAWAY_CHARS`` is then the only thing between a runaway and the
+#: endpoint.
+_VOICE_PROSE_TOKENS: int | None = 2048
 
 
 def _voice_params(
