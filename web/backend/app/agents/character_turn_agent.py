@@ -26,7 +26,7 @@ from collections.abc import Generator
 from sqlalchemy.orm import Session
 
 from app.agents import prompt_registry
-from app.agents._common import resolve_llm
+from app.agents._common import gen_params, resolve_llm
 from app.core.config import get_settings
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmParams
@@ -41,12 +41,15 @@ from app.services.stat_render import render_character_stats
 
 logger = logging.getLogger("mytheca.turn")
 
-# The character deliberates **in the output** — the first-person passage is the thinking,
-# in the character's own mindset, and it is what the player reads. Letting the model ALSO
-# fill a hidden reasoning channel first means it works the same beat through twice and the
-# player waits through both while only the second is ever shown. EXP-2026-08-006 measured
-# that double pass at ~35 s per beat, the largest single cost in a turn.
-TURN_EFFORT = ReasoningEffort.NONE
+# The beat needs a place to think that is NOT the prose. Running with the channel off
+# entirely (and no <thinking> block either) left deliberation nowhere to go, and a live run
+# caught the model writing its own scratchpad into the passage — "need to produce Mei's
+# beat. User is player? The cast: [1] Mei…" — before degenerating into a repetition loop at
+# 29,660 characters. HIGH caps that channel at 1024 tokens: enough to work the moment out,
+# bounded enough that the player is not waiting on an essay nobody reads. The character's
+# in-POV deliberation still appears in the passage itself; this is the scratchpad, not the
+# interiority.
+TURN_EFFORT = ReasoningEffort.HIGH
 
 # Sampler tuning for in-character voice on small models (the turn-loop plan §7):
 # repetition/frequency penalties + a lower top_p rein in drift more reliably than
@@ -107,19 +110,15 @@ _REGISTER_DIRECTIVES = {
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
 
 
-#: Hard ceiling on a character beat's completion. A passage is at most a few paragraphs,
-#: so ~900 tokens is generous — and the ceiling is the point: with the thinking channel off
-#: and no tag scaffolding, a model that loses the thread writes its scratchpad into the
-#: prose and can degenerate into a repetition loop. One beat in a live 4-turn run reached
-#: **29,660 characters** of leaked deliberation ending in "Rex Rex Rex …", which also blew
-#: the prompt to 13.5k tokens on the next turn. ``gen_params`` FLOORS max_tokens to 8192 for
-#: reasoning headroom; a beat that does no hidden reasoning needs none of it, and an
-#: unbounded ceiling turns a bad generation into an unbounded one.
-_VOICE_MAX_TOKENS = 900
+#: The passage itself is deliberately NOT capped. A character may take as long as the
+#: moment needs — it delta-streams, so the player reads it as it is written rather than
+#: waiting for it. ``gen_params`` floors max_tokens for headroom; the operator's configured
+#: ceiling is the only limit. What stops a runaway is the thinking channel above having
+#: somewhere to go, not a short leash on the prose.
 
 
 def _voice_params(params: LlmParams, register: str | None = None) -> LlmParams:
-    """Cap max_tokens for a prose beat and apply the voice-tuned sampler fields.
+    """Give the beat room to run and apply the voice-tuned sampler fields.
 
     The sampler tracks the beat's ``register`` (see ``_REGISTER_SAMPLER``); an absent or
     unrecognized register keeps the module defaults.
@@ -127,9 +126,8 @@ def _voice_params(params: LlmParams, register: str | None = None) -> LlmParams:
     top_p, frequency, presence = _REGISTER_SAMPLER.get(
         register or "", (_VOICE_TOP_P, _VOICE_FREQUENCY_PENALTY, _VOICE_PRESENCE_PENALTY)
     )
-    return params.model_copy(
+    return gen_params(params).model_copy(
         update={
-            "max_tokens": min(params.max_tokens or _VOICE_MAX_TOKENS, _VOICE_MAX_TOKENS),
             "top_p": top_p,
             "frequency_penalty": frequency,
             "presence_penalty": presence,

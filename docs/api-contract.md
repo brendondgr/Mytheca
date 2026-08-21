@@ -369,9 +369,14 @@ toggle for it.
   vLLM route, a `0` budget produced 0 reasoning characters where `512` produced 826–2084.
   Also forcing `chat_template_kwargs.enable_thinking = false` was tried and **rejected** — it
   suppressed nothing extra and made the model terser (15–63 completion tokens against 67–76).
-- **Per call-site:** **the character turn = None** — it deliberates visibly in its
-  `<thinking>` block instead, and paying for a hidden pass as well was the largest single
-  cost in a turn; **Triage = Low**; the standalone storyline/character/setting drafts + the
+- **Per call-site:** **the character turn = High (1024)** — the beat needs a scratchpad
+  that is not the prose. With the channel off entirely a live run caught the model writing
+  its own deliberation into the passage and degenerating into a repetition loop at 29,660
+  characters; the cap keeps it bounded without putting it in the story. The character's
+  in-POV interiority is separate — it lives in the passage itself. The passage is **not**
+  token-capped: it delta-streams, so length costs the reader nothing.
+  **The beat planner = Quick (128)** — it runs after every beat, so it wants an instinctual
+  read of the room rather than deliberation. **Triage = Low**; the standalone storyline/character/setting drafts + the
   storyline agent's converse/plan calls = **Medium** (`DEFAULT_AUTHORING_EFFORT`).
 - **Transport:** `services/llm.chat_complete(..., reasoning=)` detects the engine and
   adds the matching key — **vLLM** `thinking_token_budget`, **llama.cpp**

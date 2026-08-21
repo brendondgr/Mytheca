@@ -243,20 +243,22 @@ def test_no_disposition_omits_inner_stance(client, db_session, monkeypatch):
     assert "let <thinking> build on it" not in user
 
 
-def test_the_character_deliberates_once_in_voice_and_not_again_in_hidden_reasoning(
+def test_the_beat_has_a_bounded_scratchpad_and_an_unbounded_passage(
     client, db_session, monkeypatch
 ):
-    """One deliberation, not two.
+    """Thinking is capped at 1024 tokens; the prose is not capped at all.
 
-    The character already thinks *in the output* — the visible in-voice ``<thinking>``
-    block the player reads. Letting the model also fill a hidden reasoning channel first
-    means it works the same beat through twice and the player waits through both, while
-    only the second is ever shown. EXP-2026-08-006 measured that beat at ~35 s to its
-    thought and ~10 s more to its line, the largest single cost in a turn.
+    Running with the reasoning channel OFF left deliberation nowhere to go, and a live run
+    caught the model writing its scratchpad into the passage and degenerating into a
+    repetition loop at 29,660 characters. The channel is what keeps that out of the prose —
+    so it is bounded rather than removed, and the passage itself is left free to run for as
+    long as the moment needs, because it delta-streams to the player as it is written.
     """
-    from app.schemas.reasoning import ReasoningEffort
+    from app.schemas.reasoning import ReasoningEffort, budget_for
 
-    assert character_turn_agent.TURN_EFFORT == ReasoningEffort.NONE
+    assert character_turn_agent.TURN_EFFORT == ReasoningEffort.HIGH
+    assert budget_for(character_turn_agent.TURN_EFFORT) == 1024
+
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
@@ -267,17 +269,12 @@ def test_the_character_deliberates_once_in_voice_and_not_again_in_hidden_reasoni
     )
     body = json.loads(capture["body"])
     system = body["messages"][0]["content"]
-    # The character still deliberates in POV — the interiority is woven into the passage,
-    # in first person, rather than fenced off in a <thinking> block.
+    assert body.get("thinking_token_budget") == 1024
+    # The passage is not held to a length: no cap below the operator's own ceiling.
+    assert body["max_tokens"] >= 8192
+    # The character still deliberates in POV, inside the passage.
     assert "what you notice, feel and decide, in your own voice" in system
-    assert "FIRST PERSON, present tense" in system
     assert "<thinking>" not in system
-    # The hidden channel is switched off by the budget key alone — measured on the
-    # deployed route, a 0 budget yields 0 reasoning characters. Forcing the chat
-    # template's own `enable_thinking` flag off as well was tried and rejected: it
-    # suppressed nothing extra and made the model terser.
-    assert body.get("thinking_token_budget") == 0
-    assert "chat_template_kwargs" not in body
 
 
 def test_relationship_note_injected_into_prompt(client, db_session, monkeypatch):
@@ -465,9 +462,9 @@ def test_speech_is_optional_and_the_passage_may_run_long(client, db_session, mon
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
     system = json.loads(capture["body"])["messages"][0]["content"]
-    assert "Take the room you need" in system
+    assert "as long as the moment genuinely needs" in system
     assert "no spoken words at all" in system
-    assert "not limited to a single line" in system
+    assert "no word count to hit" in system
     # Speech is quoted inline, never labelled with the speaker's name.
     assert "double quotes" in system
     assert "never write `Name:` before speech" in system
