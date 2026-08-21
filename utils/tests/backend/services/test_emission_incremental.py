@@ -176,23 +176,26 @@ def test_whitespace_only_emission_produces_nothing():
 # ---- documented divergences ------------------------------------------------
 
 
-def test_a_late_thought_streams_late_rather_than_being_reordered():
-    """A stream cannot un-send what it has already sent.
+def test_a_thought_that_arrives_after_the_passage_is_dropped_by_both_parsers():
+    """Deliberation only counts before the prose starts.
 
-    The batch parser lifts ``internal_thought`` to the front of the list wherever it
-    appeared. Arrival order is the contract here, so a thought emitted after the
-    dialogue stays after it. The character agent's format puts thinking first, so the
-    two agree in practice — this pins the difference rather than hiding it.
+    A stream cannot un-send a passage it has already begun, so a late ``<thinking>``
+    block used to become a second segment *after* the prose — and, once a model started
+    looping back to the top of its own emission, one beat became several. Both parsers now
+    treat a block arriving after the passage as part of that loop and drop it, which is
+    also what keeps them agreeing.
     """
-    raw = (
-        '"Fine."'
-        "<speaker:1><thinking>Actually not fine.</thinking>"
-    )
+    raw = '"Fine."<speaker:1><thinking>Actually not fine.</thinking>'
     acc, _ = _accumulate(raw)
 
-    assert [s.type for s in acc.segments] == ["character_prose", "internal_thought"]
-    assert [s.type for s in _batch(raw)] == ["internal_thought", "character_prose"]
-    # Same segments, same bodies — only the order differs.
-    assert sorted((s.type, s.text) for s in acc.segments) == sorted(
-        (s.type, s.text) for s in _batch(raw)
-    )
+    assert [s.type for s in acc.segments] == ["character_prose"]
+    assert [(s.type, s.text) for s in _batch(raw)] == [(s.type, s.text) for s in acc.segments]
+
+
+def test_a_thought_before_the_passage_is_still_kept_private():
+    """The documented order — think, then speak — is untouched."""
+    raw = "<thinking>He is lying.</thinking>I let the silence sit."
+    acc, _ = _accumulate(raw)
+
+    assert [s.type for s in acc.segments] == ["internal_thought", "character_prose"]
+    assert [(s.type, s.text) for s in _batch(raw)] == [(s.type, s.text) for s in acc.segments]

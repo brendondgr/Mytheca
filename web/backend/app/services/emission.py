@@ -72,6 +72,30 @@ _DEGENERATE_MIN_DISTINCT_WORDS = 12
 _DEGENERATE_MIN_PUNCTUATION = 1
 _SENTENCE_MARKS = ".,;:!?\"'“”’—"
 
+#: How much verbatim text has to recur before a passage is called a repeat. A model that
+#: has lost the thread restates its whole passage — one live beat contained the same
+#: ~2,400 characters five times over. Two hundred characters is roughly thirty words: long
+#: enough that no writer produces it twice by accident, short enough to catch the loop on
+#: its second pass rather than its fifth.
+_REPEAT_WINDOW = 200
+
+
+def repeats_itself(text: str) -> bool:
+    """True when the tail of ``text`` has already appeared verbatim earlier in it.
+
+    Distinct from :func:`looks_degenerate`, which asks whether the text has stopped being
+    language: a repeat is perfectly good prose, delivered again. Both were the same defect
+    while the parser split a repeating emission into one event per pass — five well-formed
+    rows that each looked correct. With the passage kept whole the repetition is visible in
+    one body, and this is what sees it.
+    """
+    body = text or ""
+    if len(body) < 2 * _REPEAT_WINDOW:
+        return False
+    tail = body[-_REPEAT_WINDOW:]
+    first = body.find(tail)
+    return first != -1 and first < len(body) - _REPEAT_WINDOW
+
 
 def looks_degenerate(text: str) -> bool:
     """True when the tail of ``text`` has stopped being language.
@@ -125,12 +149,23 @@ def parse_emission(
 
     segments: list[Segment] = []
 
-    thinking = _THINKING_RE.search(text)
-    if thinking:
-        body = _clean(thinking.group(1))
-        if body:
-            segments.append(Segment("internal_thought", body, speaker_id))
-        text = text[: thinking.start()] + text[thinking.end() :]
+    # EVERY ``<thinking>`` block comes out of the passage, not just the first: a model
+    # that repeats its whole emission repeats the scratchpad with it, and leaving the
+    # later ones in would land the deliberation in the visible prose once the tags were
+    # scrubbed. Only the first becomes a segment — the rest are the same thought again.
+    blocks = list(_THINKING_RE.finditer(text))
+    if blocks:
+        # Only a block that arrives BEFORE the passage is a thought. One that arrives after
+        # it is a model looping back to the top of its own emission, and keeping it would
+        # both invent a second deliberation and disagree with the streaming parser, which
+        # cannot un-send a passage it has already begun.
+        first = blocks[0]
+        if not _clean(text[: first.start()]):
+            body = _clean(first.group(1))
+            if body:
+                segments.append(Segment("internal_thought", body, speaker_id))
+        for block in reversed(blocks):
+            text = text[: block.start()] + text[block.end() :]
 
     # Only a JSON block interrupts the passage. A prose-named tag is scrubbed with the
     # rest of the text, so stray closers cannot fragment one beat into several.
@@ -150,13 +185,20 @@ def parse_emission(
     if lead:
         segments.append(Segment(_PROSE, lead, speaker_id))
 
+    open_kind: str | None = None
     for i, mark in enumerate(type_marks):
         kind = mark.group(1).lower()
         body_end = type_marks[i + 1].start() if i + 1 < len(type_marks) else len(text)
+        # The closer for the block that is currently open ends it; anything after it is
+        # trailing text, not a new block (see the accumulator for why this matters).
+        if mark.group(0).lstrip().startswith("</") and open_kind == kind:
+            open_kind = None
+            continue
         # state_update / relationship_update carry a JSON body; prose is scrubbed.
         raw_body = text[mark.end() : body_end].strip()
         if kind not in _JSON_TYPES:
             continue
+        open_kind = kind
         if raw_body:
             segments.append(Segment(kind, raw_body, speaker_id))
     return segments
@@ -226,6 +268,16 @@ class EmissionAccumulator:
         # line, which meant the ordinary case — a model emitting plain prose — showed the
         # player nothing until the whole beat existed.
         self._saw_type_mark = False
+        # A beat is ONE passage. Once a ``character_prose`` segment has been opened, no tag
+        # may split it and no later text may start a second one — see :meth:`_consume_text`.
+        # Without this a model that repeated its emission became one persisted event per
+        # repetition: a single live beat produced five byte-identical rows, which read as
+        # five beats by the same character. Making the second segment unrepresentable turns
+        # that into one ugly passage, which ``repeats_itself`` can then act on.
+        self._prose_seen = False
+        # True between a ``<thinking>`` and its closer while a passage is already open: the
+        # deliberation is swallowed rather than allowed to interrupt the prose.
+        self._swallowing = False
         self._segments: list[Segment] = []
 
     @property
@@ -278,8 +330,18 @@ class EmissionAccumulator:
         if "thinking" in lowered:
             # The contract no longer asks for <thinking>, but a model that emits it anyway
             # is putting DELIBERATION there — which must not land in the visible passage.
-            # Kept as its own private segment: a safety valve that keeps scratchpad out of
-            # the story rather than folding it in.
+            # Before the passage starts it is kept as its own private segment: a safety
+            # valve that keeps scratchpad out of the story rather than folding it in.
+            #
+            # Once the passage has started, the block is SWALLOWED instead. A closing tag
+            # used to close the open segment, so the next word began a second
+            # ``character_prose`` — which is how one repeating generation became five
+            # identical persisted beats. A deliberation arriving mid-passage is a model
+            # that has looped back to the top of its own emission; it is not a new beat and
+            # it is not part of the prose.
+            if self._prose_seen:
+                self._swallowing = not lowered.startswith("</")
+                return []
             if lowered.startswith("</"):
                 return self._close_open()
             out = self._close_open()
@@ -292,6 +354,13 @@ class EmissionAccumulator:
                 # A prose-named tag (usually a stray closer left over from the old
                 # contract). Scrubbed: the passage continues in the segment already open.
                 return []
+            # ``<type:X>`` and ``</type:X>`` are deliberately treated alike, because some
+            # models use a closer as the delimiter BETWEEN blocks. The exception is the
+            # closer for the block that is open right now: that one genuinely ends it, and
+            # reading it as another opener made the text after a JSON block into a second
+            # ``state_update`` whose body was the model's trailing prose.
+            if tag.lstrip().startswith("</") and self._open_type == kind:
+                return self._close_open()
             self._saw_type_mark = True
             out = self._close_open()
             out.extend(self._open(kind))
@@ -300,7 +369,7 @@ class EmissionAccumulator:
         return []
 
     def _consume_text(self, text: str) -> list[SegmentDelta]:
-        if not text:
+        if not text or self._swallowing:
             return []
         if self._open_type is None:
             # Prose arriving outside any tag IS the beat. Open a passage and stream it.
@@ -308,12 +377,19 @@ class EmissionAccumulator:
             # not start a segment that then holds nothing.
             if not text.strip():
                 return []
+            # ...but only the FIRST time. Text arriving after the passage has closed — a
+            # model still talking after its ``<type:state_update>`` block, or looping back
+            # to the top of its own emission — is not a second beat by the same character.
+            if self._prose_seen:
+                return []
             out = self._open(_PROSE)
             out.extend(self._grow(text))
             return out
         return self._grow(text)
 
     def _open(self, kind: str) -> list[SegmentDelta]:
+        if kind == _PROSE:
+            self._prose_seen = True
         self._index += 1
         self._open_type = kind
         self._open_text = ""

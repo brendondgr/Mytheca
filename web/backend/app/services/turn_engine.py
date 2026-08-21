@@ -76,7 +76,10 @@ from app.services.assembler import CastMember, TurnContext
 from app.services.turn_writer import Consequence
 
 #: A beat is only checked for degeneration once it is longer than any ordinary one, so a
-#: short, deliberately repetitive line is never mistaken for a collapsed generation.
+#: short, deliberately repetitive line is never mistaken for a collapsed generation. The
+#: same threshold gates the repetition check: the parser now keeps a looping generation in
+#: ONE passage (``emission`` — one beat is one passage), which is what makes the loop
+#: visible in a single body instead of arriving as several plausible-looking beats.
 _DEGENERATE_AFTER_CHARS = 2000
 
 
@@ -1290,7 +1293,7 @@ def _stream_emission(
                 open_text = "".join(
                     live.text for live in open_segments.values()
                 ) or acc.segments[-1].text if acc.segments else ""
-                if emission.looks_degenerate(open_text):
+                if emission.looks_degenerate(open_text) or emission.repeats_itself(open_text):
                     degenerate = True
                     stream.close()
                     break
@@ -1302,8 +1305,9 @@ def _stream_emission(
             "prose",
             f"{speaker.name}'s beat was cut short",
             detail=(
-                "The generation stopped producing language and was cut rather than "
-                "streamed further. The beat keeps what it had written."
+                "The generation stopped producing language, or began writing the same "
+                "passage again, and was cut rather than streamed further. The beat keeps "
+                "what it had written."
             ),
             data={"characterId": speaker.id, "degenerate": True},
         )
