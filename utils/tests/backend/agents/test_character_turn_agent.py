@@ -122,7 +122,7 @@ def test_prompt_is_ordered_stable_first_and_grounded(client, db_session, monkeyp
     user = body["messages"][1]["content"]
 
     # System carries the output contract + the cacheable stable prefix.
-    assert "You voice exactly ONE character" in system
+    assert "writing one character's part of a scene" in system
     assert "Embergate is a rain-soaked harbor city." in system
 
     # STABLE region leads: the scene as authored, identical for every speaker and turn.
@@ -136,6 +136,41 @@ def test_prompt_is_ordered_stable_first_and_grounded(client, db_session, monkeyp
     # TAIL (recency): act-now is last.
     assert user.rstrip().endswith("Emit only the tagged format.")
     assert "Respond now, in Mei's voice" in user
+
+
+def test_the_contract_is_short_and_shows_the_form(client, db_session, monkeypatch):
+    """The contract teaches by example and stays short enough to follow.
+
+    It grew to ~5k characters of rules and the model lost the thread — one live beat came
+    back as the model's own scratchpad. Brevity is the feature here, so it is pinned.
+    """
+    _configure_llm(client)
+    capture: dict = {}
+    _patch_llm(monkeypatch, capture)
+    ctx = _ctx()
+    character_turn_agent.generate_line(
+        db_session, ctx, ctx.cast[0],
+        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
+    )
+    contract = json.loads(capture["body"])["messages"][0]["content"].split("WORLD PRIMER")[0]
+    assert len(contract) < 2500, "the output contract is creeping back toward a wall of rules"
+
+    # The form, stated once and then shown.
+    assert "the way it would appear in a novel" in contract
+    assert "First person, present tense" in contract
+    assert "double quotes" in contract
+    assert "blank line between them" in contract
+    # A worked example, not just description.
+    assert "Like this:" in contract
+    assert '"You are asking me the wrong thing," I say.' in contract
+    # The rules that earn their place.
+    assert "Only your character" in contract
+    assert "No markdown, no tags, no labels" in contract
+    assert "Never write about the task" in contract
+    assert "manner moves with the moment" in contract
+    # And no scaffolding for prose.
+    assert "<thinking>" not in contract
+    assert "<type:character_dialogue>" not in contract
 
 
 def test_stat_defs_inject_current_band_named_to_the_character(client, db_session, monkeypatch):
@@ -186,24 +221,6 @@ def test_retrieved_lore_is_injected_into_the_prompt(client, db_session, monkeypa
     )
     user = json.loads(capture["body"])["messages"][1]["content"]
     assert "the Ashford fire: a smuggling deal gone wrong." in user
-
-
-def test_prompt_asks_for_one_first_person_passage(client, db_session, monkeypatch):
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    system = json.loads(capture["body"])["messages"][0]["content"]
-    # The block is still requested and still the character's own private voice; it is now
-    # asked to be brief, and it is the ONLY deliberation the turn pays for.
-    # No tag scaffolding for prose any more — the beat IS the passage.
-    assert "<thinking>" not in system
-    assert "ONE passage of first-person prose" in system
-    assert "in your own voice" in system
 
 
 def test_interior_disposition_injected_and_builds_thinking(client, db_session, monkeypatch):
@@ -273,7 +290,7 @@ def test_the_beat_has_a_bounded_scratchpad_and_an_unbounded_passage(
     # The passage is not held to a length: no cap below the operator's own ceiling.
     assert body["max_tokens"] >= 8192
     # The character still deliberates in POV, inside the passage.
-    assert "what you notice, feel and decide, in your own voice" in system
+    assert "from inside that character, in their own voice" in system
     assert "<thinking>" not in system
 
 
@@ -360,41 +377,6 @@ def test_no_voice_samples_omits_the_block(client, db_session, monkeypatch):
     assert "Voice samples" not in user
 
 
-def test_thinking_contract_anchors_to_voice(client, db_session, monkeypatch):
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    system = json.loads(capture["body"])["messages"][0]["content"]
-    # The (character-agnostic) thinking rule steers the hidden thought into voice too — but
-    # the voice's register bends with the stakes rather than being locked to the samples.
-    # Voice anchoring now lives in the manner-adaptation rule rather than a <thinking> brief.
-    assert "personality is CONSTANT" in system and "MANNER adapts" in system
-    assert "FIRST PERSON, present tense" in system
-
-
-def test_contract_grants_situational_manner_adaptation(client, db_session, monkeypatch):
-    # Personality is constant, manner adapts: the contract must tell the character to read the
-    # moment and drop the habitual act when the situation turns grave (the core fix).
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    system = json.loads(capture["body"])["messages"][0]["content"]
-    assert "personality is CONSTANT" in system and "MANNER adapts" in system
-    assert "on autopilot" in system
-    # The <thinking> step appraises the moment BEFORE reasoning toward a response.
-    assert "what you notice, feel and decide" in system
-
-
 def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}
@@ -444,30 +426,6 @@ def test_transcript_window_follows_context_beats_plus_one_anchor_block(
     assert f"beat{total - kept + 1}" in user              # inside the window
     assert f"beat{total - kept - 1}" not in user          # clipped
     assert "beat0" not in user
-
-
-def test_speech_is_optional_and_the_passage_may_run_long(client, db_session, monkeypatch):
-    """A beat may be silent, and a character may hold the floor for a paragraph.
-
-    The old contract capped the spoken line at 1-3 sentences and the action at 5-10 words,
-    which is what produced one-line beats. The passage form exists so a character can carry
-    a moment instead of pinging it back.
-    """
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    system = json.loads(capture["body"])["messages"][0]["content"]
-    assert "as long as the moment genuinely needs" in system
-    assert "no spoken words at all" in system
-    assert "no word count to hit" in system
-    # Speech is quoted inline, never labelled with the speaker's name.
-    assert "double quotes" in system
-    assert "never write `Name:` before speech" in system
 
 
 def test_register_states_the_moment_as_fact_in_the_tail(client, db_session, monkeypatch):
@@ -714,22 +672,6 @@ def test_a_requirement_composes_with_a_puppet_directive(client, db_session, monk
     user = json.loads(capture["body"])["messages"][1]["content"]
     assert "The player is directing you to: tell Beth she is late" in user
     assert user.index("THIS BEAT MUST MAKE THIS TRUE") > user.index("directing you to")
-
-
-def test_contract_states_a_direction_is_what_not_how(client, db_session, monkeypatch):
-    _configure_llm(client)
-    capture: dict = {}
-    _patch_llm(monkeypatch, capture)
-    ctx = _ctx()
-    character_turn_agent.generate_line(
-        db_session, ctx, ctx.cast[0],
-        turn_beats=[{"role": "player", "text": "x", "characterId": None}],
-    )
-    system = json.loads(capture["body"])["messages"][0]["content"]
-    assert "It tells you WHAT, never HOW" in system
-
-
-# ---- prompt layout vs. the inference server's prefix cache ------------------
 
 
 def _user_message(capture: dict) -> str:

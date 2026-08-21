@@ -18,6 +18,8 @@
  * utils/scripts/check_contrast.py — adjust there and here together. */
 
 .theme-light {
+  /* Quoted speech is tinted from the speaker's own colour toward this — parchment: mixing toward white would wash the quote out on a cream bubble, so the tint deepens it instead — same hue, more presence. */
+  --quote-tint: #241b10;
   --page-bg: #dccca8;
   --page-img: radial-gradient(at 16% 6%, rgba(255, 250, 235, 0.75), transparent 50%),
     radial-gradient(at 88% 96%, rgba(110, 80, 35, 0.14), transparent 52%);
@@ -45,6 +47,8 @@
 }
 
 .theme-dark {
+  /* Quoted speech is tinted from the speaker's own colour toward this — lifts the speaker's hue off a dark bubble. */
+  --quote-tint: #ffffff;
   --page-bg: #0d0a05;
   --page-img: radial-gradient(at 16% 6%, rgba(90, 66, 32, 0.2), transparent 55%),
     radial-gradient(at 88% 96%, rgba(130, 74, 32, 0.14), transparent 55%);
@@ -72,6 +76,8 @@
 }
 
 .theme-slate {
+  /* Quoted speech is tinted from the speaker's own colour toward this — lifts the speaker's hue off a dark bubble. */
+  --quote-tint: #ffffff;
   --page-bg: #0a0e13;
   --page-img: radial-gradient(at 16% 6%, rgba(70, 100, 140, 0.14), transparent 55%),
     radial-gradient(at 88% 96%, rgba(60, 84, 120, 0.14), transparent 55%);

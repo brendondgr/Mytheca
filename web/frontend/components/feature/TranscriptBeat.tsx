@@ -24,6 +24,16 @@ function StreamCaret() {
   return <span aria-hidden="true" className="stream-caret" />;
 }
 
+/**
+ * The colour a character's spoken words take: their own, mixed 30% toward the theme's
+ * `--quote-tint`. On the dark themes that lifts the hue off the bubble; on parchment the
+ * tint is the ink colour instead, because a straight lighten washes out on cream. Only
+ * quoted speech is tinted — the surrounding prose stays plain body text.
+ */
+function speechColor(color: string | undefined): string | undefined {
+  return color ? `color-mix(in oklab, ${color} 70%, var(--quote-tint))` : undefined;
+}
+
 /** `narration` → teal-accented card (upright, not italic — feedback #6). */
 export function NarratorCard({ text, streaming }: { text: string; streaming?: boolean }) {
   return (
@@ -31,7 +41,7 @@ export function NarratorCard({ text, streaming }: { text: string; streaming?: bo
       <Eyebrow size={8} tracking="0.18em" color="#1F8A82" className="mb-[6px] block">
         Narrator
       </Eyebrow>
-      <p className="font-body text-[15.5px] leading-[1.55] text-ink">
+      <p className="font-body text-[15.5px] leading-[1.55] whitespace-pre-line text-ink">
         <QuotedText text={text} />
         {streaming ? <StreamCaret /> : null}
       </p>
@@ -49,7 +59,7 @@ export function PlayerMessage({ text }: { text: string }) {
             You
           </Eyebrow>
         </div>
-        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-[#F6ECDA]">
+        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] whitespace-pre-line text-[#F6ECDA]">
           <QuotedText text={text} />
         </div>
       </div>
@@ -93,7 +103,7 @@ export function PlayerAsCharacterMessage({
             ring={1.5}
           />
         </div>
-        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] text-[#F6ECDA]">
+        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] whitespace-pre-line text-[#F6ECDA]">
           <QuotedText text={text} />
         </div>
       </div>
@@ -205,7 +215,7 @@ export function CharacterMessage({
                   thought ? " mt-[8px] border-t border-hair pt-[8px]" : ""
                 }`}
               >
-                <QuotedText text={text} />
+                <QuotedText text={text} color={speechColor(c.color)} />
                 {streaming ? <StreamCaret /> : null}
               </p>
             ) : null}
