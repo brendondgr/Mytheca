@@ -1404,7 +1404,7 @@ def _stream_emission(
             # shorter than the window, which must still be released rather than stranded.
             if not seg.done and len(held_text) < emission.SCRATCHPAD_WINDOW:
                 return 0
-        if emission.looks_like_scratchpad(held_text):
+        if emission.looks_like_scratchpad(held_text) or _echoes_a_beat(held_text, turn_beats):
             scratchpad = True
             held = []
             return 0
@@ -1575,6 +1575,35 @@ def _emit_segment_delta(
     return 0
 
 
+#: How much of two beats' openings have to match before one is called an echo of the other.
+#: Long enough that a shared first clause ("The rain has not stopped") is not an echo, short
+#: enough to catch the case that matters — a whole passage repeated in someone else's mouth.
+_ECHO_PREFIX = 120
+
+
+def _echoes_a_beat(opening: str, turn_beats: list[dict]) -> bool:
+    """True when this passage is starting the same way one already played this turn.
+
+    Two characters returning byte-identical passages is not a parser fault — it is two
+    separate calls whose prompts differ only by a name and a role, which is what happens
+    when a cast has no traits, voice samples or stats to tell them apart. It was visible in
+    the owner's own export (Valdar's beat restating Fennel's imagery) and in a live run
+    (three pairs of byte-identical beats attributed to different characters, one pair
+    fourteen seconds apart).
+
+    Checked on the opening because that is all the gate is holding, and regenerating costs
+    one call — the same machinery a leaked scratchpad already uses.
+    """
+    head = (opening or "").strip()[:_ECHO_PREFIX]
+    if len(head) < _ECHO_PREFIX:
+        return False
+    return any(
+        (beat.get("text") or "").strip().startswith(head)
+        for beat in turn_beats
+        if beat.get("role") == "character"
+    )
+
+
 def _beat_or_skip(
     tracer: "_Tracer",
     speaker: CastMember,
@@ -1668,8 +1697,9 @@ def _generate_speaker(
             "prose",
             f"{speaker.name} starts again",
             detail=(
-                "The first attempt came back as notes about the task rather than the "
-                "character's own words, so it was withheld and the beat regenerated."
+                "The first attempt was not this character speaking — notes about the task, "
+                "a fragment starting mid-sentence, or the previous beat repeated back — so "
+                "it was withheld and the beat regenerated."
             ),
             data={"characterId": speaker.id, "scratchpad": True},
         )
@@ -1684,8 +1714,8 @@ def _generate_speaker(
                 "prose",
                 f"{speaker.name}'s beat was dropped",
                 detail=(
-                    "The second attempt came back as notes as well. The beat is skipped "
-                    "rather than shown, and the turn carries on."
+                    "The second attempt was no better. The beat is skipped rather than "
+                    "shown, and the turn carries on."
                 ),
                 data={"characterId": speaker.id, "scratchpad": True, "dropped": True},
             )
