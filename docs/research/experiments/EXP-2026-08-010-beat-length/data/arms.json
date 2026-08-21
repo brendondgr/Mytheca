@@ -1,0 +1,71 @@
+{
+  "source": "data/metrics.json",
+  "short": {
+    "n": 20,
+    "target": [
+      1,
+      2
+    ],
+    "paragraphs": {
+      "mean": 2.6,
+      "std": 1.744,
+      "min": 2,
+      "max": 10
+    },
+    "chars": {
+      "mean": 611.5,
+      "std": 510.5,
+      "min": 333,
+      "max": 2802
+    },
+    "in_band": 15,
+    "in_band_share": 0.75
+  },
+  "medium": {
+    "n": 17,
+    "target": [
+      2,
+      4
+    ],
+    "paragraphs": {
+      "mean": 3.588,
+      "std": 0.492,
+      "min": 3,
+      "max": 4
+    },
+    "chars": {
+      "mean": 993.8,
+      "std": 187.4,
+      "min": 510,
+      "max": 1306
+    },
+    "in_band": 17,
+    "in_band_share": 1.0
+  },
+  "long": {
+    "n": 15,
+    "target": [
+      5,
+      6
+    ],
+    "paragraphs": {
+      "mean": 5.933,
+      "std": 0.249,
+      "min": 5,
+      "max": 6
+    },
+    "chars": {
+      "mean": 1578.7,
+      "std": 233.9,
+      "min": 1106,
+      "max": 2079
+    },
+    "in_band": 15,
+    "in_band_share": 1.0
+  },
+  "overlap": [
+    "short max 10 vs medium min 3: OVERLAP",
+    "medium max 4 vs long min 5: no overlap",
+    "short max 10 vs long min 5: OVERLAP"
+  ]
+}
