@@ -1,6 +1,6 @@
 # Beat Length Control — Short / Medium / Long, in the scene config menu
 
-**Status:** in progress
+**Status:** complete (2026-08-21)
 **Created:** 2026-08-21
 **Owner:** brendondgr
 **Evidence:** EXP-2026-08-009's recorded session — character beats averaged **1292 ± 378
