@@ -36,6 +36,19 @@ class NarrationData(CamelModel):
     done: bool = True
 
 
+class CharacterProseData(CamelModel):
+    """One character beat as a single first-person passage.
+
+    The whole beat — what they notice, what they do, what they say — in their own voice,
+    with spoken words in double quotes inline. Replaces the old thought/action/dialogue
+    triple, which asked the reader to reassemble a paragraph the model already had.
+    """
+
+    character_id: str
+    text: str
+    done: bool = True
+
+
 class CharacterDialogueData(CamelModel):
     character_id: str
     text: str
@@ -132,6 +145,11 @@ class NarrationEvent(EventEnvelope):
     data: NarrationData
 
 
+class CharacterProseEvent(EventEnvelope):
+    type: Literal["character_prose"] = "character_prose"
+    data: CharacterProseData
+
+
 class CharacterDialogueEvent(EventEnvelope):
     type: Literal["character_dialogue"] = "character_dialogue"
     data: CharacterDialogueData
@@ -171,6 +189,7 @@ class SceneImageEvent(EventEnvelope):
 StoryEvent = Annotated[
     Union[
         NarrationEvent,
+        CharacterProseEvent,
         CharacterDialogueEvent,
         CharacterActionEvent,
         InternalThoughtEvent,

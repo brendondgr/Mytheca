@@ -32,8 +32,11 @@ _TAG_CLEAN = re.compile(
     r"</?(?:type(?::\s*[a-z_]+)?|thinking|speaker(?::\s*\d+)?)\s*>", re.IGNORECASE
 )
 
-# Prose types a character may emit (internal_thought is hidden conditioning).
-_PROSE_TYPES = {"character_action", "character_dialogue"}
+# Prose types a character may emit. ``character_prose`` is the current form — one
+# first-person passage per beat, untagged. The other two are the older three-fragment
+# shape, kept so a recorded session (or a model that still emits tags) parses.
+_PROSE = "character_prose"
+_PROSE_TYPES = {_PROSE, "character_action", "character_dialogue"}
 # A character may also propose a stat change, a relationship change, or a presence change
 # (leaving/collapsing) as a JSON body (validated downstream); their ``text`` is the raw
 # JSON block, kept verbatim.
@@ -82,11 +85,19 @@ def parse_emission(
 
     type_marks = list(_TYPE_RE.finditer(text))
     if not type_marks:
-        # Model ignored the tag format — treat the remaining prose as one spoken line.
+        # The expected shape: no tags at all, one first-person passage.
         body = _clean(text)
         if body:
-            segments.append(Segment("character_dialogue", body, speaker_id))
+            segments.append(Segment(_PROSE, body, speaker_id))
         return segments
+
+    # Prose before the first tag is the beat itself, not a preamble to discard: the
+    # expected emission is plain prose optionally followed by a JSON block
+    # (``<type:state_update>`` and friends). Keeping it here is what makes the batch and
+    # incremental parsers agree on a hybrid emission.
+    lead = _clean(text[: type_marks[0].start()])
+    if lead:
+        segments.append(Segment(_PROSE, lead, speaker_id))
 
     for i, mark in enumerate(type_marks):
         kind = mark.group(1).lower()
@@ -160,7 +171,10 @@ class EmissionAccumulator:
         self._open_type: str | None = None
         self._open_text = ""
         self._pending_ws = ""
-        self._held = ""  # preamble: prose seen before any <type:> mark
+        # Untagged text opens a ``character_prose`` segment and streams from the first
+        # character. It used to be *held* until ``finish()`` and released as one spoken
+        # line, which meant the ordinary case — a model emitting plain prose — showed the
+        # player nothing until the whole beat existed.
         self._saw_type_mark = False
         self._segments: list[Segment] = []
 
@@ -196,14 +210,6 @@ class EmissionAccumulator:
             out.extend(self._consume_text(self._buf))
             self._buf = ""
         out.extend(self._close_open())
-        if not self._saw_type_mark:
-            # The model ignored the tag format — the held prose is one spoken line.
-            body = _clean(self._held)
-            if body:
-                out.extend(self._open(_DIALOGUE))
-                out.extend(self._grow(body))
-                out.extend(self._close_open())
-        self._held = ""
         return out
 
     # -- internals -----------------------------------------------------------
@@ -228,7 +234,6 @@ class EmissionAccumulator:
         type_match = _TYPE_RE.fullmatch(tag)
         if type_match:
             self._saw_type_mark = True
-            self._held = ""  # preamble before the first mark is discarded, as in batch
             kind = type_match.group(1).lower()
             out = self._close_open()
             if kind in _PROSE_TYPES or kind in _JSON_TYPES:
@@ -241,8 +246,14 @@ class EmissionAccumulator:
         if not text:
             return []
         if self._open_type is None:
-            self._held += text
-            return []
+            # Prose arriving outside any tag IS the beat. Open a passage and stream it.
+            # Whitespace alone does not open one, so a newline after ``<speaker:1>`` does
+            # not start a segment that then holds nothing.
+            if not text.strip():
+                return []
+            out = self._open(_PROSE)
+            out.extend(self._grow(text))
+            return out
         return self._grow(text)
 
     def _open(self, kind: str) -> list[SegmentDelta]:
@@ -307,4 +318,3 @@ class EmissionAccumulator:
 
 
 #: The type a tag-free emission collapses to (see :class:`EmissionAccumulator.finish`).
-_DIALOGUE = "character_dialogue"

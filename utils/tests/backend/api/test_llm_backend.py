@@ -253,6 +253,7 @@ def test_malformed_models_payload_is_unknown(monkeypatch):
 def test_budget_map_matches_spec():
     assert THINKING_BUDGET == {
         ReasoningEffort.NONE: 0,
+        ReasoningEffort.QUICK: 128,
         ReasoningEffort.LOW: 256,
         ReasoningEffort.MEDIUM: 512,
         ReasoningEffort.HIGH: 1024,

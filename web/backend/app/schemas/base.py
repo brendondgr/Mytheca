@@ -40,6 +40,11 @@ BranchTag = Literal[
 # staying out of other characters' context (it is never pushed to ``turn_beats``).
 EventType = Literal[
     "narration",
+    # One first-person passage per beat — interiority, action and speech woven together
+    # with the spoken words in double quotes inline. This is the form a character beat
+    # takes now; ``character_dialogue`` / ``character_action`` / ``internal_thought``
+    # remain on the union so sessions recorded in the older three-fragment shape replay.
+    "character_prose",
     "character_dialogue",
     "character_action",
     "internal_thought",

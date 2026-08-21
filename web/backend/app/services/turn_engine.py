@@ -1258,13 +1258,14 @@ def _emit_segment_delta(
 ) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
     """Route one parsed increment to the wire; return the stat impact it carried.
 
-    Prose that reads well arriving piecemeal (``internal_thought``, ``character_dialogue``)
-    delta-streams. ``character_action`` is held and sent whole: it is one short beat, and
-    the client folds it into the speaker's open bubble — a rule that only works while the
-    bubble has no spoken text yet. The JSON types are held because half an object is not
-    parseable, and are applied through the same handlers the batch path uses.
+    Prose that reads well arriving piecemeal (``character_prose``, and the older
+    ``internal_thought`` / ``character_dialogue``) delta-streams. ``character_action`` is
+    held and sent whole: it is one short beat, and the client folds it into the speaker's
+    open bubble — a rule that only works while the bubble has no spoken text yet. The JSON
+    types are held because half an object is not parseable, and are applied through the
+    same handlers the batch path uses.
     """
-    if seg.type in ("internal_thought", "character_dialogue"):
+    if seg.type in ("character_prose", "internal_thought", "character_dialogue"):
         live_seg = open_segments.get(seg.index)
         if live_seg is None:
             live_seg = emitter.open_stream(
@@ -1282,17 +1283,24 @@ def _emit_segment_delta(
             open_segments.pop(seg.index, None)
             if seg.type == "internal_thought":
                 # Kept OUT of turn_beats: it is the character's interiority, not shared
-                # dialogue, and later speakers must never condition on it.
+                # dialogue, and later speakers must never condition on it. Only the older
+                # three-fragment shape produces this; a ``character_prose`` beat carries
+                # its interiority in the passage the next speaker reads (see below).
                 yield from tracer.emit(
                     "thinking", f"{speaker.name} thinks (private)",
                     detail=text, data={"characterId": seg.character_id},
                 )
             else:
+                # A prose beat goes into turn_beats whole — including the interiority
+                # woven through it. That is a deliberate consequence of the single-passage
+                # form: the next speaker reads the passage as written, the way a reader
+                # does, rather than a stripped-down "spoken line only" version of it.
                 turn_beats.append(
                     {"role": "character", "text": text, "characterId": seg.character_id}
                 )
                 yield from tracer.emit(
-                    "dialogue", f"{speaker.name} speaks",
+                    "dialogue" if seg.type == "character_dialogue" else "prose",
+                    f"{speaker.name} speaks",
                     detail=text, data={"characterId": seg.character_id},
                 )
         return 0

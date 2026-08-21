@@ -54,10 +54,23 @@ def test_out_of_roster_speaker_falls_back_to_intended():
     assert segs[0].character_id == "mei"
 
 
-def test_untagged_reply_becomes_one_dialogue_line():
-    segs = parse_emission("Just some prose, no tags.", roster={1: "mei"}, fallback_speaker_id="mei")
+def test_untagged_reply_becomes_one_prose_passage():
+    """The expected shape: no tags at all, one first-person passage."""
+    raw = 'I do not move. The rain finds my collar. "Say it again," I tell him.'
+    segs = parse_emission(raw, roster={1: "mei"}, fallback_speaker_id="mei")
     assert len(segs) == 1
-    assert segs[0].type == "character_dialogue" and segs[0].text == "Just some prose, no tags."
+    assert segs[0].type == "character_prose" and segs[0].text == raw
+
+
+def test_prose_before_a_json_tag_is_kept_as_the_beat():
+    """Plain prose followed by a JSON trailer — the one hybrid the contract allows."""
+    raw = (
+        'I set the cup down. "Then we are done here."\n'
+        '<type:state_update>\n{"key": "trust", "delta": -2, "reason": "he lied"}'
+    )
+    segs = parse_emission(raw, roster={1: "mei"}, fallback_speaker_id="mei")
+    assert [s.type for s in segs] == ["character_prose", "state_update"]
+    assert segs[0].text.startswith("I set the cup down.")
 
 
 def test_empty_type_body_is_dropped():

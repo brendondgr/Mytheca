@@ -198,7 +198,10 @@ export function CharacterMessage({
             ) : null}
             {text ? (
               <p
-                className={`font-body text-[15.5px] leading-[1.5] text-ink${
+                // `whitespace-pre-line` keeps the paragraph breaks inside a first-person
+                // passage, which may legitimately run to two or three paragraphs. Plain
+                // body text throughout — only the quoted speech is bolded, by QuotedText.
+                className={`font-body text-[15.5px] leading-[1.5] whitespace-pre-line text-ink${
                   thought ? " mt-[8px] border-t border-hair pt-[8px]" : ""
                 }`}
               >

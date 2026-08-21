@@ -69,6 +69,14 @@ def _stream(resp) -> list[dict]:
 
 
 def test_one_planner_call_covers_several_beats(client, storyline_id, monkeypatch):
+    """Lookahead still works when an operator opts into it.
+
+    It is **not** the default: the loop goes back and forth one beat at a time so the
+    planner sees what each beat actually did. This pins the mechanism, not the default.
+    """
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "turn_planner_lookahead", 3)
     _configure_llm(client)
     mei, kira, scid = _cast(client, storyline_id)
     _patch_llm(monkeypatch)

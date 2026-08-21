@@ -188,7 +188,7 @@ def test_retrieved_lore_is_injected_into_the_prompt(client, db_session, monkeypa
     assert "the Ashford fire: a smuggling deal gone wrong." in user
 
 
-def test_prompt_requests_a_hidden_thinking_block(client, db_session, monkeypatch):
+def test_prompt_asks_for_one_first_person_passage(client, db_session, monkeypatch):
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
@@ -200,7 +200,9 @@ def test_prompt_requests_a_hidden_thinking_block(client, db_session, monkeypatch
     system = json.loads(capture["body"])["messages"][0]["content"]
     # The block is still requested and still the character's own private voice; it is now
     # asked to be brief, and it is the ONLY deliberation the turn pays for.
-    assert "<thinking>" in system
+    # No tag scaffolding for prose any more — the beat IS the passage.
+    assert "<thinking>" not in system
+    assert "ONE passage of first-person prose" in system
     assert "in your own voice" in system
 
 
@@ -265,10 +267,11 @@ def test_the_character_deliberates_once_in_voice_and_not_again_in_hidden_reasoni
     )
     body = json.loads(capture["body"])
     system = body["messages"][0]["content"]
-    # The visible thought survives, and is asked to be brief rather than an essay.
-    assert "<thinking>" in system
-    assert "at most 2 sentences and at most 40 words" in system
-    assert "short paragraph" not in system
+    # The character still deliberates in POV — the interiority is woven into the passage,
+    # in first person, rather than fenced off in a <thinking> block.
+    assert "what you notice, feel and decide, in your own voice" in system
+    assert "FIRST PERSON, present tense" in system
+    assert "<thinking>" not in system
     # The hidden channel is switched off by the budget key alone — measured on the
     # deployed route, a 0 budget yields 0 reasoning characters. Forcing the chat
     # template's own `enable_thinking` flag off as well was tried and rejected: it
@@ -372,8 +375,9 @@ def test_thinking_contract_anchors_to_voice(client, db_session, monkeypatch):
     system = json.loads(capture["body"])["messages"][0]["content"]
     # The (character-agnostic) thinking rule steers the hidden thought into voice too — but
     # the voice's register bends with the stakes rather than being locked to the samples.
-    assert "same underlying person as your speech style and voice samples" in system
-    assert "BEND WITH THE STAKES" in system
+    # Voice anchoring now lives in the manner-adaptation rule rather than a <thinking> brief.
+    assert "personality is CONSTANT" in system and "MANNER adapts" in system
+    assert "FIRST PERSON, present tense" in system
 
 
 def test_contract_grants_situational_manner_adaptation(client, db_session, monkeypatch):
@@ -391,7 +395,7 @@ def test_contract_grants_situational_manner_adaptation(client, db_session, monke
     assert "personality is CONSTANT" in system and "MANNER adapts" in system
     assert "on autopilot" in system
     # The <thinking> step appraises the moment BEFORE reasoning toward a response.
-    assert "what you notice about this exact moment" in system
+    assert "what you notice, feel and decide" in system
 
 
 def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
@@ -445,9 +449,13 @@ def test_transcript_window_follows_context_beats_plus_one_anchor_block(
     assert "beat0" not in user
 
 
-def test_dialogue_is_optional_but_thinking_is_always_required(client, db_session, monkeypatch):
-    # Fix for over-talking: the character ALWAYS thinks, but a spoken line is optional — in
-    # action moments they may act or think without talking.
+def test_speech_is_optional_and_the_passage_may_run_long(client, db_session, monkeypatch):
+    """A beat may be silent, and a character may hold the floor for a paragraph.
+
+    The old contract capped the spoken line at 1-3 sentences and the action at 5-10 words,
+    which is what produced one-line beats. The passage form exists so a character can carry
+    a moment instead of pinging it back.
+    """
     _configure_llm(client)
     capture: dict = {}
     _patch_llm(monkeypatch, capture)
@@ -457,10 +465,12 @@ def test_dialogue_is_optional_but_thinking_is_always_required(client, db_session
         turn_beats=[{"role": "player", "text": "x", "characterId": None}],
     )
     system = json.loads(capture["body"])["messages"][0]["content"]
-    assert "character_dialogue is OPTIONAL" in system
-    assert "ALWAYS required" in system  # <thinking> stays mandatory every beat
-    assert "over-talking" in system
-    assert "action-only" in system and "thinking-only" in system
+    assert "Take the room you need" in system
+    assert "no spoken words at all" in system
+    assert "not limited to a single line" in system
+    # Speech is quoted inline, never labelled with the speaker's name.
+    assert "double quotes" in system
+    assert "never write `Name:` before speech" in system
 
 
 def test_register_states_the_moment_as_fact_in_the_tail(client, db_session, monkeypatch):

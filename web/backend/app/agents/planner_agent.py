@@ -37,8 +37,11 @@ from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
 from app.services.assembler import TurnContext
 
-# Deciding one beat is a cheap structural call — keep the thinking budget low.
-PLANNER_EFFORT = ReasoningEffort.LOW
+# Deciding who is up next runs after EVERY beat, so it is paid once per beat and the
+# player feels it directly. It wants a quick read of the room, not deliberation — the
+# judgement is "who has something to say about what just happened", which a person makes
+# instinctually. QUICK (128 tokens) is deliberately below LOW.
+PLANNER_EFFORT = ReasoningEffort.QUICK
 
 _ACTIONS = {"speak", "narrate", "exit", "end"}
 # The beat's REGISTER — the planner's read of how the situation stands right now, on one
