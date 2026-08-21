@@ -134,3 +134,43 @@ def test_the_output_contract_no_longer_fixes_a_paragraph_count():
     contract = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT).lower()
     assert "blank line between paragraphs" in contract  # the rule survives
     assert "two or three of them" not in contract  # the count does not
+
+
+@pytest.mark.parametrize(
+    ("tier", "prose_tokens"), [("short", 700), ("medium", 1400), ("long", 2048)]
+)
+def test_the_tier_changes_the_prose_allowance(tier, prose_tokens):
+    """The backstop behind the directive, and it must stay ADDITIVE to the thinking budget.
+
+    `max_tokens` buys the hidden scratchpad and the answer out of one budget upstream, so
+    the allowance is added on top rather than shared. Shrinking the combined total is what
+    starved a live beat into returning reasoning and no prose at all, and a tighter tier
+    must not reintroduce that.
+    """
+    from app.schemas.reasoning import ReasoningEffort, budget_for
+    from app.schemas.settings import LlmParams
+
+    assert character_turn_agent.prose_tokens_for(tier) == prose_tokens
+
+    params = LlmParams(max_tokens=48_000)  # the operator's global, as found on this install
+    tuned = character_turn_agent._voice_params(
+        params, None, character_turn_agent.TURN_EFFORT, tier
+    )
+    thinking = budget_for(character_turn_agent.TURN_EFFORT)
+    assert thinking == budget_for(ReasoningEffort.HIGH)
+    assert tuned.max_tokens == thinking * character_turn_agent._SCRATCHPAD_HEADROOM + prose_tokens
+    # The scratchpad's room is untouched by the tier — only the prose half moves.
+    assert tuned.max_tokens - prose_tokens == thinking * character_turn_agent._SCRATCHPAD_HEADROOM
+
+
+def test_the_tiers_are_ordered_and_long_is_unchanged():
+    """`long` keeps exactly what shipped before the control existed."""
+    short, medium, long_ = (character_turn_agent.prose_tokens_for(t) for t in BEAT_LENGTHS)
+    assert short < medium < long_
+    assert long_ == character_turn_agent._VOICE_PROSE_TOKENS
+
+
+def test_an_unknown_tier_gets_the_module_default_allowance():
+    """Never unbounded, never zero — an unrecognised tier falls back, it does not disable."""
+    for bad in (None, "", "tiny", "SHORT"):
+        assert character_turn_agent.prose_tokens_for(bad) == character_turn_agent._VOICE_PROSE_TOKENS

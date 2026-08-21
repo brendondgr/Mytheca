@@ -293,13 +293,19 @@ def test_the_beat_bounds_both_the_scratchpad_and_the_passage(
     body = json.loads(capture["body"])
     system = body["messages"][0]["content"]
     assert body.get("thinking_token_budget") == 1024
-    # The PASSAGE gets 2,048 tokens on top of that — about four times the worst measured
-    # beat (EXP-2026-08-007: 674 ± 471 characters, longest of thirty 1,923). It is not an
-    # editorial limit; it stops the operator's GLOBAL maxTokens, shared with authoring flows
-    # and set to 48,000 on the install where this was found, from being spent on one spoken
-    # beat. Passing it through produced a 48,000-token generation that took the endpoint down.
+    # The PASSAGE gets its tier's allowance ON TOP of the thinking budget — additive, never
+    # shared. Setting the request to the passage allowance alone starved a live turn, which
+    # spent the whole budget deliberating and returned no prose. `_ctx()` builds a context
+    # straight from the dataclass, so this is the default tier.
+    medium = character_turn_agent.prose_tokens_for(character_turn_agent.DEFAULT_BEAT_LENGTH)
+    assert medium == 1400
+    assert body["max_tokens"] == 1024 * character_turn_agent._SCRATCHPAD_HEADROOM + medium
+    # The longest tier keeps the measured bound that shipped before the control existed. It
+    # is not an editorial limit; it stops the operator's GLOBAL maxTokens — shared with
+    # authoring flows and set to 48,000 on the install where this was found — from being
+    # spent on one spoken beat. Passing it through took the endpoint down for three turns.
     assert character_turn_agent._VOICE_PROSE_TOKENS == 2048
-    assert body["max_tokens"] == 1024 * character_turn_agent._SCRATCHPAD_HEADROOM + 2048
+    assert character_turn_agent.prose_tokens_for("long") == 2048
     # The character still deliberates in POV, inside the passage.
     assert "from inside that character, in their own voice" in system
     assert "<thinking>" not in system

@@ -193,6 +193,26 @@ _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONT
 #: endpoint.
 _VOICE_PROSE_TOKENS: int | None = 2048
 
+#: The same allowance, per ``beat_length`` tier — a BACKSTOP behind the prompt directive,
+#: not the mechanism. The directive in the recency TAIL is what shapes a beat; this is what
+#: stops a tier the directive fails to bind from producing its neighbour's output.
+#:
+#: Sized at roughly **three times** what each tier actually needs, on the same reasoning as
+#: the value above: a paragraph of four sentences runs about 400–500 characters ≈ 120
+#: tokens, so `short` needs ~240, `medium` ~480 and `long` ~720. Anything tighter would make
+#: the cap the thing shaping the prose, and a token cap shapes prose by cutting it off
+#: mid-sentence — a worse artifact than a beat that runs one paragraph over. `long` keeps the
+#: measured 2,048 exactly, so nothing about the longest tier changes from what shipped.
+#:
+#: Note this bounds the PROSE half only. ``_voice_params`` adds the thinking budget on top;
+#: shrinking the combined total is what starved a live beat into returning reasoning and no
+#: prose, and that structure is deliberately preserved here.
+_PROSE_TOKENS_BY_LENGTH: dict[str, int] = {
+    "short": 700,
+    "medium": 1400,
+    "long": 2048,
+}
+
 #: How much of the thinking budget to actually pay for. ``thinking_token_budget`` is a hint
 #: on this endpoint, not a hard stop, so a deliberation can run past it and eat the room the
 #: passage needs — which is how a beat in the live verification run came back as reasoning
@@ -201,10 +221,22 @@ _VOICE_PROSE_TOKENS: int | None = 2048
 _SCRATCHPAD_HEADROOM = 2
 
 
+def prose_tokens_for(beat_length: str | None) -> int | None:
+    """The prose allowance for a tier, or ``None`` when the bound is switched off entirely.
+
+    Public because ``turn_engine`` derives its streaming runaway stop from the same number —
+    two independently-chosen limits for the same thing is how one of them ends up wrong.
+    """
+    if not _VOICE_PROSE_TOKENS:
+        return None
+    return _PROSE_TOKENS_BY_LENGTH.get(beat_length or "", _VOICE_PROSE_TOKENS)
+
+
 def _voice_params(
     params: LlmParams,
     register: str | None = None,
     reasoning: ReasoningEffort = TURN_EFFORT,
+    beat_length: str | None = None,
 ) -> LlmParams:
     """Bound the beat generously and apply the voice-tuned sampler fields.
 
@@ -239,9 +271,10 @@ def _voice_params(
             "presence_penalty": presence,
         }
     )
-    if not _VOICE_PROSE_TOKENS:
+    prose = prose_tokens_for(beat_length)
+    if not prose:
         return tuned
-    budget = budget_for(reasoning) * _SCRATCHPAD_HEADROOM + _VOICE_PROSE_TOKENS
+    budget = budget_for(reasoning) * _SCRATCHPAD_HEADROOM + prose
     return tuned.model_copy(update={"max_tokens": min(tuned.max_tokens, budget)})
 
 
@@ -324,7 +357,9 @@ def generate_line_with_usage(
         api_key,
         model,
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        _voice_params(params, register, reasoning),
+        _voice_params(
+            params, register, reasoning, getattr(ctx, "beat_length", DEFAULT_BEAT_LENGTH)
+        ),
         reasoning=reasoning,
     )
 
@@ -377,7 +412,9 @@ def stream_line(
             api_key,
             model,
             [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            _voice_params(params, register, reasoning),
+            _voice_params(
+                params, register, reasoning, getattr(ctx, "beat_length", DEFAULT_BEAT_LENGTH)
+            ),
             reasoning=reasoning,
             usage_out=usage_out,
         )
