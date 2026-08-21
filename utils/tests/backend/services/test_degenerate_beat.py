@@ -77,3 +77,21 @@ def test_a_short_string_is_never_flagged():
     """Too little text to judge — never guess on a fragment."""
     assert looks_degenerate("Rex Rex Rex") is False
     assert looks_degenerate("") is False
+
+
+def test_the_runaway_stop_is_far_beyond_any_honest_passage():
+    """The hard stop protects the endpoint, and must never be reached by writing.
+
+    A live run produced ONE generation of 48,000 completion tokens over 684 seconds. It was
+    well-formed, non-repeating prose the whole way, so both quality guards passed it — the
+    relay's health probe then timed out against the busy upstream, marked the endpoint
+    failed, and the next three turns came back 400. Only length sees that failure.
+
+    With the sampler fixed (EXP-2026-08-007) a passage averages 674 characters and the
+    longest of thirty was 1,923, so the stop sits roughly six times past the worst honest
+    case: a backstop, not a leash.
+    """
+    from app.services.turn_engine import _DEGENERATE_AFTER_CHARS, _RUNAWAY_CHARS
+
+    assert _RUNAWAY_CHARS >= 6 * 1923
+    assert _RUNAWAY_CHARS > _DEGENERATE_AFTER_CHARS

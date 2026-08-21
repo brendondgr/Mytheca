@@ -82,6 +82,22 @@ from app.services.turn_writer import Consequence
 #: visible in a single body instead of arriving as several plausible-looking beats.
 _DEGENERATE_AFTER_CHARS = 2000
 
+#: Hard stop on a single beat, whatever it is writing. This is an OPERATIONAL backstop, not
+#: an editorial one: the owner asked for a character to be able to speak for as long as they
+#: want, and nothing in the prompt tells them to be brief.
+#:
+#: But a generation that never stops does not just make a long beat. A live verification run
+#: produced ONE generation of 48,000 completion tokens over 684 seconds; the relay's health
+#: probe timed out three times against the busy upstream, marked the endpoint failed, and
+#: every turn after that came back 400. The beat cost the player the next three turns.
+#:
+#: The quality guards cannot catch this — the runaway stayed well-formed, non-repeating
+#: prose, so ``looks_degenerate`` and ``repeats_itself`` both passed it. Only length sees it.
+#: The value is set far beyond any real passage rather than near one: with the sampler fixed
+#: (EXP-2026-08-007) a beat averages 674 characters and the longest of thirty was 1,923, so
+#: this is roughly six times the worst honest case and will not be reached by writing.
+_RUNAWAY_CHARS = 12_000
+
 
 class _Emitter:
     """Assigns the per-session ``seq``, persists every event, mirrors visible prose
@@ -1403,6 +1419,12 @@ def _stream_emission(
             if scratchpad:
                 stream.close()
                 break
+            # The hard stop comes first: it is the one that protects the endpoint, and it
+            # must not depend on a quality judgement that a well-formed runaway passes.
+            if written > _RUNAWAY_CHARS:
+                degenerate = True
+                stream.close()
+                break
             # Only worth checking once the beat is longer than any ordinary one, so a
             # short repetitive line — which people do write — is never mistaken for it.
             if written > _DEGENERATE_AFTER_CHARS:
@@ -1421,9 +1443,9 @@ def _stream_emission(
             "prose",
             f"{speaker.name}'s beat was cut short",
             detail=(
-                "The generation stopped producing language, or began writing the same "
-                "passage again, and was cut rather than streamed further. The beat keeps "
-                "what it had written."
+                "The generation stopped producing language, began writing the same passage "
+                "again, or ran past the point where any beat ends, and was cut rather than "
+                "streamed further. The beat keeps what it had written."
             ),
             data={"characterId": speaker.id, "degenerate": True},
         )
