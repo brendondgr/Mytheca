@@ -17,7 +17,17 @@ import json
 
 import httpx
 
-from app.services import llm
+import pytest
+
+from app.services import llm, llm_backend
+
+
+@pytest.fixture(autouse=True)
+def _clear_detection_cache():
+    """Engine detection is cached per (base_url, model) and would leak between tests."""
+    llm_backend.clear_cache()
+    yield
+    llm_backend.clear_cache()
 
 PASSAGE = 'I let the question sit. "You already knew," I say, and do not look up.'
 _CONTRACT_MARK = "the way it would appear in a novel"
@@ -41,7 +51,16 @@ def _mid_scene(monkeypatch):
     )
 
 
-def _patch_llm(monkeypatch, *, fail_first: bool = False) -> dict:
+def _prose(events) -> list[str]:
+    """One string per beat — prose delta-streams, so the last frame for an id has it all."""
+    latest: dict[str, str] = {}
+    for e in events:
+        if e["type"] == "character_prose":
+            latest[e["id"]] = e["data"].get("text") or latest.get(e["id"], "")
+    return [t for t in latest.values() if t]
+
+
+def _patch_llm(monkeypatch, *, fail_first: bool = False, fail_all: bool = False) -> dict:
     """Return reasoning-with-no-content for a character call, the way the endpoint does.
 
     Which call fails is keyed on the TRANSCRIPT rather than a call counter: a beat can
@@ -49,7 +68,7 @@ def _patch_llm(monkeypatch, *, fail_first: bool = False) -> dict:
     so counting requests does not reliably mean "the second beat". A user prompt that
     already contains the first beat's passage is by construction a later beat.
     """
-    state = {"calls": 0, "plans": 0}
+    state = {"calls": 0, "plans": 0, "served_failures": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         if not request.url.path.endswith("/chat/completions"):
@@ -59,7 +78,18 @@ def _patch_llm(monkeypatch, *, fail_first: bool = False) -> dict:
         if _CONTRACT_MARK in system:
             state["calls"] += 1
             later_beat = PASSAGE[:40] in body["messages"][1]["content"]
-            if fail_first or later_beat:
+            if fail_all:
+                fails = True                      # a dead endpoint: every call
+            elif fail_first:
+                # Only the opening beat — its attempt and its one retry, after which the
+                # scene should carry on with whoever else is in the room. Counted on the
+                # failures THIS handler has served rather than on total calls: engine-probe
+                # requests share the same transport and would shift a call counter.
+                fails = state["served_failures"] < 2
+            else:
+                fails = later_beat                # the common shape: a LATER beat starves
+            if fails:
+                state["served_failures"] += 1
                 # What the endpoint actually returns: a completion that is all scratchpad.
                 return httpx.Response(200, json={"choices": [
                     {"message": {"role": "assistant", "content": "",
@@ -129,13 +159,30 @@ def test_the_skipped_beat_is_traced_rather_than_silent(client, storyline_id, mon
     assert len(skipped) == 1
 
 
-def test_a_first_beat_that_fails_still_reaches_the_player_as_an_error(
+def test_a_first_beat_that_fails_is_skipped_like_any_other(client, storyline_id, monkeypatch):
+    """One starved generation is a skipped beat wherever it lands, including first.
+
+    A live run lost a whole turn to exactly this: the first beat came back empty, and an
+    earlier rule that only salvaged failures *after* something had been shown turned it into
+    a terminal error frame. The turn had two characters in the room and nothing wrong with
+    the endpoint.
+    """
+    _configure_llm(client)
+    _mid_scene(monkeypatch)
+    _patch_llm(monkeypatch, fail_first=True, fail_all=False)
+    events = _turn(client, _scene(client, storyline_id))
+
+    assert not any(e["type"] == "error" for e in events)
+    assert _prose(events), "the other character in the room should still have answered"
+
+
+def test_an_endpoint_that_fails_every_beat_still_reaches_the_player_as_an_error(
     client, storyline_id, monkeypatch
 ):
     """A dead or misconfigured endpoint must not read as a quiet scene."""
     _configure_llm(client)
     _mid_scene(monkeypatch)
-    _patch_llm(monkeypatch, fail_first=True)
+    _patch_llm(monkeypatch, fail_first=True, fail_all=True)
     events = _turn(client, _scene(client, storyline_id))
 
     assert any(e["type"] == "error" for e in events)

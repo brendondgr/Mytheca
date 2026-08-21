@@ -676,6 +676,10 @@ def run_turn(
     # How many characters have actually spoken prose this turn (puppets included — the
     # player directed them, but they still took a beat). The exchange guard below reads it.
     spoke = len(puppet_members)
+    # Character beats attempted this turn, and the ones that came back empty. Collected
+    # rather than raised: whether the player sees an error is decided at the end, by whether
+    # every attempt failed (see ``_beat_or_skip``).
+    tally: dict = {"attempts": 0, "failures": []}
     # The guard fires at most once a turn: it is there to stop a scene ending on a single
     # line, not to keep a conversation going by force.
     forced_exchange = False
@@ -788,15 +792,18 @@ def run_turn(
                 note = _relationship_note(
                     ctx, forced_actor.id, [m.id for m in ctx.cast if m.id != forced_actor.id]
                 )
-                yield from _beat_or_skip(
-                    tracer, forced_actor, salvage=spoke > 0,
+                played = yield from _beat_or_skip(
+                    tracer, forced_actor, tally,
                     db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
                     consequences=consequences,
                     show_reasoning=show_reasoning, relationship_note=note,
                     direction=direction, requirements=owed,
                 )
                 acted.append(forced_actor.id)
-                spoke += 1
+                spoke += 1 if played else 0
+                scene_beats += 1 if played else 0
+                beats += 1
+                continue
             beats += 1
             scene_beats += 1
             continue
@@ -848,8 +855,8 @@ def run_turn(
                 note = _relationship_note(
                     ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id]
                 )
-                yield from _beat_or_skip(
-                    tracer, responder, salvage=spoke > 0,
+                played = yield from _beat_or_skip(
+                    tracer, responder, tally,
                     db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
                     consequences=consequences,
                     show_reasoning=show_reasoning, relationship_note=note,
@@ -858,8 +865,11 @@ def run_turn(
                 )
                 acted.append(responder.id)
                 beats += 1
-                scene_beats += 1
-                spoke += 1
+                # A beat that did not come back is not a beat the scene played: counting it
+                # would tell the exchange guard and the silent-turn backstop that the player
+                # has been answered when they have not.
+                scene_beats += 1 if played else 0
+                spoke += 1 if played else 0
                 continue
             # Every step that stops the beat loop carries ``data.end = True`` — the
             # structured signal the story player's turn-status strip reads to say "the turn
@@ -972,8 +982,8 @@ def run_turn(
         # (the rest, if any, wait for a later beat or the forced schedule above).
         owed = direction.for_actor(actor.id)[:1]
         yield from _delivered(tracer, ctx, direction, owed, by=actor.id)
-        yield from _beat_or_skip(
-            tracer, actor, salvage=spoke > 0,
+        played = yield from _beat_or_skip(
+            tracer, actor, tally,
             db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
             consequences=consequences,
             show_reasoning=show_reasoning, relationship_note=note,
@@ -982,8 +992,8 @@ def run_turn(
         )
         acted.append(actor.id)
         beats += 1
-        scene_beats += 1
-        spoke += 1
+        scene_beats += 1 if played else 0
+        spoke += 1 if played else 0
     # A player who typed a line always gets a scene back. The beat loop can reach `end`
     # having produced nothing at all — a planner that misreads the moment, a fallback with
     # nobody selectable, an intent aimed at a character who cannot be chosen. Turns 8 and 9
@@ -1017,10 +1027,12 @@ def run_turn(
             note = _relationship_note(
                 ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id]
             )
-            yield from _generate_speaker(
-                db, ctx, responder, emitter, turn_beats, consequences,
+            yield from _beat_or_skip(
+                tracer, responder, tally,
+                db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
+                consequences=consequences,
                 show_reasoning=show_reasoning, relationship_note=note,
-                direction=direction, tracer=tracer,
+                direction=direction,
             )
             beats += 1
         elif ctx.cast:
@@ -1034,6 +1046,14 @@ def run_turn(
                 db, ctx, turn_beats, emitter, show_reasoning=show_reasoning
             )
             beats += 1
+
+    # An endpoint that is genuinely down fails EVERY attempt and leaves the turn with nothing
+    # to show. That is when the player needs an error rather than a scene which quietly says
+    # nothing — not the moment a single generation comes back empty, which is a skipped beat.
+    # The silent-turn backstop above has already had its own attempt by this point, so by
+    # here "every attempt failed" really does mean the turn has nothing.
+    if tally["failures"] and len(tally["failures"]) == tally["attempts"] and not narrated_open:
+        raise tally["failures"][-1]
 
     if beats >= max_beats:  # loop exhausted without an explicit end (runaway backstop)
         yield from tracer.emit(
@@ -1614,34 +1634,36 @@ def _echoes_a_beat(opening: str, turn_beats: list[dict]) -> bool:
 def _beat_or_skip(
     tracer: "_Tracer",
     speaker: CastMember,
-    *,
-    salvage: bool,
+    tally: dict,
     **kwargs,
-) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
-    """Run one character beat, surviving an upstream failure once the turn has content.
+) -> Generator[StoryEvent | TurnTraceFrame, None, bool]:
+    """Run one beat; return whether it played. A failure is traced and skipped, never fatal.
 
-    A single generation can come back with nothing in it — most often "the model spent its
-    whole budget thinking and never answered", which happens on the SECOND beat of a turn,
-    where the transcript is longer and the deliberation runs past its (advisory) budget.
-    Left alone that raises out of the beat loop as a terminal error frame and takes the
-    whole turn with it, discarding beats the player has already watched arrive.
+    A single call can come back with nothing in it — most often "the model spent its whole
+    budget thinking and never answered", which happens when the deliberation runs past its
+    (advisory) budget. Left alone that raises out of the beat loop as a terminal error frame
+    and takes the whole turn with it: one live run lost a turn that had already streamed
+    three beats, and another lost one to its very first beat.
 
-    So once the turn has shown something, a failed beat is traced and skipped and the scene
-    carries on. Before that it still propagates: a genuinely misconfigured or dead endpoint
-    has to reach the player as an error rather than as a scene that quietly says nothing.
+    The failure is recorded in ``tally`` rather than swallowed. Whether it reaches the player
+    is decided at the END of the turn, by whether EVERY attempt failed — a one-off starved
+    generation is a skipped beat, and an endpoint that is genuinely down fails all of them,
+    shows nothing, and surfaces as an error. That is a better test than guessing at the
+    moment it happens, and it is why the attempts are counted and not just the failures.
     """
+    tally["attempts"] += 1
     try:
-        return (yield from _generate_speaker(speaker=speaker, tracer=tracer, **kwargs))
+        yield from _generate_speaker(speaker=speaker, tracer=tracer, **kwargs)
+        return True
     except APIError as exc:
-        if not salvage:
-            raise
+        tally["failures"].append(exc)
         yield from tracer.emit(
             "prose",
             f"{speaker.name}'s beat did not come back",
             detail=f"{exc.message} The turn carries on with what it has.",
             data={"characterId": speaker.id, "skipped": True},
         )
-        return 0
+        return False
 
 
 def _generate_speaker(

@@ -2,7 +2,7 @@ id: EXP-2026-08-006
 slug: turn-latency-overhaul
 title: Turn latency after the overhaul — the prompt cache is reclaimed; wall-clock is not measurable on
   this endpoint
-status: complete
+status: failed
 date_started: 2026-08-20
 date_completed: 2026-08-20
 authors:
@@ -23,7 +23,7 @@ hypothesis: 'H1 the planner''s share falls below 25% and its call count falls ~3
 
   '
 code:
-  commit: 5ce6da0e6d7e58287618cccbcabd907e12e10dd2
+  commit: d66d64caad546dbe0db1065ada235803312fcc37
   branch: prose-that-reads-like-a-scene
   entrypoint: uv run python -m utils.scripts.research.run_conversation_scaling --mode conversation --turns
     5 --max-turns 5 --suggestions 0 --context-beats 100 --experiment docs/research/experiments/EXP-2026-08-006-turn-latency-overhaul
@@ -46,7 +46,7 @@ environment:
   container: null
 compute:
   hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
-  wall_clock_hours: 0.2135
+  wall_clock_hours: 0.157
   estimated_cost_usd: 0.0
 llm:
   model: relay/skynet
