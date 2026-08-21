@@ -574,6 +574,7 @@ def create_scenario(db: Session, storyline_id: str, data: ScenarioCreate) -> Sce
         max_turns=data.max_turns,
         suggestions_count=data.suggestions_count,
         context_beats=data.context_beats,
+        beat_length=data.beat_length,
         prompt_overrides=dict(data.prompt_overrides or {}),
         position=_next_position(db, Scenario, storyline_id),
         image=data.image,

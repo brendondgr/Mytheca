@@ -27,6 +27,7 @@ from app.core.config import get_settings
 from app.memory import buffer, interior
 from app.models import Character, ContextDocument, Scenario, Setting
 from app.models.stat import StatDefinition
+from app.schemas.base import BEAT_LENGTHS, DEFAULT_BEAT_LENGTH, BeatLength
 from app.services import (
     crud,
     graph_reader,
@@ -132,6 +133,11 @@ class TurnContext:
     # Depth of the recent-transcript window the character conditions on — the per-scene
     # ``context_beats`` (5–100), clamped by ``assemble_context``. Defaults to the legacy 14.
     context_beats: int = 14
+    # How much a CHARACTER says in one beat — the per-scene ``beat_length``, normalised
+    # by ``assemble_context`` so an unknown or empty value resolves to ``medium`` here
+    # rather than at the prompt builder. A directly-constructed context (tests, puppet
+    # beats) gets the default, which is what shipped before the control existed.
+    beat_length: BeatLength = DEFAULT_BEAT_LENGTH
     # Resolved writing-agent system prompts ({registry key -> text}), folded
     # default → global → storyline → scenario by ``prompt_registry.resolve_prompts``. Each
     # writing agent reads its prompt from here, falling back to its registry default when a
@@ -168,6 +174,15 @@ def assemble_context(
     # a byte-stable prefix from turn to turn and the model's prompt cache survives. See
     # ``buffer.anchored_turns``.
     context_beats = max(5, min(int(scenario.context_beats or 14), 100))
+    # Normalised HERE, not at the prompt: the schema rejects an unknown tier on the way
+    # in, but a legacy row, a hand-edited database or a fixture built straight from the
+    # model can still carry one, and a beat that silently ignores the setting is the
+    # failure the owner would see.
+    beat_length = (
+        scenario.beat_length
+        if scenario.beat_length in BEAT_LENGTHS
+        else DEFAULT_BEAT_LENGTH
+    )
     recent_beats = buffer.anchored_turns(
         session_id, context_beats, get_settings().turn_transcript_anchor_block
     )
@@ -204,6 +219,7 @@ def assemble_context(
         tagged_notes=tagged_notes,
         tagged_names=tagged_names,
         context_beats=context_beats,
+        beat_length=beat_length,
         prompts=prompts,
     )
 

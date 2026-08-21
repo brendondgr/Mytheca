@@ -996,6 +996,29 @@ it), stated as the condition the character is already in with explicit license t
 habitual manner because of it. Reflection effort stays **LOW**: `dispatch_reflection` runs inline by
 default and a crowd reflects universally, so a higher budget would land on the turn tail.
 
+**How much the character says** is the per-scene **`beat_length`**, set from the scene config
+menu and carried on `TurnContext`: `short` 1–2 paragraphs, `medium` 2–4 (the default, and the
+closest match to the behaviour before the control existed), `long` 5–6 — each paragraph at
+most 3–4 sentences, with quoted dialogue explicitly **not** counting toward that, so the
+instruction never trades a spoken line against description. It rides in the recency **TAIL**
+beside the register, never in the stable head, because it is per-scenario and a per-scenario
+value in the head would change the byte-stable prefix the prompt cache matches on. Narration
+is untouched: it has its own sentence spec, and the control is about what a *character* says.
+
+The count is stated in **paragraphs and never in words**, which is a measured choice rather
+than a stylistic one. EXP-2026-08-007 recorded a countable "usually 80–200 words" target
+moving the average passage *up* — a model cannot count words while writing, so a numeric
+target reads as a description of a register and it obliges. Paragraphs name an axis the model
+is already controlling deliberately (`paragraph_breaks` 3.89 ± 1.29 in EXP-2026-08-009).
+Behind the directive sits a per-tier prose allowance (`_PROSE_TOKENS_BY_LENGTH`: 700 / 1400 /
+2048 tokens) and a matching runaway stop, both about four times what their tier could honestly
+need — a **backstop**, not the mechanism, because a token cap shapes prose by cutting it off
+mid-sentence. The allowance is added **on top of** the thinking budget, never shared with it;
+`long` keeps the 2,048 that shipped before the control existed. The output contract no longer
+names a paragraph count of its own — it owns the *form* (blank lines between paragraphs, never
+one block), the tail owns the *amount* — because two counts disagreeing inside one prompt is
+how a setting comes to look as though it does nothing.
+
 The authored `Setting.atmosphere` is **not** a live mood signal — it is written once at world
 creation and never rewritten during play, so the prompt presents it as the description of the place
 and never as "the scene right now". The

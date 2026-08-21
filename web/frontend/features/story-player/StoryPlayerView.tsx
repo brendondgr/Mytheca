@@ -260,6 +260,8 @@ export function StoryPlayerView({
             suggestionsCount={scene.suggestionsCount}
             onSuggestionsCountChange={scene.setSuggestionsCount}
             contextBeats={scene.contextBeats}
+            beatLength={scene.beatLength}
+            onBeatLengthChange={scene.setBeatLength}
             onContextBeatsChange={scene.setContextBeats}
             beatTexts={beatTexts}
             guidance={scene.guidance}

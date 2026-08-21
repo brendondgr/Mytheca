@@ -148,8 +148,15 @@ describe("ToastProvider / Toast", () => {
     } finally {
       vi.useRealTimers();
     }
-    await waitFor(() =>
-      expect(screen.queryByRole("status")).not.toBeInTheDocument(),
+    // The dismissal was already triggered above, under FAKE timers; what is being waited
+    // for here is the exit animation finishing under REAL ones. `waitFor`'s default 1s
+    // budget is generous on an idle machine and not on a busy one — this failed on a full
+    // 850-test run while pytest held the CPU, and passed 3/3 in isolation and 850/850 at
+    // `--maxWorkers=4`. The budget is the flaky part, not the assertion, so only the budget
+    // moves. See docs/checklist.md § load-flaky frontend tests.
+    await waitFor(
+      () => expect(screen.queryByRole("status")).not.toBeInTheDocument(),
+      { timeout: 5000 },
     );
   });
 });

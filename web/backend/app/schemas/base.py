@@ -8,7 +8,7 @@ also accepts snake_case input; ``from_attributes`` lets schemas read ORM objects
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
@@ -33,6 +33,22 @@ BranchTag = Literal[
     "narration",
     "character_action",
 ]
+
+# How much a CHARACTER says in one beat, set per scenario from the scene config menu.
+# Short 1–2 paragraphs, medium 2–4 (the default, and the closest match to what shipped
+# before this control existed), long 5–6 — each paragraph at most 3–4 sentences, not
+# counting quoted dialogue. It shapes the character prompt's recency TAIL and the per-tier
+# prose allowance. Narration is untouched: it has its own sentence spec and the owner's
+# request was about what a character says.
+BeatLength = Literal["short", "medium", "long"]
+#: The same three values at runtime, for code that has to *check* a tier rather than
+#: annotate one (``assembler`` normalising a legacy row, the prompt builder's lookup).
+#: Derived from the ``Literal`` with ``get_args`` rather than retyped, so the two cannot
+#: drift apart and a fourth tier only has to be added in one place.
+BEAT_LENGTHS: tuple[str, ...] = get_args(BeatLength)
+#: What an unknown, empty or legacy value resolves to — and the closest match to what
+#: shipped before this control existed.
+DEFAULT_BEAT_LENGTH = "medium"
 
 # The live story-event types carried on the NDJSON stream (see app/events).
 # ``internal_thought`` defaults to ``visibility: hidden``, but the turn engine emits it

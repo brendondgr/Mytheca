@@ -87,16 +87,32 @@ def test_the_runaway_stop_is_far_beyond_any_honest_passage():
     relay's health probe then timed out against the busy upstream, marked the endpoint
     failed, and the next three turns came back 400. Only length sees that failure.
 
-    With the sampler fixed (EXP-2026-08-007) a passage averages 674 characters and the
-    longest of thirty was 1,923, so the stop sits roughly six times past the worst honest
-    case: a backstop, not a leash.
+    Each tier is judged against ITS OWN target, not against a global worst case. A `short`
+    beat asks for 1–2 paragraphs, so the 1,923-character worst case measured with no length
+    instruction at all is the wrong yardstick for it — the right one is "comfortably more
+    than this tier could honestly need", because the cost of getting it wrong is a passage
+    cut off mid-sentence.
+
+    A paragraph runs about 340 characters in practice (EXP-2026-08-008: 780 chars over 2.28
+    paragraphs; EXP-2026-08-009: 1,292 over 3.89 — both ≈ 340).
     """
-    from app.services.turn_engine import _DEGENERATE_AFTER_CHARS, _RUNAWAY_CHARS
-
-    assert _RUNAWAY_CHARS >= 4 * 1923
-    assert _RUNAWAY_CHARS > _DEGENERATE_AFTER_CHARS
-    # Derived from the passage allowance rather than chosen independently, so a change to
-    # one cannot silently leave the other behind.
     from app.agents import character_turn_agent
+    from app.services.turn_engine import _CHARS_PER_TOKEN, _DEGENERATE_AFTER_CHARS, _runaway_chars
 
-    assert _RUNAWAY_CHARS == (character_turn_agent._VOICE_PROSE_TOKENS or 2048) * 4
+    chars_per_paragraph = 340
+    target_paragraphs = {"short": 2, "medium": 4, "long": 6}
+    for tier, paragraphs in target_paragraphs.items():
+        stop = _runaway_chars(tier)
+        honest = paragraphs * chars_per_paragraph
+        assert stop >= 3 * honest, f"{tier}: {stop} would cut an honest beat short"
+        assert stop > _DEGENERATE_AFTER_CHARS, tier
+        # Derived from that tier's passage allowance rather than chosen independently, so a
+        # change to one cannot silently leave the other behind.
+        assert stop == character_turn_agent.prose_tokens_for(tier) * _CHARS_PER_TOKEN, tier
+
+    # The tiers are ordered, and `long` keeps exactly the bound that shipped before the
+    # control existed — nothing about the longest tier changes.
+    assert _runaway_chars("short") < _runaway_chars("medium") < _runaway_chars("long")
+    assert _runaway_chars("long") == (character_turn_agent._VOICE_PROSE_TOKENS or 2048) * 4
+    # An unknown tier is not unbounded: it falls back to the module default.
+    assert _runaway_chars(None) == _runaway_chars("long")

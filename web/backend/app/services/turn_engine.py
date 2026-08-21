@@ -102,8 +102,17 @@ _DEGENERATE_AFTER_CHARS = 2000
 #: with the sampler fixed (EXP-2026-08-007) a passage averages 674 characters with a measured
 #: worst case of 1,923 — so the stop sits about four times past the worst honest beat and
 #: will not be reached by writing.
+#: Per ``beat_length`` tier, because the allowance is: a `short` beat that ignores its
+#: directive must not be allowed to stream a `long` one's worth of prose. Derived from
+#: ``character_turn_agent.prose_tokens_for`` rather than chosen here — two independently
+#: picked limits for the same thing is how one of them ends up wrong.
 _CHARS_PER_TOKEN = 4
-_RUNAWAY_CHARS = (character_turn_agent._VOICE_PROSE_TOKENS or 2048) * _CHARS_PER_TOKEN
+
+
+def _runaway_chars(beat_length: str | None) -> int:
+    """The hard stop for this beat, in characters."""
+    tokens = character_turn_agent.prose_tokens_for(beat_length) or 2048
+    return tokens * _CHARS_PER_TOKEN
 
 
 class _Emitter:
@@ -1399,6 +1408,9 @@ def _stream_emission(
     held_text = ""
     gate_open = False
     scratchpad = False
+    # Sized to THIS scene's beat length, so a `short` beat that ignores its directive is
+    # stopped at a short beat's ceiling rather than a long one's.
+    runaway_chars = _runaway_chars(getattr(ctx, "beat_length", None))
 
     def _pass(seg: emission.SegmentDelta) -> Generator[Any, None, int]:
         """Emit one parsed delta, holding the passage's opening until it has been judged."""
@@ -1471,7 +1483,7 @@ def _stream_emission(
                 break
             # The hard stop comes first: it is the one that protects the endpoint, and it
             # must not depend on a quality judgement that a well-formed runaway passes.
-            if written > _RUNAWAY_CHARS:
+            if written > runaway_chars:
                 degenerate = True
                 stream.close()
                 break

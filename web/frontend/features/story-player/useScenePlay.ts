@@ -15,7 +15,7 @@ import {
 } from "@/lib/api";
 import { estimateUsedTokens } from "@/lib/contextBudget";
 import type { MomentStreamFrame, PresenceStatus, TurnStreamFrame } from "@/lib/events";
-import type { ResolvedScenario } from "@/lib/types";
+import type { BeatLength, ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
 import { stripMentions, type MentionOption } from "@/features/story-player/mentions";
 import { useToast } from "@/components/layout/ToastProvider";
@@ -119,6 +119,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     scenario.suggestionsCount ?? 4,
   );
   const [contextBeats, setContextBeatsState] = useState<number>(scenario.contextBeats ?? 14);
+  const [beatLength, setBeatLengthState] = useState<BeatLength>(
+    scenario.beatLength ?? "medium",
+  );
   // Player POV: the id of the character the player is speaking AS (null = the default
   // guide/narrator behavior). Drives the "Speaking as" composer select, the optimistic
   // bubble's identity, and the `povCharacterId` sent on the next turn.
@@ -510,6 +513,13 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     },
     [scenario.id],
   );
+  const setBeatLength = useCallback(
+    (value: BeatLength) => {
+      setBeatLengthState(value);
+      void updateScenario(scenario.id, { beatLength: value }).catch(() => {});
+    },
+    [scenario.id],
+  );
 
   const send = useCallback(() => {
     if (sending) return;
@@ -558,6 +568,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     suggestionsCount,
     setSuggestionsCount,
     contextBeats,
+    beatLength,
+    setBeatLength,
     setContextBeats,
     pov,
     setPov: choosePov,

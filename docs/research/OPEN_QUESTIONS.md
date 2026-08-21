@@ -218,3 +218,24 @@ Appended as each `RESULTS.md` §7 is written.
       `intent_agent`.** They were left alone because their outputs are structure, not prose —
       but `director_agent` writes branch labels the player reads, so that is untested rather
       than safe.
+
+### From EXP-2026-08-010 (`complete` — Short/Medium/Long beat length)
+
+- [ ] **Find out why the opening gate released a passage that both `starts_mid_sentence` and
+      `names_the_player` flag as bad.** A 2,802-character scratchpad leak was persisted and
+      rendered in the `short` arm; the trace records only the runaway stop. Run against the
+      guards directly, that text returns `True` from both — so the beat should have been
+      discarded and regenerated. The gate judges a passage's *opening* and then releases it,
+      and `written` counts the raw stream independently, so a leak arriving after release is
+      invisible. **Highest-value item here, and nothing to do with beat length.**
+      → `experiments/EXP-2026-08-010-beat-length/RESULTS.md` §6
+- [ ] **Decide whether `short` should be relabelled "2–3 ¶".** It never produced a
+      one-paragraph beat in 20 tries; its floor is 2. The dropdown promises 1–2.
+- [ ] **Document or reconcile the `maxTurns` × `beat_length` interaction.** `maxTurns` caps
+      emitted beats, so turning length up quietly turns the number of speakers per turn down
+      (20 / 17 / 15 character beats across the arms). Two independent controls that are not
+      independent.
+- [ ] **Check `beat_length` against `register`.** A `grave` beat is told to be "shorter,
+      sharper" while `long` asks for five or six paragraphs; the two directives sit in the
+      same TAIL and have never been checked against each other.
+- [ ] **Re-run the tiers on a second model.** Everything is `gemma4-26B-mtp`.

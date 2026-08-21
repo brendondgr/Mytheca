@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field, field_validator
 
-from app.schemas.base import BranchTag, CamelModel
+from app.schemas.base import BeatLength, BranchTag, CamelModel
 
 
 class Branch(CamelModel):
@@ -25,10 +25,15 @@ class ScenarioBase(CamelModel):
     branches: list[Branch] = Field(default_factory=list)
     # Per-scene play controls: ``max_turns`` caps character replies per player message
     # (≥1); ``suggestions_count`` is how many follow-up suggestions to offer (0–4);
-    # ``context_beats`` is the recent-transcript depth the character conditions on (5–100).
+    # ``context_beats`` is the recent-transcript depth the character conditions on (5–100);
+    # ``beat_length`` is how much a CHARACTER says in one beat (short 1–2 paragraphs,
+    # medium 2–4, long 5–6). A ``Literal`` rather than a plain str so an unknown tier is a
+    # 422 here rather than a silently-ignored value reaching the prompt builder — the same
+    # reason ``context_beats`` is clamped at this boundary rather than downstream.
     max_turns: int = Field(default=5, ge=1)
     suggestions_count: int = Field(default=4, ge=0, le=4)
     context_beats: int = Field(default=14, ge=5, le=100)
+    beat_length: BeatLength = "medium"
     # Per-scenario writing-prompt overrides ({registry key -> prompt text}) — override the
     # storyline's prompts for this scene only.
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
@@ -54,6 +59,7 @@ class ScenarioUpdate(CamelModel):
     max_turns: int | None = Field(default=None, ge=1)
     suggestions_count: int | None = Field(default=None, ge=0, le=4)
     context_beats: int | None = Field(default=None, ge=5, le=100)
+    beat_length: BeatLength | None = None
     prompt_overrides: dict[str, str] | None = None
     image: str | None = None
     scene_art_positive: str | None = None
@@ -73,6 +79,7 @@ class ScenarioRead(CamelModel):
     max_turns: int = 5
     suggestions_count: int = 4
     context_beats: int = 14
+    beat_length: BeatLength = "medium"
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
     image: str | None = None
     scene_art_positive: str | None = None

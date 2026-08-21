@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from app.agents import prompt_registry
 from app.agents._common import gen_params, resolve_llm
 from app.core.config import get_settings
+from app.schemas.base import DEFAULT_BEAT_LENGTH
 from app.schemas.reasoning import ReasoningEffort, budget_for
 from app.schemas.settings import LlmParams
 from app.services import llm
@@ -128,6 +129,43 @@ _REGISTER_DIRECTIVES = {
     ),
 }
 
+# How much this character says in one beat — the per-scene ``beat_length``, set from the
+# scene config menu. Stated as a PARAGRAPH count, deliberately, and never as a word count.
+#
+# A countable word target has already been tried on this codebase and failed: a "usually
+# 80–200 words" instruction moved the average passage *up* rather than down
+# (EXP-2026-08-007 § Secondary finding). A model cannot count words while writing, so a
+# numeric target reads to it as a description of the register — long, careful prose — and it
+# obliges. Paragraphs are different in kind: the model is already producing them
+# deliberately and reliably (3.89 ± 1.29 measured in EXP-2026-08-009), so a paragraph count
+# asks it to control an axis it already controls.
+#
+# Quoted dialogue is exempted from the per-paragraph sentence guidance in so many words. A
+# spoken line is not a sentence of description, and charging it as one would make the
+# instruction trade away the very thing the prose fix was for.
+#
+# The tiers are the owner's, verbatim. Note that ``long`` is LONGER than what shipped before
+# this control existed; ``medium`` is the default and the closest match to it.
+_BEAT_LENGTH_DIRECTIVES = {
+    "short": (
+        "LENGTH: keep this beat SHORT — one or two paragraphs, no more. Say the one thing "
+        "that matters and stop; leave the rest for your next turn."
+    ),
+    "medium": (
+        "LENGTH: two to four paragraphs for this beat."
+    ),
+    "long": (
+        "LENGTH: give this beat room — five or six paragraphs. Let it breathe: what you "
+        "notice, what you do, what you say, and what it costs you."
+    ),
+}
+#: Appended to whichever directive applies. Split out because it is the same rule at every
+#: tier and repeating it three times invites the three copies to drift.
+_BEAT_LENGTH_SHAPE = (
+    " Keep each paragraph to three or four sentences at most — lines of spoken dialogue do "
+    "not count toward that."
+)
+
 # Default output contract text now lives in ``prompt_registry`` (single source of truth
 # for editable writing prompts); resolved per-turn text rides on ``ctx.prompts``.
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
@@ -155,6 +193,26 @@ _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONT
 #: endpoint.
 _VOICE_PROSE_TOKENS: int | None = 2048
 
+#: The same allowance, per ``beat_length`` tier — a BACKSTOP behind the prompt directive,
+#: not the mechanism. The directive in the recency TAIL is what shapes a beat; this is what
+#: stops a tier the directive fails to bind from producing its neighbour's output.
+#:
+#: Sized at roughly **three times** what each tier actually needs, on the same reasoning as
+#: the value above: a paragraph of four sentences runs about 400–500 characters ≈ 120
+#: tokens, so `short` needs ~240, `medium` ~480 and `long` ~720. Anything tighter would make
+#: the cap the thing shaping the prose, and a token cap shapes prose by cutting it off
+#: mid-sentence — a worse artifact than a beat that runs one paragraph over. `long` keeps the
+#: measured 2,048 exactly, so nothing about the longest tier changes from what shipped.
+#:
+#: Note this bounds the PROSE half only. ``_voice_params`` adds the thinking budget on top;
+#: shrinking the combined total is what starved a live beat into returning reasoning and no
+#: prose, and that structure is deliberately preserved here.
+_PROSE_TOKENS_BY_LENGTH: dict[str, int] = {
+    "short": 700,
+    "medium": 1400,
+    "long": 2048,
+}
+
 #: How much of the thinking budget to actually pay for. ``thinking_token_budget`` is a hint
 #: on this endpoint, not a hard stop, so a deliberation can run past it and eat the room the
 #: passage needs — which is how a beat in the live verification run came back as reasoning
@@ -163,10 +221,22 @@ _VOICE_PROSE_TOKENS: int | None = 2048
 _SCRATCHPAD_HEADROOM = 2
 
 
+def prose_tokens_for(beat_length: str | None) -> int | None:
+    """The prose allowance for a tier, or ``None`` when the bound is switched off entirely.
+
+    Public because ``turn_engine`` derives its streaming runaway stop from the same number —
+    two independently-chosen limits for the same thing is how one of them ends up wrong.
+    """
+    if not _VOICE_PROSE_TOKENS:
+        return None
+    return _PROSE_TOKENS_BY_LENGTH.get(beat_length or "", _VOICE_PROSE_TOKENS)
+
+
 def _voice_params(
     params: LlmParams,
     register: str | None = None,
     reasoning: ReasoningEffort = TURN_EFFORT,
+    beat_length: str | None = None,
 ) -> LlmParams:
     """Bound the beat generously and apply the voice-tuned sampler fields.
 
@@ -201,9 +271,10 @@ def _voice_params(
             "presence_penalty": presence,
         }
     )
-    if not _VOICE_PROSE_TOKENS:
+    prose = prose_tokens_for(beat_length)
+    if not prose:
         return tuned
-    budget = budget_for(reasoning) * _SCRATCHPAD_HEADROOM + _VOICE_PROSE_TOKENS
+    budget = budget_for(reasoning) * _SCRATCHPAD_HEADROOM + prose
     return tuned.model_copy(update={"max_tokens": min(tuned.max_tokens, budget)})
 
 
@@ -286,7 +357,9 @@ def generate_line_with_usage(
         api_key,
         model,
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        _voice_params(params, register, reasoning),
+        _voice_params(
+            params, register, reasoning, getattr(ctx, "beat_length", DEFAULT_BEAT_LENGTH)
+        ),
         reasoning=reasoning,
     )
 
@@ -339,7 +412,9 @@ def stream_line(
             api_key,
             model,
             [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            _voice_params(params, register, reasoning),
+            _voice_params(
+                params, register, reasoning, getattr(ctx, "beat_length", DEFAULT_BEAT_LENGTH)
+            ),
             reasoning=reasoning,
             usage_out=usage_out,
         )
@@ -500,6 +575,17 @@ def _build_user_prompt(
             "let it shape how you come across. Drop your usual manner if the moment calls for it "
             "(grief, fear, urgency, tenderness); don't answer on autopilot."
         )
+    # How much to say. In the TAIL, not the STABLE head: it is per-scenario, and a
+    # per-scenario value in the head would break the byte-stable prompt-cache prefix
+    # (`test_prompt_cache_prefix.py`). Placed after the register directive — which shapes
+    # *how* the beat sounds — because length is a property of the delivery, not of the
+    # moment, and before the owed-requirements block, which has to stay last.
+    tail.append(
+        _BEAT_LENGTH_DIRECTIVES.get(
+            getattr(ctx, "beat_length", DEFAULT_BEAT_LENGTH), _BEAT_LENGTH_DIRECTIVES["medium"]
+        )
+        + _BEAT_LENGTH_SHAPE
+    )
     if ctx.directed_at == speaker.id:
         tail.append("The player addressed you directly.")
     if speaker.disposition:

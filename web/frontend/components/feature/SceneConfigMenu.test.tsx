@@ -12,6 +12,8 @@ function setup(overrides = {}) {
     onSuggestionsCountChange: vi.fn(),
     contextBeats: 14,
     onContextBeatsChange: vi.fn(),
+    beatLength: "medium" as const,
+    onBeatLengthChange: vi.fn(),
     ...overrides,
   };
   render(<SceneConfigMenu {...props} />);
@@ -31,6 +33,7 @@ describe("SceneConfigMenu", () => {
     expect(screen.getByRole("combobox", { name: /max turns/i })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /suggestions/i })).toBeInTheDocument();
     expect(screen.getByRole("slider", { name: /number of beats/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /beat length/i })).toBeInTheDocument();
   });
 
   it("fires the change handlers for turns, suggestions, and beats", async () => {
@@ -91,5 +94,44 @@ describe("SceneConfigMenu", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("SceneConfigMenu / beat length", () => {
+  it("offers the three tiers, showing the paragraph counts that are the contract", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+
+    const select = screen.getByRole("combobox", { name: /beat length/i });
+    expect(select).toHaveValue("medium");
+    // The counts are shown because they ARE the setting — "Short" alone tells the reader
+    // nothing about what they are choosing.
+    expect(screen.getByRole("option", { name: /short/i })).toHaveTextContent("1–2");
+    expect(screen.getByRole("option", { name: /medium/i })).toHaveTextContent("2–4");
+    expect(screen.getByRole("option", { name: /long/i })).toHaveTextContent("5–6");
+  });
+
+  it("fires the change handler with the tier, not with NaN", async () => {
+    const user = userEvent.setup();
+    const props = setup();
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+
+    await user.selectOptions(screen.getByRole("combobox", { name: /beat length/i }), "long");
+    expect(props.onBeatLengthChange).toHaveBeenCalledWith("long");
+  });
+
+  it("defaults to medium when the scenario has never set one", async () => {
+    const user = userEvent.setup();
+    render(<SceneConfigMenu onBeatLengthChange={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    expect(screen.getByRole("combobox", { name: /beat length/i })).toHaveValue("medium");
+  });
+
+  it("is disabled when no handler is supplied, like its neighbours", async () => {
+    const user = userEvent.setup();
+    render(<SceneConfigMenu />);
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    expect(screen.getByRole("combobox", { name: /beat length/i })).toBeDisabled();
   });
 });

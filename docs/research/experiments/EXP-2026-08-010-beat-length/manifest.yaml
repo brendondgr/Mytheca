@@ -1,0 +1,163 @@
+id: EXP-2026-08-010
+slug: beat-length
+title: Short/Medium/Long beat length — a paragraph count binds where a word count did not
+status: complete
+date_started: 2026-08-21
+date_completed: 2026-08-21
+authors:
+- brendondgr
+purpose: >
+  `beat_length` is a new per-scenario control over how much a character says in one beat
+  (short 1-2 paragraphs, medium 2-4, long 5-6), implemented as a paragraph count in the
+  character prompt's recency TAIL with a per-tier token allowance behind it. This asks
+  whether the three tiers actually separate, and whether the control costs anything in the
+  prose form EXP-2026-08-009 showed was working. It matters beyond the feature because a
+  countable length target has already failed on this codebase (EXP-2026-08-007: a
+  "usually 80-200 words" instruction moved the average UP).
+hypothesis: >
+  Stated before the run, outcome genuinely unknown. Paragraphs per beat separates in order
+  short < medium < long, with short at or below 2 and long at or above 5; chars follows the
+  same ordering; no form metric regresses at any tier; discards stay in single figures. The
+  bet is that a paragraph count binds where a word count did not, because it names an axis
+  the model already controls deliberately.
+code:
+  commit: 4c9c440ee853eac1f6c4f565b9530e8099ff3d3d
+  branch: beat-length-control
+  entrypoint: uv run python -m utils.scripts.research.run_beat_length --experiment docs/research/experiments/EXP-2026-08-010-beat-length
+    --turns 6
+  dirty: true
+config:
+  path: null              # the entrypoint is fully self-describing
+  hash: null
+data:
+  name: one throwaway world; three scenarios differing ONLY in beat_length
+  version: run_beat_length.build_world @ this commit
+  split: n/a — three live sessions, not a dataset
+  n_examples: 18           # 6 scripted turns x 3 arms; n for the metrics is BEATS
+  dvc_path: null
+  hash: null
+seeds: []
+n_runs: 52
+environment:
+  python: '3.13'
+  lockfile: env/requirements.lock
+  container: null
+compute:
+  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
+  wall_clock_hours: 1.1477
+  estimated_cost_usd: 0.0
+llm:
+  model: relay/skynet -> gemma4-26B-mtp
+  temperature: 0.8         # shipped in-voice value; not overridden
+  top_p: 0.92              # register-dependent (0.85 grave .. 0.95 light)
+  max_tokens: 4096         # per-tier: budget_for(HIGH)*2 + 700/1400/2048  #
+  prompt_files:
+  - web/backend/app/agents/character_turn_agent.py
+  - web/backend/app/agents/prompt_registry.py
+  prompt_hash: sha256:372af224919e2519dcb522e0769b32df2f372aea2b3b673f539dea27b404b64a
+  tool_schema_hash: null
+  total_input_tokens: 0
+  total_output_tokens: 0
+  nondeterminism_note: 'Provider-side nondeterminism remains even at temperature 0; results are reported
+    as mean ± std over n_runs.
+
+    '
+metrics:
+  primary: short.paragraph_breaks
+  values:
+    short.sentences_per_100_words:
+      mean: 7.18565
+      n: 20
+      std: 2.137586
+    short.has_speech:
+      mean: 1.0
+      n: 20
+      std: 0.0
+    short.paragraph_breaks:
+      mean: 1.6
+      n: 20
+      std: 1.74356
+    short.is_scratchpad:
+      mean: 0.0
+      n: 20
+      std: 0.0
+    short.starts_mid_sentence:
+      mean: 0.0
+      n: 20
+      std: 0.0
+    short.names_the_player:
+      mean: 0.0
+      n: 20
+      std: 0.0
+    short.chars:
+      mean: 611.5
+      n: 20
+      std: 510.529088
+    medium.sentences_per_100_words:
+      mean: 5.391765
+      n: 17
+      std: 1.091316
+    medium.has_speech:
+      mean: 1.0
+      n: 17
+      std: 0.0
+    medium.paragraph_breaks:
+      mean: 2.588235
+      n: 17
+      std: 0.492153
+    medium.is_scratchpad:
+      mean: 0.0
+      n: 17
+      std: 0.0
+    medium.starts_mid_sentence:
+      mean: 0.0
+      n: 17
+      std: 0.0
+    medium.names_the_player:
+      mean: 0.0
+      n: 17
+      std: 0.0
+    medium.chars:
+      mean: 993.823529
+      n: 17
+      std: 187.445438
+    long.sentences_per_100_words:
+      mean: 5.938667
+      n: 15
+      std: 0.905761
+    long.has_speech:
+      mean: 1.0
+      n: 15
+      std: 0.0
+    long.paragraph_breaks:
+      mean: 4.933333
+      n: 15
+      std: 0.249444
+    long.is_scratchpad:
+      mean: 0.0
+      n: 15
+      std: 0.0
+    long.starts_mid_sentence:
+      mean: 0.0
+      n: 15
+      std: 0.0
+    long.names_the_player:
+      mean: 0.0
+      n: 15
+      std: 0.0
+    long.chars:
+      mean: 1578.733333
+      n: 15
+      std: 233.88814
+baselines_compared:
+- EXP-2026-08-009
+statistical_test: null
+supports_claims: []
+figures:
+- beat_length
+supersedes: null
+superseded_by: null
+related:
+- EXP-2026-08-009
+- EXP-2026-08-008
+- EXP-2026-08-007

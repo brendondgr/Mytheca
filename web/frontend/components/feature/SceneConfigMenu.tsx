@@ -4,12 +4,19 @@ import { useEffect, useId, useRef, useState } from "react";
 import { SceneControlSelect } from "@/components/ui/SceneControlSelect";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { beatsTokensFromTexts, estimateBeatsTokens } from "@/lib/contextBudget";
+import { BEAT_LENGTHS, BEAT_LENGTH_LABELS, type BeatLength } from "@/lib/types";
 
 const MAX_TURN_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const SUGGESTION_OPTIONS = [0, 1, 2, 3, 4];
 // The context-window depth (beats the character conditions on) ranges 5–100.
 const BEATS_MIN = 5;
 const BEATS_MAX = 100;
+// Value + rendered text, built from the contract in lib/types so the tiers cannot drift
+// from the backend `Literal` they mirror.
+const BEAT_LENGTH_OPTIONS = BEAT_LENGTHS.map((value) => ({
+  value,
+  label: BEAT_LENGTH_LABELS[value],
+}));
 
 function GearIcon() {
   return (
@@ -32,7 +39,7 @@ function GearIcon() {
 
 /**
  * The scene's play-configuration popover — the per-scene controls (Max turns, Suggestions,
- * and the context-window depth "Number of beats", 5–100). Now anchored in the composer's
+ * Beat length, and the context-window depth "Number of beats", 5–100). Now anchored in the composer's
  * bottom-left controls row (`openUp` flips the popover above the button); when `beatTexts`
  * (the real transcript beats) is passed, the beats readout reflects the ACTUAL recent
  * content rather than a flat average. Native controls + Esc/outside-click close.
@@ -44,6 +51,8 @@ export function SceneConfigMenu({
   onSuggestionsCountChange,
   contextBeats = 14,
   onContextBeatsChange,
+  beatLength = "medium",
+  onBeatLengthChange,
   beatTexts,
   openUp = false,
   disabled = false,
@@ -54,6 +63,9 @@ export function SceneConfigMenu({
   onSuggestionsCountChange?: (value: number) => void;
   contextBeats?: number;
   onContextBeatsChange?: (value: number) => void;
+  /** How much a character says in one beat — short 1–2 ¶, medium 2–4 ¶, long 5–6 ¶. */
+  beatLength?: BeatLength;
+  onBeatLengthChange?: (value: BeatLength) => void;
   /** The real transcript beats (one string each) — makes the readout content-real. */
   beatTexts?: string[];
   /** Open the popover upward (for the bottom-of-screen composer). */
@@ -135,6 +147,15 @@ export function SceneConfigMenu({
             options={SUGGESTION_OPTIONS}
             onChange={(v) => onSuggestionsCountChange?.(v)}
             disabled={disabled || !onSuggestionsCountChange}
+            className="w-full [&_select]:w-full"
+          />
+
+          <SceneControlSelect
+            label="Beat length"
+            value={beatLength}
+            options={BEAT_LENGTH_OPTIONS}
+            onChange={(v) => onBeatLengthChange?.(v)}
+            disabled={disabled || !onBeatLengthChange}
             className="w-full [&_select]:w-full"
           />
 

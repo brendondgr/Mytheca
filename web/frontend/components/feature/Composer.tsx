@@ -10,6 +10,7 @@ import {
   stripMentions,
   type MentionOption,
 } from "@/features/story-player/mentions";
+import type { BeatLength } from "@/lib/types";
 
 /** Maximum visible height of the textarea before it becomes scrollable (~10 lines). */
 const MAX_HEIGHT = 240;
@@ -52,6 +53,8 @@ export function Composer({
   suggestionsCount,
   onSuggestionsCountChange,
   contextBeats,
+  beatLength,
+  onBeatLengthChange,
   onContextBeatsChange,
   beatTexts,
   // Player POV (rendered to the right of Config when a handler is supplied).
@@ -88,6 +91,8 @@ export function Composer({
   suggestionsCount?: number;
   onSuggestionsCountChange?: (value: number) => void;
   contextBeats?: number;
+  beatLength?: BeatLength;
+  onBeatLengthChange?: (value: BeatLength) => void;
   onContextBeatsChange?: (value: number) => void;
   /** Real transcript beats (one string each) — feeds the config's content-real readout. */
   beatTexts?: string[];
@@ -116,7 +121,7 @@ export function Composer({
   const guidanceRef = useRef<HTMLTextAreaElement>(null);
 
   const hasConfig = Boolean(
-    onMaxTurnsChange ?? onSuggestionsCountChange ?? onContextBeatsChange,
+    onMaxTurnsChange ?? onSuggestionsCountChange ?? onContextBeatsChange ?? onBeatLengthChange,
   );
   // The direction box belongs to POV mode only — in narrator mode the message box below
   // already carries the direction.
@@ -398,6 +403,8 @@ export function Composer({
               suggestionsCount={suggestionsCount}
               onSuggestionsCountChange={onSuggestionsCountChange}
               contextBeats={contextBeats}
+              beatLength={beatLength}
+              onBeatLengthChange={onBeatLengthChange}
               onContextBeatsChange={onContextBeatsChange}
               beatTexts={beatTexts}
               openUp

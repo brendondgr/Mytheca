@@ -205,6 +205,16 @@ describe("StoryPlayerView", () => {
       embergate.id,
       expect.objectContaining({ contextBeats: 40 }),
     );
+
+    // ...and the beat-length tier, which is the whole point of the control: without the
+    // PATCH the dropdown moves and the next turn is written at the old length.
+    fireEvent.change(screen.getByRole("combobox", { name: /beat length/i }), {
+      target: { value: "short" },
+    });
+    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(
+      embergate.id,
+      expect.objectContaining({ beatLength: "short" }),
+    );
   });
 
   it("lays four follow-up suggestions out in a 2×2 grid", async () => {
