@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base, JSONColumn
@@ -50,7 +50,15 @@ class Scenario(Base):
     # character prompt's recency TAIL and the per-tier prose allowance; it does NOT touch
     # narration, which has its own sentence spec. A string rather than a number because it
     # is an enum the UI names, not a quantity anything does arithmetic on.
-    beat_length: Mapped[str] = mapped_column(String, default="medium", server_default="medium")
+    # ``text("'medium'")``, not a bare "medium": a bare string is emitted verbatim into the
+    # DDL, and `DEFAULT medium` is a COLUMN REFERENCE to Postgres, which refuses it. The
+    # integer columns above get away with a bare string because `14` is already a valid
+    # literal. SQLite accepts either, so the whole test suite passes while the backend
+    # fails to boot on the real database — the additive reconciler runs this DDL at
+    # preflight, so it is the first thing that breaks.
+    beat_length: Mapped[str] = mapped_column(
+        String, default="medium", server_default=text("'medium'")
+    )
     # Per-scenario writing-prompt overrides ({registry key -> prompt text}) — override the
     # storyline's prompts for THIS scene only. Empty {} inherits storyline/global/default.
     # Nullable (older rows read as {}); resolved by ``prompt_registry.resolve_prompts``.

@@ -26,7 +26,14 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     with op.batch_alter_table('scenarios', schema=None) as batch_op:
         batch_op.add_column(
-            sa.Column('beat_length', sa.String(), nullable=False, server_default='medium')
+            # Quoted literal, not a bare string: `DEFAULT medium` is a column reference
+            # to Postgres. See the model for the full note.
+            sa.Column(
+                'beat_length',
+                sa.String(),
+                nullable=False,
+                server_default=sa.text("'medium'"),
+            )
         )
 
 

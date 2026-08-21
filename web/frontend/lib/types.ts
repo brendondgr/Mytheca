@@ -114,6 +114,21 @@ export interface Branch {
   tag: EventTag;
 }
 
+/**
+ * How much a character says in one beat, set per scene from the config popover. Mirrors the
+ * backend `app.schemas.base.BeatLength` — this file is the hand-maintained half of the
+ * FE↔BE contract, so the three values must stay identical to the Python `Literal`.
+ */
+export const BEAT_LENGTHS = ["short", "medium", "long"] as const;
+export type BeatLength = (typeof BEAT_LENGTHS)[number];
+
+/** The dropdown's rendered text. The paragraph counts are the contract, so they are shown. */
+export const BEAT_LENGTH_LABELS: Record<BeatLength, string> = {
+  short: "Short · 1–2 ¶",
+  medium: "Medium · 2–4 ¶",
+  long: "Long · 5–6 ¶",
+};
+
 export interface Scenario {
   id: string;
   title: string;
@@ -131,6 +146,12 @@ export interface Scenario {
   suggestionsCount?: number;
   /** Depth of the recent-transcript context window the character conditions on (5–100; default 14). */
   contextBeats?: number;
+  /**
+   * How much a CHARACTER says in one beat — short 1–2 paragraphs, medium 2–4 (default),
+   * long 5–6, each paragraph at most 3–4 sentences not counting quoted dialogue. Narration
+   * is unaffected; it has its own sentence spec. Mirrors the backend `BeatLength`.
+   */
+  beatLength?: BeatLength;
   /**
    * Per-scenario writing-prompt overrides ({registry key → prompt text}) — override the
    * storyline's prompts for this scene only. Empty/absent inherits storyline/global/default.

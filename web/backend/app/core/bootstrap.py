@@ -81,6 +81,35 @@ def _db_remediation(settings: Settings) -> str:
     )
 
 
+def add_column_ddl(dialect, table, column) -> str | None:
+    """The ``ALTER TABLE … ADD COLUMN`` for one column, or ``None`` if it needs a migration.
+
+    Split out of :func:`_reconcile_additive_columns` so it can be tested without a live
+    engine — the bug this guards against was only reachable by starting the real backend
+    against Postgres, and 1,200 passing tests said nothing about it.
+
+    The default is rendered by the **dialect's own DDL compiler**, the same one
+    ``CreateTable`` uses. The hand-rolled version this replaced str()-ed the clause straight
+    into the DDL, so a plain-string ``server_default="medium"`` became ``DEFAULT medium`` — a
+    column reference to Postgres, which refuses it with "cannot use column reference in
+    DEFAULT expression". Numeric defaults survived only because a bare number is already a
+    valid literal, and SQLite accepts either form.
+
+    Returns ``None`` for a non-nullable column with no server default: that cannot be added
+    to a populated table without a backfill, so it is reported for a real migration instead.
+    """
+    ddl = (
+        f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" '
+        f"{column.type.compile(dialect)}"
+    )
+    if column.nullable:
+        return ddl
+    if column.server_default is None:
+        return None
+    compiler = dialect.ddl_compiler(dialect, None)
+    return f"{ddl} NOT NULL DEFAULT {compiler.get_column_default_string(column)}"
+
+
 def _reconcile_additive_columns(engine: Engine, report: PreflightReport) -> None:
     """Add model columns that the existing tables are missing (additive only).
 
@@ -109,17 +138,10 @@ def _reconcile_additive_columns(engine: Engine, report: PreflightReport) -> None
         for column in table.columns:
             if column.name in db_columns:
                 continue
-            col_type = column.type.compile(engine.dialect)
-            ddl = f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {col_type}'
-            if not column.nullable:
-                server_default = getattr(column.server_default, "arg", None)
-                if server_default is None:
-                    manual.append(f"{table.name}.{column.name}")
-                    continue
-                # ``server_default.arg`` is a SQL text/clause; render it for the DDL so
-                # existing rows are backfilled and the NOT NULL constraint holds.
-                default_sql = str(getattr(server_default, "text", server_default))
-                ddl += f" NOT NULL DEFAULT {default_sql}"
+            ddl = add_column_ddl(engine.dialect, table, column)
+            if ddl is None:
+                manual.append(f"{table.name}.{column.name}")
+                continue
             with engine.begin() as conn:
                 conn.execute(text(ddl))
             added.append(f"{table.name}.{column.name}")
