@@ -8,27 +8,27 @@
 > ## What the measurement changed about this plan
 >
 > [EXP-2026-08-006](../research/experiments/EXP-2026-08-006-turn-latency-overhaul/RESULTS.md)
-> ran the plan's own protocol against the same endpoint one day after the baseline, and the
-> headline is not the one this plan expected.
+> found the largest win in something this plan never considered, and retracted a conclusion
+> it briefly reached.
 >
-> * **The cache work landed, and it is the one result measured with counters rather than
->   clocks.** Reusable prefix climbs 72 % → 90 % across a scene; the server's own hit counter
->   reads 62–77 % against a baseline that decayed 44 % → 17 %. H3 supported.
-> * **The continuity guard's cost is gone** and every beat streams. H2 supported structurally.
-> * **Multi-beat planning works but barely pays here.** The model returns a well-formed
->   three-beat plan 6/6 when asked — but the median turn is 2 beats, so there is nothing to
->   look ahead over. Calls fell 34 → 27, not ~3×. H1 not supported, for a reason that is
->   about the scene configuration rather than the mechanism.
-> * **The plan's central premise — that the app's structure is what makes turns slow —
->   could not be tested, and is now in doubt.** A control probe found the endpoint takes
->   **1.4 s to 90.4 s to produce byte-identical 143-token output**. Every wall-clock
->   comparison here is unusable, and EXP-2026-08-005's reading of its two ~300 s turns as
->   *planner* stalls is unsupported. Fixing the relay/GPU host now outranks anything in this
->   plan.
-> * **A methodological lesson worth more than the numbers:** these arms were code versions
->   measured a day apart because the prompt reorder is not flag-gated. Against a 66×-variable
->   endpoint that design cannot work. Future latency comparisons must interleave arms inside
->   one session.
+> * **The character was deliberating twice per beat.** It filled a hidden reasoning channel
+>   *and* wrote the visible in-voice `<thinking>` block the player reads — the same beat
+>   reasoned through twice, with only the second ever shown. Removing the hidden pass took
+>   the thinking step from **35.5 s to 2.4 s per beat** and the median turn from **137.5 s
+>   to 35.1 s**, with first prose tightening from a 6–101 s spread to 6.7–10.8 s. None of the
+>   six planned workstreams identified this.
+> * **The cache work landed.** 81 % of each character prompt is a reusable prefix and the
+>   server serves 56–65 % from cache (rising to 90 % / 76 % in a longer scene), against a
+>   baseline pinned at 800 tokens and decaying 44 % → 17 %. H3 supported.
+> * **The continuity guard's cost is gone** and every beat streams. H2 supported.
+> * **Multi-beat planning does not pay here.** The model complies 6/6, but the median turn is
+>   2 beats, so there is nothing to look ahead over. H1 not supported — and the planner is
+>   now the *largest* cost in a turn (56 %), so the interleaved 1-vs-3 A/B is the next thing
+>   worth running.
+> * **A conclusion was reached and withdrawn the same day.** A control probe appeared to show
+>   the endpoint varying 66× on identical work, and this plan's premise was declared
+>   untestable. The intended GPU was not connected. On the right hardware the endpoint is
+>   stable (1.37–4.22 s, mean 1.67 ± 0.78). Recorded in ISSUES.md 1 and withdrawn as C-010.
 >
 > The plan text below is left as written. The corrections live here and in RESULTS.md.
 

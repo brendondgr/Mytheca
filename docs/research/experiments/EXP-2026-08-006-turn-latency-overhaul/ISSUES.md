@@ -2,57 +2,53 @@
 
 Everything that went wrong, was worked around, or would mislead a later reader.
 
-## 1. The endpoint's throughput varies 66× on identical work — the run's dominant problem
+## 1. WITHDRAWN — "the endpoint's throughput varies 66× on identical work"
 
-Discovered *after* the main run, while trying to explain why turn totals had gone up. Six
-calls, one fixed prompt, temperature 0, same served model (`qwen38-27B-awq`), **identical
-143-token output** in 5/6 — elapsed 1.4 s, 1.8 s, 1.9 s, 14.6 s, 27.6 s, 90.4 s
-([`logs/decode.log`](logs/decode.log)).
+This experiment originally concluded that the inference endpoint was intrinsically unstable
+(1.4 s to 90.4 s for byte-identical 143-token output) and that app-side latency work was
+therefore unmeasurable. **That conclusion was wrong.** The intended GPU was not connected;
+the operator identified this. Repeating the identical probe on the right hardware gave
+1.37–4.22 s across 12 runs (mean 1.67 ± 0.78) — stable.
 
-The prefill control agrees and adds detail: replaying EXP-2026-08-005's layout probe gave
-today/yesterday of 1.58/1.27 s, 1.87/1.96 s, 3.91/3.67 s — indistinguishable — then
-**30.1 s and 30.3 s** on two prompts that took 1.94 s and 2.22 s yesterday, with the same
-cached-token count (4800) ([`logs/layout.log`](logs/layout.log)).
+Both logs are kept: [`decode-pass1-uncontrolled.log`](logs/decode-pass1-uncontrolled.log)
+(degraded) and [`decode-pass2-idle.log`](logs/decode-pass2-idle.log) (healthy). The claim
+C-010 raised from the first is withdrawn in `CLAIMS.md`.
 
-**Consequence:** every wall-clock comparison in this experiment is unusable, and RESULTS.md
-says so before it says anything else. The conclusions are restricted to counts, ratios and
-structural facts.
+**Two process failures produced this, and they are worth more than the retracted finding:**
 
-**Consequence for the earlier experiment:** EXP-2026-08-005 read its two ~300 s turns as
-"the beat planner stalls". That reading is now unsupported — the same endpoint produces
-90 s for 143 tokens with no planner involved. Its recorded numbers stand; its causal
-explanation should not be repeated.
+* The probe was run to explain an unexpected result, and its output *confirmed* the
+  explanation being reached for. Nothing checked whether the machine was the expected one —
+  the served model string was verified, the hardware was not.
+* It was written up as a claim about the endpoint's nature on the strength of a single
+  uncontrolled session. The owner's pushback ("might it be something else running on it?")
+  was the control that should have been run first.
 
-**Not chased further here.** Why the endpoint behaves this way is a question about the
-relay and the GPU host, not about Mytheca, and it is out of scope for this experiment. It
-should be the *first* thing investigated before any further latency work on this app,
-because it is plausibly larger than everything measured here.
+The correct reading of the degraded run is much narrower: **it measured the wrong hardware
+and its timings say nothing about anything.** Its counter-based results (prompt reuse, cache
+hit, planner call counts) stand, because a count does not depend on host speed.
 
-## 1b. AMENDMENT — the variance measurement did not control for concurrent load
+## 1c. The healthy "before" run was interrupted and its log never written
 
-**Raised by the owner, 2026-08-20, and correct.** Issue 1 attributes a 66× spread to "the
-endpoint", but nothing in the probe checked whether *something else was using the same GPU
-at the same time*. Concurrent load is a complete and ordinary explanation for exactly that
-pattern — identical output, wildly different wall-clock — and it was not ruled out.
+The 10-turn run on healthy hardware *before* the single-deliberation fix was stopped at turn
+9 to apply that fix. `run_conversation_scaling` writes its log only at the end, so no log
+exists. Its per-turn rows survive in this session's transcript and its step costs in the
+`turn_traces` table; the step figures quoted in RESULTS.md ("before: thinking 35.5 s/beat")
+come from that query, not from a log file. That is weaker provenance than everything else
+here and is flagged rather than smoothed over. Recorded rows:
 
-The claim as originally written (C-010) therefore overreaches. What the data actually
-supports is narrower: **the observed latency of this endpoint is not stable across the
-period measured**, for reasons not established. Whether that instability is intrinsic to
-the host or is contention from other work on it is exactly the question the probe should
-have answered and did not.
+```
+turn 1: first_visible=6.080s  total=97.289s  beats=1  reuse=0.00  plan_calls=2
+turn 2: first_visible=28.382s total=111.398s beats=2  reuse=0.80  plan_calls=3
+turn 3: first_visible=101.378s total=300.942s beats=3 reuse=0.82  plan_calls=5
+turn 4: first_visible=8.841s  total=137.528s beats=5  reuse=0.80  plan_calls=3
+turn 5: first_visible=14.831s total=210.358s beats=2  reuse=0.73  plan_calls=5
+turn 6: first_visible=20.038s total=99.647s  beats=2  reuse=0.89  plan_calls=3
+turn 7: first_visible=22.903s total=111.257s beats=2  reuse=0.93  plan_calls=3
+turn 8: first_visible=38.189s total=155.228s beats=2  reuse=0.93  plan_calls=3
+turn 9: first_visible=94.578s total=178.165s beats=2  reuse=0.60  plan_calls=3
+```
 
-A repeat run was armed immediately. On attempting it the endpoint was found **fully down** —
-`502 upstream error: ConnectError: All connection attempts failed`, returned in 7 ms, with
-the relay reporting `skynet` health `failed` for at least 30 s of polling. That is a
-separate observation from the variance and does not substitute for the controlled repeat:
-it shows the remote host comes and goes, not that contention was or was not the cause.
-
-**Status: the controlled repeat is pending.** Until it lands, treat issue 1's *conclusion*
-as unproven and its *observations* (the recorded elapsed times) as fact. The original,
-uncontrolled run is preserved verbatim at [`logs/decode-pass1-uncontrolled.log`](logs/decode-pass1-uncontrolled.log)
-rather than being overwritten.
-
-## 2. An inference stated to the user mid-run, then refuted by direct measurement
+## 2. An inference stated to the user mid-run## 2. An inference stated to the user mid-run, then refuted by direct measurement
 
 While the run was in flight, turn 3's "5 planner calls for 4 beats" was read as *the model
 ignoring the multi-beat contract*, and that was said out loud before it was checked. The
@@ -98,8 +94,13 @@ matched-scene comparison that would settle it has not been run.
 
 ## 7. Two turns showed ~62 s before the character call started
 
-Turns 6 and 8 both reached their first reasoning token at 62.1 s. The near-identical values
-initially looked like two structural-call timeouts (2 × 25 s + intent). Given issue 1 that
-attribution cannot be made from this data — a single slow decode explains it equally well —
-and no separate measurement was taken while the run was reproducible. Recorded as
-unexplained rather than assigned a cause.
+Turns 6 and 8 of the degraded run both reached their first reasoning token at 62.1 s. That
+run measured the wrong hardware, so no cause can be assigned and none is. Not reproduced on
+healthy hardware: the worst pre-character delay there was 29.5 s.
+
+## 8. The interleaved planner A/B was built but not run
+
+With the character beat fixed, the planner is now 56 % of turn time. Whether asking it for
+three beats costs more per call than it saves is the obvious next question, and `--mode plan`
+implements it as interleaved 1-vs-3 arms in a single session — the methodology issue 3 says
+is required. It was not run to completion. Recorded as unfinished rather than left implied.

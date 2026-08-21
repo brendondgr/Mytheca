@@ -2,13 +2,13 @@
 
 | measure | before (EXP-005) | after (EXP-006) |
 | --- | --- | --- |
-| turns run | 10 | 10 |
+| turns run | 10 | 5 |
 | turns that ended early | 0 | 0 |
-| median whole turn (s) | 54.1 | 76.9 |
-| worst whole turn (s) | 355.0 | 172.4 |
-| median first prose (s) | 9.97 | 14.84 |
-| median first thinking (s) | — | 8.25 |
-| planner calls, all turns | 34 | 27 |
-| median beats per turn | 2.0 | 2.0 |
-| median prompt reuse | — | 79% |
-| median server cache hit | 28% | 68% |
+| median whole turn (s) | 54.1 | 35.1 |
+| worst whole turn (s) | 355.0 | 91.6 |
+| median first prose (s) | 9.97 | 10.42 |
+| median first thinking (s) | — | 7.42 |
+| planner calls, all turns | 34 | 21 |
+| median beats per turn | 2.0 | 4.0 |
+| median prompt reuse | — | 82% |
+| median server cache hit | 28% | 60% |

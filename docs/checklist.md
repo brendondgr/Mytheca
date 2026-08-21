@@ -74,18 +74,28 @@ Verified against the code on 2026-08-04.
   both condition on a *six-beat* window that slides every beat, so there is no stable
   prefix to protect and reordering them would be prompt churn for no measurable gain.
   Revisit only if either grows a longer window.
-- **The inference endpoint's throughput varies 66× on identical work — and it is probably
-  the biggest thing standing between the player and a fast turn.** EXP-2026-08-006's control
-  probe: one fixed prompt, temperature 0, same served model (`qwen38-27B-awq`), **identical
-  143-token output in 5 of 6 runs**, elapsed 1.4 / 1.8 / 1.9 / 14.6 / 27.6 / 90.4 s.
-  Corroborated on prefill — two prompts that took 1.94 s and 2.22 s one day took 30.1 s and
-  30.3 s the next, with the same cached-token count. **This supersedes the reading that "the
-  beat planner stalls":** EXP-2026-08-005 saw two turns at ~300 s and attributed them to the
-  planner; the same endpoint produces 90 s for 143 tokens with no planner involved. The
-  planner-stall entry is withdrawn. Investigating the relay / GPU host is now the first thing
-  to do before any further app-side latency work — and until it is stable, **no app-side
-  latency change can be measured at all** on this endpoint. Nothing in the repository can fix
-  it; it is not a Mytheca defect.
+- ~~**The inference endpoint's throughput varies 66× on identical work.**~~ **Withdrawn
+  2026-08-20**, the same day it was raised. The probe behind it ran while the intended GPU
+  was not connected. Repeated on the right hardware: 1.37–4.22 s over 12 runs
+  (mean 1.67 ± 0.78) for byte-identical output — stable. The endpoint is not the bottleneck.
+- ~~**The beat planner stalls, and a stall costs the player the full generation timeout.**~~
+  Also withdrawn: the two ~300 s turns EXP-2026-08-005 attributed to the planner were on the
+  same degraded hardware. No turn on healthy hardware has come near the timeout.
+- **The planner is now the largest cost in a turn — 56 % of turn time at ~6.5 s per call.**
+  Fixing the character beat promoted it to first place. Whether asking for three beats costs
+  more per call than it saves is unsettled; an interleaved 1-vs-3 A/B is implemented
+  (`run_conversation_scaling.py --mode plan`) and has not been run to completion. This is the
+  next measurement worth taking.
+- **Two small character-voice defects, counted on the final run.** `Mei: Rain again.` — a
+  speaker prefix leaked into the spoken text (1 of 11 beats). And 2 of 10 private thoughts
+  referred to *"the player"* ("The player's question hangs in the damp air"), a fourth-wall
+  break invited by the transcript rendering the player's beats as `Player:`. Pre-existing;
+  the fix is to give the player an in-fiction label in `_transcript`, which is a design
+  decision (there is no player-character name outside POV mode) rather than a rename.
+- **A descriptive brevity instruction did nothing; a countable one worked.** Asking the
+  character for "one or two sentences" left thoughts at median 460 chars. "At most 2
+  sentences and at most 40 words" produced median 214. Worth remembering when writing any
+  length constraint into a prompt.
 - **Multi-beat planning barely pays at `maxTurns = 5`.** The mechanism works — the model
   returned a well-formed three-beat plan 6/6 when asked (EXP-2026-08-006 `logs/plan.log`) —
   but the median turn is **2 beats**, and each turn needs one final planner call to say
