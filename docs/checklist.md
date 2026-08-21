@@ -170,6 +170,11 @@ Verified against the code on 2026-08-04.
   worker concurrency, 0/3 failures with `--maxWorkers=4`. The tests are correct; the
   budget is too tight. Fix by raising the per-test timeout on those two, not by loosening
   the assertions.
+- **A third: `components/layout/ToastProvider.test.tsx`** → "holds the auto-dismiss timer
+  while the pointer is over the toast". Same cause, same shape — it waits out a real 3 s
+  auto-dismiss against wall-clock. Observed failing once on 2026-08-21 while `uv run pytest`
+  was running on the same machine, and passing 4/4 afterwards (three targeted reruns plus a
+  full 844/844 suite). Same fix: raise the per-test budget, do not weaken the assertion.
 - **Ollama is still not *detected*, though it is no longer uncapped.** `LOCAL_LLM_BASE_URL` defaults to `http://localhost:11434` — Ollama's port — and `services/llm_backend.py` probes only vLLM (`GET /version`), llama.cpp (`GET /props`), and relays that name an upstream in `GET /models`. Ollama matches none, so it reports as `unknown`; since 2026-08-19 an unknown endpoint receives **both** engine budget keys, so the thinking budget is at least attempted. Whether Ollama honours either key is unverified — a native probe (`GET /api/tags`) and its own budget key remain unbuilt.
 - **`web/shared/contracts/` is empty** while both layers hand-maintain their own copy of the event contract. Either populate it or drop the directory and document the manual mirror as the intended design.
 - **`sr-only` inside a clipping container is a repo-wide latent bug.** Tailwind's
