@@ -29,7 +29,7 @@ import { TranscriptAnnouncer } from "@/components/feature/TranscriptAnnouncer";
 import { TurnStatusStrip } from "@/components/feature/TurnStatusStrip";
 import { JumpToLatest } from "@/components/feature/JumpToLatest";
 import { useStickyBottom } from "./use-sticky-bottom";
-import { CreateImageBar } from "@/components/feature/CreateImageBar";
+import { TranscriptFootBar } from "@/components/feature/TranscriptFootBar";
 import { SceneImageModal } from "@/components/feature/SceneImageModal";
 import { CharacterDossier } from "@/components/feature/CharacterDossier";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
@@ -316,12 +316,14 @@ export function StoryPlayerView({
                   animate={{ opacity: 1, y: 0 }}
                   transition={ENTER_TRANSITION}
                 >
-                  <CreateImageBar
-                    onCreate={scene.createImage}
-                    running={scene.creatingImage}
-                    stage={scene.imageStage}
-                    error={scene.imageError}
-                    className="mt-[2px]"
+                  <TranscriptFootBar
+                    onContinue={scene.continueTurn}
+                    continuing={scene.sending}
+                    onCreateImage={scene.createImage}
+                    creatingImage={scene.creatingImage}
+                    imageStage={scene.imageStage}
+                    imageError={scene.imageError}
+                    disabled={scene.sending}
                   />
                 </motion.div>
               ) : null}

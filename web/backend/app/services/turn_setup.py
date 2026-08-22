@@ -23,6 +23,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.agents import direction_agent, intent_agent
+from app.agents.intent_agent import TurnIntent
 from app.agents.direction_agent import SceneDirection
 from app.events.stream import TurnTraceFrame
 from app.memory import buffer
@@ -113,17 +114,34 @@ def prepare_turn(
         guidance=req.guidance,
         tagged_doc_ids=req.tagged_doc_ids,
     )
+    # A turn with no line from the player at all. The row is still written — the turn keeps
+    # its trace grouping (traces are keyed by this seq) and its place in the export — but
+    # everything downstream that assumed a player line has to be told there is not one.
+    #
+    # **This plan owns this branch.** `docs/plans/steering-the-scene.md` Phase 3 extends the
+    # same one for a guidance-only turn (falling `detail` back to the direction text); it
+    # must not add a second.
+    silent = not text
     yield from tracer.emit(
         "turn",
-        "You submitted a message",
-        detail=text,
-        data={"directedAt": req.directed_at, "mode": req.mode, "pov": pov_id},
+        "You let the scene continue" if silent else "You submitted a message",
+        detail=text or "No line from you this turn — the scene carries on.",
+        data={
+            "directedAt": req.directed_at,
+            "mode": req.mode,
+            "pov": pov_id,
+            "continuation": bool(req.continuation),
+        },
     )
 
     # Push the player's line into the recent-turn buffer as history for next turn — as the
     # POV character's own line when POV is active (so later speakers react to "Mei said X"),
     # else as an ordinary player line.
-    if pov is not None:
+    # Nothing to push when the player said nothing: a blank entry would sit in the
+    # transcript window as an empty player beat and poison every later prompt with it.
+    if silent:
+        pass
+    elif pov is not None:
         buffer.push_turn(session.id, "character", text, character_id=pov.id)
     else:
         buffer.push_turn(session.id, "player", text)
@@ -182,8 +200,12 @@ def prepare_turn(
     # "Mei said X"); the visible character event is intentionally WITHHELD — the client
     # already renders the player's line optimistically / on rehydrate, exactly as the plain
     # player line is today.
-    if pov is not None:
-        turn_beats: list[dict] = [{"role": "character", "text": text, "characterId": pov.id}]
+    if silent:
+        # No player line to carry into this turn's transcript. The first speaker reacts to
+        # the scene as it already stands rather than to an empty beat.
+        turn_beats: list[dict] = []
+    elif pov is not None:
+        turn_beats = [{"role": "character", "text": text, "characterId": pov.id}]
     else:
         turn_beats = [{"role": "player", "text": text, "characterId": None}]
 
@@ -202,12 +224,18 @@ def prepare_turn(
     # Announce the step BEFORE the call, not after it. The trace steps were all emitted
     # once their work was already done, so the status strip could only ever name the step
     # the turn had just finished — leaving the actual waits unlabelled.
-    yield from tracer.emit(
-        "reading",
-        "Reading your message",
-        detail="Working out whether you are narrating, addressing someone, or directing.",
-    )
-    intent = intent_agent.interpret(db, ctx, text, locked_id=pov_id)
+    if silent:
+        # Nothing was said, so there is nothing to interpret. Skipping the call is not just a
+        # saved LLM round-trip (though on the turn path that matters): asking the intent agent
+        # to classify an empty string invites it to invent an ask the player never made.
+        intent = TurnIntent(directive="The scene continues without the player speaking.")
+    else:
+        yield from tracer.emit(
+            "reading",
+            "Reading your message",
+            detail="Working out whether you are narrating, addressing someone, or directing.",
+        )
+        intent = intent_agent.interpret(db, ctx, text, locked_id=pov_id)
     # A UI-set target (e.g. a branch selection) addresses that character explicitly.
     if (
         req.directed_at
@@ -220,7 +248,7 @@ def prepare_turn(
             intent.kind = "direct"
     yield from tracer.emit(
         "intent",
-        f"Read your intent: {intent.kind}",
+        "Nothing was said — the scene carries on" if silent else f"Read your intent: {intent.kind}",
         detail=intent.directive,
         data={
             "kind": intent.kind,

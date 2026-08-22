@@ -28,10 +28,13 @@ Verified against the code on 2026-08-04.
   them (a deliberate call — an LLM "did that happen?" check would roughly double the turn's
   call count). A character that ignores its stated outcome is not caught, and the end-of-turn
   trace will still report the direction delivered in full.
-- **A guidance-only turn cannot be sent.** The direction box rides along with a message;
-  `validate_turn_inputs` requires `text`, and the optimistic bubble plus the `user_turn` row
-  are keyed to it. Steering the scene without also speaking as your character means typing
-  something in the message box.
+- ~~**A guidance-only turn cannot be sent.**~~ **Backend done 2026-08-22.**
+  `validate_turn_inputs` no longer requires `text`: a turn is valid when any of `text`,
+  `guidance`, `outcome` or `continuation` is present, and `turn_setup` handles the text-less
+  case (no buffer push, no `turn_beats` seed, no intent call). *Continue* ships on it.
+  **What remains is the front end for the guidance arm** — the composer still sends direction
+  only alongside a message. Owned by `docs/plans/steering-the-scene.md` Phase 3, which
+  consumes this relaxation rather than re-opening it.
 - **A direction longer than the scene's turn cap is compressed, not spread.** The opening
   narration absorbs every narrator-owned requirement at once when `maxTurns` is at or below
   the requirement count, and the last beat collapses to a narrator beat covering whatever

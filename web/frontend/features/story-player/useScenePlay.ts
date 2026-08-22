@@ -489,6 +489,40 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       .finally(() => setImageStage(null));
   }, [creatingImage, momentStream, scenario.id]);
 
+  /**
+   * Run a turn with no line from the player at all — the scene simply carries on.
+   *
+   * No optimistic bubble, because there is nothing to show: the player said nothing, and a
+   * blank beat in the transcript would be worse than none. Everything else is the ordinary
+   * turn path, so a continuation streams, traces and persists exactly like any other turn.
+   */
+  const continueTurn = useCallback(() => {
+    if (sending) return; // in-flight guard
+    setStreamError(null);
+    setMessages((m) => m.filter((x) => x.kind !== "choices"));
+    void stream
+      .run((signal) =>
+        postTurn(
+          scenario.id,
+          {
+            text: "",
+            continuation: true,
+            sessionId: sessionRef.current,
+            trace: true,
+            povCharacterId: pov,
+          },
+          signal,
+        ),
+      )
+      .catch(() => setStreamError((e) => e ?? "The turn could not be completed."))
+      .finally(() => {
+        setActivityByChar({});
+        setTurnStatus(IDLE_TURN_STATUS);
+        setMessages(dropPendingBeats);
+        void refreshSessions();
+      });
+  }, [sending, scenario.id, stream, pov, refreshSessions]);
+
   const submit = useCallback(
     (text: string, direction = "", taggedDocIds: string[] = []) => {
       const t = text.trim();
@@ -634,6 +668,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     direction,
     sessionId,
     send,
+    continueTurn,
     choose,
     profileId,
     openProfile: (id: string) => setProfileId(id),

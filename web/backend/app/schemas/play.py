@@ -95,6 +95,11 @@ class TurnRequest(CamelModel):
     pov_character_id: str | None = None
     guidance: str | None = None
     tagged_doc_ids: list[str] = Field(default_factory=list)
+    #: The player pressed *Continue*: run a turn with no line from them at all. The scene
+    #: simply carries on. Combined with the relaxed validation in
+    #: ``turn_engine.validate_turn_inputs``, this is what lets a player watch rather than
+    #: always having to speak to move a scene forward.
+    continuation: bool = False
 
 
 class SessionSummary(CamelModel):

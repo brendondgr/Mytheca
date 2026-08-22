@@ -62,10 +62,35 @@ from app.services import turn_finalize
 
 
 def validate_turn_inputs(db: Session, scenario_id: str, req: TurnRequest) -> Scenario:
-    """Pre-flight (before the 200 stream opens): scenario exists, text present, session valid."""
+    """Pre-flight (before the 200 stream opens): scenario exists, the turn asks for
+    *something*, session valid.
+
+    A turn used to require ``text``, which made the player's own line the only way to move a
+    scene: you could not direct without also speaking, and you could not simply let the scene
+    run. It is now valid when **any** of four things is present:
+
+    * ``text`` — the player speaks (or narrates);
+    * ``guidance`` — the player directs without speaking;
+    * ``outcome`` — the player took a branch;
+    * ``continuation`` — the player pressed *Continue* and is just watching.
+
+    **This function states that whole rule once, and this plan owns it.**
+    ``docs/plans/steering-the-scene.md`` Phase 3 *consumes* the ``guidance`` arm for its
+    direction-only turn and must not re-open this function; ``outcome`` is included here for
+    the same reason even though nothing sends it yet. One edit, one rule, one place it can
+    drift from.
+    """
     scenario = crud.get_scenario(db, scenario_id)  # raises 404 when missing
-    if not (req.text or "").strip():
-        raise APIError(400, "bad_request", "Turn text is required.")
+    asks_for_something = (
+        (req.text or "").strip()
+        or (req.guidance or "").strip()
+        or (req.outcome or "").strip()
+        or req.continuation
+    )
+    if not asks_for_something:
+        raise APIError(
+            400, "bad_request", "Say something, direct the scene, or press Continue."
+        )
     if req.session_id:
         events_store.resolve_session(db, scenario_id, req.session_id)  # validates only
     return scenario

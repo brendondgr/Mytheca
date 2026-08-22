@@ -313,4 +313,10 @@ export interface TurnRequestBody {
    * never what *happens*. Ids from another storyline are ignored.
    */
   taggedDocIds?: string[];
+  /**
+   * The player pressed **Continue**: run a turn with no line from them. Valid with an empty
+   * `text` — the turn must ask for *something*, and this is one of the four things that
+   * counts (alongside `text`, `guidance` and `outcome`).
+   */
+  continuation?: boolean;
 }
