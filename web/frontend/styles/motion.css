@@ -451,3 +451,59 @@
     transition: none;
   }
 }
+
+/* ---------- Drawer (bottom sheet) ------------------------------------
+ *
+ * Same idiom as the Modal above and for the same reasons: the base rule IS the
+ * resting open state, @starting-style supplies the entrance, and
+ * [data-closing] supplies the exit while React holds the node mounted.
+ *
+ * A sheet rises from the edge it is attached to, so the entrance is a pure
+ * translateY from --lift-lg with no scale — a bottom sheet that also grows
+ * reads as a modal that happens to be at the bottom.
+ * ------------------------------------------------------------------ */
+
+.drawer-panel {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+}
+@starting-style {
+  .drawer-panel {
+    opacity: 0;
+    transform: translateY(var(--lift-lg));
+  }
+}
+
+.drawer-backdrop {
+  opacity: 1;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+@starting-style {
+  .drawer-backdrop {
+    opacity: 0;
+  }
+}
+
+.drawer-panel[data-closing="true"] {
+  opacity: 0;
+  transform: translateY(var(--lift-md));
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-in);
+}
+.drawer-backdrop[data-closing="true"] {
+  opacity: 0;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-in);
+}
+
+/* REQUIRED, not redundant. The repo-wide reduced-motion rule in themes.css is
+ * scoped to `.mytheca-themed *`, and a portalled drawer is not a descendant of
+ * that wrapper — the same reason .modal-panel carries its own rule above. */
+@media (prefers-reduced-motion: reduce) {
+  .drawer-panel,
+  .drawer-backdrop {
+    transition: none;
+  }
+}

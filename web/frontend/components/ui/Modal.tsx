@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
 import { useExitTransition } from "@/hooks/use-exit-transition";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { useHydrated } from "@/hooks/use-hydrated";
-
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * How long the panel stays mounted after `open` flips to false, so the exit
@@ -66,59 +64,13 @@ export function Modal({
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Keep the latest onClose without making it an effect dependency — otherwise
-  // the focus-trap effect re-runs every render and steals focus from inputs.
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
   // `open` says what the caller wants; `mounted` says what is on screen. They
   // differ only for the EXIT_MS beat during which the panel is animating out.
   const { mounted, closing } = useExitTransition(open, EXIT_MS);
   const hydrated = useHydrated();
 
-  useEffect(() => {
-    if (!open) return;
-    const panel = panelRef.current;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-
-    const focusables = panel?.querySelectorAll<HTMLElement>(FOCUSABLE);
-    (focusables && focusables.length > 0 ? focusables[0] : panel)?.focus();
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onCloseRef.current();
-        return;
-      }
-      if (event.key !== "Tab" || !panel) return;
-      const items = panel.querySelectorAll<HTMLElement>(FOCUSABLE);
-      if (items.length === 0) {
-        event.preventDefault();
-        return;
-      }
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus?.();
-    };
-  }, [open]);
+  // Trap/lock/restore lives in `use-focus-trap` so `Drawer` cannot drift from it.
+  useFocusTrap({ open, containerRef: panelRef, onClose });
 
   // Same portal/hydration rule as Toast: a portal inserts into `document.body`
   // on the client but renders nothing on the server. In practice no modal is
