@@ -9,6 +9,46 @@ import {
 import type { Character, Scenario, Setting } from "@/lib/types";
 
 /**
+ * The ComfyUI settings block as the backend returns it, art styles included. Shared by
+ * every Options test so a change to the style catalog is one edit, not six.
+ */
+export const ART_STYLE_FIXTURES = [
+  {
+    id: "painted" as const,
+    label: "Painted",
+    blurb: "Watercolor and oil washes — Mytheca's house look.",
+    loraName: "zit_watercolor.safetensors",
+    loraStrength: 0.8,
+    loraEnabled: true,
+  },
+  {
+    id: "anime" as const,
+    label: "Anime",
+    blurb: "Cel-shaded illustration with clean, bold linework.",
+    loraName: "",
+    loraStrength: 0.8,
+    loraEnabled: false,
+  },
+  {
+    id: "photoreal" as const,
+    label: "Photoreal",
+    blurb: "A photograph — natural texture and cinematic light.",
+    loraName: "",
+    loraStrength: 0.8,
+    loraEnabled: false,
+  },
+];
+
+export const COMFY_FIXTURE = {
+  baseUrl: "http://localhost:8199",
+  workflow: "ZiT-Workflow.json",
+  params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
+  artStyle: "painted" as const,
+  styles: ART_STYLE_FIXTURES,
+};
+
+
+/**
  * A `vi`-mocked `@/lib/api` backed by the Embergate seed, so the Library tests
  * stay meaningful (and async) without a live backend. Use as:
  *
@@ -413,11 +453,7 @@ export function makeApiMock() {
         reasoningVisibility: "summary" as const,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
-      comfy: {
-        baseUrl: "http://localhost:8199",
-        workflow: "ZiT-Workflow.json",
-        params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
-      },
+      comfy: COMFY_FIXTURE,
       prompts: {
         catalog: [
           {
@@ -508,11 +544,10 @@ export function makeApiMock() {
 
     // ---- ComfyUI image generation ----
     updateComfyConfig: vi.fn(async (body: Record<string, unknown>) => ({
-      baseUrl: "http://localhost:8199",
-      workflow: "ZiT-Workflow.json",
-      params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
+      ...COMFY_FIXTURE,
       ...body,
     })),
+    fetchComfyLoras: vi.fn(async () => ({ loras: ["zit_watercolor.safetensors", "zit_oilpainting.safetensors"] })),
     fetchComfyWorkflows: vi.fn(async () => ({ workflows: ["ZiT-Workflow.json", "Other.json"] })),
     checkComfyStatus: vi.fn(async () => ({
       ok: true,

@@ -6,6 +6,7 @@
 // envelope `{ error: { code, message, details } }`.
 
 import type {
+  ArtStyleId,
   MomentRequestBody,
   MomentStreamFrame,
   GhostwriteStreamFrame,
@@ -873,6 +874,7 @@ export const generatePortraitPrompts = (body: {
   personality?: string | null;
   species?: string | null;
   notes?: string | null;
+  artStyle?: ArtStyleId;
 }) => post<PortraitPromptResult>("/characters/portrait-prompts", body);
 
 export const generatePortrait = (body: {
@@ -884,6 +886,7 @@ export const generatePortrait = (body: {
   height?: number;
   steps?: number;
   cfg?: number;
+  artStyle?: ArtStyleId;
 }) => post<PortraitResult>("/characters/portrait", body);
 
 export const proposeStartingStats = (body: {
@@ -954,6 +957,7 @@ export const generateSceneArtPrompts = (body: {
   features?: string | null;
   currentState?: string | null;
   notes?: string | null;
+  artStyle?: ArtStyleId;
 }) => post<SceneArtPromptResult>("/settings/scene-art-prompts", body);
 
 export const generateSceneArt = (body: {
@@ -965,6 +969,7 @@ export const generateSceneArt = (body: {
   height?: number;
   steps?: number;
   cfg?: number;
+  artStyle?: ArtStyleId;
 }) => post<SceneArtResult>("/settings/scene-art", body);
 
 // ---- scenarios ----
@@ -1003,6 +1008,7 @@ export const generateScenarioSceneArtPrompts = (body: {
   settingName?: string | null;
   settingDesc?: string | null;
   notes?: string | null;
+  artStyle?: ArtStyleId;
 }) => post<SceneArtPromptResult>("/scenarios/scene-art-prompts", body);
 
 export const generateScenarioSceneArt = (body: {
@@ -1014,6 +1020,7 @@ export const generateScenarioSceneArt = (body: {
   height?: number;
   steps?: number;
   cfg?: number;
+  artStyle?: ArtStyleId;
 }) => post<SceneArtResult>("/scenarios/scene-art", body);
 
 // ---- options / settings ----
@@ -1086,13 +1093,44 @@ export interface ComfyParams {
   negativePrompt: string;
 }
 
+/**
+ * One selectable art style. `label`/`blurb` name the look for the picker; the three `lora*`
+ * fields are the **effective** values — the catalog's defaults with the operator's Options
+ * override folded in. `loraName` is empty when the style renders with the workflow's LoRA
+ * node bypassed.
+ */
+export type { ArtStyleId };
+
+export interface ArtStyleRead {
+  id: ArtStyleId;
+  label: string;
+  blurb: string;
+  loraName: string;
+  loraStrength: number;
+  loraEnabled: boolean;
+}
+
+/** The writable slice of a style: which LoRA it uses, how strongly, and whether at all. */
+export interface ArtStyleOverride {
+  loraName?: string;
+  loraStrength?: number;
+  loraEnabled?: boolean;
+}
+
 export interface ComfyConfig {
   baseUrl: string;
   workflow: string;
   params: ComfyParams;
+  /** The default look for every generated image; each surface's picker overrides it. */
+  artStyle: ArtStyleId;
+  /** The full style catalog with effective LoRA settings, in display order. */
+  styles: ArtStyleRead[];
 }
 
-export type ComfyConfigUpdate = Partial<ComfyConfig>;
+export type ComfyConfigUpdate = Partial<Omit<ComfyConfig, "styles">> & {
+  /** Patch of per-style LoRA overrides, keyed by style id. Merged, not replaced. */
+  styles?: Partial<Record<ArtStyleId, ArtStyleOverride>>;
+};
 
 export interface ComfyStatusResult {
   ok: boolean;
@@ -1213,6 +1251,9 @@ export const fetchComfyWorkflows = () =>
   request<ComfyWorkflowsResult>("/options/comfy/workflows");
 export const checkComfyStatus = (body: { baseUrl?: string }) =>
   post<ComfyStatusResult>("/options/comfy/status", body);
+/** LoRA files the configured ComfyUI server offers. Empty when it is unreachable — the
+ * Options field falls back to free text rather than blocking the save. */
+export const fetchComfyLoras = () => request<{ loras: string[] }>("/options/comfy/loras");
 
 // ---- Orphaned-media cleanup ----
 

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { LibraryDefaultsTab } from "./LibraryDefaultsTab";
 import type { OptionsState } from "@/features/options/useOptionsSettings";
+import { COMFY_FIXTURE } from "@/test/api-mock";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
@@ -21,11 +22,7 @@ function makeOpts(overrides: Partial<OptionsState> = {}): OptionsState {
         reasoningVisibility: "summary" as const,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
-      comfy: {
-        baseUrl: "http://localhost:8199",
-        workflow: "ZiT-Workflow.json",
-        params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
-      },
+      comfy: COMFY_FIXTURE,
       prompts: { catalog: [], overrides: {} },
     },
     loading: false,
