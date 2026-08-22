@@ -3,6 +3,11 @@
 // Mirrors the backend discriminated union in `web/backend/app/events/envelope.py`.
 // Kept distinct from the authoring `EventTag`/`Branch` types in `@/lib/types`.
 
+// `BeatLength` is the one shared value type: it is a scenario column AND a per-turn
+// override, so it is imported rather than re-declared. `types.ts` does not import from
+// here, so this stays acyclic.
+import type { BeatLength } from "@/lib/types";
+
 export type PlayVisibility =
   | "public"
   | "private_to_user"
@@ -481,4 +486,34 @@ export interface TurnRequestBody {
    * counts (alongside `text`, `guidance` and `outcome`).
    */
   continuation?: boolean;
+  /**
+   * Scene settings for **this turn only** — see {@link TurnOverridesBody}. Omit it and the
+   * turn behaves exactly as it does today.
+   */
+  overrides?: TurnOverridesBody | null;
+}
+
+/**
+ * Scene settings applied to one turn and then forgotten.
+ *
+ * Every field is optional; an unset field falls back to the scenario's own value. **Nothing
+ * here is written to the scenario** — the override is spent when the turn ends, which is the
+ * point: try a longer beat, or silence follow-ups for one message, without editing the scene
+ * you keep playing. It is persisted on the `user_turn` row purely so the Inspector and the
+ * export can say what the turn actually ran with.
+ *
+ * Out of scope for the intent, direction and planner agents in the same way `taggedDocIds`
+ * is: an override changes how a turn is **run**, never what it is **about**.
+ *
+ * Bounds mirror the scenario's, with one difference — `maxTurns` is capped at 10 here while
+ * the scenario has no upper bound, because a per-turn knob that can ask for an arbitrarily
+ * long turn is a way to hang the stream by accident.
+ */
+export interface TurnOverridesBody {
+  /** Beats this one message may produce, 1–10. */
+  maxTurns?: number | null;
+  /** Follow-up suggestions offered after this turn, 0–4. `0` is a real request. */
+  suggestionsCount?: number | null;
+  /** How much a character says in one beat, for this turn. */
+  beatLength?: BeatLength | null;
 }

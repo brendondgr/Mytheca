@@ -119,6 +119,7 @@ def record_user_turn(
     pov: str | None = None,
     guidance: str | None = None,
     tagged_doc_ids: list[str] | None = None,
+    overrides: dict | None = None,
 ) -> Event:
     """Persist the player's input as a ``user_turn`` event (not part of the output stream).
 
@@ -132,6 +133,13 @@ def record_user_turn(
     and what a rewind or a turn-scope re-roll replays, so all three need them here. Written
     as additive JSON keys — ``data`` is a ``JSONColumn``, so no schema change is involved,
     and rows written before this carry neither key (read them with ``.get``).
+
+    ``overrides`` is the turn's per-turn scene settings (``TurnOverrides``), already reduced
+    to the non-null map. It is written **only when it says something**: an empty key on every
+    row would be noise in both the Inspector and the export, and its absence is exactly the
+    common case of a turn that ran on the scene's own settings. This is what makes a turn's
+    settings auditable after the fact — the override is spent when the turn ends, so the row
+    is the only record that it happened at all.
     """
     event = Event(
         type="user_turn",
@@ -145,6 +153,7 @@ def record_user_turn(
             "pov": pov,
             "guidance": (guidance or "").strip() or None,
             "taggedDocIds": list(tagged_doc_ids or []),
+            **({"overrides": overrides} if overrides else {}),
         },
     )
     db.add(event)

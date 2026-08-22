@@ -107,6 +107,11 @@ def group_turns(
                     # directed turn: did it deliver?
                     "guidance": str(ut.data.get("guidance") or ""),
                     "taggedDocIds": list(ut.data.get("taggedDocIds") or []),
+                    # Scene settings this turn alone ran with. Absent on the overwhelming
+                    # majority of turns, which is why it is rendered only when present: an
+                    # override is spent when the turn ends, so this row is the only place a
+                    # reader can find out the turn was played under different rules.
+                    "overrides": dict(ut.data.get("overrides") or {}),
                 },
                 "beats": beats,
                 "trace": trace_steps,
@@ -242,6 +247,11 @@ def render_markdown(
         if player.get("guidance"):
             lines.append("")
             lines.append(f"_Direction:_ {player['guidance']}")
+        if player.get("overrides"):
+            settings = ", ".join(
+                f"{key} = {value}" for key, value in sorted(player["overrides"].items())
+            )
+            lines.append(f"_This turn only:_ {settings}")
         direction = turn.get("direction") or {}
         if any(direction.values()):
             if direction.get("carried"):

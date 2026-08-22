@@ -35,6 +35,7 @@ from app.services import (
     events_store,
     history_compaction,
     settings_store,
+    turn_settings,
 )
 from app.services.assembler import CastMember, TurnContext
 from app.services.turn_emit import Emitter, Tracer
@@ -63,6 +64,10 @@ class TurnSetup:
     intent: Any = None
     direction: SceneDirection = field(default_factory=SceneDirection)
     show_reasoning: bool = False
+    #: What this turn actually runs with — the scene's controls with the request's per-turn
+    #: overrides on top. Resolved once, here, so the beat loop and the assembler cannot end
+    #: up reading different answers for the same control.
+    settings: turn_settings.TurnSettings | None = None
 
 
 def prepare_turn(
@@ -90,6 +95,13 @@ def prepare_turn(
     # without side effects.
     compaction = history_compaction.maybe_compact(db, session, scenario)
 
+    # The scene's controls with this turn's overrides on top. Resolved once, before anything
+    # reads one: `beat_length` has to reach the assembler, `max_turns` the beat loop and
+    # `suggestions_count` the tail, and resolving per-site is how one of the three quietly
+    # keeps honouring the scenario row.
+    settings = turn_settings.resolve(scenario, req.overrides)
+    applied_overrides = turn_settings.applied(req.overrides)
+
     ctx = assembler.assemble_context(
         db,
         scenario,
@@ -97,6 +109,7 @@ def prepare_turn(
         req.directed_at,
         player_text=text,
         tagged_doc_ids=req.tagged_doc_ids,
+        beat_length_override=settings.beat_length,
     )
 
     # Player POV: the player is speaking AS this character. Resolve it to a *present* cast
@@ -119,6 +132,7 @@ def prepare_turn(
         pov=pov_id,
         guidance=req.guidance,
         tagged_doc_ids=req.tagged_doc_ids,
+        overrides=applied_overrides,
     )
     # A turn with no line from the player at all. The row is still written — the turn keeps
     # its trace grouping (traces are keyed by this seq) and its place in the export — but
@@ -151,6 +165,9 @@ def prepare_turn(
             "pov": pov_id,
             "continuation": bool(req.continuation),
             "directionOnly": directed_only,
+            # Only what this turn actually overrode, so the Inspector row says what the
+            # turn ran with rather than restating the scene's settings on every turn.
+            **({"overrides": applied_overrides} if applied_overrides else {}),
         },
     )
 
@@ -349,6 +366,7 @@ def prepare_turn(
         intent=intent,
         direction=direction,
         show_reasoning=show_reasoning,
+        settings=settings,
     )
 
 

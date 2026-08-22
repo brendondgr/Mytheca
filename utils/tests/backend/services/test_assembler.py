@@ -357,3 +357,40 @@ def test_an_unknown_stored_tier_normalises_to_medium(db_session, stored):
     session = events_store.create_session(db_session, sc.id)
 
     assert assembler.assemble_context(db_session, sc, session.id).beat_length == "medium"
+
+
+def test_beat_length_override_wins_over_the_scene(db_session):
+    """The per-turn tier is applied at assembly, which is what keeps its two readers agreed.
+
+    `ctx.beat_length` is read by `character_turn_agent` (the directive and the prose
+    allowance) and by `beat_runner`'s runaway stop. Overriding it after assembly would leave
+    one of them on the scenario's value.
+    """
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")
+    sc = _scenario(db_session, ["c_mei"])
+    sc.beat_length = "short"
+    db_session.commit()
+    session = events_store.create_session(db_session, sc.id)
+
+    ctx = assembler.assemble_context(
+        db_session, sc, session.id, beat_length_override="long"
+    )
+
+    assert ctx.beat_length == "long"
+    # The scene is untouched — the override belongs to one turn.
+    assert sc.beat_length == "short"
+
+
+def test_no_beat_length_override_is_the_scene(db_session):
+    _world(db_session)
+    _char(db_session, "c_mei", "Mei")
+    sc = _scenario(db_session, ["c_mei"])
+    sc.beat_length = "long"
+    db_session.commit()
+    session = events_store.create_session(db_session, sc.id)
+
+    assert (
+        assembler.assemble_context(db_session, sc, session.id, beat_length_override=None).beat_length
+        == "long"
+    )

@@ -33,9 +33,13 @@ stream connection for the single-player case (the `GET /stream/{sessionId}` + Re
 fan-out is a deferred seam, see `api-contract.md`).
 
 ```
-Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/turn  {text, directedAt?, sessionId?, povCharacterId?, guidance?, taggedDocIds?}
+Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/turn  {text, directedAt?, sessionId?, povCharacterId?, guidance?, taggedDocIds?, overrides?}
   → routes/play (pre-flight: scenario exists, text present, session valid)
   → turn_engine.run_turn:
+      turn_settings.resolve(scenario, req.overrides) → TurnSettings: the scene's play
+        controls with THIS TURN's overrides on top (max_turns · suggestions_count ·
+        beat_length), resolved ONCE before anything reads one. Never written back to the
+        Scenario row; withheld from every agent; recorded on the user_turn row for audit
       assembler.assemble_context (Band-1, read-only): ordered cast + clamped stats + loaded
         stat guidance + recent buffer (Redis, best-effort) + scenario subgraph (Neo4j,
         best-effort) + cacheable stable prefix + GATED RAG (retrieval_gate: a cheap
@@ -44,7 +48,8 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
         + @-TAGGED FILES (taggedDocIds → assembler._tagged_notes: storyline-checked,
         bounded, framed as reference — see below)
       resolve Player POV member (povCharacterId → a PRESENT cast member, else None)
-      events_store: resolve/create PlaySession · record user_turn (seq 0, Postgres; data.pov = POV id | null)
+      events_store: resolve/create PlaySession · record user_turn (seq 0, Postgres; data.pov = POV id | null;
+        data.overrides = the non-null override map, absent when nothing was overridden)
       memory.buffer.push_turn (POV → the line as the character's own beat w/ characterId;
         else the plain player line → recent-turn buffer, best-effort)
       intent_agent.interpret: classify the player's line — narrate / address / puppet /

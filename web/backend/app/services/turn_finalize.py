@@ -51,6 +51,7 @@ def finalize_turn(
     acted: bool,
     asked_question: bool,
     needs_branch: bool,
+    suggestions_count: int | None = None,
 ) -> Generator[StoryEvent | TurnTraceFrame, None, None]:
     """Close out a turn: suggestions, the cold-path graph write, reflection, recency."""
     # Follow-up suggestions: offer up to ``scenario.suggestions_count`` (0 disables) direct
@@ -60,7 +61,14 @@ def finalize_turn(
     # but never gate the choice mechanically (no dice — D11).
     branches: list[dict] = []
     # A question already IS the turn's fork; stacking generic follow-ups under it buries it.
-    suggestions_count = 0 if asked_question else max(0, min(scenario.suggestions_count, 4))
+    # ``suggestions_count`` arrives already resolved (the scene's value with this turn's
+    # override on top, ``turn_settings.resolve``); it falls back to the scenario row only for
+    # the re-roll/replay callers that do not run a full turn. Clamped either way, because
+    # this is the last place before the director is asked for a count.
+    resolved = (
+        suggestions_count if suggestions_count is not None else scenario.suggestions_count
+    )
+    suggestions_count = 0 if asked_question else max(0, min(int(resolved or 0), 4))
     if suggestions_count > 0:
         # Under Player POV, the follow-ups must read like something the POV character would
         # say next (they flow into the composer as the player's own next line), so use the

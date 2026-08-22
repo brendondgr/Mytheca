@@ -16,7 +16,7 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from app.schemas.base import CamelModel, PresenceStatus, Visibility
+from app.schemas.base import BeatLength, CamelModel, PresenceStatus, Visibility
 
 # One engine, two render styles (D1): POV (interstitials off) or Narrator (on).
 #
@@ -56,6 +56,31 @@ class TurnDirective(CamelModel):
 
     text: str
     actor_id: str | None = None
+
+
+class TurnOverrides(CamelModel):
+    """Scene settings applied to **this turn only**.
+
+    Every field is optional and ``None`` by default; an unset field falls back to the
+    ``Scenario`` row. Nothing here is ever written to that row — the override is spent when
+    the turn ends, which is the whole point: a player can try a longer beat, or silence the
+    follow-up suggestions for one message, without editing the scene they will keep playing.
+
+    It is out of scope for the intent, direction and planner agents in exactly the way
+    ``taggedDocIds`` is out of scope for them. An override changes how the turn is **run** —
+    how many beats it may produce, how much a character says, whether follow-ups are offered
+    — and never what the turn is **about**. No agent is shown it, so it cannot decide what
+    happens, who acts, or where the scene goes.
+
+    Bounds mirror ``ScenarioUpdate`` with one deliberate difference: ``maxTurns`` is capped at
+    10 here while the scenario column has no upper bound. A per-turn knob that can ask for an
+    arbitrarily long turn is a way to hang the stream by accident, and a scene that genuinely
+    wants more than ten beats per message should say so on the row.
+    """
+
+    max_turns: int | None = Field(default=None, ge=1, le=10)
+    suggestions_count: int | None = Field(default=None, ge=0, le=4)
+    beat_length: BeatLength | None = None
 
 
 class TurnRequest(CamelModel):
@@ -132,6 +157,10 @@ class TurnRequest(CamelModel):
     #: the engine builds the requirements from them directly. Empty (the default) keeps
     #: today's behaviour exactly — free prose in the box is parsed by ``direction_agent``.
     directives: list[TurnDirective] = Field(default_factory=list)
+    #: Scene settings for this turn only — see :class:`TurnOverrides`. Never written to the
+    #: ``Scenario`` row, never shown to an agent, and persisted on the ``user_turn`` row only
+    #: so the Inspector and the export can say what the turn actually ran with.
+    overrides: TurnOverrides | None = None
 
 
 class SessionSummary(CamelModel):

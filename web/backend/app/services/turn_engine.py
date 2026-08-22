@@ -78,6 +78,7 @@ from app.services import turn_setup
 from app.services import direction_runtime
 from app.services import turn_effects
 from app.services import turn_finalize
+from app.services import turn_settings
 
 
 
@@ -135,6 +136,11 @@ def run_turn(
     intent = setup.intent
     direction = setup.direction
     show_reasoning = setup.show_reasoning
+    # The scene's controls with this turn's per-turn overrides already applied
+    # (``turn_settings.resolve``, called once in ``prepare_turn``). Read from here rather
+    # than from ``scenario`` so an override cannot be honoured in one site and missed in
+    # another.
+    settings = setup.settings or turn_settings.resolve(scenario, req.overrides)
 
     # Narration leads, before anyone speaks. Two cases (feedback #1/#2/#3):
     #  • Branch continuation — the player picked a narrative direction (``outcome``): open
@@ -167,7 +173,7 @@ def run_turn(
     # and any puppet performances count toward it, as does each mid-turn interstitial.
     # Resolved here (rather than beside the loop) because the opening narration below has to
     # know how much of the direction it must absorb.
-    max_turns = max(1, scenario.max_turns)
+    max_turns = settings.max_turns
     # How many beats may attempt one requirement before the turn stops re-owing it. Read
     # once: it bounds every `outstanding`/`for_actor` call below, and a requirement that
     # answered a different cap in two places would flicker in and out of the owed list.
@@ -739,6 +745,7 @@ def run_turn(
         acted=acted,
         asked_question=asked_question,
         needs_branch=needs_branch,
+        suggestions_count=settings.suggestions_count,
     )
 
 

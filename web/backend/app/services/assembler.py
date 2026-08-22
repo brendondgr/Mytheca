@@ -172,12 +172,20 @@ def assemble_context(
     directed_at: str | None = None,
     player_text: str = "",
     tagged_doc_ids: list[str] | None = None,
+    *,
+    beat_length_override: BeatLength | None = None,
 ) -> TurnContext:
     """Assemble the read-only ``TurnContext`` for one turn (best-effort throughout).
 
     ``tagged_doc_ids`` are the player's @-tagged context documents; they are resolved here
     (storyline-checked and bounded) into ``tagged_notes`` — reference material, never
     direction. See ``_tagged_notes``.
+
+    ``beat_length_override`` is this turn's per-turn tier (``TurnOverrides.beatLength``).
+    It is applied **here** rather than after assembly because ``ctx.beat_length`` has two
+    readers — ``character_turn_agent`` (the prompt directive and the prose allowance) and
+    ``beat_runner._runaway_chars`` — and overriding it downstream would leave one of them
+    reading the scenario's value while the other read the override.
     """
     storyline_id = scenario.storyline_id
     storyline = crud.get_storyline(db, storyline_id)
@@ -195,11 +203,9 @@ def assemble_context(
     # in, but a legacy row, a hand-edited database or a fixture built straight from the
     # model can still carry one, and a beat that silently ignores the setting is the
     # failure the owner would see.
-    beat_length = (
-        scenario.beat_length
-        if scenario.beat_length in BEAT_LENGTHS
-        else DEFAULT_BEAT_LENGTH
-    )
+    beat_length = beat_length_override or scenario.beat_length
+    if beat_length not in BEAT_LENGTHS:
+        beat_length = DEFAULT_BEAT_LENGTH
     block = get_settings().turn_transcript_anchor_block
     # How far back the scene reaches.
     #
