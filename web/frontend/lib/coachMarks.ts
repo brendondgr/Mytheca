@@ -16,7 +16,10 @@ export const COACH_MARK_ORDER: readonly CoachMarkId[] = ["composer", "pov", "cas
 export const COACH_MARKS: Record<CoachMarkId, string> = {
   composer: "Type what you say — or what you do. Enter sends.",
   pov: "Speak as one of the cast, instead of narrating.",
-  "cast-rail": "Click anyone here to see who they are, and how they feel about you.",
+  // Width-neutral wording on purpose: this hint is anchored to the cast rail on a desktop
+  // and to the Cast button above the composer on a phone, and it has to read correctly
+  // pointing at either.
+  "cast-rail": "The cast is here — open anyone to see who they are, and how they feel about you.",
 };
 
 export const COACH_MARK_STORAGE_KEY = "mytheca-coach-marks";

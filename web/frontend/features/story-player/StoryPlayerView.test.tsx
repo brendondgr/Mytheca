@@ -402,7 +402,7 @@ describe("StoryPlayerView coach marks", () => {
     render(<StoryPlayerView scenario={embergate} />);
     const hints = screen
       .getAllByRole("status")
-      .filter((el) => /Type what you say|Speak as one of the cast|Click anyone here/.test(el.textContent ?? ""));
+      .filter((el) => /Type what you say|Speak as one of the cast|The cast is here/.test(el.textContent ?? ""));
     expect(hints).toHaveLength(1);
   });
 
@@ -423,15 +423,17 @@ describe("StoryPlayerView coach marks", () => {
     expect(screen.queryByText(/type what you say/i)).not.toBeInTheDocument();
   });
 
-  it("never points at the cast rail when the rail is not on screen", async () => {
-    // jsdom's matchMedia reports no match, so this is the sub-`lg` case: after the two
-    // hints that DO have anchors, there must be nothing left rather than a hint aimed at
-    // a hidden rail.
+  it("offers the cast hint below lg now that the cast is reachable there", async () => {
+    // jsdom's matchMedia reports no match, so this is the sub-`lg` case. The hint used to be
+    // withheld here because it pointed at a rail that did not exist; it now points at the
+    // Cast trigger above the composer, which does.
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
     await user.click(screen.getByRole("button", { name: "Got it" }));
     await user.click(screen.getByRole("button", { name: "Got it" }));
-    expect(screen.queryByText(/click anyone here/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/the cast is here/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Got it" }));
     expect(screen.queryByRole("button", { name: "Got it" })).not.toBeInTheDocument();
   });
 });

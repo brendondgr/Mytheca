@@ -19,8 +19,9 @@ import {
  * Nothing renders before hydration: the dismissal set lives in `localStorage`, which the
  * server cannot see, so rendering a mark on the first pass would be a hydration mismatch.
  *
- * `available` is what is actually on screen. The cast-rail hint must not be offered below
- * `lg`, where the rail does not exist — a hint pointing at nothing is worse than no hint.
+ * `available` is what is actually on screen — a hint pointing at nothing is worse than no
+ * hint. The cast-rail hint used to be withheld below `lg` for exactly that reason; it is now
+ * offered at every width, because the cast is reachable at every width.
  */
 export function useCoachMarks(available: readonly CoachMarkId[]): {
   mark: CoachMarkId | null;

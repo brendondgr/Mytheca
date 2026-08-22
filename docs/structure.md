@@ -46,10 +46,10 @@ mytheca/
 ├── web/
 │   ├── frontend/           # Next.js 16 app (App Router, Turbopack) + React 19 + TS + Tailwind v4
 │   │   ├── app/            # 8 routes (see docs/routes.md) + root layout
-│   │   ├── components/{ui,layout,feature}/   # 17 / 6 / 47 components
+│   │   ├── components/{ui,layout,feature}/   # 24 / 6 / 74 components
 │   │   ├── features/       # Route-level modules: story-player, library, options, documents
-│   │   ├── hooks/          # use-event-stream, use-field-reveal, use-font-size, use-theme
-│   │   ├── lib/            # API client, types, events, theme, helpers (14 files)
+│   │   ├── hooks/          # 12: use-event-stream, use-focus-trap (shared by Modal + Drawer), use-media-query, use-coach-marks, use-model-health, use-scene-shortcuts, …
+│   │   ├── lib/            # API client, types, events, theme, helpers (18 files)
 │   │   ├── styles/         # themes.css — the only stylesheet besides app/globals.css
 │   │   ├── public/         # Static assets
 │   │   ├── test/           # Vitest setup (jsdom, jest-dom)

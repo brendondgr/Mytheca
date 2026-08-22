@@ -80,6 +80,12 @@ export function Drawer({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
+        // A sheet on its way out is still on screen for `EXIT_MS`, and for that beat two
+        // dialogs would be in the tree at once when one sheet replaces another. Focus has
+        // already been restored to the trigger by then (the trap's cleanup runs on `open:
+        // false`), so hiding it is safe — and it is the only way "exactly one dialog" is
+        // true at every instant rather than merely most of the time.
+        aria-hidden={closing || undefined}
         aria-labelledby={labelledBy ?? headingId}
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}

@@ -25,14 +25,16 @@ import { COACH_MARKS, type CoachMarkId } from "@/lib/coachMarks";
 import type { SceneImage, SceneMessage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
 import { PromptOverridesModal } from "@/components/feature/PromptOverridesModal";
-import { CastRail } from "@/components/feature/CastRail";
+import { CastRail, CastRailContent, type CastRailProps } from "@/components/feature/CastRail";
 import { PlaythroughTray } from "@/components/feature/PlaythroughTray";
 import { BeatControls } from "@/components/feature/BeatControls";
 import { BeatEditor } from "@/components/feature/BeatEditor";
 import { BeatTakePager } from "@/components/feature/BeatTakePager";
 import { RewindNotice } from "@/components/feature/RewindNotice";
 import { GraphView } from "@/components/feature/GraphView";
-import { DirectorRail } from "@/components/feature/DirectorRail";
+import { DirectorRail, DirectorRailContent, type DirectorRailProps } from "@/components/feature/DirectorRail";
+import { SceneRailBar, type RailTrigger } from "@/components/feature/SceneRailBar";
+import { Drawer } from "@/components/ui/Drawer";
 import { Composer } from "@/components/feature/Composer";
 import { SceneLoader } from "@/components/feature/SceneLoader";
 import { SceneIntro } from "@/components/feature/SceneIntro";
@@ -43,7 +45,11 @@ import { JumpToLatest } from "@/components/feature/JumpToLatest";
 import { useStickyBottom } from "./use-sticky-bottom";
 import { TranscriptFootBar } from "@/components/feature/TranscriptFootBar";
 import { SceneImageModal } from "@/components/feature/SceneImageModal";
-import { CharacterDossier } from "@/components/feature/CharacterDossier";
+import {
+  CharacterDossier,
+  CharacterDossierContent,
+  type CharacterDossierProps,
+} from "@/components/feature/CharacterDossier";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { TurnInspectorPanel } from "@/components/feature/TurnInspectorPanel";
 import { SceneMemoryPanel } from "@/components/feature/SceneMemoryPanel";
@@ -165,6 +171,12 @@ export function StoryPlayerView({
   /** The player-facing "what the scene knows" rail. Mutually exclusive with the Inspector —
    *  two 340px columns cannot both dock, and they answer different questions anyway. */
   const [memoryOpen, setMemoryOpen] = useState(false);
+  /**
+   * Which rail is open as a bottom sheet. Read through `openSheet` below, never directly:
+   * above `lg` both rails are already on screen and a sheet would be a second copy of the
+   * same landmark, so the width closes it — derived, not an effect that writes state back.
+   */
+  const [railDrawer, setRailDrawer] = useState<"cast" | "scene" | null>(null);
   // Whether the model behind the scene is actually there. Polled while the tab is visible,
   // and re-checked the moment a turn fails — which is when the player most needs to know
   // whether the failure was their endpoint rather than the story.
@@ -245,19 +257,130 @@ export function StoryPlayerView({
   const activeMatch = matchTotal ? Math.min(matchIndex, matchTotal - 1) : 0;
   const highlighted = matchTotal ? matches[activeMatch].index : -1;
 
-  // Which hints can honestly be shown. The cast-rail one is suppressed below `lg`, where the
-  // rail does not exist — a hint pointing at nothing is worse than no hint. (The mobile plan
-  // owns the drawer that would earn it back.)
+  // Every hint can now be shown at every width. The cast-rail one used to be suppressed below
+  // `lg` because it pointed at a rail that did not exist there; it now points at the Cast
+  // trigger in the rail bar, which does.
   const wide = useMediaQuery("(min-width: 1024px)");
   const availableMarks = useMemo<CoachMarkId[]>(
-    () => (wide ? ["composer", "pov", "cast-rail"] : ["composer", "pov"]),
-    [wide],
+    () => ["composer", "pov", "cast-rail"],
+    [],
   );
   const { mark, dismiss } = useCoachMarks(availableMarks);
 
   // Destructured before the memo so its dependencies are plain values rather than the whole
   // `scene` object, which is rebuilt every render and would defeat the memo entirely.
   const { recallLast, openProfile, profileId } = scene;
+
+  /**
+   * Opening a profile, from wherever. Below `lg` the dossier lives in the scene sheet, so
+   * selecting a character has to raise that sheet — otherwise a tap on a cast member sets
+   * state that nothing on screen renders, and reads as the app ignoring the tap.
+   *
+   * Routed here rather than folded into `useScenePlay.openProfile` so the hook's surface
+   * stays the same for the other plans that consume it.
+   */
+  // Crossing into `lg` closes any open sheet, by *clearing the state* rather than by masking
+  // it behind a derived value. Both were tried; masking is wrong, and observably so — the
+  // stale "cast" survives the widen, so narrowing back pops a modal dialog open that nobody
+  // asked for and moves focus into it. Adjusting state during render is React's own answer
+  // to "reset state when an external value changes": no effect, no second commit.
+  const [wasWide, setWasWide] = useState(wide);
+  if (wide !== wasWide) {
+    setWasWide(wide);
+    if (wide && railDrawer) setRailDrawer(null);
+  }
+  const openSheet = wide ? null : railDrawer;
+
+  const showProfile = useCallback(
+    (id: string | null) => {
+      openProfile(id);
+      if (id && !wide) setRailDrawer("scene");
+    },
+    [openProfile, wide],
+  );
+
+  /**
+   * The rails' props, built once and spread into BOTH the `lg` rail and the bottom sheet.
+   *
+   * Not "the same props" by hand — the same object. That is what makes "identical
+   * functionality at every width" a fact about the code rather than a promise: a prop added
+   * to a rail reaches the phone in the same edit, and there is no second call site to forget.
+   */
+  const castRailProps: CastRailProps = {
+    cast: scenario.cast,
+    speakingId: scene.speakingId,
+    turnOrder: scene.turnOrder,
+    charById: byId,
+    onProfile: (id) => {
+      if (mark === "cast-rail") dismiss("cast-rail");
+      showProfile(id);
+    },
+    presenceByChar: scene.presenceByChar,
+    setPresence: scene.setPresence,
+    statDefs,
+    statsByChar: scene.statsByChar,
+    activityByChar: scene.activityByChar,
+    storylineCast,
+    joinDisabled: !scene.sessionId,
+  };
+
+  const directorRailProps: DirectorRailProps = {
+    stats: scene.stats,
+    activity: scene.activity,
+    charById: byId,
+    direction: scene.direction,
+    standing: scene.standing,
+    onDismissStanding: scene.dismissStanding,
+  };
+
+  const dossierProps: CharacterDossierProps | null = profileChar
+    ? {
+        character: profileChar,
+        statDefs,
+        stats: scene.statsByChar[profileChar.id],
+        relationships: scene.relationships,
+        onClose: scene.closeProfile,
+        onOpenProfile: setModalId,
+      }
+    : null;
+
+  // What the Scene trigger advertises: outcomes this turn still owes, plus anything an
+  // earlier turn could not deliver. Zero shows no badge at all.
+  const sceneOwed =
+    scene.direction.items.filter((i) => i.state !== "delivered").length + scene.standing.length;
+
+  const railTriggers: RailTrigger[] = [
+    {
+      key: "cast",
+      label: "Cast",
+      count: castRailProps.cast.filter(
+        (c) => (scene.presenceByChar[c.id] ?? "present") === "present",
+      ).length,
+      countLabel: (n) => `${n} in the scene`,
+      open: openSheet === "cast",
+      onSelect: () => setRailDrawer((open) => (open === "cast" ? null : "cast")),
+    },
+    {
+      key: "scene",
+      label: "Scene",
+      count: sceneOwed,
+      countLabel: (n) => `${n} still owed`,
+      urgent: true,
+      open: openSheet === "scene",
+      onSelect: () => setRailDrawer((open) => (open === "scene" ? null : "scene")),
+    },
+    {
+      // The memory panel is NOT wrapped in a sheet: it already takes the full width below
+      // `sm` and brings its own `<aside>` and close button, so a dialog around it would nest
+      // a landmark inside a dialog and give it two ways out. What it lacked was a reachable
+      // trigger below `lg`, which is this.
+      key: "knows",
+      label: "Knows",
+      dialog: false,
+      open: memoryOpen,
+      onSelect: () => setMemoryOpen((open) => !open),
+    },
+  ];
 
   useSceneShortcuts(
     useMemo(
@@ -274,6 +397,9 @@ export function StoryPlayerView({
           if (modalId) return setModalId(null), true;
           if (memoryOpen) return setMemoryOpen(false), true;
           if (inspectorOpen) return setInspectorOpen(false), true;
+          // The sheet before the profile behind it: closing the dossier under an open sheet
+          // would leave an empty sheet on screen.
+          if (openSheet) return setRailDrawer(null), true;
           if (profileId) return openProfile(null), true;
           return false;
         },
@@ -287,6 +413,7 @@ export function StoryPlayerView({
         modalId,
         memoryOpen,
         inspectorOpen,
+        openSheet,
         profileId,
         recallLast,
         openProfile,
@@ -377,30 +504,16 @@ export function StoryPlayerView({
       />
 
       <div className="relative flex min-h-0 flex-1">
-        {mark === "cast-rail" ? (
+        {/* In graph mode below `lg` there is no rail bar and no rail — the one case where
+            this hint still has nothing to point at. */}
+        {mark === "cast-rail" && (wide || viewMode === "chat") ? (
           <CoachMark
             text={COACH_MARKS["cast-rail"]}
             onDismiss={() => dismiss("cast-rail")}
-            className="absolute top-[76px] left-[16px]"
+            className="absolute bottom-[139px] left-[16px] lg:top-[76px] lg:bottom-auto"
           />
         ) : null}
-        <CastRail
-          cast={scenario.cast}
-          speakingId={scene.speakingId}
-          turnOrder={scene.turnOrder}
-          charById={byId}
-          onProfile={(id) => {
-            if (mark === "cast-rail") dismiss("cast-rail");
-            scene.openProfile(id);
-          }}
-          presenceByChar={scene.presenceByChar}
-          setPresence={scene.setPresence}
-          statDefs={statDefs}
-          statsByChar={scene.statsByChar}
-          activityByChar={scene.activityByChar}
-          storylineCast={storylineCast}
-          joinDisabled={!scene.sessionId}
-        />
+        <CastRail {...castRailProps} />
 
         {viewMode === "graph" ? (
           <GraphView scenarioId={scenario.id} />
@@ -422,7 +535,7 @@ export function StoryPlayerView({
               }}
               aria-busy={!scene.reveal}
             >
-              <SceneIntro scenario={scenario} onProfile={scene.openProfile} />
+              <SceneIntro scenario={scenario} onProfile={showProfile} />
               <div className="py-[2px] text-center font-mono text-[9px] tracking-[0.16em] text-mute2 uppercase">
                 — the scene is joined —
               </div>
@@ -505,7 +618,7 @@ export function StoryPlayerView({
                   <TranscriptBeat
                     message={m}
                     charById={byId}
-                    onProfile={scene.openProfile}
+                    onProfile={showProfile}
                     choices={scene.choices}
                     onChoose={onChoose}
                     onOpenImage={setLightbox}
@@ -613,7 +726,7 @@ export function StoryPlayerView({
 
           {/* Only while the reader has scrolled away from the live edge. */}
           {readerScrolledUp ? (
-            <JumpToLatest onClick={jumpToLatest} className="bottom-[96px]" />
+            <JumpToLatest onClick={jumpToLatest} className="bottom-[139px] lg:bottom-[96px]" />
           ) : null}
 
           {/* Anchored above the composer band, one at a time. No overlay and no backdrop:
@@ -622,9 +735,15 @@ export function StoryPlayerView({
             <CoachMark
               text={COACH_MARKS[mark]}
               onDismiss={() => dismiss(mark)}
-              className="absolute right-[16px] bottom-[96px] left-auto sm:right-[30px]"
+              className="absolute right-[16px] bottom-[139px] left-auto sm:right-[30px] lg:bottom-[96px]"
             />
           ) : null}
+
+          {/* Below `lg` this row is the ONLY way to the rails — the cast list with its
+              presence controls and stat values, the scene pulse, the scene state, the
+              direction checklist. It sits above the composer rather than in the header
+              because that is where a thumb already is. */}
+          <SceneRailBar triggers={railTriggers} />
 
           <Composer
             // Cast + context files in one `@` namespace, built by the hook because who is
@@ -713,25 +832,34 @@ export function StoryPlayerView({
           />
         </div>
 
-        {profileChar ? (
-          <CharacterDossier
-            character={profileChar}
-            statDefs={statDefs}
-            stats={scene.statsByChar[profileChar.id]}
-            relationships={scene.relationships}
-            onClose={scene.closeProfile}
-            onOpenProfile={setModalId}
-          />
+        {dossierProps ? (
+          <CharacterDossier {...dossierProps} />
         ) : (
-          <DirectorRail
-            stats={scene.stats}
-            activity={scene.activity}
-            charById={byId}
-            direction={scene.direction}
-            standing={scene.standing}
-            onDismissStanding={scene.dismissStanding}
-          />
+          <DirectorRail {...directorRailProps} />
         )}
+
+        {/* The same rails again, as bottom sheets. `railDrawer` is forced to null above `lg`
+            (see the effect), so only one of the two surfaces is ever in the tree. */}
+        <Drawer
+          open={openSheet === "cast"}
+          onClose={() => setRailDrawer(null)}
+          title="Cast"
+        >
+          <CastRailContent {...castRailProps} />
+        </Drawer>
+        <Drawer
+          open={openSheet === "scene"}
+          onClose={() => setRailDrawer(null)}
+          title={dossierProps ? `${dossierProps.character.name} — profile` : "Scene"}
+        >
+          {dossierProps ? (
+            <CharacterDossierContent {...dossierProps} />
+          ) : (
+            // `live={false}`: this mounts when the sheet opens, and a log that reads out the
+            // whole turn the instant it appears talks over everything else.
+            <DirectorRailContent {...directorRailProps} live={false} />
+          )}
+        </Drawer>
 
         {/* Docked to the far right of the Director rail — the chat stays visible. */}
         <TurnInspectorPanel

@@ -123,6 +123,20 @@ describe("Drawer", () => {
     expect(trigger).toHaveFocus();
   });
 
+  it("leaves the accessibility tree the moment it starts closing", async () => {
+    // It stays mounted for the exit transition. Two sheets swapping would otherwise put two
+    // dialogs in the tree at once — and focus is already back on the trigger by then, so
+    // hiding it is safe.
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { rerender } = render(<Harness onClose={onClose} />);
+    await user.keyboard("{Escape}");
+
+    rerender(<Harness open={false} onClose={onClose} />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("drawer-backdrop")).toBeInTheDocument(); // still animating out
+  });
+
   it("stacks below Modal so a modal opened from a drawer is on top", () => {
     // Modal defaults to 60; a drawer that sat above it would hide the thing it opened.
     render(<Harness />);
