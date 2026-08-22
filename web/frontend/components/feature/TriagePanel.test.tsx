@@ -168,3 +168,85 @@ describe("TriagePanel self-triage", () => {
     expect(screen.getByText(/not yet categorized/i)).toBeInTheDocument();
   });
 });
+
+describe("TriagePanel upload disclosure", () => {
+  /** A panel with documents, so the Draft strip is on screen too. */
+  function renderPanel() {
+    return render(
+      <TriagePanel
+        {...baseProps}
+        docs={[toCreatorDoc({ name: "a.md", text: "x" })]}
+        triaging={false}
+        onSetAllUse={noop}
+      />,
+    );
+  }
+
+  /**
+   * The stacked layout gave the document list ~34px of scroll at 320×720, because the sticky
+   * header was ~230px of a 42dvh strip. The setup half now collapses below `lg`; what a
+   * player *scans* or reaches for stays put.
+   */
+  it("collapses the upload setup by default and says so", () => {
+    renderPanel();
+    const toggle = screen.getByRole("button", { name: /add files/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-controls");
+  });
+
+  it("keeps Browse files, Triage and the Draft strip reachable with nothing expanded", () => {
+    // `Browse files` is the keyboard alternative to dragging. An alternative gated behind a
+    // disclosure — and behind an animation — is not an alternative.
+    renderPanel();
+    expect(screen.getByText("Browse files")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /triage/i })).toBeInTheDocument();
+    expect(screen.getByText(/de-select all|re-select all/i)).toBeInTheDocument();
+  });
+
+  it("keeps the file input associated with its label across the move", () => {
+    // Both moved out of the drop zone together — splitting an `htmlFor` pair across a
+    // collapsed region is how a label stops labelling anything.
+    const { container } = renderPanel();
+    const label = screen.getByText("Browse files") as HTMLLabelElement;
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    expect(label.htmlFor).toBe(input.id);
+    expect(input.className).toContain("sr-only");
+  });
+
+  it("reveals the upload target when expanded, and updates aria-expanded", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const toggle = screen.getByRole("button", { name: /add files/i });
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Add as")).toBeInTheDocument();
+    expect(screen.getByText(/drag/i)).toBeInTheDocument();
+  });
+
+  it("takes the collapsed controls out of the tab order, not just out of sight", async () => {
+    // `overflow-hidden` at `0fr` clips them visually and leaves them focusable; a keyboard
+    // user would land on a select that is not on screen.
+    const user = userEvent.setup();
+    renderPanel();
+    const region = document.getElementById(
+      screen.getByRole("button", { name: /add files/i }).getAttribute("aria-controls")!,
+    )!;
+    const inner = region.firstElementChild!;
+    expect(inner.className).toContain("invisible");
+    expect(inner.className).toContain("lg:visible");
+
+    await user.click(screen.getByRole("button", { name: /add files/i }));
+    expect(region.firstElementChild!.className).toContain("visible");
+    expect(region.firstElementChild!.className).not.toContain("invisible");
+  });
+
+  it("is forced open at lg and up, in CSS — no media query, no hydration swap", () => {
+    renderPanel();
+    const region = document.getElementById(
+      screen.getByRole("button", { name: /add files/i }).getAttribute("aria-controls")!,
+    )!;
+    expect(region.className).toContain("lg:grid-rows-[1fr]");
+    expect(screen.getByRole("button", { name: /add files/i }).className).toContain("lg:hidden");
+  });
+});

@@ -554,7 +554,7 @@ The story player's **Create image** action (`CreateImageBar` → `SceneImageBeat
 The storyline create/edit page (`StorylineCreatorView`) replaced its one-shot "Build the
 whole world" hero with a **three-column layout** (at `lg+`): a **left sidebar** holding the
 new **Assistant** (`StorylineAgentPanel`), the **by-hand fields in the center**, and a
-**right sidebar** holding the existing **Context** (`TriagePanel` + `ContextBudgetMeter`,
+**right sidebar** holding the existing **Context** (`TriagePanel` — whose upload setup collapses behind a **＋ Add files** disclosure below `lg`, leaving the document list usable height on a stacked layout — + `ContextBudgetMeter`,
 hosted `embedded`). Each column scrolls independently; below `lg` they stack (the center form
 leads via `order-1`, the two sidebars become bounded strips). No new tokens — the panel reuses
 the existing `--field`/`--card` surfaces, `--accent`/gold highlights, and

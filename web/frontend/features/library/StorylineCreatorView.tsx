@@ -271,7 +271,11 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
       </div>
 
       {/* ── Right sidebar — Context files (own scroll; TriagePanel is the landmark) ──── */}
-      <div className="mytheca-rail order-3 flex max-h-[42dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong lg:max-h-none lg:w-[340px] lg:border-t-0 lg:border-l lg:self-stretch">
+      {/* 52dvh, not 42: the stacked strip's sticky header ate ~230px of it, leaving the
+          document list about 34px of scroll at 320×720. With the upload setup now collapsed
+          by default below `lg` (see `TriagePanel`), the two changes together take the list
+          to roughly 260px. Unchanged at `lg`+, where this is a 340px column. */}
+      <div className="mytheca-rail order-3 flex max-h-[52dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong lg:max-h-none lg:w-[340px] lg:border-t-0 lg:border-l lg:self-stretch">
         <TriagePanel
           embedded
           docs={c.docs}

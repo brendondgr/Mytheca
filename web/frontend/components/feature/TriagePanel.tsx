@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { cn } from "@/lib/cn";
@@ -79,6 +79,13 @@ export function TriagePanel({
   // The author's chosen upload target: a whole batch dropped now gets this category +
   // Draft/RAG/Extract, so e.g. a folder of character sheets lands as Characters with no
   // triage. Extract defaults OFF (opt-in — a new storyline never auto-mines docs).
+  /**
+   * Whether the upload setup is showing. Only meaningful below `lg` — above it the panel is
+   * a 360px column with room for everything, and `lg:grid-rows-[1fr]` forces it open in CSS
+   * regardless of this value.
+   */
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const uploadPanelId = useId();
   const [uploadCategory, setUploadCategory] = useState<DocCategory>("select");
   const [uploadUses, setUploadUses] = useState<Record<DocUse, boolean>>({
     useDraft: true,
@@ -196,92 +203,143 @@ export function TriagePanel({
           ) : null}
         </div>
 
-        {/* Upload target: pick a bucket + Draft/RAG once, then drop a whole batch. */}
-        <div className="flex flex-wrap items-center gap-[6px]">
-          <span
-            id="upload-as-label"
-            className="font-mono text-tag tracking-[0.1em] text-mute2 uppercase"
+        {/* Always visible, at every width: the file input's own label, and — below `lg` —
+            the control that reveals the upload target and the drop zone.
+
+            `Browse files` lives HERE rather than inside the drop zone because it is the
+            keyboard alternative to dragging, and an alternative gated behind a disclosure
+            (and behind an animation) is not an alternative. The `sr-only` input travels with
+            its label so the `htmlFor` association is never split across a collapsed region. */}
+        <div className="flex flex-wrap items-center justify-between gap-[8px]">
+          <div className="flex items-center gap-[10px]">
+            <input
+              id={inputId}
+              type="file"
+              multiple
+              accept=".txt,.md,.markdown,text/plain,text/markdown"
+              className="sr-only"
+              onChange={(e) => {
+                onAddFiles(e.currentTarget.files, uploadOpts);
+                e.currentTarget.value = "";
+              }}
+            />
+            <label
+              htmlFor={inputId}
+              className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:underline"
+            >
+              Browse files
+            </label>
+          </div>
+          <button
+            type="button"
+            onClick={() => setUploadOpen((o) => !o)}
+            aria-expanded={uploadOpen}
+            aria-controls={uploadPanelId}
+            className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-mute uppercase hover:text-ink lg:hidden"
           >
-            Add as
-          </span>
-          <select
-            aria-labelledby="upload-as-label"
-            value={uploadCategory}
-            onChange={(e) => setUploadCategory(e.target.value as DocCategory)}
-            className="rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-tag uppercase tracking-[0.06em] text-ink-soft"
-          >
-            {CATEGORY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          {USES.map(({ key, label, title }) => {
-            const on = uploadUses[key];
-            return (
-              <button
-                key={key}
-                type="button"
-                title={title}
-                aria-pressed={on}
-                aria-label={`Default ${label} for uploads`}
-                onClick={() => setUploadUses((prev) => ({ ...prev, [key]: !prev[key] }))}
-                className={cn(
-                  "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
-                  on
-                    ? "border-accent bg-card2 text-ink"
-                    : "border-cardbd bg-transparent text-mute hover:border-accent hover:bg-hover hover:text-ink",
-                )}
-              >
-                {on ? "✓ " : ""}
-                {label}
-              </button>
-            );
-          })}
+            {uploadOpen ? "− Add files" : "＋ Add files"}
+          </button>
         </div>
 
+        {/* The SETUP half — where a batch lands, and the drop target. Collapsed below `lg`
+            and forced open above it, in CSS: no `useMediaQuery`, so the server and client
+            trees never diverge and the first paint is not a swap.
+
+            The split is by urgency, not by importance. An upload target is set once per
+            batch; the list underneath is scanned continuously, and at 320×720 it had ~34px
+            to do that in. */}
         <div
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            onAddFiles(e.dataTransfer.files, uploadOpts);
-          }}
-          className="flex flex-col items-center gap-[6px] rounded-[4px] border border-dashed border-cardbd bg-field/50 px-[14px] py-[16px] text-center"
+          id={uploadPanelId}
+          className={cn(
+            "grid transition-[grid-template-rows] duration-base ease-out motion-reduce:transition-none lg:grid-rows-[1fr]",
+            uploadOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+          )}
         >
-          <span aria-hidden className="text-[18px] text-mute">
-            ⤓
-          </span>
-          <p className="font-body text-[13px] text-ink-soft">
-            Drag <code className="font-mono text-[12px]">.txt</code> or{" "}
-            <code className="font-mono text-[12px]">.md</code> files here
-            {uploadCategory !== "select" ? (
-              <>
-                {" "}
-                as{" "}
-                <span className="text-ink-soft">
-                  {CATEGORY_OPTIONS.find((o) => o.value === uploadCategory)?.label}
-                </span>
-              </>
-            ) : null}
-            .
-          </p>
-          <input
-            id={inputId}
-            type="file"
-            multiple
-            accept=".txt,.md,.markdown,text/plain,text/markdown"
-            className="sr-only"
-            onChange={(e) => {
-              onAddFiles(e.currentTarget.files, uploadOpts);
-              e.currentTarget.value = "";
-            }}
-          />
-          <label
-            htmlFor={inputId}
-            className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:underline"
+          {/* `invisible`, not merely clipped. `overflow-hidden` at `0fr` hides this region
+              visually but leaves its `<select>` and its two chips in the tab order, so a
+              keyboard user lands on controls that are not on screen — the same defect the
+              header's single-cluster rule exists to avoid. `visibility: hidden` takes them
+              out of the tab order and the accessibility tree, and `lg:visible` restores
+              them where the region is always open. */}
+          <div
+            className={cn(
+              "overflow-hidden lg:visible",
+              uploadOpen ? "visible" : "invisible",
+            )}
           >
-            Browse files
-          </label>
+            <div className="flex flex-col gap-[12px] pt-[2px]">
+            {/* Upload target: pick a bucket + Draft/RAG once, then drop a whole batch. */}
+            <div className="flex flex-wrap items-center gap-[6px]">
+              <span
+                id="upload-as-label"
+                className="font-mono text-tag tracking-[0.1em] text-mute2 uppercase"
+              >
+                Add as
+              </span>
+              <select
+                aria-labelledby="upload-as-label"
+                value={uploadCategory}
+                onChange={(e) => setUploadCategory(e.target.value as DocCategory)}
+                className="rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-tag uppercase tracking-[0.06em] text-ink-soft"
+              >
+                {CATEGORY_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              {USES.map(({ key, label, title }) => {
+                const on = uploadUses[key];
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    title={title}
+                    aria-pressed={on}
+                    aria-label={`Default ${label} for uploads`}
+                    onClick={() => setUploadUses((prev) => ({ ...prev, [key]: !prev[key] }))}
+                    className={cn(
+                      "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
+                      on
+                        ? "border-accent bg-card2 text-ink"
+                        : "border-cardbd bg-transparent text-mute hover:border-accent hover:bg-hover hover:text-ink",
+                    )}
+                  >
+                    {on ? "✓ " : ""}
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                onAddFiles(e.dataTransfer.files, uploadOpts);
+              }}
+              className="flex flex-col items-center gap-[6px] rounded-[4px] border border-dashed border-cardbd bg-field/50 px-[14px] py-[16px] text-center"
+            >
+              <span aria-hidden className="text-[18px] text-mute">
+                ⤓
+              </span>
+              <p className="font-body text-[13px] text-ink-soft">
+                Drag <code className="font-mono text-[12px]">.txt</code> or{" "}
+                <code className="font-mono text-[12px]">.md</code> files here
+                {uploadCategory !== "select" ? (
+                  <>
+                    {" "}
+                    as{" "}
+                    <span className="text-ink-soft">
+                      {CATEGORY_OPTIONS.find((o) => o.value === uploadCategory)?.label}
+                    </span>
+                  </>
+                ) : null}
+                .
+              </p>
+            </div>
+            </div>
+          </div>
         </div>
 
         <Button

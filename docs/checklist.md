@@ -355,11 +355,6 @@ Verified against the code on 2026-08-04.
   `sr-only` (or other absolutely-positioned) element inside a long scrolling list within
   a `h-dvh`/`overflow-hidden` shell can reproduce it. The symptom is
   `documentElement.scrollHeight > clientHeight` while `document.body` is viewport-sized.
-- **The context rail is very cramped below `lg`.** With the rails stacked, `TriagePanel`'s
-  sticky header (upload target + drop zone + Triage button) consumes almost the whole
-  `42dvh` strip, leaving the doc list ~34px of scroll at 320×720 and 375×812 (134px at
-  768). Functional — the list scrolls and the page does not overflow — but poor; part of
-  the unbuilt mobile-drawer work under *Known UI limitations*.
 - **An unreproduced connect failure on the storyline Assistant.** Reported as
   "Could not reach the server." on `/storylines/new` → Assistant → Send, on plain
   localhost with nothing in between, while the local LLM was still generating. That
