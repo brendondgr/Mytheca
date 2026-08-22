@@ -14,7 +14,7 @@ the model leaked into that character's own **visual tag** — the opening phrase
 the portrait prompt that produced their avatar, i.e. their established look.
 
 Composition is fixed (landscape, in-frame subjects) and the style tags follow the
-watercolor look the portrait and scene-art agents already establish, so a captured
+art style the portrait and scene-art agents already establish, so a captured
 moment sits beside a character portrait as the same kind of object. The *subject*
 is deliberately open — whatever the scene happens to be.
 """
@@ -33,23 +33,35 @@ from app.agents._common import (
     gen_params,
     resolve_llm_or,
 )
+from app.content import art_styles
+from app.content.art_styles import ArtStyle
 from app.core.errors import APIError
 from app.schemas.play import MomentPromptResponse
 from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
 
 # How the shot is always framed, whatever the scene is. Appended when the model
-# omits it so the rendered frame is never portrait-orientation by accident.
-LANDSCAPE_TAG = "wide landscape composition"
+# omits it so the rendered frame is never portrait-orientation by accident. Defined in
+# ``art_styles`` (every style's moment tags must carry it) and re-exported here, which is
+# where callers and tests have always looked for it.
+LANDSCAPE_TAG = art_styles.LANDSCAPE_TAG
 
-# Used when the model returns no negative prompt of its own.
-DEFAULT_NEGATIVE = (
-    "text, watermark, signature, caption, speech bubble, photorealistic, 3d render, "
+# The style-independent half of a negative prompt — what no illustration of a scene should
+# show, in any look. The style's own negatives are prepended by ``_default_negative``.
+BASE_NEGATIVE = (
+    "text, watermark, signature, caption, speech bubble, "
     "extra limbs, deformed hands, extra fingers, blurry, lowres, cropped"
 )
 
-_MOMENT_SYSTEM = (
-    "You are Mytheca's moment-prompt writer for a watercolor image model "
+
+def _default_negative(style: ArtStyle) -> str:
+    """Used when the model returns no negative prompt of its own."""
+    return f"{BASE_NEGATIVE}, {style.negative_tags}"
+
+def _moment_system(style: ArtStyle) -> str:
+    """The in-play moment system prompt, written for one art style."""
+    return (
+    f"You are Mytheca's moment-prompt writer for {style.model_hint} "
     "(Z-Image-Turbo via ComfyUI). You are given a live roleplay scene: the world, "
     "the place, who is in frame, and the last beats of the transcript. Write the "
     "prompts for a single illustration of WHAT IS HAPPENING RIGHT NOW in that "
@@ -66,8 +78,7 @@ _MOMENT_SYSTEM = (
     "not invent a different look for them, and do not merge two characters into "
     "one.\n"
     "  3. The place: its kind, its materials, the light, the weather, the mood.\n"
-    "  4. Style tags: 'watercolor, soft washes, painterly, delicate linework, "
-    f"atmospheric lighting, {LANDSCAPE_TAG}, detailed'.\n"
+    f"  4. Style tags: '{style.moment_tags}'.\n"
     "NEVER write a character's NAME, nickname, or title-plus-name in the positive "
     "prompt — the image model cannot look a name up, and a name wastes the phrase "
     "that should have described the person. Write what a viewer would SEE.\n"
@@ -76,7 +87,7 @@ _MOMENT_SYSTEM = (
     "anything this particular scene should not show.\n"
     "caption: ONE short sentence of plain English describing the picture, for a "
     "reader who cannot see it. Names ARE allowed here."
-)
+    )
 
 
 @dataclass(frozen=True)
@@ -214,6 +225,7 @@ def write_moment_prompt(
     cast: list[FramedCharacter] | None = None,
     world: str = "",
     place: str = "",
+    style: str | None = None,
     reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
     conn: LlmConn | None = None,
 ) -> MomentPromptResponse:
@@ -221,8 +233,10 @@ def write_moment_prompt(
 
     ``beats`` are the recent transcript lines (oldest → newest) and are required —
     there is no moment to paint before the scene has said anything. ``cast`` is who
-    is in frame; an empty cast is legitimate (an empty room, a landscape).
+    is in frame; an empty cast is legitimate (an empty room, a landscape). ``style`` is an
+    art-style id (``app.content.art_styles``); unknown/omitted falls back to the default.
     """
+    art_style = art_styles.get(style)
     cast = cast or []
     beats = [b.strip() for b in beats if (b or "").strip()]
     if not beats:
@@ -241,7 +255,7 @@ def write_moment_prompt(
     sections.append("Recent beats (oldest first; the LAST one is the moment):\n" + "\n".join(beats))
 
     messages = [
-        {"role": "system", "content": _MOMENT_SYSTEM},
+        {"role": "system", "content": _moment_system(art_style)},
         {"role": "user", "content": "\n\n".join(sections)},
     ]
     data = extract_json(
@@ -255,7 +269,7 @@ def write_moment_prompt(
         raise APIError(502, "upstream_error", "The image prompt came back empty.")
     if "landscape" not in positive.lower():
         positive = f"{positive}, {LANDSCAPE_TAG}"
-    negative = str(data.get("negative") or "").strip() or DEFAULT_NEGATIVE
+    negative = str(data.get("negative") or "").strip() or _default_negative(art_style)
     # The caption is read by people, not by the image model — names help there.
     caption = str(data.get("caption") or "").strip()
 

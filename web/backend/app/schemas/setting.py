@@ -112,17 +112,21 @@ class SceneArtPromptRequest(CamelModel):
     features: str | None = None
     current_state: str | None = None
     notes: str | None = None
+    #: Which look to render in (``app.content.art_styles``: ``painted`` | ``anime`` |
+    #: ``photoreal``). Omitted = the operator's stored default from Options. Unknown ids fall
+    #: back to the default rather than failing the request.
+    art_style: str | None = None
 
 
 class SceneArtPromptResponse(CamelModel):
-    """Comma-separated ComfyUI prompts for the watercolor establishing shot."""
+    """Comma-separated ComfyUI prompts for the establishing shot, in the chosen art style."""
 
     positive: str = ""
     negative: str = ""
 
 
 class SceneArtGenerateRequest(CamelModel):
-    """Render a watercolor establishing image via ComfyUI from the given prompts.
+    """Render an establishing image via ComfyUI from the given prompts.
 
     Id-agnostic: the resulting ``/media/...`` URL is carried into the normal
     setting create/update payload (works during creation, before a row exists).
@@ -137,6 +141,10 @@ class SceneArtGenerateRequest(CamelModel):
     height: int | None = None
     steps: int | None = None
     cfg: float | None = None
+    #: Which look to render in (``app.content.art_styles``: ``painted`` | ``anime`` |
+    #: ``photoreal``). Omitted = the operator's stored default from Options. Unknown ids fall
+    #: back to the default rather than failing the request.
+    art_style: str | None = None
 
 
 class SceneArtGenerateResponse(CamelModel):

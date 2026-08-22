@@ -7,7 +7,7 @@ settings-store resolution as ``storyline_agent``, via ``agents._common``):
   reference docs and the active world) into a full character draft: the by-hand
   fields plus the base-identity prose (appearance / background / personality).
 * ``generate_portrait_prompts`` — turn a character description into the
-  positive/negative prompts for the watercolor ComfyUI portrait pipeline.
+  positive/negative prompts for the ComfyUI portrait pipeline, in a chosen art style.
 * ``propose_voice_samples`` — derive a voice & tone profile (situation →
   single in-voice response pairs) from a character's background/personality
   (proposal only; runs *before* starting stats so voice/tone is defined first).
@@ -34,6 +34,8 @@ from app.agents._common import (
     resolve_llm_or,
     world_context,
 )
+from app.agents._style import resolve_style as _resolve_style
+from app.content.art_styles import ArtStyle
 from app.core.errors import APIError
 from app.schemas.character import (
     CharacterDraftResponse,
@@ -71,8 +73,16 @@ _DRAFT_SYSTEM = (
     "with any world context provided. Include no other keys."
 )
 
-_PORTRAIT_SYSTEM = (
-    "You are Mytheca's portrait-prompt writer for a watercolor image model "
+def _portrait_system(style: ArtStyle) -> str:
+    """The portrait-prompt system prompt, written for one art style.
+
+    Only three things vary with the style: how the model is described, the tag string the
+    positive prompt ends on, and which looks the example negative pushes away — the last of
+    those mattering most, since the pre-style wording told every render to avoid
+    photorealism, which is precisely what the ``photoreal`` style is asking for.
+    """
+    return (
+    f"You are Mytheca's portrait-prompt writer for {style.model_hint} "
     "(Z-Image-Turbo via ComfyUI). The model responds best to SHORT phrases "
     "separated by commas — not sentences. Given a character description, write the "
     "prompts for a flattering character portrait. Respond with ONLY a JSON object "
@@ -83,14 +93,13 @@ _PORTRAIT_SYSTEM = (
     "'anthropomorphic red fox', 'elven scholar') — if the character is a specific "
     "race, species, animal, or creature, name it so the image depicts THAT being. "
     "Then their salient features (age, build, hair, eyes, distinctive marks), then "
-    "attire, then expression/mood. End with style tags: 'watercolor portrait, soft "
-    "washes, painterly, delicate linework, warm lighting, head and shoulders, "
-    "detailed face'. Make it read like the person so we know who they are.\n"
-    "negative: a comma-separated list of what to avoid, e.g. 'photorealistic, 3d "
-    "render, extra limbs, deformed hands, extra fingers, blurry, lowres, text, "
+    f"attire, then expression/mood. End with style tags: '{style.portrait_tags}'. "
+    "Make it read like the person so we know who they are.\n"
+    f"negative: a comma-separated list of what to avoid, e.g. '{style.negative_tags}, "
+    "extra limbs, deformed hands, extra fingers, blurry, lowres, text, "
     "watermark, signature, multiple people, cropped face'. Tailor it lightly to the "
     "subject. Keep both prompts concise."
-)
+    )
 
 _STATS_SYSTEM = (
     "You are Mytheca's character-creation assistant proposing a character's STARTING "
@@ -242,9 +251,14 @@ def generate_portrait_prompts(
     personality: str | None = None,
     species: str | None = None,
     notes: str | None = None,
+    style: str | None = None,
     reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> PortraitPromptResponse:
-    """Write the watercolor positive/negative ComfyUI prompts for a character."""
+    """Write the positive/negative ComfyUI prompts for a character's portrait.
+
+    ``style`` is an art-style id (``app.content.art_styles``); unknown/omitted falls back to
+    the catalog default. The caller resolves the operator's stored default before calling.
+    """
     fields = {
         "Name": name,
         "Role": role,
@@ -261,7 +275,7 @@ def generate_portrait_prompts(
         )
     base_url, api_key, model, params = resolve_llm(db)
     messages = [
-        {"role": "system", "content": _PORTRAIT_SYSTEM},
+        {"role": "system", "content": _portrait_system(_resolve_style(db, style))},
         {"role": "user", "content": f"Character:\n{described}"},
     ]
     data = extract_json(

@@ -31,14 +31,18 @@ from app.agents._common import (
     resolve_llm,
     world_context,
 )
+from app.agents._style import resolve_style as _resolve_style
+from app.content.art_styles import ArtStyle
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.scenario import ScenarioDraftResponse
 from app.schemas.setting import SceneArtPromptResponse
 from app.services import crud, llm
 
-_SCENE_ART_SYSTEM = (
-    "You are Mytheca's scene-art-prompt writer for a watercolor image model "
+def _scene_art_system(style: ArtStyle) -> str:
+    """The scenario establishing-shot system prompt, written for one art style."""
+    return (
+    f"You are Mytheca's scene-art-prompt writer for {style.model_hint} "
     "(Z-Image-Turbo via ComfyUI). The model responds best to SHORT phrases "
     "separated by commas — not sentences. Given a scenario description, write the "
     "prompts for an atmospheric establishing shot of the SETTING as it appears in "
@@ -49,12 +53,11 @@ _SCENE_ART_SYSTEM = (
     "its kind (e.g. 'fog-bound harbor at dawn', 'candlelit merchant hall, tense "
     "atmosphere'), then the scene's lighting and time-of-day (drawn from the tone "
     "and opening), its salient features, and the emotional atmosphere matching the "
-    "tone. End with style tags: 'watercolor, soft washes, painterly, atmospheric, "
-    "establishing shot, wide view, no people, detailed environment'.\n"
+    f"tone. End with style tags: '{style.scene_tags}'.\n"
     "negative: a comma-separated list of what to avoid, e.g. 'people, figures, "
-    "portrait, photorealistic, 3d render, text, watermark, signature, blurry, "
+    f"portrait, {style.negative_tags}, text, watermark, signature, blurry, "
     "lowres'. Keep both prompts concise."
-)
+    )
 
 # Bound the roster passed to the model so a very large world keeps the prompt in
 # check (the same discipline as ``_common.DOCS_CAP``). ``list_characters`` /
@@ -191,9 +194,10 @@ def generate_scene_art_prompts(
     setting_name: str | None = None,
     setting_desc: str | None = None,
     notes: str | None = None,
+    style: str | None = None,
     reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> SceneArtPromptResponse:
-    """Write the watercolor positive/negative ComfyUI prompts for a scenario moment."""
+    """Write the positive/negative ComfyUI prompts for a scenario moment, in a chosen style."""
     fields = {
         "Scene title": title,
         "Genre": genre,
@@ -215,7 +219,7 @@ def generate_scene_art_prompts(
         )
     base_url, api_key, model, params = resolve_llm(db)
     messages = [
-        {"role": "system", "content": _SCENE_ART_SYSTEM},
+        {"role": "system", "content": _scene_art_system(_resolve_style(db, style))},
         {"role": "user", "content": f"Scenario:\n{described}"},
     ]
     data = extract_json(

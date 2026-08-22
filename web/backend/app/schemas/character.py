@@ -159,17 +159,21 @@ class PortraitPromptRequest(CamelModel):
     # Optional explicit hints (the model also infers species/race from the prose).
     species: str | None = None
     notes: str | None = None
+    #: Which look to render in (``app.content.art_styles``: ``painted`` | ``anime`` |
+    #: ``photoreal``). Omitted = the operator's stored default from Options. Unknown ids fall
+    #: back to the default rather than failing the request.
+    art_style: str | None = None
 
 
 class PortraitPromptResponse(CamelModel):
-    """Comma-separated ComfyUI prompts for the watercolor portrait pipeline."""
+    """Comma-separated ComfyUI prompts for the portrait pipeline, in the chosen art style."""
 
     positive: str = ""
     negative: str = ""
 
 
 class PortraitGenerateRequest(CamelModel):
-    """Render a watercolor portrait via ComfyUI from the given prompts.
+    """Render a portrait via ComfyUI from the given prompts.
 
     Id-agnostic: the resulting ``/media/...`` URL is carried into the normal
     character create/update payload (works during creation, before a row exists).
@@ -184,6 +188,10 @@ class PortraitGenerateRequest(CamelModel):
     height: int | None = None
     steps: int | None = None
     cfg: float | None = None
+    #: Which look to render in (``app.content.art_styles``: ``painted`` | ``anime`` |
+    #: ``photoreal``). Omitted = the operator's stored default from Options. Unknown ids fall
+    #: back to the default rather than failing the request.
+    art_style: str | None = None
 
 
 class PortraitGenerateResponse(CamelModel):

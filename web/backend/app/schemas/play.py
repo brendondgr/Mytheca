@@ -508,6 +508,9 @@ class MomentRequest(CamelModel):
     #: hand-written input.
     prompt: str | None = None
     negative: str | None = None
+    #: Which look to paint in (``app.content.art_styles``). Omitted = the operator's stored
+    #: default. Unknown ids fall back to the default rather than failing the render.
+    art_style: str | None = None
 
 
 class MomentStageFrame(CamelModel):

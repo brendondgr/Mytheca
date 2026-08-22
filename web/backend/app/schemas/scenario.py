@@ -221,3 +221,7 @@ class ScenarioSceneArtPromptRequest(CamelModel):
     setting_name: str | None = None
     setting_desc: str | None = None
     notes: str | None = None
+    #: Which look to render in (``app.content.art_styles``: ``painted`` | ``anime`` |
+    #: ``photoreal``). Omitted = the operator's stored default from Options. Unknown ids fall
+    #: back to the default rather than failing the request.
+    art_style: str | None = None

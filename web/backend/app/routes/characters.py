@@ -54,7 +54,7 @@ def draft_character(data: CharacterDraftRequest, db: Session = Depends(get_db)):
 
 @router.post("/characters/portrait-prompts", response_model=PortraitPromptResponse)
 def character_portrait_prompts(data: PortraitPromptRequest, db: Session = Depends(get_db)):
-    """Write the watercolor positive/negative portrait prompts for a character."""
+    """Write the positive/negative portrait prompts for a character, in the chosen style."""
     return character_agent.generate_portrait_prompts(
         db,
         name=data.name,
@@ -64,6 +64,7 @@ def character_portrait_prompts(data: PortraitPromptRequest, db: Session = Depend
         personality=data.personality,
         species=data.species,
         notes=data.notes,
+        style=data.art_style,
     )
 
 
@@ -98,7 +99,7 @@ def character_voice_samples(data: VoiceSamplesRequest, db: Session = Depends(get
 
 @router.post("/characters/portrait", response_model=PortraitGenerateResponse)
 def character_portrait(data: PortraitGenerateRequest, db: Session = Depends(get_db)):
-    """Render a watercolor portrait via ComfyUI, save it as WebP, return its URL."""
+    """Render a portrait via ComfyUI in the chosen art style, save it as WebP, return its URL."""
     result = portraits.generate_portrait(
         db,
         data.positive,
@@ -109,6 +110,7 @@ def character_portrait(data: PortraitGenerateRequest, db: Session = Depends(get_
         height=data.height,
         steps=data.steps,
         cfg=data.cfg,
+        style=data.art_style,
     )
     return PortraitGenerateResponse(portrait=result["portrait"])
 
