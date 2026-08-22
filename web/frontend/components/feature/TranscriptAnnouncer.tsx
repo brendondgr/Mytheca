@@ -45,11 +45,11 @@ function describe(message: SceneMessage, nameOf: (id?: string) => string): strin
  * sighted reader watches the prose arrive; a screen-reader user hears it as
  * finished sentences. Both get the beat, neither gets the stutter.
  *
- * Note the wrapper is `relative`: an `sr-only` element is absolutely
- * positioned, and with no positioned ancestor its containing block is the
- * initial containing block — so it escapes any `overflow: hidden` and grows the
- * ROOT scroller instead. That has bitten this repo before (a doc list added
- * 6212px of blank page below the fold).
+ * The wrapper is `relative` for belt-and-braces reasons only. `sr-only` used to be
+ * `position: absolute`, which with no positioned ancestor escaped any `overflow: hidden`
+ * and grew the ROOT scroller (a doc list once added 6212px of blank page below the fold).
+ * `app/globals.css` now redefines the utility as `position: fixed`, so that failure mode
+ * is closed repo-wide rather than one wrapper at a time.
  */
 export function TranscriptAnnouncer({
   messages,

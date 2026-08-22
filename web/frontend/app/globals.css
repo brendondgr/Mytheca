@@ -103,6 +103,45 @@
   transition-timing-function: var(--ease-spring);
 }
 
+/* `sr-only`, forced to `position: fixed`.
+ *
+ * THIS IS NOT COSMETIC — do not revert it as a tidy-up. Tailwind's stock `sr-only` is
+ * `position: absolute`, and an absolutely-positioned element with no positioned ancestor is
+ * laid out against the *initial containing block*: it escapes every `overflow: hidden`
+ * between it and the root and adds its own offset to the ROOT scroller. Measured 2026-08-11:
+ * `TriagePanel`'s per-row `sr-only` category labels grew the document to **6212px** for 28
+ * files in a 720px viewport — thousands of pixels of blank, scrollable, empty page.
+ *
+ * That is a repo-wide latent defect, not one component's bug. It fires wherever an `sr-only`
+ * element lands in a scrolling container whose ancestors happen not to be positioned, and the
+ * next call site inherits it. `fixed` resolves against the viewport instead — or, inside a
+ * transformed ancestor such as a Framer `motion.div`, against that ancestor, which is itself
+ * in flow and clipped. Either way it cannot extend the root scroller. Document order is
+ * untouched, so the accessibility tree and reading order are exactly as before.
+ *
+ * WHY THIS IS A BARE RULE AND NOT `@utility sr-only`. The `@utility` form was tried first and
+ * is a trap: `@utility` with the name of an existing core utility does not shadow it, it
+ * MERGES with it — and the standalone PostCSS pipeline and Turbopack merge it differently.
+ * The offline CSS gate saw two rules with ours last and reported success while the browser
+ * was served a single merged rule that still said `absolute`. A gate that passes on a broken
+ * app is worse than no gate. An unlayered rule wins over anything in `@layer utilities` by
+ * layer precedence rather than by source order, which is the same reason `globals.css`'s bare
+ * `:focus-visible` cannot be overridden by a Tailwind utility.
+ *
+ * ONE KNOWN LIMITATION, stated rather than papered over. Tailwind's `not-sr-only` escape
+ * hatch sets `position: static` from inside `@layer utilities` and therefore loses to this
+ * rule. A `:not(.not-sr-only)` guard was tried and the compiler folds it away — the served
+ * stylesheet carries a single merged `.sr-only` rule with no trace of the `:not`. Nothing in
+ * this repo uses `not-sr-only` (Tailwind does not even emit a rule for it), so this costs
+ * nothing today; `responsive-floor.test.ts` fails the moment anyone adopts it, which is when
+ * this needs revisiting rather than before.
+ *
+ * Pinned by `utils/scripts/check_frontend_css.mjs` (asserts the compiled rule is unlayered
+ * and `fixed`) and by `components/feature/responsive-floor.test.ts` (source guard). */
+.sr-only {
+  position: fixed;
+}
+
 * {
   box-sizing: border-box;
 }

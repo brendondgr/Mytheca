@@ -120,8 +120,15 @@ node utils/scripts/check_frontend_css.mjs
 ```
 
 It compiles `app/globals.css` (and therefore `themes.css` + `motion.css`) through the real
-Tailwind v4 pipeline, then asserts that no custom property is defined in terms of itself and
-that every `var(--dur-*/--ease-*/--lift-*)` motion token referenced actually exists.
+Tailwind v4 pipeline, then asserts three things:
+
+1. No custom property is defined in terms of itself.
+2. Every `var(--dur-*/--ease-*/--lift-*)` motion token referenced actually exists.
+3. An **unlayered** `.sr-only` rule declares `position: fixed`. Tailwind's stock utility is
+   `absolute`, which escapes every `overflow: hidden` between it and the root and inflates the
+   **root** scroller — 6212px of blank page for 28 files in a 720px viewport, when it was
+   found. "Unlayered" is the load-bearing half: an override inside `@layer utilities` wins
+   only on source order, and this script's pipeline and Turbopack order them differently.
 
 **Use it whenever `npm run build` is unavailable.** `next build` is the normal gate, but
 `next/font/google` fetches Cinzel / EB Garamond / IBM Plex Mono at build time and hard-fails

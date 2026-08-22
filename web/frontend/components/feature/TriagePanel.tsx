@@ -395,13 +395,13 @@ export function TriagePanel({
       ) : null}
 
       {/* ── Scrollable body: doc list + budget meter ─────────────────────────
-          `relative` is load-bearing, not cosmetic: each DocRow renders an `sr-only`
-          label, and Tailwind's `sr-only` is `position: absolute`. Without a positioned
-          ancestor their containing block is the *initial* containing block, so they
-          escape every `overflow: hidden` ancestor and grow the ROOT scroller to the
-          full un-scrolled list height (measured: 6212px of blank page for 28 files
-          against a 720px viewport). Making this scroller their containing block brings
-          them back under its own clipping. */}
+          `relative` is now belt-and-braces, not the fix. This is where the `sr-only`
+          root-scroller bug was found — each DocRow renders an `sr-only` label, and an
+          absolutely-positioned one with no positioned ancestor escaped every
+          `overflow: hidden` and grew the ROOT scroller to 6212px for 28 files in a 720px
+          viewport. The fix now lives once, in `app/globals.css`, which redefines the
+          utility as `position: fixed`; this `relative` is kept because it costs nothing
+          and makes the containing block explicit for anything else positioned in here. */}
       <div className="relative flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto p-[18px_20px] pt-[16px]">
         {docs.length === 0 ? (
           <p className="font-body text-[13px] text-ink-soft">

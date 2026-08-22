@@ -115,3 +115,63 @@ describe("beat controls at the 320px floor", () => {
     expect(src).toContain("sm:h-[24px] sm:w-[24px]");
   });
 });
+
+describe("sr-only cannot grow the root scroller", () => {
+  /**
+   * The one defect in this area that silently invalidates every other responsive
+   * measurement. Tailwind's stock `sr-only` is `position: absolute`; with no positioned
+   * ancestor it lays out against the *initial containing block*, escapes every
+   * `overflow: hidden` between it and the root, and adds its offset to the ROOT scroller.
+   * Measured 2026-08-11: `TriagePanel`'s per-row labels grew the document to **6212px** for
+   * 28 files in a 720px viewport.
+   *
+   * jsdom performs **no layout**, so the symptom itself cannot be reproduced here. This is
+   * the source guard; `utils/scripts/check_frontend_css.mjs` asserts the *compiled* value
+   * (the winning rule, since both land in `@layer utilities`); and the live measurement —
+   * `documentElement.scrollHeight === clientHeight` with a real document list — belongs to
+   * the acceptance pass.
+   */
+  it("overrides the utility in globals.css rather than patching each call site", () => {
+    const css = readFileSync("app/globals.css", "utf8");
+    const block = /(?:^|\n)\.sr-only\s*\{([^}]*)\}/.exec(css)?.[1];
+    expect(block, "no unlayered `.sr-only` rule in globals.css").toBeTruthy();
+    expect(block).toMatch(/position:\s*fixed/);
+  });
+
+  it("uses a bare rule, not @utility — the two pipelines merge that differently", () => {
+    // `@utility sr-only` does not shadow the core utility, it MERGES with it, and the
+    // offline PostCSS run and Turbopack order the merge differently. That form passed the
+    // CSS gate while the browser was still served `position: absolute`.
+    // Comments explain the trap by name, so strip them before scanning — the same reason
+    // `stripComments` exists for the other guards in this file.
+    const css = stripComments(readFileSync("app/globals.css", "utf8"));
+    expect(css).not.toMatch(/@utility\s+sr-only\b/);
+  });
+
+  it("fails if anyone adopts not-sr-only, whose escape hatch this override breaks", () => {
+    // `not-sr-only` sets `position: static` from inside `@layer utilities` and loses to the
+    // unlayered override. A `:not(.not-sr-only)` guard was tried; the compiler folds it away.
+    // Nothing uses it today, so the cost is zero — but the day something does, it will fail
+    // silently, and this is the tripwire.
+    const users: string[] = [];
+    for (const { path, text } of sourceFiles()) {
+      if (/\bnot-sr-only\b/.test(text)) users.push(path);
+    }
+    expect(users).toEqual([]);
+  });
+
+  it("no call site fights the override with its own positioning utilities", () => {
+    // An `sr-only` element that is also given `absolute`/`inset-*` would reintroduce the
+    // bug one component at a time.
+    const offenders: string[] = [];
+    for (const { path, text } of sourceFiles()) {
+      for (const match of text.matchAll(/className="[^"]*\bsr-only\b[^"]*"/g)) {
+        if (/\b(absolute|inset-|top-\[|left-\[)/.test(match[0])) {
+          const line = text.slice(0, match.index).split("\n").length;
+          offenders.push(`${path}:${line} ${match[0]}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});

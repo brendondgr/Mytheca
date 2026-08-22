@@ -346,15 +346,6 @@ Verified against the code on 2026-08-04.
   are still open** and want the same treatment.
 - **Ollama is still not *detected*, though it is no longer uncapped.** `LOCAL_LLM_BASE_URL` defaults to `http://localhost:11434` — Ollama's port — and `services/llm_backend.py` probes only vLLM (`GET /version`), llama.cpp (`GET /props`), and relays that name an upstream in `GET /models`. Ollama matches none, so it reports as `unknown`; since 2026-08-19 an unknown endpoint receives **both** engine budget keys, so the thinking budget is at least attempted. Whether Ollama honours either key is unverified — a native probe (`GET /api/tags`) and its own budget key remain unbuilt.
 - **`web/shared/contracts/` is empty** while both layers hand-maintain their own copy of the event contract. Either populate it or drop the directory and document the manual mirror as the intended design.
-- **`sr-only` inside a clipping container is a repo-wide latent bug.** Tailwind's
-  `sr-only` is `position: absolute`; with no positioned ancestor its containing block is
-  the *initial* containing block, so it is **not** clipped by an `overflow: hidden`
-  ancestor and instead grows the **root** scroller. `TriagePanel`'s doc list hit this
-  hard (6212px of blank page below the fold for 28 files) and was fixed on 2026-08-11 by
-  making the scroller `relative`. **The rest of the tree has not been swept** — any
-  `sr-only` (or other absolutely-positioned) element inside a long scrolling list within
-  a `h-dvh`/`overflow-hidden` shell can reproduce it. The symptom is
-  `documentElement.scrollHeight > clientHeight` while `document.body` is viewport-sized.
 - **An unreproduced connect failure on the storyline Assistant.** Reported as
   "Could not reach the server." on `/storylines/new` → Assistant → Send, on plain
   localhost with nothing in between, while the local LLM was still generating. That
