@@ -37,7 +37,7 @@ export function BeatTakePager({
         onClick={() => onSelect(active - 1)}
         disabled={disabled || atStart}
         aria-label={`Previous version of ${label}`}
-        className="flex h-[24px] w-[24px] items-center justify-center rounded-[3px] text-[11px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-30"
+        className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-30 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
       >
         <span aria-hidden>‹</span>
       </button>
@@ -52,7 +52,7 @@ export function BeatTakePager({
         onClick={() => onSelect(active + 1)}
         disabled={disabled || atEnd}
         aria-label={`Next version of ${label}`}
-        className="flex h-[24px] w-[24px] items-center justify-center rounded-[3px] text-[11px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-30"
+        className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-30 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
       >
         <span aria-hidden>›</span>
       </button>

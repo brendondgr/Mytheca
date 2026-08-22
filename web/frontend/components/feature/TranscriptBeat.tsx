@@ -49,8 +49,48 @@ export function NarratorCard({ text, streaming }: { text: string; streaming?: bo
   );
 }
 
+/**
+ * The context files a player turn carried, shown under the bubble on a resumed scene.
+ *
+ * The composer shows these as chips before sending and the Inspector lists them after, but
+ * the persisted beat showed nothing — so a reopened scene could not tell you what a past
+ * turn had actually been given. The ids come off the `user_turn` row.
+ */
+export function AttachedFiles({
+  ids,
+  nameOf,
+}: {
+  ids: string[];
+  nameOf: (id: string) => string | undefined;
+}) {
+  const named = ids.map((id) => ({ id, name: nameOf(id) })).filter((f) => f.name);
+  if (!named.length) return null;
+  return (
+    <ul
+      aria-label="Files this turn carried"
+      className="mt-[5px] flex flex-wrap justify-end gap-[4px]"
+    >
+      {named.map((f) => (
+        <li
+          key={f.id}
+          className="flex items-center gap-[4px] rounded-[6px] border border-field-bd px-[6px] py-[1px] font-mono text-[9px] text-mute"
+        >
+          <span aria-hidden>⎙</span>
+          <span className="max-w-[140px] truncate">{f.name}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** The player's own turn — right-aligned accent bubble. */
-export function PlayerMessage({ text }: { text: string }) {
+export function PlayerMessage({
+  text,
+  attachments,
+}: {
+  text: string;
+  attachments?: React.ReactNode;
+}) {
   return (
     <div className="flex justify-end">
       <div className="max-w-[78%]">
@@ -62,6 +102,7 @@ export function PlayerMessage({ text }: { text: string }) {
         <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] whitespace-pre-line text-[#F6ECDA]">
           <QuotedText text={text} />
         </div>
+        {attachments}
       </div>
     </div>
   );
@@ -292,6 +333,7 @@ export function TranscriptBeat({
   onOpenImage,
   streaming = false,
   reasoningByChar,
+  docNameOf,
 }: {
   message: SceneMessage;
   charById: (id: string) => Character | undefined;
@@ -307,10 +349,22 @@ export function TranscriptBeat({
    * visibility = "full"). Ephemeral — cleared as the beat lands.
    */
   reasoningByChar?: Record<string, string>;
+  /** Resolve a context-document id to its name, for the attachment chips on a player beat. */
+  docNameOf?: (id: string) => string | undefined;
 }) {
   const m = message;
   if (m.kind === "narrator") return <NarratorCard text={m.text ?? ""} streaming={streaming} />;
-  if (m.kind === "player") return <PlayerMessage text={m.text ?? ""} />;
+  if (m.kind === "player")
+    return (
+      <PlayerMessage
+        text={m.text ?? ""}
+        attachments={
+          m.taggedDocIds?.length && docNameOf ? (
+            <AttachedFiles ids={m.taggedDocIds} nameOf={docNameOf} />
+          ) : null
+        }
+      />
+    );
   if (m.kind === "image")
     return m.image ? <SceneImageBeat image={m.image} onOpen={onOpenImage} /> : null;
   if (m.kind === "choices")

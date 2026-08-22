@@ -486,10 +486,15 @@ export function rehydrateFromHistory(
       // beat controls — rewinding and editing your own message is the point of them, and a
       // beat with no id cannot be pointed at. `user_turn` rows never stream, so this is the
       // only place a player beat can acquire one.
+      // The files this turn carried, so a resumed scene can show what it was given.
+      const tagged = Array.isArray(e.data.taggedDocIds)
+        ? (e.data.taggedDocIds as string[])
+        : undefined;
+      const base = { text: String(e.data.text ?? ""), id: e.id, taggedDocIds: tagged };
       messages =
         typeof pov === "string" && pov
-          ? [...messages, { kind: "char", who: pov, fromPlayer: true, text: String(e.data.text ?? ""), id: e.id }]
-          : [...messages, { kind: "player", text: String(e.data.text ?? ""), id: e.id }];
+          ? [...messages, { kind: "char", who: pov, fromPlayer: true, ...base }]
+          : [...messages, { kind: "player", ...base }];
       continue;
     }
     if (e.type === "state_update") {

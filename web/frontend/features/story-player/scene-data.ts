@@ -60,6 +60,12 @@ export interface SceneMessage {
    * Absent for a beat with a single take — the pager is not rendered at all then.
    */
   takes?: { count: number; active: number };
+  /**
+   * Context documents this player turn carried as reference. Persisted on the `user_turn`
+   * row, so a resumed scene can show what a past turn was given rather than leaving the
+   * player to remember.
+   */
+  taggedDocIds?: string[];
 }
 
 // A branch fork the player can pick — no dice/checks (D11): label + a narrative-

@@ -93,3 +93,25 @@ describe("responsive floor", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("beat controls at the 320px floor", () => {
+  it("sizes its targets to 44px below sm and 24px above", () => {
+    const src = readFileSync("components/feature/BeatControls.tsx", "utf8");
+    // WCAG 2.5.8 asks for 24x24; the touch floor this repo holds itself to is 44.
+    expect(src).toContain("h-[44px] w-[44px]");
+    expect(src).toContain("sm:h-[24px] sm:w-[24px]");
+  });
+
+  it("never hides the cluster outright — a hidden control is out of the tab order", () => {
+    const src = readFileSync("components/feature/BeatControls.tsx", "utf8");
+    expect(src).not.toContain("hidden sm:flex");
+    // Quiet at sm+ via opacity, plainly visible below it (touch has no hover).
+    expect(src).toContain("sm:opacity-0");
+  });
+
+  it("gives the take pager the same floor", () => {
+    const src = readFileSync("components/feature/BeatTakePager.tsx", "utf8");
+    expect(src).toContain("h-[44px] w-[44px]");
+    expect(src).toContain("sm:h-[24px] sm:w-[24px]");
+  });
+});

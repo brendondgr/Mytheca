@@ -76,7 +76,7 @@ export function BeatControls({
   }
 
   return (
-    <span className="flex items-center gap-[2px] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+    <span className="flex items-center gap-[2px] transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
       {onEdit ? (
         <button
           type="button"
@@ -84,7 +84,7 @@ export function BeatControls({
           disabled={disabled}
           aria-label={`Edit ${label}`}
           title="Edit — rewrite this beat's words; nothing after it is lost"
-          className="flex h-[24px] w-[24px] items-center justify-center rounded-[3px] text-[11px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
         >
           <span aria-hidden>✎</span>
         </button>
@@ -97,7 +97,7 @@ export function BeatControls({
             disabled={disabled}
             aria-label={`Re-roll ${label}`}
             title="Re-roll — another version of this beat; the current one is kept"
-            className="flex h-[24px] w-[24px] items-center justify-center rounded-[3px] text-[11px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
           >
             <span aria-hidden>⟳</span>
           </button>
@@ -107,7 +107,7 @@ export function BeatControls({
             disabled={disabled}
             aria-label={`Re-run the whole turn containing ${label}`}
             title="Re-run the turn — when the beat went wrong because the turn did"
-            className="flex h-[24px] w-[24px] items-center justify-center rounded-[3px] text-[11px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
           >
             <span aria-hidden>⟲</span>
           </button>
@@ -120,7 +120,7 @@ export function BeatControls({
           disabled={disabled}
           aria-label={`Branch from ${label}`}
           title="Branch from here — keeps this play-through and starts a new one"
-          className="flex h-[24px] w-[24px] items-center justify-center rounded-[3px] text-[11px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
         >
           <span aria-hidden>⑂</span>
         </button>
@@ -132,7 +132,7 @@ export function BeatControls({
           disabled={disabled}
           aria-label={`Rewind to ${label}`}
           title="Rewind to here — removes this turn and everything after it"
-          className="flex h-[24px] w-[24px] items-center justify-center rounded-[3px] text-[11px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
         >
           <span aria-hidden>↺</span>
         </button>

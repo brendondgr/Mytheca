@@ -48,6 +48,28 @@ Verified against the code on 2026-08-04.
   relationship the transcript no longer explains. Fixing it means recording the turn seq on every
   edge write in `graph_writer` and deleting by it.
 
+- **Alternate takes are capped at five.** `beat_rerun.MAX_TAKES` keeps the five most recent
+  versions of a beat and drops the oldest. A player who re-rolls a beat six times cannot get
+  back to the first wording. Five is enough to compare against and small enough that the row
+  stays a row; raising it is a one-constant change if it ever bites.
+- **A turn-scope re-roll keeps no takes.** `scope: "turn"` truncates and replays, so the previous
+  version of the whole turn is gone. A per-beat pager cannot express "these four lines, or those
+  four" — the way to keep both is to branch before re-running a turn. The UI does not currently
+  say so.
+- **A branch does not copy the Neo4j `:Event` nodes.** `session_state.copy_history` copies the
+  Postgres rows and the session's stat values; the graph nodes the parent's turns wrote stay
+  attached to the parent alone. The graph is best-effort, so a fork simply has less graph history
+  than its parent rather than a wrong one.
+- **There is no cross-client lock on the record.** Concurrency is the `expectedSeq` precondition
+  only: a stale view gets a 409 and reloads. Two clients editing *different* beats of the same
+  play-through at the same moment will both succeed, and the second buffer rebuild wins. Fine for
+  a single-player app with no auth; it would not be for a shared one.
+- **Rewind cannot restore a stat that only legacy rows touched.** `session_state.replay_stats`
+  re-derives from the surviving `state_update` rows, which works for any row ever written. But a
+  stat changed *only* by turns that were themselves cut, in a session with no surviving
+  `state_update` for that key, returns to the authored baseline rather than to its mid-scene
+  value — correct by the model's definition, but worth knowing it is a definition and not an
+  accident.
 - **Relationship / mood stats** — extend the stat machinery to values with a relational target. Relationships currently live only in the graph.
 - **Scenario-level stat additions and range overrides** — described in old docs, never implemented; `Scenario` has no such column.
 - **Separate `GET /stream` transport** — the turn POST streams NDJSON directly. A standalone stream endpoint with Redis pub/sub fan-out is a seam, not a plan.
@@ -293,11 +315,28 @@ Verified against the code on 2026-08-04.
   wind-down label would — but it does mean the phase is not a guaranteed terminal state.
 - Graph mode is canvas-only below `lg`; the `sr-only` node/edge table remains the data alternative. Graph node clicks are wired for Character only — other types are hover-tooltip only.
 - The storyline switcher is hidden below `md`, so mobile cannot switch worlds.
-- At the 320px floor the scene-header Inspector icon clips ~7px. There is no page-level horizontal overflow at any width, and everything fits at 375+. **Re-measured live on 2026-08-12: still exactly 7px, and the button is genuinely unreachable there** (an `overflow: hidden` ancestor clips it). Letting the control cluster shrink was tried and is *worse* — its children have intrinsic widths, so a squeezed container pushes them 50–150px past the edge instead of 7. The real fix is to collapse or overflow-menu some scene-header controls below `sm`, which is a design decision, not a layout tweak.
-- **Scene images cannot be regenerated or deleted from the transcript.** The Create image
-  control paints a new one each time; an unwanted picture stays in the beat log (it can
-  only be removed by deleting the session). No re-roll, no per-image prompt editing, and
-  no way to ask for a specific subject — the prompt is written from the scene as it stands.
+- **At the 320px floor the scene-header right-hand cluster overflows by 45px.** Measured live
+  on 2026-08-22 (viewport 320, cluster right edge 365). It holds, in order: the Chat/Graph
+  switch, **Play-throughs**, Export, Theme, Inspector. The page itself does **not** scroll
+  horizontally — an `overflow: hidden` ancestor clips it — so the rightmost controls are simply
+  unreachable there, the same failure mode as before but larger.
+  The budget moved during `docs/plans/control-over-the-record.md`: Phase 2 **reclaimed ~7px** by
+  deleting the dead "Narrator active" block, and the same plan then spent it and more by adding
+  the Play-throughs tray. `docs/plans/making-it-legible.md` Phase 7 will put a real four-state
+  model-health indicator back in the freed slot, so the number will grow again.
+  Letting the cluster shrink was tried and is *worse* — its children have intrinsic widths, so a
+  squeezed container pushes them 50–150px past the edge instead. **The durable fix and this
+  bullet's removal both belong to `docs/plans/reach.md` Phase 4** (the header overflow menu); do
+  not close it from another plan. Everything fits at 375+, and the transcript's own beat controls
+  meet the 44px touch floor at 320 (verified in the same pass).
+- **Scene images still cannot be re-rolled, edited or deleted from the transcript.** The beat
+  machinery around them landed — every prose beat now has re-roll, edit, branch and rewind, and
+  the take/`activeTake` fields exist on `scene_image` — but the image-specific half did **not**:
+  `scene_moment.regenerate_moment`, `DELETE …/beats/{id}` for an image, and the per-image prompt
+  edit were cut from `docs/plans/control-over-the-record.md` Phase 9 to keep it to the prose seam.
+  An unwanted picture still stays in the beat log. There is also still no way to ask for a
+  specific subject — the prompt is written from the scene as it stands.
+  Owned by `docs/plans/making-it-legible.md` Phase 11.
 - **A scene image is not context.** It is persisted as a `scene_image` event, but nothing
   feeds it back into the turn loop; characters have no idea a picture was taken.
 
@@ -335,10 +374,6 @@ are **decisions, not oversights**, recorded here so they are not mistaken for dr
 
 ## `@` file tagging — deferred follow-ups
 
-- **The persisted player beat shows no attachment chip yet.** The ids are now on the row
-  (`user_turn.data.taggedDocIds`), so a resumed scene *can* know which files a past turn carried.
-  What remains is the rendering: threading them through `rehydrateFromHistory` and drawing the
-  chip on the transcript beat. Owned by `docs/plans/control-over-the-record.md` Phase 11.
 - **No token accounting for tagged text.** `ContextUsageDial` estimates from the beats and
   the model's reported `prompt_tokens`; up to 12 000 characters of tagged text is not in
   the pre-send estimate, so the dial under-reads until the turn's real usage comes back.

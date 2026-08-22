@@ -548,3 +548,25 @@ carry `.scroll-fade`.
 ## Reference Files
 
 `docs/CharacterFrontpage/` holds the authoritative visual reference (HTML mockups + `support.js`). They are **design reference only** — not the implementation stack. Build the equivalent with Tailwind tokens (the variables above) and Framer Motion; record any deviation from the reference here.
+
+## Beat controls and the take pager
+
+Every transcript beat carries the same control cluster (`BeatControls`), and the rule behind
+its visibility is worth stating because it is easy to get wrong:
+
+- **Quiet, never hidden.** At `sm` and up the cluster sits at `opacity-0` and appears on
+  `group-hover` **or** `group-focus-within`. It is never `display: none` — a hidden control is
+  out of the tab order, which would make every one of these mouse-only.
+- **Below `sm` it is simply visible.** Touch has no hover, so an `opacity-0` cluster there
+  would be invisible *and* unreachable. The same row shows outright.
+- **Targets are sized responsively, not duplicated.** 44×44 below `sm`, 24×24 above it
+  (`h-[44px] w-[44px] … sm:h-[24px] sm:w-[24px]`). Collapsing the cluster into a disclosure
+  menu at small widths was tried and rejected: it renders the same action twice, which means
+  two identical accessible names for one control.
+- **Destructive confirms in place; non-destructive does not.** Rewind removes content and
+  asks first, naming how many beats go. Branch, edit and re-roll remove nothing and act on one
+  click. That asymmetry is the signal — the safe way to explore costs the least.
+
+`BeatTakePager` ("1 / 2") appears only on a beat with **two or more** takes: one version is
+not a choice, and a dead pager on every beat is noise. Its count is an `aria-live="polite"`
+region, because flipping a take swaps the prose above it.

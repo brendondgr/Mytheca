@@ -290,6 +290,7 @@ export function StoryPlayerView({
                     onOpenImage={setLightbox}
                     streaming={scene.sending && i === scene.messages.length - 1}
                     reasoningByChar={scene.reasoningByChar}
+                    docNameOf={(id) => contextDocs.find((d) => d.id === id)?.name}
                   />
                   )}
                 </motion.div>

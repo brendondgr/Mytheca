@@ -230,3 +230,30 @@ describe("PlaythroughTray", () => {
     for (const el of actions) expect(el).not.toHaveAttribute("tabindex", "-1");
   });
 });
+
+describe("PlaythroughTray — snapshots", () => {
+  const snap = (over: Partial<SessionSummary> = {}) =>
+    session({ id: "ps_snap", name: "Before rewind · 14:02", parentSessionId: "ps_1", ...over });
+
+  it("badges a rewind snapshot as such, not as a branch", async () => {
+    const user = userEvent.setup();
+    setup({ sessions: [snap()], currentSessionId: null });
+    await user.click(screen.getByRole("button", { name: /play-throughs/i }));
+
+    expect(screen.getByText(/· snapshot/)).toBeInTheDocument();
+    expect(screen.queryByText(/· branched/)).not.toBeInTheDocument();
+  });
+
+  it("sorts snapshots last — they are recovery material, not stories you chose to start", async () => {
+    const user = userEvent.setup();
+    setup({
+      sessions: [snap(), session({ id: "ps_real", name: "A real run" })],
+      currentSessionId: "ps_real",
+    });
+    await user.click(screen.getByRole("button", { name: /play-throughs/i }));
+
+    const rows = screen.getAllByRole("listitem").map((li) => li.textContent ?? "");
+    expect(rows[0]).toContain("A real run");
+    expect(rows[1]).toContain("Before rewind");
+  });
+});

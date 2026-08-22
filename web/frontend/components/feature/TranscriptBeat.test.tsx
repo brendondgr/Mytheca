@@ -223,3 +223,48 @@ describe("BranchChoices", () => {
     expect(screen.getByText("Follow, or let him go?")).toBeInTheDocument();
   });
 });
+
+describe("attachment chips on a persisted player beat", () => {
+  const nameOf = (id: string) =>
+    ({ cd_1: "harbor notes.md", cd_2: "ledger.md" })[id as "cd_1" | "cd_2"];
+
+  it("shows the files a past turn carried", () => {
+    render(
+      <TranscriptBeat
+        message={{ kind: "player", text: "Read this.", id: "u0", taggedDocIds: ["cd_1", "cd_2"] }}
+        charById={() => undefined}
+        choices={[]}
+        onChoose={() => {}}
+        docNameOf={nameOf}
+      />,
+    );
+    expect(screen.getByText("harbor notes.md")).toBeInTheDocument();
+    expect(screen.getByText("ledger.md")).toBeInTheDocument();
+  });
+
+  it("shows nothing when the turn carried no files", () => {
+    render(
+      <TranscriptBeat
+        message={{ kind: "player", text: "Just words.", id: "u0" }}
+        charById={() => undefined}
+        choices={[]}
+        onChoose={() => {}}
+        docNameOf={nameOf}
+      />,
+    );
+    expect(screen.queryByLabelText(/files this turn carried/i)).not.toBeInTheDocument();
+  });
+
+  it("skips an id whose document has since been deleted, rather than rendering a blank chip", () => {
+    render(
+      <TranscriptBeat
+        message={{ kind: "player", text: "x", id: "u0", taggedDocIds: ["cd_gone"] }}
+        charById={() => undefined}
+        choices={[]}
+        onChoose={() => {}}
+        docNameOf={nameOf}
+      />,
+    );
+    expect(screen.queryByLabelText(/files this turn carried/i)).not.toBeInTheDocument();
+  });
+});

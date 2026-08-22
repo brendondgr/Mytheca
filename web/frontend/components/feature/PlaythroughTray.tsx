@@ -96,6 +96,13 @@ export function PlaythroughTray({
     setRowMode((m) => ({ ...m, [id]: mode }));
 
   const count = sessions.length;
+  // A rewind keeps its pre-cut history as a play-through, which is what makes undo
+  // discoverable — but they are recovery material, not stories the player chose to start.
+  // Sorting them last keeps the tray about the latter without hiding the former.
+  const isSnapshot = (s: SessionSummary) => Boolean(s.name?.startsWith("Before rewind"));
+  const ordered = [...sessions].sort(
+    (a, b) => Number(isSnapshot(a)) - Number(isSnapshot(b)),
+  );
 
   return (
     <div ref={ref} className="relative">
@@ -127,7 +134,7 @@ export function PlaythroughTray({
             </p>
           ) : (
             <ul className="flex max-h-[320px] flex-col overflow-auto">
-              {sessions.map((session) => {
+              {ordered.map((session) => {
                 const mode = modeOf(session.id);
                 const isCurrent = session.id === currentSessionId;
                 return (
@@ -213,7 +220,11 @@ export function PlaythroughTray({
                             {session.turnCount} {session.turnCount === 1 ? "turn" : "turns"} ·{" "}
                             {relativeTime(session.updatedAt)}
                             {isCurrent ? " · open" : ""}
-                            {session.parentSessionId ? " · branched" : ""}
+                            {isSnapshot(session)
+                              ? " · snapshot"
+                              : session.parentSessionId
+                                ? " · branched"
+                                : ""}
                           </span>
                         </button>
                         {/* 24x24 minimum target (WCAG 2.5.8). */}
