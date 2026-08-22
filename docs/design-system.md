@@ -25,6 +25,22 @@ The recurring identity marks are the **❖ glyph** (`&#10070;`, the "Mytheca sea
 
 storyline · character · setting · scenario · scene · event · beat · turn · narrator · cast · stat · branch · tone/tension · session. Replace vague phrases ("AI-powered storytelling") with concrete actions: "Begin Scene", "Forge Character", "Add Setting", "New Scenario", "Choose a path", "Speak, or describe what you do".
 
+### The model-status light: four states, never colour alone
+
+The scene header's indicator has exactly four states, and each is a different problem with a
+different fix — which is why it is not a boolean and not a single "something is wrong":
+
+| State | Reads | Means |
+| --- | --- | --- |
+| `reachable` | *Model ready* · `bg-success` | The configured model is served by the endpoint. |
+| `model_missing` | *Model not found* · `bg-gold` / `text-gold` | The endpoint is up but does not serve that model — a typo in Options. |
+| `unreachable` | *Model unreachable* · `bg-danger` / `text-danger` | Nothing answered — a dead process. |
+| `unconfigured` | *No model set* · `bg-mute2` | Nothing was ever set up. Informative, not alarming. |
+
+The dot is **never the only channel**: the label changes with the state and the `aria-label`
+carries the endpoint's own explanation. Nothing renders until the first check answers — a light
+that guesses is worse than one that waits.
+
 ### Control copy: state the effect, and the cost where one exists
 
 **Every control says what it *does*, not what it is called.** A label names a setting; it

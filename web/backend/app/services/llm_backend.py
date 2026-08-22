@@ -30,6 +30,8 @@ this module never hits the real network under the test suite.
 
 from __future__ import annotations
 
+from typing import Literal
+
 import time
 from enum import Enum
 
@@ -184,6 +186,76 @@ def clear_cache() -> None:
     """Drop all cached detections (used by tests)."""
     _CACHE.clear()
     _CTX_CACHE.clear()
+    _HEALTH_CACHE.clear()
+
+
+# ---- health ----------------------------------------------------------------
+
+#: Whether the configured endpoint is actually usable, and if not, which way it failed.
+#: The four are genuinely different problems with different fixes, which is why this is not
+#: a boolean: a model that is *not in the listing* is a typo in Options, an endpoint that
+#: does not answer is a dead process, and no endpoint at all is a setup step never done.
+HealthState = Literal["reachable", "model_missing", "unreachable", "unconfigured"]
+
+# normalized base URL + model -> (probed_at_monotonic, state, detail)
+_HEALTH_CACHE: dict[tuple[str, str], tuple[float, HealthState, str]] = {}
+
+
+def health(base_url: str, api_key: str = "", model: str = "") -> tuple[HealthState, str]:
+    """Is the configured model actually there? Returns ``(state, detail)``. Never raises.
+
+    A player on a local model currently learns their endpoint died by sending a turn and
+    waiting out ``LLM_GEN_TIMEOUT_SECONDS`` — five minutes to be told nothing. This is a
+    ``GET /models`` against the same cached probe machinery the backend detection uses, so
+    the answer is already available and costs a request a minute at most.
+
+    Deliberately checks the **model id against the listing**, not merely that the endpoint
+    answered: an endpoint that is up while the configured model is absent produces exactly
+    the same silence as one that is down, and they are not the same problem.
+    """
+    base = (base_url or "").strip().rstrip("/")
+    if not base:
+        return "unconfigured", "No endpoint is set in Options."
+    if not (model or "").strip():
+        return "unconfigured", "No model is set in Options."
+
+    key = (base, model)
+    now = time.monotonic()
+    cached = _HEALTH_CACHE.get(key)
+    if cached is not None and (now - cached[0]) < _ttl_seconds():
+        return cached[1], cached[2]
+
+    state, detail = _probe_health(base, api_key, model)
+    _HEALTH_CACHE[key] = (now, state, detail)
+    return state, detail
+
+
+def _probe_health(base: str, api_key: str, model: str) -> tuple[HealthState, str]:
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    client = llm.get_http_client()
+    try:
+        with client:
+            res = client.get(f"{base}/models", headers=headers, timeout=_PROBE_TIMEOUT)
+            if res.status_code >= 400:
+                return "unreachable", f"The endpoint answered {res.status_code}."
+            ids = _model_ids(res.json())
+    except (httpx.HTTPError, ValueError) as exc:
+        return "unreachable", f"The endpoint could not be reached ({type(exc).__name__})."
+
+    if not ids:
+        # It answered, but named nothing. Treat as reachable rather than claiming the model
+        # is missing — a relay that lists nothing is not evidence the model is absent.
+        return "reachable", "The endpoint answered but listed no models."
+    if model in ids:
+        return "reachable", f"{model} is served by this endpoint."
+    return "model_missing", f"{model} is not among the {len(ids)} model(s) served here."
+
+
+def _model_ids(payload: object) -> list[str]:
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, list):
+        return []
+    return [str(m.get("id")) for m in data if isinstance(m, dict) and m.get("id")]
 
 
 # ---- context-window probe --------------------------------------------------

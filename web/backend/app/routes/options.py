@@ -8,6 +8,8 @@ proxy an OpenAI-compatible endpoint server-side.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -25,6 +27,7 @@ from app.schemas.settings import (
     LlmConfigRead,
     LlmConfigUpdate,
     LlmContextWindowResponse,
+    LlmHealthResponse,
     LlmModelsRequest,
     LlmModelsResponse,
     LlmTestRequest,
@@ -123,6 +126,31 @@ def llm_context_window(db: Session = Depends(get_db)):
     window = context_budget.resolve_window(db)
     return LlmContextWindowResponse(
         max_context_tokens=window.max_tokens, source=window.source
+    )
+
+
+@router.get("/llm/health", response_model=LlmHealthResponse)
+def llm_health(db: Session = Depends(get_db)):
+    """Is the configured model endpoint actually usable right now?
+
+    Surfaced in the scene header, where a hardcoded "Narrator active" dot used to sit. A
+    player on a local model otherwise learns their endpoint died by sending a turn and waiting
+    out ``LLM_GEN_TIMEOUT_SECONDS`` — five minutes to be told nothing.
+    """
+    cfg = settings_store.get_llm(db)
+    base_url, api_key = settings_store.resolve_llm_credentials(db, None, None)
+    state, detail = llm_backend.health(base_url, api_key, cfg.model)
+    backend = (
+        llm_backend.get_backend(base_url, api_key).value
+        if state == "reachable" and base_url.strip()
+        else ""
+    )
+    return LlmHealthResponse(
+        state=state,
+        backend=backend,
+        model=cfg.model,
+        checked_at=datetime.now(UTC),
+        detail=detail,
     )
 
 

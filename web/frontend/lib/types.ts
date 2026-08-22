@@ -181,6 +181,21 @@ export interface Scenario {
   sceneArtNegative?: string | null;
 }
 
+/**
+ * Whether the configured model endpoint is actually usable right now.
+ *
+ * Four states, not a boolean: an endpoint that is **up while the model is absent** produces
+ * exactly the same silence as one that is down, and they are different problems with
+ * different fixes — a typo in Options versus a dead process.
+ */
+export interface LlmHealth {
+  state: "reachable" | "model_missing" | "unreachable" | "unconfigured";
+  backend: string;
+  model: string;
+  checkedAt: string;
+  detail: string;
+}
+
 /** A scenario with its cast + setting resolved from id references. */
 export interface ResolvedScenario extends Scenario {
   cast: Character[];

@@ -13,6 +13,7 @@ import type {
 import type { ExportFormat } from "@/components/feature/ExportMenu";
 import { useScenePlay } from "./useScenePlay";
 import { availableVerbs } from "@/lib/sceneVerbs";
+import { useModelHealth } from "@/hooks/use-model-health";
 import type { SceneImage, SceneMessage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
 import { CastRail } from "@/components/feature/CastRail";
@@ -141,6 +142,10 @@ export function StoryPlayerView({
   /** The player-facing "what the scene knows" rail. Mutually exclusive with the Inspector —
    *  two 340px columns cannot both dock, and they answer different questions anyway. */
   const [memoryOpen, setMemoryOpen] = useState(false);
+  // Whether the model behind the scene is actually there. Polled while the tab is visible,
+  // and re-checked the moment a turn fails — which is when the player most needs to know
+  // whether the failure was their endpoint rather than the story.
+  const { health, recheck: recheckHealth } = useModelHealth();
   const [viewMode, setViewMode] = useState<SceneViewMode>("chat");
   const byId = (id: string): Character | undefined =>
     scenario.cast.find((c) => c.id === id);
@@ -188,6 +193,17 @@ export function StoryPlayerView({
    * marker's job (telling the player there IS an edge, and roughly where); the memory panel
    * carries the exact figures, read from the engine rather than counted here. `-1` hides it.
    */
+  // A turn just failed. Re-check the endpoint now rather than waiting out the poll: this is
+  // the exact moment "was that my model?" is worth answering, and the answer decides whether
+  // the player retries or goes to Options. Derived-from-a-changed-value, not an effect.
+  const [seenError, setSeenError] = useState<string | null>(null);
+  if (scene.streamError && scene.streamError !== seenError) {
+    setSeenError(scene.streamError);
+    recheckHealth();
+  } else if (!scene.streamError && seenError !== null) {
+    setSeenError(null);
+  }
+
   const memoryEdgeAt =
     scene.sceneMemory && scene.sceneMemory.droppedBeats > 0
       ? Math.max(0, scene.messages.length - scene.sceneMemory.windowBeats)
@@ -237,6 +253,7 @@ export function StoryPlayerView({
               }
         }
         memoryOpen={memoryOpen}
+        health={health}
         tray={
           <PlaythroughTray
             sessions={scene.sessions}

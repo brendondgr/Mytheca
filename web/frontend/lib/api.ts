@@ -32,6 +32,7 @@ import type {
   RosterSource,
   Scenario,
   ScenarioGraph,
+  LlmHealth,
   Setting,
   StatDefinition,
   Storyline,
@@ -368,6 +369,15 @@ export const listPlaySessions = (scenarioId: string) =>
 /** The full record of one play-through (events + traces) — replayed to rehydrate the player. */
 export const getSessionHistory = (scenarioId: string, sessionId: string) =>
   request<SessionHistory>(`/play/${scenarioId}/sessions/${sessionId}`);
+
+/**
+ * Is the configured model endpoint actually usable right now?
+ *
+ * Cheap and cached server-side, so the header can poll it — the alternative is a player
+ * learning their endpoint died by sending a turn and waiting out the five-minute generation
+ * timeout.
+ */
+export const getLlmHealth = () => request<LlmHealth>("/options/llm/health");
 
 /**
  * What the scene knows right now — the player-facing read of the last turn's context.

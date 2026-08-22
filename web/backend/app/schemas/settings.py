@@ -8,6 +8,7 @@ and a short masked hint.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from app.schemas.base import CamelModel
@@ -202,6 +203,27 @@ class LlmBackendResponse(CamelModel):
     budget_applied: bool = True
 
 
+class LlmHealthResponse(CamelModel):
+    """Whether the configured model endpoint is actually usable right now.
+
+    Four states, not a boolean, because they are four different problems with four different
+    fixes: ``reachable`` (the model is served), ``model_missing`` (the endpoint is up but does
+    not serve that model — a typo in Options), ``unreachable`` (nothing answered — a dead
+    process), ``unconfigured`` (nothing was ever set). An endpoint that is up while the model
+    is absent produces exactly the same silence as one that is down, and the player deserves
+    to be told which.
+
+    Without this a player on a local model learns their endpoint died by sending a turn and
+    waiting out ``LLM_GEN_TIMEOUT_SECONDS`` — five minutes to be told nothing.
+    """
+
+    state: Literal["reachable", "model_missing", "unreachable", "unconfigured"]
+    backend: str = ""
+    model: str = ""
+    checked_at: datetime
+    detail: str = ""
+
+
 class LlmContextWindowResponse(CamelModel):
     """Context-window size for the configured LLM endpoint.
 
@@ -211,7 +233,7 @@ class LlmContextWindowResponse(CamelModel):
     """
 
     max_context_tokens: int
-    source: Literal["detected", "configured"]
+    source: Literal["detected", "configured", "fallback"]
 
 
 # ---- Orphaned-media cleanup -----------------------------------------------

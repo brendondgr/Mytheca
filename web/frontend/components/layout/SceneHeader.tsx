@@ -1,3 +1,4 @@
+import type { LlmHealth } from "@/lib/types";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
@@ -64,6 +65,7 @@ export function SceneHeader({
   inspectorOpen = false,
   onToggleMemory,
   memoryOpen = false,
+  health = null,
   tray,
 }: {
   title: string;
@@ -85,6 +87,8 @@ export function SceneHeader({
   /** Opens the player-facing "what the scene knows" rail. */
   onToggleMemory?: () => void;
   memoryOpen?: boolean;
+  /** Whether the configured model endpoint is usable. `null` before the first check. */
+  health?: LlmHealth | null;
   /**
    * The play-through tray, rendered left of Export. Passed as a node rather than as props
    * because the header is presentational and the tray needs the play hook's session state;
@@ -125,12 +129,12 @@ export function SceneHeader({
         {tray}
         {onExport ? <ExportMenu onExport={onExport} disabled={!canExport} /> : null}
         <ThemeSwitcher />
-        {/* The hardcoded green dot + "Narrator active" that used to sit here was removed: it
-            was a literal `<span>` reflecting no state at all, and a status light that is
-            always on teaches players to ignore every status light. Its width is also part of
-            what made the Inspector button unreachable at 320px. `docs/plans/making-it-legible.md`
-            Phase 7 puts a real model-health indicator in this slot; the durable 320px fix is
-            `docs/plans/reach.md` Phase 4's header overflow menu. */}
+        {/* The real model-health indicator, in the slot where a hardcoded green dot and
+            "Narrator active" used to sit — a literal `<span>` reflecting no state at all. A
+            status light that is always on teaches players to ignore every status light.
+            Inside the `hidden … sm:flex` cluster, so the 320px control count is unchanged;
+            the durable 320px fix is `docs/plans/reach.md` Phase 4's header overflow menu. */}
+        <ModelStatus health={health} />
         {/* Two rails, and they are for two different questions: this one is the player's
             ("what does the scene know"), the Inspector is the developer's ("what did the loop
             do"). Mutually exclusive, because two 340px columns cannot both dock. */}
@@ -162,5 +166,42 @@ export function SceneHeader({
         ) : null}
       </div>
     </header>
+  );
+}
+
+/** How each health state reads to a player, in words — never by colour alone. */
+const HEALTH_COPY: Record<
+  LlmHealth["state"],
+  { label: string; dot: string; text: string }
+> = {
+  reachable: { label: "Model ready", dot: "bg-success", text: "text-mute" },
+  model_missing: { label: "Model not found", dot: "bg-gold", text: "text-gold" },
+  unreachable: { label: "Model unreachable", dot: "bg-danger", text: "text-danger" },
+  unconfigured: { label: "No model set", dot: "bg-mute2", text: "text-mute2" },
+};
+
+/**
+ * Whether the model behind the scene is actually there.
+ *
+ * The dot is never the only channel: the label changes with the state, the `aria-label`
+ * carries the endpoint's own explanation, and `role="status"` announces a change rather than
+ * leaving it to be noticed. Renders nothing until the first check has answered — a light that
+ * guesses is worse than one that waits.
+ */
+function ModelStatus({ health }: { health: LlmHealth | null }) {
+  if (!health) return null;
+  const copy = HEALTH_COPY[health.state];
+  return (
+    <span
+      role="status"
+      aria-label={`${copy.label}. ${health.detail}`}
+      title={
+        health.backend ? `${health.detail} (${health.backend})` : health.detail
+      }
+      className="hidden flex-none items-center gap-[6px] font-mono text-[9px] tracking-[0.12em] uppercase sm:flex"
+    >
+      <span aria-hidden className={`h-[6px] w-[6px] flex-none rounded-full ${copy.dot}`} />
+      <span className={copy.text}>{copy.label}</span>
+    </span>
   );
 }

@@ -72,3 +72,56 @@ describe("SceneHeader config control (relocated to the composer)", () => {
     expect(screen.queryByRole("button", { name: /scene configuration/i })).not.toBeInTheDocument();
   });
 });
+
+describe("SceneHeader model status", () => {
+  const health = (over: Partial<import("@/lib/types").LlmHealth> = {}) => ({
+    state: "reachable" as const,
+    backend: "llamacpp",
+    model: "test-model",
+    checkedAt: "2026-08-22T00:00:00Z",
+    detail: "test-model is served by this endpoint.",
+    ...over,
+  });
+
+  it("shows nothing until the first check has answered", () => {
+    // A light that guesses is worse than one that waits.
+    render(<SceneHeader title="Salt" settingName="Hearth" />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("reports readiness in words, not only by colour", () => {
+    render(<SceneHeader title="Salt" settingName="Hearth" health={health()} />);
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent(/model ready/i);
+    expect(status).toHaveAccessibleName(/model ready/i);
+  });
+
+  it("distinguishes a missing model from a dead endpoint", () => {
+    // They are different problems with different fixes — a typo in Options versus a dead
+    // process — and a single "something is wrong" would send the player to the wrong one.
+    const { rerender } = render(
+      <SceneHeader title="Salt" settingName="Hearth" health={health({ state: "model_missing" })} />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(/model not found/i);
+
+    rerender(<SceneHeader title="Salt" settingName="Hearth" health={health({ state: "unreachable" })} />);
+    expect(screen.getByRole("status")).toHaveTextContent(/model unreachable/i);
+  });
+
+  it("says nothing is set up rather than raising an alarm", () => {
+    render(<SceneHeader title="Salt" settingName="Hearth" health={health({ state: "unconfigured" })} />);
+    expect(screen.getByRole("status")).toHaveTextContent(/no model set/i);
+  });
+
+  it("carries the endpoint's own explanation in the accessible name", () => {
+    render(
+      <SceneHeader
+        title="Salt"
+        settingName="Hearth"
+        health={health({ state: "unreachable", detail: "The endpoint answered 503." })}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveAccessibleName(/the endpoint answered 503/i);
+  });
+});
+
