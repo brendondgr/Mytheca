@@ -401,8 +401,13 @@ export interface TurnRequestBody {
   /** Request interleaved diagnostic `trace` frames (the Inspector panel). */
   trace?: boolean;
   /**
-   * The narrative-direction tag of a selected branch/path (legacy). When set, the turn
-   * opened with a fuller "progression" narration and played the choice out over several beats.
+   * The narrative-direction tag of a selected branch/path. When set, the turn opens with a
+   * fuller "progression" narration that plays the choice out over several beats rather than
+   * answering it in one line.
+   *
+   * Sent by the transcript's **"Play it out"** action on a suggestion chip. (The primary
+   * click still writes the suggestion into the composer to be edited — a suggestion is a
+   * starting point, and the player's own wording is the point of the app.)
    */
   outcome?: string | null;
   /**

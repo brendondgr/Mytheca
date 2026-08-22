@@ -1179,3 +1179,26 @@ def test_directed_at_reaches_the_intent_as_an_addressed_character(
     )
     # A freeform line addressed to someone is promoted to a direct one.
     assert intent["data"]["kind"] == "direct"
+
+
+def test_an_outcome_only_turn_opens_by_playing_the_choice_out(
+    client, storyline_id, monkeypatch
+):
+    """`outcome` was engine-supported all along with no UI producer, so this path was
+    reachable only from tests. The transcript's "Play it out" action now sends it, which
+    makes it worth pinning: an outcome opens the turn with a fuller progression narration
+    instead of one line of answer."""
+    _configure_llm(client)
+    _patch_llm(monkeypatch)
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    resp = client.post(
+        f"/api/play/{scid}/turn",
+        json={"text": "", "outcome": "she takes the deal", "trace": True},
+    )
+    assert resp.status_code == 200
+    events = _stream(resp)
+    plan = next(e for e in events if e.get("type") == "trace" and e.get("step") == "plan")
+    assert plan["title"] == "The narrator plays out your choice"
+    assert plan["data"]["outcome"] == "she takes the deal"
+    assert any(e.get("type") == "narration" for e in events)

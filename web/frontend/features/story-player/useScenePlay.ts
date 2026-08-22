@@ -851,6 +851,50 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // player actually sends, so they can reconsider or pick a different one.
   const choose = useCallback((c: SceneChoice) => setComposer(c.player || c.label), []);
 
+  /**
+   * **Play it out** — run a suggestion now instead of editing it first.
+   *
+   * The other half of `choose`. It goes as a direction-only turn (nothing was *said*) with
+   * the choice's `outcome` set, which is what makes the engine open with the fuller
+   * "progression" passage that plays a choice out over several beats rather than answering
+   * it in one line. That behaviour has existed in the engine all along and no UI ever sent
+   * the field, so it was reachable only from tests.
+   */
+  const playOut = useCallback(
+    (c: SceneChoice) => {
+      if (sending) return;
+      const text = c.player || c.label;
+      setStreamError(null);
+      setMessages((m) => [
+        ...m.filter((x) => x.kind !== "choices"),
+        { kind: "direction", text },
+      ]);
+      void stream
+        .run((signal) =>
+          postTurn(
+            scenario.id,
+            {
+              text: "",
+              guidance: text,
+              outcome: c.outcome || text,
+              sessionId: sessionRef.current,
+              trace: true,
+              povCharacterId: pov,
+            },
+            signal,
+          ),
+        )
+        .catch(() => setStreamError((e) => e ?? "The turn could not be completed."))
+        .finally(() => {
+          setActivityByChar({});
+          setTurnStatus(IDLE_TURN_STATUS);
+          setMessages(dropPendingBeats);
+          void refreshSessions();
+        });
+    },
+    [sending, scenario.id, stream, pov, refreshSessions],
+  );
+
   const lastSpeaker = [...messages].reverse().find((m) => m.kind === "char");
 
   return {
@@ -863,6 +907,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     mentionOptions,
     standing,
     dismissStanding,
+    playOut,
     answerCastRequest,
     // How far into the scene we are, for the Exit verbs' gate. Counts what the player
     // contributed — a spoken line, their POV character's line, or a bare direction — not

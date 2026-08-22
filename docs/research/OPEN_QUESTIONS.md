@@ -239,3 +239,26 @@ Appended as each `RESULTS.md` §7 is written.
       sharper" while `long` asks for five or six paragraphs; the two directives sit in the
       same TAIL and have never been checked against each other.
 - [ ] **Re-run the tiers on a second model.** Everything is `gemma4-26B-mtp`.
+
+### From `docs/plans/steering-the-scene.md` Phase 7 (direction delivery)
+
+- [ ] **Sweep `DIRECTION_COVERAGE_THRESHOLD`.** A scene direction requirement is now confirmed
+      delivered from the prose a beat actually emitted, using a lexical coverage check
+      (`app/services/direction_check.py`). The default (**0.34**) and the stopword classes
+      (abstract subject placeholders; speech-act verbs) were chosen from an *argument* — good
+      prose paraphrases a requirement's verbs and keeps its concrete nouns — plus two live
+      cases that misfired at the previous settings and are now pinned as regression tests.
+      **That is reasoning and anecdote, not a measurement.**
+
+      Protocol sketch: collect direction/beat pairs from real sessions and hand-label each
+      *delivered* or *not*, blind to the score. Compute precision and recall per threshold
+      across 0.2–0.7. Report **per-run rows and no aggregate** if any run fails to complete —
+      survivors of a partial failure are not a random subsample (`EXP-2026-08-001` is the
+      worked example of getting that wrong). The asymmetry matters and should be stated in the
+      analysis: a false negative costs one retried beat, while a false positive silently drops
+      what the player asked for, so the operating point should sit well below the
+      precision-recall crossover.
+- [ ] **Check whether the retry actually helps.** `DIRECTION_MAX_ATTEMPTS` is 2 on the
+      assumption that a second beat aimed at the same requirement often lands it. Nothing has
+      measured the second attempt's success rate; if it is near zero the cap should be 1 and
+      the budget spent elsewhere.

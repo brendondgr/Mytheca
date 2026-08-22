@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import type { Character } from "@/lib/types";
 import type { SceneChoice, SceneMessage } from "@/features/story-player/scene-data";
@@ -286,3 +286,98 @@ describe("TranscriptBeat direction aside", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("BranchChoices — Play it out", () => {
+  const CHOICES = [
+    {
+      id: "c1", label: "Take the deal", outcome: "she takes the deal", player: "I take it.",
+      follow: { who: "", text: "" },
+    },
+  ];
+
+  it("keeps the primary click as edit-first", () => {
+    // A suggestion is a starting point, and the player's own wording is the point of the app.
+    const onChoose = vi.fn();
+    render(
+      <TranscriptBeat
+        message={{ kind: "choices" }}
+        charById={() => undefined}
+        choices={CHOICES}
+        onChoose={onChoose}
+        onPlayOut={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: 'Put "Take the deal" in the composer to edit' }));
+    expect(onChoose).toHaveBeenCalledWith(CHOICES[0]);
+  });
+
+  it("offers a second action that runs it now", () => {
+    const onPlayOut = vi.fn();
+    const onChoose = vi.fn();
+    render(
+      <TranscriptBeat
+        message={{ kind: "choices" }}
+        charById={() => undefined}
+        choices={CHOICES}
+        onChoose={onChoose}
+        onPlayOut={onPlayOut}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: 'Play out "Take the deal"' }));
+    expect(onPlayOut).toHaveBeenCalledWith(CHOICES[0]);
+    expect(onChoose).not.toHaveBeenCalled();
+  });
+
+  it("hides the second action when the parent does not offer it", () => {
+    render(
+      <TranscriptBeat
+        message={{ kind: "choices" }}
+        charById={() => undefined}
+        choices={CHOICES}
+        onChoose={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /play out/i })).not.toBeInTheDocument();
+  });
+
+  it("blocks both while a turn is in flight — but not merely for want of a session", () => {
+    render(
+      <TranscriptBeat
+        message={{ kind: "choices" }}
+        charById={() => undefined}
+        choices={CHOICES}
+        onChoose={() => {}}
+        onPlayOut={() => {}}
+        turnInFlight
+      />,
+    );
+    for (const b of screen.getAllByRole("button")) expect(b).toBeDisabled();
+  });
+});
+
+describe("BranchChoices session gating", () => {
+  const CHOICES = [
+    {
+      id: "c1", label: "Take the deal", outcome: "o", player: "I take it.",
+      follow: { who: "", text: "" },
+    },
+  ];
+
+  it("stays usable before the first turn has created a session", () => {
+    // A suggestion only writes into the composer, and "Play it out" creates the session the
+    // way any first turn does — gating it on an existing session made the chips dead on a
+    // fresh scene, which is exactly when suggestions matter most.
+    render(
+      <TranscriptBeat
+        message={{ kind: "choices" }}
+        charById={() => undefined}
+        choices={CHOICES}
+        onChoose={() => {}}
+        onPlayOut={() => {}}
+        castRequestDisabled
+      />,
+    );
+    for (const b of screen.getAllByRole("button")) expect(b).not.toBeDisabled();
+  });
+});
+

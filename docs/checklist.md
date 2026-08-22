@@ -18,23 +18,25 @@ Verified against the code on 2026-08-04.
 - **Population never proposes scenarios.** It writes characters and settings only (each character whole — draft, voice profile, starting stats, portrait); the first scenario is still authored by hand.
 - **World-build runs are in-process and non-durable.** `services/world_populate_runs.py` keeps a run's frame log in memory, keyed by storyline. A backend restart ends the run (the client is told, and never silently rebuilds), and a multi-process deployment would not share the registry. Durable runs (a table + a worker) are unbuilt.
 - **A stopped build leaves a partly-built world.** *Stop* aborts the stream but does not roll back the rows already committed, and there is no in-app way to resume the run — the author finishes the cast by hand. Tied to the missing re-run entry point above.
-- **Nothing verifies that a requirement was actually met.** A beat marks its requirements
-  delivered because it *carried* them into the prompt, not because the emitted prose reached
-  them (a deliberate call — an LLM "did that happen?" check would roughly double the turn's
-  call count). A character that ignores its stated outcome is not caught, and the end-of-turn
-  trace will still report the direction delivered in full.
-- ~~**A guidance-only turn cannot be sent.**~~ **Backend done 2026-08-22.**
-  `validate_turn_inputs` no longer requires `text`: a turn is valid when any of `text`,
-  `guidance`, `outcome` or `continuation` is present, and `turn_setup` handles the text-less
-  case (no buffer push, no `turn_beats` seed, no intent call). *Continue* ships on it.
-  **What remains is the front end for the guidance arm** — the composer still sends direction
-  only alongside a message. Owned by `docs/plans/steering-the-scene.md` Phase 3, which
-  consumes this relaxation rather than re-opening it.
-- **A direction longer than the scene's turn cap is compressed, not spread.** The opening
-  narration absorbs every narrator-owned requirement at once when `maxTurns` is at or below
-  the requirement count, and the last beat collapses to a narrator beat covering whatever
-  several characters are still owed. Both are correct — the cap is hard — but they read as
-  summary rather than scene. Raising the scene's turn limit is the only remedy today.
+- **The delivery check is lexical, and its threshold is unmeasured.** A requirement is no
+  longer ticked off for merely entering a prompt — `services/direction_check.py` scores the
+  prose the beat actually emitted (2026-08-22). But the score is word overlap, not meaning:
+  `DIRECTION_COVERAGE_THRESHOLD` (0.34) and the stopword classes were chosen from an argument
+  about how prose works — writing paraphrases a requirement's verbs and keeps its concrete
+  nouns — plus two live cases that misfired before them. **No sweep has been run.** The
+  failure mode is stated and deliberately one-sided (an unconfirmed requirement is *retried*
+  and reported as unconfirmed, never dropped), so a false negative costs a beat while a false
+  positive would lose what the player asked for. An LLM "did that happen?" check is still
+  rejected — it would roughly double the turn's call count. What is missing is a measurement;
+  see `docs/research/OPEN_QUESTIONS.md`.
+- **A standing direction never expires.** What a turn could not deliver is carried forward
+  indefinitely until it lands or the player dismisses it (`play_sessions.standing_direction`).
+  A direction the scene has quietly moved past will keep being re-owed, and the only remedy is
+  the dismiss control. A turn-count or relevance-based expiry was not designed.
+- **`@` mentions have no inline chip.** The composer's tagged row shows what a turn will
+  carry, but inside the textarea an `@name` is plain text — there is no styled token, because
+  a `<textarea>` cannot hold one. Doing it properly means a contenteditable or an overlay, and
+  both were judged too large for `docs/plans/steering-the-scene.md`.
 - **Graph edges from a rewound turn are not rolled back.** `session_state.truncate_session`
   prunes the `:Event` node each cut turn wrote (deterministic id `evt_{session_id}_{turn_seq}`),
   but the relationship **edges** and `:Consequence` nodes those turns wrote stay. The graph is a
@@ -79,7 +81,6 @@ Verified against the code on 2026-08-04.
 - **The in-voice penalties were removed against a drift risk nobody measured.** `frequency_penalty`/`presence_penalty` are now `0.0` on every register because EXP-2026-08-007 showed they were what destroyed sentence structure (1.32 ± 1.16 vs 11.42 ± 3.96 sentences per 100 words, no arm overlap). They had been added to fight **in-character drift**, and that experiment does not measure drift at all — so the trade was taken on one side of the ledger only. The `_REGISTER_SAMPLER` column is kept at zero rather than deleted so a measurement can put something back. What is needed is a drift eval (repetition of a character's own phrasings across a long session, or blinded speaker-attribution) run with the penalties off and on; until it exists, "removing them costs nothing" is an assumption, not a finding.
 - **The sampler finding is one model deep.** EXP-2026-08-007 ran entirely on upstream `qwen38-27B-awq`. The endpoint has since served `gemma4-26B-mtp`, on which only the *shipped* configuration has been observed (EXP-2026-08-008) — the arms have never been re-run there. Reconsidering the penalties on a different model means re-running that experiment, not extrapolating.
 - **Composure as a stat, and a tonal redo pass** — the two rejected arms of the same design (ideas 4 and 6). The stat machinery already renders bands to prose; the beat-redo seam that used to live on the continuity guard went with it, so a tonal redo would now need its own. Both are cheap enough to revisit if the register alone proves insufficient.
-- **`end_scene` / `move_scene` verbs** — the presence/action bus is built to take them.
 - **YAML config loaders** in `app/content/` — only the Markdown stat-guidance loader exists. Entities live in Postgres, so this may simply be unnecessary; decide rather than leave it pending.
 - **Dice-based resolution** — explicitly dropped (decision D11), not merely deferred. The `CheckCard` renderer was removed. Reopen only as a deliberate reversal.
 

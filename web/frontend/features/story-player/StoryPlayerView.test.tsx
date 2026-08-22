@@ -158,8 +158,12 @@ describe("StoryPlayerView", () => {
     vi.mocked(postTurn).mockClear(); // mocks persist across tests; count from a clean slate
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
+    // A suggestion now carries two actions — put it in the composer, or play it out — so the
+    // primary one is named explicitly.
     await user.click(
-      screen.getByRole("button", { name: /confront maerin about the captain/i }),
+      screen.getByRole("button", {
+        name: /Put "Confront Maerin about the Captain" in the composer/i,
+      }),
     );
     // The suggested player text lands in the composer (focused for editing), not sent.
     const box = screen.getByRole("textbox", { name: /your message/i }) as HTMLTextAreaElement;
@@ -236,10 +240,14 @@ describe("StoryPlayerView", () => {
     render(<StoryPlayerView scenario={embergate} />);
     await user.type(screen.getByRole("textbox", { name: /your message/i }), "go");
     await user.click(screen.getByRole("button", { name: /send/i }));
-    const choice = await screen.findByRole("button", { name: /Alpha/i });
+    // Each suggestion is now a row with two actions (edit it, or play it out), so the row —
+    // not the button — is the grid child.
+    const choice = await screen.findByRole("button", { name: /Put "Alpha" in the composer/i });
     // The four choices share a 2-column grid container (a 2×2 layout).
-    expect(choice.parentElement?.className).toMatch(/grid-cols-2/);
-    expect(screen.getByRole("button", { name: /Delta/i })).toBeInTheDocument();
+    expect(choice.parentElement?.parentElement?.className).toMatch(/grid-cols-2/);
+    expect(
+      screen.getByRole("button", { name: /Put "Delta" in the composer/i }),
+    ).toBeInTheDocument();
   });
 
   it("switches the center column between the chat and the story graph", async () => {

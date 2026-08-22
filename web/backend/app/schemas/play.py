@@ -19,6 +19,10 @@ from pydantic import Field
 from app.schemas.base import CamelModel, PresenceStatus, Visibility
 
 # One engine, two render styles (D1): POV (interstitials off) or Narrator (on).
+#
+# **Deprecated and inert.** It reaches exactly one place in the engine (the `turn` trace
+# payload) and changes nothing about how a turn runs. Kept on the request so no existing
+# caller breaks; deliberately never surfaced in the UI. See `TurnRequest`.
 TurnMode = Literal["pov", "narrator"]
 
 
@@ -58,13 +62,20 @@ class TurnRequest(CamelModel):
     """One player turn.
 
     ``sessionId`` resumes an existing play session; omit it to start a new one.
-    ``directedAt`` is the optional character id the player is addressing. ``mode``
-    selects POV (default) or Narrator rendering — the *same* loop, narrator
-    interstitials on or off. ``trace`` opts into diagnostic ``trace`` frames
-    interleaved on the stream (the story player's Inspector panel) — off by default so
+    ``directedAt`` is the optional character id the player is addressing — now set by the UI
+    from an ``@`` cast mention in the message box. ``trace`` opts into diagnostic ``trace``
+    frames interleaved on the stream (the story player's Inspector panel) — off by default so
     the default stream + the story-event contract are unchanged. ``outcome`` is the
-    narrative-direction tag of a branch/path the player selected (legacy; the engine
-    opened with a fuller "progression" narration).
+    narrative-direction tag of a branch/path the player selected: the turn opens with a fuller
+    "progression" narration that plays the choice out over several beats, and the story
+    player's **"Play it out"** action on a suggestion chip is what sends it.
+
+    **``mode`` is deprecated and inert.** It reaches exactly one place in the engine — the
+    ``turn`` trace payload — and changes nothing about how a turn runs. It is still accepted
+    so no existing caller breaks, and it is deliberately **not** exposed in the UI: narrator
+    interstitials are decided by the planner from the scene, which is a better answer than a
+    switch the player has to understand. That is a decision, not an omission; see
+    ``docs/architecture.md``.
 
     ``povCharacterId`` is the *Player POV* control: when set to a present cast member's
     id, the player's line **is that character's line** — it is seeded into the turn as a

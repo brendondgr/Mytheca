@@ -335,9 +335,11 @@ export function StoryPlayerView({
                     docNameOf={(id) => contextDocs.find((d) => d.id === id)?.name}
                     onCastAccept={(id) => scene.answerCastRequest(id, true)}
                     onCastDecline={(id) => scene.answerCastRequest(id, false)}
+                    onPlayOut={scene.playOut}
                     // Without a session there is nothing to attach a presence change to, and
                     // mid-turn the roster is already in flight.
                     castRequestDisabled={!scene.sessionId || scene.sending}
+                    turnInFlight={scene.sending}
                   />
                   )}
                 </motion.div>

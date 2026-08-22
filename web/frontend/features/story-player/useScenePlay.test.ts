@@ -1332,3 +1332,67 @@ describe("useScenePlay directives + standing direction", () => {
   });
 });
 
+describe("useScenePlay play it out", () => {
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+  });
+
+  it("sends the choice's outcome on a direction-only turn", async () => {
+    // `outcome` makes the engine open with a fuller progression passage that plays the
+    // choice out. It had been engine-supported all along with no UI producer.
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() =>
+      result.current.playOut({
+        id: "c1",
+        label: "Take the deal",
+        outcome: "she takes the deal",
+        player: "I take it.",
+        follow: { who: "", text: "" },
+      }),
+    );
+
+    expect(vi.mocked(postTurn)).toHaveBeenCalledWith(
+      scenario.id,
+      expect.objectContaining({
+        text: "",
+        guidance: "I take it.",
+        outcome: "she takes the deal",
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("shows it as a direction aside, not a spoken line", async () => {
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    act(() =>
+      result.current.playOut({
+        id: "c1", label: "Take the deal", outcome: "o", player: "",
+        follow: { who: "", text: "" },
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        result.current.messages.some((m) => m.kind === "direction" && m.text === "Take the deal"),
+      ).toBe(true),
+    );
+  });
+
+  it("leaves the composer alone — this is the path that skips the typing", async () => {
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    act(() => result.current.setComposer("something I was writing"));
+    act(() =>
+      result.current.playOut({
+        id: "c1", label: "Take the deal", outcome: "o", player: "x",
+        follow: { who: "", text: "" },
+      }),
+    );
+    expect(result.current.composer).toBe("something I was writing");
+  });
+});
+

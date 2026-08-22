@@ -280,12 +280,26 @@ export function CharacterMessage({
 export function BranchChoices({
   choices,
   onChoose,
+  onPlayOut,
   prompt,
+  disabled = false,
 }: {
   choices: SceneChoice[];
   onChoose: (choice: SceneChoice) => void;
+  /**
+   * **Play it out** — skip the typing and let the scene run this choice.
+   *
+   * The primary click still writes the suggestion into the composer to be edited, because a
+   * suggestion is a starting point and the player's own wording is the point of the app.
+   * This is the other half: submit it now, as a direction-only turn carrying the choice's
+   * `outcome`, which is what makes the engine open with a fuller "progression" passage that
+   * plays the choice out rather than answering it in one line. Omit to hide the control.
+   */
+  onPlayOut?: (choice: SceneChoice) => void;
   /** The planner's question, when it asked instead of guessing. */
   prompt?: string;
+  /** A turn is in flight — a second submission would race it. */
+  disabled?: boolean;
 }) {
   // 3–4 follow-ups lay out in a 2-column grid (4 → a 2×2 grid); 1–2 stack in a column.
   const layout = choices.length >= 3 ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2";
@@ -302,22 +316,43 @@ export function BranchChoices({
       </div>
       <div className={choices.length === 0 ? "hidden" : layout}>
         {choices.map((ch) => (
-          <button
+          <div
             key={ch.id}
-            type="button"
-            onClick={() => onChoose(ch)}
-            className="mytheca-row flex items-center gap-[13px] rounded-[4px] border border-field-bd bg-card p-[12px_15px] text-left hover-nudge hover:border-accent hover:bg-hover"
+            className="mytheca-row flex items-center gap-[10px] rounded-[4px] border border-field-bd bg-card p-[12px_15px] hover-nudge hover:border-accent hover:bg-hover"
           >
-            <span aria-hidden className="flex-none text-[13px] text-accent">
-              ◆
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block font-display text-[15px] text-ink">{ch.label}</span>
-              <span className="mt-[2px] block font-body text-[13px] text-ink-soft">
-                {ch.outcome}
+            <button
+              type="button"
+              onClick={() => onChoose(ch)}
+              disabled={disabled}
+              // Says what the click DOES — it puts the suggestion in the composer, it does
+              // not send it. (It also must not contain the word "send": the composer's own
+              // Send button is found by that name, and two matches is an ambiguous control.)
+              aria-label={`Put "${ch.label}" in the composer to edit`}
+              className="flex min-w-0 flex-1 items-center gap-[13px] text-left disabled:opacity-50"
+            >
+              <span aria-hidden className="flex-none text-[13px] text-accent">
+                ◆
               </span>
-            </span>
-          </button>
+              <span className="min-w-0 flex-1">
+                <span className="block font-display text-[15px] text-ink">{ch.label}</span>
+                <span className="mt-[2px] block font-body text-[13px] text-ink-soft">
+                  {ch.outcome}
+                </span>
+              </span>
+            </button>
+            {onPlayOut ? (
+              <button
+                type="button"
+                onClick={() => onPlayOut(ch)}
+                disabled={disabled}
+                aria-label={`Play out "${ch.label}"`}
+                title="Skip the typing and let the scene play this choice out"
+                className="min-h-[32px] flex-none rounded-[6px] border border-field-bd px-[8px] font-mono text-[9px] tracking-[0.08em] whitespace-nowrap text-mute uppercase hover:bg-hover hover:text-ink disabled:opacity-50"
+              >
+                Play it out
+              </button>
+            ) : null}
+          </div>
         ))}
       </div>
     </div>
@@ -353,7 +388,9 @@ export function TranscriptBeat({
   docNameOf,
   onCastAccept,
   onCastDecline,
+  onPlayOut,
   castRequestDisabled = false,
+  turnInFlight = false,
 }: {
   message: SceneMessage;
   charById: (id: string) => Character | undefined;
@@ -374,8 +411,12 @@ export function TranscriptBeat({
   /** Answer a `castRequest`: bring that character into the scene, or decline. */
   onCastAccept?: (characterId: string) => void;
   onCastDecline?: (characterId: string) => void;
-  /** No session yet, or a turn in flight — the ask is shown but not answerable. */
+  /** Submit a suggestion immediately, as a turn that plays the choice out. */
+  onPlayOut?: (choice: SceneChoice) => void;
+  /** No session yet, or a turn in flight — the cast ask is shown but not answerable. */
   castRequestDisabled?: boolean;
+  /** A turn is streaming — a second submission would race it. */
+  turnInFlight?: boolean;
 }) {
   const m = message;
   if (m.kind === "narrator") return <NarratorCard text={m.text ?? ""} streaming={streaming} />;
@@ -405,7 +446,19 @@ export function TranscriptBeat({
   if (m.kind === "image")
     return m.image ? <SceneImageBeat image={m.image} onOpen={onOpenImage} /> : null;
   if (m.kind === "choices")
-    return <BranchChoices choices={choices} onChoose={onChoose} prompt={m.text} />;
+    return (
+      <BranchChoices
+        choices={choices}
+        onChoose={onChoose}
+        onPlayOut={onPlayOut}
+        prompt={m.text}
+        // NOT `castRequestDisabled`: answering a cast request needs a session to attach the
+        // presence change to, but a suggestion only needs a turn not to be in flight — the
+        // primary action just writes into the composer, and "Play it out" creates the
+        // session the way any first turn does.
+        disabled={turnInFlight}
+      />
+    );
   const c = charById(m.who ?? "");
   if (!c) return null;
   // Player POV: a `char` beat the player authored (they spoke AS this character) renders on

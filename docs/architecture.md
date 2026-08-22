@@ -158,6 +158,7 @@ There is no authentication of any kind: no user model, no auth routes, no sessio
 - Server-side clamping of every proposed side effect.
 - Best-effort substrates throughout (Neo4j / Qdrant / Redis / ComfyUI down → degrade, never block).
 - **No dice** — narrative resolution only; `branch_choices` carry `label` + `outcome` and the check card was retired.
+- **`TurnRequest.mode` is deliberately not exposed** — it is accepted (so no existing caller breaks) and inert: it reaches exactly one place in the engine, the `turn` trace payload, and changes nothing about how a turn runs. Whether the narrator sets context between beats is decided by the planner from the scene, which is a better answer than a switch the player has to learn. Recorded here so the next reader treats it as a decision rather than an omission and does not build UI for it.
 - **Alembic adopted** — 17 migrations, coexisting with `create_all` + an additive reconciler. (Earlier docs said "Alembic deferred"; that is wrong.)
 - Persistence: sync SQLAlchemy 2.0 + Postgres; tests on in-memory SQLite.
 - Story-Graph visualization via `react-force-graph-2d` (canvas + d3-force), isolated in `components/feature/GraphCanvas.tsx`, lazy-loaded with `next/dynamic({ ssr:false })`. Deterministic type→color map (`lib/graphColors.ts`) plus a visible legend and an `sr-only` table as the canvas text alternative.
