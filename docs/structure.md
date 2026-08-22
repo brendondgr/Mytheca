@@ -58,18 +58,18 @@ mytheca/
 │   │   ├── docker-compose.yml   # Postgres · Redis · Neo4j · Qdrant (started by app.py)
 │   │   ├── docker/neo4j/   # Custom Neo4j 5.26 image (APOC)
 │   │   ├── alembic.ini     # DB URL injected at runtime from app.core.config — no secret
-│   │   ├── alembic/        # env.py + versions/ (12 migrations)
+│   │   ├── alembic/        # env.py + versions/ (20 migrations)
 │   │   └── app/
 │   │       ├── main.py     # App factory; every router mounted under /api; /media static mount
 │   │       ├── routes/     # characters · context_documents · graph · options · play · rag
 │   │       │               #   scenarios · settings · stats · storylines
-│   │       ├── services/   # Turn loop, CRUD, graph, RAG glue, media, LLM proxy (29 modules)
+│   │       ├── services/   # Turn loop, CRUD, graph, RAG glue, media, LLM proxy (46 modules)
 │   │       ├── agents/     # LLM agents — authoring + turn loop + prompt_registry + storyline_edit/
 │   │       ├── content/    # graph_registry.py (type catalogue) + stats/*.md guidance
 │   │       ├── rag/        # schema · serializer · tokens · entries · embedder · store · indexer
 │   │       │               #   · retriever · const
 │   │       ├── memory/     # buffer.py (Redis recent-turn buffer) · interior.py
-│   │       ├── events/     # envelope.py (7 story events) · stream.py (NDJSON + trace/error frames)
+│   │       ├── events/     # envelope.py (9 story events) · stream.py (NDJSON + trace/error frames)
 │   │       ├── models/     # 13 SQLAlchemy tables
 │   │       ├── schemas/    # Pydantic request/response + event schemas
 │   │       └── core/       # config · db · redis · neo4j · qdrant · bootstrap · seed · errors · ids
@@ -88,9 +88,35 @@ mytheca/
 └── .cursor/                # Cursor — rule pointers (.mdc)
 ```
 
+## The turn loop, and which module owns what
+
+`services/turn_engine.py` is the **orchestrator only** — it defines exactly
+`validate_turn_inputs` and `run_turn`, and everything a turn actually does lives in a
+sibling. Four plans in this program independently proposed a split with four different
+module names; this is the one that shipped, and a new one must not be invented beside it.
+
+| Module | Owns |
+| --- | --- |
+| `turn_engine.py` | `validate_turn_inputs` + `run_turn`. Orchestration and nothing else. |
+| `turn_setup.py` | `prepare_turn` — everything before the first beat. |
+| `beat_runner.py` | Producing one decided beat: `narrator_interstitial`, `relationship_note`, `beat_or_skip`, `generate_speaker`. |
+| `beat_stream.py` | Emission → delta-streamed events, and the per-beat stops. |
+| `turn_effects.py` | The consequences: `apply_declared_presence`, `apply_presence_change`, `apply_relationship_change`, `apply_stat_change`. |
+| `turn_emit.py` | `Emitter`, `LiveSegment`, `Tracer`. |
+| `direction_runtime.py` | What the direction still owes mid-turn (`attempted` → `confirm`). |
+| `direction_check.py` | Whether the prose actually reached it — lexical, no LLM call. |
+| `context_budget.py` | The model's context window and the block-quantised transcript depth. |
+| `history_compaction.py` | What falls out of the window becomes a rolling summary; invalidated on rewind. |
+| `turn_finalize.py` | Suggestions → graph write → reflection → recency. |
+| `session_state.py` | The one owner of history mutation — truncate, copy, replay, rebuild. |
+| `beat_rerun.py` | Re-roll a beat or a turn, keeping takes. |
+
+Every module under `web/backend/app/` stays **under 800 lines**, enforced by
+`utils/tests/backend/data/test_file_length_budget.py`.
+
 ## Two things that trip people up
 
-1. **Frontend tests are co-located**, next to what they test (`Foo.tsx` → `Foo.test.tsx`) — 84 files across `app/`, `components/`, `features/`, `hooks/`, `lib/`. `utils/tests/frontend/` holds only an `__init__.py` and should be ignored.
+1. **Frontend tests are co-located**, next to what they test (`Foo.tsx` → `Foo.test.tsx`) — 129 files across `app/`, `components/`, `features/`, `hooks/`, `lib/`. `utils/tests/frontend/` holds only an `__init__.py` and should be ignored.
 2. **`web/shared/contracts/` is empty.** The live FE↔BE event and entity types are hand-written in `web/frontend/lib/events.ts` and `lib/types.ts`, kept in sync with `web/backend/app/events/envelope.py` by hand.
 
 ## Top-Level Path Purpose

@@ -30,6 +30,26 @@ engine stops asking and runs ``direction_agent.schedule`` itself, so everything 
 lands inside ``scenario.max_turns``. Each beat carries only *its* requirements into the
 prompt, as an outcome to reach — the speaker still chooses their own words and stays in
 character.
+
+**This module is the orchestrator only** — it defines exactly ``validate_turn_inputs`` and
+``run_turn``. Everything a turn does lives in a sibling, and a caller that wants one of those
+helpers imports it from its owner rather than through here:
+
+* ``turn_setup.prepare_turn`` — everything before the first beat
+* ``beat_runner`` — ``narrator_interstitial`` · ``relationship_note`` · ``beat_or_skip`` ·
+  ``generate_speaker``
+* ``beat_stream`` — emission → delta-streamed events, and the per-beat stops
+* ``turn_effects`` — ``apply_declared_presence`` · ``apply_presence_change`` ·
+  ``apply_relationship_change`` · ``apply_stat_change``
+* ``turn_emit`` — ``Emitter`` · ``LiveSegment`` · ``Tracer``
+* ``direction_runtime`` / ``direction_check`` — what the direction owes, and whether the
+  prose reached it
+* ``turn_finalize`` — suggestions → graph write → reflection → recency
+
+No aliases are re-exported from this module. The split landed with these helpers **public on
+their owners**, so there is no private name from an older layout for anything to import, and
+an alias here would be a second place for the same function to live. The full table, with the
+800-line ceiling that keeps it this way, is in ``docs/structure.md``.
 """
 
 from __future__ import annotations
