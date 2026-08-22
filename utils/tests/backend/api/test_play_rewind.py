@@ -229,3 +229,54 @@ def test_rewind_succeeds_without_redis_neo4j_or_qdrant(client, storyline_id, mon
         f"/api/play/{scid}/sessions/{sid}/rewind", json={"atEventId": turns[1]["id"]}
     )
     assert resp.status_code == 200
+
+
+def test_rewind_cancels_the_direction_the_cut_turns_raised(
+    client, storyline_id, monkeypatch, db_session
+):
+    """A direction outlives the turn it rode in on — deliberately, and it is most of why
+    the scene stopped forgetting what the player asked for. But a debt raised by a turn the
+    player has just deleted is owed to a turn that no longer exists, and leaving it makes
+    the scene chase something un-asked-for in the very next beat after a rewind."""
+    from app.models import PlaySession
+
+    _cid, scid, sid = _played(client, storyline_id, monkeypatch, turns=2)
+    turns = _turn_rows(client, scid, sid)
+
+    # One debt from the turn that survives, one from the turn about to be cut.
+    row = db_session.get(PlaySession, sid)
+    row.standing_direction = [
+        {"id": "keep", "text": "Have Mei name the ledger.", "fromTurn": turns[0]["seq"]},
+        {"id": "drop", "text": "Have the lamp go over.", "fromTurn": turns[1]["seq"]},
+    ]
+    db_session.add(row)
+    db_session.commit()
+
+    resp = client.post(
+        f"/api/play/{scid}/sessions/{sid}/rewind", json={"atEventId": turns[1]["id"]}
+    )
+    assert resp.status_code == 200
+
+    db_session.expire_all()
+    standing = db_session.get(PlaySession, sid).standing_direction or []
+    assert [r["id"] for r in standing] == ["keep"]
+    # And the history route reports it, so a resumed client cannot re-render a dead debt.
+    assert [s["id"] for s in _history(client, scid, sid)["standingDirection"]] == ["keep"]
+
+
+def test_rewind_clears_the_casts_interior_state(client, storyline_id, monkeypatch):
+    """The Redis half of the same requirement: each character's disposition is derived from
+    the beats the cut removed, and the assembler reads it straight into the next prompt.
+    The suite has no Redis, so this asserts the call; `test_interior.py` covers its effect."""
+    from app.services import session_state
+
+    cleared: list[str] = []
+    monkeypatch.setattr(
+        session_state.interior, "clear_session", lambda s: cleared.append(s) or 0
+    )
+    _cid, scid, sid = _played(client, storyline_id, monkeypatch, turns=2)
+    turns = _turn_rows(client, scid, sid)
+
+    client.post(f"/api/play/{scid}/sessions/{sid}/rewind", json={"atEventId": turns[1]["id"]})
+
+    assert sid in cleared

@@ -9,8 +9,15 @@ What each store does on a mutation:
 
 * **Postgres** is canonical. Rows are cut here; everything else is re-derived from what
   survives.
-* **Redis** (the recent-turn buffer) is a cache of those rows, so it is **rebuilt**, never
-  patched. Without Redis every helper is a no-op and the turn still runs.
+* **Redis** holds two things and they need opposite treatment. The recent-turn buffer is a
+  cache of the rows, so it is **rebuilt**. Per-character *interior state* is not derived from
+  any surviving row — it is a stance a model formed from beats that are now gone — so it is
+  **cleared**, and the next turn's reflection writes a fresh one. Without Redis both are
+  no-ops and the turn still runs.
+* **The session's outstanding direction** (``standing_direction``) is pruned to what turns
+  that survived asked for. Each row carries the ``Event.seq`` of the turn that raised it, so
+  the cut is exact; a debt owed to a deleted turn has the scene chasing something the player
+  just un-asked-for, in the very next beat after a rewind.
 * **Neo4j** holds one ``:Event`` node per consequence-bearing turn at a deterministic id, so
   those are pruned by id. Relationship *edges* written by cut turns are **not** rolled back —
   the graph is a best-effort accumulator with no per-turn provenance index, and inventing one
@@ -35,7 +42,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
 from app.core.ids import new_id
-from app.memory import buffer
+from app.memory import buffer, interior
 from app.models import Event, PlaySession, TurnTrace
 from app.services import graph_writer, history_compaction, session_stats
 
@@ -61,6 +68,10 @@ class TruncationResult:
     removed_traces: int = 0
     removed_turn_seqs: list[int] = field(default_factory=list)
     replayed_stat_keys: list[str] = field(default_factory=list)
+    #: Interior-state keys dropped. Always 0 without Redis — diagnostics, never branched on.
+    cleared_interior: int = 0
+    #: Outstanding requirements dropped because the turn that raised them was cut.
+    dropped_standing: int = 0
 
 
 # ---- preconditions --------------------------------------------------------
@@ -157,6 +168,50 @@ def rebuild_buffer(db: Session, session_id: str) -> int:
         buffer.push_turn(session_id, role, text, character_id=data.get("characterId"))
         pushed += 1
     return pushed
+
+
+def buffered_rows_after(db: Session, session_id: str, seq: int) -> int:
+    """How many of this session's buffered beats sit above ``seq``.
+
+    The one caller is ``assembler.assemble_context``, trimming a **replay** window back to
+    the beat before the one being re-rolled. It lives here so there is a single definition of
+    "a row the buffer holds": this and ``rebuild_buffer`` have to agree exactly, or the trim
+    cuts the wrong number of entries off the end of the window.
+    """
+    count = 0
+    for row in db.scalars(
+        select(Event).where(Event.session_id == session_id, Event.seq > seq)
+    ):
+        data = row.data if isinstance(row.data, dict) else {}
+        if not str(data.get("text") or "").strip():
+            continue
+        if row.type == "user_turn" or row.type in _BUFFER_ROLES:
+            count += 1
+    return count
+
+
+def standing_through(session: PlaySession, *, through_seq: int) -> list[dict]:
+    """The session's outstanding direction, keeping only what turns up to ``through_seq``
+    raised.
+
+    ``fromTurn`` is the ``Event.seq`` of the turn that first asked for a requirement
+    (``direction_runtime.to_standing``), so this is an exact cut and not a heuristic.
+
+    A row with **no** usable ``fromTurn`` — written before the field existed, or hand-edited
+    — is **kept**. That is the safe direction, and it is the asymmetry the direction system
+    uses everywhere else: an un-cancelled requirement costs a beat and is reported as
+    outstanding, while a wrongly-cancelled one silently loses what the player asked for.
+    """
+    rows = session.standing_direction if isinstance(session.standing_direction, list) else []
+    out: list[dict] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        raised = row.get("fromTurn")
+        if isinstance(raised, int) and raised > through_seq:
+            continue
+        out.append(row)
+    return out
 
 
 def replay_stats(db: Session, session_id: str, character_ids: list[str] | None = None) -> list[str]:
@@ -287,11 +342,27 @@ def truncate_session(db: Session, session_id: str, *, after_seq: int) -> Truncat
     # Clearing it is not tidiness: a stale summary is worse than none, because the cast would
     # confidently remember the very beats the player just removed.
     history_compaction.invalidate_after(db, session_id, after_seq + 1)
+    session = db.get(PlaySession, session_id)
+    if session is not None:
+        surviving = standing_through(session, through_seq=after_seq)
+        result.dropped_standing = len(session.standing_direction or []) - len(surviving)
+        # Written straight onto the column rather than through
+        # ``direction_runtime.save_standing``: importing that module here would close the
+        # loop ``assembler -> session_state -> direction_runtime -> assembler``. Its one rule
+        # — an empty list is stored as NULL, so "owes nothing" has a single representation —
+        # is reproduced by the ``or None`` and asserted by a test.
+        session.standing_direction = surviving or None
+        db.add(session)
     db.commit()
 
     prune_graph_events(session_id, result.removed_turn_seqs)
     result.replayed_stat_keys = replay_stats(db, session_id)
     rebuild_buffer(db, session_id)
+    # Cleared, not rebuilt: a character's stance was derived from beats that are now gone and
+    # there is no surviving row to re-derive it from. It sits beside the buffer rebuild
+    # because both answer "history changed under us", and splitting them across two call
+    # sites is how one of them gets forgotten.
+    result.cleared_interior = interior.clear_session(session_id)
     return result
 
 
@@ -343,11 +414,21 @@ def copy_history(
     # A branch starts with no memory of its own. Copying the parent's summary would be
     # *nearly* right — it covers beats the fork inherited — but it would then go stale the
     # moment the branch diverged, with no seq to notice by. The fork simply re-compacts.
+    #
+    # The outstanding **direction** is the opposite case and IS carried: it is not a derived
+    # record of what happened, it is what the player asked for and has not been given. A fork
+    # that dropped it would make "branch here and try again" quietly different from carrying
+    # on. Pruned to the fork point by the same rule a rewind uses.
+    source = db.get(PlaySession, source_session_id)
     target = db.get(PlaySession, target_session_id)
     if target is not None:
         target.summary_text = None
         target.summary_through_seq = None
         target.summary_updated_at = None
+        if source is not None:
+            target.standing_direction = (
+                standing_through(source, through_seq=through_seq) or None
+            )
         db.add(target)
     db.commit()
     session_stats.copy(db, source_session_id, target_session_id)
