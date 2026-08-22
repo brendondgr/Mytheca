@@ -371,15 +371,16 @@ Verified against the code on 2026-08-04.
   to NDJSON streams with keep-alives, mirroring the existing `/triage` + `/triage/stream`
   pair. Not started — waiting on confirmation of which control actually fails in the
   field, since the work is a new endpoint plus UI per call site.
-- **Core Web Vitals have never been measured.** `docs/plans/frontend-polish-acceptance.md`
-  records this as the one outright **FAIL** against the polish spec's §14. The *causes* of
-  layout shift were addressed structurally on 2026-08-12 (space-reserved images via
-  `SmartImage`, a reserved error line in `FieldError`, a min-height on the streaming beat,
-  skeletons matching real card geometry), but CLS / INP / LCP were not measured. The blocker
-  — `next build` could not run without network access to Google Fonts, so there was no
-  production bundle to profile — was **removed on 2026-08-22** by self-hosting the three
-  families (`lib/fonts.ts` → `next/font/local`); the build now succeeds with every proxy
-  pointed at a closed port. What remains is the measurement itself.
+- ~~**Core Web Vitals have never been measured.**~~ **Measured 2026-08-22** —
+  `EXP-2026-08-012`, the first production bundle this repository has ever built (the fonts
+  were self-hosted the same day, which is what removed the blocker). At 4x CPU throttle,
+  n=5 cold loads per route: the Library passes all three (CLS 0.0407,
+  INP 9.6 ms, LCP 522.4 ms) and the story
+  player passes CLS (0) and LCP (1684.8 ms).
+  **What is still open: story-player INP is 440 ms against a 200 ms
+  threshold.** The run records the controls clicked, and the sequence includes the chat/graph
+  view switch, which mounts a force-directed canvas — a lead, not a conclusion. Isolating INP
+  per control is a separate experiment and has not been run.
 - **Not every async path routes through `AsyncPanel`.** The five-state shell exists and covers
   the Library columns, Documents, GraphView, and the modals; `useLibraryState`'s per-entity
   loads still fail silently to empty collections, so a partial failure is indistinguishable

@@ -1,0 +1,311 @@
+{
+  "route": {
+    "storylineId": "embergate",
+    "scenarioId": "embergate"
+  },
+  "cpuThrottle": 4,
+  "loads": 5,
+  "raw": {
+    "library": {
+      "path": "/",
+      "loads": [
+        {
+          "entries": [
+            {
+              "name": "LCP",
+              "value": 564,
+              "rating": "good",
+              "id": "v6-1787426878161-4941819428340"
+            },
+            {
+              "name": "INP",
+              "value": 8,
+              "rating": "good",
+              "id": "v6-1787426878161-7878270114883"
+            },
+            {
+              "name": "CLS",
+              "value": 0.040659179687500005,
+              "rating": "good",
+              "id": "v6-1787426878174-3360553822336"
+            }
+          ],
+          "clicked": [
+            "↺ New chat",
+            "Title",
+            "Genre",
+            "Tagline"
+          ],
+          "wallMs": 6766
+        },
+        {
+          "entries": [
+            {
+              "name": "LCP",
+              "value": 492,
+              "rating": "good",
+              "id": "v6-1787426884916-5255180058895"
+            },
+            {
+              "name": "INP",
+              "value": 16,
+              "rating": "good",
+              "id": "v6-1787426884916-2964429336983"
+            },
+            {
+              "name": "CLS",
+              "value": 0.040659179687500005,
+              "rating": "good",
+              "id": "v6-1787426884934-3946324841856"
+            }
+          ],
+          "clicked": [
+            "↺ New chat",
+            "Title",
+            "Genre",
+            "Tagline"
+          ],
+          "wallMs": 6715
+        },
+        {
+          "entries": [
+            {
+              "name": "LCP",
+              "value": 568,
+              "rating": "good",
+              "id": "v6-1787426891776-7238867298190"
+            },
+            {
+              "name": "INP",
+              "value": 8,
+              "rating": "good",
+              "id": "v6-1787426891776-7656135962540"
+            },
+            {
+              "name": "CLS",
+              "value": 0.040659179687500005,
+              "rating": "good",
+              "id": "v6-1787426891795-1697753255233"
+            }
+          ],
+          "clicked": [
+            "↺ New chat",
+            "Title",
+            "Genre",
+            "Tagline"
+          ],
+          "wallMs": 6760
+        },
+        {
+          "entries": [
+            {
+              "name": "LCP",
+              "value": 448,
+              "rating": "good",
+              "id": "v6-1787426898483-4550799955455"
+            },
+            {
+              "name": "INP",
+              "value": 8,
+              "rating": "good",
+              "id": "v6-1787426898483-1261166566081"
+            },
+            {
+              "name": "CLS",
+              "value": 0.040659179687500005,
+              "rating": "good",
+              "id": "v6-1787426898499-2812837216416"
+            }
+          ],
+          "clicked": [
+            "↺ New chat",
+            "Title",
+            "Genre",
+            "Tagline"
+          ],
+          "wallMs": 6280
+        },
+        {
+          "entries": [
+            {
+              "name": "LCP",
+              "value": 540,
+              "rating": "good",
+              "id": "v6-1787426904883-6190566026661"
+            },
+            {
+              "name": "INP",
+              "value": 8,
+              "rating": "good",
+              "id": "v6-1787426904883-8416265131336"
+            },
+            {
+              "name": "CLS",
+              "value": 0.040659179687500005,
+              "rating": "good",
+              "id": "v6-1787426904908-8749754181507"
+            }
+          ],
+          "clicked": [
+            "↺ New chat",
+            "Title",
+            "Genre",
+            "Tagline"
+          ],
+          "wallMs": 6397
+        }
+      ]
+    },
+    "story-player": {
+      "path": "/embergate/embergate",
+      "loads": [
+        {
+          "entries": [
+            {
+              "name": "LCP",
+              "value": 1724,
+              "rating": "good",
+              "id": "v6-1787426911512-6803102890570"
+            },
+            {
+              "name": "INP",
+              "value": 448,
+              "rating": "needs-improvement",
+              "id": "v6-1787426911512-2290816060929"
+            },
+            {
+              "name": "CLS",
+              "value": 0,
+              "rating": "good",
+              "id": "v6-1787426911557-7735535512323"
+            }
+          ],
+          "clicked": [
+            "Chat",
+            "Graph",
+            "❑Play-throughs",
+            "Parchment"
+          ],
+          "wallMs": 6581
+        },
+        {
+          "entries": [
+            {
+              "name": "LCP",
+              "value": 1648,
+              "rating": "good",
+              "id": "v6-1787426918049-7145225425352"
+            },
+            {
+              "name": "INP",
+              "value": 432,
+              "rating": "needs-improvement",
+              "id": "v6-1787426918048-9669663539556"
+            },
+            {
+              "name": "CLS",
+              "value": 0,
+              "rating": "good",
+              "id": "v6-1787426918099-6444836932110"
+            }
+          ],
+          "clicked": [
+            "Chat",
+            "Graph",
+            "❑Play-throughs",
+            "Parchment"
+          ],
+          "wallMs": 6481
+        },
+        {
+          "entries": [
+            {
+              "name": "LCP",
+              "value": 1680,
+              "rating": "good",
+              "id": "v6-1787426924606-2858869516627"
+            },
+            {
+              "name": "INP",
+              "value": 448,
+              "rating": "needs-improvement",
+              "id": "v6-1787426924605-4853465173574"
+            },
+            {
+              "name": "CLS",
+              "value": 0,
+              "rating": "good",
+              "id": "v6-1787426924660-2463848020800"
+            }
+          ],
+          "clicked": [
+            "Chat",
+            "Graph",
+            "❑Play-throughs",
+            "Parchment"
+          ],
+          "wallMs": 6562
+        },
+        {
+          "entries": [
+            {
+              "name": "LCP",
+              "value": 1632,
+              "rating": "good",
+              "id": "v6-1787426931190-8905973279366"
+            },
+            {
+              "name": "INP",
+              "value": 432,
+              "rating": "needs-improvement",
+              "id": "v6-1787426931190-8756487157103"
+            },
+            {
+              "name": "CLS",
+              "value": 0,
+              "rating": "good",
+              "id": "v6-1787426931234-1090331442550"
+            }
+          ],
+          "clicked": [
+            "Chat",
+            "Graph",
+            "❑Play-throughs",
+            "Parchment"
+          ],
+          "wallMs": 6448
+        },
+        {
+          "entries": [
+            {
+              "name": "LCP",
+              "value": 1740,
+              "rating": "good",
+              "id": "v6-1787426937790-9864908187916"
+            },
+            {
+              "name": "INP",
+              "value": 440,
+              "rating": "needs-improvement",
+              "id": "v6-1787426937789-6333163836272"
+            },
+            {
+              "name": "CLS",
+              "value": 0,
+              "rating": "good",
+              "id": "v6-1787426937846-4428678159848"
+            }
+          ],
+          "clicked": [
+            "Chat",
+            "Graph",
+            "❑Play-throughs",
+            "Parchment"
+          ],
+          "wallMs": 6596
+        }
+      ]
+    }
+  },
+  "failures": []
+}

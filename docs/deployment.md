@@ -61,6 +61,7 @@ Copy `.env.example` → `.env` (gitignored). This table is the complete set read
 | `SECRET_KEY` | `change-me` | Session/token signing — replace in any real environment |
 | `FRONTEND_ORIGIN` | `http://localhost:3346` | Allowed CORS origin |
 | `NEXT_PUBLIC_API_URL` | — | Frontend → backend base URL (read by Next.js, not by `Settings`) |
+| `NEXT_PUBLIC_VITALS` | unset | Set to `1` only to measure Core Web Vitals. Mounts `VitalsProbe`, which collects CLS/INP/LCP into `window.__mythecaVitals` for `utils/scripts/research/run_core_web_vitals.mjs`. **Inlined at build time**, so it must be set for `next build`, not just `next start`. Unset in every normal build: the probe then renders nothing and never loads the `web-vitals` devDependency. |
 | `MYTHECA_SKIP_DOCKER` | unset | `1` skips the container bring-up (read directly by `app.py`) |
 
 ### Data stores

@@ -5,6 +5,7 @@ import { DEFAULT_THEME, themeClass, themeInitScript } from "@/lib/theme";
 import { DEFAULT_FONT_SIZE, fontSizeClass, fontSizeInitScript } from "@/lib/font-size";
 import { AppShell } from "@/components/layout/AppShell";
 import "./globals.css";
+import { VitalsProbe } from "@/components/layout/VitalsProbe";
 
 export const metadata: Metadata = {
   title: "Mytheca",
@@ -54,6 +55,8 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: fontSizeInitScript }}
         />
         <AppShell>{children}</AppShell>
+        {/* Renders nothing and loads nothing unless NEXT_PUBLIC_VITALS=1 — see VitalsProbe. */}
+        <VitalsProbe />
       </body>
     </html>
   );

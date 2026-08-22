@@ -1,0 +1,93 @@
+{
+  "experiment": "EXP-2026-08-012",
+  "cpu_throttle": 4,
+  "loads_per_route": 5,
+  "target": {
+    "storylineId": "embergate",
+    "scenarioId": "embergate"
+  },
+  "thresholds": {
+    "CLS": 0.1,
+    "INP": 200,
+    "LCP": 2500
+  },
+  "routes": {
+    "library": {
+      "CLS": {
+        "mean": 0.0407,
+        "std": 0,
+        "n": 5,
+        "values": [
+          0.0407,
+          0.0407,
+          0.0407,
+          0.0407,
+          0.0407
+        ]
+      },
+      "INP": {
+        "mean": 9.6,
+        "std": 3.2,
+        "n": 5,
+        "values": [
+          8,
+          16,
+          8,
+          8,
+          8
+        ]
+      },
+      "LCP": {
+        "mean": 522.4,
+        "std": 45.9983,
+        "n": 5,
+        "values": [
+          564,
+          492,
+          568,
+          448,
+          540
+        ]
+      }
+    },
+    "story-player": {
+      "CLS": {
+        "mean": 0,
+        "std": 0,
+        "n": 5,
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "INP": {
+        "mean": 440,
+        "std": 7.1554,
+        "n": 5,
+        "values": [
+          448,
+          432,
+          448,
+          432,
+          440
+        ]
+      },
+      "LCP": {
+        "mean": 1684.8,
+        "std": 41.8301,
+        "n": 5,
+        "values": [
+          1724,
+          1648,
+          1680,
+          1632,
+          1740
+        ]
+      }
+    }
+  },
+  "failures": []
+}

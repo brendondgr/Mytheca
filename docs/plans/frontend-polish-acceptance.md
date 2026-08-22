@@ -74,7 +74,7 @@ unavailable (the browser pane does not composite), so nothing was verified by ey
 
 | Line | Result | Evidence |
 | --- | --- | --- |
-| CLS < 0.1, INP < 200 ms, LCP < 2.5 s on a 4× throttled CPU | **FAIL — not measured** | No Lighthouse or CPU-throttled run was performed; `next build` cannot run here (`next/font/google` is unreachable), so there is no production bundle to measure. The *causes* of CLS were addressed structurally (space-reserved images, reserved error lines, a min-height on the streaming beat, skeletons matching real layout), but the metric itself is unverified. Tracked in `docs/checklist.md`. |
+| CLS < 0.1, INP < 200 ms, LCP < 2.5 s on a 4× throttled CPU | **PARTIAL — measured 2026-08-22; 5 of 6 pass** | Measured for the first time in `EXP-2026-08-012` on a real `next build` bundle at 4× CPU throttle, n=5 cold loads per route. Library: CLS 0.0407, INP 9.6 ms, LCP 522.4 ms — all pass. Story player: CLS 0, LCP 1684.8 ms — pass; **INP 440 ms — fails** the 200 ms threshold. The run records which controls were clicked: the scripted sequence includes the chat⇄graph view switch, which mounts a force-directed canvas and dominates the number. The blocker that made this unmeasurable (`next/font/google` unreachable, so no production bundle) was removed by self-hosting the fonts. |
 | No unthrottled scroll or pointer listeners | **PASS** | One scroll listener in the app (`use-sticky-bottom.ts`), registered `{ passive: true }` and doing two arithmetic comparisons. Scroll reveals and edge fades use `animation-timeline`, so they have no listener at all. |
 | `will-change` scoped and removed after use | **PASS (vacuously)** | `will-change` appears nowhere in the frontend. Applying it broadly creates layers that cost memory and can *reduce* performance, so its absence is the intended state, not an oversight. |
 
@@ -82,10 +82,13 @@ unavailable (the browser pane does not composite), so nothing was verified by ey
 
 ## Summary
 
-**PASS 18 · PARTIAL 7 · FAIL 1.**
+**PASS 18 · PARTIAL 8 · FAIL 0.**
 
-The single **FAIL** is the Core Web Vitals budget, which cannot be measured in this environment
-at all. Of the 7 **PARTIAL**s, four are deliberate scoping decisions with stated reasons (the
+There is no longer a **FAIL**. The Core Web Vitals budget — the single FAIL on the 2026-08-12
+pass, on the grounds that it could not be measured in this environment at all — was measured on
+2026-08-22 (`EXP-2026-08-012`) once the fonts were self-hosted and a production bundle could be
+built offline. It becomes a **PARTIAL**: five of the six route/metric pairs pass, and story-player
+INP does not. Of the 8 **PARTIAL**s, four are deliberate scoping decisions with stated reasons (the
 two grid-template animations, the coarse-pointer-only touch floor, the stepped `--fs-*` tiers,
 viewport queries for page-level layout) and three are honest incompleteness: not every async
 path routes through `AsyncPanel`, feature components were not individually audited for
