@@ -268,3 +268,21 @@ describe("attachment chips on a persisted player beat", () => {
     expect(screen.queryByLabelText(/files this turn carried/i)).not.toBeInTheDocument();
   });
 });
+
+describe("TranscriptBeat direction aside", () => {
+  it("renders a direction as a quiet aside, not a speech bubble", () => {
+    render(
+      <TranscriptBeat
+        message={{ kind: "direction", text: "Someone should lose their temper.", id: "u0" }}
+        charById={() => undefined}
+        choices={[]}
+        onChoose={() => {}}
+      />,
+    );
+    // The label is part of the text, so a screen reader gets the same distinction the
+    // centred typography gives a sighted reader.
+    expect(
+      screen.getByText(/you directed the scene: Someone should lose their temper\./i),
+    ).toBeInTheDocument();
+  });
+});

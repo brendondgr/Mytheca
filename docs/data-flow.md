@@ -144,11 +144,25 @@ would fill every remaining beat the engine takes over (`direction_agent.schedule
 the last beat to narration when several characters are still owed. Each beat's prompt states
 only *its* requirements, as outcomes rather than lines, so the speaker reaches them in their own
 voice. Progress is visible in the Inspector as `direction` trace steps (what was asked for, what
-each beat delivered, and anything that did not fit). `guidance` is not persisted — it is not
-restored into the box on resume.
+each beat delivered, and anything that did not fit). `guidance` **is** persisted, on the
+`user_turn` row, and restored into the box on resume (`turn-stream.latestGuidance`), so reopening
+a scene does not silently drop what the player asked it to do.
+
+A turn may be **direction only** — `guidance` with an empty `text`. Under POV that is the only
+way to steer without also making the character speak, so the send guard is "a message **or** a
+direction", not "a message". Such a turn writes its `user_turn` row with `text: ""` (keeping its
+trace grouping and its place in the export) and pushes nothing into the recent-turn buffer,
+exactly like a *Continue* — but it is not silent, and the differences are deliberate: the `turn`
+trace reads *"You directed the scene"* with the direction as its detail (`data.directionOnly`),
+the export renders `_(direction only)_`, the tray falls back to the direction for its label when
+no spoken line exists yet, and the transcript shows a quiet centred **aside** rather than a
+speech bubble — nobody in the story heard it. On reload the same row replays as that aside
+(`rehydrateFromHistory`), while a text-less, direction-less *Continue* row replays as nothing at
+all.
 
 **Type-while-streaming:** the composer's `sendDisabled` prop (renamed from `disabled`) blocks
-only the Send button and Enter key while a turn is in-flight — the `<textarea>` remains editable
+only the Send button and Enter key while a turn is in-flight (which is also disabled when both
+the message and direction boxes are empty — there is nothing to send) — the `<textarea>` remains editable
 so the player can compose their next message while characters respond. `useScenePlay.send`/`submit`
 still guard against concurrent submissions. A mid-stream failure surfaces the terminal `error`
 frame.

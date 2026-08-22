@@ -242,6 +242,12 @@ export function Composer({
     }
   }, [value, guidance, ref]);
 
+  // There is something to send when the player wrote a line **or** a direction. A
+  // direction-only turn is a real turn (the scene is steered without the character
+  // speaking), so guarding on the message box alone would make the direction box a field
+  // you can fill and cannot send.
+  const hasContent = Boolean(value.trim() || (guidance ?? "").trim());
+
   /**
    * Shared key handling. While the menu is open it owns Arrow/Enter/Tab/Escape — Enter in
    * particular must select rather than send, which is why this lives beside the send
@@ -273,7 +279,7 @@ export function Composer({
     }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!sendDisabled && value.trim()) onSend();
+      if (!sendDisabled && hasContent) onSend();
     }
   }
 
@@ -448,7 +454,7 @@ export function Composer({
           <button
             type="button"
             onClick={onSend}
-            disabled={sendDisabled}
+            disabled={sendDisabled || !hasContent}
             aria-label="Send"
             className="flex flex-none items-center gap-[5px] rounded-[8px] bg-accent px-[11px] py-[5px] font-mono text-[10px] tracking-[0.08em] text-[#F6ECDA] uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
           >

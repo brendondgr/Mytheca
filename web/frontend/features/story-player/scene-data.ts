@@ -4,7 +4,19 @@ import type { ResolvedScenario } from "@/lib/types";
 // match the reference; any other scenario gets a believable generic opening
 // built from its cast + branches. No model calls — interactions are local.
 
-export type SceneMessageKind = "narrator" | "char" | "player" | "choices" | "image";
+/**
+ * `direction` is the player's own steer on a turn where they said nothing out loud. It is
+ * deliberately a separate kind from `player`: a direction was never spoken in the scene, so
+ * rendering it as a speech bubble would put words in the character's mouth that nobody in
+ * the story ever heard.
+ */
+export type SceneMessageKind =
+  | "narrator"
+  | "char"
+  | "player"
+  | "direction"
+  | "choices"
+  | "image";
 
 /** A picture of the moment, from a `scene_image` event (the Create image action). */
 export interface SceneImage {

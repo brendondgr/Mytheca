@@ -324,6 +324,22 @@ export function BranchChoices({
 }
 
 /** Routes one transcript message to its renderer (the event→component contract). */
+/**
+ * The player's own steer on a turn where they said nothing out loud.
+ *
+ * Rendered as a quiet centred aside rather than a speech bubble, in the same typography as
+ * the "— the scene is joined —" rule: nobody in the story heard this, so it must not look
+ * like something the player's character said. The label is part of the accessible text, so
+ * a screen reader gets the same distinction the centring gives a sighted reader.
+ */
+function DirectionAside({ text }: { text: string }) {
+  return (
+    <div className="py-[2px] text-center font-mono text-[9px] leading-[1.7] tracking-[0.16em] text-mute2 uppercase">
+      — you directed the scene: {text} —
+    </div>
+  );
+}
+
 export function TranscriptBeat({
   message,
   charById,
@@ -365,6 +381,7 @@ export function TranscriptBeat({
         }
       />
     );
+  if (m.kind === "direction") return <DirectionAside text={m.text ?? ""} />;
   if (m.kind === "image")
     return m.image ? <SceneImageBeat image={m.image} onOpen={onOpenImage} /> : null;
   if (m.kind === "choices")

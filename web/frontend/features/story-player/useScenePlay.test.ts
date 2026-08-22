@@ -1083,3 +1083,64 @@ describe("useScenePlay direction restore", () => {
     expect(result.current.guidance).toBe("");
   });
 });
+
+describe("useScenePlay direction-only turns", () => {
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  it("sends a turn with a direction and no line, and shows it as an aside", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setPov(speaker.id));
+    act(() => result.current.setGuidance("Someone should lose their temper."));
+    act(() => result.current.send());
+
+    expect(vi.mocked(postTurn)).toHaveBeenCalledWith(
+      scenario.id,
+      expect.objectContaining({ text: "", guidance: "Someone should lose their temper." }),
+      expect.anything(),
+    );
+    // Not a speech bubble: nobody in the scene heard this.
+    await waitFor(() =>
+      expect(
+        result.current.messages.some(
+          (m) => m.kind === "direction" && m.text === "Someone should lose their temper.",
+        ),
+      ).toBe(true),
+    );
+    expect(result.current.messages.some((m) => m.kind === "player" && !m.text)).toBe(false);
+  });
+
+  it("sends nothing when both boxes are empty", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setPov(speaker.id));
+    const before = vi.mocked(postTurn).mock.calls.length;
+    act(() => result.current.send());
+    expect(vi.mocked(postTurn).mock.calls.length).toBe(before);
+  });
+
+  it("a message still wins: a line plus a direction is a spoken turn", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setPov(speaker.id));
+    act(() => result.current.setComposer("I refuse."));
+    act(() => result.current.setGuidance("Make it land badly."));
+    act(() => result.current.send());
+
+    await waitFor(() =>
+      expect(result.current.messages.some((m) => m.kind === "char" && m.text === "I refuse.")).toBe(
+        true,
+      ),
+    );
+    expect(result.current.messages.some((m) => m.kind === "direction")).toBe(false);
+  });
+});

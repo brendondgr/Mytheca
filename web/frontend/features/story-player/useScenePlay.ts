@@ -630,14 +630,22 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   const submit = useCallback(
     (text: string, direction = "", taggedDocIds: string[] = []) => {
       const t = text.trim();
-      if (!t || sending) return; // in-flight guard
+      const d = direction.trim();
+      // A turn is worth sending when the player said something **or** asked for something.
+      // Direction-only is the whole point of the direction box under POV: steer the scene
+      // without your character having to speak in order to do it.
+      if ((!t && !d) || sending) return; // in-flight guard
       setStreamError(null);
       // Optimistic bubble; clear any open branch choices. Under Player POV the player's line
       // is the character's own line — a right-side player-authored character beat (the engine
       // withholds the visible event, so this optimistic beat is the only render of it).
-      const optimistic: SceneMessage = pov
-        ? { kind: "char", who: pov, fromPlayer: true, text: t }
-        : { kind: "player", text: t };
+      // With no line at all, the direction itself is shown as a quiet aside instead, so the
+      // player can see what they asked for while the turn runs.
+      const optimistic: SceneMessage = !t
+        ? { kind: "direction", text: d }
+        : pov
+          ? { kind: "char", who: pov, fromPlayer: true, text: t }
+          : { kind: "player", text: t };
       setMessages((m) => [...m.filter((x) => x.kind !== "choices"), optimistic]);
       void stream
         .run((signal) =>
@@ -650,7 +658,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
               povCharacterId: pov,
               // Only meaningful under POV — omitted otherwise so the backend keeps reading
               // the player's own line as the direction.
-              guidance: direction.trim() || null,
+              guidance: d || null,
               // The player's @-tagged files. Reference for this turn only — the backend
               // keeps them out of the intent/direction/planner agents, so they inform what
               // is said without steering what happens.
@@ -719,11 +727,12 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     // agents as clean prose.
     const message = stripMentions(composer, contextDocs);
     const text = message.text.trim();
-    if (!text) return;
     // The direction applies to THIS turn only — it is consumed with the message, not kept
     // as a standing instruction the player would have to remember to clear.
     const rawDirection = pov ? guidance : "";
     const directed = stripMentions(rawDirection, contextDocs);
+    // Either box on its own is enough to send. Only both empty is nothing to do.
+    if (!text && !directed.text.trim()) return;
     const taggedDocIds = Array.from(new Set([...message.ids, ...directed.ids]));
     setComposer("");
     setGuidance("");

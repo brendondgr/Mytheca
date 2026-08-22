@@ -112,19 +112,33 @@ def prepare_turn(
     # its trace grouping (traces are keyed by this seq) and its place in the export — but
     # everything downstream that assumed a player line has to be told there is not one.
     #
-    # **This plan owns this branch.** `docs/plans/steering-the-scene.md` Phase 3 extends the
-    # same one for a guidance-only turn (falling `detail` back to the direction text); it
-    # must not add a second.
+    # **This plan owns this branch.** `docs/plans/steering-the-scene.md` Phase 3 extended
+    # this same one for a guidance-only turn — the trace `detail` falls back to the direction
+    # text, so a direction-only turn shows what was asked for rather than a blank row. There
+    # is deliberately no second branch: "the player said nothing" is one condition, and the
+    # direction is what varies inside it.
     silent = not text
+    guidance = (req.guidance or "").strip()
+    # A direction-only turn (no line, but a direction) is a *different* thing from pressing
+    # Continue, and the Inspector row must say so — otherwise the one row that records what
+    # the player asked for reads "no line from you" and shows nothing they typed.
+    directed_only = silent and bool(guidance)
+    if not silent:
+        turn_title = "You submitted a message"
+    elif directed_only:
+        turn_title = "You directed the scene"
+    else:
+        turn_title = "You let the scene continue"
     yield from tracer.emit(
         "turn",
-        "You let the scene continue" if silent else "You submitted a message",
-        detail=text or "No line from you this turn — the scene carries on.",
+        turn_title,
+        detail=text or guidance or "No line from you this turn — the scene carries on.",
         data={
             "directedAt": req.directed_at,
             "mode": req.mode,
             "pov": pov_id,
             "continuation": bool(req.continuation),
+            "directionOnly": directed_only,
         },
     )
 
@@ -222,7 +236,13 @@ def prepare_turn(
         # Nothing was said, so there is nothing to interpret. Skipping the call is not just a
         # saved LLM round-trip (though on the turn path that matters): asking the intent agent
         # to classify an empty string invites it to invent an ask the player never made.
-        intent = TurnIntent(directive="The scene continues without the player speaking.")
+        intent = TurnIntent(
+            directive=(
+                "The player did not speak; their direction alone steers this turn."
+                if directed_only
+                else "The scene continues without the player speaking."
+            )
+        )
     else:
         yield from tracer.emit(
             "reading",
@@ -242,7 +262,12 @@ def prepare_turn(
             intent.kind = "direct"
     yield from tracer.emit(
         "intent",
-        "Nothing was said — the scene carries on" if silent else f"Read your intent: {intent.kind}",
+        (
+            ("Nothing was said — your direction steers the turn" if directed_only
+             else "Nothing was said — the scene carries on")
+            if silent
+            else f"Read your intent: {intent.kind}"
+        ),
         detail=intent.directive,
         data={
             "kind": intent.kind,

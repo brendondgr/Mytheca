@@ -345,6 +345,38 @@ describe("rehydrateFromHistory", () => {
     return { turn, n, step, title: `${step}`, detail: "", data: {}, ...extra };
   }
 
+  it("replays a direction-only turn as an aside, not an empty bubble", () => {
+    const scene = rehydrateFromHistory(
+      [
+        pe("user_turn", 0, { text: "", guidance: "Someone should lose their temper." }),
+        pe("narration", 1, { text: "The lamp gutters." }),
+      ],
+      [],
+    );
+    expect(scene.messages[0]).toEqual({
+      kind: "direction",
+      text: "Someone should lose their temper.",
+      // The row id rides along, so the turn can still be rewound to or branched from.
+      id: "ev0",
+    });
+    expect(scene.messages.some((m) => m.kind === "player")).toBe(false);
+  });
+
+  it("replays a Continue turn as nothing at all", () => {
+    // A text-less, direction-less row is a *Continue*: the player said nothing and asked for
+    // nothing. Rendering it would put an empty speech bubble in the transcript on reload,
+    // where the live path shows none.
+    const scene = rehydrateFromHistory(
+      [
+        pe("user_turn", 0, { text: "" }),
+        pe("narration", 1, { text: "The lamp gutters." }),
+      ],
+      [],
+    );
+    expect(scene.messages).toHaveLength(1);
+    expect(scene.messages[0].kind).toBe("narrator");
+  });
+
   it("replays persisted rows into transcript, stats, and grouped trace", () => {
     const events: PersistedEvent[] = [
       pe("user_turn", 0, { text: "I slide the coin toward Mei.", directedAt: "mei" }),

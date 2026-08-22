@@ -201,8 +201,12 @@ def render_markdown(
         directed = f" (to {player['directedAt']})" if player["directedAt"] else ""
         if player["text"]:
             lines.append(f"**You**{directed}: {player['text']}")
+        elif player.get("guidance"):
+            # Directed without speaking. The direction itself is rendered just below, so the
+            # label only has to say *why* there is no line — not repeat it.
+            lines.append("**You**: _(direction only)_")
         else:
-            # A text-less turn: the player let the scene run, or directed without speaking.
+            # A text-less, direction-less turn: the player let the scene run.
             lines.append("**You**: _(let the scene continue)_")
         if player.get("guidance"):
             lines.append("")

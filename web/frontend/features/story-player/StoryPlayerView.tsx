@@ -45,7 +45,14 @@ import { TurnInspectorPanel } from "@/components/feature/TurnInspectorPanel";
 export function turnStartIndex(messages: SceneMessage[], index: number): number {
   for (let i = index; i >= 0; i -= 1) {
     const m = messages[i];
-    if (m.kind === "player" || (m.kind === "char" && m.fromPlayer)) return i;
+    // A direction-only turn opens with a `direction` aside instead of a spoken line — it is
+    // still the start of a turn, and a rewind that misses it would report the wrong count.
+    if (
+      m.kind === "player" ||
+      m.kind === "direction" ||
+      (m.kind === "char" && m.fromPlayer)
+    )
+      return i;
   }
   return 0;
 }
@@ -53,6 +60,7 @@ export function turnStartIndex(messages: SceneMessage[], index: number): number 
 /** What a beat is called, for the controls' accessible names. */
 function beatLabel(m: SceneMessage, byId: (id: string) => Character | undefined): string {
   if (m.kind === "player") return "your message";
+  if (m.kind === "direction") return "your direction";
   if (m.kind === "narrator") return "the narration";
   if (m.kind === "image") return "this picture";
   if (m.kind === "char" && m.who) {

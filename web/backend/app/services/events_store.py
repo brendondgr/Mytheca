@@ -295,6 +295,11 @@ def user_turn_stats(db: Session, session_id: str) -> tuple[int, str]:
     Non-empty matters because a text-less turn is legal: a *Continue* turn writes a
     ``user_turn`` row with no text at all, so taking ``rows[0]`` unconditionally would label
     a whole play-through with a blank string whenever the player opened it by continuing.
+
+    A **direction-only** turn is text-less too, but it is not silent — the player typed
+    something, it just went into the direction box. So when no player line exists anywhere in
+    the session, the first non-empty ``guidance`` is used instead, and the tray shows the
+    direction that opened the scene rather than falling back to an unnamed row.
     """
     rows = list(
         db.scalars(
@@ -304,13 +309,16 @@ def user_turn_stats(db: Session, session_id: str) -> tuple[int, str]:
         )
     )
     preview = ""
+    directed = ""
     for row in rows:
         data = row.data if isinstance(row.data, dict) else {}
         text = str(data.get("text") or "").strip()
         if text:
             preview = text
             break
-    return len(rows), preview
+        if not directed:
+            directed = str(data.get("guidance") or "").strip()
+    return len(rows), preview or directed
 
 
 def session_summary(db: Session, session: PlaySession) -> SessionSummary:

@@ -232,7 +232,10 @@ describe("Composer", () => {
         expect(onSend).toHaveBeenCalledTimes(1);
       });
 
-      it("Enter does not send while the message box is empty", () => {
+      it("Enter sends a direction with no line at all", () => {
+        // Direction-only is a real turn: under POV the message box is the character's own
+        // words, so requiring a line to send would mean you can only steer the scene by
+        // making them talk.
         const onSend = vi.fn();
         render(
           <Composer
@@ -250,7 +253,29 @@ describe("Composer", () => {
           key: "Enter",
           shiftKey: false,
         });
+        expect(onSend).toHaveBeenCalledTimes(1);
+      });
+
+      it("cannot send when both boxes are empty", () => {
+        const onSend = vi.fn();
+        render(
+          <Composer
+            value=""
+            onChange={() => {}}
+            onSend={onSend}
+            guidance=""
+            onGuidanceChange={() => {}}
+            onPovChange={() => {}}
+            povOptions={POV_OPTS}
+            pov="mei"
+          />,
+        );
+        fireEvent.keyDown(screen.getByRole("textbox", { name: /scene direction/i }), {
+          key: "Enter",
+          shiftKey: false,
+        });
         expect(onSend).not.toHaveBeenCalled();
+        expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
       });
 
       it("stays editable while a turn streams", () => {

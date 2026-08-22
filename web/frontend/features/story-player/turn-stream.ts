@@ -490,7 +490,18 @@ export function rehydrateFromHistory(
       const tagged = Array.isArray(e.data.taggedDocIds)
         ? (e.data.taggedDocIds as string[])
         : undefined;
-      const base = { text: String(e.data.text ?? ""), id: e.id, taggedDocIds: tagged };
+      const text = String(e.data.text ?? "");
+      const base = { text, id: e.id, taggedDocIds: tagged };
+      if (!text.trim()) {
+        // A text-less turn. Two shapes, and neither is a player bubble: a *direction-only*
+        // turn replays as the same quiet aside the live path shows, and a *Continue* turn
+        // replays as nothing at all. Falling through would have put an empty speech bubble
+        // in the transcript on every reload — the live path adds no bubble for either.
+        const guidance = e.data.guidance;
+        if (typeof guidance === "string" && guidance.trim())
+          messages = [...messages, { kind: "direction", text: guidance, id: e.id }];
+        continue;
+      }
       messages =
         typeof pov === "string" && pov
           ? [...messages, { kind: "char", who: pov, fromPlayer: true, ...base }]
