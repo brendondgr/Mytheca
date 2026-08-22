@@ -108,6 +108,7 @@ A stat is a bounded numeric value on a character. Health, trust, suspicion, pati
 
 - The **Storyline** defines the baseline schema (key, label, description, `min`/`max`, default, visibility, optional guidance file). Bands ("tickers") name what ranges *mean*.
 - Guidance is Markdown under `app/content/stats/`, loaded by `services/stat_guidance.py` and rendered into the character prompt by `services/stat_render.py` (current band + `{Character}` substitution).
+- **Art styles** are the other authored catalog under `app/content/`: `art_styles.py` holds the three looks (`painted` · `anime` · `photoreal`) every generated image can wear — the phrasing a prompt-writing agent is told to aim for, the tag sets appended at the render boundary, and each style's default LoRA. It lives beside `graph_registry.py` and `stats/` for the same reason they do: it is content an operator may want to change, not behaviour. What *is* operator-editable — each style's LoRA file, strength and on/off — lives in the `comfy` settings row and is resolved by `settings_store.resolve_art_style`, the single answer to "what look, and with which LoRA?".
 - Changes ride on `state_update` events and are clamped by the validator.
 - **Scenario-level stat additions and range overrides are not implemented** — the `Scenario` model has no such field. Earlier docs described this; treat it as unbuilt.
 

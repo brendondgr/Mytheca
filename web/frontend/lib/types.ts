@@ -4,6 +4,7 @@
 // eventual backend contracts.
 
 import type { VerbGroup } from "@/lib/sceneVerbs";
+import type { ArtStyleId } from "@/lib/api";
 
 /** One situation → sample-response pair defining how a character speaks. */
 /**
@@ -512,6 +513,12 @@ export interface PopulateOptions {
   enabled: boolean;
   /** Also render portraits / scene art (opt-in; each is a ComfyUI render). */
   withArtwork: boolean;
+  /**
+   * The look every image in the build wears. `null` uses the operator's default from
+   * Options. Chosen once for the whole run rather than per entity — a build paints a cast
+   * and every place in one go, so a mixed-style world is the failure mode to avoid.
+   */
+  artStyle?: ArtStyleId | null;
   /**
    * Where the roster comes from. `documents` builds exactly the people and places the
    * author's classified files name; `invent` makes them up from the premise.

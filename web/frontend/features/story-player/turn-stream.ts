@@ -4,7 +4,7 @@
 // one beat (name once, action italic + bubble), matching the seeded look.
 // state_update / branch_choices are wired into the side panels in a later phase.
 
-import type { GraphRelationship } from "@/lib/api";
+import type { ArtStyleId, GraphRelationship } from "@/lib/api";
 import type {
   CharacterStatusChangeEvent,
   PersistedEvent,
@@ -265,6 +265,7 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
             url: event.data.url,
             caption: event.data.caption,
             prompt: event.data.prompt,
+            ...(event.data.style ? { style: event.data.style as ArtStyleId } : {}),
           },
         },
       ];

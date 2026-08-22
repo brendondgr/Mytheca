@@ -2,10 +2,15 @@
 
 Wraps the proven ``services.comfyui.generate`` pipeline for the Character
 Creator: resolve the configured Comfy server + workflow + default params, render
-a watercolor portrait from the agent-written positive/negative prompts, convert
+a portrait from the agent-written positive/negative prompts, convert
 the PNG output to **WebP** (the chosen avatar format), and save it under the
 served media directory. Returns the relative ``/media/...`` URL the character
 stores in its ``portrait`` column.
+
+The look is an **art style** (``app.content.art_styles``) — the caller's choice, else the
+operator's global default. It decides two things here: the tags
+:func:`art_styles.apply_style` guarantees are on the prompts, and whether the workflow's
+LoRA node is patched or bypassed.
 
 The ComfyUI client and the bundled workflow stay untouched — conversion happens
 at the edge here. Portraits render as a **portrait 832×1216 (2:3)** frame by
@@ -28,6 +33,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import APIError
+from app.content import art_styles
 from app.services import comfyui, settings_store
 from app.services.media import save_webp, to_webp
 
@@ -60,8 +66,11 @@ def generate_portrait(
     steps: int | None = None,
     cfg: float | None = None,
     seed: int | None = None,
+    style: str | None = None,
 ) -> dict[str, str]:
-    """Render a watercolor portrait and persist it as WebP. Returns ``{"portrait": url}``.
+    """Render a portrait and persist it as WebP. Returns ``{"portrait": url}``.
+
+    ``style`` is an art-style id; ``None`` uses the operator's stored default.
 
     ``seed`` defaults to a fresh random value each call so re-rendering yields a
     new image (and the render actually executes rather than serving a cached one).
@@ -75,18 +84,28 @@ def generate_portrait(
     if not base:
         raise APIError(400, "bad_request", "Configure a ComfyUI base URL in Options first.")
     params = comfy.params
+    resolved = settings_store.resolve_art_style(db, style)
+    positive, styled_negative = art_styles.apply_style(
+        positive,
+        (negative or "").strip() or params.negative_prompt,
+        resolved.style,
+        surface="portrait",
+    )
 
     image_bytes, _info = comfyui.generate(
         base,
         workflow or comfy.workflow,
         positive=positive,
-        negative=(negative or "").strip() or params.negative_prompt or None,
+        negative=styled_negative or None,
         steps=steps or params.steps,
         cfg=cfg if cfg is not None else params.cfg,
         width=width or _PORTRAIT_W,
         height=height or _PORTRAIT_H,
         seed=seed if seed is not None else random.randint(0, _SEED_MAX),
         batch_size=1,
+        lora_name=resolved.lora_name or None,
+        lora_strength=resolved.lora_strength,
+        lora_enabled=resolved.lora_enabled,
     )
 
     filename = save_webp(_portraits_dir(), image_bytes)

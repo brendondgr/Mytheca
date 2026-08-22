@@ -4,6 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 import { PromptsTab } from "./PromptsTab";
 import type { OptionsState } from "@/features/options/useOptionsSettings";
 import type { PromptSpec } from "@/lib/api";
+import { COMFY_FIXTURE } from "@/test/api-mock";
 
 const CATALOG: PromptSpec[] = [
   {
@@ -30,11 +31,7 @@ function makeOpts(overrides: Record<string, string>, savePrompts = vi.fn(async (
         reasoningVisibility: "summary" as const,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
-      comfy: {
-        baseUrl: "",
-        workflow: "ZiT-Workflow.json",
-        params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
-      },
+      comfy: { ...COMFY_FIXTURE, baseUrl: "" },
       prompts: { catalog: CATALOG, overrides },
     },
     loading: false,

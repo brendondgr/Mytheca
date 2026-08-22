@@ -1,6 +1,7 @@
 "use client";
 
 import { CreateImageBar } from "@/components/feature/CreateImageBar";
+import type { ArtStyleId } from "@/lib/api";
 
 /**
  * The two between-turn actions, in one cluster at the foot of the transcript.
@@ -24,7 +25,7 @@ export function TranscriptFootBar({
 }: {
   onContinue: () => void;
   continuing?: boolean;
-  onCreateImage: () => void;
+  onCreateImage: (artStyle?: ArtStyleId) => void;
   creatingImage?: boolean;
   imageStage?: "prompt" | "render" | null;
   imageError?: string | null;

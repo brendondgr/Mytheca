@@ -5,7 +5,9 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
 import { SmartImage } from "@/components/ui/SmartImage";
+import { ArtStylePicker } from "@/components/feature/ArtStylePicker";
 import { cn } from "@/lib/cn";
+import type { ArtStyleId } from "@/lib/api";
 
 const LINK =
   "cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40";
@@ -17,9 +19,13 @@ const VAGUE_ERROR = "Something went wrong.";
 /**
  * Scene-art editor pop-up — the "own page" for a setting's establishing image,
  * opened from the compact preview's **Edit image** button in {@link SettingModal}.
- * It holds everything image-related: the rendered WebP (or placeholder) preview,
- * the editable watercolor positive/negative prompts, a **Generate prompts** action
+ * It holds everything image-related: the rendered WebP (or placeholder) preview, the
+ * art-style picker, the editable positive/negative prompts, a **Generate prompts** action
  * (written from the place's current context), and a **Generate scene art** render.
+ *
+ * Used by **both** {@link SettingModal} (a place's establishing image) and
+ * {@link EntityModal} (a scenario's), so the style reaching it here is what puts the same
+ * choice on places and scenes as on characters.
  *
  * The setting counterpart to {@link PortraitModal}: a landscape (16:9) frame for a
  * place rather than a square head-and-shoulders portrait. Purely presentational;
@@ -42,6 +48,8 @@ export function SceneArtModal({
   onGenerate,
   error,
   activeField = null,
+  artStyle = null,
+  onArtStyleChange,
 }: {
   open: boolean;
   onClose: () => void;
@@ -60,6 +68,9 @@ export function SceneArtModal({
   error: string | null;
   /** The prompt field being written right now (live highlight). */
   activeField?: string | null;
+  /** The chosen look; `null` shows the operator's Options default selected. */
+  artStyle?: ArtStyleId | null;
+  onArtStyleChange?: (style: ArtStyleId) => void;
 }) {
   // Tracks which generate action the Retry control should re-run — whichever
   // of the two was attempted most recently (defaults to the render, the
@@ -102,17 +113,26 @@ export function SceneArtModal({
           </button>
         </div>
         <p className="mt-[6px] mb-[14px] font-body text-[12.5px] text-ink-soft">
-          A watercolor establishing shot of the place via ComfyUI — the location
-          itself, no people. Generate the prompts from the setting&apos;s context,
-          tweak, then render.
+          An establishing shot of the place via ComfyUI — the location itself, no people.
+          Pick a style, generate the prompts from the setting&apos;s context, tweak, then
+          render.
         </p>
+
+        {onArtStyleChange ? (
+          <ArtStylePicker
+            value={artStyle}
+            onChange={onArtStyleChange}
+            disabled={generatingPrompts || generatingImage}
+            className="mb-[16px]"
+          />
+        ) : null}
 
         <div>
           <TextArea
             label="Positive prompt"
             aria-label="Scene-art positive prompt"
             rows={3}
-            placeholder="Short comma-separated phrases — the place & its kind first, then features, materials, light, weather, mood, then watercolor style."
+            placeholder="Short comma-separated phrases — the place & its kind first, then features, materials, light, weather, mood, then style."
             value={positive}
             onChange={(e) => onPositiveChange(e.target.value)}
             className={activeField === "_sceneArtPositive" ? "mytheca-field-active" : undefined}

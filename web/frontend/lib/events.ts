@@ -175,6 +175,12 @@ export interface SceneImageEvent extends PlayEnvelope {
     negative: string;
     caption: string;
     characterIds: string[];
+    /**
+     * The art style it was painted in (`painted` | `anime` | `photoreal`). Seeds the
+     * repaint picker, so asking for another take keeps this picture's look rather than
+     * silently falling back to the global default. Empty on beats predating styles.
+     */
+    style?: string;
     /** Alternate renders; `url`/`prompt`/`caption` above mirror the active one. */
     takes?: ImageTake[];
     activeTake?: number;
@@ -286,6 +292,12 @@ export type GhostwriteStreamFrame = GhostwriteFrame | TurnErrorFrame;
 export type MomentStreamFrame = MomentStageFrame | SceneImageEvent | TurnErrorFrame;
 
 /** The body for `POST /play/{scenarioId}/moment/stream`. */
+/**
+ * The three looks any generated image can wear, mirroring `app/content/art_styles.py`.
+ * `painted` is the default and the look every image wore before styles existed.
+ */
+export type ArtStyleId = "painted" | "anime" | "photoreal";
+
 export interface MomentRequestBody {
   sessionId: string;
   /** How many recent beats the picture looks back over (clamped 2–40 server-side). */
@@ -297,6 +309,8 @@ export interface MomentRequestBody {
    */
   prompt?: string;
   negative?: string;
+  /** Which look to paint in. Omitted = the operator's default from Options. */
+  artStyle?: ArtStyleId;
 }
 
 // ---- persisted session review (GET /play/{scenarioId}/sessions[/{id}]) ----

@@ -156,6 +156,7 @@ def start(
                 max_characters=data.max_characters,
                 max_settings=data.max_settings,
                 with_artwork=data.with_artwork,
+                art_style=data.art_style,
             ):
                 run.append(frame)
         except APIError as exc:

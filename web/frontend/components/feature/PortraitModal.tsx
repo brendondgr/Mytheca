@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
 import { Monogram } from "@/components/ui/Monogram";
 import { SmartImage } from "@/components/ui/SmartImage";
+import { ArtStylePicker } from "@/components/feature/ArtStylePicker";
 import { cn } from "@/lib/cn";
+import type { ArtStyleId } from "@/lib/api";
 
 const LINK =
   "cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40";
@@ -18,9 +20,12 @@ const VAGUE_ERROR = "Something went wrong.";
 /**
  * Portrait editor pop-up — the "own page" for a character's portrait, opened from
  * the compact preview's **Edit image** button in {@link CharacterModal}. It holds
- * everything image-related: the rendered WebP (or monogram placeholder) preview,
- * the editable watercolor positive/negative prompts, a **Generate prompts** action
+ * everything image-related: the rendered WebP (or monogram placeholder) preview, the
+ * art-style picker, the editable positive/negative prompts, a **Generate prompts** action
  * (written from the character's current context), and a **Generate portrait** render.
+ *
+ * The style sits above the prompts because it governs both actions below it: the prompts
+ * are *written* for it and the render is *painted* in it.
  *
  * A nested {@link Modal} (raised z-index) over the editor — purely presentational;
  * all generation handlers live on the parent's `useLibraryState` and are passed in.
@@ -44,6 +49,8 @@ export function PortraitModal({
   onGeneratePortrait,
   error,
   activeField = null,
+  artStyle = null,
+  onArtStyleChange,
 }: {
   open: boolean;
   onClose: () => void;
@@ -64,6 +71,9 @@ export function PortraitModal({
   error: string | null;
   /** The prompt field being written right now (live highlight). */
   activeField?: string | null;
+  /** The chosen look; `null` shows the operator's Options default selected. */
+  artStyle?: ArtStyleId | null;
+  onArtStyleChange?: (style: ArtStyleId) => void;
 }) {
   // Tracks which generate action the Retry control should re-run — whichever
   // of the two was attempted most recently (defaults to the render, the
@@ -106,10 +116,19 @@ export function PortraitModal({
           </button>
         </div>
         <p className="mt-[6px] mb-[14px] font-body text-[12.5px] text-ink-soft">
-          A watercolor portrait via ComfyUI — accurate to their species/race, look,
-          and personality. Generate the prompts from the character&apos;s context,
-          tweak, then render.
+          A portrait via ComfyUI — accurate to their species/race, look, and personality.
+          Pick a style, generate the prompts from the character&apos;s context, tweak, then
+          render.
         </p>
+
+        {onArtStyleChange ? (
+          <ArtStylePicker
+            value={artStyle}
+            onChange={onArtStyleChange}
+            disabled={generatingPrompts || generatingPortrait}
+            className="mb-[16px]"
+          />
+        ) : null}
 
         <div className="md:flex md:gap-[18px]">
           <div className="md:min-w-0 md:flex-1">
@@ -117,7 +136,7 @@ export function PortraitModal({
               label="Positive prompt"
               aria-label="Portrait positive prompt"
               rows={3}
-              placeholder="Short comma-separated phrases — subject & species first, then features, attire, expression, then watercolor style."
+              placeholder="Short comma-separated phrases — subject & species first, then features, attire, expression, then style."
               value={positive}
               onChange={(e) => onPositiveChange(e.target.value)}
               className={activeField === "_portraitPositive" ? "mytheca-field-active" : undefined}

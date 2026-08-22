@@ -91,7 +91,8 @@ describe("SceneImageModal — paint again", () => {
     await user.clear(box);
     await user.type(box, "the same table, but at dawn");
     await user.click(screen.getByRole("button", { name: /paint again/i }));
-    expect(onRepaint).toHaveBeenCalledWith("the same table, but at dawn");
+    // The second argument is the art style; undefined means "the operator's default".
+    expect(onRepaint).toHaveBeenCalledWith("the same table, but at dawn", undefined);
   });
 
   it("refuses to paint an empty prompt", async () => {

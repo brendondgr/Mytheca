@@ -12,6 +12,7 @@ import json
 
 import pytest
 
+from app.content import art_styles
 from app.agents import moment_agent
 from app.agents.moment_agent import FramedCharacter, strip_names, visual_tag
 from app.core.errors import APIError
@@ -126,7 +127,7 @@ def test_write_moment_prompt_keeps_a_landscape_tag_the_model_supplied(monkeypatc
     _stub_llm(monkeypatch, {"positive": "a wide landscape composition of an empty pier"})
     out = moment_agent.write_moment_prompt(None, beats=["Narrator: The pier is empty."], conn=CONN)
     assert out.positive.count("landscape") == 1
-    assert out.negative == moment_agent.DEFAULT_NEGATIVE  # filled in when the model gives none
+    assert out.negative == moment_agent._default_negative(art_styles.PAINTED)  # filled in when the model gives none
 
 
 def test_write_moment_prompt_requires_a_beat_to_depict():

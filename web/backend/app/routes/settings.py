@@ -51,7 +51,7 @@ def draft_setting(data: SettingDraftRequest, db: Session = Depends(get_db)):
 
 @router.post("/settings/scene-art-prompts", response_model=SceneArtPromptResponse)
 def setting_scene_art_prompts(data: SceneArtPromptRequest, db: Session = Depends(get_db)):
-    """Write the watercolor positive/negative establishing-shot prompts for a place."""
+    """Write the positive/negative establishing-shot prompts for a place, in the chosen style."""
     return setting_agent.generate_scene_art_prompts(
         db,
         name=data.name,
@@ -61,12 +61,13 @@ def setting_scene_art_prompts(data: SceneArtPromptRequest, db: Session = Depends
         features=data.features,
         current_state=data.current_state,
         notes=data.notes,
+        style=data.art_style,
     )
 
 
 @router.post("/settings/scene-art", response_model=SceneArtGenerateResponse)
 def setting_scene_art(data: SceneArtGenerateRequest, db: Session = Depends(get_db)):
-    """Render a watercolor establishing image via ComfyUI, save it as WebP, return its URL."""
+    """Render an establishing image in the chosen art style, save it as WebP, return its URL."""
     result = scene_art.generate_scene_art(
         db,
         data.positive,
@@ -77,6 +78,7 @@ def setting_scene_art(data: SceneArtGenerateRequest, db: Session = Depends(get_d
         height=data.height,
         steps=data.steps,
         cfg=data.cfg,
+        style=data.art_style,
     )
     return SceneArtGenerateResponse(image=result["image"])
 

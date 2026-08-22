@@ -16,7 +16,7 @@ import {
   setPresence as apiSetPresence,
   updateScenario,
 } from "@/lib/api";
-import type { ScenePreset } from "@/lib/api";
+import type { ArtStyleId, ScenePreset } from "@/lib/api";
 import { estimateUsedTokens } from "@/lib/contextBudget";
 import type {
   GhostwriteStreamFrame,
@@ -641,7 +641,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   const momentStream = useEventStream<MomentStreamFrame>(onMomentFrame);
   const creatingImage = momentStream.status === "streaming";
 
-  const createImage = useCallback((prompt?: string, negative?: string) => {
+  const createImage = useCallback((prompt?: string, negative?: string, artStyle?: ArtStyleId) => {
     const sid = sessionRef.current;
     if (!sid || creatingImage) return; // nothing to depict yet / already painting
     setImageError(null);
@@ -656,6 +656,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
             // the prompt agent entirely in that case rather than overriding their wording.
             ...(prompt?.trim() ? { prompt: prompt.trim() } : {}),
             ...(negative?.trim() ? { negative: negative.trim() } : {}),
+            // Omitted = the operator's default from Options, resolved server-side.
+            ...(artStyle ? { artStyle } : {}),
           },
           signal,
         ),

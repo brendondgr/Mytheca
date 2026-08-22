@@ -43,6 +43,7 @@ function messageOf(e: unknown): string {
 export const DEFAULT_POPULATE: PopulateOptions = {
   enabled: true,
   withArtwork: false,
+  artStyle: null,
   // Resolved by the dialog from what the author actually uploaded: "auto" means the
   // server builds from their classified files when there are any.
   source: "auto",

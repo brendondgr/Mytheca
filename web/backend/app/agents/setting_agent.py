@@ -8,7 +8,7 @@ store resolution as the storyline/character agents, via ``agents._common``):
   fields (name / type / desc) plus the §4.1 node metadata
   (atmosphere / features / current_state).
 * ``generate_scene_art_prompts`` — turn a place description into the
-  positive/negative prompts for the watercolor ComfyUI establishing shot.
+  positive/negative prompts for the ComfyUI establishing shot, in a chosen art style.
 
 Everything produced here is a setting's *own* base description + current state
 (§4.1 *node properties* of ``Documents/Plans/4.story-graph-structure-prep.md``) —
@@ -31,6 +31,8 @@ from app.agents._common import (
     resolve_llm_or,
     world_context,
 )
+from app.agents._style import resolve_style as _resolve_style
+from app.content.art_styles import ArtStyle
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.setting import SceneArtPromptResponse, SettingDraftResponse
@@ -56,8 +58,10 @@ _DRAFT_SYSTEM = (
     "context provided. Include no other keys."
 )
 
-_SCENE_ART_SYSTEM = (
-    "You are Mytheca's scene-art-prompt writer for a watercolor image model "
+def _scene_art_system(style: ArtStyle) -> str:
+    """The place establishing-shot system prompt, written for one art style."""
+    return (
+    f"You are Mytheca's scene-art-prompt writer for {style.model_hint} "
     "(Z-Image-Turbo via ComfyUI). The model responds best to SHORT phrases "
     "separated by commas — not sentences. Given a place description, write the "
     "prompts for an atmospheric establishing shot of the LOCATION ITSELF — a vista "
@@ -66,12 +70,11 @@ _SCENE_ART_SYSTEM = (
     "\npositive: 10-16 short comma-separated phrases. Lead with the place and its "
     "kind (e.g. 'fog-bound harbor at dawn', 'smoke-dark dockside tavern interior', "
     "'flooded stone undercroft'), then its salient features, materials, light, "
-    "weather, and mood. End with style tags: 'watercolor, soft washes, painterly, "
-    "atmospheric, establishing shot, wide view, no people, detailed environment'.\n"
+    f"weather, and mood. End with style tags: '{style.scene_tags}'.\n"
     "negative: a comma-separated list of what to avoid, e.g. 'people, figures, "
-    "portrait, photorealistic, 3d render, text, watermark, signature, blurry, "
+    f"portrait, {style.negative_tags}, text, watermark, signature, blurry, "
     "lowres'. Keep both prompts concise."
-)
+    )
 
 
 def draft_setting(
@@ -139,9 +142,10 @@ def generate_scene_art_prompts(
     features: str | None = None,
     current_state: str | None = None,
     notes: str | None = None,
+    style: str | None = None,
     reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
 ) -> SceneArtPromptResponse:
-    """Write the watercolor positive/negative ComfyUI prompts for a place."""
+    """Write the positive/negative ComfyUI prompts for a place, in a chosen art style."""
     fields = {
         "Name": name,
         "Type": type,
@@ -158,7 +162,7 @@ def generate_scene_art_prompts(
         )
     base_url, api_key, model, params = resolve_llm(db)
     messages = [
-        {"role": "system", "content": _SCENE_ART_SYSTEM},
+        {"role": "system", "content": _scene_art_system(_resolve_style(db, style))},
         {"role": "user", "content": f"Place:\n{described}"},
     ]
     data = extract_json(

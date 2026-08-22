@@ -92,16 +92,55 @@ class ComfyParams(CamelModel):
     negative_prompt: str = ""
 
 
+class ArtStyleRead(CamelModel):
+    """One selectable art style, as the picker and the Options tab see it.
+
+    ``id``/``label``/``blurb`` come from the authored catalog
+    (``app.content.art_styles``); the three LoRA fields are the **effective** values —
+    the catalog's defaults with any operator override from the ``comfy`` settings row
+    already folded in. ``loraName`` is empty when the style renders with the workflow's
+    LoRA node bypassed.
+    """
+
+    id: str
+    label: str
+    blurb: str
+    lora_name: str = ""
+    lora_strength: float = 0.8
+    lora_enabled: bool = False
+
+
+class ArtStyleOverride(CamelModel):
+    """The writable slice of a style: which LoRA it uses, how strongly, and whether at all.
+
+    Only the LoRA is operator-editable. The prompt tags are authored content — an operator
+    who wants different wording edits the writing prompts, which have their own contract.
+    """
+
+    lora_name: str | None = None
+    lora_strength: float | None = None
+    lora_enabled: bool | None = None
+
+
 class ComfyConfigRead(CamelModel):
     base_url: str = ""
     workflow: str = "ZiT-Workflow.json"
     params: ComfyParams = ComfyParams()
+    #: The default look for every image the product generates. A per-generation picker on
+    #: each image surface overrides it for that render only.
+    art_style: str = "painted"
+    #: The full style catalog with effective LoRA settings, in display order.
+    styles: list[ArtStyleRead] = []
 
 
 class ComfyConfigUpdate(CamelModel):
     base_url: str | None = None
     workflow: str | None = None
     params: ComfyParams | None = None
+    art_style: str | None = None
+    #: Patch of per-style LoRA overrides, keyed by style id. Unknown ids are ignored
+    #: rather than rejected, mirroring how prompt overrides treat unknown keys.
+    styles: dict[str, ArtStyleOverride] | None = None
 
 
 class ComfyStatusRequest(CamelModel):
@@ -118,6 +157,16 @@ class ComfyStatusResponse(CamelModel):
 
 class ComfyWorkflowsResponse(CamelModel):
     workflows: list[str]
+
+
+class ComfyLorasResponse(CamelModel):
+    """LoRA files the configured ComfyUI server reports, for the per-style LoRA picker.
+
+    Best-effort: an unreachable or unrecognised server yields an empty list and the
+    Options field degrades to free text, exactly as the workflow picker already does.
+    """
+
+    loras: list[str] = []
 
 
 # ---- Writing-agent prompts ------------------------------------------------

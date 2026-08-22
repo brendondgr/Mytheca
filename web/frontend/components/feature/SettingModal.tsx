@@ -387,6 +387,8 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
         onGenerate={lib.generateSceneArt}
         error={lib.error}
         activeField={lib.activeField}
+        artStyle={lib.artStyle}
+        onArtStyleChange={lib.setArtStyle}
       />
     </Modal>
   );

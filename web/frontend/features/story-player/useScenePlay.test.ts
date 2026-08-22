@@ -645,6 +645,42 @@ describe("useScenePlay create image", () => {
     );
   });
 
+  it("sends the chosen art style, and omits it when the player picked none", async () => {
+    const result = await renderWithSession();
+    vi.mocked(postSceneMoment).mockReturnValue(momentStream([imageEvent("ps_img")]));
+
+    act(() => result.current.createImage(undefined, undefined, "anime"));
+    await waitFor(() => expect(result.current.creatingImage).toBe(false));
+    expect(vi.mocked(postSceneMoment)).toHaveBeenLastCalledWith(
+      scenario.id,
+      { sessionId: "ps_img", artStyle: "anime" },
+      expect.anything(),
+    );
+
+    vi.mocked(postSceneMoment).mockReturnValue(momentStream([imageEvent("ps_img")]));
+    act(() => result.current.createImage());
+    await waitFor(() => expect(result.current.creatingImage).toBe(false));
+    // Absent, not "painted": the backend resolves the operator's default from Options.
+    expect(vi.mocked(postSceneMoment)).toHaveBeenLastCalledWith(
+      scenario.id,
+      { sessionId: "ps_img" },
+      expect.anything(),
+    );
+  });
+
+  it("carries the style alongside a hand-written repaint prompt", async () => {
+    const result = await renderWithSession();
+    vi.mocked(postSceneMoment).mockReturnValue(momentStream([imageEvent("ps_img")]));
+
+    act(() => result.current.createImage("a lamplit table", undefined, "photoreal"));
+    await waitFor(() => expect(result.current.creatingImage).toBe(false));
+    expect(vi.mocked(postSceneMoment)).toHaveBeenLastCalledWith(
+      scenario.id,
+      { sessionId: "ps_img", prompt: "a lamplit table", artStyle: "photoreal" },
+      expect.anything(),
+    );
+  });
+
   it("surfaces a mid-stream failure and adds no picture", async () => {
     const result = await renderWithSession();
     vi.mocked(postSceneMoment).mockReturnValue(

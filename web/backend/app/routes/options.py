@@ -20,6 +20,7 @@ from app.schemas.settings import (
     ScenePresetRead,
     ComfyConfigRead,
     ComfyConfigUpdate,
+    ComfyLorasResponse,
     ComfyStatusRequest,
     ComfyStatusResponse,
     ComfyWorkflowsResponse,
@@ -178,6 +179,19 @@ def update_comfy(data: ComfyConfigUpdate, db: Session = Depends(get_db)):
 @router.get("/comfy/workflows", response_model=ComfyWorkflowsResponse)
 def list_comfy_workflows():
     return ComfyWorkflowsResponse(workflows=comfyui.list_workflows())
+
+
+@router.get("/comfy/loras", response_model=ComfyLorasResponse)
+def list_comfy_loras(base_url: str | None = None, db: Session = Depends(get_db)):
+    """LoRA files the configured ComfyUI server offers, for the per-style LoRA picker.
+
+    Best-effort by design: an unreachable server returns an empty list rather than an
+    error, so the Options field falls back to free text instead of blocking the save.
+    """
+    resolved = settings_store.resolve_comfy_base_url(db, base_url)
+    if not resolved:
+        return ComfyLorasResponse(loras=[])
+    return ComfyLorasResponse(loras=comfyui.list_loras(resolved))
 
 
 @router.post("/comfy/status", response_model=ComfyStatusResponse)

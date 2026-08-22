@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { ArtStylePicker } from "@/components/feature/ArtStylePicker";
 import { cn } from "@/lib/cn";
+import type { ArtStyleId } from "@/lib/api";
 
 /** What the two stages of a moment render are called, in the player's language. */
 const STAGE_LABEL: Record<"prompt" | "render", string> = {
@@ -16,7 +19,10 @@ const STAGE_LABEL: Record<"prompt" | "render", string> = {
  * Rendered by `StoryPlayerView` only **between** turns — once a session exists and no
  * turn is streaming — so it never offers to paint a half-played beat.
  *
- * Idle it is one quiet row: what it does, and **Go**. Running, it becomes the
+ * Idle it is one quiet row: what it does, the compact art-style picker, and **Go**. The
+ * picker is idle-only — the look is a decision made *before* painting, and a control that
+ * cannot take effect on the render in flight would only invite a click that does nothing.
+ * Running, it becomes the
  * landscape frame the picture will occupy, washed by `.mytheca-wash` so the wait
  * reads as work under way, with the current stage named in a polite live region
  * (`prompt` → `render`). Reduced motion keeps the frame and drops the wash, per
@@ -31,12 +37,16 @@ export function CreateImageBar({
   error = null,
   className,
 }: {
-  onCreate: () => void;
+  onCreate: (artStyle?: ArtStyleId) => void;
   running?: boolean;
   stage?: "prompt" | "render" | null;
   error?: string | null;
   className?: string;
 }) {
+  // Owned here rather than lifted: the choice lives exactly as long as this control does,
+  // and nothing above it needs to read it. `null` means the operator's Options default,
+  // which the picker shows selected and the backend resolves.
+  const [artStyle, setArtStyle] = useState<ArtStyleId | null>(null);
   const status = running ? STAGE_LABEL[stage ?? "prompt"] : "";
   return (
     <section
@@ -65,7 +75,14 @@ export function CreateImageBar({
               Picture the scene as it stands right now.
             </span>
           </div>
-          <Button variant="secondary" onClick={onCreate}>
+          <ArtStylePicker
+            value={artStyle}
+            onChange={setArtStyle}
+            label="Style"
+            compact
+            className="w-full sm:w-auto"
+          />
+          <Button variant="secondary" onClick={() => onCreate(artStyle ?? undefined)}>
             Go
           </Button>
         </div>

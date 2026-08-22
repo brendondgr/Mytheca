@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { ImageModelsTab } from "./ImageModelsTab";
 import * as api from "@/lib/api";
 import type { OptionsState } from "@/features/options/useOptionsSettings";
+import { COMFY_FIXTURE } from "@/test/api-mock";
 
 vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock());
 
@@ -22,11 +23,7 @@ function makeOpts(overrides: Partial<OptionsState["settings"]> = {}): OptionsSta
         reasoningVisibility: "summary" as const,
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
-      comfy: {
-        baseUrl: "http://localhost:8199",
-        workflow: "ZiT-Workflow.json",
-        params: { steps: 4, cfg: 1, width: 1024, height: 1024, batchSize: 1, negativePrompt: "" },
-      },
+      comfy: COMFY_FIXTURE,
       prompts: { catalog: [], overrides: {} },
       ...overrides,
     },
@@ -90,5 +87,71 @@ describe("ImageModelsTab", () => {
     render(<ImageModelsTab opts={opts} />);
     await user.click(screen.getByRole("button", { name: /check status/i }));
     expect(await screen.findByText(/could not reach comfyui/i)).toBeInTheDocument();
+  });
+
+  describe("art style", () => {
+    it("shows the three styles with the stored default selected", async () => {
+      render(<ImageModelsTab opts={makeOpts()} />);
+      const group = screen.getByRole("group", { name: /^art style$/i });
+      const radios = within(group).getAllByRole("radio");
+      expect(radios).toHaveLength(3);
+      expect(within(group).getByRole("radio", { name: /painted/i })).toBeChecked();
+    });
+
+    it("saves a new default style", async () => {
+      const user = userEvent.setup();
+      const state = makeOpts();
+      render(<ImageModelsTab opts={state} />);
+
+      const group = screen.getByRole("group", { name: /^art style$/i });
+      await user.click(within(group).getByRole("radio", { name: /photoreal/i }));
+      await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+      expect(state.saveComfy).toHaveBeenCalledWith(
+        expect.objectContaining({ artStyle: "photoreal" }),
+      );
+    });
+
+    it("saves each style's LoRA file, strength and on/off", async () => {
+      const user = userEvent.setup();
+      const state = makeOpts();
+      render(<ImageModelsTab opts={state} />);
+
+      // Turning painted's LoRA off is how you render the house style on the base model.
+      await user.click(screen.getByRole("checkbox", { name: /use a lora for painted/i }));
+      await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+      expect(state.saveComfy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          styles: expect.objectContaining({
+            painted: expect.objectContaining({
+              loraEnabled: false,
+              loraName: "zit_watercolor.safetensors",
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("keeps the LoRA field usable as free text when ComfyUI is unreachable", () => {
+      render(<ImageModelsTab opts={makeOpts()} />);
+      // Anime ships with no LoRA and nothing has been listed, so it is a plain input the
+      // operator can type into rather than an empty, unusable select.
+      expect(screen.getByLabelText(/anime lora file/i)).toHaveAttribute("placeholder");
+    });
+
+    it("offers the server's LoRAs as a dropdown once listed", async () => {
+      const user = userEvent.setup();
+      render(<ImageModelsTab opts={makeOpts()} />);
+
+      await user.click(screen.getByRole("button", { name: /list loras/i }));
+      const select = await screen.findByLabelText(/anime lora file/i);
+      expect(select.tagName).toBe("SELECT");
+      expect(
+        within(select as HTMLSelectElement).getByRole("option", {
+          name: "zit_oilpainting.safetensors",
+        }),
+      ).toBeInTheDocument();
+    });
   });
 });

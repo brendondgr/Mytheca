@@ -25,7 +25,8 @@ The agentic Character Creator renders character avatars through this same
 pipeline. [`web/backend/app/services/portraits.py`](../web/backend/app/services/portraits.py)
 resolves the configured Comfy server + workflow + default params, calls
 `comfyui.generate(...)` with the agent-written positive/negative prompts at a
-portrait-orientation frame, converts the PNG result to **WebP** with Pillow, and
+portrait-orientation frame in the requested **art style** (see below), converts the PNG
+result to **WebP** with Pillow, and
 writes it under `MEDIA_DIR` (default `<repo>/media/portraits/`, gitignored). The
 file is served read-only at `/media/portraits/<uuid>.webp` (a `StaticFiles` mount
 on the app root, *not* under `/api`), and that relative URL is stored on the
@@ -87,6 +88,69 @@ so in-flight drafts (generated but not yet saved) are never touched. Backed by
 (delete), surfaced in the Options → **About** tab's **Maintenance** section
 (scan → review counts/bytes → confirm delete).
 
+## Art styles
+
+Every generated image wears one of three **art styles**, authored in
+[`web/backend/app/content/art_styles.py`](../web/backend/app/content/art_styles.py):
+
+| id | look | LoRA out of the box |
+| --- | --- | --- |
+| `painted` | watercolor/oil washes — the house look, and the **default** | `zit_watercolor.safetensors` @ 0.8 |
+| `anime` | cel-shaded anime illustration | none (node `72` bypassed) |
+| `photoreal` | photograph | none |
+
+A style carries three things: the phrase describing the model in a prompt-writing agent's
+system prompt (`model_hint`), a tag string per surface (`portrait_tags` / `scene_tags` /
+`moment_tags`), and the style-dependent slice of the negative prompt. `painted`'s tags are
+the strings the four agents carried as literals before styles existed, moved verbatim — so a
+default render is unchanged by the catalog.
+
+It reaches an image through **both** halves of the pipeline:
+
+- The prompt-writing agent (`character_agent` · `setting_agent` · `scenario_agent` ·
+  `moment_agent`) interpolates the hint and tags into its system prompt, so the model writes
+  *toward* the look. `agents/_style.py` resolves `None` to the operator's stored default —
+  not the catalog default — so an agent called without a style still follows Options.
+- The render service (`portraits` · `scene_art` · `scene_moment`) runs the finished prompts
+  through `art_styles.apply_style`, which **drops** any phrase belonging to another style and
+  then **appends** whichever of this style's tags are missing. The drop is what makes a
+  switch actually switch: a prompt stored while painted still ends in `watercolor portrait,
+  soft washes`, and — worse — `painted` and `anime` both push `photorealistic` away, which
+  would flatly contradict a `photoreal` render. Phrases every style shares (`3d render`,
+  `wide view`) survive untouched. This is also the only place the look can land on a
+  **hand-written** prompt, which no agent ever sees.
+
+### Choosing one
+
+- **Globally** — `PATCH /options/comfy {"artStyle": "anime"}`, set in Options → Image
+  Generation. This is what an omitted style resolves to.
+- **Per render** — an `artStyle` field on `POST /characters/portrait-prompts`,
+  `/characters/portrait`, `/settings/scene-art-prompts`, `/settings/scene-art`,
+  `/scenarios/scene-art-prompts`, `/scenarios/scene-art`, and
+  `/play/{scenarioId}/moment/stream`. The frontend offers it as
+  `components/feature/ArtStylePicker.tsx` on all four image surfaces.
+- **Per world build** — `artStyle` on `POST /storylines/{id}/populate/stream`, chosen in
+  `BuildWorldModal` on the **New Storyline** page. Chosen **once for the whole run** rather
+  than per entity: a build paints a whole cast and every place in one go, so a world half
+  painted and half photoreal is the failure mode worth designing against. Reaches both
+  `_render_portrait` and `_render_scene_art` inside `services/world_populate.py`.
+
+An unknown or retired style id **falls back to the default rather than raising** — an image
+request must never fail because a stale client named a style that no longer exists.
+
+### LoRAs are operator-owned
+
+Each style's LoRA file, strength and on/off flag live in the `comfy` settings row
+(`styleLoras`, keyed by style id) and are edited in Options.
+`settings_store.resolve_art_style` folds those over the catalog defaults and is the single
+answer to "what look, and with which LoRA?".
+
+`anime` and `photoreal` ship LoRA-less because no anime LoRA is installed and the base
+checkpoint (`zit_intorealism_zitV60`) is already realism-leaning — **not** because the code
+cannot give them one. Dropping an anime LoRA into ComfyUI's `models/loras/` and pointing
+`anime` at it in Options is the whole change. A style with a LoRA enabled but no file
+selected stays bypassed: there is nothing to load.
+
 ## The pipeline (7 steps)
 
 `services/comfyui.py` implements the full flow; `generate(...)` chains it:
@@ -122,11 +186,20 @@ injectable factories so the whole pipeline is tested offline
 | `71` | CLIPTextEncode | `negative` → `inputs.text` |
 | `70` | KSampler | `seed`, `steps`, `cfg` |
 | `68` | EmptySD3LatentImage | `width`, `height`, `batch_size` |
+| `72` | LoraLoaderModelOnly | `lora_name`, `strength_model` — **or bypassed entirely** |
 | `77` | SaveImage | output is read from here |
 
 If you use a different workflow, update the node-id constants at the top of
 `services/comfyui.py` (`POSITIVE_NODE`, `NEGATIVE_NODE`, `SAMPLER_NODE`,
-`LATENT_NODE`, `SAVE_NODE`) to match its graph.
+`LATENT_NODE`, `LORA_NODE`, `SAVE_NODE`) to match its graph.
+
+The LoRA node is the only one that can be taken *out* of the graph rather than merely
+retuned. `build_prompt(..., lora_enabled=False)` calls `_bypass_node`, which repoints every
+input reading `["72", 0]` at whatever node `72` itself consumes on its `model` input. It
+reads the wiring rather than hard-coding the checkpoint node, so a workflow whose loader
+sits somewhere else still bypasses correctly; the node is left in the graph, orphaned and
+therefore never executed, so the template on disk stays read-only. A workflow with no LoRA
+node is a no-op, not an error.
 
 ## Using it from code
 
@@ -138,8 +211,15 @@ image_bytes, info = comfyui.generate(
     "ZiT-Workflow.json",
     positive="a serene mountain lake at dawn, watercolor",
     seed=12345,
+    lora_name="zit_watercolor.safetensors",
+    lora_strength=0.8,
+    lora_enabled=True,   # False bypasses the LoRA node; omit to keep the workflow as authored
 )
 ```
+
+`GET /options/comfy/loras` proxies ComfyUI's `/object_info/LoraLoaderModelOnly` to list the
+LoRA files the server offers. Best-effort: an unreachable or unrecognised server yields
+`[]` rather than an error, so the Options field degrades to free text.
 
 ## Options menu (Image Generation tab)
 
@@ -151,6 +231,9 @@ The tab configures and verifies the connection; it does **not** spend GPU time:
   `utils/workflows/`.
 - **Default generation parameters** (steps, cfg, width, height, batch size,
   negative prompt) + **Save** → `PATCH /options/comfy`.
+- **Art style** — the default look for every generated image (see below).
+- **Style LoRAs** — per style: an on/off checkbox, the LoRA file (a dropdown once
+  **List LoRAs** has run, free text otherwise), and its strength.
 
 Config persists in the global `app_settings` row (`comfy` namespace), alongside
 the LLM and library namespaces. Endpoints are documented in

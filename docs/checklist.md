@@ -505,6 +505,24 @@ are **decisions, not oversights**, recorded here so they are not mistaken for dr
   the model's reported `prompt_tokens`; up to 12 000 characters of tagged text is not in
   the pre-send estimate, so the dial under-reads until the turn's real usage comes back.
 
+## Art styles — deferred follow-ups
+
+- **`anime` and `photoreal` are prompt-only.** Neither ships with a LoRA, because none for
+  either is installed in `~/Models/ComfyUI/models/loras/` and the base checkpoint
+  (`zit_intorealism_zitV60`) is already realism-leaning. Both are one Options change from
+  carrying one — the code path is generic — but the *file* half of that path has only been
+  tested against a synthetic graph (`test_comfyui_lora.py`), never a real anime LoRA.
+- **No sample for the in-play `moment` surface.** `EXP-2026-08-013` rendered the `portrait`
+  and `scene` surfaces in all three styles; `moment` is covered by tests and by the same
+  catalog but has no visual sample. Add one when the next scene image is generated anyway.
+- **Style separation is untested on hard subjects.** One subject per surface in
+  `EXP-2026-08-013`. A non-human species, a crowd, or an abstract place could plausibly
+  collapse the three arms toward each other; nobody has looked.
+- **A world build in flight keeps the style it started with.** `world_populate_runs`
+  attaches to an existing run by storyline, so re-confirming with a different style
+  re-attaches rather than restarting. Correct today (a run should not change look
+  mid-flight), but it means the second choice is silently ignored rather than refused.
+
 ## Housekeeping
 
 - **11 stale git worktrees** under `.claude/worktrees/`, all registered in `git worktree list`, each 25+ days idle with a merged-looking final commit. Prune them along with the ~45 leftover local branches.
