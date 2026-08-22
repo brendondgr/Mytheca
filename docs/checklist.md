@@ -375,9 +375,11 @@ Verified against the code on 2026-08-04.
   records this as the one outright **FAIL** against the polish spec's §14. The *causes* of
   layout shift were addressed structurally on 2026-08-12 (space-reserved images via
   `SmartImage`, a reserved error line in `FieldError`, a min-height on the streaming beat,
-  skeletons matching real card geometry), but CLS / INP / LCP were not measured — `next build`
-  cannot run without network access to Google Fonts, so there is no production bundle to
-  profile. Needs one Lighthouse run on a 4× throttled CPU in a networked environment.
+  skeletons matching real card geometry), but CLS / INP / LCP were not measured. The blocker
+  — `next build` could not run without network access to Google Fonts, so there was no
+  production bundle to profile — was **removed on 2026-08-22** by self-hosting the three
+  families (`lib/fonts.ts` → `next/font/local`); the build now succeeds with every proxy
+  pointed at a closed port. What remains is the measurement itself.
 - **Not every async path routes through `AsyncPanel`.** The five-state shell exists and covers
   the Library columns, Documents, GraphView, and the modals; `useLibraryState`'s per-entity
   loads still fail silently to empty collections, so a partial failure is indistinguishable
@@ -391,8 +393,8 @@ Verified against the code on 2026-08-04.
 
 ## Deferred verification
 
-- **The `VoiceSamplesEditor` Moment select has not been seen in a browser.** Added 2026-08-11. Verified by co-located component tests (native `<select>`, `<label>`-associated, reachable by accessible name, reuses the existing field styling) and by structural review: the row wraps at the 320px floor and the select is `max-w-full min-w-0` so a long option label cannot overflow. A live check was attempted in the worktree on a free port and **failed for an unrelated reason** — `next/font/google` cannot reach Google Fonts in this sandbox, so the page never renders. Folded into the consolidated pass below.
-- **Live in-browser accessibility + responsive pass.** Deferred across a long series of UI changes against a persistent environment constraint: a dev server holding 3346, backend CORS pinned to that origin, unreachable Google Fonts, and unreliable screenshot tooling inside worktrees. Each change was instead verified via green component suites, `next build`, and structural review (native controls, AA tokens, reduced-motion fallbacks).
+- **The `VoiceSamplesEditor` Moment select has not been seen in a browser.** Added 2026-08-11. Verified by co-located component tests (native `<select>`, `<label>`-associated, reachable by accessible name, reuses the existing field styling) and by structural review: the row wraps at the 320px floor and the select is `max-w-full min-w-0` so a long option label cannot overflow. A live check was attempted in the worktree on a free port and **failed for an unrelated reason** — at the time `next/font/google` could not reach Google Fonts in this sandbox, so the page never rendered. That cause was removed on 2026-08-22 (the families are self-hosted). Folded into the consolidated pass below.
+- **Live in-browser accessibility + responsive pass.** Deferred across a long series of UI changes against a persistent environment constraint: a dev server holding 3346, backend CORS pinned to that origin, unreachable Google Fonts (removed as a cause on 2026-08-22 — the families are self-hosted), and unreliable screenshot tooling inside worktrees. Each change was instead verified via green component suites, `next build`, and structural review (native controls, AA tokens, reduced-motion fallbacks).
   - **Substantially closed on 2026-08-12** by the frontend-polish pass
     (`docs/plans/frontend-polish-ui.md`). The Google-Fonts blocker was worked
     around by temporarily shimming `lib/fonts.ts` to system families — enough to

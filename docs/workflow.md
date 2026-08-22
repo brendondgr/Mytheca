@@ -130,10 +130,12 @@ Tailwind v4 pipeline, then asserts three things:
    found. "Unlayered" is the load-bearing half: an override inside `@layer utilities` wins
    only on source order, and this script's pipeline and Turbopack order them differently.
 
-**Use it whenever `npm run build` is unavailable.** `next build` is the normal gate, but
-`next/font/google` fetches Cinzel / EB Garamond / IBM Plex Mono at build time and hard-fails
-with no network — so in a sandbox or an offline worktree the build cannot validate CSS at all.
-This script needs no network.
+**A fast offline check, no longer the only one.** `next build` is the normal gate and, since
+the three type families were self-hosted (`lib/fonts.ts` → `next/font/local`), it runs with no
+network — verified with every proxy pointed at a closed port. Before that, `next/font/google`
+fetched at build time and hard-failed offline, so the build could not validate CSS at all.
+This script is still worth running: it is seconds rather than a full build, and it makes
+assertions `next build` does not.
 
 ## Validation Gate (definition of "done")
 

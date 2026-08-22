@@ -107,7 +107,14 @@ never tells the player what happens if they change it, and a menu of implementat
 
 ## Typography
 
-Three families, each with a fixed role. Load via Google Fonts (or self-host equivalently).
+Three families, each with a fixed role. **Self-hosted** — the latin-subset woff2 files live in
+`web/frontend/app/fonts/` with their OFL licences, loaded through `next/font/local` in
+`lib/fonts.ts`. Cinzel and EB Garamond ship as *variable* fonts (Google returns one identical
+file for every weight), so each is stored once and declared with a weight range; IBM Plex Mono
+is static, so its two weights are two files. This is why `next build` runs offline at all —
+`next/font/google` fetched at build time and hard-failed with no network. Each family keeps
+`display: "swap"` and a metric-compatible `adjustFontFallback`/`fallback` stack, so removing
+the Google loader did not introduce layout shift. `lib/fonts.test.ts` guards the arrangement.
 
 | Role | Family | Usage |
 | --- | --- | --- |
