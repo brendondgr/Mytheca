@@ -255,7 +255,7 @@ trace step carrying the LLM's reported `usage.prompt_tokens` (`llm.chat_complete
 `character_turn_agent.generate_line_with_usage` → `_generate_speaker`). `useScenePlay` sets
 `liveContextTokens` from that live `context` frame and seeds it on resume via
 `turn-stream.latestContextTokens(history.traces)`; it exposes `usedTokens = liveContextTokens ??`
-the char/4 estimate (`estimateUsedTokens` over the last `contextBeats` beats) plus `usedTokensExact`.
+the char/4 estimate (`estimateUsedTokens` over the whole transcript — the client no longer holds a window depth to slice by) plus `usedTokensExact`.
 This drives `ContextUsageDial` in the composer's bottom row — a small circular **button** whose
 visual-only ring colour-codes green < 50 %, gold 50–75 %, danger ≥ 75 %. The count is not printed
 in the ring; it surfaces on hover/focus in a tooltip (`8.3K of 16K tokens · 56% · exact`, via
@@ -1184,15 +1184,32 @@ how a setting comes to look as though it does nothing.
 The authored `Setting.atmosphere` is **not** a live mood signal — it is written once at world
 creation and never rewritten during play, so the prompt presents it as the description of the place
 and never as "the scene right now". The
-character conditions on the scene's **`context_beats`** most-recent beats (5–100; `assembler` fetches
-that depth from the Redis buffer, which retains up to `turn_buffer_size` = 160). That window is
-**block-anchored**, not sliding: `buffer.anchored_turns` quantises its *start* to a multiple of
-`turn_transcript_anchor_block` (20), so it holds between `context_beats` and `context_beats + block`
-beats and its first line only moves once every 20 beats. A window that dropped its oldest beat every
-turn would change the transcript's first token every turn, and a prefix cache matches from the first
-token — the whole conversation would be re-read each turn even though it only grew at the end.
-`character_turn_agent._transcript` deliberately allows one anchor block above `context_beats` for the
-same reason: re-trimming to exactly that depth would undo the anchoring. At the **end of
+character conditions on the scene's most-recent beats, **at a depth the app fits to the model's real
+context window** (`services/context_budget`) rather than one the player picks. The old per-scene
+"Number of beats" slider is gone: the right depth is whatever the model can actually hold, and the
+app knows the model's window while the player does not. A scene can still opt out with
+`context_policy: "fixed"`, which restores the old `context_beats` behaviour verbatim; `assembler`
+fetches the resulting depth from the Redis buffer, which retains up to `turn_buffer_size` = 160.
+`transcript_budget` also caps the transcript at `TURN_CONTEXT_MAX_FRACTION` (0.5) of the whole
+window even when more is free — filling a context window with transcript is not using it well,
+since the character prompt's tail is the act-now region.
+
+That window is **block-anchored**, not sliding: `buffer.anchored_turns` quantises its *start* to a
+multiple of `turn_transcript_anchor_block` (20), so it holds between the fitted depth and that depth
+plus one block, and its first line only moves once every 20 beats. A window that dropped its oldest
+beat every turn would change the transcript's first token every turn, and a prefix cache matches
+from the first token — the whole conversation would be re-read each turn even though it only grew at
+the end. **A dynamic depth is a direct threat to exactly that**, which is why `fit_window` quantises
+the depth it computes down to the same block and applies hysteresis: the window can only move in
+steps the anchoring already tolerates. `character_turn_agent._transcript` deliberately allows one
+anchor block above the fitted depth for the same reason — re-trimming to exactly that depth would
+undo the anchoring.
+
+What the fit decided is **reported, not configured**: the `window` trace step
+("The scene reached back N beat(s)") carries `windowBeats`, `windowSource`
+(`detected`/`configured`/`fallback`/`fixed`), `droppedBeats` and `budgetTokens`. When the window is
+smaller than the history the oldest beats are simply dropped — compaction is a separate, off-by-
+default feature (`TURN_CONTEXT_COMPACTION`). At the **end of
 every turn**, up to the scenario's **`suggestions_count`** (0–4; `0` disables) follow-up suggestions
 are generated from the **recent beat sequence** (`director_agent.propose_branches(count=…)`, which
 feeds the last ~6 beats via `_recent_sequence` **in chronological order**, newest last) and emitted

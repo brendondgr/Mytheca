@@ -27,17 +27,10 @@ export function estimateTokens(text: string | null | undefined): number {
  * narration). Used only to give the scene-config menu a live, ballpark token estimate for a
  * chosen context-window depth — not an exact count.
  */
-export const AVG_CHARS_PER_BEAT = 180;
-
-/**
- * Estimate the tokens a context window of `beats` recent beats costs, from an average
- * beat length and the char/4 heuristic. Approximate, for the UI readout as the slider moves.
- * The `beatsTokensFromTexts` variant is preferred when the real transcript is available —
- * this flat average is only the fallback before a scene has any beats.
- */
-export function estimateBeatsTokens(beats: number): number {
-  return Math.ceil((Math.max(0, beats) * AVG_CHARS_PER_BEAT) / CHARS_PER_TOKEN);
-}
+// `estimateBeatsTokens` and `AVG_CHARS_PER_BEAT` were deleted with the "Number of beats"
+// slider: a flat 180-chars-per-beat average existed only to move a readout as the slider
+// moved, and there is no slider. `beatsTokensFromTexts` below survives because it measures
+// the real transcript, which Phase 5's "what this scene costs" readout still needs.
 
 /**
  * Estimate the tokens the last `beats` of the ACTUAL transcript occupy, from each beat's

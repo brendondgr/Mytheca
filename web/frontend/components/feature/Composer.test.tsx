@@ -25,8 +25,6 @@ describe("Composer", () => {
         onMaxTurnsChange={() => {}}
         suggestionsCount={4}
         onSuggestionsCountChange={() => {}}
-        contextBeats={14}
-        onContextBeatsChange={() => {}}
       />,
     );
     expect(screen.getByRole("button", { name: /scene configuration/i })).toBeInTheDocument();

@@ -146,8 +146,15 @@ export interface Scenario {
   maxTurns?: number;
   /** How many follow-up suggestions to offer at the end of a turn (0–4; 0 disables; default 4). */
   suggestionsCount?: number;
-  /** Depth of the recent-transcript context window the character conditions on (5–100; default 14). */
+  /**
+   * Depth of the recent-transcript window, **only consulted under `contextPolicy: "fixed"`**
+   * (5–100). By default the window fits itself to the model's real context budget each turn,
+   * because picking a beat count is a question only the app can answer.
+   */
   contextBeats?: number;
+  /** `"auto"` (default; absent reads as auto) fits the window to the model's context
+   *  budget; `"fixed"` honours `contextBeats`. */
+  contextPolicy?: "auto" | "fixed";
   /**
    * How much a CHARACTER says in one beat — short 1–2 paragraphs, medium 2–4 (default),
    * long 5–6, each paragraph at most 3–4 sentences not counting quoted dialogue. Narration

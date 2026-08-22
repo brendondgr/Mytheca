@@ -132,7 +132,6 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   const [suggestionsCount, setSuggestionsCountState] = useState<number>(
     scenario.suggestionsCount ?? 4,
   );
-  const [contextBeats, setContextBeatsState] = useState<number>(scenario.contextBeats ?? 14);
   const [beatLength, setBeatLengthState] = useState<BeatLength>(
     scenario.beatLength ?? "medium",
   );
@@ -188,15 +187,18 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // seed placeholder while empty / when the graph is off.
   const [graphRels, setGraphRels] = useState<Relationship[]>([]);
 
-  // Char/4 estimate of the tokens the last `contextBeats` messages occupy — the fallback
-  // the context dial shows before a turn has reported its EXACT `usage.prompt_tokens`
-  // (which is far larger, since it also counts the primer/contract/guidance/RAG the
-  // estimate can't see). Recomputed whenever messages or contextBeats changes.
+  // Char/4 estimate of the tokens the transcript occupies — the fallback the context dial
+  // shows before a turn has reported its EXACT `usage.prompt_tokens` (which is far larger,
+  // since it also counts the primer/contract/guidance/RAG the estimate can't see).
+  //
+  // Measured over the WHOLE transcript now rather than a `contextBeats` slice: the depth is
+  // no longer a number the client holds — the server fits it to the model's real budget
+  // each turn — and estimating against a window the client is only guessing at would be
+  // less honest than estimating against everything there is.
   const estimatedUsedTokens = useMemo(() => {
-    const window = messages.slice(-contextBeats);
-    const texts = window.map((m) => [m.text, m.action, m.thought].filter(Boolean).join(" "));
+    const texts = messages.map((m) => [m.text, m.action, m.thought].filter(Boolean).join(" "));
     return estimateUsedTokens(texts);
-  }, [messages, contextBeats]);
+  }, [messages]);
 
   // The play session id is captured from the first streamed event (or a resumed
   // session) and reused so subsequent turns continue the same session. Mirrored into
@@ -778,13 +780,6 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     },
     [scenario.id],
   );
-  const setContextBeats = useCallback(
-    (n: number) => {
-      setContextBeatsState(n);
-      void updateScenario(scenario.id, { contextBeats: n }).catch(() => {});
-    },
-    [scenario.id],
-  );
   const setBeatLength = useCallback(
     (value: BeatLength) => {
       setBeatLengthState(value);
@@ -927,10 +922,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setMaxTurns,
     suggestionsCount,
     setSuggestionsCount,
-    contextBeats,
     beatLength,
     setBeatLength,
-    setContextBeats,
     pov,
     setPov: choosePov,
     loading,

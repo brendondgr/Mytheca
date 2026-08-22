@@ -29,6 +29,7 @@ from app.models import Character, ContextDocument, Scenario, Setting
 from app.models.stat import StatDefinition
 from app.schemas.base import BEAT_LENGTHS, DEFAULT_BEAT_LENGTH, BeatLength
 from app.services import (
+    context_budget,
     crud,
     graph_reader,
     presence,
@@ -131,9 +132,19 @@ class TurnContext:
     # not retrieved lore). ``tagged_names`` is the resolved file list for the Inspector.
     tagged_notes: str = ""
     tagged_names: list[str] = field(default_factory=list)
-    # Depth of the recent-transcript window the character conditions on — the per-scene
-    # ``context_beats`` (5–100), clamped by ``assemble_context``. Defaults to the legacy 14.
+    # Depth of the recent-transcript window the character conditions on. Under the default
+    # ``auto`` policy this is fitted to the model's real context budget each turn; under
+    # ``fixed`` it is the per-scene ``context_beats`` (5–100). Defaults to the legacy 14.
     context_beats: int = 14
+    # What the auto-fit actually decided, carried so the trace and the client can say it
+    # rather than re-deriving it. ``window_beats`` is the depth in force (equal to
+    # ``context_beats`` under ``fixed``); ``window_source`` says how confidently the model's
+    # window is known (``detected`` / ``configured`` / ``fallback``, plus ``fixed`` when the
+    # scene opted out); ``dropped_beats`` is how much history did not fit.
+    window_beats: int = 14
+    window_source: str = "fixed"
+    dropped_beats: int = 0
+    window_budget_tokens: int = 0
     # How much a CHARACTER says in one beat — the per-scene ``beat_length``, normalised
     # by ``assemble_context`` so an unknown or empty value resolves to ``medium`` here
     # rather than at the prompt builder. A directly-constructed context (tests, puppet
@@ -170,10 +181,10 @@ def assemble_context(
     guidance = {
         sd.key: text for sd in stat_defs if (text := stat_guidance.guidance_for(sd))
     }
-    # Per-scene context depth (5–100), clamped defensively. The window is **anchored**
-    # rather than sliding: its start only moves in blocks, so the rendered transcript keeps
-    # a byte-stable prefix from turn to turn and the model's prompt cache survives. See
-    # ``buffer.anchored_turns``.
+    # Per-scene context depth (5–100), clamped defensively — the FIXED path only. The
+    # window is **anchored** rather than sliding: its start only moves in blocks, so the
+    # rendered transcript keeps a byte-stable prefix from turn to turn and the model's
+    # prompt cache survives. See ``buffer.anchored_turns``.
     context_beats = max(5, min(int(scenario.context_beats or 14), 100))
     # Normalised HERE, not at the prompt: the schema rejects an unknown tier on the way
     # in, but a legacy row, a hand-edited database or a fixture built straight from the
@@ -184,9 +195,42 @@ def assemble_context(
         if scenario.beat_length in BEAT_LENGTHS
         else DEFAULT_BEAT_LENGTH
     )
-    recent_beats = buffer.anchored_turns(
-        session_id, context_beats, get_settings().turn_transcript_anchor_block
-    )
+    block = get_settings().turn_transcript_anchor_block
+    # How far back the scene reaches.
+    #
+    # `fixed` honours the scene's own `context_beats`, unchanged. `auto` (the default) fits
+    # the depth to the model's real context budget instead — asking the player for a beat
+    # count is asking a question only the app can answer, which is why the slider is gone.
+    #
+    # The fit is measured over the retained buffer and then handed to `anchored_turns`
+    # exactly as before, so the block anchoring that protects prompt-cache reuse is
+    # untouched: `fit_window` quantises to the same block, so a dynamic depth can only move
+    # in steps the anchoring already tolerates.
+    policy = (scenario.context_policy or "auto").strip().lower()
+    if policy == "fixed":
+        window_beats, window_source, dropped, budget = context_beats, "fixed", 0, 0
+    else:
+        retained = buffer.recent_turns(session_id)
+        window = context_budget.resolve_window(db)
+        budget = context_budget.transcript_budget(
+            window,
+            # The non-transcript prompt parts, measured rather than assumed — they vary by
+            # an order of magnitude between a bare scenario and a fully-authored world.
+            context_budget.reserve_for(
+                storyline.world_primer or storyline.premise or "",
+                *guidance.values(),
+                scenario.opening or "",
+            ),
+        )
+        fit = context_budget.fit_window(
+            [str(b.get("text") or "") for b in retained], budget, block
+        )
+        # With no Redis the buffer is empty and the fit is zero; fall back to the scene's own
+        # depth so a turn still assembles with whatever `anchored_turns` can offer.
+        window_beats = fit.window_beats or context_beats
+        window_source = window.source
+        dropped = fit.dropped_beats
+    recent_beats = buffer.anchored_turns(session_id, window_beats, block)
     # Runtime scene presence, folded from this session's status-change event log.
     presence_map = presence.current_presence(db, session_id)
     cast = _build_cast(db, scenario, session_id, stat_defs, recent_beats, presence_map)
@@ -220,6 +264,10 @@ def assemble_context(
         tagged_notes=tagged_notes,
         tagged_names=tagged_names,
         context_beats=context_beats,
+        window_beats=window_beats,
+        window_source=window_source,
+        dropped_beats=dropped,
+        window_budget_tokens=budget,
         beat_length=beat_length,
         prompts=prompts,
     )

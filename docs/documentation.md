@@ -17,7 +17,7 @@ Four canonical objects, plus the Story Event abstraction and the Stat system.
 | **Storyline** | The world. Owns its characters, settings, scenarios, and the baseline stat schema. | `id, title, genre, tagline, premise, world_primer, symbol, symbol_color, position, prompt_overrides` |
 | **Character** | A person in the world. | `id, storyline_id, name, role, color, mono, traits, speech, goal, secret, appearance, background, personality, portrait, portrait_positive, portrait_negative, voice_samples, position` |
 | **Setting** | A place in the world. | `id, storyline_id, name, type, desc, atmosphere, features, current_state, image, scene_art_positive, scene_art_negative, timeline, position` |
-| **Scenario** | The live situation being played. | `id, storyline_id, title, genre, tone, goal, setting_id, opening, cast_ids, branches, position, max_turns, suggestions_count, context_beats, beat_length, prompt_overrides, image, scene_art_positive, scene_art_negative` |
+| **Scenario** | The live situation being played. | `id, storyline_id, title, genre, tone, goal, setting_id, opening, cast_ids, branches, position, max_turns, suggestions_count, context_beats, context_policy, beat_length, direction_verbs, prompt_overrides, image, scene_art_positive, scene_art_negative` |
 
 **Not modelled:** there is no `User` table and no `Scene` table. Character relationships are **not** Postgres columns — they live only as Neo4j graph edges.
 

@@ -201,15 +201,6 @@ describe("StoryPlayerView", () => {
       embergate.id,
       expect.objectContaining({ suggestionsCount: 2 }),
     );
-    // The new "Number of beats" slider persists context_beats.
-    fireEvent.change(screen.getByRole("slider", { name: /number of beats/i }), {
-      target: { value: "40" },
-    });
-    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(
-      embergate.id,
-      expect.objectContaining({ contextBeats: 40 }),
-    );
-
     // ...and the beat-length tier, which is the whole point of the control: without the
     // PATCH the dropdown moves and the next turn is written at the old length.
     fireEvent.change(screen.getByRole("combobox", { name: /beat length/i }), {

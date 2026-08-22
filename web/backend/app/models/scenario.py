@@ -63,6 +63,11 @@ class Scenario(Base):
     # storyline's prompts for THIS scene only. Empty {} inherits storyline/global/default.
     # Nullable (older rows read as {}); resolved by ``prompt_registry.resolve_prompts``.
     prompt_overrides: Mapped[dict | None] = mapped_column(JSONColumn, nullable=True, default=dict)
+    # How the transcript window is chosen. ``"auto"`` (the default; ``NULL`` reads as auto)
+    # fits it to the model's real context budget each turn; ``"fixed"`` honours
+    # ``context_beats`` below, which is otherwise ignored. Nullable, so the additive
+    # reconciler adds it with a plain ADD COLUMN and no Alembic migration is required.
+    context_policy: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     # The scene's OWN one-tap direction verbs, appended to the built-in bar's groups.
     # ``[{"label", "group", "text"}]``. Nullable (older rows read as none), so
     # ``core/bootstrap._reconcile_additive_columns`` adds it with a plain ADD COLUMN and no

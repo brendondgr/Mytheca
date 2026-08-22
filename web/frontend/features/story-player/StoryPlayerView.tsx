@@ -108,12 +108,6 @@ export function StoryPlayerView({
   backHref?: string;
 }) {
   const scene = useScenePlay(scenario, contextDocs);
-  // One string per transcript beat (its dialogue/action/thought), so the composer's Config
-  // "Number of beats" readout reflects the REAL recent content, not a flat average.
-  const beatTexts = useMemo(
-    () => scene.messages.map((m) => [m.text, m.action, m.thought].filter(Boolean).join(" ")),
-    [scene.messages],
-  );
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   // Follow the newest beat only while the reader is already at the bottom.
   // Anything else is yanking the page away from someone who is reading.
@@ -462,11 +456,8 @@ export function StoryPlayerView({
             onMaxTurnsChange={scene.setMaxTurns}
             suggestionsCount={scene.suggestionsCount}
             onSuggestionsCountChange={scene.setSuggestionsCount}
-            contextBeats={scene.contextBeats}
             beatLength={scene.beatLength}
             onBeatLengthChange={scene.setBeatLength}
-            onContextBeatsChange={scene.setContextBeats}
-            beatTexts={beatTexts}
             guidance={scene.guidance}
             onGuidanceChange={scene.setGuidance}
             pov={scene.pov}

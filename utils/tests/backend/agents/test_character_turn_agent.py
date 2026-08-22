@@ -413,16 +413,16 @@ def test_voice_sampler_tuning_applied(client, db_session, monkeypatch):
     assert body["presence_penalty"] == 0.0
 
 
-def test_transcript_window_follows_context_beats_plus_one_anchor_block(
+def test_transcript_window_follows_the_fitted_depth_plus_one_anchor_block(
     client, db_session, monkeypatch
 ):
-    """The depth is the scene's ``context_beats`` plus room for one anchor block.
+    """The depth is the fitted ``window_beats`` plus room for one anchor block.
 
-    ``recent_beats`` arrives block-anchored from the assembler, holding between
-    ``context_beats`` and ``context_beats + block`` beats; that overshoot is exactly what
-    keeps the transcript's first line still between re-anchors. Re-trimming to
-    ``context_beats`` here would slide it by one beat per turn and throw the prompt cache
-    away again — so the cap allows the block, and only clips beyond it.
+    ``recent_beats`` arrives block-anchored from the assembler, holding between the fitted
+    depth and that depth plus one block; the overshoot is exactly what keeps the transcript's
+    first line still between re-anchors. Re-trimming to the depth here would slide it by one
+    beat per turn and throw the prompt cache away again — so the cap allows the block, and
+    only clips beyond it.
     """
     from app.core.config import get_settings
 
@@ -431,7 +431,9 @@ def test_transcript_window_follows_context_beats_plus_one_anchor_block(
     _patch_llm(monkeypatch, capture)
     block = get_settings().turn_transcript_anchor_block
     ctx = _ctx()
-    ctx.context_beats = 5
+    # `window_beats` is the depth in force — fitted to the model's context budget under the
+    # default policy, or equal to `context_beats` when the scene opted out.
+    ctx.window_beats = 5
     total = 5 + block + 10  # comfortably past the cap
     ctx.recent_beats = [
         {"role": "narrator", "text": f"beat{i}", "characterId": None} for i in range(total)

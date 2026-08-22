@@ -3,14 +3,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { SceneControlSelect } from "@/components/ui/SceneControlSelect";
 import { Eyebrow } from "@/components/ui/Eyebrow";
-import { beatsTokensFromTexts, estimateBeatsTokens } from "@/lib/contextBudget";
 import { BEAT_LENGTHS, BEAT_LENGTH_LABELS, type BeatLength } from "@/lib/types";
 
 const MAX_TURN_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const SUGGESTION_OPTIONS = [0, 1, 2, 3, 4];
-// The context-window depth (beats the character conditions on) ranges 5–100.
-const BEATS_MIN = 5;
-const BEATS_MAX = 100;
 // Value + rendered text, built from the contract in lib/types so the tiers cannot drift
 // from the backend `Literal` they mirror.
 const BEAT_LENGTH_OPTIONS = BEAT_LENGTHS.map((value) => ({
@@ -38,22 +34,25 @@ function GearIcon() {
 }
 
 /**
- * The scene's play-configuration popover — the per-scene controls (Max turns, Suggestions,
- * Beat length, and the context-window depth "Number of beats", 5–100). Now anchored in the composer's
- * bottom-left controls row (`openUp` flips the popover above the button); when `beatTexts`
- * (the real transcript beats) is passed, the beats readout reflects the ACTUAL recent
- * content rather than a flat average. Native controls + Esc/outside-click close.
+ * The scene's play-configuration popover — Max turns, Suggestions, Beat length.
+ *
+ * **"Number of beats" was deleted, not hidden.** It asked the player to pick a
+ * context-window depth, which is a question only the app can answer: the right depth is
+ * whatever the model can actually hold, and the app knows the model's window while the
+ * player does not. The window now fits itself each turn
+ * (`services/context_budget` + the scene's `contextPolicy`), and what the scene reached is
+ * *reported* in the Inspector rather than *configured* here.
+ *
+ * Anchored in the composer's bottom-left controls row (`openUp` flips the popover above the
+ * button). Native controls + Esc/outside-click close.
  */
 export function SceneConfigMenu({
   maxTurns = 5,
   onMaxTurnsChange,
   suggestionsCount = 4,
   onSuggestionsCountChange,
-  contextBeats = 14,
-  onContextBeatsChange,
   beatLength = "medium",
   onBeatLengthChange,
-  beatTexts,
   openUp = false,
   disabled = false,
 }: {
@@ -61,13 +60,9 @@ export function SceneConfigMenu({
   onMaxTurnsChange?: (value: number) => void;
   suggestionsCount?: number;
   onSuggestionsCountChange?: (value: number) => void;
-  contextBeats?: number;
-  onContextBeatsChange?: (value: number) => void;
   /** How much a character says in one beat — short 1–2 ¶, medium 2–4 ¶, long 5–6 ¶. */
   beatLength?: BeatLength;
   onBeatLengthChange?: (value: BeatLength) => void;
-  /** The real transcript beats (one string each) — makes the readout content-real. */
-  beatTexts?: string[];
   /** Open the popover upward (for the bottom-of-screen composer). */
   openUp?: boolean;
   disabled?: boolean;
@@ -76,7 +71,6 @@ export function SceneConfigMenu({
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
-  const beatsId = useId();
 
   // Close on outside pointerdown or Escape; move focus into the panel when it opens.
   useEffect(() => {
@@ -95,12 +89,6 @@ export function SceneConfigMenu({
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
-
-  // Content-real when the transcript is available; the flat average is the fallback.
-  const beatsTokens = beatTexts
-    ? beatsTokensFromTexts(beatTexts, contextBeats)
-    : estimateBeatsTokens(contextBeats);
-  const beatsLabel = beatTexts ? "tokens (recent beats)" : "tokens of context";
 
   return (
     <div ref={ref} className="relative flex-none">
@@ -158,33 +146,6 @@ export function SceneConfigMenu({
             disabled={disabled || !onBeatLengthChange}
             className="w-full [&_select]:w-full"
           />
-
-          <div className="flex flex-col gap-[5px]">
-            <div className="flex items-baseline justify-between">
-              <label
-                htmlFor={beatsId}
-                className="font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase"
-              >
-                Number of beats
-              </label>
-              <span className="font-mono text-[12px] text-ink tabular-nums">{contextBeats}</span>
-            </div>
-            <input
-              id={beatsId}
-              type="range"
-              min={BEATS_MIN}
-              max={BEATS_MAX}
-              step={1}
-              value={contextBeats}
-              onChange={(e) => onContextBeatsChange?.(Number(e.target.value))}
-              disabled={disabled || !onContextBeatsChange}
-              aria-label="Number of beats"
-              className="w-full accent-accent disabled:opacity-60"
-            />
-            <span className="font-mono text-[10px] tracking-[0.04em] text-ink-soft">
-              ≈ {beatsTokens.toLocaleString()} {beatsLabel}
-            </span>
-          </div>
         </div>
       ) : null}
     </div>

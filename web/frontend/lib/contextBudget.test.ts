@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  AVG_CHARS_PER_BEAT,
   beatsTokensFromTexts,
   budgetFor,
-  CHARS_PER_TOKEN,
   DRAFT_DOCS_CAP_TOKENS,
-  estimateBeatsTokens,
   estimateTokens,
   estimateUsedTokens,
   fmtTokensK,
@@ -43,12 +40,11 @@ describe("contextBudget", () => {
 
   it("estimates beat-window tokens from beats × avg-chars ÷ chars-per-token", () => {
     // 14 beats × 180 chars ÷ 4 = 630.
-    expect(estimateBeatsTokens(14)).toBe(
-      Math.ceil((14 * AVG_CHARS_PER_BEAT) / CHARS_PER_TOKEN),
-    );
-    expect(estimateBeatsTokens(0)).toBe(0);
-    // Monotonic: more beats → more tokens.
-    expect(estimateBeatsTokens(100)).toBeGreaterThan(estimateBeatsTokens(5));
+    // `estimateBeatsTokens` is gone with the slider it existed to animate — a flat
+    // 180-chars-per-beat average only ever answered "what would N beats roughly cost", and
+    // nothing asks that any more. `beatsTokensFromTexts` measures the real transcript and
+    // is what survives.
+    expect(beatsTokensFromTexts(["x".repeat(400)], 1)).toBe(100)
   });
 
   describe("beatsTokensFromTexts", () => {

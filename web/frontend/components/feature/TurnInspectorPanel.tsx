@@ -13,6 +13,10 @@ const STEP_META: Record<string, { tag: string; color: string }> = {
   intent: { tag: "Intent", color: "#8b5cf6" },
   assemble: { tag: "Scene", color: "#64748b" },
   lore: { tag: "Lore", color: "#0ea5e9" },
+  // How far back the scene reached. The player used to *set* this depth and never learn
+  // what it cost; the app now fits it to the model's window and reports it, which is the
+  // right way round.
+  window: { tag: "Window", color: "#0891b2" },
   // The player's @-tagged context files — distinct from `lore`, which is the gated
   // retrieval the engine decides on by itself.
   files: { tag: "Files", color: "#0d9488" },

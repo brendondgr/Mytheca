@@ -59,11 +59,8 @@ export function Composer({
   onMaxTurnsChange,
   suggestionsCount,
   onSuggestionsCountChange,
-  contextBeats,
   beatLength,
   onBeatLengthChange,
-  onContextBeatsChange,
-  beatTexts,
   // Player POV (rendered to the right of Config when a handler is supplied).
   pov = null,
   onPovChange,
@@ -105,12 +102,9 @@ export function Composer({
   onMaxTurnsChange?: (value: number) => void;
   suggestionsCount?: number;
   onSuggestionsCountChange?: (value: number) => void;
-  contextBeats?: number;
   beatLength?: BeatLength;
   onBeatLengthChange?: (value: BeatLength) => void;
-  onContextBeatsChange?: (value: number) => void;
   /** Real transcript beats (one string each) — feeds the config's content-real readout. */
-  beatTexts?: string[];
   /** Player POV: the id of the character the player is speaking AS (`null` = Narrator). */
   pov?: string | null;
   onPovChange?: (id: string | null) => void;
@@ -150,7 +144,7 @@ export function Composer({
   const guidanceRef = useRef<HTMLTextAreaElement>(null);
 
   const hasConfig = Boolean(
-    onMaxTurnsChange ?? onSuggestionsCountChange ?? onContextBeatsChange ?? onBeatLengthChange,
+    onMaxTurnsChange ?? onSuggestionsCountChange ?? onBeatLengthChange,
   );
   // The direction ROW is always rendered when the parent owns a direction at all; what
   // changes between modes is its role. `showGuidance` remains the narrower question — is
@@ -516,11 +510,8 @@ export function Composer({
               onMaxTurnsChange={onMaxTurnsChange}
               suggestionsCount={suggestionsCount}
               onSuggestionsCountChange={onSuggestionsCountChange}
-              contextBeats={contextBeats}
               beatLength={beatLength}
               onBeatLengthChange={onBeatLengthChange}
-              onContextBeatsChange={onContextBeatsChange}
-              beatTexts={beatTexts}
               openUp
             />
           ) : null}

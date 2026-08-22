@@ -631,24 +631,31 @@ def _build_user_prompt(
 # Cap the rendered transcript so a crowded, many-speaker turn keeps the prompt bounded
 # (§P10 — "bookended prompt under scale"). The most recent beats matter most for recency;
 # older context lives in the buffer/graph, not this window. The depth is the per-scene
-# ``context_beats`` (5–100); this is only the fallback when it is unset.
+# ``window_beats`` — fitted to the model's real context budget each turn, or the scene's own
+# ``context_beats`` when it opted out. This is only the fallback when neither is set.
 _TRANSCRIPT_MAX_BEATS = 14
 
 
 def _transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
     """Render prior history + this-turn beats as a short transcript (chronological).
 
-    The window depth is the scene's ``context_beats`` — the same "how much context the
-    character sees" the player configures.
+    The window depth is ``ctx.window_beats`` — fitted to the model's real context budget by
+    ``services/context_budget`` (or the scene's own ``context_beats`` when it opted out of
+    the auto policy). It is no longer a number the player picks: that asked them a question
+    only the app can answer.
 
     The cap here allows a whole anchor block ABOVE that depth on purpose. ``recent_beats``
     already arrives block-anchored (``buffer.anchored_turns``), which is what holds the
     transcript's first line still between re-anchors; re-trimming it to exactly
-    ``context_beats`` here would slide the start by one beat per turn again and undo the
+    the fitted depth here would slide the start by one beat per turn again and undo the
     anchoring entirely — the prompt-cache prefix would collapse back to the system message.
     """
     names = {m.id: m.name for m in ctx.cast}
-    depth = max(1, ctx.context_beats or _TRANSCRIPT_MAX_BEATS)
+    # `window_beats` alone, not `window_beats or context_beats`. Under the fixed policy the
+    # assembler sets them equal, so a fallback chain would never change an outcome — but it
+    # WOULD let a caller set one and be silently given the other, which is precisely the
+    # surprise this file's own test caught.
+    depth = max(1, ctx.window_beats or _TRANSCRIPT_MAX_BEATS)
     depth += max(1, get_settings().turn_transcript_anchor_block)
     lines: list[str] = []
     for beat in [*ctx.recent_beats, *turn_beats][-depth:]:

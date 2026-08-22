@@ -105,6 +105,9 @@ def build_world(max_turns: int, suggestions: int, context_beats: int) -> tuple[s
             "maxTurns": max_turns,
             "suggestionsCount": suggestions,
             "contextBeats": context_beats,
+            # The window is auto-fitted by default now; an experiment needs the depth it
+            # asked for, so it opts out explicitly rather than measuring a moving target.
+            "contextPolicy": "fixed",
             "beatLength": arm,
         })["id"]
         # Confirm every setting actually landed. The schema clamps `context_beats` and

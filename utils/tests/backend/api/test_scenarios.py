@@ -221,3 +221,41 @@ def test_a_verb_needs_both_a_chip_and_a_phrasing(client, storyline_id):
             json={"title": "Bad", "directionVerbs": [bad]},
         )
         assert resp.status_code == 422
+
+
+def test_context_policy_round_trips_and_defaults_to_auto(client, storyline_id):
+    """`auto` is the default and `NULL` reads as auto — the window fits itself unless a
+    scene explicitly opts out."""
+    created = client.post(
+        f"/api/storylines/{storyline_id}/scenarios", json={"title": "Auto"}
+    ).json()
+    assert created["contextPolicy"] is None
+
+    fixed = client.patch(
+        f"/api/scenarios/{created['id']}", json={"contextPolicy": "fixed"}
+    ).json()
+    assert fixed["contextPolicy"] == "fixed"
+    assert client.patch(
+        f"/api/scenarios/{created['id']}", json={"contextPolicy": "auto"}
+    ).json()["contextPolicy"] == "auto"
+
+
+def test_an_unknown_context_policy_is_refused(client, storyline_id):
+    resp = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Bad", "contextPolicy": "whatever"},
+    )
+    assert resp.status_code == 422
+
+
+def test_context_beats_still_validates_even_though_it_is_fixed_mode_only(
+    client, storyline_id
+):
+    """It is no longer a player control, but it is still a real setting under the fixed
+    policy — an out-of-range value must not reach the assembler."""
+    for bad in (4, 101):
+        resp = client.post(
+            f"/api/storylines/{storyline_id}/scenarios",
+            json={"title": "Bad", "contextBeats": bad},
+        )
+        assert resp.status_code == 422

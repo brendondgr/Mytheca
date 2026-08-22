@@ -168,6 +168,33 @@ def prepare_turn(
             "directedAt": req.directed_at,
             "graph": graph_available,
             "retrievedLore": bool(ctx.retrieved_lore),
+            "windowBeats": ctx.window_beats,
+            "windowSource": ctx.window_source,
+            "droppedBeats": ctx.dropped_beats,
+            "budgetTokens": ctx.window_budget_tokens,
+        },
+    )
+    # How far back the scene reached, as its own step. The player used to *set* this number
+    # and never learn what it cost; now the app sets it and reports it, which is the right way
+    # round — the depth is a consequence of the model's window, not a preference.
+    yield from tracer.emit(
+        "window",
+        f"The scene reached back {ctx.window_beats} beat(s)",
+        detail=(
+            f"Fitted to the model's context window ({ctx.window_source})."
+            + (
+                f" {ctx.dropped_beats} older beat(s) did not fit."
+                if ctx.dropped_beats
+                else " Everything so far fitted."
+            )
+            if ctx.window_source != "fixed"
+            else "This scene sets its own depth (context policy: fixed)."
+        ),
+        data={
+            "windowBeats": ctx.window_beats,
+            "windowSource": ctx.window_source,
+            "droppedBeats": ctx.dropped_beats,
+            "budgetTokens": ctx.window_budget_tokens,
         },
     )
     # RAG look-up (Band-1): the gate decides per turn whether to hit the vector store.

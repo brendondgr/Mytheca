@@ -16,6 +16,10 @@ class Branch(CamelModel):
     tag: BranchTag
 
 
+#: How the transcript window is chosen. ``None`` reads as ``"auto"``.
+ContextPolicy = Literal["auto", "fixed"]
+
+
 class SceneVerb(CamelModel):
     """One of the scene's own direction verbs.
 
@@ -51,7 +55,11 @@ class ScenarioBase(CamelModel):
     # reason ``context_beats`` is clamped at this boundary rather than downstream.
     max_turns: int = Field(default=5, ge=1)
     suggestions_count: int = Field(default=4, ge=0, le=4)
+    # **Only consulted under ``context_policy == "fixed"``.** By default the window fits
+    # itself to the model's real context budget (``services/context_budget``) — asking the
+    # player for a beat count is asking a question only the app can answer.
     context_beats: int = Field(default=14, ge=5, le=100)
+    context_policy: ContextPolicy | None = None
     beat_length: BeatLength = "medium"
     # Per-scenario writing-prompt overrides ({registry key -> prompt text}) — override the
     # storyline's prompts for this scene only.
@@ -82,6 +90,7 @@ class ScenarioUpdate(CamelModel):
     max_turns: int | None = Field(default=None, ge=1)
     suggestions_count: int | None = Field(default=None, ge=0, le=4)
     context_beats: int | None = Field(default=None, ge=5, le=100)
+    context_policy: ContextPolicy | None = None
     beat_length: BeatLength | None = None
     direction_verbs: list[SceneVerb] | None = Field(default=None, max_length=8)
     prompt_overrides: dict[str, str] | None = None
@@ -103,6 +112,7 @@ class ScenarioRead(CamelModel):
     max_turns: int = 5
     suggestions_count: int = 4
     context_beats: int = 14
+    context_policy: ContextPolicy | None = None
     beat_length: BeatLength = "medium"
     direction_verbs: list[SceneVerb] = Field(default_factory=list)
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
