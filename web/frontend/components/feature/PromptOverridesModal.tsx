@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { PromptOverridesEditor } from "@/components/feature/PromptOverridesEditor";
+import { resolveLayers } from "@/lib/promptLayers";
 import { getSettings, type PromptSpec } from "@/lib/api";
 
 export interface PromptOverridesModalProps {
@@ -21,6 +22,14 @@ export interface PromptOverridesModalProps {
    * editor's inherited baseline reflects the full resolution below this layer.
    */
   baseline?: Record<string, string>;
+  /**
+   * The storyline layer, when this modal is editing the SCENARIO layer. The modal already
+   * fetches the global layer and holds the scenario's own, so this is the one piece it
+   * cannot know — and without it the origin badges would credit "This world" to "This
+   * scene". Omit it and no badges render at all, which is honest: a modal that cannot see
+   * every layer should not claim to name one.
+   */
+  storylineOverrides?: Record<string, string> | null;
   /** Save-button caption. */
   saveLabel?: string;
   /** Persist the layer's complete override map, then the modal closes. */
@@ -40,6 +49,7 @@ export function PromptOverridesModal({
   subtitle,
   overrides,
   baseline,
+  storylineOverrides,
   saveLabel,
   onSave,
 }: PromptOverridesModalProps) {
@@ -80,6 +90,16 @@ export function PromptOverridesModal({
     };
   }, [open]);
 
+  // Only when every layer is known. See `storylineOverrides`.
+  const sources =
+    catalog && storylineOverrides !== undefined
+      ? resolveLayers(catalog.map((spec) => spec.key), {
+          global: globalOverrides,
+          storyline: storylineOverrides,
+          scenario: overrides,
+        })
+      : undefined;
+
   return (
     <Modal
       open={open}
@@ -113,6 +133,7 @@ export function PromptOverridesModal({
             catalog={catalog}
             overrides={overrides}
             baseline={{ ...globalOverrides, ...(baseline ?? {}) }}
+            sources={sources}
             saveLabel={saveLabel}
             onSave={async (map) => {
               await onSave(map);

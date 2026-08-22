@@ -75,6 +75,7 @@ export function StoryPlayerRoute({
       scenario={scene.scenario}
       statDefs={scene.statDefs}
       storylineName={scene.storylineName}
+      storylinePromptOverrides={scene.storylinePromptOverrides}
       contextDocs={scene.contextDocs}
       storylineCast={scene.storylineCast}
       settingCount={scene.settingCount}

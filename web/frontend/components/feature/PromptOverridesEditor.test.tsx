@@ -88,3 +88,41 @@ describe("PromptOverridesEditor", () => {
     expect(screen.queryByText(/overridden/i)).not.toBeInTheDocument();
   });
 });
+
+describe("PromptOverridesEditor — layer attribution", () => {
+  it("names where each prompt's live value comes from", () => {
+    // The editor has never shown this, so three abstract layers read as one flat list and
+    // "why is this not what I typed" has no answer on screen.
+    render(
+      <PromptOverridesEditor
+        catalog={CATALOG}
+        overrides={{}}
+        onSave={vi.fn()}
+        sources={{ "narrator.system": "storyline", "planner.system": "default" }}
+      />,
+    );
+    expect(screen.getByText("This world")).toBeInTheDocument();
+  });
+
+  it("uses player words, not implementation words", () => {
+    render(
+      <PromptOverridesEditor
+        catalog={CATALOG}
+        overrides={{}}
+        onSave={vi.fn()}
+        sources={{ "narrator.system": "global", "planner.system": "default" }}
+      />,
+    );
+    expect(screen.getByText("Everywhere")).toBeInTheDocument();
+    expect(screen.queryByText(/^global$/i)).not.toBeInTheDocument();
+  });
+
+  it("renders no badges at all when the layers are unknown", () => {
+    // Existing callers pass nothing and must be unchanged — and a surface that cannot see
+    // every layer should not claim to name one.
+    render(<PromptOverridesEditor catalog={CATALOG} overrides={{}} onSave={vi.fn()} />);
+    for (const label of ["Default", "Everywhere", "This world", "This scene"]) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
+  });
+});

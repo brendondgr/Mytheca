@@ -3,14 +3,14 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ENTER_TRANSITION } from "@/lib/motion";
-import { exportSessionUrl } from "@/lib/api";
+import { exportSessionUrl, updateScenario } from "@/lib/api";
 import type {
   Character,
   ContextDocumentIndexEntry,
   ResolvedScenario,
   StatDefinition,
 } from "@/lib/types";
-import type { ExportFormat } from "@/components/feature/ExportMenu";
+import type { ExportFormat } from "@/components/feature/SceneMenu";
 import { useScenePlay } from "./useScenePlay";
 import { availableVerbs } from "@/lib/sceneVerbs";
 import { useModelHealth } from "@/hooks/use-model-health";
@@ -24,6 +24,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { COACH_MARKS, type CoachMarkId } from "@/lib/coachMarks";
 import type { SceneImage, SceneMessage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
+import { PromptOverridesModal } from "@/components/feature/PromptOverridesModal";
 import { CastRail } from "@/components/feature/CastRail";
 import { PlaythroughTray } from "@/components/feature/PlaythroughTray";
 import { BeatControls } from "@/components/feature/BeatControls";
@@ -101,6 +102,7 @@ export function StoryPlayerView({
   scenario,
   statDefs = [],
   storylineName,
+  storylinePromptOverrides,
   contextDocs = [],
   storylineCast = [],
   settingCount = 1,
@@ -109,6 +111,11 @@ export function StoryPlayerView({
   scenario: ResolvedScenario;
   statDefs?: StatDefinition[];
   storylineName?: string;
+  /**
+   * The storyline's writing-prompt overrides — the one layer the prompt modal cannot fetch
+   * for itself. Without it the modal renders no origin badges at all, which is honest.
+   */
+  storylinePromptOverrides?: Record<string, string>;
   /** Every character in the storyline — the rail's "Elsewhere in the world" offers the
    *  ones this scene never cast. */
   storylineCast?: Character[];
@@ -147,6 +154,14 @@ export function StoryPlayerView({
   /** "Someone arrives" is open, listing who could actually walk in. */
   const [castMenuOpen, setCastMenuOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  // "How this world writes" — the prompt overrides, reachable from the scene rather than
+  // two navigations away from the only place their effect is observable.
+  const [writingOpen, setWritingOpen] = useState(false);
+  // The scenario layer, held locally so a save takes effect on the NEXT turn without a
+  // reload — `scenario` is a prop and the turn request reads the resolved text server-side.
+  const [scenePrompts, setScenePrompts] = useState<Record<string, string>>(
+    scenario.promptOverrides ?? {},
+  );
   /** The player-facing "what the scene knows" rail. Mutually exclusive with the Inspector —
    *  two 340px columns cannot both dock, and they answer different questions anyway. */
   const [memoryOpen, setMemoryOpen] = useState(false);
@@ -326,6 +341,7 @@ export function StoryPlayerView({
         onViewModeChange={setViewMode}
         onExport={onExport}
         canExport={Boolean(scene.sessionId)}
+        onOpenWriting={() => setWritingOpen(true)}
         onToggleInspector={
           viewMode === "graph"
             ? undefined
@@ -747,6 +763,23 @@ export function StoryPlayerView({
             : undefined
         }
         busy={scene.creatingImage}
+      />
+      <PromptOverridesModal
+        open={writingOpen}
+        onClose={() => setWritingOpen(false)}
+        heading="How this world writes"
+        subtitle="These are the instructions the narrator and the cast are given. Changes here apply to this scene only — clear a field to fall back to the world's version."
+        overrides={scenePrompts}
+        // The layer below this one, so "Reset to default" reverts to what the scene would
+        // inherit rather than to the shipped text.
+        baseline={storylinePromptOverrides}
+        storylineOverrides={storylinePromptOverrides ?? null}
+        saveLabel="Save for this scene"
+        onSave={async (map) => {
+          await updateScenario(scenario.id, { promptOverrides: map });
+          // Local, so the next turn resolves the new text without a reload.
+          setScenePrompts(map);
+        }}
       />
     </div>
   );

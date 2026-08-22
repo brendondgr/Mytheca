@@ -33,6 +33,13 @@ export type SceneData =
       scenario: ResolvedScenario;
       statDefs: StatDefinition[];
       storylineName: string;
+      /**
+       * The storyline's own writing-prompt overrides. Needed by the scene's "How this
+       * world writes" modal to attribute each prompt's live value to a layer — the modal
+       * fetches the global layer and holds the scenario's, so this is the one it cannot
+       * see for itself.
+       */
+      storylinePromptOverrides: Record<string, string>;
       /** The storyline's context documents, taggable with `@` in the composer. */
       contextDocs: ContextDocumentIndexEntry[];
       /**
@@ -57,6 +64,7 @@ function seedScene(storylineId: string, scenarioId: string): SceneData | null {
     scenario,
     statDefs: SEED_STAT_DEFS,
     storylineName: storyline?.title ?? "",
+    storylinePromptOverrides: {},
     // The seed demo has no persisted corpus, so `@` tagging is simply unavailable there.
     contextDocs: [],
     storylineCast: SEED_CHARACTERS,
@@ -111,6 +119,7 @@ export function useSceneData(
           scenario: resolveScenario(sc, characters, settings),
           statDefs,
           storylineName: storyline?.title ?? "",
+          storylinePromptOverrides: storyline?.promptOverrides ?? {},
           contextDocs,
           storylineCast: characters,
           settingCount: settings.length,

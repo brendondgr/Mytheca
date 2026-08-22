@@ -248,21 +248,35 @@ describe("StoryPlayerView", () => {
     expect(screen.getByText(/Lamplight gutters across the Saltworn/i)).toBeInTheDocument();
     expect(screen.queryByTestId("graph-view-stub")).not.toBeInTheDocument();
 
-    // Chat mode shows the chat-only Inspector toggle.
-    expect(screen.getByRole("button", { name: /inspector/i })).toBeInTheDocument();
+    // Chat mode offers the chat-only Inspector toggle — now inside the scene menu, which
+    // is where the header's controls folded so it could gain capability while losing width.
+    const openSceneMenu = async () =>
+      user.click(screen.getByRole("button", { name: /scene menu/i }));
+    await openSceneMenu();
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: /turn inspector/i }),
+    ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
 
     // Flip to Graph — the transcript is replaced by the graph view, and the
     // chat-only controls (Turn Inspector toggle) drop away.
     await user.click(screen.getByRole("button", { name: /^graph$/i }));
     expect(screen.getByTestId("graph-view-stub")).toBeInTheDocument();
     expect(screen.queryByText(/Lamplight gutters across the Saltworn/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /inspector/i })).not.toBeInTheDocument();
+    await openSceneMenu();
+    expect(
+      screen.queryByRole("menuitemcheckbox", { name: /turn inspector/i }),
+    ).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
 
     // Flip back to Chat — the transcript and the Inspector toggle return.
     await user.click(screen.getByRole("button", { name: /^chat$/i }));
     expect(screen.getByText(/Lamplight gutters across the Saltworn/i)).toBeInTheDocument();
     expect(screen.queryByTestId("graph-view-stub")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /inspector/i })).toBeInTheDocument();
+    await openSceneMenu();
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: /turn inspector/i }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -320,7 +334,8 @@ describe("StoryPlayerView — what the scene knows", () => {
       screen.getByRole("complementary", { name: "What the scene knows" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Turn Inspector" }));
+    await user.click(screen.getByRole("button", { name: /scene menu/i }));
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "Turn Inspector" }));
     expect(screen.getByRole("complementary", { name: "Turn inspector" })).toBeInTheDocument();
     expect(
       screen.queryByRole("complementary", { name: "What the scene knows" }),

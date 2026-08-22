@@ -2,7 +2,11 @@ import type { LlmHealth } from "@/lib/types";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
-import { ExportMenu, type ExportFormat } from "@/components/feature/ExportMenu";
+import {
+  SceneMenu,
+  type ExportFormat,
+  type SceneMenuItem,
+} from "@/components/feature/SceneMenu";
 
 /** Which face of the story player is showing: the running chat, or the graph. */
 export type SceneViewMode = "chat" | "graph";
@@ -63,6 +67,7 @@ export function SceneHeader({
   canExport = false,
   onToggleInspector,
   inspectorOpen = false,
+  onOpenWriting,
   onToggleMemory,
   memoryOpen = false,
   health = null,
@@ -84,6 +89,8 @@ export function SceneHeader({
   /** Toggle the Turn Inspector drawer (omit to hide the control). */
   onToggleInspector?: () => void;
   inspectorOpen?: boolean;
+  /** Open the writing-prompt modal (omit to hide the item). */
+  onOpenWriting?: () => void;
   /** Opens the player-facing "what the scene knows" rail. */
   onToggleMemory?: () => void;
   memoryOpen?: boolean;
@@ -97,6 +104,59 @@ export function SceneHeader({
   tray?: ReactNode;
 }) {
   const meta = [`◆ ${settingName}`, genre, tone].filter(Boolean).join(" · ");
+  // Built here rather than by the caller so the header owns which of its controls fold in.
+  const sceneMenuItems: SceneMenuItem[] = [
+    ...(onOpenWriting
+      ? [
+          {
+            key: "writing",
+            label: "Writing…",
+            hint: "the instructions the narrator and cast are given",
+            icon: "✎",
+            onSelect: onOpenWriting,
+          },
+        ]
+      : []),
+    ...(onToggleInspector
+      ? [
+          {
+            key: "inspector",
+            label: "Turn Inspector",
+            hint: "what the scene read, who it chose, and why",
+            icon: "⚙",
+            pressed: inspectorOpen,
+            onSelect: onToggleInspector,
+          },
+        ]
+      : []),
+    ...(onExport
+      ? [
+          {
+            key: "export-md",
+            label: "Export as Markdown",
+            // The hint doubles as the reason it is unavailable: a disabled control with no
+            // explanation reads as a bug.
+            hint: canExport
+              ? "readable transcript + diagnostics"
+              : "nothing to export until the scene has a turn",
+            icon: "⭳",
+            disabled: !canExport,
+            onSelect: () => onExport("md"),
+          },
+          {
+            key: "export-json",
+            label: "Export as JSON",
+            hint: canExport
+              ? "structured record for debugging"
+              : "nothing to export until the scene has a turn",
+            icon: "⭳",
+            disabled: !canExport,
+            onSelect: () => onExport("json"),
+          },
+        ]
+      : []),
+  ];
+
   return (
     <header className="mytheca-header flex h-[50px] flex-none items-center justify-between gap-2 border-b border-hair-strong px-[12px] sm:gap-3 sm:px-[24px]">
       <div className="flex min-w-0 items-center gap-[8px] sm:gap-[14px]">
@@ -127,7 +187,6 @@ export function SceneHeader({
           <ViewModeSwitch viewMode={viewMode ?? "chat"} onChange={onViewModeChange} />
         ) : null}
         {tray}
-        {onExport ? <ExportMenu onExport={onExport} disabled={!canExport} /> : null}
         <ThemeSwitcher />
         {/* The real model-health indicator, in the slot where a hardcoded green dot and
             "Narrator active" used to sit — a literal `<span>` reflecting no state at all. A
@@ -151,19 +210,11 @@ export function SceneHeader({
             <span className="hidden sm:inline">Memory</span>
           </button>
         ) : null}
-        {onToggleInspector ? (
-          <button
-            type="button"
-            onClick={onToggleInspector}
-            aria-pressed={inspectorOpen}
-            aria-label="Turn Inspector"
-            title="See what the scene read, who it chose, and why — for every message"
-            className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[9px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-pressed:border-accent aria-pressed:text-accent sm:px-[10px]"
-          >
-            <span aria-hidden>⚙</span>
-            <span className="hidden sm:inline">Inspector</span>
-          </button>
-        ) : null}
+        {/* One popover replacing three inline controls (Export, Inspector, and the new
+            Writing entry point). The cluster is `flex-none`, so every control here costs
+            width a 320px screen does not have — folding them in is how the header gains
+            capability while losing width. */}
+        {sceneMenuItems.length > 0 ? <SceneMenu items={sceneMenuItems} /> : null}
       </div>
     </header>
   );

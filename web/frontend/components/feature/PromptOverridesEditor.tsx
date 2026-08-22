@@ -5,6 +5,7 @@ import type { PromptSpec } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
 import { cn } from "@/lib/cn";
+import { PROMPT_LAYER_LABELS, type PromptLayer } from "@/lib/promptLayers";
 
 const CONTRACT_KEY = "character.output_contract";
 
@@ -24,6 +25,13 @@ export interface PromptOverridesEditorProps {
   saveLabel?: string;
   /** Unique prefix so multiple editor instances don't collide on tab ids. */
   idPrefix?: string;
+  /**
+   * Which layer supplies each prompt's live value (`lib/promptLayers.resolveLayers`).
+   * When given, each prompt names its origin — the editor has never shown it, so three
+   * abstract layers read as one flat list and "why is this not what I typed" has no answer
+   * on screen. Omit it and nothing renders, so existing callers are unchanged.
+   */
+  sources?: Record<string, PromptLayer>;
 }
 
 /**
@@ -41,6 +49,7 @@ export function PromptOverridesEditor({
   onSave,
   saveLabel = "Save prompts",
   idPrefix = "prompt",
+  sources,
 }: PromptOverridesEditorProps) {
   const agents = useMemo(() => {
     const seen: string[] = [];
@@ -159,6 +168,13 @@ export function PromptOverridesEditor({
                 {isModified(spec.key) ? (
                   <span className="ml-[8px] font-mono text-tag tracking-[0.06em] text-accent uppercase">
                     overridden
+                  </span>
+                ) : null}
+                {/* Where the live value comes from. Text, not colour — the point is to be
+                    readable, and four layers cannot be told apart by hue anyway. */}
+                {sources?.[spec.key] ? (
+                  <span className="ml-[8px] font-mono text-tag tracking-[0.06em] text-mute2 uppercase">
+                    {PROMPT_LAYER_LABELS[sources[spec.key]]}
                   </span>
                 ) : null}
               </span>

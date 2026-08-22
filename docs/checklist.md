@@ -391,20 +391,28 @@ Verified against the code on 2026-08-04.
   wind-down label would — but it does mean the phase is not a guaranteed terminal state.
 - Graph mode is canvas-only below `lg`; the `sr-only` node/edge table remains the data alternative. Graph node clicks are wired for Character only — other types are hover-tooltip only.
 - The storyline switcher is hidden below `md`, so mobile cannot switch worlds.
-- **At the 320px floor the scene-header right-hand cluster overflows by 45px.** Measured live
-  on 2026-08-22 (viewport 320, cluster right edge 365). It holds, in order: the Chat/Graph
-  switch, **Play-throughs**, Export, Theme, Inspector. The page itself does **not** scroll
-  horizontally — an `overflow: hidden` ancestor clips it — so the rightmost controls are simply
-  unreachable there, the same failure mode as before but larger.
-  The budget moved during `docs/plans/control-over-the-record.md`: Phase 2 **reclaimed ~7px** by
-  deleting the dead "Narrator active" block, and the same plan then spent it and more by adding
-  the Play-throughs tray. `docs/plans/making-it-legible.md` Phase 7 will put a real four-state
-  model-health indicator back in the freed slot, so the number will grow again.
-  Letting the cluster shrink was tried and is *worse* — its children have intrinsic widths, so a
-  squeezed container pushes them 50–150px past the edge instead. **The durable fix and this
-  bullet's removal both belong to `docs/plans/reach.md` Phase 4** (the header overflow menu); do
-  not close it from another plan. Everything fits at 375+, and the transcript's own beat controls
-  meet the 44px touch floor at 320 (verified in the same pass).
+- **At the 320px floor the scene-header right-hand cluster still overflows — now by 17px, down
+  from 45px.** Re-measured live on 2026-08-22 after `docs/plans/depth-for-players.md` Phase 9
+  folded Export and the Inspector toggle (plus the new *Writing…* entry point) into a single
+  **scene menu**: viewport 320, `header.scrollWidth` 337 against `clientWidth` 320, and the
+  **Scene menu** button itself is the control clipped (left 311, right 337). The page does
+  **not** scroll horizontally (`documentElement.scrollWidth === clientWidth === 320`) — an
+  `overflow: hidden` ancestor clips it — so that one control is simply unreachable there.
+
+  What is left in the cluster at 320, in order: the **Chat/Graph** switch (93px),
+  **Play-throughs** (49px), **Theme** (88px, three buttons), **What the scene knows** (29px),
+  **Scene menu** (26px). The model-health indicator is `hidden … sm:flex` and costs nothing
+  here. **Theme is now the single largest item and the obvious next thing to fold in.**
+
+  Three controls became one and the deficit fell by 28px, which is why this bullet is narrower
+  rather than gone. It is **not** closed: the fix is arithmetic that the *next* control added to
+  the header will undo, and one more item would put it back over 320. Letting the cluster shrink
+  was tried and is *worse* — its children have intrinsic widths, so a squeezed container pushes
+  them 50–150px past the edge instead. **The durable fix and this bullet's removal both belong
+  to `docs/plans/reach.md` Phase 4** (the narrow/wide split over the same `SceneMenu` — its
+  `items` array and `extraSlot` foot exist for exactly that); do not close it from another plan.
+  Everything fits at 375 (`header.scrollWidth === 375`, zero overflow) and above, and the
+  transcript's own beat controls meet the 44px touch floor at 320 (verified in the same pass).
 - **An unwanted scene image cannot be removed or replaced.** ~~Nor asked for by subject~~ —
   **the additive half shipped 2026-08-22** (`making-it-legible.md` Phase 11): the enlarged
   view's prompt is editable and *Paint again with this prompt* produces a **new** beat from

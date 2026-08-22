@@ -192,6 +192,33 @@ All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every 
 
 A three-zone "open book": a **left cast rail** (At the table · turn order, portrait avatars with per-character **"Thinking"/"Speaking"** activity indicators), a **reading-first center column** (a `SceneIntro` "scene is set" band — setting, genre/tone, the player's aim, dramatis personae — then the transcript of beats and a **two-row composer**), and a **right director rail** (a live **"Scene pulse"** activity feed + scene-state chips). The per-scene **Config** (gear button → popover with "Max turns" 1–10, "Suggestions" 0–4, and a "Number of beats" 5–100 slider) now lives in the composer's **bottom-left controls row**, not the header. The transcript is the primary surface and stays centered at ≤720px; the `SceneIntro` band ensures the reading column carries the full scene context even on mobile, where the rails collapse to drawers. This is deliberately **not** a generic three-pane SaaS shell or a card grid.
 
+**The scene menu, and writing prompts at play time.** The scene header's right-hand cluster
+is `flex-none` on purpose — letting it shrink pushes its children 50–150px past the viewport
+edge rather than a few — so every control in it costs width a 320px screen does not have.
+`SceneMenu` is one `☰ Scene` popover holding what used to be three inline controls:
+**Writing…**, **Turn Inspector** (a toggle) and **Export as Markdown / JSON**. The header
+therefore *gains* an entry point while *losing* width (measured: 45px of 320px overflow down
+to 17px — see `docs/checklist.md`, which `docs/plans/reach.md` Phase 4 closes).
+
+Idiom, shared with `SceneConfigMenu` so the app has one popover behaviour rather than two:
+native buttons in a `role="menu"`, Esc and outside-click close, focus moved into the panel on
+open. A **toggle** is a `menuitemcheckbox` with `aria-checked`, never a `menuitem` wearing
+`aria-pressed` (invalid ARIA — screen readers may drop the state), and selecting one **keeps
+the panel open**, because closing it would hide the change just made. Each row's `hint` is its
+accessible **description**, not part of its name — left to the default computation the two
+concatenate ("Turn Inspectorwhat the scene read…"). A disabled row's hint doubles as the
+reason it is unavailable, since a disabled control with no explanation reads as a bug.
+
+**Writing prompts, with their origin named.** The scene's **"How this world writes"** modal is
+the play-time entry point to the prompt-override system — previously two navigations from the
+only place its effect is observable. It edits the **scenario** layer, and each prompt now
+carries a small text badge naming where its live value actually comes from: *Default ·
+Everywhere · This world · This scene* (`lib/promptLayers.resolveLayers`, mirroring
+`prompt_registry.resolve_prompts` — last non-blank wins, and a **blank means inherit**). The
+labels are player words: "Everywhere", not "global". Badges render **only** where every layer
+is known; a surface that cannot see the storyline layer shows none rather than mis-attributing
+"This world" to "This scene".
+
 **Word choice (character editor).** A character's **looseness** is a 5-stop native
 `input[type="range"]` above the voice-sample rows in the Voice & tone section, `-2 … +2`,
 with a **text** readout — *Controlled · Measured · Natural · Expressive · Loose* — because a
