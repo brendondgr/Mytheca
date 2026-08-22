@@ -45,7 +45,7 @@ mytheca/
 │   └── CharacterFrontpage/ # Locked-in visual reference mockups (HTML)
 ├── web/
 │   ├── frontend/           # Next.js 16 app (App Router, Turbopack) + React 19 + TS + Tailwind v4
-│   │   ├── app/            # 8 routes (see docs/routes.md) + root layout
+│   │   ├── app/            # 8 routes (see docs/routes.md) + root layout + fonts/ (self-hosted woff2 + OFL)
 │   │   ├── components/{ui,layout,feature}/   # 24 / 6 / 74 components
 │   │   ├── features/       # Route-level modules: story-player, library, options, documents
 │   │   ├── hooks/          # 12: use-event-stream, use-focus-trap (shared by Modal + Drawer), use-media-query, use-coach-marks, use-model-health, use-scene-shortcuts, …
@@ -116,7 +116,7 @@ Every module under `web/backend/app/` stays **under 800 lines**, enforced by
 
 ## Two things that trip people up
 
-1. **Frontend tests are co-located**, next to what they test (`Foo.tsx` → `Foo.test.tsx`) — 129 files across `app/`, `components/`, `features/`, `hooks/`, `lib/`. `utils/tests/frontend/` holds only an `__init__.py` and should be ignored.
+1. **Frontend tests are co-located**, next to what they test (`Foo.tsx` → `Foo.test.tsx`) — 138 files, 1375 cases, across `app/`, `components/`, `features/`, `hooks/`, `lib/`. `utils/tests/frontend/` holds only an `__init__.py` and should be ignored.
 2. **`web/shared/contracts/` is empty.** The live FE↔BE event and entity types are hand-written in `web/frontend/lib/events.ts` and `lib/types.ts`, kept in sync with `web/backend/app/events/envelope.py` by hand.
 
 ## Top-Level Path Purpose

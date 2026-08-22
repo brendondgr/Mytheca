@@ -954,3 +954,32 @@ must pass the offline CSS gate (`node utils/scripts/check_frontend_css.mjs`).
 | **Test** — vitals probe | Renders and subscribes to nothing when the flag is unset | `web/frontend/components/layout/VitalsProbe.test.tsx` |
 | **Test** — flake fix | Per-test timeouts on the choreography-bound library-modal tests | `web/frontend/features/library/SettingModal.test.tsx` |
 | Docs | Design system, component map, routes, structure, workflow, deployment, documentation, architecture, polish acceptance, `CLAUDE.md`, and a reconciled checklist | `docs/*.md`, `CLAUDE.md` |
+
+
+---
+
+## Completion record
+
+**All twelve phases complete, 2026-08-22.** Committed one per phase on `play-experience`.
+
+| Phase | Outcome |
+| --- | --- |
+| 1 | `Drawer` primitive + `use-focus-trap` extracted from `Modal`, which passes its own suite unchanged as the proof. |
+| 2 | Rails split into `…Content` + `lg`-only shell. All 50 existing rail cases passed **unmodified**. Both asides gained the accessible name they lacked. |
+| 3 | Both rails reachable below `lg` as bottom sheets, mounting the same components with the **same prop objects**. Found live: deriving the sheet state from the width left it stale across the `lg` boundary, so narrowing back raised a modal nobody asked for. |
+| 4 | Header collapses into `SceneMenu` below `sm` with drill-down rather than nested popovers. **320px overflow 17px → 0**, while *adding* the health indicator and the shortcut sheet to that width. |
+| 5 | Storyline switcher reachable at every width. The plan's prescribed width cap was wrong — the overhang was the trigger's 203px offset — and fixing it properly exposed a 4912px-tall popover with no way to scroll it. |
+| 6 | Context rail's upload setup collapses below `lg`; document list **34px → 197px**. The collapsed region is `invisible`, not merely clipped, or its `<select>` stays in the tab order. |
+| 7 | `sr-only` fixed repo-wide. The plan's `@utility` form **merged** with the core utility and the CSS gate passed while the browser was still served `absolute` — replaced with a bare unlayered rule and a gate that strips `@layer` bodies before asserting. |
+| 8 | The 2026-08-21 flake fix had done **one of each pair**; both siblings now carry the budget. Three consecutive full-concurrency runs green at load average 33. |
+| 9 | Three families self-hosted. `next build` verified with every proxy pointed at a closed port. Google serves variable fonts, so 11 files/384KB deduped to 5/176KB. |
+| 10 | `EXP-2026-08-012`: the first Core Web Vitals numbers this repository has ever had. All three pre-registered hypotheses held, including the one predicting the single failure (story-player INP). |
+| 11 | Acceptance pass at 320/375/768/1024: **PASS 19 · PARTIAL 3 · FAIL 0 · DEFERRED 1**. Five defects fixed, including no `<main>` anywhere, an `h1 → h3` tree, and 57 beat controls in one tab order. WCAG 2.1.4 was unmet and now is. |
+| 12 | Checklist and routing docs reconciled against all twelve phases. |
+
+**Not built, and recorded rather than skipped:** nothing in this plan was dropped. Two
+findings were deliberately *reported* instead of fixed, per Phase 11's own instruction — 39
+controls under 24×24 with a mouse and 14 under the house 44px floor in width — because both
+are the density the design system specifies; they are in `docs/checklist.md` with the reason.
+`:focus-visible` remains genuinely unverifiable in this environment and is re-recorded as
+deferred rather than claimed.

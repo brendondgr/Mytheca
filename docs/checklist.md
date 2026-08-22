@@ -395,46 +395,50 @@ Verified against the code on 2026-08-04.
 ## Deferred verification
 
 - **The `VoiceSamplesEditor` Moment select has not been seen in a browser.** Added 2026-08-11. Verified by co-located component tests (native `<select>`, `<label>`-associated, reachable by accessible name, reuses the existing field styling) and by structural review: the row wraps at the 320px floor and the select is `max-w-full min-w-0` so a long option label cannot overflow. A live check was attempted in the worktree on a free port and **failed for an unrelated reason** — at the time `next/font/google` could not reach Google Fonts in this sandbox, so the page never rendered. That cause was removed on 2026-08-22 (the families are self-hosted). Folded into the consolidated pass below.
-- **Live in-browser accessibility + responsive pass.** Deferred across a long series of UI changes against a persistent environment constraint: a dev server holding 3346, backend CORS pinned to that origin, unreachable Google Fonts (removed as a cause on 2026-08-22 — the families are self-hosted), and unreliable screenshot tooling inside worktrees. Each change was instead verified via green component suites, `next build`, and structural review (native controls, AA tokens, reduced-motion fallbacks).
-  - **Substantially closed on 2026-08-12** by the frontend-polish pass
-    (`docs/plans/frontend-polish-ui.md`). The Google-Fonts blocker was worked
-    around by temporarily shimming `lib/fonts.ts` to system families — enough to
-    render the app and measure it, reverted before commit. Measured live on
-    `/storylines/new` and the story player at **320 / 375 / 768 / 1024**: no
-    horizontal page overflow and `documentElement.scrollHeight ==
-    clientHeight` at every width (the `sr-only` root-scroll symptom is absent).
-    Touch emulation (`pointer: coarse`) found **9 controls under 44px** that no
-    per-component sweep had caught; a zero-specificity floor in `motion.css`
-    fixes all 9, verified 9 → 0 in the browser. The sticky-bottom transcript was
-    confirmed live: scrolling up raises the pill and the position **holds** when
-    content grows.
-  - **Still not verified live:** screenshots (the browser pane does not
-    composite in this environment, so nothing visual was eyeballed), and
-    `:focus-visible` rendering (`document.hasFocus()` is false in the pane, so
-    the selector never matches). Both were verified structurally instead.
-  - *Partially closed on 2026-08-11 for the composer.* The scene-direction box was measured
-    live (a throwaway route on a second dev server, so no backend/CORS was involved) at
-    320/375/768/1024: no horizontal overflow, no root-scroll growth, the panel grows upward
-    with the box capped then scrolling, and tab order reads direction → message → Config →
-    Speaking as → dial → Send. **Focus styling could not be seen rendered** — the browser
-    pane reports `document.hasFocus() === false` and `visibilityState: "hidden"`, so
-    `:focus-visible` never matches and screenshots time out. It was verified by reading the
-    served stylesheet instead (`textarea.composer-input:focus-visible` and
-    `.focus-within\:border-accent:focus-within` both present and correct).
+- **Live in-browser accessibility + responsive pass.** Deferred across a long series of UI
+  changes against a persistent environment constraint. **Substantially closed on 2026-08-12**
+  by the frontend-polish pass, and **closed again, more broadly, on 2026-08-22** by
+  `docs/plans/reach.md` Phase 11 — recorded line by line in
+  **`docs/plans/reach-acceptance.md`** (PASS 19 · PARTIAL 3 · FAIL 0 · DEFERRED 1), measured
+  live at 320/375/768/1024 on the story player, the Library and `/storylines/new`. That pass
+  found and fixed five defects no component suite had caught: no `<main>` landmark anywhere,
+  an `h1 → h3` heading tree, an 18px-wide composer control, 57 beat controls in one tab order,
+  and WCAG 2.1.4 unmet. The Google-Fonts blocker that shaped this entry is gone — the families
+  are self-hosted, so `next build` runs offline and no shim is needed to render the app.
+  - **Still not verified live:** screenshots (the browser pane does not composite frames — a
+    bare CSS transition sits at `currentTime: 0` indefinitely, verified directly), and
+    `:focus-visible` rendering (`document.hasFocus()` is false for the pane's own tab, so the
+    selector never matches). Both are verified structurally, against the served stylesheet.
+    Seeing the focus ring rendered needs a real browser window and remains genuinely open.
 - **ComfyUI end-to-end render.** The generate → edit → save → reopen loop has never been verified against a running ComfyUI server.
 - **Graph node/edge click → detail.** Confirmed by unit tests; could not be driven live because synthetic canvas clicks don't reach `react-force-graph-2d`'s internal hit-testing headlessly.
 
 ## Known UI limitations
 
-- Rails are hidden below `lg` (the transcript stays primary); mobile drawers are unbuilt.
-  The live **who-is-speaking** signal is no longer lost with them — `TurnStatusStrip` carries
-  it in the reading column at every width — but per-character stats, presence controls, and
-  the scene-pulse feed are still `lg`-only.
+- ~~Rails are hidden below `lg`; mobile drawers are unbuilt.~~ **Built 2026-08-22.** Below
+  `lg` both rails open as bottom sheets from `SceneRailBar`, directly above the composer, and
+  they mount the *same* `…Content` components as the desktop asides with the *same* prop
+  objects — so per-character stats, presence controls, the turn order, the scene pulse, the
+  scene state and the direction checklist are all reachable at every width. `TurnStatusStrip`
+  still carries the live who-is-speaking signal in the reading column, which no sheet has to
+  be opened to see.
 - **The turn-status strip's `ending` phase depends on the engine reaching its end-of-loop
   trace step.** A turn killed by a mid-stream failure jumps straight from its last beat to
   no strip at all (the client's `.finally` reset), so "the turn is ending" is never shown on
   the error path. That is deliberate — the `role="alert"` stream error says more than a
   wind-down label would — but it does mean the phase is not a guaranteed terminal state.
+- **The Core Web Vitals runner is bespoke, not Lighthouse.** `EXP-2026-08-012` drives
+  `puppeteer-core` against the system Chromium and reads the `web-vitals` package from a
+  flag-gated probe. That gives CLS/INP/LCP under a controlled 4× CPU throttle with no network
+  dependency, but it is **not** a Lighthouse score and carries none of Lighthouse's other
+  audits. Whether to adopt Lighthouse (and accept a heavier devDependency plus a networked
+  environment) is open.
+- **Story-player INP is 440 ms against a 200 ms threshold**, the one metric that missed in
+  `EXP-2026-08-012`. The run records which controls it clicked, and the sequence includes the
+  chat⇄graph view switch, which mounts a force-directed canvas — so one interaction very
+  likely dominates the number. That is a lead, not a conclusion: `web-vitals` reports the
+  worst interaction without attributing it, and isolating INP per control is a separate
+  experiment that has not been run.
 - **39 controls are under WCAG 2.5.8's 24×24 floor with a *mouse*.** Measured 2026-08-22 on
   `/storylines/new` at 1280 (`docs/plans/reach-acceptance.md`): `TriagePanel`'s Draft/RAG/Extract
   chips (20px tall), the per-doc category selects (23px), and five text-buttons across the

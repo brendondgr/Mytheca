@@ -12,13 +12,16 @@ which one won.
 
 ## Recommended order
 
-| # | Plan | Phases | Why here |
-| --- | --- | --- | --- |
-| 1 | [`control-over-the-record.md`](control-over-the-record.md) | 11 | Owns the `turn_engine.py` split and the history-mutation primitives every later plan builds on |
-| 2 | [`steering-the-scene.md`](steering-the-scene.md) | 11 | Consumes the split, the persisted `guidance` and the relaxed turn validation |
-| 3 | [`making-it-legible.md`](making-it-legible.md) | 12 | Compaction must invalidate against a rewind seam that already exists |
-| 4 | [`depth-for-players.md`](depth-for-players.md) | 12 | Builds presets and pins over a config menu whose contents are settled by #3 |
-| 5 | [`reach.md`](reach.md) | 12 | Mobile/a11y parity for everything the first four added; written to land last |
+**Status: all five plans complete (58/58 phases), 2026-08-22.** Each plan carries its own
+completion record; `docs/plans/reach-acceptance.md` is the composition audit across all of them.
+
+| # | Plan | Phases | Status | Why here |
+| --- | --- | --- | --- | --- |
+| 1 | [`control-over-the-record.md`](control-over-the-record.md) | 11 | ✅ 11/11 | Owns the `turn_engine.py` split and the history-mutation primitives every later plan builds on |
+| 2 | [`steering-the-scene.md`](steering-the-scene.md) | 11 | ✅ 11/11 | Consumes the split, the persisted `guidance` and the relaxed turn validation |
+| 3 | [`making-it-legible.md`](making-it-legible.md) | 12 | ✅ 12/12 | Compaction must invalidate against a rewind seam that already exists |
+| 4 | [`depth-for-players.md`](depth-for-players.md) | 12 | ✅ 12/12 | Builds presets and pins over a config menu whose contents are settled by #3 |
+| 5 | [`reach.md`](reach.md) | 12 | ✅ 12/12 | Mobile/a11y parity for everything the first four added; written to land last |
 
 ---
 
