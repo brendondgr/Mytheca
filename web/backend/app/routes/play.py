@@ -104,7 +104,9 @@ def play_moment(scenario_id: str, data: MomentRequest, db: Session = Depends(get
     heartbeat = {"prompt": "Still reading the scene…", "render": "Still painting…"}
 
     def _tracked() -> Iterator:
-        for frame in scene_moment.generate_moment(db, ctx):
+        for frame in scene_moment.generate_moment(
+            db, ctx, prompt=data.prompt, negative=data.negative
+        ):
             if isinstance(frame, MomentStageFrame):
                 current["stage"] = frame.stage
             yield frame

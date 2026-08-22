@@ -285,6 +285,13 @@ export interface MomentRequestBody {
   sessionId: string;
   /** How many recent beats the picture looks back over (clamped 2–40 server-side). */
   beats?: number;
+  /**
+   * The player's own wording, from the enlarged view's editable prompt. When present the
+   * server skips the prompt agent entirely — they have said what they want painted. Still
+   * name-stripped server-side, so the "appearance, never names" guarantee is not bypassed.
+   */
+  prompt?: string;
+  negative?: string;
 }
 
 // ---- persisted session review (GET /play/{scenarioId}/sessions[/{id}]) ----

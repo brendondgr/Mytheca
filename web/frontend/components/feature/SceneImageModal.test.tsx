@@ -54,3 +54,76 @@ describe("SceneImageModal", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("SceneImageModal — paint again", () => {
+  const image = {
+    url: "/media/moments/x.webp",
+    caption: "Two figures at a lamplit table.",
+    prompt: "a lamplit table, rain on the window",
+  };
+
+  async function openPrompt(props: Record<string, unknown> = {}) {
+    const user = userEvent.setup();
+    render(<SceneImageModal image={image} onClose={() => {}} {...props} />);
+    await user.click(screen.getByRole("button", { name: /show the prompt/i }));
+    return user;
+  }
+
+  it("keeps the prompt read-only when repainting is not offered", async () => {
+    await openPrompt();
+    expect(screen.queryByRole("textbox", { name: /image prompt/i })).not.toBeInTheDocument();
+    expect(screen.getByText("a lamplit table, rain on the window")).toBeInTheDocument();
+  });
+
+  it("makes it editable when it is", async () => {
+    // The prompt already explained *why* the picture looks as it does; making it writable
+    // turns that into how to get the picture you wanted.
+    await openPrompt({ onRepaint: () => {} });
+    expect(screen.getByRole("textbox", { name: /image prompt/i })).toHaveValue(
+      "a lamplit table, rain on the window",
+    );
+  });
+
+  it("paints again with the edited wording", async () => {
+    const onRepaint = vi.fn();
+    const user = await openPrompt({ onRepaint });
+    const box = screen.getByRole("textbox", { name: /image prompt/i });
+    await user.clear(box);
+    await user.type(box, "the same table, but at dawn");
+    await user.click(screen.getByRole("button", { name: /paint again/i }));
+    expect(onRepaint).toHaveBeenCalledWith("the same table, but at dawn");
+  });
+
+  it("refuses to paint an empty prompt", async () => {
+    const onRepaint = vi.fn();
+    const user = await openPrompt({ onRepaint });
+    await user.clear(screen.getByRole("textbox", { name: /image prompt/i }));
+    expect(screen.getByRole("button", { name: /paint again/i })).toBeDisabled();
+    expect(onRepaint).not.toHaveBeenCalled();
+  });
+
+  it("blocks a second paint while one is in flight, and says so", async () => {
+    await openPrompt({ onRepaint: () => {}, busy: true });
+    expect(screen.getByRole("button", { name: /paint again/i })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent(/painting the moment/i);
+  });
+
+  it("shows the right prompt after opening a different picture", async () => {
+    // Seeded from the image and keyed on it — otherwise the second picture opens showing the
+    // first one's prompt, and the player edits the wrong thing.
+    const { rerender } = render(<SceneImageModal image={image} onClose={() => {}} onRepaint={() => {}} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /show the prompt/i }));
+    rerender(
+      <SceneImageModal
+        image={{ ...image, prompt: "a different scene entirely" }}
+        onClose={() => {}}
+        onRepaint={() => {}}
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: /image prompt/i })).toHaveValue(
+      "a different scene entirely",
+    );
+  });
+});
+

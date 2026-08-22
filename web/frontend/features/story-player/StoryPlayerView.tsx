@@ -721,7 +721,21 @@ export function StoryPlayerView({
 
       <SceneLoader scenario={scenario} storylineName={storylineName} visible={scene.loading} />
       <CharacterProfileModal character={modalChar} onClose={() => setModalId(null)} />
-      <SceneImageModal image={lightbox} onClose={() => setLightbox(null)} />
+      <SceneImageModal
+        image={lightbox}
+        onClose={() => setLightbox(null)}
+        // Additive only: this paints a NEW beat from the player's wording. Removing or
+        // replacing a picture is a different, destructive path and is not wired here.
+        onRepaint={
+          scene.sessionId
+            ? (prompt) => {
+                scene.createImage(prompt);
+                setLightbox(null);
+              }
+            : undefined
+        }
+        busy={scene.creatingImage}
+      />
     </div>
   );
 }

@@ -155,3 +155,20 @@ The tab configures and verifies the connection; it does **not** spend GPU time:
 Config persists in the global `app_settings` row (`comfy` namespace), alongside
 the LLM and library namespaces. Endpoints are documented in
 [`docs/api-contract.md`](api-contract.md) (Options group).
+
+## The player can write the image prompt
+
+The in-play scene image (`services/scene_moment.py`) normally has its prompt written by
+`agents/moment_agent.py` from the scene as it stands. The enlarged view's prompt is now
+**editable**, and `POST /play/{scenarioId}/moment/stream` accepts `prompt` / `negative`: when
+`prompt` is present the agent call is **skipped entirely** — the player has already said what
+they want painted, and asking a model to re-derive it would both cost a call and override them.
+A blank value falls back to the agent.
+
+The player's text is still passed through `moment_agent.strip_names`. That guarantee — an image
+prompt describes people by **appearance**, never by name — is the subject of `EXP-2026-08-002`,
+and a hand-written prompt is precisely the hole through which it would quietly leak back. A
+test asserts that "Mei stands at the window" reaches ComfyUI without "Mei" in it.
+
+Painting again is **additive**: it produces a new `scene_image` beat. Removing or replacing an
+existing picture is a separate, destructive path and is not built (see `docs/checklist.md`).

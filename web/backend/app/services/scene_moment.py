@@ -226,23 +226,44 @@ def generate_moment(
     *,
     width: int | None = None,
     height: int | None = None,
+    prompt: str | None = None,
+    negative: str | None = None,
 ) -> Iterator[MomentStageFrame | StoryEvent]:
     """Write the prompt, render it, persist the beat — yielding a frame per stage.
 
     Yields a ``MomentStageFrame`` as each stage opens and finally the persisted
     ``scene_image`` event. A failure raises :class:`APIError`, which the route turns
     into the terminal in-band error frame.
+
+    ``prompt`` is the player's own wording, from the enlarged view's editable prompt. When it
+    is supplied the ``moment_agent`` call is **skipped entirely** — they have already said
+    what they want painted, and asking a model to re-derive it would both cost a call and
+    override them.
+
+    It is still passed through :func:`moment_agent.strip_names`. That guarantee — no character
+    NAMES in an image prompt, only appearance — is the subject of ``EXP-2026-08-002``, and a
+    hand-written prompt is exactly the hole through which it would quietly leak back.
     """
     yield MomentStageFrame(stage="prompt", message="Reading the scene…")
 
-    prompts: MomentPromptResponse = moment_agent.write_moment_prompt(
-        db,
-        beats=ctx.beats,
-        cast=ctx.cast,
-        world=ctx.world,
-        place=ctx.place,
-        conn=ctx.conn,
-    )
+    written = (prompt or "").strip()
+    if written:
+        prompts = MomentPromptResponse(
+            positive=moment_agent.strip_names(written, ctx.cast),
+            negative=(negative or "").strip(),
+            # The caption is the image's alt text and MAY use names; the player's own prompt
+            # is the most accurate description of what they asked for, un-stripped.
+            caption=written,
+        )
+    else:
+        prompts = moment_agent.write_moment_prompt(
+            db,
+            beats=ctx.beats,
+            cast=ctx.cast,
+            world=ctx.world,
+            place=ctx.place,
+            conn=ctx.conn,
+        )
 
     yield MomentStageFrame(
         stage="render",

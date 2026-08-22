@@ -571,13 +571,25 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   const momentStream = useEventStream<MomentStreamFrame>(onMomentFrame);
   const creatingImage = momentStream.status === "streaming";
 
-  const createImage = useCallback(() => {
+  const createImage = useCallback((prompt?: string, negative?: string) => {
     const sid = sessionRef.current;
     if (!sid || creatingImage) return; // nothing to depict yet / already painting
     setImageError(null);
     setImageStage("prompt");
     void momentStream
-      .run((signal) => postSceneMoment(scenario.id, { sessionId: sid }, signal))
+      .run((signal) =>
+        postSceneMoment(
+          scenario.id,
+          {
+            sessionId: sid,
+            // Present only when the player wrote the prompt themselves — the backend skips
+            // the prompt agent entirely in that case rather than overriding their wording.
+            ...(prompt?.trim() ? { prompt: prompt.trim() } : {}),
+            ...(negative?.trim() ? { negative: negative.trim() } : {}),
+          },
+          signal,
+        ),
+      )
       .catch((err: unknown) =>
         setImageError(
           err instanceof Error && err.message ? err.message : "The image could not be generated.",

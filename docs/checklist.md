@@ -332,14 +332,16 @@ Verified against the code on 2026-08-04.
   bullet's removal both belong to `docs/plans/reach.md` Phase 4** (the header overflow menu); do
   not close it from another plan. Everything fits at 375+, and the transcript's own beat controls
   meet the 44px touch floor at 320 (verified in the same pass).
-- **Scene images still cannot be re-rolled, edited or deleted from the transcript.** The beat
-  machinery around them landed — every prose beat now has re-roll, edit, branch and rewind, and
-  the take/`activeTake` fields exist on `scene_image` — but the image-specific half did **not**:
-  `scene_moment.regenerate_moment`, `DELETE …/beats/{id}` for an image, and the per-image prompt
-  edit were cut from `docs/plans/control-over-the-record.md` Phase 9 to keep it to the prose seam.
-  An unwanted picture still stays in the beat log. There is also still no way to ask for a
-  specific subject — the prompt is written from the scene as it stands.
-  Owned by `docs/plans/making-it-legible.md` Phase 11.
+- **An unwanted scene image cannot be removed or replaced.** ~~Nor asked for by subject~~ —
+  **the additive half shipped 2026-08-22** (`making-it-legible.md` Phase 11): the enlarged
+  view's prompt is editable and *Paint again with this prompt* produces a **new** beat from
+  the player's own wording, with names still stripped server-side. What remains is the
+  **destructive** half: `DELETE …/beats/{id}` for an image and an in-place replace. Both were
+  cut from `control-over-the-record.md` Phase 9 to keep it to the prose seam, and Phase 11
+  deliberately did not build them — a second event-mutation path beside the one that plan
+  owns is the wrong place to add one. An unwanted picture still stays in the beat log.
+  (Note: `making-it-legible.md` Phase 11 was written expecting this entry to be gone by then.
+  It was not; the prose-beat machinery landed and the image half did not.)
 - **A scene image is not context.** It is persisted as a `scene_image` event, but nothing
   feeds it back into the turn loop; characters have no idea a picture was taken.
 

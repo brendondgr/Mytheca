@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { TextArea } from "@/components/ui/TextArea";
 import { mediaUrl } from "@/lib/api";
 import type { SceneImage } from "@/features/story-player/scene-data";
 
@@ -19,11 +20,29 @@ import type { SceneImage } from "@/features/story-player/scene-data";
 export function SceneImageModal({
   image,
   onClose,
+  onRepaint,
+  busy = false,
 }: {
   image: SceneImage | null;
   onClose: () => void;
+  /**
+   * Paint the moment again from the player's own wording, as a **new** beat. Omit to keep
+   * the prompt read-only. Removing or replacing a picture is a different feature and a
+   * different (destructive) code path; nothing here deletes anything.
+   */
+  onRepaint?: (prompt: string) => void;
+  /** A moment stream is already in flight — a second would race it. */
+  busy?: boolean;
 }) {
   const [showPrompt, setShowPrompt] = useState(false);
+  // Seeded from the image and keyed on it, so opening a different picture does not show the
+  // previous one's prompt.
+  const [draft, setDraft] = useState(image?.prompt ?? "");
+  const [seenPrompt, setSeenPrompt] = useState(image?.prompt ?? "");
+  if (image && image.prompt !== seenPrompt) {
+    setSeenPrompt(image.prompt);
+    setDraft(image.prompt);
+  }
   if (!image) return null;
   const caption = image.caption || "A picture of this moment in the scene.";
   return (
@@ -61,12 +80,45 @@ export function SceneImageModal({
             </button>
             {showPrompt ? (
               <div className="mt-[8px] rounded-[4px] border border-cardbd bg-field p-[10px_12px]">
-                <Eyebrow size={8} tracking="0.14em" className="mb-[5px] block">
-                  Image prompt
-                </Eyebrow>
-                <p className="font-body text-[12.5px] leading-[1.5] text-ink-soft">
-                  {image.prompt}
-                </p>
+                {onRepaint ? null : (
+                  <Eyebrow size={8} tracking="0.14em" className="mb-[5px] block">
+                    Image prompt
+                  </Eyebrow>
+                )}
+                {onRepaint ? (
+                  <>
+                    {/* Editable, not read-only: the prompt already explained *why* the
+                        picture looks as it does — making it writable turns that into how to
+                        get the picture you wanted. Purely additive: painting again produces
+                        a NEW beat and removes nothing. */}
+                    <TextArea
+                      label="Image prompt"
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      rows={4}
+                      disabled={busy}
+                    />
+                    <div className="mt-[8px] flex items-center justify-between gap-[8px]">
+                      <span
+                        role="status"
+                        className="font-mono text-[9px] tracking-[0.08em] text-mute2 uppercase"
+                      >
+                        {busy ? "Painting the moment…" : ""}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        onClick={() => onRepaint(draft)}
+                        disabled={busy || !draft.trim()}
+                      >
+                        Paint again with this prompt
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="font-body text-[12.5px] leading-[1.5] text-ink-soft">
+                    {image.prompt}
+                  </p>
+                )}
               </div>
             ) : null}
           </div>

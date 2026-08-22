@@ -444,6 +444,13 @@ class MomentRequest(CamelModel):
 
     session_id: str
     beats: int | None = None
+    #: The player's own wording, from the enlarged view's editable prompt. When present the
+    #: ``moment_agent`` call is skipped entirely — they have said what they want painted, and
+    #: re-deriving it would both cost a call and override them. Still passed through
+    #: ``moment_agent.strip_names``, so the no-character-names guarantee is not bypassed by
+    #: hand-written input.
+    prompt: str | None = None
+    negative: str | None = None
 
 
 class MomentStageFrame(CamelModel):
