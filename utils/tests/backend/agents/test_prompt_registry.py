@@ -21,6 +21,7 @@ EXPECTED_KEYS = {
     "director.branch",
     "director.pov_branch",
     "planner.system",
+    "ghostwriter.line",
 }
 
 

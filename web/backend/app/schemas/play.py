@@ -223,6 +223,20 @@ class TakeSelectRequest(CamelModel):
     take: int
 
 
+class GhostwriteRequest(CamelModel):
+    """Draft the player's own line from a note about what they want it to do.
+
+    ``intent`` is the note ("tell him I don't believe a word of it, but stay polite"), not
+    text to paraphrase. ``mode`` picks whose voice: the POV character's, or the narrator's.
+    Nothing is persisted — the draft lands in the composer and the player decides.
+    """
+
+    session_id: str
+    intent: str
+    pov_character_id: str | None = None
+    mode: Literal["character", "narrator"] = "character"
+
+
 class SessionListResponse(CamelModel):
     sessions: list[SessionSummary]
 

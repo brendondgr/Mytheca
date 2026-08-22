@@ -250,6 +250,19 @@ export interface MomentStageFrame {
   caption: string;
 }
 
+/**
+ * One increment of a ghostwritten line. Incremental like every other delta here — the client
+ * appends. Never persisted: the draft exists only in the composer until the player sends it.
+ */
+export interface GhostwriteFrame {
+  type: "ghostwrite";
+  text: string;
+  done: boolean;
+}
+
+/** One line of the ghostwrite stream. */
+export type GhostwriteStreamFrame = GhostwriteFrame | TurnErrorFrame;
+
 /** One line of the moment stream — the two stages, the finished image, or a failure. */
 export type MomentStreamFrame = MomentStageFrame | SceneImageEvent | TurnErrorFrame;
 

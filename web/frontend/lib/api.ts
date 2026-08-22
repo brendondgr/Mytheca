@@ -8,6 +8,7 @@
 import type {
   MomentRequestBody,
   MomentStreamFrame,
+  GhostwriteStreamFrame,
   PersistedEvent,
   PresenceStatus,
   SessionHistory,
@@ -440,6 +441,23 @@ export const selectBeatTake = (
     `/play/${scenarioId}/sessions/${sessionId}/beats/${eventId}/take`,
     { take },
   );
+
+/**
+ * Draft the player's own line from a note about what they want it to do, streamed as NDJSON.
+ * Persists nothing — the draft becomes part of the story only if the player sends it.
+ */
+export function postGhostwrite(
+  scenarioId: string,
+  body: {
+    sessionId: string;
+    intent: string;
+    povCharacterId?: string | null;
+    mode?: "character" | "narrator";
+  },
+  signal?: AbortSignal,
+): AsyncGenerator<GhostwriteStreamFrame> {
+  return postNdjson<GhostwriteStreamFrame>(`/play/${scenarioId}/ghostwrite/stream`, body, signal);
+}
 
 /** Delete a play-through and its history (events + traces cascade server-side). */
 export const deletePlaySession = (scenarioId: string, sessionId: string) =>

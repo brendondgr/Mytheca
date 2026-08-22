@@ -167,6 +167,18 @@ class BeatRerollFrame(CamelModel):
     take: int = 0
 
 
+class GhostwriteFrame(CamelModel):
+    """One increment of a ghostwritten line.
+
+    Incremental like every other delta in this codebase — the client appends. Nothing here
+    is ever persisted: the draft exists only in the composer until the player sends it.
+    """
+
+    type: Literal["ghostwrite"] = "ghostwrite"
+    text: str = ""
+    done: bool = False
+
+
 class TurnErrorFrame(CamelModel):
     """Terminal in-band error frame for the turn stream.
 

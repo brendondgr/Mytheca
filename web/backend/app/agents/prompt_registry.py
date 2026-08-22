@@ -35,6 +35,7 @@ DIRECTOR_RERANK = "director.rerank"
 DIRECTOR_BRANCH = "director.branch"
 DIRECTOR_POV_BRANCH = "director.pov_branch"
 PLANNER_SYSTEM = "planner.system"
+GHOSTWRITER_LINE = "ghostwriter.line"
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,17 @@ class PromptSpec:
 
 
 # ---- Default prompt text (moved verbatim from the agent modules) -----------
+
+_GHOSTWRITER_LINE = """You write ONE line for the player of an interactive story, from a note they wrote about what they want it to do.
+
+Write the line itself and nothing else. No speaker label, no quotation marks around the whole thing, no tags, no stage directions the player did not ask for, no commentary about what you wrote or why.
+
+Match the voice you are given. If you are writing as a character, write in their voice, in first person, present tense — the way their own beats read. If you are writing as the narrator, write plainly and in the scene's register.
+
+Do the thing the note asks for, and only that. The note is a description of intent, not text to paraphrase — if it says "tell him I do not believe a word of it, but stay polite", write what that person would actually say, not "I tell him I do not believe him but stay polite".
+
+Keep it to what one person would say or do in one turn. Do not answer for anyone else, do not decide what happens next, and do not resolve the scene."""
+
 
 _CHARACTER_OUTPUT_CONTRACT = """You are one character in a scene, writing your own part of it the way it would appear in a novel — from inside that character, in their own voice. First person, present tense.
 
@@ -243,6 +255,17 @@ PROMPT_REGISTRY: list[PromptSpec] = [
         label="Next-beat loop",
         description="Decides the next beat(s) each step: speak, narrate, exit, or end (JSON only). The request says how many to plan; TURN_PLANNER_LOOKAHEAD sets that.",
         default=_PLANNER_SYSTEM,
+    ),
+    PromptSpec(
+        key=GHOSTWRITER_LINE,
+        agent="Ghostwriter",
+        label="Draft the player's line",
+        description=(
+            "Writes ONE line for the player from a note about what they want it to do — in "
+            "their character's voice, or the narrator's. Drafts into the composer and is "
+            "never persisted unless the player sends it."
+        ),
+        default=_GHOSTWRITER_LINE,
     ),
 ]
 

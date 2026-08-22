@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { SceneConfigMenu } from "@/components/feature/SceneConfigMenu";
 import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
+import { GhostwriteButton } from "@/components/feature/GhostwriteButton";
 import { ContextUsageDial } from "@/components/feature/ContextUsageDial";
 import { MentionMenu } from "@/components/feature/MentionMenu";
 import {
@@ -65,6 +66,11 @@ export function Composer({
   usedTokens = 0,
   maxContextTokens = null,
   usedTokensExact = false,
+  // Ghostwriter (rendered when a handler is supplied, so existing renders are unchanged).
+  onGhostwrite,
+  onUndoGhostwrite,
+  ghostwriting = false,
+  canUndoGhostwrite = false,
   // `@` file tagging (omit to disable the feature entirely).
   mentionOptions = [],
 }: {
@@ -114,6 +120,14 @@ export function Composer({
    * the parent uses to build the request — so what the chips show is exactly what is sent,
    * and hand-deleting an `@name` untags it with no state to reconcile.
    */
+  /**
+   * Turn the note in the message box into the line itself. Omit to hide the control — the
+   * box is the input, so the button is disabled until there is something in it.
+   */
+  onGhostwrite?: () => void;
+  onUndoGhostwrite?: () => void;
+  ghostwriting?: boolean;
+  canUndoGhostwrite?: boolean;
   mentionOptions?: MentionOption[];
 }) {
   const internalRef = useRef<HTMLTextAreaElement>(null);
@@ -412,6 +426,15 @@ export function Composer({
           ) : null}
           {onPovChange ? (
             <PovSelect pov={pov} onPovChange={onPovChange} options={povOptions} />
+          ) : null}
+          {onGhostwrite ? (
+            <GhostwriteButton
+              onGhostwrite={onGhostwrite}
+              onUndo={onUndoGhostwrite ?? (() => {})}
+              running={ghostwriting}
+              canGhostwrite={Boolean(value.trim()) && !sendDisabled}
+              canUndo={canUndoGhostwrite}
+            />
           ) : null}
           <div className="min-w-0 flex-1" />
 

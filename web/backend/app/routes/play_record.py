@@ -25,10 +25,11 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.errors import APIError
-from app.events.stream import TurnErrorFrame, to_ndjson_line
+from app.events.stream import GhostwriteFrame, TurnErrorFrame, to_ndjson_line
 from app.models import Event
 from app.schemas.play import (
     BeatEditRequest,
+    GhostwriteRequest,
     RerollRequest,
     TakeSelectRequest,
     BranchRequest,
@@ -40,7 +41,14 @@ from app.schemas.play import (
     SessionRenameRequest,
     SessionSummary,
 )
-from app.services import beat_rerun, crud, events_store, session_state
+from app.agents import ghostwriter_agent
+from app.services import (
+    assembler,
+    beat_rerun,
+    crud,
+    events_store,
+    session_state,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -298,3 +306,51 @@ def select_take(
     the player is reading."""
     events_store.get_session(db, scenario_id, session_id)
     return beat_rerun.set_active_take(db, session_id, event_id, data.take)
+
+
+@router.post("/{scenario_id}/ghostwrite/stream")
+def ghostwrite(
+    scenario_id: str,
+    data: GhostwriteRequest,
+    db: Session = Depends(get_db),
+):
+    """Draft the player's own line from their note about what they want it to do.
+
+    **Nothing is persisted** — no event row, no trace, no buffer push. That is what makes it
+    safe to offer: a draft the player rejects leaves no trace anywhere, because it never
+    entered the record. It becomes part of the story only if they send it, through the
+    ordinary turn path, exactly as if they had typed it.
+    """
+    scenario = crud.get_scenario(db, scenario_id)
+    events_store.get_session(db, scenario_id, data.session_id)
+    if not data.intent.strip():
+        raise APIError(400, "bad_request", "Say what you want the line to do first.")
+
+    ctx = assembler.assemble_context(db, scenario, data.session_id, None, player_text="")
+
+    def _lines() -> Iterator[str]:
+        try:
+            stream = ghostwriter_agent.stream_line(
+                db,
+                ctx,
+                intent=data.intent,
+                pov_id=data.pov_character_id,
+                mode=data.mode,
+            )
+            while True:
+                try:
+                    delta = next(stream)
+                except StopIteration:
+                    break
+                if delta.answer:
+                    yield to_ndjson_line(GhostwriteFrame(text=delta.answer))
+            yield to_ndjson_line(GhostwriteFrame(text="", done=True))
+        except APIError as exc:
+            yield to_ndjson_line(TurnErrorFrame(message=exc.message))
+        except Exception:
+            logger.exception("Ghostwrite failed (scenario=%s)", scenario_id)
+            yield to_ndjson_line(TurnErrorFrame(message="That line could not be drafted."))
+
+    return StreamingResponse(
+        _lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS
+    )

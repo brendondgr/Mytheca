@@ -391,6 +391,10 @@ export function StoryPlayerView({
             usedTokens={scene.usedTokens}
             maxContextTokens={scene.maxContextTokens}
             usedTokensExact={scene.usedTokensExact}
+            onGhostwrite={scene.ghostwrite}
+            onUndoGhostwrite={scene.undoGhostwrite}
+            ghostwriting={scene.ghostwriting}
+            canUndoGhostwrite={scene.canUndoGhostwrite}
           />
         </div>
 

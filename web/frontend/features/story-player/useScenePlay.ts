@@ -6,6 +6,7 @@ import {
   getCharacterStats,
   getLlmContextWindow,
   getScenarioRelationships,
+  postGhostwrite,
   postSceneMoment,
   postTurn,
   rerollBeat as apiRerollBeat,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/api";
 import { estimateUsedTokens } from "@/lib/contextBudget";
 import type {
+  GhostwriteStreamFrame,
   MomentStreamFrame,
   PresenceStatus,
   TurnStreamFrame,
@@ -574,6 +576,57 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     [sending, scenario.id, notify],
   );
 
+  // ---- Ghostwriter ---------------------------------------------------------
+  // Its own stream, independent of the turn stream (like the moment stream): a draft is not
+  // a turn, and running it through the turn machinery would give it a place in the record
+  // it must not have until the player actually sends.
+  /** What the player wrote before a draft replaced it, so Undo can put it back. */
+  const preDraftRef = useRef<string | null>(null);
+  const [canUndoGhostwrite, setCanUndoGhostwrite] = useState(false);
+  const onGhostwriteFrame = useCallback((frame: GhostwriteStreamFrame) => {
+    if (frame.type === "error") {
+      setStreamError(frame.message);
+      return;
+    }
+    if (frame.text) setComposer((c) => c + frame.text);
+  }, []);
+  const ghostStream = useEventStream<GhostwriteStreamFrame>(onGhostwriteFrame);
+  const ghostwriting = ghostStream.status === "streaming";
+
+  /**
+   * Turn the note in the composer into the line itself.
+   *
+   * The note is consumed: the box is cleared and the draft streams into it, so the player
+   * watches their intent become a sentence in the place they will edit it. Undo restores
+   * the note verbatim.
+   */
+  const ghostwrite = useCallback(() => {
+    const sid = sessionRef.current;
+    const intent = composer.trim();
+    if (!sid || !intent || ghostwriting || sending) return;
+    preDraftRef.current = composer;
+    setCanUndoGhostwrite(true);
+    setComposer("");
+    setStreamError(null);
+    void ghostStream
+      .run((signal) =>
+        postGhostwrite(
+          scenario.id,
+          { sessionId: sid, intent, povCharacterId: pov, mode: pov ? "character" : "narrator" },
+          signal,
+        ),
+      )
+      .catch(() => setStreamError((e) => e ?? "That line could not be drafted."));
+  }, [composer, ghostwriting, sending, ghostStream, scenario.id, pov]);
+
+  /** Put the player's own note back. */
+  const undoGhostwrite = useCallback(() => {
+    if (preDraftRef.current === null) return;
+    setComposer(preDraftRef.current);
+    preDraftRef.current = null;
+    setCanUndoGhostwrite(false);
+  }, []);
+
   const submit = useCallback(
     (text: string, direction = "", taggedDocIds: string[] = []) => {
       const t = text.trim();
@@ -720,6 +773,10 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     sessionId,
     send,
     continueTurn,
+    ghostwrite,
+    ghostwriting,
+    undoGhostwrite,
+    canUndoGhostwrite,
     rerollBeat,
     selectTake,
     choose,
