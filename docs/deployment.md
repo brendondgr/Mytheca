@@ -87,6 +87,8 @@ Copy `.env.example` → `.env` (gitignored). This table is the complete set read
 | `TURN_ASYNC_FINALIZE` | `false` | Runs reflection off the request thread; never used on SQLite |
 | `TURN_MAX_BEATS` | `24` | Runaway backstop for the ReAct loop — the effective ceiling is `max(TURN_MAX_BEATS, 2·cast + 6)`, not a feature cap |
 | `TURN_PLANNER_LOOKAHEAD` | `1` | How many beats the planner decides per call. `1` restores the original once-per-beat ReAct loop; higher trades planner calls for prediction, and the engine re-plans whenever a plan goes stale |
+| `DIRECTION_COVERAGE_THRESHOLD` | `0.34` | Fraction of a scene direction requirement's content words a beat's prose must contain to count as **delivered**. Roughly one in three, because good prose paraphrases a requirement's verbs and keeps its concrete nouns ("loses their temper" → "she snaps") — demanding half the words demands that the paraphrase not happen. A requirement is now only *attempted* when it enters a prompt; delivery is confirmed afterwards from what the beat actually wrote. Deliberately generous — the check is lexical and exists to withhold confirmation, so a false negative costs one extra attempt while a false positive silently drops what the player asked for |
+| `DIRECTION_MAX_ATTEMPTS` | `2` | How many beats may attempt one requirement before the turn stops re-owing it. Without a cap, a requirement the lexical check cannot see would consume every remaining beat of the scene's budget |
 | `BUILD_MAX_CONCURRENCY` | `3` | Seeds the user-facing `authoringConcurrency` setting |
 
 ### AI + media

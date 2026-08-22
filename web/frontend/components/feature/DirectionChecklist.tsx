@@ -29,8 +29,25 @@ export function DirectionChecklist({
   const { items, undelivered } = progress;
   if (!items.length) return null;
 
-  const done = items.filter((i) => i.delivered).length;
+  const done = items.filter((i) => i.state === "delivered").length;
+  const tried = items.filter((i) => i.state === "attempted").length;
   const missed = new Set(undelivered);
+
+  /**
+   * Glyph, colour and (for the third state) an explanation.
+   *
+   * Three states, because "the scene may not have reached this" is genuinely different
+   * from both "done" and "not started" — a beat was spent on it and the engine could not
+   * confirm the prose got there. The distinction is carried by the glyph and by words, not
+   * by colour alone.
+   */
+  const mark = (item: (typeof items)[number], undeliverable: boolean) => {
+    if (item.state === "delivered") return { glyph: "✓", tone: "text-success", note: "" };
+    if (undeliverable) return { glyph: "✕", tone: "text-danger", note: "did not fit this scene" };
+    if (item.state === "attempted")
+      return { glyph: "◐", tone: "text-ink-soft", note: "the scene may not have reached this" };
+    return { glyph: "○", tone: "text-mute2", note: "" };
+  };
 
   return (
     <section className={cn("mt-5", className)} aria-labelledby="direction-heading">
@@ -42,12 +59,14 @@ export function DirectionChecklist({
           would talk over the prose the transcript is already reading out. */}
       <p className="sr-only" aria-live="polite">
         {done} of {items.length} delivered
+        {tried ? `, ${tried} attempted but not confirmed` : ""}
       </p>
 
       <ul className="grid gap-[6px]">
         <AnimatePresence initial={false}>
           {items.map((item) => {
-            const undeliverable = missed.has(item.text);
+            const undeliverable = missed.has(item.text) && item.state !== "attempted";
+            const { glyph, tone, note } = mark(item, undeliverable);
             return (
               <motion.li
                 key={item.text}
@@ -58,27 +77,31 @@ export function DirectionChecklist({
               >
                 <span
                   aria-hidden
-                  className={cn(
-                    "mt-[3px] flex-none font-mono text-[10px] leading-none",
-                    item.delivered
-                      ? "text-success"
-                      : undeliverable
-                        ? "text-danger"
-                        : "text-mute2",
-                  )}
+                  className={cn("mt-[3px] flex-none font-mono text-[10px] leading-none", tone)}
                 >
-                  {item.delivered ? "✓" : undeliverable ? "✕" : "○"}
+                  {glyph}
                 </span>
                 <span
                   className={cn(
                     "min-w-0 font-body text-[12.5px] leading-[1.4]",
-                    item.delivered ? "text-ink-soft" : undeliverable ? "text-danger" : "text-mute2",
+                    item.state === "delivered"
+                      ? "text-ink-soft"
+                      : undeliverable
+                        ? "text-danger"
+                        : item.state === "attempted"
+                          ? "text-ink-soft"
+                          : "text-mute2",
                   )}
                 >
                   {item.text}
-                  {undeliverable ? (
-                    <span className="block font-mono text-[9px] tracking-[0.1em] uppercase">
-                      did not fit this scene
+                  {note ? (
+                    <span
+                      className={cn(
+                        "block font-mono text-[9px] tracking-[0.1em] uppercase",
+                        undeliverable ? "" : "text-mute2",
+                      )}
+                    >
+                      {note}
                     </span>
                   ) : null}
                 </span>

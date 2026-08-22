@@ -29,6 +29,23 @@ def _resp(content: str) -> httpx.Response:
     return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
 
 
+def _owed_in(prompt: str) -> str:
+    """The requirement text this beat was handed, read back out of its own prompt.
+
+    The two writers state the owed outcomes differently — the character prompt's tail says
+    "THIS BEAT MUST MAKE THIS TRUE: …", the narrator's lead says "has to make the following
+    actually happen: …" — so both shapes are matched here rather than in each test.
+    """
+    for pattern in (
+        r"THIS BEAT MUST MAKE THIS TRUE: (.+?)\. It is the player's direction",
+        r"has to make the following actually happen: (.+?)\. Narrate it",
+    ):
+        m = re.search(pattern, prompt, re.S)
+        if m:
+            return m.group(1).replace(";", ".")
+    return ""
+
+
 def _route(
     monkeypatch,
     *,
@@ -43,6 +60,13 @@ def _route(
     overrides the intent reply (which is where narrator-mode requirements ride).
     ``decisions`` scripts the planner; ``seen`` (a dict) collects the prompts each agent
     actually received so a test can assert on them.
+
+    **The mocked writers deliver what they are asked to.** Delivery is now confirmed from
+    the prose a beat actually emitted, so a mock that always replies "The room shifts."
+    would fail every requirement no matter how well the engine scheduled it — and these
+    tests are about the *scheduling*, not about the coverage check (which has its own file,
+    ``services/test_direction_check.py``). Both writers therefore echo the owed text out of
+    their own prompt, which is exactly what a cooperating model does.
     """
     plan = iter(decisions)
     log = seen if seen is not None else {}
@@ -77,11 +101,13 @@ def _route(
             return _resp("{}")
         if "narrator of an interactive scene" in system:
             log["narrator"].append(user)
-            return _resp("The room shifts.")
+            return _resp(f"The room shifts. {_owed_in(user)}".strip())
         log["character"].append(user)
         m = re.search(r"You are \[(\d+)\] (\w+)", user)
         num, name = (m.group(1), m.group(2)) if m else ("1", "Someone")
-        return _resp(f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now."')
+        return _resp(
+            f'<speaker:{num}>\n<type:character_dialogue>\n"{name} speaks now. {_owed_in(user)}"'
+        )
 
     monkeypatch.setattr(
         llm, "get_http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
@@ -150,7 +176,15 @@ def test_pov_guidance_is_parsed_and_delivered_in_full(client, storyline_id, monk
     )
     assert log["direction_calls"] == 1  # the guidance was parsed, once
     summary = _traces(events, "direction")[-1]
-    assert summary["data"] == {"delivered": 2, "total": 2, "undelivered": []}
+    # Three counts now, not two: what landed, what a beat tried but could not be confirmed
+    # to have reached, and what the turn never got to at all.
+    assert summary["data"] == {
+        "delivered": 2,
+        "total": 2,
+        "unconfirmed": [],
+        "never": [],
+        "undelivered": [],
+    }
     assert _prose_beats(events) <= 4  # inside the scene's cap
 
 

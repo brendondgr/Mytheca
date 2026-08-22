@@ -254,7 +254,13 @@ export function applyReasoning(
 /** One outcome the turn owes the player, and whether it has landed yet. */
 export interface DirectionItem {
   text: string;
-  delivered: boolean;
+  /**
+   * Three states, not two. `attempted` is the one that used to be missing: a beat did aim
+   * at this and the engine could not confirm the prose reached it. Reporting that as
+   * "delivered" is what made a direction look honoured when it had not been; reporting it
+   * as "not started" would be equally wrong, because the turn *did* spend a beat on it.
+   */
+  state: "outstanding" | "attempted" | "delivered";
   /** Who carried it, once delivered (`null` → the narrator). */
   by?: string | null;
 }
@@ -287,27 +293,47 @@ export function applyDirection(
   if (frame.step === "direction") {
     // The opening step lists everything owed; later steps tick items off.
     const declared = frame.data.requirements as { text?: string }[] | string[] | undefined;
-    if (Array.isArray(declared) && declared.length && !("delivered" in frame.data)) {
+    if (
+      Array.isArray(declared) &&
+      declared.length &&
+      !("delivered" in frame.data) &&
+      !("attempted" in frame.data) &&
+      !("unconfirmed" in frame.data)
+    ) {
       const items = declared
         .map((r) => (typeof r === "string" ? r : (r.text ?? "")))
         .filter(Boolean)
-        .map((text) => ({ text, delivered: false }));
+        .map((text) => ({ text, state: "outstanding" as const }));
       return items.length ? { items, undelivered: [] } : prev;
     }
-    const delivered = frame.data.delivered as string[] | undefined;
-    if (!Array.isArray(delivered) || !delivered.length) return prev;
     const by = (frame.data.characterId as string | null | undefined) ?? null;
-    const done = new Set(delivered);
+    // One frame can carry several of these — a beat that delivered two of three parts
+    // reports the delivered set AND the unconfirmed one. `delivered` wins on collision,
+    // since a state can only move forward within a turn.
+    const list = (key: string) => {
+      const v = frame.data[key];
+      return Array.isArray(v) ? (v as string[]).filter(Boolean) : [];
+    };
+    const nextState = new Map<string, DirectionItem["state"]>();
+    for (const text of list("attempted")) nextState.set(text, "attempted");
+    for (const text of list("unconfirmed")) nextState.set(text, "attempted");
+    for (const text of list("delivered")) nextState.set(text, "delivered");
+    if (!nextState.size) return prev;
+
+    const rank = { outstanding: 0, attempted: 1, delivered: 2 } as const;
     let changed = false;
     const items = prev.items.map((item) => {
-      if (item.delivered || !done.has(item.text)) return item;
+      const next = nextState.get(item.text);
+      if (!next || rank[next] <= rank[item.state]) return item;
       changed = true;
-      return { ...item, delivered: true, by };
+      return { ...item, state: next, ...(next === "delivered" ? { by } : {}) };
     });
     // A requirement the engine rebound (or that the client never saw declared) still
     // counts as progress — append it rather than dropping it on the floor.
     const known = new Set(prev.items.map((i) => i.text));
-    const extra = delivered.filter((t) => !known.has(t)).map((text) => ({ text, delivered: true, by }));
+    const extra = [...nextState.entries()]
+      .filter(([text]) => !known.has(text))
+      .map(([text, state]) => ({ text, state, ...(state === "delivered" ? { by } : {}) }));
     if (!changed && !extra.length) return prev;
     return { ...prev, items: [...items, ...extra] };
   }

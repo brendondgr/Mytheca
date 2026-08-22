@@ -79,14 +79,28 @@ class DirectionRequirement:
     """One outcome the turn owes the player's direction.
 
     ``actor_id`` binds it to a cast member (they must be the one to do it); ``None`` means
-    the narrator owns it. ``satisfied`` is flipped by the turn engine once a beat that
-    carried this requirement into its prompt has been emitted.
+    the narrator owns it.
+
+    **Attempted is not delivered.** ``attempted`` says a beat carried this requirement into
+    its prompt; ``delivered`` says the prose that came back actually reached it. They used
+    to be the same flag, which meant a beat that returned nothing — empty generation,
+    withheld scratchpad leak, failed request — still ticked the requirement off for good.
+    ``attempts`` bounds the retrying, so a requirement the prose keeps paraphrasing cannot
+    eat the whole remaining budget.
     """
 
     id: str
     text: str
     actor_id: str | None = None
-    satisfied: bool = False
+    attempted: bool = False
+    delivered: bool = False
+    attempts: int = 0
+
+    @property
+    def satisfied(self) -> bool:
+        """Delivered. Read-only: the old writable flag conflated the two states, and the
+        whole point of the split is that nothing outside this module may set it directly."""
+        return self.delivered
 
 
 @dataclass
@@ -101,13 +115,35 @@ class SceneDirection:
         """True when there is any direction at all to honor."""
         return bool(self.text.strip() or self.requirements)
 
-    def outstanding(self) -> list[DirectionRequirement]:
-        """The requirements not yet carried into a beat, in the order they were asked for."""
-        return [r for r in self.requirements if not r.satisfied]
+    def outstanding(self, max_attempts: int | None = None) -> list[DirectionRequirement]:
+        """The requirements still owed, in the order they were asked for.
 
-    def for_actor(self, actor_id: str | None) -> list[DirectionRequirement]:
+        "Still owed" means not confirmed delivered **and** not out of attempts. Passing
+        ``max_attempts`` (the engine does, from settings) is what stops a requirement the
+        lexical check keeps failing to see from being re-owed to every remaining beat.
+        """
+        return [
+            r
+            for r in self.requirements
+            if not r.delivered and (max_attempts is None or r.attempts < max_attempts)
+        ]
+
+    def unconfirmed(self, max_attempts: int) -> list[DirectionRequirement]:
+        """Tried, out of attempts, never confirmed.
+
+        Reported separately from "never attempted" because they are a different story to
+        tell the player: the turn did aim beats at these, and the check could not see them
+        land — which is as likely to be the check's crudeness as the scene's failure.
+        """
+        return [
+            r for r in self.requirements if not r.delivered and r.attempts >= max_attempts
+        ]
+
+    def for_actor(
+        self, actor_id: str | None, max_attempts: int | None = None
+    ) -> list[DirectionRequirement]:
         """The outstanding requirements owned by ``actor_id`` (``None`` → the narrator's)."""
-        return [r for r in self.outstanding() if r.actor_id == actor_id]
+        return [r for r in self.outstanding(max_attempts) if r.actor_id == actor_id]
 
     def rebind(self, present_ids: set[str], locked_id: str | None = None) -> None:
         """Re-own requirements the cast can no longer perform (in place).
@@ -123,16 +159,32 @@ class SceneDirection:
             if req.actor_id == locked_id or req.actor_id not in present_ids:
                 req.actor_id = None
 
-    def satisfy(self, requirements: list[DirectionRequirement]) -> None:
-        """Mark ``requirements`` as delivered (they were carried into an emitted beat)."""
+    def attempt(self, requirements: list[DirectionRequirement]) -> None:
+        """A beat is about to carry ``requirements`` into its prompt.
+
+        This is the *only* thing that is known before the beat runs. Delivery is decided
+        afterwards, by :meth:`satisfy`, from the prose that actually came back.
+        """
         for req in requirements:
-            req.satisfied = True
+            req.attempted = True
+            req.attempts += 1
+
+    def satisfy(self, requirements: list[DirectionRequirement]) -> None:
+        """Confirm ``requirements`` delivered — the emitted prose reached them."""
+        for req in requirements:
+            req.delivered = True
 
     def summary(self) -> list[str]:
-        """One short line per requirement, for the diagnostic trace."""
-        return [
-            f"{'✓' if r.satisfied else '•'} {r.text}" for r in self.requirements
-        ]
+        """One short line per requirement, for the diagnostic trace.
+
+        Three states, not two: delivered, attempted-but-unconfirmed, and never reached.
+        """
+        def glyph(r: DirectionRequirement) -> str:
+            if r.delivered:
+                return "\u2713"
+            return "\u25d0" if r.attempted else "\u2022"
+
+        return [f"{glyph(r)} {r.text}" for r in self.requirements]
 
 
 @dataclass

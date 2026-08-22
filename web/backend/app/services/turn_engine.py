@@ -133,35 +133,46 @@ def run_turn(
     # Resolved here (rather than beside the loop) because the opening narration below has to
     # know how much of the direction it must absorb.
     max_turns = max(1, scenario.max_turns)
-    # A direction asking for more than the scene has beats cannot be spread one per beat, so
-    # an opening narration absorbs EVERY narrator-owned line at once rather than letting some
-    # fall off the end of the turn. With room to spare it takes just the first, and the rest
-    # pace out across the loop.
-    open_limit = None if max_turns <= len(direction.requirements) else 1
+    # How many beats may attempt one requirement before the turn stops re-owing it. Read
+    # once: it bounds every `outstanding`/`for_actor` call below, and a requirement that
+    # answered a different cap in two places would flicker in and out of the owed list.
+    attempt_cap = direction_runtime.max_attempts()
+    # How much of the narrator's share the opening beat takes on. This used to be an
+    # all-or-one switch — every narrator-owned requirement at once when the direction was
+    # longer than the scene, otherwise exactly one — which is how the tail of a long
+    # direction went missing in the middle band. `pace` spreads them against the real beat
+    # budget instead: one per beat while there is room, more only when the budget forces it.
+    open_limit = direction_runtime.pace(direction.for_actor(None, attempt_cap), max_turns)
     if outcome:
         yield from tracer.emit(
             "plan", "The narrator plays out your choice", detail=outcome, data={"outcome": outcome}
         )
-        owed = direction.for_actor(None)[:open_limit]
+        owed = direction.for_actor(None, attempt_cap)[:open_limit]
+        yield from direction_runtime.attempted(tracer, ctx, direction, owed)
+        mark = len(turn_beats)
         narrated_open = yield from beat_runner.narrator_interstitial(
             db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
             lead=direction_runtime.direction_lead(direction, owed, base=outcome), long=True,
         )
-        if narrated_open:
-            yield from direction_runtime.delivered(tracer, ctx, direction, owed)
+        yield from direction_runtime.confirm(
+            tracer, ctx, direction, owed, direction_runtime.beat_text_since(turn_beats, mark)
+        )
     elif scene_opening and not intent.directed_actors and not intent.addressed and intent.scope != "all":
         yield from tracer.emit(
             "plan",
             "The narrator opens the scene",
             detail="Scene start — the narrator sets the moment before anyone responds.",
         )
-        owed = direction.for_actor(None)[:open_limit]
+        owed = direction.for_actor(None, attempt_cap)[:open_limit]
+        yield from direction_runtime.attempted(tracer, ctx, direction, owed)
+        mark = len(turn_beats)
         narrated_open = yield from beat_runner.narrator_interstitial(
             db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
             lead=direction_runtime.direction_lead(direction, owed, base="Open the scene."), long=True,
         )
-        if narrated_open:
-            yield from direction_runtime.delivered(tracer, ctx, direction, owed)
+        yield from direction_runtime.confirm(
+            tracer, ctx, direction, owed, direction_runtime.beat_text_since(turn_beats, mark)
+        )
 
     # Puppet beats first: each directed character performs the player's direction in its
     # OWN voice (not a reply to the player's words). The POV character is excluded — the
@@ -185,12 +196,17 @@ def run_turn(
             yield from tracer.emit("relationship", f"{speaker.name}'s ties", detail=note, data={"characterId": speaker.id})
         # A puppeted character performs the direction, so their own requirements ride on the
         # very beat the player asked for rather than waiting for a later one.
-        owed = direction.for_actor(speaker.id)
-        yield from direction_runtime.delivered(tracer, ctx, direction, owed, by=speaker.id)
+        owed = direction.for_actor(speaker.id, attempt_cap)
+        yield from direction_runtime.attempted(tracer, ctx, direction, owed, by=speaker.id)
+        mark = len(turn_beats)
         yield from beat_runner.generate_speaker(
             db, ctx, speaker, emitter, turn_beats, consequences,
             show_reasoning=show_reasoning, directive=intent.directive, relationship_note=note,
             direction=direction, requirements=owed, tracer=tracer,
+        )
+        yield from direction_runtime.confirm(
+            tracer, ctx, direction, owed,
+            direction_runtime.beat_text_since(turn_beats, mark), by=speaker.id,
         )
 
     # ReAct loop (D3): after each beat, re-decide the next one from the transcript so
@@ -243,7 +259,7 @@ def run_turn(
         # Presence can change mid-turn (an exit beat, a vital stat bottoming out), so re-own
         # any requirement whose character just left before scheduling against it.
         direction.rebind({m.id for m in ctx.cast if m.is_present}, locked_id=pov_id)
-        outstanding = direction.outstanding()
+        outstanding = direction.outstanding(attempt_cap)
         remaining = max_turns - scene_beats
         if scene_beats >= max_turns:
             yield from tracer.emit(
@@ -299,7 +315,9 @@ def run_turn(
             if scheduled is None:
                 break
             owed = scheduled.requirements
-            yield from direction_runtime.delivered(tracer, ctx, direction, owed, by=scheduled.actor_id)
+            yield from direction_runtime.attempted(
+                tracer, ctx, direction, owed, by=scheduled.actor_id
+            )
             forced_actor = ctx.cast_by_id(scheduled.actor_id) if scheduled.actor_id else None
             if forced_actor is None:
                 yield from tracer.emit(
@@ -308,12 +326,17 @@ def run_turn(
                     detail=forced_reason,
                     data={"requirements": [r.text for r in owed]},
                 )
+                mark = len(turn_beats)
                 yield from beat_runner.narrator_interstitial(
                     db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
                     lead=direction_runtime.direction_lead(direction, owed),
                     # Several requirements bundled into one closing beat need a paragraph,
                     # not a two-sentence transition, to actually land them all.
                     long=len(owed) > 1,
+                )
+                yield from direction_runtime.confirm(
+                    tracer, ctx, direction, owed,
+                    direction_runtime.beat_text_since(turn_beats, mark),
                 )
             else:
                 yield from tracer.emit(
@@ -325,12 +348,17 @@ def run_turn(
                 note = beat_runner.relationship_note(
                     ctx, forced_actor.id, [m.id for m in ctx.cast if m.id != forced_actor.id]
                 )
+                mark = len(turn_beats)
                 played = yield from beat_runner.beat_or_skip(
                     tracer, forced_actor, tally,
                     db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
                     consequences=consequences,
                     show_reasoning=show_reasoning, relationship_note=note,
                     direction=direction, requirements=owed,
+                )
+                yield from direction_runtime.confirm(
+                    tracer, ctx, direction, owed,
+                    direction_runtime.beat_text_since(turn_beats, mark), by=forced_actor.id,
                 )
                 acted.append(forced_actor.id)
                 spoke += 1 if played else 0
@@ -444,11 +472,17 @@ def run_turn(
             yield from tracer.emit("plan", "The narrator sets the scene", detail=decision.reason)
             # One narrator-owned requirement per narrated beat, so a multi-part direction
             # paces out across the turn instead of arriving as a single summary paragraph.
-            owed = direction.for_actor(None)[:1]
-            yield from direction_runtime.delivered(tracer, ctx, direction, owed)
+            narrator_owed = direction.for_actor(None, attempt_cap)
+            owed = narrator_owed[: direction_runtime.pace(narrator_owed, remaining)]
+            yield from direction_runtime.attempted(tracer, ctx, direction, owed)
+            mark = len(turn_beats)
             yield from beat_runner.narrator_interstitial(
                 db, ctx, turn_beats, emitter, show_reasoning=show_reasoning,
                 lead=direction_runtime.direction_lead(direction, owed) or None,
+            )
+            yield from direction_runtime.confirm(
+                tracer, ctx, direction, owed,
+                direction_runtime.beat_text_since(turn_beats, mark),
             )
             beats += 1
             scene_beats += 1
@@ -513,8 +547,10 @@ def run_turn(
             yield from tracer.emit("relationship", f"{actor.name}'s ties", detail=note, data={"characterId": actor.id})
         # One of this actor's own requirements rides on the beat the planner chose for them
         # (the rest, if any, wait for a later beat or the forced schedule above).
-        owed = direction.for_actor(actor.id)[:1]
-        yield from direction_runtime.delivered(tracer, ctx, direction, owed, by=actor.id)
+        actor_owed = direction.for_actor(actor.id, attempt_cap)
+        owed = actor_owed[: direction_runtime.pace(actor_owed, remaining)]
+        yield from direction_runtime.attempted(tracer, ctx, direction, owed, by=actor.id)
+        mark = len(turn_beats)
         played = yield from beat_runner.beat_or_skip(
             tracer, actor, tally,
             db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
@@ -522,6 +558,10 @@ def run_turn(
             show_reasoning=show_reasoning, relationship_note=note,
             register=decision.register, stakes=decision.stakes,
             direction=direction, requirements=owed,
+        )
+        yield from direction_runtime.confirm(
+            tracer, ctx, direction, owed,
+            direction_runtime.beat_text_since(turn_beats, mark), by=actor.id,
         )
         acted.append(actor.id)
         beats += 1
@@ -596,19 +636,36 @@ def run_turn(
             data={"end": True},
         )
     if direction.active:
-        undelivered = direction.outstanding()
+        # Three counts, not two. "Undelivered" used to mean both "no beat ever tried this"
+        # and "a beat tried and the prose did not visibly reach it" — and in practice it
+        # meant neither, because a requirement was ticked off the moment it entered a
+        # prompt. Separating them is the honest report: what landed, what was attempted and
+        # could not be confirmed (as likely the lexical check's crudeness as the scene's
+        # failure), and what the turn never got to at all.
+        unconfirmed = direction.unconfirmed(attempt_cap)
+        never = [r for r in direction.outstanding(attempt_cap) if not r.attempted]
+        outstanding_total = len(unconfirmed) + len(never)
+        delivered_n = len(direction.requirements) - outstanding_total
         yield from tracer.emit(
             "direction",
             (
                 "Your direction was delivered in full"
-                if not undelivered
-                else f"{len(undelivered)} part(s) of your direction went undelivered"
+                if not outstanding_total
+                else f"{outstanding_total} part(s) of your direction went undelivered"
             ),
             detail=" · ".join(direction.summary()),
             data={
-                "delivered": len(direction.requirements) - len(undelivered),
+                "delivered": delivered_n,
                 "total": len(direction.requirements),
-                "undelivered": [r.text for r in undelivered],
+                # Attempted but not confirmed — a beat did aim at these.
+                "unconfirmed": [r.text for r in unconfirmed],
+                # Never reached at all — the turn ran out of beats first.
+                "never": [r.text for r in never],
+                # Kept for the client reducer and the existing assertions: everything the
+                # turn did not confirm, in the order it was asked for.
+                "undelivered": [
+                    r.text for r in direction.requirements if not r.delivered
+                ],
             },
         )
 

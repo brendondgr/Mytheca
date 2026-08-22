@@ -147,8 +147,38 @@ scene's `maxTurns` budget: the planner paces them while there is room, and once 
 would fill every remaining beat the engine takes over (`direction_agent.schedule`), collapsing
 the last beat to narration when several characters are still owed. Each beat's prompt states
 only *its* requirements, as outcomes rather than lines, so the speaker reaches them in their own
-voice. Progress is visible in the Inspector as `direction` trace steps (what was asked for, what
-each beat delivered, and anything that did not fit). `guidance` **is** persisted, on the
+voice. Progress is visible in the Inspector as `direction` trace steps.
+
+**Attempted is not delivered.** A requirement used to be marked satisfied the moment it was
+put *into* a prompt — a promise, not an outcome. A beat that came back empty, was withheld as
+a scratchpad leak, failed against the endpoint, or simply talked about something else still
+ticked it off permanently; it is the single largest reason a direction gets "forgotten".
+(Observed live: a trace reading *"The narrator delivered 1 part(s) of your direction"* on a
+turn where zero beats were persisted.) Delivery is now two steps:
+
+- `direction_runtime.attempted(...)` **before** the beat — marks `attempted`, bumps
+  `attempts`, traces *"N part(s) of your direction ride on X's beat"*;
+- `direction_runtime.confirm(...)` **after** it, with the prose the beat actually emitted
+  (read off `turn_beats`, where every emitting path already records what it wrote). A beat
+  that produced nothing confirms nothing and the requirement simply stays owed — that alone
+  fixes the failure cases with no heuristic. For a beat that *did* write, the lexical check in
+  `services/direction_check.py` decides: the fraction of the requirement's content words the
+  prose contains, against `DIRECTION_COVERAGE_THRESHOLD` (0.34 — roughly one in three, because prose paraphrases a requirement's verbs and keeps its concrete nouns), with the bound actor's own
+  name excluded (a requirement reads "Mei snaps back" while Mei's own in-voice beat never says
+  "Mei"). It is deliberately crude and costs no LLM call — it runs after every beat — and it is
+  used only to *withhold* confirmation: an unconfirmed requirement is retried up to
+  `DIRECTION_MAX_ATTEMPTS` (2), so a false negative costs one extra beat while a false positive
+  would silently drop what the player asked for.
+
+The closing trace therefore reports **three** counts, not two: delivered, `unconfirmed`
+(attempted, out of attempts, never confirmed) and `never` (the turn ran out of beats first).
+The client's checklist mirrors those three states — `✓`, `◐` "the scene may not have reached
+this", `○` — distinguished by glyph and words, not colour alone.
+
+**Pacing.** How many requirements ride on one beat is `direction_runtime.pace(owed, remaining)`
+= `ceil(len(owed) / remaining)`: one per beat while there is room, more only when the budget
+forces it. The old code used a fixed `[:1]` slice at the per-beat sites and an all-or-one
+switch at the opening, which is how the tail of a long direction went missing. `guidance` **is** persisted, on the
 `user_turn` row, and restored into the box on resume (`turn-stream.latestGuidance`), so reopening
 a scene does not silently drop what the player asked it to do.
 

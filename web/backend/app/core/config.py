@@ -84,6 +84,33 @@ class Settings(BaseSettings):
     # ``ReasoningEffort.QUICK`` (128 tokens) to keep that per-beat cost small.
     turn_planner_lookahead: int = 1
 
+    # --- Confirming that a direction actually landed ---
+    # A requirement used to be marked satisfied the moment it was put INTO a prompt, which
+    # is a promise rather than an outcome: a beat that came back empty, was withheld, or
+    # simply talked about something else still ticked it off permanently. Now a beat only
+    # *attempts* a requirement, and delivery is confirmed afterwards from the prose that was
+    # actually emitted (``services/direction_check``).
+    #
+    # The fraction of a requirement's content words the beat must contain to count as
+    # delivered. Roughly one in three, and the reasoning is about how prose works rather
+    # than about a measurement: a requirement is a short phrase, and good writing paraphrases
+    # its VERBS while keeping its concrete NOUNS. "loses their temper" becomes "she snaps";
+    # "knocks a cup off the table" becomes "the cup clatters across the floor" — cup and
+    # table survive, loses/temper/knocks do not. Demanding half the words is demanding that
+    # the paraphrase not happen, which penalises exactly the beats that deliver best. (A live
+    # run against the local model produced precisely that beat, scored it 0.33, and retried
+    # a direction it had already carried out — the case is pinned as a regression test.)
+    #
+    # Erring low is the right direction anyway: the check exists to WITHHOLD confirmation
+    # rather than to judge writing, a false negative costs one wasted beat, and a false
+    # positive silently drops what the player asked for.
+    direction_coverage_threshold: float = 0.34
+
+    # How many beats may attempt one requirement before the turn stops re-owing it. Without
+    # a cap, a requirement the prose keeps paraphrasing (which the lexical check cannot
+    # see) would consume every remaining beat of the scene's budget.
+    direction_max_attempts: int = 2
+
     # --- Authoring parallelism (the world build + RAG batch indexing) ---
     # Default upper bound on how many characters/settings are drafted concurrently in
     # the "Build the whole world" flow, and how many entities are embedded concurrently

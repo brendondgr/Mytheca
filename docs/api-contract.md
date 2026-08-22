@@ -989,7 +989,21 @@ outstanding is overridden. **`maxTurns` stays hard** — nothing is delivered by
 direction longer than the scene's budget is absorbed by the opening narration, and anything
 genuinely undeliverable is named in a `direction` trace step rather than silently dropped. Each
 beat carries only *its* requirements into the prompt, stated as an outcome (never a line to
-recite), so the speaker reaches it in their own voice and stays in character. Best-effort
+recite), so the speaker reaches it in their own voice and stays in character.
+
+**A requirement is confirmed by the prose that landed, not by entering a prompt.** Each beat
+first *attempts* what it carries (`direction` trace with `data.attempted`), and delivery is
+confirmed afterwards from the text the beat actually emitted (`data.delivered` /
+`data.unconfirmed`). A beat that produced nothing confirms nothing, so an empty generation, a
+withheld scratchpad leak or a failed request leaves the requirement outstanding instead of
+ticking it off — which is what used to happen. Confirmation is a cheap lexical coverage check
+(`DIRECTION_COVERAGE_THRESHOLD`, default 0.34, ignoring the bound actor's own name and abstract subject placeholders like "a character"); an
+unconfirmed requirement is retried up to `DIRECTION_MAX_ATTEMPTS` (default 2). The closing
+`direction` trace carries `delivered` (count), `total`, `unconfirmed` (attempted but never
+confirmed), `never` (the turn ran out of beats first) and `undelivered` (everything not
+confirmed, kept for the client reducer). How many requirements ride on one beat is
+`ceil(owed / remaining beats)` — one per beat while there is room, more only when the budget
+forces it. Best-effort
 throughout: with no LLM configured the whole direction becomes one narrator-owned requirement.
 `guidance` **is** persisted on the `user_turn` row (`data.guidance`, `null` when the turn carried
 no direction), alongside `data.taggedDocIds`. Both used to die with the turn; the row is what a

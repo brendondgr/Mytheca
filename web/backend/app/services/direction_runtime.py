@@ -4,7 +4,10 @@ Split out of ``turn_engine`` so the loop module is an orchestrator rather than a
 (the owner's structural call, 2026-08-21). ``direction_agent`` *parses* a direction into
 requirements; this module is the runtime half that runs against a turn in flight:
 
-* :func:`delivered` — mark the requirements a beat carried into its prompt.
+* :func:`attempted` / :func:`confirm` — the two halves of "did the direction land?".
+  A beat *attempts* the requirements it carries into its prompt; delivery is confirmed
+  afterwards, from the prose it actually emitted.
+* :func:`pace` — how many of the outstanding requirements one beat should take on.
 * :func:`direction_lead` — hand the next beat the outcomes it owes.
 * :func:`plan_still_valid` — decide whether the planner's lookahead survived reality
   diverging from it (a character left, presence changed, the direction took the schedule
@@ -27,33 +30,139 @@ from app.events.stream import TurnTraceFrame
 from app.services.assembler import TurnContext
 from app.agents import direction_agent
 from app.agents.intent_agent import TurnIntent
+from app.core.config import get_settings
 from app.schemas.play import TurnRequest
+from app.services import direction_check
 from app.services.turn_emit import Tracer
 
-def delivered(
+def max_attempts() -> int:
+    """How many beats may attempt one requirement before the turn stops re-owing it."""
+    return max(1, get_settings().direction_max_attempts)
+
+
+def beat_text_since(turn_beats: list[dict], mark: int) -> str:
+    """The prose a beat actually emitted, read off the this-turn transcript.
+
+    Every emitting path — a character's passage, a narrator interstitial — appends its text
+    to ``turn_beats``. A beat that produced nothing (an empty generation, a withheld
+    scratchpad leak, a failed request) appends nothing, so this returns ``""`` and the
+    requirement is simply never confirmed. That one fact fixes the largest cause of a
+    direction being "forgotten", with no heuristic involved.
+
+    Reading the transcript rather than widening four return signatures keeps the confirm
+    step out of the beat runners entirely: they already record what they emitted.
+    """
+    return " ".join(str(b.get("text") or "") for b in turn_beats[mark:]).strip()
+
+
+def pace(owed: list[DirectionRequirement], remaining: int) -> int:
+    """How many of ``owed`` one beat should take on, given ``remaining`` beats.
+
+    One per beat while there is room; more only when the budget forces it. The old code
+    used a fixed ``[:1]`` slice at the per-beat sites and an all-or-one switch at the
+    opening, so a five-part direction with two beats left put one part on this beat and
+    hoped — which is how the tail of a long direction went missing.
+    """
+    if not owed:
+        return 0
+    return max(1, -(-len(owed) // max(1, remaining)))
+
+
+def attempted(
     tracer: Tracer, ctx: TurnContext, direction: SceneDirection, owed: list[DirectionRequirement],
     *, by: str | None = None,
 ) -> Iterator[TurnTraceFrame]:
-    """Mark requirements delivered AND say so on the wire.
+    """Record that a beat is carrying ``owed`` into its prompt, and say so on the wire.
 
-    The engine already tracked what the turn still owed the player; it just never
-    reported the ticking-off, so a direction's progress was invisible until the turn
-    ended. ``by`` is the character who carried them (``None`` → the narrator).
+    This is a *promise*, not an outcome — which is precisely the distinction the engine used
+    to lose. ``by`` is the character who carries them (``None`` → the narrator).
     """
     if not owed:
         return
-    direction.satisfy(owed)
+    direction.attempt(owed)
     who = name_of(ctx, by) or "The narrator"
     yield from tracer.emit(
         "direction",
-        f"{who} delivered {len(owed)} part(s) of your direction",
+        f"{len(owed)} part(s) of your direction ride on {who.lower() if by is None else who}'s beat",
         detail="; ".join(r.text for r in owed),
         data={
-            "delivered": [r.text for r in owed],
+            "attempted": [r.text for r in owed],
             "characterId": by,
-            "outstanding": [r.text for r in direction.outstanding()],
+            "outstanding": [r.text for r in direction.outstanding(max_attempts())],
         },
     )
+
+
+def confirm(
+    tracer: Tracer,
+    ctx: TurnContext,
+    direction: SceneDirection,
+    owed: list[DirectionRequirement],
+    beat_text: str,
+    *,
+    by: str | None = None,
+) -> Iterator[TurnTraceFrame]:
+    """Confirm which of ``owed`` the beat's prose actually reached.
+
+    Called **after** the beat with the text it emitted. A beat that produced nothing
+    confirms nothing and the requirements stay outstanding — no heuristic needed for the
+    failure cases, which are the common ones. For a beat that *did* produce prose, the
+    lexical check in :mod:`app.services.direction_check` decides, with the bound actor's own
+    name excluded from the requirement's words: a requirement reads "Mei snaps back" while
+    Mei's own in-voice beat never says "Mei".
+    """
+    if not owed:
+        return
+    if not beat_text:
+        yield from tracer.emit(
+            "direction",
+            "That beat delivered nothing, so your direction still stands",
+            detail="; ".join(r.text for r in owed),
+            data={
+                "unconfirmed": [r.text for r in owed],
+                "characterId": by,
+                "outstanding": [r.text for r in direction.outstanding(max_attempts())],
+            },
+        )
+        return
+    threshold = get_settings().direction_coverage_threshold
+    ignore = [n] if (n := name_of(ctx, by)) else []
+    landed = [
+        r
+        for r in owed
+        if direction_check.reached(r.text, beat_text, threshold=threshold, ignore_names=ignore)
+    ]
+    missed = [r for r in owed if r not in landed]
+    direction.satisfy(landed)
+    who = name_of(ctx, by) or "The narrator"
+    if landed:
+        yield from tracer.emit(
+            "direction",
+            f"{who} delivered {len(landed)} part(s) of your direction",
+            detail="; ".join(r.text for r in landed),
+            data={
+                "delivered": [r.text for r in landed],
+                "unconfirmed": [r.text for r in missed],
+                "characterId": by,
+                "outstanding": [r.text for r in direction.outstanding(max_attempts())],
+            },
+        )
+    if missed:
+        retrying = [r for r in missed if r.attempts < max_attempts()]
+        yield from tracer.emit(
+            "direction",
+            (
+                f"{len(missed)} part(s) may not have landed — trying again"
+                if retrying
+                else f"{len(missed)} part(s) could not be confirmed"
+            ),
+            detail="; ".join(r.text for r in missed),
+            data={
+                "unconfirmed": [r.text for r in missed],
+                "characterId": by,
+                "outstanding": [r.text for r in direction.outstanding(max_attempts())],
+            },
+        )
 
 
 

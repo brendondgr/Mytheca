@@ -988,7 +988,7 @@ describe("applyDirection", () => {
       requirements: [{ text: "Beth confronts Mei" }, { text: "Mei admits the letter" }],
     }));
     expect(d.items.map((i) => i.text)).toEqual(["Beth confronts Mei", "Mei admits the letter"]);
-    expect(d.items.every((i) => !i.delivered)).toBe(true);
+    expect(d.items.every((i) => i.state === "outstanding")).toBe(true);
   });
 
   it("ticks an item off when the engine reports it delivered", () => {
@@ -1001,8 +1001,8 @@ describe("applyDirection", () => {
       outstanding: ["B"],
     }));
     expect(d.items).toEqual([
-      { text: "A", delivered: true, by: "beth" },
-      { text: "B", delivered: false },
+      { text: "A", state: "delivered" as const, by: "beth" },
+      { text: "B", state: "outstanding" as const },
     ]);
   });
 
@@ -1013,7 +1013,7 @@ describe("applyDirection", () => {
       delivered: ["Rebound outcome"],
       characterId: null,
     }));
-    expect(d.items).toEqual([{ text: "Rebound outcome", delivered: true, by: null }]);
+    expect(d.items).toEqual([{ text: "Rebound outcome", state: "delivered" as const, by: null }]);
   });
 
   it("records what the scene's beat budget could not fit", () => {
@@ -1023,10 +1023,59 @@ describe("applyDirection", () => {
   });
 
   it("returns the same reference when nothing changes", () => {
-    const start = { items: [{ text: "A", delivered: true }], undelivered: [] };
+    const start = { items: [{ text: "A", state: "delivered" as const }], undelivered: [] };
     expect(applyDirection(start, trace("direction", { delivered: ["A"] }))).toBe(start);
     expect(applyDirection(start, trace("lore", {}))).toBe(start);
     expect(applyDirection(start, ev("narration", "n1", { text: "x", done: true }))).toBe(start);
+  });
+
+  it("marks a requirement a beat carried as attempted, not delivered", () => {
+    // The distinction the engine used to lose: putting a requirement INTO a prompt is a
+    // promise, and the checklist must not draw it as a tick.
+    let d = applyDirection(NO_DIRECTION, trace("direction", { requirements: [{ text: "A" }] }));
+    d = applyDirection(d, trace("direction", { attempted: ["A"], characterId: "beth" }));
+    expect(d.items).toEqual([{ text: "A", state: "attempted" as const }]);
+  });
+
+  it("keeps an unconfirmed requirement at attempted", () => {
+    let d = applyDirection(NO_DIRECTION, trace("direction", { requirements: [{ text: "A" }] }));
+    d = applyDirection(d, trace("direction", { attempted: ["A"] }));
+    d = applyDirection(d, trace("direction", { unconfirmed: ["A"], characterId: null }));
+    expect(d.items[0].state).toBe("attempted");
+  });
+
+  it("folds a mixed frame: some delivered, some not", () => {
+    let d = applyDirection(NO_DIRECTION, trace("direction", {
+      requirements: [{ text: "A" }, { text: "B" }],
+    }));
+    d = applyDirection(d, trace("direction", {
+      delivered: ["A"],
+      unconfirmed: ["B"],
+      characterId: "beth",
+    }));
+    expect(d.items).toEqual([
+      { text: "A", state: "delivered" as const, by: "beth" },
+      { text: "B", state: "attempted" as const },
+    ]);
+  });
+
+  it("never moves a requirement backwards", () => {
+    // A later beat re-attempting something already confirmed must not un-tick it.
+    let d = applyDirection(NO_DIRECTION, trace("direction", { requirements: [{ text: "A" }] }));
+    d = applyDirection(d, trace("direction", { delivered: ["A"], characterId: "beth" }));
+    const settled = d;
+    d = applyDirection(d, trace("direction", { attempted: ["A"] }));
+    expect(d).toBe(settled);
+  });
+
+  it("does not mistake the opening declaration for progress", () => {
+    // The opening step lists everything owed and carries no state arrays; a frame that
+    // has both must be read as progress, not re-seeded as a fresh checklist.
+    const d = applyDirection(NO_DIRECTION, trace("direction", {
+      requirements: [{ text: "A" }],
+      attempted: ["A"],
+    }));
+    expect(d.items).toEqual([{ text: "A", state: "attempted" as const }]);
   });
 });
 

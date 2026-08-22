@@ -24,8 +24,16 @@ import re
 
 #: Words that carry no evidence either way. A requirement and a beat will share these no
 #: matter what happens in the scene, so counting them would let any prose "cover" anything.
+#:
+#: The last group is the one that is easy to miss: **abstract subject placeholders**. A
+#: requirement reading "a character loses their temper" is saying *anyone* — and no prose
+#: will ever contain the word "character", because prose names people. Left in, they are a
+#: guaranteed miss on a whole class of word rather than a random one, and they drag the
+#: score down by a fixed amount on exactly the requirements that are phrased most generally.
 STOPWORDS = frozenset(
     """
+    character characters someone somebody person people anyone everybody
+    
     the a an and or but so then than that this these those there here
     is are was were be been being am get gets got have has had having
     do does did doing done can could will would shall should may might must
