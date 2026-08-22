@@ -327,12 +327,15 @@ Verified against the code on 2026-08-04.
 - **Nothing writes `Secret` nodes, so `graph_reader.secret_reachability` can never return a row.** Found 2026-08-22 while surveying the graph for `depth-for-players.md` Phase 10. `Secret` is a built-in node type in `content/graph_registry.py` (with `severity`, `truth_value`, `visibility`) and `_SECRET_REACHABILITY` reads it — but **every** `graph_writer.upsert_node` call site passes a hardcoded `type_name`, and the only three values in the codebase are `Character`, `Setting` and `Event` (`crud.sync_character`/`sync_setting`, `turn_writer._append_event`, `relationships`, `graph_reader.ensure_scenario_materialized`). No agent proposes one either. So this is dead in a stronger sense than "no callers": the query is correct and the data it reads has never existed on any world. Either write `Secret` nodes (the character's `secret` prose field is the obvious source, and the registry already says "often also a Secret node") or delete the query and the type together — but do not cite secret-reachability as a working feature.
 - **Unused graph queries.** `graph_reader.presence_casting` and `graph_reader.secret_reachability` have no callers. **Still open after `depth-for-players.md` Phase 10** — that phase added `offscene_ties` and gave neither of these a job. `secret_reachability` is the worse of the two: nothing has ever written a `Secret` node, so it could not return a row even if it were called (see above).
 - **`validate_relationship` substring fallback** will mis-bind on nested cast names ("Aldous" vs "Brother Aldous").
-- ~~**Two frontend tests are load-flaky.**~~ **Fixed 2026-08-21.** `CharacterModal` already
-  carried a trailing 15 s timeout; the two that did not — `SettingModal` ("drafts a full setting
-  from a seed into the form") and `ToastProvider` ("holds the auto-dismiss timer") — now take an
-  explicit **15 s per-test budget** instead of Vitest's 5 s default. That is the prescribed fix,
-  with the assertions untouched. Both were re-confirmed failing at load average ~47 (an unrelated
-  job on the machine) and pass there with the raised budget.
+- ~~**Two frontend tests are load-flaky.**~~ **Fixed 2026-08-21, and completed 2026-08-22.**
+  Every choreography-bound test now carries an explicit **15 s per-test budget** instead of
+  Vitest's 5 s default: `CharacterModal`'s two and `SettingModal`'s two. (The 2026-08-21 pass
+  fixed one of each pair and left the "shows draft progress / highlights the field being
+  written" sibling in both files on the default budget — the same real-time bound, missed
+  twice.) `ToastProvider`'s final `waitFor` gets 5 s. The assertions are untouched, and the
+  budget is per-test rather than global so the next genuinely-hung test still fails fast.
+  A sweep confirmed `useLibraryState` is the only flow that awaits `use-field-reveal`, so
+  `StorylineCreatorView` and `ScenarioForm` need no treatment.
   **The remaining constraint is the runner, not the tests:** on a loaded machine the *full* suite
   needs `--maxWorkers=2`. At `--maxWorkers=4` under load ~47 a *different* test timed out on each
   run (`LibraryView.editors`, then `ToastProvider`), which is contention, not a defect — the same
@@ -342,8 +345,7 @@ Verified against the code on 2026-08-04.
   waited for was the exit animation completing under *real* ones, against `waitFor`'s
   default 1 s budget. Under CPU contention that is not enough — it failed on every full-suite
   run once this branch added five tests, and passed 850/850 at `--maxWorkers=4`. The final
-  `waitFor` now gets 5 s; the assertion is untouched. **The two library-modal flakes above
-  are still open** and want the same treatment.
+  `waitFor` now gets 5 s; the assertion is untouched.
 - **Ollama is still not *detected*, though it is no longer uncapped.** `LOCAL_LLM_BASE_URL` defaults to `http://localhost:11434` — Ollama's port — and `services/llm_backend.py` probes only vLLM (`GET /version`), llama.cpp (`GET /props`), and relays that name an upstream in `GET /models`. Ollama matches none, so it reports as `unknown`; since 2026-08-19 an unknown endpoint receives **both** engine budget keys, so the thinking budget is at least attempted. Whether Ollama honours either key is unverified — a native probe (`GET /api/tags`) and its own budget key remain unbuilt.
 - **`web/shared/contracts/` is empty** while both layers hand-maintain their own copy of the event contract. Either populate it or drop the directory and document the manual mirror as the intended design.
 - **An unreproduced connect failure on the storyline Assistant.** Reported as

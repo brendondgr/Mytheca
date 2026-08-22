@@ -81,7 +81,10 @@ describe("CharacterModal — agentic creator", () => {
     // runs ~4.4 s alone, which overruns the 5 s default under a loaded parallel suite.
   }, 15000);
 
-  it("highlights the field being written and shows draft progress", async () => {
+  // Same choreography bound as the test above: this waits on the ~150ms-per-field
+  // `use-field-reveal` sequence, which outruns Vitest's 5s default under full worker
+  // concurrency. Its sibling already carried this budget; this one was missed.
+  it("highlights the field being written and shows draft progress", { timeout: 15_000 }, async () => {
     const user = userEvent.setup();
     const dialog = await openCharacterCreator(user);
 

@@ -76,7 +76,12 @@ describe("SettingModal — agentic creator", () => {
     });
   });
 
-  it("shows draft progress and highlights the field being written", async () => {
+  // Same real-time bound as the test above and as `CharacterModal.test.tsx`: this awaits the
+  // ~150ms-per-field `use-field-reveal` choreography, which alone runs past Vitest's 5s
+  // default once the suite is under full worker concurrency. The test is correct; the budget
+  // was too tight. Raised here rather than globally, so the next genuinely-hung test still
+  // fails fast.
+  it("shows draft progress and highlights the field being written", { timeout: 15_000 }, async () => {
     const user = userEvent.setup();
     const dialog = await openSettingCreator(user);
 
