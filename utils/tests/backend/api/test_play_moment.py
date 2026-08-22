@@ -129,11 +129,11 @@ def test_the_keepalive_heartbeat_names_the_stage_actually_running(
         lambda source, keepalive: stream.with_keepalive(source, keepalive, 0.01),
     )
 
-    # A prompt stage that takes long enough for at least one heartbeat to fire.
+    # A prompt stage slow enough that at least one heartbeat is certain to fire inside it.
     real_write = scene_moment.moment_agent.write_moment_prompt
 
     def slow_write(db, **kw):
-        time.sleep(0.05)
+        time.sleep(0.10)
         return real_write(db, **kw)
 
     monkeypatch.setattr(scene_moment.moment_agent, "write_moment_prompt", slow_write)
@@ -141,7 +141,17 @@ def test_the_keepalive_heartbeat_names_the_stage_actually_running(
     frames = _frames(client.post(f"/api/play/{scid}/moment/stream", json={"sessionId": session_id}))
     ticks = [f for f in frames if f["type"] == "moment_stage" and "Still" in f["message"]]
     assert ticks, "expected at least one keep-alive tick"
-    assert all(t["stage"] == "prompt" for t in ticks)
+
+    # The contract is that a tick names the stage ACTUALLY running — not that every tick
+    # names `prompt`. Asserting the latter passed only by accident: the render stage is
+    # stubbed and usually finishes between two ticks, so under load a perfectly correct
+    # `render` tick failed the test. What must hold is that no tick reports a stage out of
+    # order — a `prompt` tick may never follow a `render` one, because that would be a
+    # heartbeat claiming work that is already finished.
+    stages = [t["stage"] for t in ticks]
+    assert set(stages) <= {"prompt", "render"}
+    assert stages[0] == "prompt", "the first tick fires inside the slow prompt stage"
+    assert stages == sorted(stages, key=lambda s: ("prompt", "render").index(s))
     assert frames[-1]["type"] == "scene_image"
 
 
