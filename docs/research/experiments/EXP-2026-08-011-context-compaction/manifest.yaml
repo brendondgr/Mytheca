@@ -1,0 +1,94 @@
+# Experiment manifest — the machine-readable record.
+#
+# Every field below is required unless marked OPTIONAL. `make new-experiment`
+# pre-fills id, slug, dates, and the whole `code:` block from git.
+#
+# Do not delete a field you cannot fill. Write `unknown` and explain in ISSUES.md.
+# A back-filled experiment with three honest fields beats one with ten invented ones.
+
+id: EXP-2026-08-011
+slug: context-compaction
+title: Does compacting dropped history preserve continuity, and what does it cost?
+status: running            # planned | running | complete | failed | superseded
+date_started: 2026-08-22
+date_completed: null       # null until status is complete or failed
+authors: [brendondgr]
+
+purpose: >
+  When a scene outgrows the model's context window the oldest beats are dropped, which is how
+  a scene forgets that someone already confessed or already left. `services/history_compaction`
+  folds those beats into a rolling summary instead. This asks whether that preserves continuity
+  the control loses, what it costs in calls and prompt-cache reuse, and — the question that
+  would stop the ship — whether it makes the writing worse. It is the evidence gating whether
+  TURN_CONTEXT_COMPACTION may ever default to true; it currently ships off.
+
+hypothesis: >
+  H1 continuity — with compaction on, a late-scene line referring to a fact established before
+  the verbatim window is answered consistently more often than with it off. H2 cost — at most
+  one model call per anchor block, and no material loss of reusable prompt prefix, because the
+  summary sits at the head of the append-only region and so changes on the same turns the
+  anchored window re-anchors. H3 writing — compaction does not make the prose worse; this is
+  the null we most want to be unable to reject, and a blinded read preferring the control is
+  the honest reason to leave the flag off. Full statement in PROTOCOL.md, written before the run.
+
+# --- Reproducibility block (all fields mandatory) ---
+code:
+  commit: 7eb778d0e73f7b31cb657bf44f18b0febd69d70b
+  branch: play-experience
+  entrypoint: "uv run python -m utils.scripts.research.run_context_compaction --scenes 1 --turns 10 --api http://127.0.0.1:3355/api --experiment docs/research/experiments/EXP-2026-08-011-context-compaction"
+  dirty: true             # uncommitted changes at run time? if true, explain in ISSUES.md
+config:
+  path: null               # the entrypoint is fully self-describing; arms are built in-script
+  hash: null
+data:
+  name: harness-generated world + scripted player lines (plant / filler / probe)
+  version: generated at run time by run_context_compaction.build helpers
+  split: none — a behavioural probe of a running system, not a benchmark
+  n_examples: 2            # one scene per arm at --scenes 1
+  dvc_path: null
+  hash: null               # generated per run; the line list is in the script and in PROTOCOL.md
+seeds: []
+n_runs: 0
+environment:
+  python: "3.13"
+  lockfile: env/requirements.lock
+  container: null          # OPTIONAL
+compute:
+  hardware: "local CPU inference via the :4000 relay (llama.cpp, gemma-4-26B-it)"
+  wall_clock_hours: 0.0
+  estimated_cost_usd: 0.0
+
+# --- LLM / agentic block ---
+# Mytheca is an LLM system. Do not omit this block; if a run genuinely made no LLM
+# call, write `llm: null` and say why in PROTOCOL.md.
+llm:
+  model: "relay/local -> llama.cpp gemma-4-26B-it (as served 2026-08-22)"
+  temperature: 0.0
+  top_p: 1.0
+  max_tokens: 8000         # the local reasoning model 502s below ~8000
+  prompt_files:
+    - web/backend/app/agents/prompt_registry.py   # recap.summarize
+    - web/backend/app/agents/character_turn_agent.py
+  prompt_hash: null        # resolved at run time through the four-layer override chain
+  tool_schema_hash: null   # OPTIONAL — null if no tool schema is involved
+  total_input_tokens: 0
+  total_output_tokens: 0
+  nondeterminism_note: >
+    Provider-side nondeterminism remains even at temperature 0; results
+    are reported as mean ± std over n_runs.
+
+# --- Results block ---
+# `status: complete` with an empty `values` map fails validation. That is intentional.
+metrics:
+  primary: continuity_hits
+  values: {}
+    # <metric>: {mean: 0.0, std: 0.0, n: 0}
+baselines_compared: []
+statistical_test: null     # OPTIONAL — null if none was run, but then say so in RESULTS.md
+
+# --- Linkage ---
+supports_claims: []        # every ID must exist in ../../CLAIMS.md
+figures: []                # every entry must have a file in figures/, and vice versa
+supersedes: null
+superseded_by: null
+related: []

@@ -29,6 +29,16 @@ Verified against the code on 2026-08-04.
   positive would lose what the player asked for. An LLM "did that happen?" check is still
   rejected — it would roughly double the turn's call count. What is missing is a measurement;
   see `docs/research/OPEN_QUESTIONS.md`.
+- **`contextBeats` survives as an API-only setting.** The player control is gone — the window
+  fits itself to the model's real context budget — but `contextBeats` is still honoured under
+  `contextPolicy: "fixed"` and still validated (5–100). It has no UI, and the only things that
+  set it are the three research harnesses, which need a fixed depth rather than a moving
+  target. It is a deliberate API-only escape hatch, not an oversight; delete it only when no
+  experiment needs a pinned window.
+- **Compaction is unmeasured, and therefore off.** `TURN_CONTEXT_COMPACTION` defaults to
+  `false`. `EXP-2026-08-011` is the pre-registered two-arm experiment that would justify
+  changing that, and claim **C-013** stays `unsupported` until it reports. Nothing may describe
+  compaction as free, or default it on, before then.
 - **The memory edge is accurate to within a beat or two.** `MemoryEdge` marks where verbatim
   recall stops by counting back `windowBeats` rendered transcript messages — but messages and
   buffer beats are not exactly 1:1 (an internal thought folds into its speaker's beat), so the

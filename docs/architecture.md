@@ -113,6 +113,22 @@ A stat is a bounded numeric value on a character. Health, trust, suspicion, pati
 
 ## Presence
 
+**Context is fitted, not configured.** The transcript window is chosen per turn from the
+model's real context budget (`services/context_budget`), not from a number the player picks —
+the right depth is whatever the model can hold, and the app knows the model's window while the
+player does not. The per-scene `context_beats` survives only as an API-level escape hatch under
+`context_policy: "fixed"`, which the research harnesses use because an experiment needs a pinned
+depth rather than a moving target. The load-bearing constraint is that a *dynamic* depth
+threatens the block anchoring that keeps the prompt-cache prefix stable, so `fit_window`
+quantises to the same block and applies hysteresis: the window can only move in steps the
+anchoring already tolerates.
+
+**Compaction is built and defaults off.** Folding dropped beats into a rolling summary is a
+change to what the model reads, and this repository's own record says an unmeasured prompt
+change is how the last one went wrong. `TURN_CONTEXT_COMPACTION` is `false` until
+`EXP-2026-08-011` reports; claim C-013 is `unsupported` until then. That is a decision, not an
+unfinished feature.
+
 The scene's **rolling memory** is a second deliberate exception. `play_sessions.summary_text` / `summary_through_seq` / `summary_updated_at` hold what `history_compaction` folded out of the context window. It is not an event: an event would take a `seq`, appear in the transcript and the export, and be something a player could rewind *to* — none of which is true of a summary. `summary_through_seq` is what makes it honest rather than merely convenient: every path that rewrites history at or below that seq clears it, because a stale summary would have the cast confidently remembering the beats the player just removed.
 
 The scene's **standing direction** is the deliberate exception to that rule: `play_sessions.standing_direction` (JSON, nullable) stores what a turn could not deliver so the next turn re-owes it. It *could* be replayed from the session's `direction` trace rows, but that would make the turn loop's correctness depend on diagnostics being retained — and traces are the first thing an operator prunes. A debt that silently empties because someone pruned the trace table would look exactly like the bug it exists to fix. See `docs/data-flow.md` § Scene direction.
