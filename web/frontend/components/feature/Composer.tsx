@@ -9,6 +9,7 @@ import {
   applyMention,
   filterMentions,
   findMentionQuery,
+  removeMention,
   stripMentions,
   type MentionOption,
 } from "@/features/story-player/mentions";
@@ -306,13 +307,19 @@ export function Composer({
     .map((id) => mentionOptions.find((o) => o.id === id))
     .filter((o): o is MentionOption => Boolean(o));
 
-  /** Untag a file by removing its `@name` token from both boxes. */
+  /**
+   * Untag a file by removing its `@name` token from both boxes.
+   *
+   * `removeMention`, not `stripMentions`: stripping now keeps the name and drops only the
+   * sigil (so the sent prose still says who it was about), which would have left the chip's
+   * "×" removing nothing at all.
+   */
   function removeTag(option: MentionOption) {
-    const nextValue = stripMentions(value, [option]);
-    if (nextValue.ids.length) onChange(nextValue.text);
+    const nextValue = removeMention(value, option);
+    if (nextValue !== value) onChange(nextValue);
     if (showGuidance) {
-      const nextGuidance = stripMentions(guidance, [option]);
-      if (nextGuidance.ids.length) onGuidanceChange?.(nextGuidance.text);
+      const nextGuidance = removeMention(guidance, option);
+      if (nextGuidance !== guidance) onGuidanceChange?.(nextGuidance);
     }
   }
 

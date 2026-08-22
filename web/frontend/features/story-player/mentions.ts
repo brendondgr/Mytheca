@@ -102,12 +102,23 @@ export interface StrippedMentions {
 }
 
 /**
- * Remove every `@<name>` token that resolves to a known document and return the ids.
+ * Drop the `@` sigil from every mention that resolves to a known option, **keeping the
+ * name**, and return the ids.
+ *
+ * This used to delete the whole token: `"Hey @Mei"` was sent as `"Hey"`, and
+ * `"read @maerin.md"` as `"read"`. That is wrong twice over — it reads as a visual glitch
+ * as the chip appears, and it removes the one noun the sentence was about, so the intent
+ * and direction agents never see who or what the player meant. Now only the sigil goes:
+ * `"Hey @Mei"` → `"Hey Mei"`, `"read @maerin.md"` → `"read maerin.md"`. The name is
+ * preserved **as the player typed it**, casing included; the id still resolves, so nothing
+ * downstream changes.
  *
  * Names are matched **longest first** so a filename containing spaces or dots
- * (`old harbor notes.md`) wins over a shorter one that prefixes it. The stripped text is
- * what the turn actually sends, so the player's line reaches the intent and direction
- * agents as clean prose rather than as prose littered with filenames.
+ * (`old harbor notes.md`) wins over a shorter one that prefixes it.
+ *
+ * To *untag* — which is what the chip's "×" does — use {@link removeMention}: with the name
+ * surviving, deleting the token is now a different operation from preparing the text to
+ * send.
  */
 export function stripMentions(
   text: string,
@@ -135,9 +146,38 @@ export function stripMentions(
       continue;
     }
     if (!ids.includes(hit.id)) ids.push(hit.id);
+    // The matched run as the player typed it — not `hit.name`, so their casing survives.
+    out += text.slice(i + 1, i + 1 + hit.name.length);
     i += 1 + hit.name.length;
-    // Swallow one trailing space so removing a mid-sentence tag does not leave a gap.
-    if (text[i] === " ") i += 1;
+    // The trailing space is NOT swallowed any more: the name stays, so the space between it
+    // and the next word is part of the sentence.
   }
   return { text: out.replace(/[ \t]{2,}/g, " ").trim(), ids };
+}
+
+/**
+ * Delete a mention's whole `@<name>` token — the chip's "×" behaviour.
+ *
+ * Separate from {@link stripMentions} because the two now want opposite things: stripping
+ * prepares the text to send and keeps the name, while untagging removes the reference
+ * entirely. One trailing space goes with the token so removing a mid-sentence tag does not
+ * leave a gap. Every occurrence is removed, since one chip stands for every mention of that
+ * option in either box.
+ */
+export function removeMention(text: string, option: MentionOption): string {
+  const name = option.name.toLowerCase();
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    const boundary = i === 0 || /\s/.test(text[i - 1]);
+    if (ch === "@" && boundary && text.slice(i + 1).toLowerCase().startsWith(name)) {
+      i += 1 + option.name.length;
+      if (text[i] === " ") i += 1;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out.replace(/[ \t]{2,}/g, " ").trim();
 }

@@ -612,3 +612,42 @@ describe("Composer direction row", () => {
   });
 });
 
+describe("Composer chip removal", () => {
+  const DOCS = [{ id: "cd_m", name: "maerin.md", charCount: 120 }];
+
+  it("the chip's × deletes the whole token, name and all", () => {
+    // Stripping now keeps the name and drops only the sigil, so untagging had to become its
+    // own operation — routing the × through `stripMentions` would have removed nothing.
+    const onChange = vi.fn();
+    render(
+      <Composer
+        value="@maerin.md what is she holding?"
+        onChange={onChange}
+        onSend={() => {}}
+        mentionOptions={DOCS}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove maerin.md" }));
+    expect(onChange).toHaveBeenCalledWith("what is she holding?");
+  });
+
+  it("also clears the tag from the direction box under POV", () => {
+    const onGuidanceChange = vi.fn();
+    render(
+      <Composer
+        value="a line"
+        onChange={() => {}}
+        onSend={() => {}}
+        guidance="@maerin.md the tide turns"
+        onGuidanceChange={onGuidanceChange}
+        onPovChange={() => {}}
+        povOptions={[{ id: "mei", name: "Mei", mono: "M", color: "#8E2B1C", portrait: null }]}
+        pov="mei"
+        mentionOptions={DOCS}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove maerin.md" }));
+    expect(onGuidanceChange).toHaveBeenCalledWith("the tide turns");
+  });
+});
+

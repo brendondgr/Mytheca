@@ -4,6 +4,7 @@ import {
   filterMentions,
   findMentionQuery,
   MENTION_LIMIT,
+  removeMention,
   stripMentions,
   type MentionOption,
 } from "./mentions";
@@ -91,25 +92,33 @@ describe("applyMention", () => {
 });
 
 describe("stripMentions", () => {
-  it("removes a tag and returns its id", () => {
+  // The sigil goes; the NAME stays. Deleting the whole token used to send "Hey @Mei" as
+  // "Hey" — a visual glitch as the chip appears, and the removal of the one noun the
+  // sentence was about, so the intent and direction agents never saw who was meant.
+  it("drops the sigil and keeps the name, returning its id", () => {
     expect(stripMentions("@maerin.md what is she holding?", OPTS)).toEqual({
-      text: "what is she holding?",
+      text: "maerin.md what is she holding?",
       ids: ["cd_m"],
     });
   });
 
-  it("removes a mid-sentence tag without leaving a double space", () => {
+  it("keeps a mid-sentence name in place, with its spacing intact", () => {
     expect(stripMentions("check @harbor.md for the tide", OPTS)).toEqual({
-      text: "check for the tide",
+      text: "check harbor.md for the tide",
       ids: ["cd_h"],
     });
   });
 
   it("prefers the longest matching filename", () => {
     expect(stripMentions("@old harbor notes.md please", OPTS)).toEqual({
-      text: "please",
+      text: "old harbor notes.md please",
       ids: ["cd_o"],
     });
+  });
+
+  it("preserves the player's own casing rather than the option's", () => {
+    // `hit.name` would normalise it; the text is the player's prose, not a lookup key.
+    expect(stripMentions("@MAERIN.MD hello", OPTS).text).toBe("MAERIN.MD hello");
   });
 
   it("collects several tags in order, deduped", () => {
@@ -140,7 +149,41 @@ describe("stripMentions", () => {
   });
 
   it("is the self-healing path: a deleted tag drops its id", () => {
-    // What the player typed, then edited back down by hand.
+    // What the player typed, then edited back down by hand. The bare name left behind by
+    // stripping is NOT a tag — only the `@` makes one, so re-stripping sent text is a no-op.
     expect(stripMentions("what is she holding?", OPTS).ids).toEqual([]);
+    expect(stripMentions("maerin.md what is she holding?", OPTS).ids).toEqual([]);
+  });
+});
+
+describe("removeMention", () => {
+  const maerin = OPTS.find((o) => o.id === "cd_m")!;
+  const harbor = OPTS.find((o) => o.id === "cd_h")!;
+
+  it("deletes the whole token, name and all — the chip's ×", () => {
+    expect(removeMention("@maerin.md what is she holding?", maerin)).toBe(
+      "what is she holding?",
+    );
+  });
+
+  it("takes one trailing space with it, so a mid-sentence removal leaves no gap", () => {
+    expect(removeMention("check @harbor.md for the tide", harbor)).toBe("check for the tide");
+  });
+
+  it("removes every occurrence — one chip stands for all of them", () => {
+    expect(removeMention("@harbor.md then @harbor.md again", harbor)).toBe("then again");
+  });
+
+  it("leaves other options' tags alone", () => {
+    expect(removeMention("@harbor.md and @maerin.md", harbor)).toBe("and @maerin.md");
+  });
+
+  it("matches case-insensitively but is not fooled by a mid-word @", () => {
+    expect(removeMention("@MAERIN.MD gone", maerin)).toBe("gone");
+    expect(removeMention("write to me@maerin.md now", maerin)).toBe("write to me@maerin.md now");
+  });
+
+  it("returns the text unchanged when the option is not tagged", () => {
+    expect(removeMention("nothing tagged here", maerin)).toBe("nothing tagged here");
   });
 });

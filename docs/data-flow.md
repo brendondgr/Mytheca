@@ -244,7 +244,8 @@ and that file's text is injected into **this turn only**.
 ```
 Composer (@ menu over useSceneData.contextDocs, from GET …/context-docs/index — names only)
   → useScenePlay.send: stripMentions(message) + stripMentions(direction)
-      → clean prose + the ids still present in the text
+      → the `@` sigil is dropped and the NAME KEPT ("read @maerin.md" → "read maerin.md")
+        + the ids still present in the text
   → POST …/turn { text, guidance?, taggedDocIds }
   → assembler._tagged_notes(db, storyline_id, ids):
       reject any doc from another storyline · dedupe · cap (5 docs / 6 000 ch each / 12 000 total)
@@ -263,6 +264,16 @@ the block sits in the MIDDLE and *above* the player's direction, which keeps the
 advantage. The block's own wording states the precedence: the notes keep facts straight in
 what a character or the narrator says; the beats and the direction decide what happens; on
 conflict the scene wins.
+
+**The sigil goes; the name stays.** `stripMentions` used to delete the whole `@<name>` token,
+so `"Hey @Mei"` was sent as `"Hey"` and `"read @maerin.md"` as `"read"`. That is wrong twice
+over: it reads as a visual glitch as the chip appears, and it removes the one noun the sentence
+was about, so the intent and direction agents never see who or what the player meant. Only the
+sigil is dropped now, and the name survives with the player's own casing. Untagging — the chip's
+"×" — is therefore a *different* operation and has its own function, `removeMention`, which
+deletes the whole token plus one trailing space. The ids are still re-derived from the final
+text, so hand-deleting an `@name` still untags it; the bare name left behind by stripping is not
+a tag, because only the `@` makes one.
 
 Tagging is independent of `includeRag` — a file excluded from retrieval is still taggable,
 which is the point: `retrieval_gate` skips most turns and `rag_block` truncates each hit to

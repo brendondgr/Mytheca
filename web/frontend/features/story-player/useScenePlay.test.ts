@@ -703,7 +703,8 @@ describe("@-tagged context files", () => {
     expect(vi.mocked(postTurn)).toHaveBeenCalledWith(
       scenario.id,
       expect.objectContaining({
-        text: "what is she holding?",
+        // The sigil goes, the name stays — the sent prose still says what it is about.
+        text: "maerin.md what is she holding?",
         taggedDocIds: ["cd_m"],
       }),
       expect.anything(),
@@ -740,8 +741,8 @@ describe("@-tagged context files", () => {
     expect(vi.mocked(postTurn)).toHaveBeenCalledWith(
       scenario.id,
       expect.objectContaining({
-        text: "I say nothing.",
-        guidance: "the tide turns",
+        text: "maerin.md I say nothing.",
+        guidance: "harbor.md the tide turns",
         taggedDocIds: ["cd_m", "cd_h"],
       }),
       expect.anything(),
