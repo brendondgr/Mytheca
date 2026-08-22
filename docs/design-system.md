@@ -25,6 +25,24 @@ The recurring identity marks are the **❖ glyph** (`&#10070;`, the "Mytheca sea
 
 storyline · character · setting · scenario · scene · event · beat · turn · narrator · cast · stat · branch · tone/tension · session. Replace vague phrases ("AI-powered storytelling") with concrete actions: "Begin Scene", "Forge Character", "Add Setting", "New Scenario", "Choose a path", "Speak, or describe what you do".
 
+### Control copy: state the effect, and the cost where one exists
+
+**Every control says what it *does*, not what it is called.** A label names a setting; it
+never tells the player what happens if they change it, and a menu of implementation nouns
+("Max turns", "Beat length", "Number of beats") is why nobody touched the scene config. So:
+
+- The **label is the consequence**: *"How many beats one message produces"*, not *"Max turns"*.
+- A one-line **`help`** says what to expect, and is wired through `aria-describedby` so it is
+  announced *with* the control rather than floating beside it (`SceneControlSelect`).
+- A **cost** goes with the consequence, never in a separate readout — "what it does" and "what
+  it costs" are one decision, and splitting them makes the player read twice to make it once.
+- **Better silent than invented.** A cost is shown only where there is an honest number; a
+  seconds-per-beat figure made up in the UI would be wrong for every operator's hardware.
+- A number is not an explanation. `5.2K / 16K` gets prose first: *"how much of what the model
+  can read at once this scene is using"*.
+- Where the app knows better than the player, it **reports rather than asks** — "What the scene
+  remembers" is read-only, and replaced the beats slider outright.
+
 ## Typography
 
 Three families, each with a fixed role. Load via Google Fonts (or self-host equivalently).

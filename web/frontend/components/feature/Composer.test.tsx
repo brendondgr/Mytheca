@@ -131,10 +131,14 @@ describe("Composer", () => {
           pov="mei"
         />,
       );
-      expect(screen.getByRole("textbox", { name: /your message/i })).toHaveAttribute(
+      // Under POV the box holds the CHARACTER's words, and its accessible name says so —
+      // "Your message" in both modes was the one place the interface still failed to tell
+      // you which of the two you were writing.
+      expect(screen.getByRole("textbox", { name: "Your line as Mei" })).toHaveAttribute(
         "placeholder",
         "Speaking as Mei…",
       );
+      expect(screen.queryByRole("textbox", { name: "Your message" })).not.toBeInTheDocument();
     });
 
     describe("scene-direction box", () => {
@@ -168,8 +172,11 @@ describe("Composer", () => {
           />,
         );
         const direction = screen.getByRole("textbox", { name: /scene direction/i });
-        const message = screen.getByRole("textbox", { name: /your message/i });
-        expect(direction).toHaveAttribute("placeholder", "Guide the scene — what happens next…");
+        const message = screen.getByRole("textbox", { name: "Your line as Mei" });
+        expect(direction).toHaveAttribute(
+          "placeholder",
+          "Tell the scene what should happen — as vague or as exact as you like",
+        );
         // Direction sits BEFORE the message box in document order (above it on screen).
         expect(
           direction.compareDocumentPosition(message) & Node.DOCUMENT_POSITION_FOLLOWING,

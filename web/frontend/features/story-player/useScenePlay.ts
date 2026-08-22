@@ -45,6 +45,8 @@ import {
   NO_DIRECTION,
   applyActivity,
   applyDirection,
+  latestSceneMemory,
+  type SceneMemory,
   dropPendingBeats,
   applyReasoning,
   applyCharacterActivity,
@@ -219,6 +221,11 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
    * ended.
    */
   const [standing, setStanding] = useState<StandingItem[]>([]);
+  /**
+   * How far back the scene reached on the last turn, and what it cost. Reported rather than
+   * configured — the depth is a consequence of the model's window, not a preference.
+   */
+  const [sceneMemory, setSceneMemory] = useState<SceneMemory | null>(null);
 
   /**
    * Stop asking for something the scene still owes.
@@ -301,6 +308,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       setLiveContextTokens,
       setStreamError,
       setStanding,
+      setSceneMemory,
       notify,
     }),
     [notify],
@@ -456,6 +464,12 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       // character call — the real "context window used" the dial renders.
       if (frame.step === "context" && typeof frame.data.promptTokens === "number") {
         setLiveContextTokens(frame.data.promptTokens);
+      }
+      // How far back this turn reached — what the config menu reports back to the player in
+      // place of the beats slider they used to have to guess with.
+      if (frame.step === "window") {
+        const memory = latestSceneMemory([{ step: frame.step, data: frame.data }]);
+        if (memory) setSceneMemory(memory);
       }
       setTraceTurns((t) => foldTrace(t, frame));
       // One trace step also reaches the transcript: `speaker` opens the chosen character's
@@ -902,6 +916,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     mentionOptions,
     standing,
     dismissStanding,
+    sceneMemory,
     playOut,
     answerCastRequest,
     // How far into the scene we are, for the Exit verbs' gate. Counts what the player

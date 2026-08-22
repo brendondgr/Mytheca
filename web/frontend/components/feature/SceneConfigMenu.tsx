@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { SceneControlSelect } from "@/components/ui/SceneControlSelect";
+import type { SceneMemory } from "@/features/story-player/turn-stream";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { BEAT_LENGTHS, BEAT_LENGTH_LABELS, type BeatLength } from "@/lib/types";
 
@@ -46,6 +47,17 @@ function GearIcon() {
  * Anchored in the composer's bottom-left controls row (`openUp` flips the popover above the
  * button). Native controls + Esc/outside-click close.
  */
+/**
+ * Roughly what one beat of each tier costs, for the cost line. Derived from the documented
+ * paragraph ranges rather than measured — it is an order-of-magnitude signal, and the label
+ * says "≈".
+ */
+const BEAT_LENGTH_TOKENS: Record<BeatLength, number> = {
+  short: 120,
+  medium: 260,
+  long: 520,
+};
+
 export function SceneConfigMenu({
   maxTurns = 5,
   onMaxTurnsChange,
@@ -53,6 +65,9 @@ export function SceneConfigMenu({
   onSuggestionsCountChange,
   beatLength = "medium",
   onBeatLengthChange,
+  sceneMemory = null,
+  summarised = false,
+  secondsPerBeat,
   openUp = false,
   disabled = false,
 }: {
@@ -63,6 +78,16 @@ export function SceneConfigMenu({
   /** How much a character says in one beat — short 1–2 ¶, medium 2–4 ¶, long 5–6 ¶. */
   beatLength?: BeatLength;
   onBeatLengthChange?: (value: BeatLength) => void;
+  /** How far back the last turn reached — reported, not configured. */
+  sceneMemory?: SceneMemory | null;
+  /** Whether the beats that dropped out were kept as a summary (compaction on). */
+  summarised?: boolean;
+  /**
+   * Observed seconds per beat in THIS session. Measured rather than hardcoded, because a
+   * number invented in the UI would be wrong for every operator's hardware — omitted
+   * entirely before a turn has run rather than guessed at.
+   */
+  secondsPerBeat?: number;
   /** Open the popover upward (for the bottom-of-screen composer). */
   openUp?: boolean;
   disabled?: boolean;
@@ -120,32 +145,73 @@ export function SceneConfigMenu({
             Scene configuration
           </Eyebrow>
 
+          {/* Each row states its EFFECT, and its cost where there is an honest number. A
+              label alone tells a player what a setting is called; it never tells them what
+              happens if they change it, which is most of why nobody touched these. */}
           <SceneControlSelect
-            label="Max turns"
+            label="How many beats one message produces"
             value={maxTurns}
             options={MAX_TURN_OPTIONS}
             onChange={(v) => onMaxTurnsChange?.(v)}
+            help="The cap on replies — narrator beats count too. The scene can still end sooner."
+            cost={secondsPerBeat ? `≈ ${secondsPerBeat}s per extra beat` : undefined}
             disabled={disabled || !onMaxTurnsChange}
             className="w-full [&_select]:w-full"
           />
 
           <SceneControlSelect
-            label="Suggestions"
+            label="Follow-up ideas offered after each turn"
             value={suggestionsCount}
             options={SUGGESTION_OPTIONS}
             onChange={(v) => onSuggestionsCountChange?.(v)}
+            help="Shown under the last beat. 0 turns them off."
             disabled={disabled || !onSuggestionsCountChange}
             className="w-full [&_select]:w-full"
           />
 
           <SceneControlSelect
-            label="Beat length"
+            label="How much a character says at once"
             value={beatLength}
             options={BEAT_LENGTH_OPTIONS}
             onChange={(v) => onBeatLengthChange?.(v)}
+            help="Paragraphs per beat. Narration is unaffected — it has its own length."
+            cost={`≈ ${BEAT_LENGTH_TOKENS[beatLength].toLocaleString()} tokens a beat`}
             disabled={disabled || !onBeatLengthChange}
             className="w-full [&_select]:w-full"
           />
+
+          {/* Read-only. This is what replaced the "Number of beats" slider: the app decides
+              the depth, and reports it, instead of asking the player to guess at it. */}
+          <section
+            aria-label="What the scene remembers"
+            className="flex flex-col gap-[3px] border-t border-field-bd pt-[10px]"
+          >
+            <span className="font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase">
+              What the scene remembers
+            </span>
+            {sceneMemory ? (
+              <p className="font-body text-[11px] leading-[1.45] text-mute2">
+                The last {sceneMemory.windowBeats} beat
+                {sceneMemory.windowBeats === 1 ? "" : "s"}, word for word
+                {sceneMemory.budgetTokens ? (
+                  <span className="font-mono text-[10px] text-ink-soft">
+                    {" "}
+                    (≈ {sceneMemory.budgetTokens.toLocaleString()} tokens)
+                  </span>
+                ) : null}
+                .{" "}
+                {sceneMemory.droppedBeats > 0
+                  ? summarised
+                    ? `${sceneMemory.droppedBeats} older beat${sceneMemory.droppedBeats === 1 ? " is" : "s are"} kept as a summary.`
+                    : `${sceneMemory.droppedBeats} older beat${sceneMemory.droppedBeats === 1 ? " has" : "s have"} dropped out.`
+                  : "Nothing has dropped out yet."}
+              </p>
+            ) : (
+              <p className="font-body text-[11px] leading-[1.45] text-mute2">
+                Fitted to the model&apos;s context window once the scene starts.
+              </p>
+            )}
+          </section>
         </div>
       ) : null}
     </div>

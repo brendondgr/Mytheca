@@ -81,3 +81,66 @@ describe("SceneControlSelect", () => {
     expect(select).toBeDisabled();
   });
 });
+
+describe("SceneControlSelect consequence + cost", () => {
+  it("associates the consequence line with the control, not just beside it", () => {
+    // A label tells a player what a setting is called; it never tells them what happens if
+    // they change it. `aria-describedby` is what makes that difference reach a screen reader
+    // rather than only a sighted one.
+    render(
+      <SceneControlSelect
+        label="How many beats one message produces"
+        value={5}
+        options={[1, 5]}
+        onChange={() => {}}
+        help="The cap on replies — narrator beats count too."
+      />,
+    );
+    expect(
+      screen.getByRole("combobox", { name: /how many beats/i }),
+    ).toHaveAccessibleDescription(/the cap on replies/i);
+  });
+
+  it("puts the cost with the consequence rather than in a separate readout", () => {
+    // "What it does" and "what it costs" are one decision; splitting them makes the player
+    // read twice to make it once.
+    render(
+      <SceneControlSelect
+        label="Beats"
+        value={5}
+        options={[1, 5]}
+        onChange={() => {}}
+        help="The cap on replies."
+        cost="≈ 4s per extra beat"
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Beats" })).toHaveAccessibleDescription(
+      /the cap on replies[\s\S]*4s per extra beat/i,
+    );
+  });
+
+  it("adds no description at all when there is nothing to say", () => {
+    render(<SceneControlSelect label="Bare" value={1} options={[1, 2]} onChange={() => {}} />);
+    expect(screen.getByRole("combobox", { name: "Bare" })).not.toHaveAttribute(
+      "aria-describedby",
+    );
+  });
+
+  it("omits the cost when there is no honest number for it", () => {
+    // Better silent than invented: a seconds-per-beat figure made up in the UI would be
+    // wrong for every operator's hardware.
+    render(
+      <SceneControlSelect
+        label="Bare"
+        value={1}
+        options={[1, 2]}
+        onChange={() => {}}
+        help="Just the consequence."
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Bare" })).toHaveAccessibleDescription(
+      "Just the consequence.",
+    );
+  });
+});
+

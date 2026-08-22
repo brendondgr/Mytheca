@@ -24,13 +24,13 @@ describe("SceneConfigMenu", () => {
     setup();
     // Closed by default — no controls in the DOM.
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: /max turns/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /how many beats one message produces/i })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
     expect(screen.getByRole("dialog", { name: /scene configuration/i })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /max turns/i })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /suggestions/i })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /beat length/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /how many beats one message produces/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /follow-up ideas/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /how much a character says/i })).toBeInTheDocument();
   });
 
   it("fires the change handlers for turns and suggestions", async () => {
@@ -38,8 +38,8 @@ describe("SceneConfigMenu", () => {
     const props = setup();
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
 
-    await user.selectOptions(screen.getByRole("combobox", { name: /max turns/i }), "3");
-    await user.selectOptions(screen.getByRole("combobox", { name: /suggestions/i }), "0");
+    await user.selectOptions(screen.getByRole("combobox", { name: /how many beats one message produces/i }), "3");
+    await user.selectOptions(screen.getByRole("combobox", { name: /follow-up ideas/i }), "0");
     expect(props.onMaxTurnsChange).toHaveBeenCalledWith(3);
     expect(props.onSuggestionsCountChange).toHaveBeenCalledWith(0);
   });
@@ -60,9 +60,9 @@ describe("SceneConfigMenu", () => {
     const user = userEvent.setup();
     setup();
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-    expect(screen.getByRole("combobox", { name: /max turns/i })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /suggestions/i })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /beat length/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /how many beats one message produces/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /follow-up ideas/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /how much a character says/i })).toBeInTheDocument();
   });
 
   it("closes on Escape", async () => {
@@ -81,7 +81,7 @@ describe("SceneConfigMenu / beat length", () => {
     setup();
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
 
-    const select = screen.getByRole("combobox", { name: /beat length/i });
+    const select = screen.getByRole("combobox", { name: /how much a character says/i });
     expect(select).toHaveValue("medium");
     // The counts are shown because they ARE the setting — "Short" alone tells the reader
     // nothing about what they are choosing.
@@ -95,7 +95,7 @@ describe("SceneConfigMenu / beat length", () => {
     const props = setup();
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
 
-    await user.selectOptions(screen.getByRole("combobox", { name: /beat length/i }), "long");
+    await user.selectOptions(screen.getByRole("combobox", { name: /how much a character says/i }), "long");
     expect(props.onBeatLengthChange).toHaveBeenCalledWith("long");
   });
 
@@ -103,13 +103,102 @@ describe("SceneConfigMenu / beat length", () => {
     const user = userEvent.setup();
     render(<SceneConfigMenu onBeatLengthChange={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-    expect(screen.getByRole("combobox", { name: /beat length/i })).toHaveValue("medium");
+    expect(screen.getByRole("combobox", { name: /how much a character says/i })).toHaveValue("medium");
   });
 
   it("is disabled when no handler is supplied, like its neighbours", async () => {
     const user = userEvent.setup();
     render(<SceneConfigMenu />);
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-    expect(screen.getByRole("combobox", { name: /beat length/i })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: /how much a character says/i })).toBeDisabled();
   });
 });
+
+describe("SceneConfigMenu says what each control does", () => {
+  it("gives every control an accessible description of its effect", async () => {
+    // The review's finding was that nothing tells a new player what any of this is. The
+    // cheapest 80% of that fix is copy attached to the controls they can already see.
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    for (const name of [
+      /how many beats one message produces/i,
+      /follow-up ideas offered after each turn/i,
+      /how much a character says at once/i,
+    ]) {
+      expect(screen.getByRole("combobox", { name })).toHaveAccessibleDescription(/\w/);
+    }
+  });
+
+  it("names each control by its consequence, not by its implementation", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    // The old names described the machine ("Max turns", "Beat length"); these describe what
+    // the player gets.
+    expect(screen.queryByRole("combobox", { name: "Max turns" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Beat length" })).not.toBeInTheDocument();
+  });
+
+  it("reports what the scene remembers instead of asking for it", async () => {
+    const user = userEvent.setup();
+    render(
+      <SceneConfigMenu
+        maxTurns={5}
+        onMaxTurnsChange={() => {}}
+        sceneMemory={{
+          windowBeats: 40,
+          windowSource: "detected",
+          droppedBeats: 12,
+          budgetTokens: 8000,
+        }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    const row = screen.getByRole("region", { name: /what the scene remembers/i });
+    expect(row).toHaveTextContent(/last 40 beats, word for word/i);
+    expect(row).toHaveTextContent(/8,000 tokens/);
+    expect(row).toHaveTextContent(/12 older beats have dropped out/i);
+  });
+
+  it("says the older beats are kept when compaction is on", async () => {
+    const user = userEvent.setup();
+    render(
+      <SceneConfigMenu
+        maxTurns={5}
+        onMaxTurnsChange={() => {}}
+        summarised
+        sceneMemory={{
+          windowBeats: 40,
+          windowSource: "detected",
+          droppedBeats: 12,
+          budgetTokens: 8000,
+        }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    expect(
+      screen.getByRole("region", { name: /what the scene remembers/i }),
+    ).toHaveTextContent(/kept as a summary/i);
+  });
+
+  it("says so honestly before a turn has run", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    expect(
+      screen.getByRole("region", { name: /what the scene remembers/i }),
+    ).toHaveTextContent(/once the scene starts/i);
+  });
+
+  it("omits the per-beat cost until a turn has actually been timed", async () => {
+    // A number invented in the UI would be wrong for every operator's hardware.
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    expect(
+      screen.getByRole("combobox", { name: /how many beats one message produces/i }),
+    ).not.toHaveAccessibleDescription(/per extra beat/i);
+  });
+});
+

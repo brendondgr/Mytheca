@@ -85,3 +85,20 @@ describe("ContextUsageDial", () => {
     expect(Number(arc.getAttribute("stroke-dashoffset"))).toBeCloseTo(circumference / 2, 5);
   });
 });
+
+describe("ContextUsageDial explains the number", () => {
+  it("says what the figure MEANS before giving the figure", () => {
+    // "5.2K / 16K" is a number, not an explanation — and the dial is one of the few controls
+    // a new player will actually look at, because it moves.
+    render(<ContextUsageDial usedTokens={5200} maxTokens={16000} />);
+    const label = screen.getByRole("button").getAttribute("aria-label") ?? "";
+    expect(label).toMatch(/how much of what the model can read at once/i);
+    expect(label).toMatch(/5\.2K of 16K tokens/);
+  });
+
+  it("still distinguishes a measured number from an estimated one", () => {
+    render(<ContextUsageDial usedTokens={5200} maxTokens={16000} exact />);
+    expect(screen.getByRole("button").getAttribute("aria-label")).toMatch(/exact/);
+  });
+});
+

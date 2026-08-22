@@ -132,7 +132,7 @@ export function SceneHeader({
             onClick={onToggleInspector}
             aria-pressed={inspectorOpen}
             aria-label="Turn Inspector"
-            title="Turn Inspector — see how the scene responds to each message"
+            title="See what the scene read, who it chose, and why — for every message"
             className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[9px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-pressed:border-accent aria-pressed:text-accent sm:px-[10px]"
           >
             <span aria-hidden>⚙</span>

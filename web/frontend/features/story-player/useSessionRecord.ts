@@ -21,6 +21,8 @@ import {
   latestContextTokens,
   latestGuidance,
   latestPov,
+  latestSceneMemory,
+  type SceneMemory,
   rehydrateFromHistory,
   type PresenceMap,
   type TraceTurn,
@@ -50,6 +52,8 @@ export interface SceneWriters {
   setStreamError: (e: string | null) => void;
   /** What an earlier turn could not deliver and the next one will re-owe. */
   setStanding: (items: StandingItem[]) => void;
+  /** How far back the scene reached, reported back to the player. */
+  setSceneMemory: (memory: SceneMemory | null) => void;
   notify: (input: { message: string; variant?: "success" | "error" | "info" }) => unknown;
 }
 
@@ -128,6 +132,9 @@ export function useSessionRecord({
       apply.setGuidance(latestGuidance(history.events));
       // The debt the next turn will re-owe, shown up front rather than sprung mid-turn.
       apply.setStanding(history.standingDirection ?? []);
+      // What the last turn of the resumed scene reached back to — so the config menu can
+      // report it before the next turn runs rather than showing nothing.
+      apply.setSceneMemory(latestSceneMemory(history.traces));
       // Seed the dial with the resumed session's last real context-token count (null when
       // none was recorded → the estimate fallback is used until the next turn streams one).
       apply.setLiveContextTokens(latestContextTokens(history.traces));
@@ -179,6 +186,7 @@ export function useSessionRecord({
       apply.setPov(null);
       apply.setGuidance("");
       apply.setStanding([]);
+      apply.setSceneMemory(null);
       apply.setLiveContextTokens(null);
       apply.setStreamError(null);
       await refreshSessions();

@@ -71,7 +71,7 @@ export function DirectionRow({
             textareaProps?.onChange?.(e);
           }}
           aria-label="Scene direction"
-          placeholder="Guide the scene — what happens next…"
+          placeholder="Tell the scene what should happen — as vague or as exact as you like"
           className="composer-input mt-[2px] block w-full resize-none bg-transparent px-[4px] py-[2px] font-body text-[13px] text-mute placeholder:text-mute2 focus:outline-none"
           style={{ overflowY: "hidden" }}
         />

@@ -1,3 +1,5 @@
+import { useId, type ReactNode } from "react";
+
 import { cn } from "@/lib/cn";
 
 /**
@@ -33,6 +35,8 @@ export function SceneControlSelect<T extends string | number>({
   value,
   options,
   onChange,
+  help,
+  cost,
   disabled = false,
   className,
 }: {
@@ -41,10 +45,19 @@ export function SceneControlSelect<T extends string | number>({
   /** Selectable values — bare, or `{value, label}` when the text should differ. */
   options: readonly (T | SceneControlOption<T>)[];
   onChange: (value: T) => void;
+  /**
+   * One line saying what this control *does* — announced with the control rather than
+   * floating beside it, via `aria-describedby`. A label alone tells a player what a setting
+   * is called; it never tells them what happens if they change it.
+   */
+  help?: ReactNode;
+  /** What it costs, when there is an honest number — tokens, seconds, beats. */
+  cost?: ReactNode;
   disabled?: boolean;
   className?: string;
 }) {
   const items = normalize(options);
+  const helpId = useId();
   return (
     <label className={cn("flex flex-none flex-col gap-[3px]", className)}>
       <span className="font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase">
@@ -58,6 +71,7 @@ export function SceneControlSelect<T extends string | number>({
         }}
         disabled={disabled}
         aria-label={label}
+        aria-describedby={help ? helpId : undefined}
         className="rounded-[3px] border border-field-bd bg-field p-[7px_8px] font-mono text-[12px] text-ink focus:border-accent focus:outline-none disabled:opacity-60"
       >
         {items.map((o) => (
@@ -66,6 +80,23 @@ export function SceneControlSelect<T extends string | number>({
           </option>
         ))}
       </select>
+      {help ? (
+        <p id={helpId} className="font-body text-[11px] leading-[1.4] text-mute2">
+          {help}
+          {cost ? (
+            // The cost sits with the consequence, not in a separate readout: "what it does"
+            // and "what it costs" are one decision, and separating them makes the player
+            // read twice to make it once.
+            // The leading space is not decoration: a CSS margin separates these visually but
+            // `textContent` concatenates them, so the accessible description ran the two
+            // together — "its own length.≈ 260 tokens a beat".
+            <span className="ml-[4px] font-mono text-[10px] tracking-[0.04em] text-ink-soft">
+              {" "}
+              {cost}
+            </span>
+          ) : null}
+        </p>
+      ) : null}
     </label>
   );
 }

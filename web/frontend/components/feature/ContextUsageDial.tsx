@@ -44,7 +44,12 @@ export function ContextUsageDial({
   const usedFmt = fmtTokensK(usedTokens);
   const maxFmt = fmtTokensK(maxTokens);
   const qualifier = exact ? "exact" : "estimated";
-  const detail = `${usedFmt} of ${maxFmt} tokens · ${Math.round(pct)}% · ${qualifier}`;
+  // "5.2K / 16K" is a number, not an explanation. The tooltip says what the number MEANS —
+  // how much of what the model can read at once this scene is currently using — and only then
+  // gives the figures.
+  const detail =
+    `How much of what the model can read at once this scene is using: ` +
+    `${usedFmt} of ${maxFmt} tokens (${Math.round(pct)}%, ${qualifier}).`;
 
   return (
     <div className="group relative flex-none">

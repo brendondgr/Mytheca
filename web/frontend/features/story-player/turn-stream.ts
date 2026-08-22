@@ -71,6 +71,42 @@ export function latestContextTokens(traces: PersistedTrace[]): number | null {
   return null;
 }
 
+/**
+ * What the scene actually remembers — how far back it reached, and what it cost.
+ *
+ * The player used to *set* a beat depth and never learn what it bought; the app now fits the
+ * depth to the model's real window and this is how that gets reported back. `null` before any
+ * turn has run.
+ */
+export interface SceneMemory {
+  /** Beats carried verbatim into the prompt. */
+  windowBeats: number;
+  /** How the model's context window is known: detected / configured / fallback / fixed. */
+  windowSource: string;
+  /** Older beats that did not fit. Summarised when compaction is on, else simply gone. */
+  droppedBeats: number;
+  /** Tokens the transcript was allowed. */
+  budgetTokens: number;
+}
+
+/** Read the most recent `window` trace step — live frames or a resumed session's rows. */
+export function latestSceneMemory(
+  traces: { step: string; data: Record<string, unknown> }[],
+): SceneMemory | null {
+  for (let i = traces.length - 1; i >= 0; i--) {
+    if (traces[i].step !== "window") continue;
+    const d = traces[i].data as Record<string, unknown>;
+    if (typeof d.windowBeats !== "number") continue;
+    return {
+      windowBeats: d.windowBeats,
+      windowSource: String(d.windowSource ?? ""),
+      droppedBeats: typeof d.droppedBeats === "number" ? d.droppedBeats : 0,
+      budgetTokens: typeof d.budgetTokens === "number" ? d.budgetTokens : 0,
+    };
+  }
+  return null;
+}
+
 /** Append/extend the message that owns `id`, or push a new one (delta accumulation). */
 function mergeDelta(
   prev: SceneMessage[],

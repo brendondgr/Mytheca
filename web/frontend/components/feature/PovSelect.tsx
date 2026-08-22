@@ -182,6 +182,9 @@ export function PovSelect({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-label="Speaking as"
+        // The one control whose name genuinely does not explain itself: "Speaking as" reads
+        // as a label, not as a choice about who your words belong to.
+        title="Choose whose voice your message is in — a character's, or the narrator's"
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {

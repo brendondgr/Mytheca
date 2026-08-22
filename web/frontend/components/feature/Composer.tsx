@@ -9,6 +9,7 @@ import { MentionMenu } from "@/components/feature/MentionMenu";
 import { DirectionRow } from "@/components/feature/DirectionRow";
 import { SceneVerbBar } from "@/components/feature/SceneVerbBar";
 import type { SceneVerb } from "@/lib/sceneVerbs";
+import type { SceneMemory } from "@/features/story-player/turn-stream";
 import {
   applyMention,
   filterMentions,
@@ -79,6 +80,9 @@ export function Composer({
   verbs = [],
   onExpandCast,
   castMenu,
+  sceneMemory = null,
+  summarised = false,
+  secondsPerBeat,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -138,6 +142,10 @@ export function Composer({
   onExpandCast?: () => void;
   /** The open cast submenu, rendered inside the panel so it anchors like the `@` menu. */
   castMenu?: React.ReactNode;
+  /** How far back the last turn reached — reported in the config menu. */
+  sceneMemory?: SceneMemory | null;
+  summarised?: boolean;
+  secondsPerBeat?: number;
 }) {
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const ref = (inputRef as RefObject<HTMLTextAreaElement>) ?? internalRef;
@@ -447,7 +455,10 @@ export function Composer({
           onBlur={() => setMention(null)}
           {...mentionAria("message")}
           // textarea is always enabled — only send is blocked while streaming
-          aria-label="Your message"
+          // Under POV this box is the CHARACTER's words, not the player's — naming it "Your
+          // message" in both modes was the one place the interface still failed to say which
+          // of the two you were writing.
+          aria-label={povName ? `Your line as ${povName}` : "Your message"}
           placeholder={placeholder}
           className="composer-input block w-full resize-none bg-transparent px-[4px] pt-[2px] pb-[8px] font-body text-[14px] text-ink placeholder:text-mute2 focus:outline-none"
           style={{ overflowY: "hidden" }}
@@ -512,6 +523,9 @@ export function Composer({
               onSuggestionsCountChange={onSuggestionsCountChange}
               beatLength={beatLength}
               onBeatLengthChange={onBeatLengthChange}
+              sceneMemory={sceneMemory}
+              summarised={summarised}
+              secondsPerBeat={secondsPerBeat}
               openUp
             />
           ) : null}
