@@ -7,6 +7,8 @@ import { Monogram } from "@/components/ui/Monogram";
 import { mediaUrl } from "@/lib/api";
 import { MentionMenu } from "@/components/feature/MentionMenu";
 import { DirectionRow } from "@/components/feature/DirectionRow";
+import { SceneVerbBar } from "@/components/feature/SceneVerbBar";
+import type { SceneVerb } from "@/lib/sceneVerbs";
 import {
   applyMention,
   filterMentions,
@@ -77,6 +79,9 @@ export function Composer({
   canUndoGhostwrite = false,
   // `@` file tagging (omit to disable the feature entirely).
   mentionOptions = [],
+  verbs = [],
+  onExpandCast,
+  castMenu,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -133,6 +138,12 @@ export function Composer({
   ghostwriting?: boolean;
   canUndoGhostwrite?: boolean;
   mentionOptions?: MentionOption[];
+  /** The direction verbs to offer. Empty (the default) hides the bar entirely. */
+  verbs?: SceneVerb[];
+  /** "Someone arrives" was tapped — the parent opens its cast submenu. */
+  onExpandCast?: () => void;
+  /** The open cast submenu, rendered inside the panel so it anchors like the `@` menu. */
+  castMenu?: React.ReactNode;
 }) {
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const ref = (inputRef as RefObject<HTMLTextAreaElement>) ?? internalRef;
@@ -261,6 +272,32 @@ export function Composer({
   const hasContent = Boolean(value.trim() || (showGuidance && (guidance ?? "").trim()));
 
   /**
+   * Write a verb's phrasing into whichever box carries the direction, and **select it**.
+   *
+   * Under POV that is the direction textarea; in narrator mode the message box *is* the
+   * direction, so it goes there. One concept, two targets — the same split the direction
+   * row states in words.
+   *
+   * The inserted text is selected rather than left with the caret after it, because the
+   * point of a verb is to give the player a sentence to argue with: with it selected, one
+   * keystroke replaces it and typing over it is the fast path rather than a chore.
+   */
+  function insertDirection(text: string) {
+    if (!text) return;
+    const target = showGuidance ? guidanceRef.current : ref.current;
+    const write = showGuidance ? onGuidanceChange : onChange;
+    const current = showGuidance ? (guidance ?? "") : value;
+    // A verb is a new line of direction, not an append to the sentence in progress.
+    const prefix = current.trim() ? `${current.replace(/\s+$/, "")}\n` : "";
+    write?.(prefix + text);
+    requestAnimationFrame(() => {
+      if (!target) return;
+      target.focus();
+      target.setSelectionRange(prefix.length, prefix.length + text.length);
+    });
+  }
+
+  /**
    * Shared key handling. While the menu is open it owns Arrow/Enter/Tab/Escape — Enter in
    * particular must select rather than send, which is why this lives beside the send
    * shortcut rather than inside the menu.
@@ -348,6 +385,7 @@ export function Composer({
       {/* The single visual unit: the chat box panel (input area + gap + controls). */}
       {/* `relative` anchors the `@` menu, which opens upward out of the panel. */}
       <div className="relative mx-auto flex max-w-[720px] flex-col rounded-[14px] border border-field-bd bg-field px-[10px] pt-[8px] pb-[7px] focus-within:border-accent transition-colors duration-150">
+        {castMenu}
         {menuOpen ? (
           <MentionMenu
             id={listboxId}
@@ -382,7 +420,19 @@ export function Composer({
               onBlur: () => setMention(null),
               ...mentionAria("guidance"),
             }}
-          />
+          >
+            {/* The verb bar lives on the direction row in BOTH modes; only the target it
+                writes into changes. That is exactly the distinction the row's two modes
+                exist to make. */}
+            {verbs.length ? (
+              <SceneVerbBar
+                verbs={verbs}
+                onVerb={insertDirection}
+                onExpandCast={onExpandCast}
+                disabled={sendDisabled}
+              />
+            ) : null}
+          </DirectionRow>
         ) : null}
 
         {/* The message input — no focus outline (the container carries the accent border). */}

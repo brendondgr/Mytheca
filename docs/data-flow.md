@@ -203,6 +203,23 @@ a feature. The column is **stored, not derived**: it could be replayed from the 
 trace rows, but that would make the turn loop's correctness depend on diagnostics being
 retained, and traces are the first thing an operator prunes.
 
+**One-tap verbs.** The direction row carries a grouped verb bar (`lib/sceneVerbs.ts` +
+`SceneVerbBar`): Pace · Tone · Event · Exit. Two rules make it worth reading, both aimed at the
+old flat row's problem of being ignored. Each verb owns a **phrasing distinct from its label** —
+tapping *Escalate* writes "Something makes this worse — push the moment past where it was going"
+into the direction target for the player to edit, because a verb exists to hand them a sentence
+to argue with rather than a command to fire. And **a verb that cannot mean anything is not
+offered**: *Someone arrives* only when the storyline has cast outside the scene (and it expands
+into a submenu naming them, which raises a Phase 9 request rather than an arrival), *Move the
+scene* only when the storyline has more than one setting, *Wrap this up* / *End the scene* only
+once the player has taken `MID_SCENE_TURNS` (3) turns. The insertion target follows the row's
+own two modes: the direction box under POV, the **message box** in narrator mode. The inserted
+text is *selected*, so one keystroke replaces it, and it is added as a **new line** — each line
+of the direction box is one requirement (see `directives` above), so appending to the sentence in
+progress would merge two into one. A scene may add up to 8 of its own verbs
+(`scenarios.direction_verbs`), appended to their group after the built-ins and never gated —
+the author knows this scene better than a generic condition does.
+
 **Pacing.** How many requirements ride on one beat is `direction_runtime.pace(owed, remaining)`
 = `ceil(len(owed) / remaining)`: one per beat while there is room, more only when the budget
 forces it. The old code used a fixed `[:1]` slice at the per-beat sites and an all-or-one

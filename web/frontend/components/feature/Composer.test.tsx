@@ -651,3 +651,119 @@ describe("Composer chip removal", () => {
   });
 });
 
+describe("Composer direction verbs", () => {
+  const POV_OPTS = [{ id: "mei", name: "Mei", mono: "M", color: "#8E2B1C", portrait: null }];
+  const VERBS = [
+    { id: "escalate", group: "tone" as const, label: "Escalate", text: "Make it worse." },
+  ];
+
+  it("writes a verb into the MESSAGE box in narrator mode — the box that is the direction", () => {
+    const onChange = vi.fn();
+    render(
+      <Composer
+        value=""
+        onChange={onChange}
+        onSend={() => {}}
+        guidance=""
+        onGuidanceChange={() => {}}
+        onPovChange={() => {}}
+        povOptions={POV_OPTS}
+        pov={null}
+        verbs={VERBS}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Escalate" }));
+    expect(onChange).toHaveBeenCalledWith("Make it worse.");
+  });
+
+  it("writes it into the DIRECTION box under POV, where the message box is the character", () => {
+    const onGuidanceChange = vi.fn();
+    const onChange = vi.fn();
+    render(
+      <Composer
+        value=""
+        onChange={onChange}
+        onSend={() => {}}
+        guidance=""
+        onGuidanceChange={onGuidanceChange}
+        onPovChange={() => {}}
+        povOptions={POV_OPTS}
+        pov="mei"
+        verbs={VERBS}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Escalate" }));
+    expect(onGuidanceChange).toHaveBeenCalledWith("Make it worse.");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("adds a verb as a new line rather than running it into what is already there", () => {
+    // Each line of the direction box is one thing the turn owes (Phase 8), so appending to
+    // the sentence in progress would merge two directives into one.
+    const onChange = vi.fn();
+    render(
+      <Composer
+        value="Mei backs down"
+        onChange={onChange}
+        onSend={() => {}}
+        guidance=""
+        onGuidanceChange={() => {}}
+        onPovChange={() => {}}
+        povOptions={POV_OPTS}
+        pov={null}
+        verbs={VERBS}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Escalate" }));
+    expect(onChange).toHaveBeenCalledWith("Mei backs down\nMake it worse.");
+  });
+
+  it("hides the bar entirely when no verb is worth offering", () => {
+    render(
+      <Composer
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        guidance=""
+        onGuidanceChange={() => {}}
+        onPovChange={() => {}}
+        povOptions={POV_OPTS}
+        pov={null}
+        verbs={[]}
+      />,
+    );
+    expect(screen.queryByRole("toolbar", { name: "Direction" })).not.toBeInTheDocument();
+  });
+
+  it("shows the bar in both modes — the row is the direction, only the target changes", () => {
+    const { rerender } = render(
+      <Composer
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        guidance=""
+        onGuidanceChange={() => {}}
+        onPovChange={() => {}}
+        povOptions={POV_OPTS}
+        pov={null}
+        verbs={VERBS}
+      />,
+    );
+    expect(screen.getByRole("toolbar", { name: "Direction" })).toBeInTheDocument();
+    rerender(
+      <Composer
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        guidance=""
+        onGuidanceChange={() => {}}
+        onPovChange={() => {}}
+        povOptions={POV_OPTS}
+        pov="mei"
+        verbs={VERBS}
+      />,
+    );
+    expect(screen.getByRole("toolbar", { name: "Direction" })).toBeInTheDocument();
+  });
+});
+

@@ -849,6 +849,7 @@ export function useLibraryState(initialStorylineId?: string) {
       _sceneArtPositive: s.sceneArtPositive ?? "",
       _sceneArtNegative: s.sceneArtNegative ?? "",
       _promptOverrides: s.promptOverrides ?? {},
+      directionVerbs: s.directionVerbs ?? [],
     });
     setError(null);
     setModal({ type: "scenario", mode: "manual", editId: id });
@@ -1016,6 +1017,10 @@ export function useLibraryState(initialStorylineId?: string) {
           sceneArtPositive: d._sceneArtPositive?.trim() || null,
           sceneArtNegative: d._sceneArtNegative?.trim() || null,
           promptOverrides: d._promptOverrides ?? {},
+          // Blank rows are the author still typing — never persisted as a dead chip.
+          directionVerbs: (d.directionVerbs ?? []).filter(
+            (v) => v.label.trim() && v.text.trim(),
+          ),
         };
         if (editId) {
           const updated = await api.updateScenario(editId, body);

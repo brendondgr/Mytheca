@@ -44,6 +44,9 @@ export function DirectionRow({
   /** Slot for the direction verb bar, which attaches to this row in both modes. */
   children?: ReactNode;
 }) {
+  // `children` is the verb bar. It attaches to this row in BOTH modes, because the row is
+  // the direction — what changes between modes is only which box the verb writes into, and
+  // that is the parent's business (see `Composer.insertDirection`).
   return (
     <div className="mb-[6px] border-b border-field-bd pb-[6px]">
       <div className="flex flex-wrap items-center gap-x-[8px] gap-y-[3px] px-[4px]">

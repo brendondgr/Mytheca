@@ -63,6 +63,11 @@ class Scenario(Base):
     # storyline's prompts for THIS scene only. Empty {} inherits storyline/global/default.
     # Nullable (older rows read as {}); resolved by ``prompt_registry.resolve_prompts``.
     prompt_overrides: Mapped[dict | None] = mapped_column(JSONColumn, nullable=True, default=dict)
+    # The scene's OWN one-tap direction verbs, appended to the built-in bar's groups.
+    # ``[{"label", "group", "text"}]``. Nullable (older rows read as none), so
+    # ``core/bootstrap._reconcile_additive_columns`` adds it with a plain ADD COLUMN and no
+    # Alembic migration is required.
+    direction_verbs: Mapped[list | None] = mapped_column(JSONColumn, nullable=True, default=None)
     # Scene art generated for this scenario (opt-in, requires ComfyUI).
     image: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     scene_art_positive: Mapped[str | None] = mapped_column(String, nullable=True, default=None)

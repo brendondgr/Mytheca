@@ -3,6 +3,8 @@ import { TextField } from "@/components/ui/TextField";
 import { MultiSelect, type MultiSelectOption } from "@/components/ui/MultiSelect";
 import type { Character, Setting } from "@/lib/types";
 import type { Draft } from "@/features/library/editor";
+import { DirectionVerbsEditor } from "@/components/feature/DirectionVerbsEditor";
+import type { AuthoredVerb } from "@/lib/sceneVerbs";
 
 export function ScenarioForm({
   draft,
@@ -71,6 +73,10 @@ export function ScenarioForm({
         selected={cast}
         onChange={(next) => setDraft("cast", next)}
         className="mb-[14px]"
+      />
+      <DirectionVerbsEditor
+        verbs={(draft.directionVerbs as AuthoredVerb[] | undefined) ?? []}
+        onChange={(next) => setDraft("directionVerbs", next)}
       />
       <MultiSelect
         label="Setting — choose one"

@@ -3,6 +3,8 @@
 // frontend pass the data is in-memory seed data; the shapes mirror the
 // eventual backend contracts.
 
+import type { VerbGroup } from "@/lib/sceneVerbs";
+
 /** One situation → sample-response pair defining how a character speaks. */
 /**
  * The kinds of moment a voice sample can demonstrate — the same axis the backend
@@ -152,6 +154,13 @@ export interface Scenario {
    * is unaffected; it has its own sentence spec. Mirrors the backend `BeatLength`.
    */
   beatLength?: BeatLength;
+  /**
+   * The scene's own one-tap direction verbs, appended to the built-in bar's groups. `label`
+   * is the chip, `text` is the phrasing written into the direction box for the player to
+   * edit — separate on purpose, since a verb exists to hand them a sentence to argue with
+   * rather than a command to fire.
+   */
+  directionVerbs?: { label: string; group: VerbGroup; text: string }[];
   /**
    * Per-scenario writing-prompt overrides ({registry key → prompt text}) — override the
    * storyline's prompts for this scene only. Empty/absent inherits storyline/global/default.

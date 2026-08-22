@@ -152,3 +152,72 @@ def test_scenario_image_roundtrip(client, storyline_id):
 
     fetched = client.get(f"/api/scenarios/{scid}").json()
     assert fetched["image"] == "/media/scenes/abc123.webp"
+
+
+def test_direction_verbs_round_trip(client, storyline_id):
+    """The scene's own one-tap direction verbs, appended to the built-in bar's groups."""
+    verbs = [
+        {"label": "Ring the bell", "group": "event", "text": "The harbour bell starts ringing."},
+        {"label": "Tide turns", "group": "pace", "text": "The tide turns and everyone feels it."},
+    ]
+    created = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Salt", "directionVerbs": verbs},
+    ).json()
+    assert created["directionVerbs"] == verbs
+
+    fetched = client.get(f"/api/storylines/{storyline_id}/scenarios").json()
+    row = next(s for s in fetched if s["id"] == created["id"])
+    assert row["directionVerbs"] == verbs
+
+    updated = client.patch(
+        f"/api/scenarios/{created['id']}", json={"directionVerbs": []}
+    ).json()
+    assert updated["directionVerbs"] == []
+
+
+def test_a_scenario_written_before_verbs_existed_reads_as_none(client, storyline_id):
+    """The column is nullable, so an older row must read as an empty list rather than 422."""
+    created = client.post(
+        f"/api/storylines/{storyline_id}/scenarios", json={"title": "Plain"}
+    ).json()
+    assert created["directionVerbs"] == []
+
+
+def test_an_unknown_verb_group_is_refused(client, storyline_id):
+    """A `Literal`, not a plain string — an unknown group would otherwise be a verb that
+    silently never renders, since the bar draws by group."""
+    resp = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={
+            "title": "Bad",
+            "directionVerbs": [{"label": "x", "group": "vibes", "text": "y"}],
+        },
+    )
+    assert resp.status_code == 422
+
+
+def test_too_many_verbs_are_refused(client, storyline_id):
+    """The bar is a glance-and-tap surface; past a handful it becomes the wall of buttons
+    the grouping exists to avoid."""
+    resp = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={
+            "title": "Too many",
+            "directionVerbs": [
+                {"label": f"V{i}", "group": "event", "text": "x"} for i in range(9)
+            ],
+        },
+    )
+    assert resp.status_code == 422
+
+
+def test_a_verb_needs_both_a_chip_and_a_phrasing(client, storyline_id):
+    """A verb hands the player a sentence to argue with — a blank one is a dead chip."""
+    for bad in ({"label": "", "group": "event", "text": "y"},
+                {"label": "x", "group": "event", "text": ""}):
+        resp = client.post(
+            f"/api/storylines/{storyline_id}/scenarios",
+            json={"title": "Bad", "directionVerbs": [bad]},
+        )
+        assert resp.status_code == 422

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field, field_validator
 
 from app.schemas.base import BeatLength, BranchTag, CamelModel
@@ -12,6 +14,23 @@ class Branch(CamelModel):
     check: str = ""
     outcome: str = ""
     tag: BranchTag
+
+
+class SceneVerb(CamelModel):
+    """One of the scene's own direction verbs.
+
+    ``label`` is the chip; ``text`` is the phrasing written into the direction box for the
+    player to edit. They are deliberately separate — a verb exists to hand the player a
+    sentence to argue with, not a command to fire, so a label repeated as its own text would
+    miss the point.
+
+    ``group`` is a ``Literal`` rather than a plain string so an unknown group is a 422 here
+    rather than a verb that silently never renders, since the bar draws by group.
+    """
+
+    label: str = Field(min_length=1, max_length=40)
+    group: Literal["pace", "tone", "event", "exit"] = "event"
+    text: str = Field(min_length=1, max_length=400)
 
 
 class ScenarioBase(CamelModel):
@@ -37,6 +56,10 @@ class ScenarioBase(CamelModel):
     # Per-scenario writing-prompt overrides ({registry key -> prompt text}) — override the
     # storyline's prompts for this scene only.
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
+    # The scene's own one-tap direction verbs, appended to the built-in bar's groups. Capped
+    # because the bar is a glance-and-tap surface: past a handful it becomes the wall of
+    # buttons the grouping exists to avoid.
+    direction_verbs: list[SceneVerb] = Field(default_factory=list, max_length=8)
     # Optional scene art — persisted when the author renders an image via ComfyUI.
     image: str | None = None
     scene_art_positive: str | None = None
@@ -60,6 +83,7 @@ class ScenarioUpdate(CamelModel):
     suggestions_count: int | None = Field(default=None, ge=0, le=4)
     context_beats: int | None = Field(default=None, ge=5, le=100)
     beat_length: BeatLength | None = None
+    direction_verbs: list[SceneVerb] | None = Field(default=None, max_length=8)
     prompt_overrides: dict[str, str] | None = None
     image: str | None = None
     scene_art_positive: str | None = None
@@ -80,6 +104,7 @@ class ScenarioRead(CamelModel):
     suggestions_count: int = 4
     context_beats: int = 14
     beat_length: BeatLength = "medium"
+    direction_verbs: list[SceneVerb] = Field(default_factory=list)
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
     image: str | None = None
     scene_art_positive: str | None = None
@@ -89,6 +114,12 @@ class ScenarioRead(CamelModel):
     @classmethod
     def _coerce_overrides(cls, v: object) -> object:
         return v or {}
+
+    @field_validator("direction_verbs", mode="before")
+    @classmethod
+    def _coerce_verbs(cls, v: object) -> object:
+        # The column is nullable, so an older row reads as None. Empty list, not a 422.
+        return v or []
 
 
 # ---- Authoring (the agentic Scenario Creator) -------------------------------

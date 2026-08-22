@@ -41,6 +41,8 @@ export type SceneData =
        * in the world" — the people a play-through can invite in.
        */
       storylineCast: Character[];
+      /** How many places the storyline has — "Move the scene" needs somewhere to go. */
+      settingCount: number;
     };
 
 /** Resolve the scene from in-memory seed (offline/legacy fallback). */
@@ -58,6 +60,7 @@ function seedScene(storylineId: string, scenarioId: string): SceneData | null {
     // The seed demo has no persisted corpus, so `@` tagging is simply unavailable there.
     contextDocs: [],
     storylineCast: SEED_CHARACTERS,
+    settingCount: SEED_SETTINGS.length,
   };
 }
 
@@ -110,6 +113,7 @@ export function useSceneData(
           storylineName: storyline?.title ?? "",
           contextDocs,
           storylineCast: characters,
+          settingCount: settings.length,
         });
       } catch (err) {
         if (cancelled) return;

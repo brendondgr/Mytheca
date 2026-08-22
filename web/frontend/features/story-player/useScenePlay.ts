@@ -864,6 +864,12 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     standing,
     dismissStanding,
     answerCastRequest,
+    // How far into the scene we are, for the Exit verbs' gate. Counts what the player
+    // contributed — a spoken line, their POV character's line, or a bare direction — not
+    // beats, which the model produces several of per turn.
+    playerTurns: messages.filter(
+      (m) => m.kind === "player" || m.kind === "direction" || (m.kind === "char" && m.fromPlayer),
+    ).length,
     setPresence,
     relationships: graphRels.length ? graphRels : seed.relationships,
     turnOrder: seed.turnOrder,

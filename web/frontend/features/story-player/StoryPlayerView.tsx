@@ -12,6 +12,7 @@ import type {
 } from "@/lib/types";
 import type { ExportFormat } from "@/components/feature/ExportMenu";
 import { useScenePlay } from "./useScenePlay";
+import { availableVerbs } from "@/lib/sceneVerbs";
 import type { SceneImage, SceneMessage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
 import { CastRail } from "@/components/feature/CastRail";
@@ -91,6 +92,7 @@ export function StoryPlayerView({
   storylineName,
   contextDocs = [],
   storylineCast = [],
+  settingCount = 1,
   backHref = "/",
 }: {
   scenario: ResolvedScenario;
@@ -99,6 +101,8 @@ export function StoryPlayerView({
   /** Every character in the storyline — the rail's "Elsewhere in the world" offers the
    *  ones this scene never cast. */
   storylineCast?: Character[];
+  /** How many places the storyline has — "Move the scene" needs somewhere to go. */
+  settingCount?: number;
   /** The storyline's context documents — the rows the composer's `@` menu offers. */
   contextDocs?: ContextDocumentIndexEntry[];
   backHref?: string;
@@ -135,6 +139,8 @@ export function StoryPlayerView({
   const [editingId, setEditingId] = useState<string | null>(null);
   // The transcript scene image currently enlarged (null = the lightbox is closed).
   const [lightbox, setLightbox] = useState<SceneImage | null>(null);
+  /** "Someone arrives" is open, listing who could actually walk in. */
+  const [castMenuOpen, setCastMenuOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [viewMode, setViewMode] = useState<SceneViewMode>("chat");
   const byId = (id: string): Character | undefined =>
@@ -164,6 +170,28 @@ export function StoryPlayerView({
         .filter((c) => (scene.presenceByChar[c.id] ?? "present") === "present")
         .map((c) => ({ id: c.id, name: c.name, mono: c.mono, color: c.color, portrait: c.portrait })),
     [scenario.cast, scene.presenceByChar],
+  );
+
+  // People in the world who are not in this scene — what "Someone arrives" needs to mean
+  // anything, and the same list the rail's "Elsewhere in the World" offers.
+  const absentCast = useMemo(() => {
+    const inScene = new Set(scenario.cast.map((c) => c.id));
+    return storylineCast
+      .filter((c) => !inScene.has(c.id))
+      .map((c) => ({ id: c.id, name: c.name }));
+  }, [storylineCast, scenario.cast]);
+
+  const verbs = useMemo(
+    () =>
+      availableVerbs(
+        {
+          absentCast,
+          settingCount: settingCount ?? 1,
+          playerTurns: scene.playerTurns,
+        },
+        scenario.directionVerbs ?? [],
+      ),
+    [absentCast, settingCount, scene.playerTurns, scenario.directionVerbs],
   );
 
   return (
@@ -391,6 +419,38 @@ export function StoryPlayerView({
             // Cast + context files in one `@` namespace, built by the hook because who is
             // present is its own state.
             mentionOptions={scene.mentionOptions}
+            verbs={verbs}
+            /* "Someone arrives" does not insert a phrasing — it names the people who could
+               actually walk in, and choosing one raises a request the player still approves. */
+            onExpandCast={() => setCastMenuOpen((open) => !open)}
+            castMenu={
+              castMenuOpen && absentCast.length ? (
+                <ul
+                  aria-label="Who arrives"
+                  className="mytheca-menu absolute bottom-full left-0 z-40 mb-[6px] flex max-h-[240px] w-full max-w-[260px] flex-col gap-[2px] overflow-auto p-[6px]"
+                >
+                  {absentCast.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCastMenuOpen(false);
+                          // A name, not an arrival: this writes a direction the engine turns
+                          // into a request the player still has to approve.
+                          scene.setGuidance(
+                            (scene.guidance ? `${scene.guidance.trimEnd()}\n` : "") +
+                              `${c.name} arrives.`,
+                          );
+                        }}
+                        className="w-full rounded-[3px] px-[8px] py-[6px] text-left font-display text-[13px] text-ink hover:bg-hover"
+                      >
+                        {c.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null
+            }
             value={scene.composer}
             onChange={scene.setComposer}
             onSend={scene.send}

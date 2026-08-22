@@ -9,6 +9,8 @@ import type { ReadDoc } from "@/lib/readDocs";
 export type EntityType = "character" | "setting" | "scenario";
 export type EditorMode = "manual" | "agentic";
 
+import type { AuthoredVerb } from "@/lib/sceneVerbs";
+
 export interface Draft {
   name?: string;
   role?: string;
@@ -47,6 +49,8 @@ export interface Draft {
   tone?: string;
   cast?: string[];
   settingId?: string;
+  /** The scene's own one-tap direction verbs (see `lib/sceneVerbs`). */
+  directionVerbs?: AuthoredVerb[];
   // Narrator-voice scene-opening prose (drafted by the agentic Scenario Creator).
   opening?: string;
   branches?: Branch[];
