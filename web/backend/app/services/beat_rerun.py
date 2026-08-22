@@ -29,7 +29,13 @@ from app.core.ids import new_id
 from app.events.stream import BeatRerollFrame
 from app.models import Event, PlaySession, Scenario
 from app.schemas.play import TurnRequest
-from app.services import beat_runner, session_state, settings_store, turn_setup
+from app.services import (
+    beat_runner,
+    history_compaction,
+    session_state,
+    settings_store,
+    turn_setup,
+)
 from app.services.turn_emit import Emitter, Tracer
 
 #: How many versions of a beat to keep. Five is enough to compare against and small enough
@@ -93,6 +99,9 @@ def set_active_take(db: Session, session_id: str, event_id: str, take: int) -> E
     data["activeTake"] = take
     data["text"] = str(takes[take].get("text") or "")
     row.data = data
+    # Showing a different take changes the wording of a beat the summary may describe — the
+    # same case as an edit, through the same seam.
+    history_compaction.invalidate_after(db, session_id, row.seq)
     db.commit()
     db.refresh(row)
     session_state.rebuild_buffer(db, session_id)
@@ -192,6 +201,8 @@ def rerun_beat(
     db.refresh(row)
     fresh = row.data if isinstance(row.data, dict) else {}
     record_take(db, row, str(fresh.get("text") or ""), original=original_text)
+    history_compaction.invalidate_after(db, session.id, row.seq)
+    db.commit()
     session_state.rebuild_buffer(db, session.id)
 
 

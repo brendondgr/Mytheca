@@ -68,3 +68,22 @@ class PlaySession(Base):
     # prunes. Nullable, so ``core/bootstrap._reconcile_additive_columns`` adds it with a
     # plain ADD COLUMN and no Alembic migration is required.
     standing_direction: Mapped[list | None] = mapped_column(JSONColumn, nullable=True)
+
+    # The scene's memory of what has fallen out of the live context window.
+    #
+    # Once a session outgrows the fitted transcript window the oldest beats are dropped, and
+    # dropping them is how a scene forgets that someone already confessed or already left.
+    # ``summary_text`` is the rolling recap that replaces them (``agents/recap_agent``),
+    # ``summary_through_seq`` is the highest ``Event.seq`` it covers — which is what makes it
+    # **invalidatable**: a rewind, an edit or a re-roll at or below that seq means the summary
+    # describes a scene that no longer happened, so it is cleared rather than left to lie.
+    #
+    # Stored on the session rather than written as an event: an event would take a ``seq``,
+    # appear in the transcript and the export, and be something a player could rewind *to* —
+    # none of which is true of a summary. All three nullable, so the additive reconciler adds
+    # them with plain ADD COLUMNs.
+    summary_text: Mapped[str | None] = mapped_column(String, nullable=True)
+    summary_through_seq: Mapped[int | None] = mapped_column(nullable=True)
+    summary_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

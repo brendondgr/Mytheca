@@ -22,6 +22,7 @@ EXPECTED_KEYS = {
     "director.pov_branch",
     "planner.system",
     "ghostwriter.line",
+    "recap.summarize",
 }
 
 

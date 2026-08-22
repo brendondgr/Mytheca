@@ -227,3 +227,75 @@ def test_copy_history_forks_the_stat_values(db_session, played, world):
     assert session_stats.resolve(db_session, dst.id, cid)["trust"] == 20
     session_stats.apply(db_session, dst.id, cid, {"trust": 1})
     assert session_stats.resolve(db_session, src.id, cid)["trust"] == 20
+
+
+# ---- the scene's memory must not outlive the history it describes -----------
+
+
+def _summarise(db_session, session_id: str, through: int) -> None:
+    from app.models import PlaySession
+
+    row = db_session.get(PlaySession, session_id)
+    row.summary_text = "Mei confessed and the lamp went over."
+    row.summary_through_seq = through
+    db_session.add(row)
+    db_session.commit()
+
+
+def test_a_rewind_clears_a_summary_covering_the_cut_beats(db_session, played):
+    """A stale summary is worse than none: the cast would confidently remember exactly the
+    beats the player just removed. It is invalidated from the same call site that rebuilds
+    the Redis buffer, because both answer "history changed under us" and splitting them is
+    how one gets forgotten."""
+    from app.models import PlaySession
+
+    sid = played["session"].id
+    _summarise(db_session, sid, through=4)
+
+    session_state.truncate_session(db_session, sid, after_seq=2)
+
+    row = db_session.get(PlaySession, sid)
+    assert row.summary_text is None
+    assert row.summary_through_seq is None
+
+
+def test_a_rewind_above_the_summary_leaves_the_memory_alone(db_session, played):
+    """The beats it covers are still true — clearing it would throw away memory the player
+    did not ask to remove and force a needless re-summarisation."""
+    from app.models import PlaySession
+
+    sid = played["session"].id
+    _summarise(db_session, sid, through=1)
+
+    session_state.truncate_session(db_session, sid, after_seq=4)
+
+    row = db_session.get(PlaySession, sid)
+    assert row.summary_text == "Mei confessed and the lamp went over."
+
+
+def test_editing_a_beat_clears_a_summary_that_describes_its_wording(db_session, played):
+    from app.models import PlaySession
+
+    sid = played["session"].id
+    _summarise(db_session, sid, through=4)
+
+    session_state.edit_beat(db_session, sid, played["rows"]["t1_beat"].id, "Rewritten.")
+
+    assert db_session.get(PlaySession, sid).summary_text is None
+
+
+def test_a_branch_starts_with_no_memory_of_its_own(db_session, played, world):
+    """Copying the parent's summary would be *nearly* right — it covers beats the fork
+    inherited — but it would go stale the moment the branch diverged, with no seq to notice
+    by. The fork re-compacts instead."""
+    from app.models import PlaySession
+
+    sid = played["session"].id
+    _summarise(db_session, sid, through=4)
+    fork = events_store.create_session(db_session, world["scenario_id"])
+
+    session_state.copy_history(db_session, sid, fork.id, through_seq=2)
+
+    assert db_session.get(PlaySession, fork.id).summary_text is None
+    # …and the parent is untouched.
+    assert db_session.get(PlaySession, sid).summary_text is not None

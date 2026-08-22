@@ -491,6 +491,13 @@ def _build_user_prompt(
     # Nothing volatile may be inserted above this block: everything below it is re-read by
     # the model on every call, and everything above it is what the cache can keep.
     middle: list[str] = []
+    # The scene's memory of beats that have fallen out of the window, at the HEAD of the
+    # append-only region. The placement is deliberate and load-bearing: the summary only
+    # changes when compaction fires, which is also exactly when the anchored window
+    # re-anchors — so the two invalidate the cache prefix *together*, on one turn, instead
+    # of on two different ones.
+    if ctx.history_summary:
+        middle.append(f"Earlier in this scene (summary):\n{ctx.history_summary}")
     transcript = _transcript(ctx, turn_beats)
     if transcript:
         middle.append(f"Recent beats:\n{transcript}")

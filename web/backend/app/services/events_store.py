@@ -340,6 +340,7 @@ def session_summary(db: Session, session: PlaySession) -> SessionSummary:
         name=session.name,
         parent_session_id=session.parent_session_id,
         fork_seq=session.fork_seq,
+        summary_through_seq=session.summary_through_seq,
     )
 
 

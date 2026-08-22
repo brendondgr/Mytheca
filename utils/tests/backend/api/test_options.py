@@ -184,6 +184,7 @@ def test_get_returns_prompt_catalog_and_empty_overrides(client):
         "director.pov_branch",
         "planner.system",
         "ghostwriter.line",
+    "recap.summarize",
     }
     # Each catalog entry carries display metadata + default text.
     first = prompts["catalog"][0]

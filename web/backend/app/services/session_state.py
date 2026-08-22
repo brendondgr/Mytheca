@@ -36,8 +36,8 @@ from sqlalchemy.orm import Session
 from app.core.errors import APIError
 from app.core.ids import new_id
 from app.memory import buffer
-from app.models import Event, TurnTrace
-from app.services import graph_writer, session_stats
+from app.models import Event, PlaySession, TurnTrace
+from app.services import graph_writer, history_compaction, session_stats
 
 #: Event types that carry prose into the recent-turn buffer, and the role each is pushed as.
 #: Mirrors what the live turn does (``turn_setup`` for the player's line, ``Emitter`` for the
@@ -240,6 +240,10 @@ def edit_beat(db: Session, session_id: str, event_id: str, text: str) -> Event:
     #: difference between what the model wrote and what the player rewrote.
     data["editedByPlayer"] = True
     row.data = data
+    # The scene's memory may describe the wording that was just rewritten. It sits beside the
+    # buffer rebuild on purpose: both answer "history changed under us", and splitting them
+    # across two call sites is how one of them gets forgotten.
+    history_compaction.invalidate_after(db, session_id, row.seq)
     db.commit()
     db.refresh(row)
     rebuild_buffer(db, session_id)
@@ -279,6 +283,10 @@ def truncate_session(db: Session, session_id: str, *, after_seq: int) -> Truncat
         .filter(TurnTrace.session_id == session_id, TurnTrace.turn > after_seq)
         .delete(synchronize_session=False)
     )
+    # A summary covering any of the cut beats now describes a scene that did not happen.
+    # Clearing it is not tidiness: a stale summary is worse than none, because the cast would
+    # confidently remember the very beats the player just removed.
+    history_compaction.invalidate_after(db, session_id, after_seq + 1)
     db.commit()
 
     prune_graph_events(session_id, result.removed_turn_seqs)
@@ -332,6 +340,15 @@ def copy_history(
                 data=trace.data,
             )
         )
+    # A branch starts with no memory of its own. Copying the parent's summary would be
+    # *nearly* right — it covers beats the fork inherited — but it would then go stale the
+    # moment the branch diverged, with no seq to notice by. The fork simply re-compacts.
+    target = db.get(PlaySession, target_session_id)
+    if target is not None:
+        target.summary_text = None
+        target.summary_through_seq = None
+        target.summary_updated_at = None
+        db.add(target)
     db.commit()
     session_stats.copy(db, source_session_id, target_session_id)
     rebuild_buffer(db, target_session_id)

@@ -29,7 +29,13 @@ from app.events.stream import TurnTraceFrame
 from app.memory import buffer
 from app.models import Scenario
 from app.schemas.play import TurnRequest
-from app.services import assembler, direction_runtime, events_store, settings_store
+from app.services import (
+    assembler,
+    direction_runtime,
+    events_store,
+    history_compaction,
+    settings_store,
+)
 from app.services.assembler import CastMember, TurnContext
 from app.services.turn_emit import Emitter, Tracer
 from app.services.turn_writer import Consequence
@@ -78,6 +84,12 @@ def prepare_turn(
     # resolved before anything is recorded, THEN push the player's line so it becomes
     # history for the next turn (the current line also seeds this turn's transcript, so it
     # is present even when the buffer is disabled).
+    # Fold whatever has fallen out of the context window into the scene's memory, BEFORE the
+    # assembler reads the session row. Compaction writes; the assembler is read-only, and
+    # keeping that true is what lets the assembler be called from re-roll and replay paths
+    # without side effects.
+    compaction = history_compaction.maybe_compact(db, session, scenario)
+
     ctx = assembler.assemble_context(
         db,
         scenario,
@@ -153,6 +165,20 @@ def prepare_turn(
         buffer.push_turn(session.id, "character", text, character_id=pov.id)
     else:
         buffer.push_turn(session.id, "player", text)
+    if compaction.ran:
+        yield from tracer.emit(
+            "compaction",
+            f"Older beats folded into the scene's memory ({compaction.beats_folded})",
+            detail=(
+                "These beats no longer fit the model's context window, so what happened in "
+                "them is kept as a summary the cast still reads."
+            ),
+            data={
+                "beatsFolded": compaction.beats_folded,
+                "throughSeq": compaction.through_seq,
+                "summaryChars": compaction.summary_chars,
+            },
+        )
     graph_available = bool(ctx.subgraph.get("available"))
     yield from tracer.emit(
         "assemble",

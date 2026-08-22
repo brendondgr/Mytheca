@@ -58,7 +58,14 @@ def _build_prompt(
         if long
         else "Write the narrator's transition beat now."
     )
-    user = f"{setting}{tagged}{lead_line}Recent beats:\n{transcript}\n\n{ask}"
+    # Same placement as the character prompt: the scene's memory sits immediately above the
+    # transcript, so it re-anchors on the same turn the window does.
+    memory = (
+        f"Earlier in this scene (summary):\n{ctx.history_summary}\n\n"
+        if ctx.history_summary
+        else ""
+    )
+    user = f"{setting}{tagged}{memory}{lead_line}Recent beats:\n{transcript}\n\n{ask}"
     system = (
         ctx.prompts.get(prompt_registry.NARRATOR_SYSTEM_LONG, _SYSTEM_LONG)
         if long

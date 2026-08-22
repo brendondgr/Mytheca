@@ -1205,6 +1205,44 @@ steps the anchoring already tolerates. `character_turn_agent._transcript` delibe
 anchor block above the fitted depth for the same reason — re-trimming to exactly that depth would
 undo the anchoring.
 
+### History compaction (the scene's memory)
+
+Dropping the oldest beats is honest — it is what every context-limited system does — but it is
+also how a scene forgets that someone already confessed, already left, already promised. With
+`TURN_CONTEXT_COMPACTION` on, `services/history_compaction.maybe_compact` folds the dropped
+beats into a **rolling per-session summary** (`agents/recap_agent`, `ReasoningEffort.LOW`) held
+on `play_sessions.summary_text` / `summary_through_seq` / `summary_updated_at`.
+
+Three constraints shape it.
+
+**Cost.** Summarisation is incremental — each call folds only the newly-dropped beats into the
+previous summary rather than re-reading the scene — and is bounded to **whole anchor blocks**,
+so a long session costs one cheap call roughly every twenty beats instead of a growing
+re-summarisation every turn. The beats to fold are read from the **event log**, not the Redis
+buffer: the beats that need folding are by definition the ones falling off the buffer's far
+end, which it may no longer hold.
+
+**Cache.** The summary renders at the **head of the append-only region**, immediately above
+`Recent beats:`, in both the character and narrator prompts. That placement is load-bearing:
+the summary only changes when compaction fires, which is also exactly when the anchored window
+re-anchors — so the two invalidate the prompt-cache prefix *together*, on one turn, rather than
+on two different ones. `test_prompt_cache_prefix.py` pins it.
+
+**Truth.** A summary is a claim about what happened, so it is **invalidatable**.
+`invalidate_after(db, session_id, seq)` clears any summary covering `seq` or later, and is
+called from every path that rewrites history — rewind (`truncate_session`), beat edit
+(`edit_beat`), and both re-roll paths (`beat_rerun`). It lives beside the Redis buffer rebuild
+in each of those, because both answer "history changed under us" and splitting them across
+different call sites is how one gets forgotten. A stale summary would be *worse* than none:
+the cast would confidently remember the beats the player just removed. A **branch** starts with
+no memory of its own — copying the parent's summary would be nearly right and then go stale the
+moment the branch diverged, with no seq to notice by.
+
+Nothing here can break a turn: the setting off, no Redis, no configured model, a raising agent
+or an empty reply each leave the previous summary standing and report a reason on the
+`compaction` trace step. It **ships off** pending the measurement in Phase 12 — nothing may
+claim compaction is free until it has been compared against the writing it replaces.
+
 What the fit decided is **reported, not configured**: the `window` trace step
 ("The scene reached back N beat(s)") carries `windowBeats`, `windowSource`
 (`detected`/`configured`/`fallback`/`fixed`), `droppedBeats` and `budgetTokens`. When the window is

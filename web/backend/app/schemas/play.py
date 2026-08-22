@@ -154,6 +154,9 @@ class SessionSummary(CamelModel):
     name: str | None = None
     parent_session_id: str | None = None
     fork_seq: int | None = None
+    #: The highest ``Event.seq`` the scene's rolling memory covers, so a reload knows where
+    #: verbatim recall ends without a second request. ``None`` when nothing is summarised.
+    summary_through_seq: int | None = None
 
 
 class SessionCreateRequest(CamelModel):

@@ -113,6 +113,8 @@ A stat is a bounded numeric value on a character. Health, trust, suspicion, pati
 
 ## Presence
 
+The scene's **rolling memory** is a second deliberate exception. `play_sessions.summary_text` / `summary_through_seq` / `summary_updated_at` hold what `history_compaction` folded out of the context window. It is not an event: an event would take a `seq`, appear in the transcript and the export, and be something a player could rewind *to* — none of which is true of a summary. `summary_through_seq` is what makes it honest rather than merely convenient: every path that rewrites history at or below that seq clears it, because a stale summary would have the cast confidently remembering the beats the player just removed.
+
 The scene's **standing direction** is the deliberate exception to that rule: `play_sessions.standing_direction` (JSON, nullable) stores what a turn could not deliver so the next turn re-owes it. It *could* be replayed from the session's `direction` trace rows, but that would make the turn loop's correctness depend on diagnostics being retained — and traces are the first thing an operator prunes. A debt that silently empties because someone pruned the trace table would look exactly like the bug it exists to fix. See `docs/data-flow.md` § Scene direction.
 
 Runtime scene presence is **derived from the session's event log** — `character_status_change` events folded by `services/presence.py` (latest per character, default `present`). No extra table, survives reload. Five statuses: `present` · `unconscious` · `departed` · `left` · `dead`. Only `present` members are selectable by the planner.

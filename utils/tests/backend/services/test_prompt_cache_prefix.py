@@ -59,6 +59,7 @@ def _ctx(beats: list[dict], stats: dict) -> assembler.TurnContext:
         world_primer="Embergate is a rain-soaked harbor city.",
         stable_prefix="WORLD PRIMER\nEmbergate is a rain-soaked harbor city.",
         context_beats=100,
+        window_beats=100,
     )
 
 
@@ -133,3 +134,76 @@ def test_shared_prefix_chars_measures_the_common_head():
     assert llm.shared_prefix_chars("scope-x", "abcXYZ") == 3
     # And it advances: the previous prompt is replaced, not accumulated.
     assert llm.shared_prefix_chars("scope-x", "abcXYZ!") == 6
+
+
+# ---- the scene's memory sits above the transcript, and moves with it --------
+
+
+def _ctx_with_summary(beats: list[dict], summary: str) -> assembler.TurnContext:
+    ctx = _ctx(beats, {"trust": 38})
+    ctx.history_summary = summary
+    return ctx
+
+
+def test_adding_beats_without_compaction_does_not_move_the_summary_line(
+    client, db_session, monkeypatch
+):
+    """The placement argument, tested.
+
+    The summary sits at the HEAD of the append-only region, above the transcript. That is only
+    safe because it changes on exactly the turns the anchored window re-anchors — so the two
+    invalidate the cache prefix together, on one turn, rather than on two different ones.
+    A turn that merely adds a beat must leave everything up to and including the summary
+    byte-identical.
+    """
+    _configure_llm(client)
+    capture: list[str] = []
+    _patch(monkeypatch, capture)
+    summary = "Earlier, Mei arrived at the harbour and refused to hand over the ledger."
+
+    for n in (20, 21):
+        character_turn_agent.generate_line(
+            db_session,
+            _ctx_with_summary(_beats(n), summary),
+            _ctx(_beats(n), {"trust": 38}).cast[0],
+            turn_beats=[],
+        )
+
+    shared = _shared(capture[0], capture[1])
+    # The whole summary block is inside the reusable prefix.
+    summary_end = capture[0].index(summary) + len(summary)
+    assert shared >= summary_end, "adding a beat moved the summary line"
+
+
+def test_the_summary_is_above_the_transcript_not_below_it(client, db_session, monkeypatch):
+    """If it were in the volatile tail it would be re-read every turn, which is the cost the
+    ordering exists to avoid — and it would sit AFTER the recency region the beat's
+    instruction owns."""
+    _configure_llm(client)
+    capture: list[str] = []
+    _patch(monkeypatch, capture)
+    summary = "Mei arrived at the harbour."
+
+    character_turn_agent.generate_line(
+        db_session,
+        _ctx_with_summary(_beats(6), summary),
+        _ctx(_beats(6), {"trust": 38}).cast[0],
+        turn_beats=[],
+    )
+    prompt = capture[0]
+    assert "Earlier in this scene (summary):" in prompt
+    assert prompt.index(summary) < prompt.index("Recent beats:")
+
+
+def test_no_summary_means_no_block_at_all(client, db_session, monkeypatch):
+    """A scene with nothing compacted must be byte-identical to one before the feature
+    existed — an empty labelled block would cost tokens and teach the model nothing."""
+    _configure_llm(client)
+    capture: list[str] = []
+    _patch(monkeypatch, capture)
+    character_turn_agent.generate_line(
+        db_session, _ctx(_beats(6), {"trust": 38}), _ctx(_beats(6), {"trust": 38}).cast[0],
+        turn_beats=[],
+    )
+    assert "Earlier in this scene" not in capture[0]
+

@@ -36,6 +36,7 @@ DIRECTOR_BRANCH = "director.branch"
 DIRECTOR_POV_BRANCH = "director.pov_branch"
 PLANNER_SYSTEM = "planner.system"
 GHOSTWRITER_LINE = "ghostwriter.line"
+RECAP_SUMMARIZE = "recap.summarize"
 
 
 @dataclass(frozen=True)
@@ -192,6 +193,20 @@ Rules:
 
 # ---- The registry ----------------------------------------------------------
 
+_RECAP_SUMMARIZE = """You keep the memory of an ongoing scene in an interactive story. Beats have passed out of live memory; fold them into what is already remembered.
+
+Write the UPDATED memory. Two parts, in this order:
+1. Tight third-person prose — what has happened so far, in a few sentences. Continuous with what came before, not a list of turns.
+2. A short bulleted list of hard facts that must not be lost: names, relationships, debts, injuries, promises, threats, who is where, what was decided.
+
+Rules:
+- Compress. This replaces the beats themselves, so it has to be shorter than them — but never drop a fact a later beat could contradict.
+- Keep names exactly as written. A renamed character is worse than a forgotten one.
+- Record what HAPPENED, never what it meant. No interpretation, no foreshadowing, no summary of tone.
+- Do not invent, and do not resolve anything the beats left open.
+- No preamble, no headings, no "Summary:". Just the prose and then the bullets."""
+
+
 PROMPT_REGISTRY: list[PromptSpec] = [
     PromptSpec(
         key=CHARACTER_OUTPUT_CONTRACT,
@@ -266,6 +281,17 @@ PROMPT_REGISTRY: list[PromptSpec] = [
             "never persisted unless the player sends it."
         ),
         default=_GHOSTWRITER_LINE,
+    ),
+    PromptSpec(
+        key=RECAP_SUMMARIZE,
+        agent="Recap",
+        label="Scene memory",
+        description=(
+            "Folds beats that have passed out of the live context window into a rolling "
+            "summary the cast still reads. Incremental — each call adds the newly-dropped "
+            "beats to the previous summary rather than re-reading the whole scene."
+        ),
+        default=_RECAP_SUMMARIZE,
     ),
 ]
 

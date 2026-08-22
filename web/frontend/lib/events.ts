@@ -307,6 +307,12 @@ export interface SessionSummary {
    *  the session it came from, and the parent `seq` the copy ran through, inclusive. */
   parentSessionId: string | null;
   forkSeq: number | null;
+  /**
+   * The highest `seq` the scene's rolling memory covers — where verbatim recall ends and a
+   * summary takes over. `null` when nothing has been compacted (compaction off, nothing
+   * dropped yet, or the summary was invalidated by a rewind/edit/re-roll).
+   */
+  summaryThroughSeq?: number | null;
 }
 
 /**

@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.agents import _common, prompt_registry
 from app.core.config import get_settings
 from app.memory import buffer, interior
-from app.models import Character, ContextDocument, Scenario, Setting
+from app.models import Character, ContextDocument, PlaySession, Scenario, Setting
 from app.models.stat import StatDefinition
 from app.schemas.base import BEAT_LENGTHS, DEFAULT_BEAT_LENGTH, BeatLength
 from app.services import (
@@ -145,6 +145,11 @@ class TurnContext:
     window_source: str = "fixed"
     dropped_beats: int = 0
     window_budget_tokens: int = 0
+    # What the scene remembers of the beats that have fallen out of the window
+    # (``services/history_compaction``). Empty when compaction is off, when nothing has
+    # dropped yet, or when the summary was invalidated by a rewind/edit/re-roll.
+    history_summary: str = ""
+    summary_through_seq: int | None = None
     # How much a CHARACTER says in one beat — the per-scene ``beat_length``, normalised
     # by ``assemble_context`` so an unknown or empty value resolves to ``medium`` here
     # rather than at the prompt builder. A directly-constructed context (tests, puppet
@@ -206,6 +211,7 @@ def assemble_context(
     # exactly as before, so the block anchoring that protects prompt-cache reuse is
     # untouched: `fit_window` quantises to the same block, so a dynamic depth can only move
     # in steps the anchoring already tolerates.
+    session_row = db.get(PlaySession, session_id)
     policy = (scenario.context_policy or "auto").strip().lower()
     if policy == "fixed":
         window_beats, window_source, dropped, budget = context_beats, "fixed", 0, 0
@@ -268,6 +274,8 @@ def assemble_context(
         window_source=window_source,
         dropped_beats=dropped,
         window_budget_tokens=budget,
+        history_summary=(session_row.summary_text or "").strip() if session_row else "",
+        summary_through_seq=session_row.summary_through_seq if session_row else None,
         beat_length=beat_length,
         prompts=prompts,
     )
