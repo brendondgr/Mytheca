@@ -6,6 +6,20 @@ trivial — a directed addressee answers, or a solo cast member speaks — and r
 reasoned, structure-only LLM decision (speaker order, branch flag, beat label),
 constrained to the roster. It is **best-effort**: a missing/failed LLM falls back to a
 heuristic so a turn never fails to pick a speaker. It emits no prose.
+
+**Two of this module's functions are no longer on the turn path.** :func:`who_is_up` and
+:func:`rerank` were superseded by ``planner_agent.plan_beats``, which decides each beat from
+the transcript so far. Nothing in ``services/`` calls either one; their only callers are
+``utils/tests/backend/agents/test_director_agent.py``.
+
+They are **retained, not deleted**, because they are the baseline arm of an open experiment
+(``EXP-2026-08-001``) — deleting them would make that comparison unrepeatable. Their prompt
+keys (``director.who_is_up``, ``director.rerank``) are **hidden from the Options catalog**
+(``prompt_registry.PromptSpec.hidden``): a prompt an author can edit while nothing reads it
+teaches them that editing prompts does nothing, which is more expensive than the missing row.
+Hidden is not unresolvable — a stored override for either key still resolves.
+
+:func:`propose_branches` and :func:`propose_pov_lines` **are** live and run every turn.
 """
 
 from __future__ import annotations
@@ -44,7 +58,11 @@ class DirectorDecision:
 
 
 def who_is_up(db: Session, ctx: TurnContext) -> DirectorDecision:
-    """Decide the speaking subset + order for this turn (best-effort; never raises)."""
+    """Decide the speaking subset + order for this turn (best-effort; never raises).
+
+    **Not on the turn path.** Superseded by ``planner_agent.plan_beats``; called only from
+    this module's own unit tests, and kept as the baseline arm of ``EXP-2026-08-001``.
+    """
     if not ctx.cast:
         return DirectorDecision([], False, "empty")
 
@@ -114,6 +132,10 @@ def rerank(db: Session, ctx: TurnContext, remaining_ids: list[str], turn_beats: 
     A mid-turn re-consult (§P10 live queue): the whole cast is numbered so the model
     speaks the same roster language as ``who_is_up``; the result is filtered back to the
     still-remaining ids, preserving any the model omits at the tail so no one is lost.
+    
+
+    **Not on the turn path.** Superseded by ``planner_agent.plan_beats``; called only from
+    this module's own unit tests, and kept as the baseline arm of ``EXP-2026-08-001``.
     """
     if len(remaining_ids) <= 1:
         return remaining_ids

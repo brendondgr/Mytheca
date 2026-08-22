@@ -204,7 +204,17 @@ Verified against the code on 2026-08-04.
   `reasoning_content` as its own field, so `content` is clean); it would surface on a
   model that inlines harmony channels.
 
-- **Dead code on the turn path.** `director_agent.who_is_up` and `director_agent.rerank` are the superseded one-shot speaker picker, called only from `utils/tests/backend/agents/test_director_agent.py`. Their prompt keys (`director.who_is_up`, `director.rerank`) remain editable through Options → Prompts, where they silently do nothing. Decide: delete both, or hide the keys.
+- ~~**Dead code on the turn path.**~~ **Decided 2026-08-22: hidden, not deleted.**
+  `director_agent.who_is_up` and `director_agent.rerank` are the superseded one-shot speaker
+  picker — nothing in `services/` calls either, and `planner_agent.plan_beats` makes the real
+  per-beat decision. Their prompt keys are now **hidden from the Options catalog**
+  (`PromptSpec.hidden`), because a prompt an author can edit while nothing reads it teaches
+  them that editing prompts does nothing, which costs more than the missing row. The functions
+  and their tests stay: they are the **baseline arm of `EXP-2026-08-001`**, and deleting them
+  would make that comparison unrepeatable. Hidden is not unresolvable — `keys()`, `default()`
+  and `resolve_prompts()` still include them, so a stored override neither vanishes nor raises.
+  **Revisit when `EXP-2026-08-001` reaches a verdict**; if the baseline is no longer needed,
+  delete both functions, their tests and their registry entries together.
 - **Stale module docstrings elsewhere in the tree.** The three worst offenders were corrected on 2026-08-04 (`services/turn_engine.py` described a "P3 single speaker / `_pick_speaker`" design that no longer exists, `main.py` said the brain and event stream were "added in later phases", and `graph_writer.py` called the edge/consequence writer unused machinery). Other modules have not been swept — treat any "this phase…" docstring as suspect until verified.
 - **`TurnContext.subgraph` is fetched but unused.** The scenario subgraph is assembled every turn; its only consumer is a boolean `available` flag in the diagnostic trace. The graph reaches the model solely via `graph_reader.relationship_context()`. Either render the subgraph into the prompt or stop assembling it.
 - **Unused graph queries.** `graph_reader.presence_casting` and `graph_reader.secret_reachability` have no callers.

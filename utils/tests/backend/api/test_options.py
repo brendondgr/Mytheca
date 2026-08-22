@@ -172,20 +172,27 @@ def test_poll_backend_runs_one_iteration_and_stops():
 
 
 def test_get_returns_prompt_catalog_and_empty_overrides(client):
+    """The catalog offers exactly the prompts an agent actually reads.
+
+    `director.who_is_up` and `director.rerank` are deliberately absent: `planner_agent`
+    makes the real per-beat decision and those two are called only from their own unit
+    tests. A catalog row for a prompt nothing consumes teaches the author that editing
+    prompts does nothing, which costs far more than the missing row.
+    """
     prompts = client.get("/api/options").json()["prompts"]
     keys = {spec["key"] for spec in prompts["catalog"]}
     assert keys == {
         "character.output_contract",
         "narrator.system",
         "narrator.system_long",
-        "director.who_is_up",
-        "director.rerank",
         "director.branch",
         "director.pov_branch",
         "planner.system",
         "ghostwriter.line",
-    "recap.summarize",
+        "recap.summarize",
     }
+    assert "director.who_is_up" not in keys
+    assert "director.rerank" not in keys
     # Each catalog entry carries display metadata + default text.
     first = prompts["catalog"][0]
     assert first["agent"] and first["label"] and first["description"] and first["default"].strip()
@@ -277,3 +284,14 @@ def test_context_window_configured_fallback(client, monkeypatch):
     assert body["maxContextTokens"] == 4096
     assert body["source"] == "configured"
     llm_backend.clear_cache()
+
+
+def test_an_override_stored_for_a_hidden_key_still_round_trips(client):
+    """Hidden means "not offered", never "not resolvable". A value saved before a key was
+    hidden must not silently vanish from the payload that round-trips it."""
+    client.patch("/api/options/prompts", json={"overrides": {"director.who_is_up": "Custom."}})
+    prompts = client.get("/api/options").json()["prompts"]
+    assert prompts["overrides"]["director.who_is_up"] == "Custom."
+    # …and it is still not offered for editing.
+    assert "director.who_is_up" not in {s["key"] for s in prompts["catalog"]}
+

@@ -223,7 +223,13 @@ def get_prompts_overrides(db: Session) -> dict[str, str]:
 
 
 def get_prompts(db: Session) -> PromptsConfigRead:
-    """The prompts settings payload: the registry catalog + stored global overrides."""
+    """The prompts settings payload: the **visible** registry catalog + stored global overrides.
+
+    Visible, not all: a catalog row for a prompt nothing consumes teaches the author that
+    editing prompts does nothing, which costs far more than the missing row. Stored overrides
+    are returned unfiltered — a value saved for a since-hidden key must not silently vanish
+    from the payload that round-trips it.
+    """
     from app.agents import prompt_registry
 
     catalog = [
@@ -234,7 +240,7 @@ def get_prompts(db: Session) -> PromptsConfigRead:
             description=spec.description,
             default=spec.default,
         )
-        for spec in prompt_registry.PROMPT_REGISTRY
+        for spec in prompt_registry.visible_specs()
     ]
     return PromptsConfigRead(catalog=catalog, overrides=get_prompts_overrides(db))
 

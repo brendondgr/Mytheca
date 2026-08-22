@@ -1,0 +1,3 @@
+arm,probe_hit,probe_score,prompt_tokens_mean,recap_calls,reusable_prefix_share,scenario,scene,session,status,storyline,turn_seconds_mean,turns,wall_seconds
+A,True,0.778,2963.6,0,0.7094,c568,0,ps_b7e7b96705,ok,7878cba2,80.41,10,804.2
+B,True,0.778,2541.9,0,0.6275,ee5c,0,ps_bb638f6f00,ok,2a9e6c54,79.81,10,798.1

@@ -1,0 +1,99 @@
+{
+  "aggregate": {
+    "aggregate": {
+      "A": {
+        "continuity_hits": 1,
+        "probe_score_mean": 0.778,
+        "probe_total": 1,
+        "prompt_tokens_mean": 2963.6,
+        "recap_calls_total": 0,
+        "reusable_prefix_share": 0.7094,
+        "turn_seconds_mean": 80.41
+      },
+      "B": {
+        "continuity_hits": 1,
+        "probe_score_mean": 0.778,
+        "probe_total": 1,
+        "prompt_tokens_mean": 2541.9,
+        "recap_calls_total": 0,
+        "reusable_prefix_share": 0.6275,
+        "turn_seconds_mean": 79.81
+      }
+    },
+    "failed": 0,
+    "rows": [
+      {
+        "arm": "A",
+        "probe_hit": true,
+        "probe_score": 0.778,
+        "prompt_tokens_mean": 2963.6,
+        "recap_calls": 0,
+        "reusable_prefix_share": 0.7094,
+        "scenario": "c568",
+        "scene": 0,
+        "session": "ps_b7e7b96705",
+        "status": "ok",
+        "storyline": "7878cba2",
+        "turn_seconds_mean": 80.41,
+        "turns": 10,
+        "wall_seconds": 804.2
+      },
+      {
+        "arm": "B",
+        "probe_hit": true,
+        "probe_score": 0.778,
+        "prompt_tokens_mean": 2541.9,
+        "recap_calls": 0,
+        "reusable_prefix_share": 0.6275,
+        "scenario": "ee5c",
+        "scene": 0,
+        "session": "ps_bb638f6f00",
+        "status": "ok",
+        "storyline": "2a9e6c54",
+        "turn_seconds_mean": 79.81,
+        "turns": 10,
+        "wall_seconds": 798.1
+      }
+    ]
+  },
+  "per_run": [
+    {
+      "arm": "A",
+      "probe_hit": true,
+      "probe_score": 0.778,
+      "prompt_tokens_mean": 2963.6,
+      "recap_calls": 0,
+      "reusable_prefix_share": 0.7094,
+      "scenario": "c568",
+      "scene": 0,
+      "session": "ps_b7e7b96705",
+      "status": "ok",
+      "storyline": "7878cba2",
+      "turn_seconds_mean": 80.41,
+      "turns": 10,
+      "wall_seconds": 804.2
+    },
+    {
+      "arm": "B",
+      "probe_hit": true,
+      "probe_score": 0.778,
+      "prompt_tokens_mean": 2541.9,
+      "recap_calls": 0,
+      "reusable_prefix_share": 0.6275,
+      "scenario": "ee5c",
+      "scene": 0,
+      "session": "ps_bb638f6f00",
+      "status": "ok",
+      "storyline": "2a9e6c54",
+      "turn_seconds_mean": 79.81,
+      "turns": 10,
+      "wall_seconds": 798.1
+    }
+  ],
+  "totals": {
+    "input_tokens": 0,
+    "llm_calls": 0,
+    "output_tokens": 0,
+    "wall_clock_seconds": 1685.763
+  }
+}

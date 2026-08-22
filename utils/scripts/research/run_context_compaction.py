@@ -65,7 +65,31 @@ FILLER = [
     "I ask whether anyone has seen the captain.",
     "I ask what they would do in my place.",
     "I ask what it would take to leave this city.",
+    "I ask who profits when the tide comes in early.",
+    "I ask about the debt ledgers the watch keeps.",
+    "I ask what happened to the last person who asked.",
+    "I ask whether the truce is worth keeping.",
+    "I ask what the harbourmaster wants from me.",
+    "I ask about the boats that never came back.",
+    "I ask who I should be afraid of here.",
+    "I ask what they would trade for silence.",
+    "I ask about the sealed room upstairs.",
+    "I ask whether anyone here can be bought.",
+    "I ask what the priest knows that he will not say.",
+    "I ask how long this arrangement can hold.",
+    "I ask what happens at first light.",
+    "I ask whether there is another way out of this room.",
+    "I ask what the salt does to a body left in it.",
+    "I ask who keeps the keys to the undercroft.",
+    "I ask what they think I am really here for.",
 ]
+
+#: Compaction waits for a WHOLE anchor block (20 beats) to fall out of the window before it
+#: fires — deliberately, so it costs one call per block rather than one per turn. Run 1 of this
+#: experiment used 10 turns, which at `maxTurns: 2` produces about 20 beats *in total*, so 20
+#: beats could never *drop* and the treatment was never exercised. Any run of this experiment
+#: must be long enough to exceed the window by a full block. See ISSUES.md §2.
+MIN_TURNS_FOR_COMPACTION = 24
 
 
 def _build_scene(arm: str, index: int) -> tuple[str, str]:
@@ -208,6 +232,16 @@ def main() -> int:
         ),
     )
     args = ap.parse_args()
+
+    if args.turns < MIN_TURNS_FOR_COMPACTION:
+        # A guard rather than a note, because the failure it prevents is silent: the run
+        # completes cleanly, reports zero recap calls, and looks like a result about
+        # compaction when it is a result about the scene being too short. See ISSUES.md §2.
+        raise SystemExit(
+            f"--turns {args.turns} cannot exercise compaction: it waits for a whole anchor "
+            f"block (20 beats) to fall out of the window, and a scene this short never "
+            f"produces that many beats to drop. Use at least {MIN_TURNS_FOR_COMPACTION}."
+        )
 
     # Both this module and the shared `run_turn` read the API root from
     # `run_conversation_scaling`, so redirecting it there redirects everything.

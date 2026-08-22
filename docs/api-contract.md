@@ -314,16 +314,17 @@ key is **write-only**: it is stored server-side and never returned in clear.
 
 **Writing-Agent Prompt Overrides** — the global layer of the four-layer resolution chain. The
 `prompts` field on `GET /options` contains:
-- `catalog` — the full registry of the **ten** overridable prompt keys, each with `key`, `agent`
+- `catalog` — the **eight** overridable prompt keys an agent actually reads (the registry holds ten; two are hidden, below), each with `key`, `agent`
   (which agent owns it), `label`, `description`, and `default` (the built-in text). Keys: `character.output_contract`,
-  `narrator.system`, `narrator.system_long`, `director.who_is_up`, `director.rerank`, `director.branch`,
+  `narrator.system`, `narrator.system_long`, `director.branch`,
   `director.pov_branch` (POV-mode follow-up suggestions, `director_agent.propose_pov_lines`), `planner.system`,
   `ghostwriter.line` (drafts the player's own line from a note about what they want it to do),
   `recap.summarize` (folds beats that have passed out of the context window into the scene's rolling memory).
-  **`director.who_is_up` and `director.rerank` are inert on the live turn path** — `director_agent.who_is_up`
+  `director.who_is_up` and `director.rerank` are registered but **not listed** — see below.
+  **`director.who_is_up` and `director.rerank` are no longer offered in the catalog** — they are inert on the live turn path — `director_agent.who_is_up`
   and `director_agent.rerank` are dead code, called only from `utils/tests/backend/agents/test_director_agent.py`;
   the per-beat decision on a real turn is made by `planner_agent.plan_beats`. Overriding either key has no
-  effect on actual play.
+  effect on actual play, so as of 2026-08-22 they are **hidden** (`PromptSpec.hidden`) and the catalog offers only the eight prompts an agent actually reads. Hidden is not unresolvable: `keys()`, `default()` and `resolve_prompts()` still include them and `PATCH /options/prompts` still accepts them, so an override stored before they were hidden keeps working and still round-trips in `overrides`. They are retained rather than deleted because they are the baseline arm of an open experiment (`EXP-2026-08-001`).
 - `overrides` — the current global overrides map (`{registryKey: text}`); only keys with active
   overrides appear.
 

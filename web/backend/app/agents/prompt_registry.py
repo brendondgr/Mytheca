@@ -48,6 +48,17 @@ class PromptSpec:
     label: str
     description: str
     default: str
+    #: Kept in the registry, kept out of the UI.
+    #:
+    #: A prompt nothing reads is worse than a missing one: an author edits it, nothing changes,
+    #: and they lose trust in every other control on the page. `director.who_is_up` and
+    #: `director.rerank` are in exactly that state — `planner_agent.plan_beats` makes the real
+    #: per-beat decision and those two functions are called only from their own unit tests.
+    #:
+    #: **Hidden, not deleted**, because they are the baseline arm of an open experiment
+    #: (`EXP-2026-08-001`). `keys()`, `default()` and `resolve_prompts()` deliberately still
+    #: include them, so a stored override for a hidden key neither disappears nor raises.
+    hidden: bool = False
 
 
 # ---- Default prompt text (moved verbatim from the agent modules) -----------
@@ -239,6 +250,8 @@ PROMPT_REGISTRY: list[PromptSpec] = [
         label="Who reacts",
         description="Chooses which characters react to the latest beat and in what order (JSON only).",
         default=_DIRECTOR_WHO_IS_UP,
+        # Inert on the turn path — see PromptSpec.hidden.
+        hidden=True,
     ),
     PromptSpec(
         key=DIRECTOR_RERANK,
@@ -246,6 +259,8 @@ PROMPT_REGISTRY: list[PromptSpec] = [
         label="Mid-turn re-rank",
         description="Re-ranks the not-yet-spoken characters after a beat shifts the room (JSON only).",
         default=_DIRECTOR_RERANK,
+        # Inert on the turn path — see PromptSpec.hidden.
+        hidden=True,
     ),
     PromptSpec(
         key=DIRECTOR_BRANCH,
@@ -304,8 +319,21 @@ def default(key: str) -> str:
 
 
 def keys() -> list[str]:
-    """All registered prompt keys, in registry (display) order."""
+    """All registered prompt keys, in registry (display) order — **including hidden ones**.
+
+    Hidden means "not offered in the UI", never "not resolvable": a stored override for a
+    hidden key must keep working rather than start raising.
+    """
     return [spec.key for spec in PROMPT_REGISTRY]
+
+
+def visible_specs() -> list[PromptSpec]:
+    """The prompts an agent actually reads — what the Options catalog should offer.
+
+    A catalog listing a prompt nothing consumes teaches the author that editing prompts does
+    nothing, which is far more expensive than the missing row.
+    """
+    return [spec for spec in PROMPT_REGISTRY if not spec.hidden]
 
 
 def resolve_prompts(*layers: Mapping[str, str] | None) -> dict[str, str]:

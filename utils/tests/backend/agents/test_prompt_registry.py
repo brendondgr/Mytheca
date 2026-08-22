@@ -85,3 +85,40 @@ def test_resolve_ignores_unknown_keys():
     resolved = prompt_registry.resolve_prompts({"bogus.key": "x"})
     assert "bogus.key" not in resolved
     assert set(resolved) == EXPECTED_KEYS
+
+
+def test_the_two_dead_director_keys_are_hidden_from_the_catalog():
+    """`planner_agent.plan_beats` makes the real per-beat decision; `who_is_up` and `rerank`
+    are called only from their own unit tests. Offering them for editing would teach an
+    author that editing prompts does nothing."""
+    visible = {spec.key for spec in prompt_registry.visible_specs()}
+    assert "director.who_is_up" not in visible
+    assert "director.rerank" not in visible
+
+
+def test_hidden_keys_are_still_registered_and_still_resolve():
+    """Hidden, **not deleted** — they are the baseline arm of an open experiment
+    (EXP-2026-08-001), and a stored override for one must neither disappear nor raise."""
+    assert "director.who_is_up" in prompt_registry.keys()
+    assert "director.rerank" in prompt_registry.keys()
+    assert prompt_registry.default("director.who_is_up").strip()
+
+    resolved = prompt_registry.resolve_prompts({"director.who_is_up": "Mine."})
+    assert resolved["director.who_is_up"] == "Mine."
+
+
+def test_every_visible_key_is_one_an_agent_reads():
+    """The property the hiding exists to establish, stated as a list that must be justified
+    rather than as a count that drifts."""
+    consumed = {
+        "character.output_contract",
+        "narrator.system",
+        "narrator.system_long",
+        "director.branch",
+        "director.pov_branch",
+        "planner.system",
+        "ghostwriter.line",
+        "recap.summarize",
+    }
+    assert {spec.key for spec in prompt_registry.visible_specs()} == consumed
+
