@@ -19,8 +19,9 @@ from app.core.errors import APIError
 from app.events.envelope import StoryEvent
 from app.events.stream import TurnTraceFrame
 from app.memory import buffer
-from app.models import Event, PlaySession, TurnTrace
+from app.models import Event, PlaySession, SessionCharacterStat, TurnTrace
 from app.schemas.play import SessionSummary
+from app.services import session_stats
 
 
 def next_seq(db: Session, session_id: str) -> int:
@@ -87,6 +88,9 @@ def delete_session(db: Session, session_id: str) -> None:
     db.query(TurnTrace).filter(TurnTrace.session_id == session_id).delete(
         synchronize_session=False
     )
+    db.query(SessionCharacterStat).filter(
+        SessionCharacterStat.session_id == session_id
+    ).delete(synchronize_session=False)
     db.delete(session)
     db.commit()
     buffer.clear(session_id)
@@ -340,4 +344,11 @@ def close_session(db: Session, session_id: str) -> PlaySession:
     session.closed_at = now
     session.updated_at = now
     db.commit()
+    # A play-through ending is when a carrying stat updates the character's baseline, so the
+    # next scene opens where this one left off. Best-effort: a failure here must not stop a
+    # session from closing, and the values are already safe in the session's own rows.
+    try:
+        session_stats.carry_forward(db, session_id)
+    except Exception:  # pragma: no cover - defensive
+        db.rollback()
     return session

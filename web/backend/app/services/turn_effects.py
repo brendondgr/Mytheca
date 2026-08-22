@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.ids import new_id
 from app.events.envelope import StoryEvent
 from app.events.stream import TurnTraceFrame
-from app.services import presence, stats, validator
+from app.services import presence, session_stats, stats, validator
 from app.services.assembler import CastMember, TurnContext
 from app.services.turn_emit import Emitter, Tracer
 from app.services.turn_writer import Consequence
@@ -155,7 +155,9 @@ def apply_stat_change(
     scale its re-rank + cascade to how much the beat actually moved.
     """
     tr = tracer or Tracer(False)
-    patch = validator.validate_stat(db, ctx.storyline_id, character_id, raw)
+    patch = validator.validate_stat(
+        db, ctx.storyline_id, character_id, raw, session_id=ctx.session_id
+    )
     if patch is None:  # unknown stat / malformed → dropped
         yield from tr.emit(
             "stat",
@@ -166,7 +168,8 @@ def apply_stat_change(
         return 0
     # Apply on the hot path (clamped again — idempotent); then emit the full event.
     value = patch.value if patch.value is not None else 0
-    stats.set_character_stats(db, patch.character_id, {patch.key: value})
+    # Written to THIS play-through, so a branch or a rewind of another one is untouched.
+    session_stats.apply(db, ctx.session_id, patch.character_id, {patch.key: value})
     yield from emitter.emit(
         "state_update", {"patch": {}, "stat": patch.model_dump(by_alias=True)}
     )

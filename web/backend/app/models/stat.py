@@ -1,9 +1,21 @@
 """Stat schema seam.
 
-``StatDefinition`` is the per-storyline baseline schema (range locked at
-creation); ``CharacterStat`` is a single character's value for one stat, clamped
-to the definition's ``[min, max]`` by the service/validator. Both are normalized
-(queried/mutated independently) — unlike scenario branches, which are JSON.
+``StatDefinition`` is the per-storyline baseline schema (range locked at creation).
+
+There are **two** places a value lives, and the distinction matters:
+
+* :class:`CharacterStat` — the character's **authored baseline**, edited from the Library
+  and written by world population. One row per character per stat.
+* :class:`SessionCharacterStat` — the value **inside one play-through**. Play reads and
+  writes here, so two play-throughs of a scenario no longer share a health value and a
+  rewind can roll one back without touching the other.
+
+Resolution when play reads a stat: the session's row → else, if the definition sets
+``carry_over``, the character's baseline → else the definition's ``default``. Owner decision
+D-1 (2026-08-21); before it, every value was character-global and a branch silently
+inherited whatever the last play-through had done.
+
+All values are clamped to the definition's ``[min, max]`` by the service/validator.
 """
 
 from __future__ import annotations
@@ -47,6 +59,12 @@ class StatDefinition(Base):
     # ``{Character}`` placeholder) is surfaced to the acting character at play time.
     # Nullable so the dev DB self-heals via the additive-column reconcile.
     bands: Mapped[list[dict] | None] = mapped_column(JSONColumn, nullable=True, default=list)
+    #: Whether a play-through inherits the character's authored baseline for this stat, or
+    #: starts from ``default``. ``None`` reads as **False** — each play-through starts clean,
+    #: which is what makes a branch and a rewind predictable. Turn it on for a stat that
+    #: should follow a character between scenes (a permanent injury, a standing reputation).
+    #: Nullable so the additive-column reconciler self-heals a drifted dev DB.
+    carry_over: Mapped[bool | None] = mapped_column(nullable=True, default=False)
 
     storyline: Mapped[Storyline] = relationship(back_populates="stat_definitions")
 
@@ -65,3 +83,32 @@ class CharacterStat(Base):
     value: Mapped[int] = mapped_column(default=0)
 
     character: Mapped[Character] = relationship(back_populates="stats")
+
+
+class SessionCharacterStat(Base):
+    """One character's value for one stat **inside one play-through**.
+
+    Play writes here rather than to :class:`CharacterStat`, which is why a branch diverges
+    instead of sharing, and why a rewind can replay the surviving ``state_update`` events
+    from the authored baseline without needing per-event provenance.
+
+    Absent row = the value has not moved in this play-through yet; the reader falls back
+    through ``carry_over`` to the baseline or the definition default.
+    """
+
+    __tablename__ = "session_character_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "session_id", "character_id", "key", name="uq_session_stat_session_char_key"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("scs"))
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("play_sessions.id", ondelete="CASCADE"), index=True
+    )
+    character_id: Mapped[str] = mapped_column(
+        ForeignKey("characters.id", ondelete="CASCADE"), index=True
+    )
+    key: Mapped[str] = mapped_column(String)
+    value: Mapped[int] = mapped_column(default=0)

@@ -11,7 +11,7 @@ from app.models.graph_type import GraphTypeDefinition
 from app.models.scenario import Scenario
 from app.models.session import PlaySession
 from app.models.setting import Setting
-from app.models.stat import CharacterStat, StatDefinition
+from app.models.stat import CharacterStat, SessionCharacterStat, StatDefinition
 from app.models.storyline import Storyline
 from app.models.turn_trace import TurnTrace
 
@@ -26,6 +26,7 @@ __all__ = [
     "Scenario",
     "StatDefinition",
     "CharacterStat",
+    "SessionCharacterStat",
     "PlaySession",
     "Event",
     "TurnTrace",

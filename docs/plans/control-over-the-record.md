@@ -238,7 +238,7 @@ the model reads — is a product call.
   beat shows no attachment").
 - *Action: Run the validation for this phase — `uv run pytest utils/tests/backend/api
   utils/tests/backend/services` plus `npm run typecheck` in `web/frontend`. Once green, commit
-  locally: `[Control Over the Record] (1/11) Complete: PlaySession gained name/lineage columns, session create/rename/delete endpoints, and the turn's guidance + tagged files are persisted.` Do not push or open a PR.*
+  locally: `[Control Over the Record] (1/12) Complete: PlaySession gained name/lineage columns, session create/rename/delete endpoints, and the turn's guidance + tagged files are persisted.` Do not push or open a PR.*
 
 ---
 
@@ -291,7 +291,7 @@ the model reads — is a product call.
   components plus `npm run typecheck && npm run lint`, and an accessibility + responsive pass
   (keyboard-only open/rename/delete, visible focus on every row action, AA contrast on the tray
   surface, 320/375/768/1024 — confirm the header no longer clips the Inspector button). Once green,
-  commit locally: `[Control Over the Record] (2/11) Complete: A play-through tray in the scene header lists, resumes, renames, deletes and starts play-throughs.` Do not push or open a PR.*
+  commit locally: `[Control Over the Record] (2/12) Complete: A play-through tray in the scene header lists, resumes, renames, deletes and starts play-throughs.` Do not push or open a PR.*
 
 ---
 
@@ -326,11 +326,51 @@ the model reads — is a product call.
   pushing `turn_engine.py` toward 2500 lines, well past the repo's 800-line ceiling.
 - *Action: Run the validation for this phase — the **full** `uv run pytest` (this is a refactor;
   a subset proves nothing), plus `wc -l` on each new and touched module to confirm every one is
-  under 800 lines. Once green, commit locally: `[Control Over the Record] (3/11) Complete: The turn engine is split into turn_setup, beat_runner and turn_emit, with no behaviour change.` Do not push or open a PR.*
+  under 800 lines. Once green, commit locally: `[Control Over the Record] (3/12) Complete: The turn engine is split into turn_setup, beat_runner and turn_emit, with no behaviour change.` Do not push or open a PR.*
 
 ---
 
-### Phase 4 — History-mutation primitives (`session_state`)
+### Phase 4 — Session-scoped stat values (owner decision D-1)
+
+- **Locations:**
+  - `web/backend/app/models/stat.py` — `StatDefinition` gains `carry_over: bool | None`
+    (nullable → the additive reconciler self-heals; read as `False`). **New**
+    `SessionCharacterStat(session_id, character_id, key, value)` with
+    `UniqueConstraint(session_id, character_id, key)` and `ondelete="CASCADE"` on both FKs.
+  - `web/backend/alembic/versions/` — a migration for both (the parity test in
+    `utils/tests/backend/data/test_alembic.py` enforces Alembic ≡ `create_all`; Phase 1 learned
+    this the hard way).
+  - `web/backend/app/services/session_stats.py` — **new**, kept separate from `stats.py` so the
+    authoring surface and the play surface do not blur: `resolve(db, session_id, character_id)`
+    (session row → carried character value → authored default), `apply(db, session_id,
+    character_id, values)`, `baseline(db, character_id)`, `copy(db, source, target)` for branch,
+    `clear(db, session_id)` for the rewind replay.
+  - **Play-path call sites move to the session scope** — `services/validator.py` (reads the
+    current value to apply a delta), `services/turn_effects.py` (applies the change),
+    `services/assembler.py` (renders stats into the prompt). Each needs the `session_id`
+    threaded to it.
+  - **Authoring call sites stay character-global** — `routes/stats.py` and
+    `services/world_populate.py` continue to read and write the authored baseline. Say which is
+    which at every call site; this is the distinction the whole phase exists to draw.
+  - `web/frontend/lib/api.ts` + `features/story-player/useScenePlay.ts` — the play surface reads
+    the session's values, not `getCharacterStats`.
+  - `docs/checklist.md` — closes **"Stat lifecycle across scenarios"** in *Undesigned decisions*.
+  - Tests: `utils/tests/backend/services/test_session_stats.py`.
+- **Rationale:** Owner decision **D-1**. `CharacterStat` is global to a character, so two
+  play-throughs of one scenario silently share a health value and a rewind can only reconcile to
+  whichever session happens to be open. This must land **before** `session_state` (Phase 5),
+  because it changes what "roll the stats back" means: with session scope, rewind deletes the
+  session's rows and **replays the surviving `state_update` events** from the authored baseline —
+  deterministic, no per-event provenance, and correct for rows written before this program. That
+  is strictly better than the `StatPatch.fromValue` scheme Phase 5 was originally written around,
+  which is why this phase comes first rather than after it.
+- *Action: Run the validation for this phase — `uv run pytest` in full (this changes a read path
+  every turn uses), plus `npm run typecheck` in `web/frontend`. Once green, commit locally:
+  `[Control Over the Record] (4/12) Complete: Stat values are session-scoped, with a per-stat carry_over flag.` Do not push or open a PR.*
+
+---
+
+### Phase 5 — History-mutation primitives (`session_state`)
 
 - **Locations:**
   - `web/backend/app/events/envelope.py` — add `from_value: int | None = None` to `StatPatch`.
@@ -372,11 +412,11 @@ the model reads — is a product call.
   service break the operation" requirement directly.
 - *Action: Run the validation for this phase — `uv run pytest utils/tests/backend/services
   utils/tests/backend/api` and `npm run typecheck` in `web/frontend` for the mirrored `StatPatch`.
-  Once green, commit locally: `[Control Over the Record] (4/11) Complete: session_state gives truncation, buffer rebuild, stat replay and history copy one tested home.` Do not push or open a PR.*
+  Once green, commit locally: `[Control Over the Record] (5/12) Complete: session_state gives truncation, buffer rebuild, stat replay and history copy one tested home.` Do not push or open a PR.*
 
 ---
 
-### Phase 5 — Branch from here
+### Phase 6 — Branch from here
 
 - **Locations:**
   - `web/backend/app/routes/play_record.py` — `POST /play/{scenarioId}/sessions/{sessionId}/branch`.
@@ -410,11 +450,11 @@ the model reads — is a product call.
   utils/tests/backend/services`, `npm test` in `web/frontend` for the touched components, and an
   accessibility + responsive pass (the beat controls must be tab-reachable with visible focus and
   must not overlap prose at 320/375/768/1024). Once green, commit locally:
-  `[Control Over the Record] (5/11) Complete: Branch from here forks a play-through at a beat, leaving the original intact.` Do not push or open a PR.*
+  `[Control Over the Record] (6/12) Complete: Branch from here forks a play-through at a beat, leaving the original intact.` Do not push or open a PR.*
 
 ---
 
-### Phase 6 — Rewind to here
+### Phase 7 — Rewind to here
 
 - **Locations:**
   - `web/backend/app/routes/play_record.py` — `POST /play/{scenarioId}/sessions/{sessionId}/rewind`.
@@ -455,11 +495,11 @@ the model reads — is a product call.
   utils/tests/backend/services`, `npm test` in `web/frontend`, and an accessibility + responsive
   pass (confirm the rewind confirmation is keyboard-operable, the notice is announced by a screen
   reader, and focus lands in the composer afterwards; 320/375/768/1024). Once green, commit
-  locally: `[Control Over the Record] (6/11) Complete: Rewind to here truncates the session at a turn boundary, snapshots the old history, and hands the player's line back to the composer.` Do not push or open a PR.*
+  locally: `[Control Over the Record] (7/12) Complete: Rewind to here truncates the session at a turn boundary, snapshots the old history, and hands the player's line back to the composer.` Do not push or open a PR.*
 
 ---
 
-### Phase 7 — Edit a beat in place
+### Phase 8 — Edit a beat in place
 
 - **Locations:**
   - `web/backend/app/routes/play_record.py` — `PATCH /play/{scenarioId}/sessions/{sessionId}/beats/{eventId}`.
@@ -496,11 +536,11 @@ the model reads — is a product call.
   utils/tests/backend/services`, `npm test` in `web/frontend`, plus an accessibility + responsive
   pass (the editor is a labelled form field, Escape/Save are keyboard-reachable, focus returns to
   the beat's control cluster on close; 320/375/768/1024). Once green, commit locally:
-  `[Control Over the Record] (7/11) Complete: Any beat — including the player's own lines — can be edited in place, and the buffer follows.` Do not push or open a PR.*
+  `[Control Over the Record] (8/12) Complete: Any beat — including the player's own lines — can be edited in place, and the buffer follows.` Do not push or open a PR.*
 
 ---
 
-### Phase 8 — Re-roll a beat, keep both takes, and give scene images the same controls
+### Phase 9 — Re-roll a beat, keep both takes, and give scene images the same controls
 
 - **Locations:**
   - `web/backend/app/events/envelope.py` — `BeatTake { id, text, ts }`, `ImageTake { id, url,
@@ -574,11 +614,11 @@ the model reads — is a product call.
   utils/tests/backend/services`, `npm test` in `web/frontend`, `npm run typecheck && npm run lint`,
   and an accessibility + responsive pass (the pager announces its position, Re-roll's scope choice
   is keyboard-operable, the image controls do not overlap the picture at 320/375/768/1024). Once
-  green, commit locally: `[Control Over the Record] (8/11) Complete: A beat can be re-rolled in place, both takes are kept behind a pager, and scene images gained re-roll and delete.` Do not push or open a PR.*
+  green, commit locally: `[Control Over the Record] (9/12) Complete: A beat can be re-rolled in place, both takes are kept behind a pager, and scene images gained re-roll and delete.` Do not push or open a PR.*
 
 ---
 
-### Phase 9 — Continue (and the shared no-text-turn relaxation)
+### Phase 10 — Continue (and the shared no-text-turn relaxation)
 
 - **Locations:**
   - `web/backend/app/schemas/play.py` — `TurnRequest` gains `continuation: bool = False` and its
@@ -622,11 +662,11 @@ the model reads — is a product call.
   utils/tests/backend/services`, `npm test` in `web/frontend`, and an accessibility + responsive
   pass on the transcript foot bar (keyboard order Continue → Create image, visible focus, AA
   contrast, 320/375/768/1024). Once green, commit locally:
-  `[Control Over the Record] (9/11) Complete: A turn can run with no player line, and Continue sits at the foot of the transcript.` Do not push or open a PR.*
+  `[Control Over the Record] (10/12) Complete: A turn can run with no player line, and Continue sits at the foot of the transcript.` Do not push or open a PR.*
 
 ---
 
-### Phase 10 — Ghostwriter
+### Phase 11 — Ghostwriter
 
 - **Locations:**
   - `web/backend/app/agents/ghostwriter_agent.py` — **new**. `stream_line(db, ctx, *, intent, pov,
@@ -671,11 +711,11 @@ the model reads — is a product call.
   utils/tests/backend/api`, `npm test` in `web/frontend`, and an accessibility + responsive pass
   (the button has an accessible name, its streaming state is announced, the textarea keeps focus
   and the caret is not stolen mid-draft; 320/375/768/1024). Once green, commit locally:
-  `[Control Over the Record] (10/11) Complete: The Ghostwriter drafts a POV or narrator line from the player's intent, straight into the composer.` Do not push or open a PR.*
+  `[Control Over the Record] (11/12) Complete: The Ghostwriter drafts a POV or narrator line from the player's intent, straight into the composer.` Do not push or open a PR.*
 
 ---
 
-### Phase 11 — One consistent set of beat affordances, the mobile floor, and the docs sweep
+### Phase 12 — One consistent set of beat affordances, the mobile floor, and the docs sweep
 
 - **Locations:**
   - `web/frontend/components/feature/BeatControls.tsx` — final pass: every transcript beat kind
@@ -722,7 +762,7 @@ the model reads — is a product call.
   and a complete accessibility + responsive pass over the story player (keyboard-only: open the
   tray, switch play-throughs, re-roll a beat, flip a take, edit a beat, rewind, continue; visible
   focus throughout; AA contrast; live-region announcements; 320/375/768/1024). Once green, commit
-  locally: `[Control Over the Record] (11/11) Complete: Every transcript beat carries one consistent control set, the controls meet the mobile floor, and the docs and checklist are reconciled.` Do not push or open a PR.*
+  locally: `[Control Over the Record] (12/12) Complete: Every transcript beat carries one consistent control set, the controls meet the mobile floor, and the docs and checklist are reconciled.` Do not push or open a PR.*
 
 ---
 

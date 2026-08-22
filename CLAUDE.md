@@ -71,7 +71,7 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 | Hybrid RAG | `rag/` | `schema.py` `serializer.py` `tokens.py` `entries.py` `embedder.py` `store.py` `indexer.py` `retriever.py` `const.py` |
 | Live turn state | `memory/` | `buffer.py` (Redis recent-turn buffer) `interior.py` |
 | Event stream | `events/` | `envelope.py` (8 story events) `stream.py` (NDJSON + trace/error frames) |
-| DB models (13 tables) | `models/` | `storyline.py` `character.py` `setting.py` `scenario.py` `event.py` `stat.py` (StatDefinition + CharacterStat) `session.py` `turn_trace.py` `context_document.py` (Doc + Link) `graph_type.py` `app_setting.py` |
+| DB models (14 tables) | `models/` | `storyline.py` `character.py` `setting.py` `scenario.py` `event.py` `stat.py` (StatDefinition + CharacterStat + SessionCharacterStat) `session.py` `turn_trace.py` `context_document.py` (Doc + Link) `graph_type.py` `app_setting.py` |
 | Pydantic schemas | `schemas/` | `base.py` + mirrors of `models/` + `play.py` `rag.py` `reasoning.py` `settings.py` `storyline_edit.py` |
 | Config/clients | `core/` | `config.py` `db.py` `redis.py` `neo4j.py` `qdrant.py` `bootstrap.py` (preflight) `seed.py` `errors.py` `ids.py` |
 | Migrations | `web/backend/alembic/` | `env.py` + `versions/` (12 migrations; non-additive changes only) |

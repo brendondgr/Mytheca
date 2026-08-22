@@ -9,7 +9,7 @@ Verified against the code on 2026-08-04.
 | Decision | State |
 | --- | --- |
 | **Auth mechanism** | Completely undesigned. There is no `User` model, no auth routes, and no session or token handling anywhere in `web/backend/app/`. JWT-vs-cookie, provider, and whether the app becomes multi-tenant at all are open. Everything downstream — protected routes, per-user libraries, admin surfaces — is blocked on this. |
-| **Stat lifecycle across scenarios** | Undecided: reset / persist / partial carry-over between scenarios, and how `hidden`-visibility stats should render. |
+| ~~**Stat lifecycle across scenarios**~~ | **Decided 2026-08-21 (owner decision D-1): reset, with an opt-in carry.** Stat *values* are scoped to a play-through (`session_character_stats`); `character_stats` holds the character's **authored** starting value and is what every new play-through begins from. `StatDefinition.carry_over` decides whether a play-through's ending value writes back onto the character when the session closes — so a stat carries between scenes only when it says so. Two play-throughs of one scenario no longer share a value, which is what makes branch and rewind correct. **Still open:** how a `hidden`-visibility stat should render is untouched by this and remains undecided (see `docs/plans/depth-for-players.md`). |
 | **Deployment target** | Undecided: containerized full-stack on one host vs. split hosting. Nothing is configured. |
 
 ## Unbuilt capabilities

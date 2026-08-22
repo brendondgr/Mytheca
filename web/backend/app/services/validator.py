@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from app.agents.relationship_agent import RELATIONSHIP_TYPES
 from app.events.envelope import StatPatch
 from app.models.stat import StatDefinition
-from app.services import presence, stats
+from app.services import presence, session_stats, stats
 
 
 def _loads(raw: str) -> dict | None:
@@ -54,8 +54,16 @@ def validate_stat(
     storyline_id: str,
     character_id: str,
     raw: str,
+    *,
+    session_id: str | None = None,
 ) -> StatPatch | None:
-    """Validate + clamp a proposed stat change; ``None`` when invalid/unknown (dropped)."""
+    """Validate + clamp a proposed stat change; ``None`` when invalid/unknown (dropped).
+
+    A ``delta`` is applied to the value **as it stands in this play-through**
+    (``session_id``), not to the character's authored baseline — otherwise two play-throughs
+    of one scenario would compute their deltas from each other's state. ``None`` resolves to
+    the baseline, which is the right answer for a scene that has not opened a session yet.
+    """
     data = _loads(raw)
     if not data:
         return None
@@ -66,7 +74,7 @@ def validate_stat(
     if definition is None:
         return None  # unknown stat — dropped (the model can't invent a stat)
 
-    current = stats.get_character_stats(db, character_id).get(key, definition.default)
+    current = session_stats.resolve(db, session_id, character_id).get(key, definition.default)
     if data.get("value") is not None:
         try:
             target = int(data["value"])

@@ -451,7 +451,9 @@ def _resp(content: str) -> httpx.Response:
     return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
 
 
-def test_stat_change_streams_clamped_state_update_and_applies(client, storyline_id, monkeypatch):
+def test_stat_change_streams_clamped_state_update_and_applies(
+    client, storyline_id, monkeypatch, db_session
+):
     _configure_llm(client)
     client.post(
         f"/api/storylines/{storyline_id}/stats",
@@ -470,8 +472,16 @@ def test_stat_change_streams_clamped_state_update_and_applies(client, storyline_
     assert su["data"]["stat"]["key"] == "suspicion"
     assert su["data"]["stat"]["value"] == 62  # default 50 + 12
     assert su["data"]["stat"]["reason"] == "old guilt, raised guard"
-    # applied on the hot path (clamped) to the character
-    assert client.get(f"/api/characters/{cid}/stats").json()["suspicion"] == 62
+    # Applied on the hot path (clamped) to THIS PLAY-THROUGH, not to the character.
+    # The character endpoint is the authored baseline: a stat that moved inside one story
+    # must not silently rewrite what every other play-through of the scenario starts from.
+    # It reaches the character only when its definition sets `carry_over`, and only when the
+    # play-through closes (see services/session_stats.carry_forward). Owner decision D-1.
+    from app.services import session_stats
+
+    session_id = client.get(f"/api/play/{scid}/sessions").json()["sessions"][0]["id"]
+    assert session_stats.resolve(db_session, session_id, cid)["suspicion"] == 62
+    assert "suspicion" not in client.get(f"/api/characters/{cid}/stats").json()
 
 
 def test_unknown_proposed_stat_is_dropped_no_event(client, storyline_id, monkeypatch):

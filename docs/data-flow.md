@@ -272,6 +272,19 @@ play-through **fully reviewable and continuable**:
   live in `routes/play_record.py`, separate from `routes/play.py`, which carries the turn stream.
   The story player's play-through tray is the surface over them.
 
+- **Stat values are scoped to a play-through.** `session_character_stats` holds what a stat is
+  worth *inside one story*; `character_stats` holds the character's **authored** starting value.
+  Play reads and writes the session scope (`services/session_stats.py` — `resolve` / `apply`,
+  reached from `validator`, `turn_effects` and `assembler`); the Library and world population read
+  and write the baseline (`services/stats.py`, `routes/stats.py`). Resolution when play reads a
+  stat is: the play-through's row → the character's authored value → the definition's `default`.
+  `StatDefinition.carry_over` works the other way: on `close_session`, a stat marked to carry
+  writes its value back onto the character so the **next** scene opens where this one left off.
+  Owner decision D-1 — before it every value was character-global, so two play-throughs of one
+  scenario shared a health value and a rewind could only reconcile to whichever session was open.
+  The story player needs no change for this: it already paints from the character baseline and
+  replays the session's `state_update` events on top, which is exactly the new semantics.
+
 - **The turn's own inputs are persisted.** The `user_turn` row's `data` carries `guidance` (the
   scene direction) and `taggedDocIds` alongside `text`, `directedAt` and `pov`. Both were
   previously request-only and died with the turn, which meant a reload could not restore the

@@ -33,6 +33,7 @@ from app.services import (
     graph_reader,
     presence,
     retrieval_gate,
+    session_stats,
     settings_store,
     stat_guidance,
     stats,
@@ -308,7 +309,9 @@ def _build_cast(
         char = db.get(Character, cid)
         if char is None:  # deleted character left a dangling cast id — skip gracefully
             continue
-        values = stats.get_character_stats(db, char.id)
+        # The values as they stand in THIS play-through (falling back through
+        # carry_over to the authored baseline, then the definition default).
+        values = session_stats.resolve(db, session_id, char.id)
         # Full block: every defined stat, falling back to its default when unset.
         block = {sd.key: int(values.get(sd.key, sd.default)) for sd in stat_defs}
         # Read-time interior state from the previous turn's reflection (best-effort).
