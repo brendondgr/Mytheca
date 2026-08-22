@@ -272,6 +272,57 @@ class GhostwriteRequest(CamelModel):
     mode: Literal["character", "narrator"] = "character"
 
 
+class SceneKnowledgeRetrieval(CamelModel):
+    """Whether the world-lore lookup ran this turn, and what came of it."""
+
+    fired: bool = False
+    reason: str = ""
+    matched: bool = False
+
+
+class SceneKnowledgeDirection(CamelModel):
+    """What the player asked the scene to do, and what of it the turn confirmed."""
+
+    text: str = ""
+    items: list[str] = Field(default_factory=list)
+    delivered: list[str] = Field(default_factory=list)
+    outstanding: list[str] = Field(default_factory=list)
+
+
+class SceneKnowledgeSummary(CamelModel):
+    """The scene's rolling memory of beats that fell out of the context window."""
+
+    text: str = ""
+    through_seq: int | None = None
+    updated_at: datetime | None = None
+
+
+class SceneKnowledgeResponse(CamelModel):
+    """What the scene knows right now, in the player's terms.
+
+    The Inspector answers *"what did the loop do"*; this answers *"what does the scene know"*.
+    Assembled from the most recent turn's persisted trace rows plus the session's summary
+    columns, so it costs the turn path nothing and — the point — works on a **resumed** scene,
+    which is exactly when a player most wants to ask what a long session still remembers.
+
+    Every field degrades to empty rather than absent: a session with no turns yet is a
+    legitimate question whose honest answer is a set of zeroes.
+    """
+
+    window_beats: int = 0
+    window_source: str = ""
+    dropped_beats: int = 0
+    budget_tokens: int = 0
+    #: The endpoint's own input-token count for the last character call — the one
+    #: non-estimated number here, absent when the endpoint reported none.
+    prompt_tokens: int | None = None
+    tagged_names: list[str] = Field(default_factory=list)
+    retrieval: SceneKnowledgeRetrieval = Field(default_factory=SceneKnowledgeRetrieval)
+    relationships: list[str] = Field(default_factory=list)
+    direction: SceneKnowledgeDirection = Field(default_factory=SceneKnowledgeDirection)
+    summary: SceneKnowledgeSummary = Field(default_factory=SceneKnowledgeSummary)
+
+
 class SessionListResponse(CamelModel):
     sessions: list[SessionSummary]
 

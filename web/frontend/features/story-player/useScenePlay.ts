@@ -226,6 +226,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
    * configured — the depth is a consequence of the model's window, not a preference.
    */
   const [sceneMemory, setSceneMemory] = useState<SceneMemory | null>(null);
+  /** Where verbatim recall ends and the scene's rolling summary takes over. */
+  const [summaryThroughSeq, setSummaryThroughSeq] = useState<number | null>(null);
 
   /**
    * Stop asking for something the scene still owes.
@@ -309,6 +311,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       setStreamError,
       setStanding,
       setSceneMemory,
+      setSummaryThroughSeq,
       notify,
     }),
     [notify],
@@ -917,6 +920,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     standing,
     dismissStanding,
     sceneMemory,
+    summaryThroughSeq,
     playOut,
     answerCastRequest,
     // How far into the scene we are, for the Exit verbs' gate. Counts what the player

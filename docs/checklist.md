@@ -29,6 +29,13 @@ Verified against the code on 2026-08-04.
   positive would lose what the player asked for. An LLM "did that happen?" check is still
   rejected — it would roughly double the turn's call count. What is missing is a measurement;
   see `docs/research/OPEN_QUESTIONS.md`.
+- **The memory edge is accurate to within a beat or two.** `MemoryEdge` marks where verbatim
+  recall stops by counting back `windowBeats` rendered transcript messages — but messages and
+  buffer beats are not exactly 1:1 (an internal thought folds into its speaker's beat), so the
+  line can sit a beat or two off. It is enough for the marker's job (telling the player there
+  IS an edge, and roughly where), and the exact figures are in the scene-memory panel, which
+  reads them from the engine rather than counting rendered messages. Making it exact would mean
+  carrying a per-message buffer-beat count through the transcript.
 - **A standing direction never expires.** What a turn could not deliver is carried forward
   indefinitely until it lands or the player dismisses it (`play_sessions.standing_direction`).
   A direction the scene has quietly moved past will keep being re-owed, and the only remedy is

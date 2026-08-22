@@ -342,6 +342,33 @@ export interface PersistedTrace {
 }
 
 /** The full record of one play-through — used to rehydrate the player on resume. */
+/**
+ * What the scene knows right now, in the player's terms.
+ *
+ * The Inspector answers "what did the loop do"; this answers "what does the scene know".
+ * Assembled server-side from the most recent turn's persisted traces, so it works on a
+ * resumed scene — which is exactly when a player most wants to ask what a long session still
+ * remembers.
+ */
+export interface SceneKnowledge {
+  windowBeats: number;
+  windowSource: string;
+  droppedBeats: number;
+  budgetTokens: number;
+  /** The endpoint's own count for the last character call — `null` when it reported none. */
+  promptTokens: number | null;
+  taggedNames: string[];
+  retrieval: { fired: boolean; reason: string; matched: boolean };
+  relationships: string[];
+  direction: {
+    text: string;
+    items: string[];
+    delivered: string[];
+    outstanding: string[];
+  };
+  summary: { text: string; throughSeq: number | null; updatedAt: string | null };
+}
+
 /** One thing the player is still owed, surviving from an earlier turn. */
 export interface StandingItem {
   id: string;

@@ -307,3 +307,30 @@ describe("StoryPlayerView create image", () => {
     ).toBeTruthy();
   });
 });
+
+describe("StoryPlayerView — what the scene knows", () => {
+  it("opens the memory rail and closes the Inspector, and vice versa", async () => {
+    // Two 340px columns cannot both dock, and they answer different questions anyway: this
+    // one is the player's, the Inspector is the developer's.
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+
+    await user.click(screen.getByRole("button", { name: "What the scene knows" }));
+    expect(
+      screen.getByRole("complementary", { name: "What the scene knows" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Turn Inspector" }));
+    expect(screen.getByRole("complementary", { name: "Turn inspector" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("complementary", { name: "What the scene knows" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows no memory edge until beats have actually dropped out", () => {
+    // A marker that is always there stops meaning anything.
+    render(<StoryPlayerView scenario={embergate} />);
+    expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+  });
+});
+

@@ -27,6 +27,7 @@ from app.schemas.play import (
     PersistedTrace,
     PresenceRequest,
     SessionHistoryResponse,
+    SceneKnowledgeResponse,
     SessionListResponse,
     SessionSummary,
     StandingDirectionRequest,
@@ -40,6 +41,7 @@ from app.services import (
     events_store,
     graph_reader,
     presence,
+    scene_knowledge,
     scene_moment,
     session_export,
     turn_engine,
@@ -230,6 +232,21 @@ def _standing(session) -> list[StandingItem]:
         )
         for r in direction_runtime.load_standing(session)
     ]
+
+
+@router.get(
+    "/{scenario_id}/sessions/{session_id}/context", response_model=SceneKnowledgeResponse
+)
+def scene_context(scenario_id: str, session_id: str, db: Session = Depends(get_db)):
+    """What the scene knows right now, in the player's terms.
+
+    Assembled from the most recent turn's already-persisted trace rows, so it costs the turn
+    path nothing and works on a **resumed** scene — which is exactly when a player most wants
+    to ask what a long session still remembers.
+    """
+    crud.get_scenario(db, scenario_id)
+    session = events_store.get_session(db, scenario_id, session_id)  # 404/400
+    return scene_knowledge.scene_knowledge(db, session)
 
 
 @router.post(

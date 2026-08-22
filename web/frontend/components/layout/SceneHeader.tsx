@@ -62,6 +62,8 @@ export function SceneHeader({
   canExport = false,
   onToggleInspector,
   inspectorOpen = false,
+  onToggleMemory,
+  memoryOpen = false,
   tray,
 }: {
   title: string;
@@ -80,6 +82,9 @@ export function SceneHeader({
   /** Toggle the Turn Inspector drawer (omit to hide the control). */
   onToggleInspector?: () => void;
   inspectorOpen?: boolean;
+  /** Opens the player-facing "what the scene knows" rail. */
+  onToggleMemory?: () => void;
+  memoryOpen?: boolean;
   /**
    * The play-through tray, rendered left of Export. Passed as a node rather than as props
    * because the header is presentational and the tray needs the play hook's session state;
@@ -126,6 +131,22 @@ export function SceneHeader({
             what made the Inspector button unreachable at 320px. `docs/plans/making-it-legible.md`
             Phase 7 puts a real model-health indicator in this slot; the durable 320px fix is
             `docs/plans/reach.md` Phase 4's header overflow menu. */}
+        {/* Two rails, and they are for two different questions: this one is the player's
+            ("what does the scene know"), the Inspector is the developer's ("what did the loop
+            do"). Mutually exclusive, because two 340px columns cannot both dock. */}
+        {onToggleMemory ? (
+          <button
+            type="button"
+            onClick={onToggleMemory}
+            aria-pressed={memoryOpen}
+            aria-label="What the scene knows"
+            title="How far back the cast remembers, and what it is reading"
+            className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[9px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-pressed:border-accent aria-pressed:text-accent sm:px-[10px]"
+          >
+            <span aria-hidden>◍</span>
+            <span className="hidden sm:inline">Memory</span>
+          </button>
+        ) : null}
         {onToggleInspector ? (
           <button
             type="button"

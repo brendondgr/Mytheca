@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ENTER_TRANSITION } from "@/lib/motion";
 import { exportSessionUrl } from "@/lib/api";
@@ -36,6 +36,8 @@ import { SceneImageModal } from "@/components/feature/SceneImageModal";
 import { CharacterDossier } from "@/components/feature/CharacterDossier";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { TurnInspectorPanel } from "@/components/feature/TurnInspectorPanel";
+import { SceneMemoryPanel } from "@/components/feature/SceneMemoryPanel";
+import { MemoryEdge } from "@/components/feature/MemoryEdge";
 
 
 /**
@@ -136,6 +138,9 @@ export function StoryPlayerView({
   /** "Someone arrives" is open, listing who could actually walk in. */
   const [castMenuOpen, setCastMenuOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  /** The player-facing "what the scene knows" rail. Mutually exclusive with the Inspector —
+   *  two 340px columns cannot both dock, and they answer different questions anyway. */
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const [viewMode, setViewMode] = useState<SceneViewMode>("chat");
   const byId = (id: string): Character | undefined =>
     scenario.cast.find((c) => c.id === id);
@@ -175,6 +180,19 @@ export function StoryPlayerView({
       .map((c) => ({ id: c.id, name: c.name }));
   }, [storylineCast, scenario.cast]);
 
+  /**
+   * Where the memory edge goes: immediately above the oldest beat the cast still reads.
+   *
+   * Accurate to within a beat or two — transcript messages and buffer beats are not exactly
+   * 1:1, since an internal thought folds into its speaker's beat. That is enough for the
+   * marker's job (telling the player there IS an edge, and roughly where); the memory panel
+   * carries the exact figures, read from the engine rather than counted here. `-1` hides it.
+   */
+  const memoryEdgeAt =
+    scene.sceneMemory && scene.sceneMemory.droppedBeats > 0
+      ? Math.max(0, scene.messages.length - scene.sceneMemory.windowBeats)
+      : -1;
+
   const verbs = useMemo(
     () =>
       availableVerbs(
@@ -201,8 +219,24 @@ export function StoryPlayerView({
         onViewModeChange={setViewMode}
         onExport={onExport}
         canExport={Boolean(scene.sessionId)}
-        onToggleInspector={viewMode === "graph" ? undefined : () => setInspectorOpen((o) => !o)}
+        onToggleInspector={
+          viewMode === "graph"
+            ? undefined
+            : () => {
+                setInspectorOpen((o) => !o);
+                setMemoryOpen(false);
+              }
+        }
         inspectorOpen={inspectorOpen}
+        onToggleMemory={
+          viewMode === "graph"
+            ? undefined
+            : () => {
+                setMemoryOpen((o) => !o);
+                setInspectorOpen(false);
+              }
+        }
+        memoryOpen={memoryOpen}
         tray={
           <PlaythroughTray
             sessions={scene.sessions}
@@ -259,8 +293,17 @@ export function StoryPlayerView({
                 — the scene is joined —
               </div>
               {scene.messages.map((m, i) => (
+                <Fragment key={i}>
+                {/* The line where verbatim memory stops. Rendered positionally rather than
+                    injected into `scene.messages`, so it costs no state churn and cannot end
+                    up in an export or a rewind's beat count. */}
+                {memoryEdgeAt === i ? (
+                  <MemoryEdge
+                    droppedBeats={scene.sceneMemory?.droppedBeats ?? 0}
+                    summarised={Boolean(scene.summaryThroughSeq)}
+                  />
+                ) : null}
                 <motion.div
-                  key={i}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={ENTER_TRANSITION}
@@ -337,6 +380,7 @@ export function StoryPlayerView({
                   />
                   )}
                 </motion.div>
+                </Fragment>
               ))}
               {/* What the turn is doing, while it is being written. Sits in the same slot
                   the CreateImageBar occupies between turns (the two are gated on `sending`
@@ -459,6 +503,7 @@ export function StoryPlayerView({
             beatLength={scene.beatLength}
             onBeatLengthChange={scene.setBeatLength}
             sceneMemory={scene.sceneMemory}
+            summarised={Boolean(scene.summaryThroughSeq)}
             guidance={scene.guidance}
             onGuidanceChange={scene.setGuidance}
             pov={scene.pov}
@@ -499,6 +544,12 @@ export function StoryPlayerView({
           open={inspectorOpen}
           onClose={() => setInspectorOpen(false)}
           turns={scene.traceTurns}
+        />
+        <SceneMemoryPanel
+          open={memoryOpen}
+          onClose={() => setMemoryOpen(false)}
+          scenarioId={scenario.id}
+          sessionId={scene.sessionId}
         />
         </>
         )}

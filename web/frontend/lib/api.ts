@@ -11,6 +11,7 @@ import type {
   GhostwriteStreamFrame,
   PersistedEvent,
   PresenceStatus,
+  SceneKnowledge,
   SessionHistory,
   StandingItem,
   RewindResult,
@@ -367,6 +368,15 @@ export const listPlaySessions = (scenarioId: string) =>
 /** The full record of one play-through (events + traces) — replayed to rehydrate the player. */
 export const getSessionHistory = (scenarioId: string, sessionId: string) =>
   request<SessionHistory>(`/play/${scenarioId}/sessions/${sessionId}`);
+
+/**
+ * What the scene knows right now — the player-facing read of the last turn's context.
+ *
+ * A plain GET rather than something folded off the stream, because the question is most
+ * worth asking on a scene the player has just come back to.
+ */
+export const getSceneKnowledge = (scenarioId: string, sessionId: string) =>
+  request<SceneKnowledge>(`/play/${scenarioId}/sessions/${sessionId}/context`);
 
 /**
  * Stop asking for some (or all) of what the scene still owes.
