@@ -9,7 +9,11 @@
 #
 # Contract: docs/research/AGENT_INSTRUCTIONS.md
 
-PY := uv run python
+# `--group research` is load-bearing for `figures`: matplotlib and pyyaml live in the
+# `research` dependency group, which a plain `uv sync` does NOT install (it installs the
+# default `dev` group only). Without it, `make figures` fails with ModuleNotFoundError on a
+# freshly synced checkout — which is exactly when someone is most likely to run it.
+PY := uv run --group research python
 
 .DEFAULT_GOAL := help
 .PHONY: help new-experiment validate-research research-index figures test
