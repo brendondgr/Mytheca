@@ -100,9 +100,22 @@ function beatLabel(m: SceneMessage, byId: (id: string) => Character | undefined)
  */
 const CHARACTER_PHASES = new Set(["thinking", "speaking", "acting"]);
 
-/** Beat kinds whose prose the player can rewrite. A picture and a set of choices
- *  have no words of their own to edit. */
-const EDITABLE_BEATS = new Set(["narrator", "char", "player"]);
+/**
+ * Whose words the player may rewrite: **their own, and only their own.**
+ *
+ * A plain `player` beat, or a `char` beat they authored under POV — that one wears a
+ * character's name but the player wrote it, which is why it is matched on `fromPlayer`
+ * rather than on `kind`.
+ *
+ * Narration and the cast's lines are deliberately excluded. Rewriting the model's prose
+ * puts words in a character's mouth that their own interior state was never conditioned
+ * on, and the record already has the right answer to "I don't like that line": **Re-roll**
+ * regenerates it in place and keeps the previous wording as a take. `PATCH …/beats/{id}`
+ * still accepts any beat with prose — this is the surface gate, not an API change.
+ */
+export function isPlayerAuthored(m: SceneMessage): boolean {
+  return m.kind === "player" || (m.kind === "char" && Boolean(m.fromPlayer));
+}
 
 /** Beat kinds the engine can generate again. The player's own line is not one —
  *  re-rolling it would mean the model writing what the player said. */
@@ -605,7 +618,7 @@ export function StoryPlayerView({
                       <BeatControls
                         label={beatLabel(m, byId)}
                         rewindBeatCount={scene.messages.length - turnStartIndex(scene.messages, i)}
-                        onEdit={EDITABLE_BEATS.has(m.kind) ? () => setEditingId(m.id!) : undefined}
+                        onEdit={isPlayerAuthored(m) ? () => setEditingId(m.id!) : undefined}
                         onReroll={
                           // Never the player's own words — including a POV beat, which wears
                           // a character's identity but was written by the player.

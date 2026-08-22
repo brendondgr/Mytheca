@@ -1,7 +1,7 @@
-import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { StoryPlayerView } from "./StoryPlayerView";
+import { StoryPlayerView, isPlayerAuthored } from "./StoryPlayerView";
 import { postTurn, updateScenario } from "@/lib/api";
 import type { TurnStreamFrame } from "@/lib/events";
 import {
@@ -507,5 +507,60 @@ describe("StoryPlayerView single-character shortcuts (WCAG 2.1.4)", () => {
 
     await user.keyboard("?");
     expect(screen.queryByRole("dialog", { name: /keyboard shortcuts/i })).not.toBeInTheDocument();
+  });
+});
+
+
+describe("StoryPlayerView — Edit is offered only on the player's own words", () => {
+  it("gives an AI beat Re-roll but no Edit", async () => {
+    // The owner's rule: the player may rewrite what they said, and nothing else. The
+    // record's answer to a bad line from the cast is Re-roll, which regenerates it in
+    // place and keeps the previous wording as a take.
+    const speaker = embergate.cast[0];
+    vi.mocked(postTurn).mockImplementation(
+      streamOf({
+        type: "character_dialogue",
+        id: "d1",
+        seq: 1,
+        scenarioId: embergate.id,
+        sessionId: "ps_live",
+        ts: "t",
+        visibility: "public",
+        data: { characterId: speaker.id, text: "The room turns to you.", done: true },
+      } as TurnStreamFrame),
+    );
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.type(screen.getByRole("textbox", { name: /your message/i }), "I draw my blade.");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+    await screen.findByText("The room turns to you.");
+
+    const bar = await screen.findByRole("toolbar", { name: new RegExp(`Actions for ${speaker.name}`, "i") });
+    expect(bar).toBeInTheDocument();
+    expect(within(bar).queryByRole("button", { name: /^Edit /i })).not.toBeInTheDocument();
+    expect(within(bar).getByRole("button", { name: /^Re-roll /i })).toBeInTheDocument();
+    expect(within(bar).getByRole("button", { name: /^Rewind to /i })).toBeInTheDocument();
+  });
+});
+
+describe("isPlayerAuthored", () => {
+  it("is true for the player's own line", () => {
+    expect(isPlayerAuthored({ kind: "player", text: "I stand." })).toBe(true);
+  });
+
+  it("is true for a POV line — the player wrote it, whoever's name it wears", () => {
+    expect(isPlayerAuthored({ kind: "char", who: "mei", fromPlayer: true, text: "Sit." })).toBe(true);
+  });
+
+  it("is false for the cast's own prose and for the narration", () => {
+    expect(isPlayerAuthored({ kind: "char", who: "mei", text: "Sit." })).toBe(false);
+    expect(isPlayerAuthored({ kind: "narrator", text: "The lamp gutters." })).toBe(false);
+  });
+
+  it("is false for beats that are not prose at all", () => {
+    expect(isPlayerAuthored({ kind: "choices" })).toBe(false);
+    expect(
+      isPlayerAuthored({ kind: "image", image: { url: "/x.webp", caption: "", prompt: "" } }),
+    ).toBe(false);
   });
 });
