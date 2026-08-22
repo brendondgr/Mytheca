@@ -872,8 +872,13 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     [sending, scenario.id, stream, pov, refreshSessions, overridesBody, clearTurnOverrides],
   );
 
-  /** Drop one key from the pending overrides, leaving the object identical when absent. */
-  const clearOverride = useCallback((key: SceneControlKey) => {
+  /**
+   * Drop one key from the pending overrides, leaving the object identical when absent.
+   *
+   * Keyed on the envelope, not on `SceneControlKey`: the register is a per-turn override
+   * with no pin at all, so it is a key here without being a pinnable control.
+   */
+  const clearOverride = useCallback((key: keyof TurnOverridesBody) => {
     setTurnOverrides((o) => {
       if (!(key in o)) return o;
       const next = { ...o };
@@ -910,6 +915,21 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     },
     [scenario.id, pinned.suggestionsCount, clearOverride],
   );
+  /**
+   * Pin the register for the next message.
+   *
+   * Unlike every other control this one has no pinned/unpinned choice: it is per-turn by
+   * construction, so it always writes to `turnOverrides` and always springs back. `null`
+   * clears the pin and hands the read of the moment back to the scene.
+   */
+  const setRegister = useCallback((value: TurnOverridesBody["register"] | null) => {
+    if (!value) {
+      clearOverride("register");
+      return;
+    }
+    setTurnOverrides((o) => ({ ...o, register: value }));
+  }, [clearOverride]);
+
   const setPlannerMode = useCallback(
     (value: "planner" | "off") => {
       if (!pinned.planner) {
@@ -1159,6 +1179,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setBeatLength,
     plannerMode,
     setPlannerMode,
+    // Always per-turn: no pin, and it clears itself when the turn settles.
+    register: turnOverrides.register ?? null,
+    setRegister,
     // Scope. `effective` is what the menu renders — the pending override when there is one,
     // the scene's own value otherwise — so an unpinned control still shows what was picked
     // without that value having been written anywhere.

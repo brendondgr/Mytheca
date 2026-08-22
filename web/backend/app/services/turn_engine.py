@@ -225,11 +225,20 @@ def run_turn(
         if (m := ctx.cast_by_id(cid)) is not None and m.id != pov_id
     ]
     for speaker in puppet_members:
+        # A puppeted beat carried no register at all before this: the planner never ran for
+        # it, so nobody read the moment. A pin is exactly the case where one should reach it.
+        puppet_register, puppet_source = turn_settings.pitch(settings, None)
         yield from tracer.emit(
             "speaker",
             f"{speaker.name} performs your direction",
             detail=intent.directive,
-            data={"characterId": speaker.id, "name": speaker.name, "puppet": True},
+            data={
+                "characterId": speaker.id,
+                "name": speaker.name,
+                "puppet": True,
+                "register": puppet_register or "",
+                "registerSource": puppet_source,
+            },
         )
         note = beat_runner.relationship_note(
             ctx, speaker.id, intent.addressed or [m.id for m in ctx.cast if m.id != speaker.id]
@@ -244,6 +253,7 @@ def run_turn(
         yield from beat_runner.generate_speaker(
             db, ctx, speaker, emitter, turn_beats, consequences,
             show_reasoning=show_reasoning, directive=intent.directive, relationship_note=note,
+            register=puppet_register,
             direction=direction, requirements=owed, tracer=tracer,
         )
         yield from direction_runtime.confirm(
@@ -414,11 +424,13 @@ def run_turn(
                     ctx, forced_actor.id, [m.id for m in ctx.cast if m.id != forced_actor.id]
                 )
                 mark = len(turn_beats)
+                forced_register, _ = turn_settings.pitch(settings, None)
                 played = yield from beat_runner.beat_or_skip(
                     tracer, forced_actor, tally,
                     db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
                     consequences=consequences,
                     show_reasoning=show_reasoning, relationship_note=note,
+                    register=forced_register,
                     direction=direction, requirements=owed,
                 )
                 yield from direction_runtime.confirm(
@@ -460,6 +472,7 @@ def run_turn(
                 forced_exchange = True
                 planned.clear()
                 responder = silent[0]
+                exchange_register, exchange_source = turn_settings.pitch(settings, decision)
                 yield from tracer.emit(
                     "speaker",
                     f"{responder.name} answers",
@@ -474,7 +487,8 @@ def run_turn(
                         "characterId": responder.id,
                         "name": responder.name,
                         "exchange": True,
-                        "register": decision.register or "",
+                        "register": exchange_register or "",
+                        "registerSource": exchange_source,
                         "stakes": decision.stakes or "",
                     },
                 )
@@ -486,7 +500,7 @@ def run_turn(
                     db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
                     consequences=consequences,
                     show_reasoning=show_reasoning, relationship_note=note,
-                    register=decision.register, stakes=decision.stakes,
+                    register=exchange_register, stakes=decision.stakes,
                     direction=direction,
                 )
                 acted.append(responder.id)
@@ -588,6 +602,9 @@ def run_turn(
                 "stakes": decision.stakes or None,
             },
         )
+        # A pinned register outranks the planner's own read of the moment — the player is
+        # looking at the scene and the planner is inferring it.
+        beat_register, register_source = turn_settings.pitch(settings, decision)
         yield from tracer.emit(
             "speaker",
             f"{actor.name} responds",
@@ -599,7 +616,8 @@ def run_turn(
                 "characterId": actor.id,
                 "name": actor.name,
                 "reason": decision.reason,
-                "register": decision.register or "",
+                "register": beat_register or "",
+                "registerSource": register_source,
                 "stakes": decision.stakes,
             },
         )
@@ -621,7 +639,7 @@ def run_turn(
             db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
             consequences=consequences,
             show_reasoning=show_reasoning, relationship_note=note,
-            register=decision.register, stakes=decision.stakes,
+            register=beat_register, stakes=decision.stakes,
             direction=direction, requirements=owed,
         )
         yield from direction_runtime.confirm(
@@ -650,6 +668,8 @@ def run_turn(
             next((m for m in ctx.cast if m.is_present and m.id != pov_id), None),
         )
         if responder is not None:
+            # Another path that carried no register: the planner is not consulted here at all.
+            backstop_register, backstop_source = turn_settings.pitch(settings, None)
             yield from tracer.emit(
                 "speaker",
                 f"{responder.name} responds",
@@ -658,7 +678,8 @@ def run_turn(
                     "characterId": responder.id,
                     "name": responder.name,
                     "backstop": True,
-                    "register": "",
+                    "register": backstop_register or "",
+                    "registerSource": backstop_source,
                     "stakes": "",
                 },
             )
@@ -670,6 +691,7 @@ def run_turn(
                 db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
                 consequences=consequences,
                 show_reasoning=show_reasoning, relationship_note=note,
+                register=backstop_register,
                 direction=direction,
             )
             beats += 1

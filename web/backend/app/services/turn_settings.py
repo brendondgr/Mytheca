@@ -26,7 +26,7 @@ from dataclasses import dataclass
 
 from app.models import Scenario
 from app.schemas.base import BEAT_LENGTHS, DEFAULT_BEAT_LENGTH, BeatLength
-from app.schemas.play import PlannerMode, TurnOverrides
+from app.schemas.play import PlannerMode, Register, TurnOverrides
 
 #: The per-turn ceiling on ``max_turns``, mirroring ``TurnOverrides``. A scene row may hold
 #: more; an override may not ask for more.
@@ -44,6 +44,8 @@ class TurnSettings:
     beat_length: BeatLength
     #: ``"planner"`` (the default) or ``"off"`` — see ``services/beat_order``.
     planner: PlannerMode = "planner"
+    #: A register the player pinned for this turn, or ``None`` to let the scene decide.
+    register: Register | None = None
 
 
 def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnSettings:
@@ -77,6 +79,7 @@ def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnS
         suggestions_count=suggestions,
         beat_length=beat_length,
         planner=planner,
+        register=ov.beat_register,
     )
 
 
@@ -90,3 +93,22 @@ def applied(overrides: TurnOverrides | None) -> dict:
     if overrides is None:
         return {}
     return overrides.model_dump(exclude_none=True, by_alias=True)
+
+
+def pitch(settings: TurnSettings, decision) -> tuple[str | None, str]:
+    """How this beat is pitched, and who decided — ``(register, source)``.
+
+    The precedence lives here and nowhere else, because it has to be applied at **five**
+    separate sites in the turn loop (the planner's speak branch, the forced-direction beat,
+    the forced-exchange responder, the silent-turn backstop and the puppet loop) and five
+    copies of a two-line rule is five chances for one of them to disagree.
+
+    ``source`` is ``"player"`` when the pin decided, ``"planner"`` when the beat's own read
+    did, and ``""`` when neither had anything — which is a real third case: with planning off
+    nobody reads the moment at all, and that is exactly when a pin is the only source there
+    is.
+    """
+    if settings.register:
+        return settings.register, "player"
+    register = getattr(decision, "register", None) if decision is not None else None
+    return register, "planner" if register else ""

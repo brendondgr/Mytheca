@@ -124,4 +124,92 @@ describe("TurnInspectorPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: /^close$/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+
+  // The register control invites exactly one question — did my pin reach this beat? —
+  // and the engine already answers it on the speaker step.
+
+  it("says who pitched a beat when a register was pinned", async () => {
+    const user = userEvent.setup();
+    render(
+      <TurnInspectorPanel
+        open
+        onClose={() => {}}
+        turns={[
+          {
+            id: "0",
+            label: "I press down.",
+            steps: [
+              {
+                type: "trace",
+                n: 1,
+                step: "speaker",
+                title: "Mei responds",
+                detail: "addressed",
+                data: { register: "grave", registerSource: "player" },
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /mei responds/i }));
+    expect(screen.getByText(/grave — pitched by you/i)).toBeInTheDocument();
+  });
+
+  it("credits the scene when the planner pitched it", async () => {
+    const user = userEvent.setup();
+    render(
+      <TurnInspectorPanel
+        open
+        onClose={() => {}}
+        turns={[
+          {
+            id: "0",
+            label: "I press down.",
+            steps: [
+              {
+                type: "trace",
+                n: 1,
+                step: "speaker",
+                title: "Mei responds",
+                detail: "addressed",
+                data: { register: "tense", registerSource: "planner" },
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /mei responds/i }));
+    expect(screen.getByText(/tense — pitched by the scene/i)).toBeInTheDocument();
+  });
+
+  it("says nothing about pitch on a beat that carried no register", async () => {
+    const user = userEvent.setup();
+    render(
+      <TurnInspectorPanel
+        open
+        onClose={() => {}}
+        turns={[
+          {
+            id: "0",
+            label: "I press down.",
+            steps: [
+              {
+                type: "trace",
+                n: 1,
+                step: "speaker",
+                title: "Mei responds",
+                detail: "addressed",
+                data: { register: "", registerSource: "" },
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /mei responds/i }));
+    expect(screen.queryByText(/pitched by/i)).not.toBeInTheDocument();
+  });
 });

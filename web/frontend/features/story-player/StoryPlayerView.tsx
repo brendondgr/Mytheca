@@ -666,6 +666,8 @@ export function StoryPlayerView({
             onBeatLengthChange={scene.setBeatLength}
             plannerMode={scene.effective.planner}
             onPlannerModeChange={scene.setPlannerMode}
+            register={scene.register}
+            onRegisterChange={scene.setRegister}
             pinned={scene.pinned}
             onPinnedChange={scene.setPinned}
             presets={scene.presets}

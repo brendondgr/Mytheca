@@ -58,6 +58,10 @@ class TurnDirective(CamelModel):
     actor_id: str | None = None
 
 
+#: How a beat is pitched — the planner's read of the moment, on one axis from banter to
+#: life-and-death. Mirrors ``planner_agent._REGISTERS``.
+Register = Literal["light", "neutral", "tense", "grave"]
+
 #: Whether the ReAct planner decides each beat, or the model-free scripted order does.
 #: ``None`` reads as ``"planner"`` — the behaviour that shipped.
 PlannerMode = Literal["planner", "off"]
@@ -89,6 +93,16 @@ class TurnOverrides(CamelModel):
     #: ``"off"`` runs the turn on ``services/beat_order`` instead of the planner — no model
     #: call for beat selection, and no register, stakes, narrator interstitials or exits.
     planner: PlannerMode | None = None
+    #: Pin how this moment is pitched, for this turn only. **Per-turn by design and there is
+    #: no ``Scenario`` column for it** — "how tense this beat is" is a property of a moment,
+    #: not of a scene, so a persisted one would be wrong by the second message. It outranks
+    #: the planner's own read wherever the two disagree.
+    #:
+    #: The wire name is ``register``; the Python attribute is not, because ``register`` is
+    #: ``ABCMeta.register`` on the model's metaclass and pydantic warns about the shadow on
+    #: every import. An explicit alias keeps the contract exactly as documented and keeps the
+    #: suite free of a warning that would have to be explained to every future reader.
+    beat_register: Register | None = Field(default=None, alias="register")
 
 
 class TurnRequest(CamelModel):

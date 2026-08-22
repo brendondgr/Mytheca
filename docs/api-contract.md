@@ -963,7 +963,8 @@ scene open with no directed character opens narrator-first.
 ```json
 { "maxTurns": 1-10 | null, "suggestionsCount": 0-4 | null,
   "beatLength": "short" | "medium" | "long" | null,
-  "planner": "planner" | "off" | null }
+  "planner": "planner" | "off" | null,
+  "register": "light" | "neutral" | "tense" | "grave" | null }
 ```
 
 Every field is optional and `null`-defaulted; an unset field falls back to the `Scenario`
@@ -983,6 +984,27 @@ Three properties are the contract:
   the `turn` trace step, so the Inspector and the export can say what the turn actually ran
   with. Since the override is spent when the turn ends, that row is the only record it
   happened.
+**Pinning the register (`overrides.register`).** How the beat is pitched, on one axis from
+banter to life-and-death. **Per-turn only, and deliberately so: there is no `Scenario`
+column.** "How tense this beat is" is a property of a moment, and a scene-wide one would be
+wrong by the second message.
+
+A pin **outranks the planner's own read** wherever the two disagree (`turn_settings.pitch`
+owns that precedence, in one place, because it is applied at five separate sites in the turn
+loop). It reaches three consumers that were already built and had no player-facing input:
+`character_turn_agent._REGISTER_SAMPLER` (which sampler row the beat uses — **no frequency or
+presence penalty is reintroduced**), `assembler.select_voice_samples` (which of a character's
+voice samples they draw on), and the recency-tail directive in the character prompt. It does
+**not** decide who speaks.
+
+It also reaches three paths that carried **no** register at all before, because the planner is
+never consulted for them: a puppeted beat, a forced-direction beat, and the silent-turn
+backstop. With `planner: "off"` a pin is the only source of a register there is.
+
+The `speaker` trace step carries `data.registerSource`: `"player"`, `"planner"`, or `""` when
+neither had anything. Nothing here is evidence that pinning improves output — see
+`docs/checklist.md`.
+
 **Turn planning (`overrides.planner`, `Scenario.plannerMode`).** `"planner"` (the default;
 `null` reads as that) runs `planner_agent.plan_beats` — the ReAct planner that reads each
 moment, decides who speaks, inserts narrator beats and reports the beat's `register` and

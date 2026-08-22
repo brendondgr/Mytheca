@@ -522,4 +522,10 @@ export interface TurnOverridesBody {
    * no register, no stakes, no narrator beats between speakers, and no exits.
    */
   planner?: "planner" | "off" | null;
+  /**
+   * Pin how this moment is pitched. **Per-turn only** — there is no scenario column for it,
+   * because "how tense this beat is" belongs to a moment, not to a scene. It outranks the
+   * planner's own read, and with planning off it is the only source of a register there is.
+   */
+  register?: "light" | "neutral" | "tense" | "grave" | null;
 }

@@ -10,6 +10,21 @@ import type { ScenePreset } from "@/lib/api";
 /** The "no preset" option. A real, selectable value, not an absence the player has to infer. */
 const CUSTOM = "__custom__";
 
+/** How a beat is pitched. Mirrors the backend `Register`. */
+export type Register = "light" | "neutral" | "tense" | "grave";
+
+/** `Auto` is a real option, not the absence of one — the scene reading the moment is the
+ *  default behaviour and the player should be able to choose it back. */
+const AUTO = "__auto__";
+
+const REGISTER_OPTIONS = [
+  { value: AUTO, label: "Auto · the scene decides" },
+  { value: "light", label: "Light" },
+  { value: "neutral", label: "Neutral" },
+  { value: "tense", label: "Tense" },
+  { value: "grave", label: "Grave" },
+];
+
 const MAX_TURN_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const SUGGESTION_OPTIONS = [0, 1, 2, 3, 4];
 // Value + rendered text, built from the contract in lib/types so the tiers cannot drift
@@ -154,6 +169,8 @@ export function SceneConfigMenu({
   onBeatLengthChange,
   plannerMode = "planner",
   onPlannerModeChange,
+  register = null,
+  onRegisterChange,
   sceneMemory = null,
   summarised = false,
   secondsPerBeat,
@@ -176,6 +193,12 @@ export function SceneConfigMenu({
   /** Whether a director reads each moment, or the cast simply answers in order. */
   plannerMode?: "planner" | "off";
   onPlannerModeChange?: (value: "planner" | "off") => void;
+  /**
+   * A register pinned for the next message, or `null` to let the scene decide. There is no
+   * pinned/unpinned choice here — it is per-turn by construction.
+   */
+  register?: Register | null;
+  onRegisterChange?: (value: Register | null) => void;
   /** How far back the last turn reached — reported, not configured. */
   sceneMemory?: SceneMemory | null;
   /** Whether the beats that dropped out were kept as a summary (compaction on). */
@@ -409,6 +432,22 @@ export function SceneConfigMenu({
             }
             scopeNote={pinned.planner ? undefined : "· this turn"}
             disabled={disabled || !onPlannerModeChange}
+            className="w-full [&_select]:w-full"
+          />
+
+          {/* The register is per-turn BY CONSTRUCTION, so it carries a permanent "this turn"
+              tag instead of a pin: how tense a beat is belongs to a moment, and a scene-wide
+              one would be wrong by the second message. The copy also says what it does NOT
+              do, because a control called "register" sitting under "who speaks" invites
+              exactly that misreading. */}
+          <SceneControlSelect
+            label="How this moment is pitched"
+            value={register ?? AUTO}
+            options={REGISTER_OPTIONS}
+            onChange={(v) => onRegisterChange?.(v === AUTO ? null : (v as Register))}
+            help="Pins how this moment is pitched for your next message only. It picks which of a character's voice samples they draw on and how far their word choice can wander — it does not decide who speaks."
+            scopeNote="· this turn"
+            disabled={disabled || !onRegisterChange}
             className="w-full [&_select]:w-full"
           />
 

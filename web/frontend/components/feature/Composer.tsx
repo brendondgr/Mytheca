@@ -2,6 +2,7 @@ import { useId, useLayoutEffect, useRef, useState, type RefObject } from "react"
 import {
   SceneConfigMenu,
   type SceneControlKey,
+  type Register,
 } from "@/components/feature/SceneConfigMenu";
 import type { ScenePreset } from "@/lib/api";
 import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
@@ -68,6 +69,8 @@ export function Composer({
   onBeatLengthChange,
   plannerMode,
   onPlannerModeChange,
+  register,
+  onRegisterChange,
   pinned,
   onPinnedChange,
   presets,
@@ -127,6 +130,8 @@ export function Composer({
    */
   plannerMode?: "planner" | "off";
   onPlannerModeChange?: (value: "planner" | "off") => void;
+  register?: Register | null;
+  onRegisterChange?: (value: Register | null) => void;
   pinned?: Record<SceneControlKey, boolean>;
   onPinnedChange?: (key: SceneControlKey, pinned: boolean) => void;
   /** Named scene presets. Empty hides the picker; every control stays where it was. */
@@ -551,6 +556,8 @@ export function Composer({
               onBeatLengthChange={onBeatLengthChange}
               plannerMode={plannerMode}
               onPlannerModeChange={onPlannerModeChange}
+              register={register}
+              onRegisterChange={onRegisterChange}
               pinned={pinned}
               onPinnedChange={onPinnedChange}
               presets={presets}

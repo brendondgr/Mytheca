@@ -85,3 +85,46 @@ def test_applied_is_the_non_null_map_in_wire_case():
         "maxTurns": 2,
         "suggestionsCount": 0,
     }
+
+
+# ---- the register pin: who decides how a beat is pitched -------------------
+
+
+class _Decision:
+    """Just enough of a `BeatDecision` for `pitch` — it reads one attribute."""
+
+    def __init__(self, register: str | None):
+        self.register = register
+
+
+def test_a_pinned_register_outranks_the_planner():
+    """The player is looking at the scene; the planner is inferring it."""
+    resolved = turn_settings.resolve(scene(), TurnOverrides(register="grave"))
+    assert turn_settings.pitch(resolved, _Decision("light")) == ("grave", "player")
+
+
+def test_the_planner_decides_when_nothing_is_pinned():
+    assert turn_settings.pitch(turn_settings.resolve(scene()), _Decision("tense")) == (
+        "tense",
+        "planner",
+    )
+
+
+def test_neither_is_a_real_third_case():
+    """With planning off nobody reads the moment — which is exactly when a pin is the only
+    source of a register there is."""
+    assert turn_settings.pitch(turn_settings.resolve(scene()), _Decision(None)) == (None, "")
+    assert turn_settings.pitch(turn_settings.resolve(scene()), None) == (None, "")
+
+
+def test_a_pin_survives_a_beat_that_had_no_decision_at_all():
+    """The puppet, forced-direction and silent-turn paths pass `None` — they never consult
+    the planner, and before this phase they carried no register whatsoever."""
+    resolved = turn_settings.resolve(scene(), TurnOverrides(register="light"))
+    assert turn_settings.pitch(resolved, None) == ("light", "player")
+
+
+def test_the_register_is_per_turn_only():
+    """There is no scenario column, deliberately: how tense a beat is belongs to a moment."""
+    assert turn_settings.resolve(scene()).register is None
+    assert not hasattr(scene(), "register")

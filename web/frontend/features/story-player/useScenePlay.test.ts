@@ -1699,3 +1699,59 @@ describe("useScenePlay — turn planning", () => {
     await waitFor(() => expect(result.current.effective.planner).toBe("planner"));
   });
 });
+
+describe("useScenePlay — the register pin", () => {
+  beforeEach(() => {
+    vi.mocked(updateScenario).mockClear();
+    vi.mocked(postTurn).mockClear();
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  async function ready() {
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    return result;
+  }
+
+  it("starts unpinned — the scene reads the moment", async () => {
+    const result = await ready();
+    expect(result.current.register).toBeNull();
+  });
+
+  it("sends the pin and never writes it to the scene", async () => {
+    // Per-turn by construction: how tense a beat is belongs to a moment, not a scene.
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const result = await ready();
+
+    act(() => result.current.setRegister("grave"));
+    expect(result.current.register).toBe("grave");
+    expect(vi.mocked(updateScenario)).not.toHaveBeenCalled();
+
+    act(() => result.current.setComposer("Say it plainly."));
+    act(() => result.current.send());
+    await waitFor(() => expect(vi.mocked(postTurn)).toHaveBeenCalled());
+    expect(vi.mocked(postTurn).mock.calls[0][1]).toMatchObject({
+      overrides: { register: "grave" },
+    });
+  });
+
+  it("springs back after the turn, with no pin to leave it set", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const result = await ready();
+
+    act(() => result.current.setRegister("tense"));
+    act(() => result.current.setComposer("Now."));
+    act(() => result.current.send());
+
+    await waitFor(() => expect(result.current.register).toBeNull());
+  });
+
+  it("clears the pin back to Auto", async () => {
+    const result = await ready();
+    act(() => result.current.setRegister("light"));
+    act(() => result.current.setRegister(null));
+    expect(result.current.register).toBeNull();
+    expect(result.current.turnOverrides).toEqual({});
+  });
+});

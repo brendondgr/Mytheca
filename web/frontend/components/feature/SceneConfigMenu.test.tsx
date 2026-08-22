@@ -15,6 +15,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     onPinnedChange: vi.fn(),
     onPresetChange: vi.fn(),
     onPlannerModeChange: vi.fn(),
+    onRegisterChange: vi.fn(),
     ...overrides,
   };
   render(<SceneConfigMenu {...props} />);
@@ -233,7 +234,12 @@ describe("SceneConfigMenu says what each control does", () => {
       await open({ pinned: { ...ALL_PINNED, beatLength: false } });
       const pin = screen.getByRole("button", { name: "Beat length — this turn only" });
       expect(pin).toHaveAttribute("aria-pressed", "false");
-      expect(screen.getByText(/· this turn/i)).toBeInTheDocument();
+      // Scoped to this row: the register row carries a PERMANENT "· this turn" tag, so a
+      // bare text query would match two and prove nothing about the pin.
+      const row = screen
+        .getByRole("combobox", { name: /how much a character says at once/i })
+        .closest("div");
+      expect(row).toHaveTextContent(/· this turn/i);
     });
 
     it("reports the flip rather than changing the setting", async () => {
@@ -425,6 +431,58 @@ describe("SceneConfigMenu says what each control does", () => {
         screen.getByRole("button", { name: "Turn planning — pinned to this scene" }),
       );
       expect(props.onPinnedChange).toHaveBeenCalledWith("planner", false);
+    });
+  });
+
+  describe("register", () => {
+    async function open(overrides = {}) {
+      const user = userEvent.setup();
+      const props = setup({ onRegisterChange: vi.fn(), ...overrides });
+      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+      return { user, props };
+    }
+
+    it("offers Auto plus the four registers", async () => {
+      await open();
+      const control = screen.getByRole("combobox", { name: /how this moment is pitched/i });
+      expect([...control.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
+        "Auto · the scene decides",
+        "Light",
+        "Neutral",
+        "Tense",
+        "Grave",
+      ]);
+    });
+
+    it("carries a permanent 'this turn' tag and no pin", async () => {
+      // It is per-turn by construction: how tense a beat is belongs to a moment, so there
+      // is nothing to pin it to.
+      await open();
+      expect(
+        screen.queryByRole("button", { name: /^Register — /i }),
+      ).not.toBeInTheDocument();
+      const row = screen
+        .getByRole("combobox", { name: /how this moment is pitched/i })
+        .closest("div");
+      expect(row).toHaveTextContent(/· this turn/i);
+    });
+
+    it("says what it does NOT do", async () => {
+      // A control called "register" sitting under "who speaks" invites that misreading.
+      await open();
+      expect(
+        screen.getByRole("combobox", { name: /how this moment is pitched/i }),
+      ).toHaveAccessibleDescription(/does not decide who speaks/i);
+    });
+
+    it("reports a pick, and clears back to Auto", async () => {
+      const { user, props } = await open({ register: "grave" });
+      const control = screen.getByRole("combobox", { name: /how this moment is pitched/i });
+      await user.selectOptions(control, "tense");
+      expect(props.onRegisterChange).toHaveBeenCalledWith("tense");
+
+      await user.selectOptions(control, "Auto · the scene decides");
+      expect(props.onRegisterChange).toHaveBeenCalledWith(null);
     });
   });
 });

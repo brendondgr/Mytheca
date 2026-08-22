@@ -38,7 +38,10 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
   → turn_engine.run_turn:
       turn_settings.resolve(scenario, req.overrides) → TurnSettings: the scene's play
         controls with THIS TURN's overrides on top (max_turns · suggestions_count ·
-        beat_length), resolved ONCE before anything reads one. Never written back to the
+        beat_length · planner · register), resolved ONCE before anything reads one.
+        The register's provenance now has TWO sources — turn_settings.pitch() decides
+        between the player's pin and the planner's read at every beat-producing site, and
+        the winner is reported on the `speaker` trace step as `registerSource`. Never written back to the
         Scenario row; withheld from every agent; recorded on the user_turn row for audit
       assembler.assemble_context (Band-1, read-only): ordered cast + clamped stats + loaded
         stat guidance + recent buffer (Redis, best-effort) + scenario subgraph (Neo4j,

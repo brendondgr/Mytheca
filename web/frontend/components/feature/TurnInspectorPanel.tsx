@@ -53,10 +53,28 @@ function tagFor(step: string): { tag: string; color: string } {
  * One trace step: a colored dot + tag + title on the left; a click expands a dropdown
  * to reveal the plain-language detail (feedback #5). Rows with no detail are inert.
  */
+/**
+ * Who decided how this beat is pitched.
+ *
+ * The register control invites exactly one question — "did my pin actually reach this
+ * beat?" — and the engine already answers it on the `speaker` step. Rendering it is the
+ * difference between a control the player can trust and one they have to take on faith.
+ */
+function pitchNote(step: TurnTraceFrame): string | null {
+  if (step.step !== "speaker") return null;
+  const source = step.data?.registerSource;
+  const register = step.data?.register;
+  if (!register || typeof register !== "string") return null;
+  if (source === "player") return `${register} — pitched by you`;
+  if (source === "planner") return `${register} — pitched by the scene`;
+  return null;
+}
+
 function StepRow({ step }: { step: TurnTraceFrame }) {
   const [open, setOpen] = useState(false);
   const meta = tagFor(step.step);
-  const hasDetail = Boolean(step.detail);
+  const pitch = pitchNote(step);
+  const hasDetail = Boolean(step.detail) || Boolean(pitch);
   return (
     <li>
       <button
@@ -91,6 +109,11 @@ function StepRow({ step }: { step: TurnTraceFrame }) {
           {open && step.detail ? (
             <span className="mt-[5px] block font-body text-[13px] leading-[1.5] text-ink-soft">
               {step.detail}
+            </span>
+          ) : null}
+          {open && pitch ? (
+            <span className="mt-[4px] block font-mono text-[11px] tracking-[0.06em] text-mute2 uppercase">
+              {pitch}
             </span>
           ) : null}
         </span>

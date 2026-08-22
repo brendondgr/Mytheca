@@ -254,3 +254,60 @@ def test_an_out_of_range_override_is_rejected_at_the_boundary(client, storyline_
     )
 
     assert resp.status_code == 422
+
+
+def test_a_pinned_register_is_credited_on_the_speaker_step(client, storyline_id, monkeypatch):
+    """The register control invites the question "did my pin reach this beat?", and the
+    Inspector answers it from this field."""
+    _configure_llm(client)
+    _route(monkeypatch, [{"action": "speak", "actor": 1, "register": "light"}, {"action": "end"}])
+    scid, ids = _scene(client, storyline_id, names=("Ana",))
+
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={
+                "text": "I press her.",
+                "directedAt": ids[0],
+                "trace": True,
+                "overrides": {"register": "grave"},
+            },
+        )
+    )
+    speaker = next(e for e in events if e["type"] == "trace" and e["step"] == "speaker")
+
+    assert speaker["data"]["register"] == "grave"
+    assert speaker["data"]["registerSource"] == "player"
+
+
+def test_the_register_rides_on_the_user_turn_row_like_any_override(
+    client, storyline_id, monkeypatch
+):
+    _configure_llm(client)
+    _route(monkeypatch, [{"action": "speak", "actor": 1}, {"action": "end"}])
+    scid, ids = _scene(client, storyline_id, names=("Ana",))
+
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "Hi.", "directedAt": ids[0], "overrides": {"register": "tense"}},
+        )
+    )
+    session_id = next(e["sessionId"] for e in events if e.get("sessionId"))
+    history = client.get(f"/api/play/{scid}/sessions/{session_id}").json()
+    row = next(e for e in history["events"] if e["type"] == "user_turn")
+
+    assert row["data"]["overrides"] == {"register": "tense"}
+
+
+def test_an_unknown_register_is_rejected_at_the_boundary(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    _route(monkeypatch, [{"action": "end"}])
+    scid, ids = _scene(client, storyline_id, names=("Ana",))
+
+    resp = client.post(
+        f"/api/play/{scid}/turn",
+        json={"text": "Hi.", "directedAt": ids[0], "overrides": {"register": "apocalyptic"}},
+    )
+
+    assert resp.status_code == 422
