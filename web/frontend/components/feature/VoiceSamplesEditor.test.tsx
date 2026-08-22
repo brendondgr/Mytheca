@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { useState } from "react";
@@ -89,5 +89,84 @@ describe("VoiceSamplesEditor", () => {
     // The second row shifts up to become sample 1.
     expect(screen.getByLabelText(/sample 1 situation/i)).toHaveValue("b");
     expect(screen.queryByLabelText(/sample 2 situation/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("VoiceSamplesEditor — word choice", () => {
+  it("is hidden entirely when no handler is supplied", () => {
+    render(<VoiceSamplesEditor samples={[]} onChange={vi.fn()} />);
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+  });
+
+  it("is a labelled native range with a text readout, not a bare position", () => {
+    // A slider position alone does not tell a reader which of five settings they landed on.
+    render(
+      <VoiceSamplesEditor
+        samples={[]}
+        onChange={vi.fn()}
+        looseness={2}
+        onLoosenessChange={vi.fn()}
+      />,
+    );
+    const slider = screen.getByRole("slider", { name: /word choice/i });
+    expect(slider).toHaveAttribute("min", "-2");
+    expect(slider).toHaveAttribute("max", "2");
+    expect(slider).toHaveAttribute("aria-valuetext", "Loose");
+    expect(screen.getByText(/· Loose/)).toBeInTheDocument();
+  });
+
+  it("reads null as the neutral middle stop", () => {
+    render(
+      <VoiceSamplesEditor
+        samples={[]}
+        onChange={vi.fn()}
+        looseness={null}
+        onLoosenessChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("slider", { name: /word choice/i })).toHaveValue("0");
+    expect(screen.getByText(/· Natural/)).toBeInTheDocument();
+  });
+
+  it("says the register still leads", () => {
+    render(
+      <VoiceSamplesEditor
+        samples={[]}
+        onChange={vi.fn()}
+        looseness={0}
+        onLoosenessChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("slider", { name: /word choice/i })).toHaveAccessibleDescription(
+      /the moment's register still leads/i,
+    );
+  });
+
+  it("is a NATIVE range, which is what buys keyboard operation", () => {
+    // Deliberately not a simulated ArrowRight: jsdom does not implement arrow-key stepping
+    // on `input[type=range]`, so that test would pass or fail for reasons unrelated to the
+    // component. What can be asserted here is the property the behaviour rests on — a real
+    // native range, focusable, not a div wearing role="slider". Actual arrow-key stepping
+    // was verified in the browser.
+    const onLoosenessChange = vi.fn();
+    render(
+      <VoiceSamplesEditor
+        samples={[]}
+        onChange={vi.fn()}
+        looseness={0}
+        onLoosenessChange={onLoosenessChange}
+      />,
+    );
+    const slider = screen.getByRole("slider", { name: /word choice/i });
+    expect(slider.tagName).toBe("INPUT");
+    expect(slider).toHaveAttribute("type", "range");
+    expect(slider).not.toHaveAttribute("role");
+    expect(slider).not.toBeDisabled();
+
+    slider.focus();
+    expect(slider).toHaveFocus();
+
+    fireEvent.change(slider, { target: { value: "1" } });
+    expect(onLoosenessChange).toHaveBeenCalledWith(1);
   });
 });

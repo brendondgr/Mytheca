@@ -427,6 +427,7 @@ def create_character(db: Session, storyline_id: str, data: CharacterCreate) -> C
         portrait_positive=data.portrait_positive,
         portrait_negative=data.portrait_negative,
         voice_samples=[v.model_dump() for v in (data.voice_samples or [])],
+        looseness=data.looseness,
         position=_next_position(db, Character, storyline_id),
     )
     db.add(char)

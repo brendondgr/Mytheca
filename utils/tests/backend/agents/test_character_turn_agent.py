@@ -821,3 +821,77 @@ def test_a_ceiling_put_back_is_added_to_the_thinking_budget_not_taken_from_it(mo
     # wins. At MAX the scratchpad's headroom alone (8,192) already fills the floor.
     out = character_turn_agent._voice_params(LlmParams(), reasoning=ReasoningEffort.MAX)
     assert out.max_tokens == GEN_MIN_TOKENS
+
+
+# ---- per-character looseness: top_p only, penalties held at zero ------------
+
+
+def _tp(register, looseness=None):
+    from app.agents.character_turn_agent import _voice_params
+    from app.schemas.settings import LlmParams
+
+    return _voice_params(LlmParams(), register, looseness=looseness)
+
+
+def test_looseness_moves_top_p_by_one_step_per_notch():
+    from app.agents.character_turn_agent import _LOOSENESS_STEP
+
+    base = _tp("grave").top_p
+    assert _tp("grave", 2).top_p == round(base + 2 * _LOOSENESS_STEP, 4)
+    assert _tp("grave", -2).top_p == round(base - 2 * _LOOSENESS_STEP, 4)
+    assert _tp("grave", 1).top_p == round(base + _LOOSENESS_STEP, 4)
+
+
+def test_no_looseness_is_byte_identical_to_today():
+    """`None` and `0` must both leave the register's own row untouched."""
+    for register in ("light", "neutral", "tense", "grave", None):
+        assert _tp(register, None).top_p == _tp(register).top_p
+        assert _tp(register, 0).top_p == _tp(register).top_p
+
+
+def test_the_result_is_clamped_into_the_bounds():
+    from app.agents.character_turn_agent import _LOOSENESS_BOUNDS
+
+    low, high = _LOOSENESS_BOUNDS
+    # `light` is the loosest register, so +2 would run past the ceiling.
+    assert _tp("light", 2).top_p == high
+    assert low <= _tp("grave", -2).top_p <= high
+
+
+def test_the_penalty_columns_stay_at_zero_at_every_combination():
+    """The guard against a future edit quietly reintroducing them.
+
+    EXP-2026-08-007 measured frequency/presence penalties degrading the sentence structure
+    of character prose — they fall on the punctuation and function words prose is made of.
+    A "looseness" dial is exactly the kind of change that would reach for them next.
+    """
+    for register in ("light", "neutral", "tense", "grave", None, "nonsense"):
+        for looseness in (-2, -1, None, 0, 1, 2):
+            params = _tp(register, looseness)
+            assert params.frequency_penalty == 0.0, (register, looseness)
+            assert params.presence_penalty == 0.0, (register, looseness)
+
+
+def test_one_notch_never_moves_a_beat_more_than_one_register_row():
+    """The register leads and the dial leans — at one notch, provably.
+
+    The extremes are a different matter and deliberately so: the full ±2 range (0.12) is
+    WIDER than the register span (0.10), so a `+2` character on a grave beat samples looser
+    than `tense`. That is the intended meaning of an extreme setting, it is recorded beside
+    the constant, and it is unmeasured — so this test pins the claim that actually holds
+    rather than the one that reads better.
+    """
+    from app.agents.character_turn_agent import _LOOSENESS_STEP, _REGISTER_SAMPLER
+
+    rows = [v[0] for v in _REGISTER_SAMPLER.values()]
+    smallest_gap = min(abs(a - b) for a, b in zip(rows, rows[1:]))
+    assert _LOOSENESS_STEP <= round(smallest_gap, 4)
+
+
+def test_the_extremes_cross_a_register_row_and_the_test_says_so():
+    """Documenting the sharp edge rather than asserting it away."""
+    from app.agents.character_turn_agent import _REGISTER_SAMPLER
+
+    loose_on_a_grave_beat = _tp("grave", 2).top_p
+    assert loose_on_a_grave_beat > _REGISTER_SAMPLER["tense"][0]
+    assert loose_on_a_grave_beat < _REGISTER_SAMPLER["neutral"][0]

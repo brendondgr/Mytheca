@@ -60,6 +60,7 @@ def test_character_read_matches_frontend_shape():
         appearance = background = personality = portrait = None
         portrait_positive = portrait_negative = None
         voice_samples = None  # NULL column reads back as an empty list
+        looseness = None  # neutral, and the overwhelming majority state
 
     dumped = CharacterRead.model_validate(Obj()).model_dump(by_alias=True)
     assert set(dumped) == {
@@ -70,5 +71,8 @@ def test_character_read_matches_frontend_shape():
         "portraitPositive", "portraitNegative",
         # Voice & tone profile (situation → sample-response pairs).
         "voiceSamples",
+        # The character's own word-choice bias on top of the beat's register.
+        "looseness",
     }
     assert dumped["voiceSamples"] == []  # None coerced to []
+    assert dumped["looseness"] is None  # neutral is a real state, not an empty one

@@ -71,3 +71,45 @@ describe("CharacterDossier stats", () => {
     expect(screen.queryByText("Morale")).not.toBeInTheDocument();
   });
 });
+
+describe("CharacterDossier — how they speak", () => {
+  it("shows the word-choice setting read-only, in words", () => {
+    render(
+      <CharacterDossier
+        character={{ ...MAERIN, speech: "Clipped, never repeats herself.", looseness: -2 } as Character}
+        statDefs={SEED_STAT_DEFS}
+        relationships={[]}
+        onClose={vi.fn()}
+        onOpenProfile={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/clipped, never repeats herself/i)).toBeInTheDocument();
+    expect(screen.getByText(/word choice · Controlled/i)).toBeInTheDocument();
+  });
+
+  it("offers no way to change it — editing mid-play is a deferral, not an oversight", () => {
+    render(
+      <CharacterDossier
+        character={{ ...MAERIN, looseness: 1 } as Character}
+        statDefs={SEED_STAT_DEFS}
+        relationships={[]}
+        onClose={vi.fn()}
+        onOpenProfile={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+  });
+
+  it("says nothing when the character has neither a speech style nor a setting", () => {
+    render(
+      <CharacterDossier
+        character={MAERIN}
+        statDefs={SEED_STAT_DEFS}
+        relationships={[]}
+        onClose={vi.fn()}
+        onOpenProfile={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/how they speak/i)).not.toBeInTheDocument();
+  });
+});

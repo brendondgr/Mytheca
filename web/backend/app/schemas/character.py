@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from app.schemas.base import CamelModel
 
@@ -62,6 +62,9 @@ class CharacterBase(CamelModel):
     portrait_negative: str | None = None
     # Voice & tone profile: situation → sample-response pairs (see ``VoiceSample``).
     voice_samples: list[VoiceSample] | None = None
+    # A bias on top of the beat's register, `[-2, +2]`, `None` = neutral. Bounded here so an
+    # out-of-range value is a 422 rather than a silently-clamped surprise downstream.
+    looseness: int | None = Field(default=None, ge=-2, le=2)
 
 
 class CharacterCreate(CharacterBase):
@@ -86,6 +89,7 @@ class CharacterUpdate(CamelModel):
     portrait_positive: str | None = None
     portrait_negative: str | None = None
     voice_samples: list[VoiceSample] | None = None
+    looseness: int | None = Field(default=None, ge=-2, le=2)
 
 
 class CharacterRead(CamelModel):
@@ -105,6 +109,7 @@ class CharacterRead(CamelModel):
     portrait_positive: str | None = None
     portrait_negative: str | None = None
     voice_samples: list[VoiceSample] = []
+    looseness: int | None = None
 
     @field_validator("voice_samples", mode="before")
     @classmethod

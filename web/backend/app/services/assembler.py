@@ -95,6 +95,9 @@ class CastMember:
     # known once the planner has decided) while assembly is per TURN, so the rows travel raw
     # and ``character_turn_agent`` renders the matching subset at the call site.
     voice_sample_rows: list[dict] = field(default_factory=list)
+    #: The character's own voice-looseness bias, `[-2, +2]` or ``None``. Read by
+    #: ``character_turn_agent._voice_params`` as a nudge on the register's ``top_p``.
+    looseness: int | None = None
     # Runtime scene presence (Scene Presence & Director Actions): ``present`` (the default,
     # and the ONLY selectable status) through ``dead``. Derived from the session's
     # ``character_status_change`` event log; the turn loop skips non-``present`` members when
@@ -407,6 +410,7 @@ def _build_cast(
                 disposition=record.disposition if record is not None else "",
                 voice_samples=format_voice_samples(char.voice_samples),
                 voice_sample_rows=[s for s in (char.voice_samples or []) if isinstance(s, dict)],
+                looseness=getattr(char, "looseness", None),
                 presence=presence.status_for(presence_map, char.id),
             )
         )

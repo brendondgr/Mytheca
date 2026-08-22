@@ -1,3 +1,4 @@
+import { LOOSENESS_LABELS } from "@/components/feature/VoiceSamplesEditor";
 import { Monogram } from "@/components/ui/Monogram";
 import { SmartImage } from "@/components/ui/SmartImage";
 import { Eyebrow } from "@/components/ui/Eyebrow";
@@ -104,6 +105,25 @@ export function CharacterDossier({
         Relationships
       </Eyebrow>
       <Relationships items={relationships} />
+
+      {/* How they sound, read-only. A player watching a character ramble at a funeral
+          should be able to find out why without leaving the scene — but editing a
+          character mid-play is a different decision, and it is a recorded deferral. */}
+      {c.speech || typeof c.looseness === "number" ? (
+        <>
+          <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
+            How they speak
+          </Eyebrow>
+          {c.speech ? (
+            <p className="font-body text-[13px] leading-[1.45] text-ink-soft">{c.speech}</p>
+          ) : null}
+          {typeof c.looseness === "number" ? (
+            <p className="mt-[5px] font-mono text-[10px] tracking-[0.12em] text-mute2 uppercase">
+              Word choice · {LOOSENESS_LABELS[c.looseness + 2]}
+            </p>
+          ) : null}
+        </>
+      ) : null}
 
       {/* Lightweight scene context (their aim) — more to come later. */}
       {c.goal ? (

@@ -192,6 +192,18 @@ All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every 
 
 A three-zone "open book": a **left cast rail** (At the table · turn order, portrait avatars with per-character **"Thinking"/"Speaking"** activity indicators), a **reading-first center column** (a `SceneIntro` "scene is set" band — setting, genre/tone, the player's aim, dramatis personae — then the transcript of beats and a **two-row composer**), and a **right director rail** (a live **"Scene pulse"** activity feed + scene-state chips). The per-scene **Config** (gear button → popover with "Max turns" 1–10, "Suggestions" 0–4, and a "Number of beats" 5–100 slider) now lives in the composer's **bottom-left controls row**, not the header. The transcript is the primary surface and stays centered at ≤720px; the `SceneIntro` band ensures the reading column carries the full scene context even on mobile, where the rails collapse to drawers. This is deliberately **not** a generic three-pane SaaS shell or a card grid.
 
+**Word choice (character editor).** A character's **looseness** is a 5-stop native
+`input[type="range"]` above the voice-sample rows in the Voice & tone section, `-2 … +2`,
+with a **text** readout — *Controlled · Measured · Natural · Expressive · Loose* — because a
+slider position alone does not tell a reader which of five settings they landed on. The stop
+names carry the meaning; the number is an implementation detail of the sampler nudge behind
+it. One line of consequence sits under it via `aria-describedby`: *"How far this character's
+word choice may wander. The moment's register still leads; this only leans against it."* A
+native range keeps keyboard operation free. `CharacterDossier` renders the same value
+**read-only** during play, beside the character's speech style, so a player can find out why
+someone sounds the way they do without leaving the scene — editing from the dossier is a
+recorded deferral.
+
 **Presets before controls.** The scene-config popover opens with **"What kind of scene this
 is"** — Custom plus four named presets (`content/scene_presets.py`) — above the three
 individual controls, because that is the question a player actually has; the controls answer

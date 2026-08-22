@@ -382,6 +382,8 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
             <VoiceSamplesEditor
               samples={voiceSamples}
               onChange={(next) => lib.setDraft("_voiceSamples", next)}
+              looseness={typeof d.looseness === "number" ? d.looseness : null}
+              onLoosenessChange={(n) => lib.setDraft("looseness", n)}
             />
           </div>
 

@@ -1,6 +1,21 @@
 "use client";
 
+import { useId } from "react";
+
 import { VOICE_MOMENTS, type VoiceSample } from "@/lib/types";
+
+/**
+ * The five stops, in order from `-2` to `+2`. Named rather than numbered because "-2" says
+ * nothing about what it does to a character, and the number is an implementation detail of
+ * the sampler nudge behind it.
+ */
+export const LOOSENESS_LABELS = [
+  "Controlled",
+  "Measured",
+  "Natural",
+  "Expressive",
+  "Loose",
+];
 
 const TXT =
   "w-full rounded-[2px] border border-field-bd bg-card px-[9px] py-[5px] font-body text-[13.5px] text-ink focus:border-accent focus:outline-none";
@@ -33,10 +48,17 @@ const MOMENT_LABELS: Record<string, string> = {
 export function VoiceSamplesEditor({
   samples,
   onChange,
+  looseness = null,
+  onLoosenessChange,
 }: {
   samples: VoiceSample[];
   onChange: (next: VoiceSample[]) => void;
+  /** `[-2, +2]`, or `null` for neutral. See {@link LOOSENESS_LABELS}. */
+  looseness?: number | null;
+  onLoosenessChange?: (value: number) => void;
 }) {
+  const loosenessId = useId();
+
   function patch(i: number, next: Partial<VoiceSample>) {
     onChange(samples.map((s, idx) => (idx === i ? { ...s, ...next } : s)));
   }
@@ -49,6 +71,42 @@ export function VoiceSamplesEditor({
 
   return (
     <div>
+      {/* The dial sits ABOVE the sample rows because it describes the same thing they do —
+          how this character sounds — at a coarser grain. A native range keeps keyboard
+          operation free, and the readout is TEXT: a slider position alone does not tell a
+          reader which of five settings they landed on. */}
+      {onLoosenessChange ? (
+        <div className="mb-[12px] flex flex-col gap-[4px]">
+          <label
+            htmlFor={loosenessId}
+            className="font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase"
+          >
+            Word choice{" "}
+            <span className="text-ink normal-case">
+              · {LOOSENESS_LABELS[(looseness ?? 0) + 2]}
+            </span>
+          </label>
+          <input
+            id={loosenessId}
+            type="range"
+            min={-2}
+            max={2}
+            step={1}
+            value={looseness ?? 0}
+            onChange={(e) => onLoosenessChange(Number(e.target.value))}
+            aria-describedby={`${loosenessId}-help`}
+            aria-valuetext={LOOSENESS_LABELS[(looseness ?? 0) + 2]}
+            className="h-[24px] w-full accent-[var(--accent)]"
+          />
+          <p
+            id={`${loosenessId}-help`}
+            className="font-body text-[11.5px] leading-[1.45] text-mute2"
+          >
+            How far this character&apos;s word choice may wander. The moment&apos;s register
+            still leads; this only leans against it.
+          </p>
+        </div>
+      ) : null}
       {samples.length === 0 ? (
         <p className="font-body text-[12.5px] text-mute">
           No samples yet — add one (or Propose) to show a past situation and how

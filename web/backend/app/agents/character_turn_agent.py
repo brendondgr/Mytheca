@@ -102,6 +102,32 @@ _REGISTER_SAMPLER = {
     "grave": (0.85, 0.0, 0.0),
 }
 
+#: How far one step of a character's ``looseness`` moves the register's ``top_p``, and the
+#: bounds it is clamped into.
+#:
+#: ``looseness`` is a **bias on top of the beat's register**, not a replacement for it — the
+#: moment picks the row and this leans against it.
+#:
+#: One notch is 0.03, which is exactly the smallest gap between two adjacent register rows
+#: (light 0.95 · neutral 0.92 · tense 0.88 · grave 0.85). So a single notch moves a beat by
+#: at most one row's worth, and the register still leads.
+#:
+#: **At the extremes it does cross rows, and that is worth knowing rather than hiding.** The
+#: full ±2 range spans 0.12 against a register span of 0.10, so a ``+2`` character on a grave
+#: beat samples at 0.91 — looser than ``tense``. That is the intended meaning of an extreme
+#: setting ("this person rambles even at a funeral"), but it means the dial is not strictly
+#: subordinate to the moment at ±2. The step size is **chosen, not measured**; the experiment
+#: that would settle it is named in ``docs/checklist.md``.
+_LOOSENESS_STEP = 0.03
+_LOOSENESS_BOUNDS = (0.70, 0.98)
+
+# **``top_p`` ONLY. The penalty columns stay 0.0 at every combination, and this dial must
+# never be extended to them.** EXP-2026-08-007 measured frequency/presence penalties
+# degrading the sentence structure of character prose — they fall on the punctuation and
+# function words prose is made of, and the arms did not overlap. Widening a "looseness"
+# control onto that axis would reintroduce, as a feature, the exact defect that experiment
+# was run to remove. The checklist names the drift eval that would have to come first.
+
 # Per-register performance directives, stated in the recency TAIL as an established fact
 # about the situation rather than a question the speaker has to answer for itself. The
 # register comes from ``planner_agent.next_beat`` (which already runs once per beat, so
@@ -237,11 +263,17 @@ def _voice_params(
     register: str | None = None,
     reasoning: ReasoningEffort = TURN_EFFORT,
     beat_length: str | None = None,
+    looseness: int | None = None,
 ) -> LlmParams:
     """Bound the beat generously and apply the voice-tuned sampler fields.
 
     The sampler tracks the beat's ``register`` (see ``_REGISTER_SAMPLER``); an absent or
     unrecognized register keeps the module defaults.
+
+    ``looseness`` is the speaker's own bias on top of that, in ``[-2, +2]``, moving ``top_p``
+    by :data:`_LOOSENESS_STEP` per step and clamped into :data:`_LOOSENESS_BOUNDS`. ``None``
+    is byte-identical to no looseness at all. **It moves ``top_p`` and nothing else** — see
+    the constant's comment for why the penalty columns are held at zero.
 
     ``max_tokens`` buys the hidden thinking **and** the answer out of one budget, so the
     passage allowance is added ON TOP of the thinking budget rather than shared with it.
@@ -264,6 +296,9 @@ def _voice_params(
     top_p, frequency, presence = _REGISTER_SAMPLER.get(
         register or "", (_VOICE_TOP_P, _VOICE_FREQUENCY_PENALTY, _VOICE_PRESENCE_PENALTY)
     )
+    if looseness:
+        low, high = _LOOSENESS_BOUNDS
+        top_p = round(min(high, max(low, top_p + looseness * _LOOSENESS_STEP)), 4)
     tuned = gen_params(params).model_copy(
         update={
             "top_p": top_p,
@@ -358,7 +393,8 @@ def generate_line_with_usage(
         model,
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
         _voice_params(
-            params, register, reasoning, getattr(ctx, "beat_length", DEFAULT_BEAT_LENGTH)
+            params, register, reasoning, getattr(ctx, "beat_length", DEFAULT_BEAT_LENGTH),
+            looseness=getattr(speaker, "looseness", None),
         ),
         reasoning=reasoning,
     )
@@ -413,7 +449,8 @@ def stream_line(
             model,
             [{"role": "system", "content": system}, {"role": "user", "content": user}],
             _voice_params(
-                params, register, reasoning, getattr(ctx, "beat_length", DEFAULT_BEAT_LENGTH)
+                params, register, reasoning, getattr(ctx, "beat_length", DEFAULT_BEAT_LENGTH),
+                looseness=getattr(speaker, "looseness", None),
             ),
             reasoning=reasoning,
             usage_out=usage_out,

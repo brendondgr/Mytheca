@@ -818,6 +818,7 @@ export function useLibraryState(initialStorylineId?: string) {
       _portraitPositive: c.portraitPositive ?? "",
       _portraitNegative: c.portraitNegative ?? "",
       _voiceSamples: c.voiceSamples ?? [],
+      looseness: c.looseness ?? null,
     });
     setError(null);
     setModal({ type: "character", mode: "manual", editId: id });
@@ -961,6 +962,9 @@ export function useLibraryState(initialStorylineId?: string) {
               moment: s.moment ?? "",
             }))
             .filter((s) => s.sample),
+          // `null` is neutral and is a real value, so the nullish coalesce is deliberate:
+          // `|| null` would turn a deliberate 0 ("Natural") into "unset".
+          looseness: d.looseness ?? null,
         };
         // Proposed starting stats are applied with the save (the "save" the user
         // opted into); keyed/clamped server-side, skipped when there are none.

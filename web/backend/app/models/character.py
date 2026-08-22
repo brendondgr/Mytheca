@@ -53,6 +53,12 @@ class Character(Base):
     voice_samples: Mapped[list[dict] | None] = mapped_column(
         JSONColumn, nullable=True, default=list
     )
+    # How far this character's word choice may wander — a BIAS on top of the beat's
+    # register, in [-2, +2], NULL meaning neutral. It nudges the register's ``top_p`` by
+    # ``character_turn_agent._LOOSENESS_STEP`` per step and **nothing else**: the frequency
+    # and presence penalty columns stay at 0.0, because EXP-2026-08-007 measured them
+    # degrading the sentence structure of prose. The moment still leads; this leans.
+    looseness: Mapped[int | None] = mapped_column(nullable=True, default=None)
     position: Mapped[int] = mapped_column(default=0)
 
     storyline: Mapped[Storyline] = relationship(back_populates="characters")

@@ -25,6 +25,11 @@ export interface Draft {
   background?: string | null;
   personality?: string | null;
   portrait?: string | null;
+  /**
+   * How far this character's word choice may wander — `[-2, +2]`, absent meaning neutral.
+   * A bias on top of the beat's register, not a replacement for it.
+   */
+  looseness?: number | null;
   type?: string;
   desc?: string;
   // Setting node metadata + generated establishing image (agentic Setting Creator).

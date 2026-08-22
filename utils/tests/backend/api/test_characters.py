@@ -183,3 +183,32 @@ def test_delete_character_pruned_from_scenario_cast(client, storyline_id):
 
     client.delete(f"/api/characters/{a}")
     assert client.get(f"/api/scenarios/{sc}").json()["castIds"] == [b]
+
+
+def test_looseness_round_trips(client, storyline_id):
+    cid = client.post(
+        f"/api/storylines/{storyline_id}/characters", json={"name": "Wren", "looseness": 2}
+    ).json()["id"]
+    assert client.get(f"/api/characters/{cid}").json()["looseness"] == 2
+
+    client.patch(f"/api/characters/{cid}", json={"looseness": -1})
+    assert client.get(f"/api/characters/{cid}").json()["looseness"] == -1
+
+    # Neutral is a real state, and it is the default.
+    client.patch(f"/api/characters/{cid}", json={"looseness": None})
+    assert client.get(f"/api/characters/{cid}").json()["looseness"] is None
+
+
+def test_looseness_defaults_to_neutral(client, storyline_id):
+    cid = client.post(
+        f"/api/storylines/{storyline_id}/characters", json={"name": "Plain"}
+    ).json()["id"]
+    assert client.get(f"/api/characters/{cid}").json()["looseness"] is None
+
+
+def test_an_out_of_range_looseness_is_rejected(client, storyline_id):
+    cid = client.post(
+        f"/api/storylines/{storyline_id}/characters", json={"name": "Wren"}
+    ).json()["id"]
+    assert client.patch(f"/api/characters/{cid}", json={"looseness": 3}).status_code == 422
+    assert client.patch(f"/api/characters/{cid}", json={"looseness": -3}).status_code == 422

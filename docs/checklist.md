@@ -45,6 +45,27 @@ Verified against the code on 2026-08-04.
   **C-013** stays `unsupported`. n = 1 scene per arm, so this is an existence proof against
   compaction and not a rate — it does not make the claim `refuted` either. Nothing may describe
   compaction as free, or default it on, on this evidence.
+- **The looseness step size is chosen, not measured.** A character's `looseness` moves the
+  register's `top_p` by **±0.03 per notch** (`character_turn_agent._LOOSENESS_STEP`), clamped
+  to `[0.70, 0.98]`. That number was picked so a single notch is at most one register row's
+  worth — it is not the output of any experiment. A known consequence, recorded rather than
+  hidden: the full ±2 range spans 0.12 against a register span of 0.10, so a `+2` character
+  on a **grave** beat samples looser than `tense`. Whether that reads as character or as the
+  dial overriding the moment is exactly what is untested.
+
+  Protocol sketch: a blinded matched-scene comparison at `-2 / 0 / +2` on the deployed model,
+  **interleaved in one session** (day-apart comparisons on this endpoint are worthless — see
+  above). The judgement is a preference between matched beats, so it needs a reader who has
+  not seen the arms labelled, or it is not answered at all.
+- **The looseness dial must never be extended to the penalty columns.** `frequency_penalty`
+  and `presence_penalty` are held at `0.0` at every register × looseness combination, and a
+  test asserts it at every combination precisely because a "looseness" control is the change
+  most likely to reach for them next. EXP-2026-08-007 measured those penalties degrading the
+  sentence structure of character prose — they fall on the punctuation and function words
+  prose is made of, and the arms did not overlap. **Before any such extension, the drift eval
+  this file already names has to run**: repetition of a character's own phrasings across a
+  long session, or blinded speaker attribution, with the penalties off and on. EXP-2026-08-007
+  measured *structure*, not drift, and it ran on **one model**.
 - **Planning off is unmeasured, in both directions.** `plannerMode: "off"` /
   `overrides.planner: "off"` replaces the ReAct planner with `services/beat_order`. The
   saving is *inferred* from EXP-2026-08-005's 41 %-of-turn-time figure for the planner, and

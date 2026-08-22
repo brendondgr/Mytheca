@@ -67,6 +67,12 @@ export interface Character {
    * character menu and injected into the turn loop. Empty list when unauthored.
    */
   voiceSamples?: VoiceSample[];
+  /**
+   * How far this character's word choice may wander — a **bias on top of the beat's
+   * register**, `[-2, +2]`, absent/`null` meaning neutral. It nudges the register's `top_p`
+   * and nothing else; the moment still picks the row.
+   */
+  looseness?: number | null;
 }
 
 /**
