@@ -203,6 +203,20 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
       ];
     }
 
+    case "cast_request":
+      // The scene asking for someone who is not in it. Its own beat, in stream order, so
+      // the offer sits where the direction raised it. It is a QUESTION — nothing about
+      // presence has changed, and nothing will until the player answers.
+      return [
+        ...prev,
+        {
+          kind: "castRequest",
+          id: event.id,
+          who: event.data.characterId,
+          text: event.data.reason,
+        },
+      ];
+
     case "scene_image":
       // A picture the player asked for — its own centered beat, appended in stream order
       // so it sits under the moment it depicts (live and on rehydrate alike).
@@ -544,6 +558,16 @@ export function rehydrateFromHistory(
     }
     if (e.type === "character_status_change") {
       presenceByChar = applyPresence(presenceByChar, e as unknown as CharacterStatusChangeEvent);
+      // The player has answered any open ask about this character — brought them in, or
+      // declined. Settle it, so a reload never re-offers a decision already made.
+      const answered = (e.data as { characterId?: string }).characterId;
+      if (answered) {
+        messages = messages.map((m) =>
+          m.kind === "castRequest" && m.who === answered && !m.resolved
+            ? { ...m, resolved: true }
+            : m,
+        );
+      }
       continue;
     }
     if (e.type === "branch_choices") continue; // don't resurrect a past fork as active

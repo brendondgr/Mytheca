@@ -144,6 +144,19 @@ export interface CharacterStatusChangeEvent extends PlayEnvelope {
 }
 
 /**
+ * The scene is **asking** for a character who is not in it. Never an arrival.
+ *
+ * The AI has no way to bring a character in — there is no planner action for it — so this
+ * changes nothing on its own. Presence moves only when the player accepts, through the same
+ * manual `setPresence` path the cast rail uses. `reason` is the requirement or phrase that
+ * named them, shown verbatim so the ask quotes the player's own words.
+ */
+export interface CastRequestEvent extends PlayEnvelope {
+  type: "cast_request";
+  data: { characterId: string; reason: string };
+}
+
+/**
  * A rendered picture of the moment (the player's **Create image** action). Persisted like
  * any other beat, so it takes its place in the transcript live *and* on reload. `url` is a
  * relative `/media/moments/…` path (resolve with `mediaUrl`); `caption` is the image's alt
@@ -173,6 +186,7 @@ export type PlayEvent =
   | BranchChoicesEvent
   | InternalThoughtEvent
   | CharacterStatusChangeEvent
+  | CastRequestEvent
   | SceneImageEvent;
 
 /**

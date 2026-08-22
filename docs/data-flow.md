@@ -1214,6 +1214,25 @@ the event into `presenceByChar` (`turn-stream.applyPresence`), and `CastRail` gr
 out-of-scene members, strikes the dead, and offers a per-character presence `<select>` (manual
 control). An `auto` change raises an **Undo** toast that restores the character to `present`.
 
+**Guests, and the approval gate.** The cast the engine assembles is the authored roster **plus
+anyone carrying a presence event on this session** — so a scene can gain someone it never cast.
+The scenario row is never mutated: a guest belongs to the *play-through*, and the same scenario
+started fresh has its original cast. `POST /play/{id}/presence` accordingly accepts any character
+of the scenario's **storyline** (one from a different storyline is still a 404), and `CastRail`
+gained an **"Elsewhere in the World"** section offering exactly those people.
+
+**The AI never brings anyone in.** There is deliberately no planner action that introduces a
+character. The engine's only move is to *ask*: when the player themselves named an absent
+storyline character — a pinned directive whose actor is away (Phase 8's `blocked` state), or a
+plain longest-first name match of the direction text — `direction_runtime.cast_requests` emits a
+`cast_request` event before any beat, and it changes nothing. `CastRequestBeat` renders it as a
+question with two answers and no default; both answers go through the ordinary manual presence
+path. **Declining writes `departed` with `reason: "declined"`** rather than merely dismissing the
+card, because a `character_status_change` on the session is precisely what stops the same ask
+being raised again on the next turn that mentions the name. Building the ask as an *event* rather
+than as a planner action is what makes the rule structural instead of merely intended: the scene
+can raise a question, and only the player can answer it.
+
 ## Hybrid RAG Flow
 
 ### Ingest-on-save

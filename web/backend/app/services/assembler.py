@@ -303,9 +303,25 @@ def _build_cast(
     recent_beats: list[dict],
     presence_map: dict[str, str],
 ) -> list[CastMember]:
-    """Resolve the scenario's cast in order, skipping dangling soft-refs."""
+    """Resolve the scenario's cast in order, skipping dangling soft-refs.
+
+    **Guests.** The cast is the authored roster **plus** anyone who has joined *this
+    play-through* — any character with a ``character_status_change`` on this session, which
+    is exactly the set the presence map already holds. A guest belongs to the play-through,
+    not to the authored scene, so ``scenario.cast_ids`` is never mutated: the same scenario
+    started fresh has its original cast, and two play-throughs can diverge in who is in the
+    room. Ids outside this storyline are skipped, so presence rows cannot smuggle a
+    character in from another world.
+    """
+    guests = [
+        cid
+        for cid in presence_map
+        if cid not in (scenario.cast_ids or [])
+        and (guest := db.get(Character, cid)) is not None
+        and guest.storyline_id == scenario.storyline_id
+    ]
     members: list[CastMember] = []
-    for cid in scenario.cast_ids or []:
+    for cid in [*(scenario.cast_ids or []), *guests]:
         char = db.get(Character, cid)
         if char is None:  # deleted character left a dangling cast id — skip gracefully
             continue

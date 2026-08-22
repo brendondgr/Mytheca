@@ -111,3 +111,46 @@ def test_invalid_status_rejected(client, storyline_id, monkeypatch):
         json={"sessionId": session_id, "characterId": cid, "status": "vaporized"},
     )
     assert r.status_code == 422  # PresenceStatus literal rejects it at the schema boundary
+
+
+def test_a_storyline_character_outside_the_cast_can_be_admitted(
+    client, storyline_id, monkeypatch
+):
+    """A scene can gain a guest mid-play — the rail's "Elsewhere in the world", or an
+    accepted `cast_request`. The guard used to be "is in this scenario's cast", which made
+    the whole idea impossible."""
+    _configure_llm(client)
+    _patch_llm(monkeypatch)
+    cid, scid = _scene(client, storyline_id)
+    guest = client.post(
+        f"/api/storylines/{storyline_id}/characters", json={"name": "Kael"}
+    ).json()["id"]
+    session_id = _play(client, scid, cid)
+
+    resp = client.post(
+        f"/api/play/{scid}/presence",
+        json={"sessionId": session_id, "characterId": guest, "status": "present"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data"]["characterId"] == guest
+    # A manual change, so the client shows no undo toast.
+    assert resp.json()["data"]["auto"] is False
+
+
+def test_a_character_from_another_world_is_still_refused(client, storyline_id, monkeypatch):
+    """Presence must not be a way to smuggle someone in from a different storyline."""
+    _configure_llm(client)
+    _patch_llm(monkeypatch)
+    cid, scid = _scene(client, storyline_id)
+    session_id = _play(client, scid, cid)
+
+    other = client.post("/api/storylines", json={"title": "Another World"}).json()["id"]
+    foreign = client.post(
+        f"/api/storylines/{other}/characters", json={"name": "Outsider"}
+    ).json()["id"]
+
+    resp = client.post(
+        f"/api/play/{scid}/presence",
+        json={"sessionId": session_id, "characterId": foreign, "status": "present"},
+    )
+    assert resp.status_code == 404

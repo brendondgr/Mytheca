@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.errors import APIError
 from app.events.stream import TurnErrorFrame, build_event, to_ndjson_line, with_keepalive
-from app.models import PlaySession
+from app.models import Character, PlaySession
 from app.schemas.play import (
     MomentRequest,
     MomentStageFrame,
@@ -135,8 +135,15 @@ def set_presence(scenario_id: str, data: PresenceRequest, db: Session = Depends(
     status = presence.normalize_status(data.status)
     if status is None:
         raise APIError(400, "bad_request", "Unknown presence status.")
+    # The authored roster, or anyone else in this storyline — a scene can gain a guest
+    # mid-play (the cast rail's "Elsewhere in the world", or an accepted `cast_request`).
+    # The scenario row is never mutated: the guest belongs to this play-through. A character
+    # from a DIFFERENT storyline is still a 404 — presence must not be a way to smuggle
+    # someone in from another world.
     if data.character_id not in (scenario.cast_ids or []):
-        raise APIError(404, "invalid_reference", "Character is not in this scene.")
+        guest = db.get(Character, data.character_id) if data.character_id else None
+        if guest is None or guest.storyline_id != scenario.storyline_id:
+            raise APIError(404, "invalid_reference", "Character is not in this world.")
     event = build_event(
         "character_status_change",
         {"characterId": data.character_id, "status": status, "reason": data.reason, "auto": False},

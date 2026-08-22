@@ -345,6 +345,42 @@ describe("rehydrateFromHistory", () => {
     return { turn, n, step, title: `${step}`, detail: "", data: {}, ...extra };
   }
 
+  it("replays a cast request, and settles it once the player has answered", () => {
+    // A reload must never re-offer a decision already made — the answer IS a
+    // `character_status_change`, so the settled state is derivable rather than stored.
+    const scene = rehydrateFromHistory(
+      [
+        pe("user_turn", 0, { text: "", guidance: "Kael bursts in" }),
+        pe("cast_request", 1, { characterId: "kael", reason: "Kael bursts in" }),
+        pe("cast_request", 2, { characterId: "mira", reason: "and Mira behind him" }),
+        pe("character_status_change", 3, {
+          characterId: "kael", status: "present", reason: "", auto: false,
+        }),
+      ],
+      [],
+    );
+    const asks = scene.messages.filter((m) => m.kind === "castRequest");
+    expect(asks.map((m) => m.who)).toEqual(["kael", "mira"]);
+    expect(asks[0].resolved).toBe(true);
+    // Unanswered stays a live question.
+    expect(asks[1].resolved).toBeFalsy();
+  });
+
+  it("replays a declined request as answered too", () => {
+    // "Not now" is written as a presence change on purpose: a decline that left no mark
+    // would be re-offered on the very next turn.
+    const scene = rehydrateFromHistory(
+      [
+        pe("cast_request", 1, { characterId: "kael", reason: "Kael bursts in" }),
+        pe("character_status_change", 2, {
+          characterId: "kael", status: "departed", reason: "declined", auto: false,
+        }),
+      ],
+      [],
+    );
+    expect(scene.messages.find((m) => m.kind === "castRequest")?.resolved).toBe(true);
+  });
+
   it("replays a direction-only turn as an aside, not an empty bubble", () => {
     const scene = rehydrateFromHistory(
       [

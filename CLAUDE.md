@@ -15,7 +15,7 @@ Mytheca is an AI-driven, multi-character roleplay chat engine (Next.js frontend 
 These trip people up because older prose said otherwise. All verified 2026-08-04:
 
 - **No authentication exists.** No `User` model, no auth routes, no sessions or tokens. Nothing is gated.
-- **8 story-event types**, not 5: `narration` · `character_dialogue` · `character_action` · `internal_thought` · `state_update` · `branch_choices` · `character_status_change` · `scene_image` (the player's in-narrative picture).
+- **9 story-event types**: `narration` · `character_dialogue` · `character_action` · `internal_thought` · `state_update` · `branch_choices` · `character_status_change` · `scene_image` (the player's in-narrative picture) · `cast_request` (the scene **asking** for an absent character — never an arrival; the AI has no way to bring anyone in, and presence moves only when the player answers).
 - **Streaming is NDJSON in the turn POST response.** No SSE endpoint, no WebSocket for story events, no `message_start`/`message_delta`/`message_end` frames — delta streaming re-emits the *same* event `id`+`seq` with an **incremental** `text` chunk and `done: false`, and the final frame carries `done: true` with an **empty** `text`. Accumulate by `id`; the persisted row holds the full text. Reading the text off the `done` frame alone gets you `""` for every streamed beat.
 - **Alembic is in use** (17 migrations), coexisting with `create_all` + an additive reconciler.
 - **`director_agent.who_is_up` and `rerank` are dead code** — tests only. `planner_agent.plan_beats` makes the real decision (up to `TURN_PLANNER_LOOKAHEAD` beats per call; `next_beat` is its one-beat wrapper), and its reply also carries each beat's **register** (`light`/`neutral`/`tense`/`grave`) + `stakes`, which drive the character prompt's tail, voice-sample selection, and sampler.
@@ -70,7 +70,7 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 | Authored content | `content/` | `graph_registry.py` (6 node + 16 edge built-in types) + `stats/*.md` (`health` `patience` `suspicion` `trust`) |
 | Hybrid RAG | `rag/` | `schema.py` `serializer.py` `tokens.py` `entries.py` `embedder.py` `store.py` `indexer.py` `retriever.py` `const.py` |
 | Live turn state | `memory/` | `buffer.py` (Redis recent-turn buffer) `interior.py` |
-| Event stream | `events/` | `envelope.py` (8 story events) `stream.py` (NDJSON + trace/error frames) |
+| Event stream | `events/` | `envelope.py` (9 story events) `stream.py` (NDJSON + trace/error frames) |
 | DB models (14 tables) | `models/` | `storyline.py` `character.py` `setting.py` `scenario.py` `event.py` `stat.py` (StatDefinition + CharacterStat + SessionCharacterStat) `session.py` `turn_trace.py` `context_document.py` (Doc + Link) `graph_type.py` `app_setting.py` |
 | Pydantic schemas | `schemas/` | `base.py` + mirrors of `models/` + `play.py` `rag.py` `reasoning.py` `settings.py` `storyline_edit.py` |
 | Config/clients | `core/` | `config.py` `db.py` `redis.py` `neo4j.py` `qdrant.py` `bootstrap.py` (preflight) `seed.py` `errors.py` `ids.py` |

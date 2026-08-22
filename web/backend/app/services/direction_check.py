@@ -25,14 +25,28 @@ import re
 #: Words that carry no evidence either way. A requirement and a beat will share these no
 #: matter what happens in the scene, so counting them would let any prose "cover" anything.
 #:
-#: The last group is the one that is easy to miss: **abstract subject placeholders**. A
-#: requirement reading "a character loses their temper" is saying *anyone* — and no prose
-#: will ever contain the word "character", because prose names people. Left in, they are a
-#: guaranteed miss on a whole class of word rather than a random one, and they drag the
-#: score down by a fixed amount on exactly the requirements that are phrased most generally.
+#: Two groups at the end are the ones that are easy to miss, and both are guaranteed misses
+#: rather than random ones — they subtract a fixed amount from exactly the requirements that
+#: are phrased most naturally.
+#:
+#: **Abstract subject placeholders.** A requirement reading "a character loses their temper"
+#: is saying *anyone* — and no prose will ever contain the word "character", because prose
+#: names people.
+#:
+#: **Speech-act verbs.** A requirement reading "Wren admits the ledger was forged" describes
+#: what a line *does*; the line itself performs it. Nobody writes "I admit" — they write
+#: "Aye, the ledger's a sham." (Observed live, on prose that plainly delivered.) The same is
+#: true of reveals, confesses, explains, refuses, agrees, threatens and the rest: they name
+#: the act from outside, so they can only ever be absent from the act itself.
 STOPWORDS = frozenset(
     """
     character characters someone somebody person people anyone everybody
+    admit admits admitted reveal reveals revealed confess confesses confessed
+    explain explains explained mention mentions mentioned state states stated
+    insist insists insisted reply replies replied answer answers answered
+    agree agrees agreed refuse refuses refused deny denies denied
+    promise promises promised threaten threatens threatened apologise apologises
+    apologize apologizes confirm confirms confirmed ask asks asked
     
     the a an and or but so then than that this these those there here
     is are was were be been being am get gets got have has had having

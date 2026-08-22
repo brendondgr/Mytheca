@@ -5,6 +5,9 @@ import type { ResolvedScenario } from "@/lib/types";
 // built from its cast + branches. No model calls — interactions are local.
 
 /**
+ * `castRequest` is the scene asking for someone who is not in it — a question with two
+ * answers, never an arrival.
+ *
  * `direction` is the player's own steer on a turn where they said nothing out loud. It is
  * deliberately a separate kind from `player`: a direction was never spoken in the scene, so
  * rendering it as a speech bubble would put words in the character's mouth that nobody in
@@ -15,6 +18,7 @@ export type SceneMessageKind =
   | "char"
   | "player"
   | "direction"
+  | "castRequest"
   | "choices"
   | "image";
 
@@ -32,6 +36,12 @@ export interface SceneMessage {
   kind: SceneMessageKind;
   who?: string;
   action?: string;
+  /**
+   * On a `castRequest`: the player has already answered (brought them in, or declined), so
+   * the row renders as a settled line rather than a live control. Derived on reload from a
+   * later `character_status_change` for the same character.
+   */
+  resolved?: boolean;
   /**
    * The beat's prose — and, on a `choices` beat, the planner's question to the player
    * (empty for the ordinary end-of-turn follow-ups, which are offered rather than asked).

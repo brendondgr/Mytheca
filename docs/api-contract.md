@@ -844,6 +844,7 @@ Each maps to one frontend component.
 | `branch_choices` | Branch-choices panel | `prompt` (a planner question, usually empty), `choices[]` (`label`, `outcome`) |
 | `character_status_change` | Updates the cast rail (no chat message); an `auto` change also raises an **Undo** toast | `characterId`, `status` (`present`\|`unconscious`\|`departed`\|`left`\|`dead`), `reason`, `auto` |
 | `scene_image` | Centered, clickable landscape picture of the moment in the transcript (enlarges in a lightbox) | `url` (relative `/media/moments/…`), `prompt`, `negative`, `caption` (alt text), `characterIds` |
+| `cast_request` | A centred card in the transcript: *"The scene is asking for Kael"*, with **Bring them in** / **Not now**. Settles to a quiet line once answered | `characterId`, `reason` (the requirement or phrase that named them — the player's own words, quoted back) |
 
 **No dice (D11):** `branch_choices` options carry `label` + `outcome` (a narrative-direction
 tag) only — there is no `check` field. A branch is a narrative fork resolved by the player's
@@ -1004,6 +1005,8 @@ confirmed), `never` (the turn ran out of beats first) and `undelivered` (everyth
 confirmed, kept for the client reducer). How many requirements ride on one beat is
 `ceil(owed / remaining beats)` — one per beat while there is room, more only when the budget
 forces it.
+
+**Bringing someone in.** The scene may **ask** for a character who is not in it, and that is all it can do — there is **no planner action** that introduces a character, so the AI can never bring one in on its own initiative. A `cast_request` is emitted (before any beat) only when the *player* named an absent storyline character: a pinned directive whose actor is away, or a plain longest-first name match of the direction text. It changes nothing. Presence moves only through the ordinary manual `POST /play/{scenarioId}/presence`, which now accepts **any character of the scenario's storyline** rather than only its authored cast (one from a different storyline is still a 404). Declining is written as `status: "departed", reason: "declined"` — a decline has to leave a mark, because a `character_status_change` on the session is exactly what stops the same ask being re-raised every turn. A guest belongs to the **play-through**: `assembler` unions the authored cast with anyone carrying a presence event on this session, and the scenario row is never mutated.
 
 **`directives`** lets the client state the targets instead of having them inferred:
 `[{ text, actorId }]`, one per line of the direction box, with `actorId` set from an `@` cast

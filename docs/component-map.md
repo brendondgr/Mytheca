@@ -122,6 +122,7 @@ Each of the 8 story-event types maps to exactly one renderer, all routed by `Tra
 | `state_update` | `StateChips` in `DirectorRail`, plus the per-character stat rows in `CastRail` / `CharacterDossier` |
 | `branch_choices` | `BranchChoices` — 1–2 stack in a column, 3–4 use a 2-column grid. Selecting one sends its text plus open-ended `guidance` |
 | `character_status_change` | `CastRail` presence grouping, plus an Undo toast when the change was automatic |
+| `cast_request` | `CastRequestBeat` — a centred card asking whether to bring an absent character in. **Never an arrival**: the AI has no way to introduce anyone, so this is a question with two answers and no default. Answering goes through the ordinary `setPresence` path (accept → `present`, decline → `departed` with `reason: "declined"`, which is what stops the ask recurring). Once answered it renders as a settled line and never as a live control again |
 | `scene_image` | `SceneImageBeat` — centered landscape picture, clickable into `SceneImageModal` |
 
 `useEventStream` (`hooks/use-event-stream.ts`) parses the NDJSON body of the turn **POST response** — not a separate `GET /stream` endpoint, which remains unbuilt.

@@ -212,6 +212,8 @@ export function CastRail({
   statDefs,
   statsByChar = {},
   activityByChar = {},
+  storylineCast = [],
+  joinDisabled = false,
 }: {
   cast: Character[];
   speakingId: string | null;
@@ -226,10 +228,21 @@ export function CastRail({
   statsByChar?: Record<string, StatChip[]>;
   /** Live per-character activity status from the turn stream (Phase 6). */
   activityByChar?: Record<string, CharacterActivity>;
+  /**
+   * Every character in the storyline. The rail's third section offers the ones this scene
+   * never cast — the world outside the room — so a play-through can invite someone in
+   * without the scenario being re-authored.
+   */
+  storylineCast?: Character[];
+  /** No session yet: there is nothing to attach a presence change to. */
+  joinDisabled?: boolean;
 }) {
   const statusOf = (id: string): PresenceStatus => presenceByChar[id] ?? "present";
   const present = cast.filter((c) => statusOf(c.id) === "present");
   const away = cast.filter((c) => statusOf(c.id) !== "present");
+  // Anyone in the world who is not in this scene at all — neither cast nor already joined.
+  const inScene = new Set(cast.map((c) => c.id));
+  const elsewhere = storylineCast.filter((c) => !inScene.has(c.id));
 
   return (
     <aside className="mytheca-rail hidden w-[236px] flex-none overflow-auto border-r border-hair-strong p-[18px_16px] lg:block">
@@ -272,6 +285,47 @@ export function CastRail({
               />
             ))}
           </div>
+        </>
+      ) : null}
+
+      {elsewhere.length > 0 ? (
+        <>
+          <Eyebrow tracking="0.16em" className="mb-2 mt-[18px] block">
+            Elsewhere in the World
+          </Eyebrow>
+          <ul className="flex flex-col gap-[5px]">
+            {elsewhere.map((c) => (
+              <li key={c.id} className="flex items-center gap-[7px]">
+                <Monogram
+                  mono={c.mono}
+                  color={c.color}
+                  size={22}
+                  ring={1}
+                  fontSize={9}
+                  src={c.portrait ? mediaUrl(c.portrait) : null}
+                />
+                <span className="min-w-0 flex-1 truncate font-display text-[12px] text-mute2">
+                  {c.name}
+                </span>
+                {setPresence ? (
+                  <button
+                    type="button"
+                    onClick={() => setPresence(c.id, "present")}
+                    disabled={joinDisabled}
+                    aria-label={`Bring ${c.name} into the scene`}
+                    title={
+                      joinDisabled
+                        ? "Play a turn first — there is no scene to join yet."
+                        : `Bring ${c.name} into the scene`
+                    }
+                    className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[5px] border border-field-bd text-[13px] leading-none text-mute hover:bg-hover hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+                  >
+                    +
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         </>
       ) : null}
 

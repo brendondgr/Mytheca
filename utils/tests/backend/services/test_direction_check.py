@@ -123,3 +123,40 @@ def test_prose_about_something_else_still_fails_at_the_lower_bar():
     unrelated = "They speak quietly about the tide, and the lamplight holds steady."
     assert dc.reached(req, unrelated, threshold=0.34) is False
 
+
+WREN_BEAT = (
+    "The scent hits me hard, sharp as a gut-knife. Nyssa's looking right through me. "
+    '"Aye, the ledger\'s a sham," I spit, the words tasting like copper in my mouth. '
+    '"Every line, every number - it\'s all just ink and a bit of cleverness." '
+    'I wipe a palm against my trousers. "I did the work, Nyssa. Just me and a steady hand."'
+)
+
+
+def test_a_speech_act_verb_is_not_held_against_the_line_that_performs_it():
+    """"Wren admits the ledger was forged" describes what a line *does*; the line performs it.
+
+    Nobody writes "I admit" — they write "Aye, the ledger's a sham." Naming the act from
+    outside means the word can only ever be absent from the act itself, so counting it is a
+    guaranteed miss on every requirement phrased the way people actually phrase them.
+    """
+    assert "admit" not in dc.content_words("Wren admits the ledger was forged")
+    assert "revea" not in dc.content_words("she reveals the truth")
+    assert "refus" not in dc.content_words("he refuses to answer")
+
+
+def test_the_second_live_case_now_confirms():
+    """A regression test from a real turn. Wren plainly confessed, and the check scored it
+    0.33 — one hundredth under the bar — then retried twice and carried the requirement over
+    as undelivered. The cause was "admits", not the writing."""
+    req = "Wren Calloway admits the ledger was forged"
+    assert dc.reached(req, WREN_BEAT, threshold=0.34, ignore_names=["Wren Calloway"]) is True
+
+
+def test_a_beat_that_dodges_the_confession_still_fails():
+    """Stopwording the verb must not make the requirement unfalsifiable — the OBJECT of the
+    speech act ("the ledger", "forged") is what carries the evidence, and it is still
+    required."""
+    req = "Wren Calloway admits the ledger was forged"
+    dodge = '"I have nothing to say to you," I mutter, and turn back to the window.'
+    assert dc.reached(req, dodge, threshold=0.34, ignore_names=["Wren Calloway"]) is False
+

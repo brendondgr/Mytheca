@@ -67,6 +67,9 @@ EventType = Literal[
     "state_update",
     "branch_choices",
     "character_status_change",
+    # The scene ASKING for an absent character — never an arrival. Presence moves only when
+    # the player accepts, through the ordinary manual `character_status_change` path.
+    "cast_request",
     "scene_image",
 ]
 

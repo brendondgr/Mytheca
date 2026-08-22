@@ -90,11 +90,15 @@ export function StoryPlayerView({
   statDefs = [],
   storylineName,
   contextDocs = [],
+  storylineCast = [],
   backHref = "/",
 }: {
   scenario: ResolvedScenario;
   statDefs?: StatDefinition[];
   storylineName?: string;
+  /** Every character in the storyline — the rail's "Elsewhere in the world" offers the
+   *  ones this scene never cast. */
+  storylineCast?: Character[];
   /** The storyline's context documents — the rows the composer's `@` menu offers. */
   contextDocs?: ContextDocumentIndexEntry[];
   backHref?: string;
@@ -204,6 +208,8 @@ export function StoryPlayerView({
           statDefs={statDefs}
           statsByChar={scene.statsByChar}
           activityByChar={scene.activityByChar}
+          storylineCast={storylineCast}
+          joinDisabled={!scene.sessionId}
         />
 
         {viewMode === "graph" ? (
@@ -299,6 +305,11 @@ export function StoryPlayerView({
                     streaming={scene.sending && i === scene.messages.length - 1}
                     reasoningByChar={scene.reasoningByChar}
                     docNameOf={(id) => contextDocs.find((d) => d.id === id)?.name}
+                    onCastAccept={(id) => scene.answerCastRequest(id, true)}
+                    onCastDecline={(id) => scene.answerCastRequest(id, false)}
+                    // Without a session there is nothing to attach a presence change to, and
+                    // mid-turn the roster is already in flight.
+                    castRequestDisabled={!scene.sessionId || scene.sending}
                   />
                   )}
                 </motion.div>

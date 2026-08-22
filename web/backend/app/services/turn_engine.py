@@ -125,6 +125,21 @@ def run_turn(
     outcome = (req.outcome or "").strip()
     scene_opening = not ctx.recent_beats  # nothing committed before this turn
     narrated_open = False
+
+    # Ask about anyone the player named who is not in the scene. This is a QUESTION, never
+    # an arrival: the AI has no way to bring a character in, and presence moves only when the
+    # player answers through the ordinary manual path. Emitted before any beat so the offer
+    # is on screen while the turn plays out rather than arriving after it.
+    for guest, reason in direction_runtime.cast_requests(db, ctx, scenario, direction):
+        yield from tracer.emit(
+            "direction",
+            f"The scene is asking for {guest.name}",
+            detail=reason,
+            data={"castRequest": guest.id, "characterName": guest.name},
+        )
+        yield from emitter.emit(
+            "cast_request", {"characterId": guest.id, "reason": reason}
+        )
     # Per-scene hard ceiling on the beats a single player message produces (Scene Dialogue
     # Updates). The planner may still end the turn earlier; this only caps a drawn-out
     # exchange. The ceiling counts EVERY emitted beat — character replies AND narrator beats

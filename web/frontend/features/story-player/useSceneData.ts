@@ -21,6 +21,7 @@ import type {
   ContextDocumentIndexEntry,
   ResolvedScenario,
   StatDefinition,
+  Character,
 } from "@/lib/types";
 
 /** The resolved scene + its world context, or a loading/error state. */
@@ -34,6 +35,12 @@ export type SceneData =
       storylineName: string;
       /** The storyline's context documents, taggable with `@` in the composer. */
       contextDocs: ContextDocumentIndexEntry[];
+      /**
+       * Every character in the storyline, not just this scene's cast. `resolveScenario`
+       * narrows the list to `cast_ids`; the rail needs the rest of it to offer "Elsewhere
+       * in the world" — the people a play-through can invite in.
+       */
+      storylineCast: Character[];
     };
 
 /** Resolve the scene from in-memory seed (offline/legacy fallback). */
@@ -50,6 +57,7 @@ function seedScene(storylineId: string, scenarioId: string): SceneData | null {
     storylineName: storyline?.title ?? "",
     // The seed demo has no persisted corpus, so `@` tagging is simply unavailable there.
     contextDocs: [],
+    storylineCast: SEED_CHARACTERS,
   };
 }
 
@@ -101,6 +109,7 @@ export function useSceneData(
           statDefs,
           storylineName: storyline?.title ?? "",
           contextDocs,
+          storylineCast: characters,
         });
       } catch (err) {
         if (cancelled) return;

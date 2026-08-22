@@ -400,13 +400,33 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // Optimistic; persists best-effort so the change survives reload and folds like an
   // engine-driven one. No-op without a session yet (nothing to attach it to).
   const setPresence = useCallback(
-    (characterId: string, status: PresenceStatus) => {
+    (characterId: string, status: PresenceStatus, reason = "") => {
       setPresenceByChar((m) => ({ ...m, [characterId]: status }));
       const sid = sessionRef.current;
       if (!sid) return;
-      void apiSetPresence(scenario.id, { sessionId: sid, characterId, status }).catch(() => {});
+      void apiSetPresence(scenario.id, {
+        sessionId: sid,
+        characterId,
+        status,
+        ...(reason ? { reason } : {}),
+      }).catch(() => {});
     },
     [scenario.id],
+  );
+
+  /**
+   * Answer the scene's ask about an absent character.
+   *
+   * Accepting brings them in; declining records `departed` with a `declined` reason. The
+   * decline is written rather than merely dismissed, and that is the point: a
+   * `character_status_change` on this session is exactly what stops the engine asking about
+   * the same character again, so "not now" has to leave a mark or it would be re-offered
+   * every turn.
+   */
+  const answerCastRequest = useCallback(
+    (characterId: string, accept: boolean) =>
+      setPresence(characterId, accept ? "present" : "departed", accept ? "" : "declined"),
+    [setPresence],
   );
 
   const onFrame = useCallback((frame: TurnStreamFrame) => {
@@ -843,6 +863,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     mentionOptions,
     standing,
     dismissStanding,
+    answerCastRequest,
     setPresence,
     relationships: graphRels.length ? graphRels : seed.relationships,
     turnOrder: seed.turnOrder,

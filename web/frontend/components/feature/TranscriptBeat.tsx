@@ -2,6 +2,7 @@ import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { TypingDots } from "@/components/ui/TypingDots";
 import { QuotedText } from "@/components/ui/QuotedText";
+import { CastRequestBeat } from "@/components/feature/CastRequestBeat";
 import { SceneImageBeat } from "@/components/feature/SceneImageBeat";
 import { mediaUrl } from "@/lib/api";
 import type { Character } from "@/lib/types";
@@ -350,6 +351,9 @@ export function TranscriptBeat({
   streaming = false,
   reasoningByChar,
   docNameOf,
+  onCastAccept,
+  onCastDecline,
+  castRequestDisabled = false,
 }: {
   message: SceneMessage;
   charById: (id: string) => Character | undefined;
@@ -367,6 +371,11 @@ export function TranscriptBeat({
   reasoningByChar?: Record<string, string>;
   /** Resolve a context-document id to its name, for the attachment chips on a player beat. */
   docNameOf?: (id: string) => string | undefined;
+  /** Answer a `castRequest`: bring that character into the scene, or decline. */
+  onCastAccept?: (characterId: string) => void;
+  onCastDecline?: (characterId: string) => void;
+  /** No session yet, or a turn in flight — the ask is shown but not answerable. */
+  castRequestDisabled?: boolean;
 }) {
   const m = message;
   if (m.kind === "narrator") return <NarratorCard text={m.text ?? ""} streaming={streaming} />;
@@ -382,6 +391,17 @@ export function TranscriptBeat({
       />
     );
   if (m.kind === "direction") return <DirectionAside text={m.text ?? ""} />;
+  if (m.kind === "castRequest")
+    return (
+      <CastRequestBeat
+        character={charById(m.who ?? "") ?? null}
+        reason={m.text}
+        resolved={m.resolved}
+        disabled={castRequestDisabled}
+        onAccept={onCastAccept && m.who ? () => onCastAccept(m.who!) : undefined}
+        onDecline={onCastDecline && m.who ? () => onCastDecline(m.who!) : undefined}
+      />
+    );
   if (m.kind === "image")
     return m.image ? <SceneImageBeat image={m.image} onOpen={onOpenImage} /> : null;
   if (m.kind === "choices")

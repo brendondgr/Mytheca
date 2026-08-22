@@ -211,10 +211,19 @@ def test_a_pinned_target_who_is_absent_waits_rather_than_being_reassigned(
         "trace": True,
     })
 
-    # An actor outside the cast degrades to the narrator rather than being guessed at…
+    # A directive binds against the whole STORYLINE, not just the scene's cast — aiming a
+    # line at someone who is not in the room is a legitimate thing to write, and it is the
+    # case worth keeping rather than dropping.
     opening = _traces(events, "direction")[0]
-    assert opening["data"]["requirements"][0]["pinned"] is False
     assert opening["data"]["source"] == "directives"
+    assert opening["data"]["requirements"][0]["pinned"] is True
+    assert opening["data"]["requirements"][0]["actor"] == "Kira"
+
+    # It waits rather than being handed to the narrator, and says so.
+    blocked = [t for t in _traces(events, "direction") if t["data"].get("blocked")]
+    assert blocked, "the scene must say who it is waiting for"
+    assert blocked[0]["data"]["characterName"] == "Kira"
+    assert "not in the scene" in blocked[0]["title"]
 
 
 def test_an_unknown_actor_id_is_dropped_not_guessed(client, storyline_id, monkeypatch):

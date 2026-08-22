@@ -141,6 +141,27 @@ class BranchChoicesData(CamelModel):
     choices: list[BranchChoiceOption] = Field(default_factory=list)
 
 
+class CastRequestData(CamelModel):
+    """The scene is *asking* for a character who is not in it. **Never an arrival.**
+
+    The owner's rule for this feature is that the AI must never introduce a character on its
+    own initiative — "I feel like the AI will abuse it and bring in a character for the fun
+    of it when we don't need it". So there is deliberately **no planner action** that brings
+    someone in. A request is raised only when the player themselves named an absent character
+    (a pinned directive whose actor is away, or a plain name match against the direction
+    text), and it changes nothing on its own: presence moves only when the player accepts,
+    through the same manual ``character_status_change`` path the cast rail already uses.
+
+    Building it as an event rather than as a planner action is what keeps that rule literally
+    true — the scene can raise a question, and only the player can answer it.
+    """
+
+    character_id: str
+    #: Why the scene is asking — the requirement or phrase that named them, shown verbatim
+    #: so the player can see what they wrote rather than a generic prompt.
+    reason: str = ""
+
+
 class CharacterStatusChangeData(CamelModel):
     """A character's scene-presence transition (Scene Presence & Director Actions).
 
@@ -234,6 +255,11 @@ class CharacterStatusChangeEvent(EventEnvelope):
     data: CharacterStatusChangeData
 
 
+class CastRequestEvent(EventEnvelope):
+    type: Literal["cast_request"] = "cast_request"
+    data: CastRequestData
+
+
 class SceneImageEvent(EventEnvelope):
     type: Literal["scene_image"] = "scene_image"
     data: SceneImageData
@@ -249,6 +275,7 @@ StoryEvent = Annotated[
         StateUpdateEvent,
         BranchChoicesEvent,
         CharacterStatusChangeEvent,
+        CastRequestEvent,
         SceneImageEvent,
     ],
     Field(discriminator="type"),
@@ -268,6 +295,7 @@ __all__ = [
     "BranchChoiceOption",
     "BranchChoicesData",
     "CharacterStatusChangeData",
+    "CastRequestData",
     "SceneImageData",
     "EventEnvelope",
     "NarrationEvent",
@@ -277,6 +305,7 @@ __all__ = [
     "StateUpdateEvent",
     "BranchChoicesEvent",
     "CharacterStatusChangeEvent",
+    "CastRequestEvent",
     "SceneImageEvent",
     "StoryEvent",
     "story_event_adapter",

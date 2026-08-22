@@ -27,7 +27,9 @@ from sqlalchemy.orm import Session
 from app.agents import planner_agent
 from app.agents.direction_agent import DirectionRequirement, SceneDirection
 from app.events.stream import TurnTraceFrame
-from app.models import PlaySession
+from sqlalchemy import select
+
+from app.models import Character, PlaySession, Scenario
 from app.services.assembler import TurnContext
 from app.agents import direction_agent
 from app.agents.intent_agent import TurnIntent
@@ -120,6 +122,79 @@ def save_standing(db: Session, session: PlaySession, rows: list[dict]) -> None:
     session.standing_direction = rows or None
     db.add(session)
     db.flush()
+
+
+# ---- asking for someone who is not here -------------------------------------
+
+
+def _storyline_character_ids(db: Session, storyline_id: str) -> set[str]:
+    """Every character id in this world — the namespace a directive may aim at."""
+    return set(
+        db.scalars(select(Character.id).where(Character.storyline_id == storyline_id)).all()
+    )
+
+
+def cast_requests(
+    db: Session, ctx: TurnContext, scenario: Scenario, direction: SceneDirection
+) -> list[tuple[Character, str]]:
+    """The absent storyline characters this direction named, and why.
+
+    **The AI never introduces a character on its own initiative.** There is no planner action
+    that brings someone in; this only turns "the player named someone who is not here" into a
+    question. Two sources, neither costing an LLM call:
+
+    * a **pinned** requirement whose actor is absent (Phase 8's ``blocked`` state) — the
+      player explicitly aimed a line at them;
+    * a plain **longest-first name match** of the direction text against the storyline's
+      absent character names — the same matcher the composer's ``@`` menu uses, run here so
+      writing "Kael bursts in" works without needing to know the mention syntax.
+
+    Anyone with a ``character_status_change`` already on this session is excluded, so a
+    character the player has **declined** is never asked about again, and one already brought
+    in is not asked about at all.
+
+    Returns ``(character, reason)`` in the order they were named, at most one per character.
+    """
+    text = direction.text.lower()
+    present_or_answered = {m.id for m in ctx.cast}
+    out: list[tuple[Character, str]] = []
+    seen: set[str] = set()
+
+    def offer(char: Character, reason: str) -> None:
+        if char.id in seen or char.id in present_or_answered:
+            return
+        seen.add(char.id)
+        out.append((char, reason))
+
+    # Explicit pins first — the player aimed a requirement at this person by name.
+    for req in direction.requirements:
+        if not (req.blocked and req.actor_id):
+            continue
+        char = db.get(Character, req.actor_id)
+        if char is not None and char.storyline_id == scenario.storyline_id:
+            offer(char, req.text)
+
+    # Then a plain name match over the rest of the storyline. Longest name first, so
+    # "Wren Calloway" wins over a character called "Wren".
+    if text:
+        others = [
+            c
+            for c in db.scalars(
+                select(Character).where(Character.storyline_id == scenario.storyline_id)
+            )
+            if c.id not in present_or_answered
+        ]
+        for char in sorted(others, key=lambda c: -len(c.name or "")):
+            name = (char.name or "").strip().lower()
+            if name and name in text:
+                # Quote the requirement that mentions them, so the ask shows the player
+                # their own words rather than a generic prompt.
+                reason = next(
+                    (r.text for r in direction.requirements if name in r.text.lower()),
+                    direction.text,
+                )
+                offer(char, reason)
+    return out
 
 
 def max_attempts() -> int:
@@ -300,10 +375,26 @@ def plan_still_valid(
         return False
     member = ctx.cast_by_id(decision.actor_id)
     return member is not None and member.is_present
-def name_of(ctx: TurnContext, character_id: str | None) -> str | None:
-    """The cast member's display name for a trace payload (``None`` → the narrator)."""
-    member = ctx.cast_by_id(character_id) if character_id else None
-    return member.name if member is not None else None
+def name_of(
+    ctx: TurnContext, character_id: str | None, db: Session | None = None
+) -> str | None:
+    """The character's display name for a trace payload (``None`` → the narrator).
+
+    ``db`` widens the lookup past the scene's cast. A **blocked** requirement names, by
+    definition, someone who is not in the room — so resolving only through ``ctx.cast`` would
+    make the one trace whose whole job is to say *who* the scene is waiting for unable to say
+    it.
+    """
+    if not character_id:
+        return None
+    member = ctx.cast_by_id(character_id)
+    if member is not None:
+        return member.name
+    if db is not None:
+        char = db.get(Character, character_id)
+        if char is not None:
+            return char.name
+    return None
 
 
 def build_direction(
@@ -334,7 +425,13 @@ def build_direction(
     # Requirements naming an absent character (or the POV character, whom the AI never
     # voices) are rebound to the narrator so they can still be delivered.
     guidance = (req.guidance or "").strip()
-    cast_ids = {m.id for m in ctx.cast}
+    # Directives bind against the whole **storyline**, not just the scene's cast. A player
+    # can legitimately aim a line at someone who is not in the room ("@Kael bursts in"), and
+    # that is precisely the case worth keeping: it pins to Kael, `rebind` marks it blocked
+    # rather than handing it to the narrator, and `cast_requests` turns it into an offer to
+    # bring them in. Narrowing to the present cast would drop the target on the floor and
+    # make the whole blocked/request path unreachable.
+    cast_ids = _storyline_character_ids(db, ctx.storyline_id)
     directives = [(d.text, d.actor_id) for d in req.directives if (d.text or "").strip()]
     if directives:
         # The player wrote the targets themselves. Nothing left to infer, so no LLM call.
@@ -374,7 +471,7 @@ def build_direction(
                 "requirements": [
                     {
                         "text": r.text,
-                        "actor": name_of(ctx, r.actor_id),
+                        "actor": name_of(ctx, r.actor_id, db),
                         "pinned": r.pinned,
                         **({"fromTurn": r.from_turn} if r.from_turn is not None else {}),
                     }
@@ -382,12 +479,12 @@ def build_direction(
                 ],
             },
         )
-        yield from report_blocked(tracer, ctx, direction)
+        yield from report_blocked(tracer, ctx, direction, db)
     return direction
 
 
 def report_blocked(
-    tracer: Tracer, ctx: TurnContext, direction: SceneDirection
+    tracer: Tracer, ctx: TurnContext, direction: SceneDirection, db: Session | None = None
 ) -> Iterator[TurnTraceFrame]:
     """Say which pinned requirements are waiting on a character who is not in the scene.
 
@@ -398,7 +495,7 @@ def report_blocked(
     waiting = [r for r in direction.requirements if r.blocked and not r.delivered]
     if not waiting:
         return
-    for name, reqs in _by_actor(ctx, waiting).items():
+    for name, reqs in _by_actor(ctx, waiting, db).items():
         yield from tracer.emit(
             "direction",
             f"{name} is not in the scene — {len(reqs)} part(s) of your direction wait",
@@ -412,11 +509,11 @@ def report_blocked(
 
 
 def _by_actor(
-    ctx: TurnContext, requirements: list[DirectionRequirement]
+    ctx: TurnContext, requirements: list[DirectionRequirement], db: Session | None = None
 ) -> dict[str, list[DirectionRequirement]]:
     """Group requirements by their bound character's display name, order preserved."""
     out: dict[str, list[DirectionRequirement]] = {}
     for req in requirements:
-        name = name_of(ctx, req.actor_id) or "Someone"
+        name = name_of(ctx, req.actor_id, db) or "Someone"
         out.setdefault(name, []).append(req)
     return out

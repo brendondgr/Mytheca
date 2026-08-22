@@ -76,6 +76,7 @@ export function StoryPlayerRoute({
       statDefs={scene.statDefs}
       storylineName={scene.storylineName}
       contextDocs={scene.contextDocs}
+      storylineCast={scene.storylineCast}
       backHref={backHref}
     />
   );

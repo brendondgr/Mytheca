@@ -111,3 +111,54 @@ describe("CastRail stats", () => {
     expect(screen.queryByText("Morale")).toBeNull();
   });
 });
+
+describe("CastRail — Elsewhere in the World", () => {
+  const mei = char("mei", "Mei");
+  const kael = char("kael", "Kael");
+  const base = {
+    cast: [mei],
+    speakingId: null,
+    turnOrder: [],
+    charById: (id: string) => [mei, kael].find((c) => c.id === id),
+    onProfile: () => {},
+  };
+
+  it("offers the storyline characters this scene never cast", () => {
+    // The scenario's authored roster is not the whole world, and a play-through can invite
+    // someone in without the scenario being re-authored.
+    render(<CastRail {...base} storylineCast={[mei, kael]} setPresence={() => {}} />);
+    expect(screen.getByText("Elsewhere in the World")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Bring Kael into the scene" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer someone already in the scene", () => {
+    render(<CastRail {...base} storylineCast={[mei]} setPresence={() => {}} />);
+    expect(screen.queryByText("Elsewhere in the World")).not.toBeInTheDocument();
+  });
+
+  it("brings them in through the ordinary presence path", () => {
+    const setPresence = vi.fn();
+    render(<CastRail {...base} storylineCast={[mei, kael]} setPresence={setPresence} />);
+    fireEvent.click(screen.getByRole("button", { name: "Bring Kael into the scene" }));
+    expect(setPresence).toHaveBeenCalledWith("kael", "present");
+  });
+
+  it("explains why the control is unavailable before the first turn", () => {
+    // There is no session to attach a presence change to yet, so the button says so rather
+    // than failing silently.
+    render(
+      <CastRail {...base} storylineCast={[mei, kael]} setPresence={() => {}} joinDisabled />,
+    );
+    const button = screen.getByRole("button", { name: "Bring Kael into the scene" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("title", expect.stringMatching(/play a turn first/i));
+  });
+
+  it("hides the section entirely when presence cannot be set at all", () => {
+    render(<CastRail {...base} storylineCast={[mei, kael]} />);
+    expect(screen.queryByRole("button", { name: /bring kael/i })).not.toBeInTheDocument();
+  });
+});
+
