@@ -47,11 +47,14 @@ export function AppHeader({
         </span>
         {storylineSlot ? (
           <>
+            {/* The divider is decoration and stays `md`-gated; the switcher itself does not.
+                Hiding it below `md` made a phone a single-world device — deep links already
+                worked, the control simply did not exist. */}
             <span
               className="hidden h-5 w-px bg-hair-strong md:block"
               aria-hidden
             />
-            <span className="hidden md:block">{storylineSlot}</span>
+            {storylineSlot}
           </>
         ) : null}
       </div>

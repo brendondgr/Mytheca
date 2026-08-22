@@ -445,7 +445,6 @@ Verified against the code on 2026-08-04.
   the error path. That is deliberate — the `role="alert"` stream error says more than a
   wind-down label would — but it does mean the phase is not a guaranteed terminal state.
 - Graph mode is canvas-only below `lg`; the `sr-only` node/edge table remains the data alternative. Graph node clicks are wired for Character only — other types are hover-tooltip only.
-- The storyline switcher is hidden below `md`, so mobile cannot switch worlds.
 - **An unwanted scene image cannot be removed or replaced.** ~~Nor asked for by subject~~ —
   **the additive half shipped 2026-08-22** (`making-it-legible.md` Phase 11): the enlarged
   view's prompt is editable and *Paint again with this prompt* produces a **new** beat from

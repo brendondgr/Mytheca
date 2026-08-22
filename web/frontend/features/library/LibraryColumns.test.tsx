@@ -9,7 +9,7 @@ describe("LibraryView — storyline switcher", () => {
   it("opens the storyline menu with the active storyline and a create action", async () => {
     const user = userEvent.setup();
     render(<LibraryView />);
-    await user.click(await screen.findByRole("button", { name: "Embergate" }));
+    await user.click(await screen.findByRole("button", { name: "Switch storyline — Embergate" }));
 
     const menu = screen.getByLabelText("Switch storyline");
     expect(within(menu).getByText("Embergate")).toBeInTheDocument();
@@ -24,7 +24,7 @@ describe("LibraryView — storyline switcher", () => {
     push.mockClear();
     const user = userEvent.setup();
     render(<LibraryView />);
-    await user.click(await screen.findByRole("button", { name: "Embergate" }));
+    await user.click(await screen.findByRole("button", { name: "Switch storyline — Embergate" }));
     await user.click(screen.getByRole("button", { name: /new storyline/i }));
 
     expect(push).toHaveBeenCalledWith("/storylines/new");

@@ -160,6 +160,12 @@ export function StorylineMenu({
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls={menuId}
+        // The visible label is hidden below `md` (the seal and caret carry it there), so the
+        // name has to be spelled out — otherwise the trigger reads as "Switch storyline" with
+        // no indication of which world is open. Responsive in CSS rather than JS: a second
+        // DOM copy would duplicate the accessible name, and a `useMediaQuery` swap would
+        // repaint the Library's LCP element on hydration.
+        aria-label={active?.title ? `Switch storyline — ${active.title}` : "Switch storyline"}
         title="Switch storyline"
         className="group flex items-center gap-[9px] rounded-[3px] border border-cardbd bg-card px-[12px] py-[5px] hover:border-accent hover:bg-hover focus-visible:border-accent"
       >
@@ -170,7 +176,7 @@ export function StorylineMenu({
         >
           {active?.symbol || DEFAULT_SEAL_SYMBOL}
         </span>
-        <span className="font-display text-[18px] font-bold uppercase leading-none tracking-[0.12em] text-ink">
+        <span className="hidden font-display text-[18px] font-bold uppercase leading-none tracking-[0.12em] text-ink md:inline">
           {active?.title ?? "Storyline"}
         </span>
         <svg
@@ -195,7 +201,18 @@ export function StorylineMenu({
         <div
           id={menuId}
           aria-label="Switch storyline"
-          className="absolute top-[38px] left-0 z-40 w-[280px] mytheca-menu p-[7px]"
+          // Below `md` the panel is pinned to the VIEWPORT, not to the trigger. Capping its
+          // width is not enough and was measured not to be: at 320 the trigger sits 203px
+          // from the left (wordmark + brandmark precede it), so an `absolute left-0` panel
+          // starts at 203 and runs to 483 whatever width it is given. `min(280px, 100vw-24px)`
+          // evaluates to 280 there and changes nothing. Anchoring to the viewport is the only
+          // form that cannot overhang, at any width, for any trigger position.
+          // The height cap is not decoration either: measured at 320 with a real library
+          // this panel is 4912px tall, and `fixed` means the page cannot scroll it into
+          // view — so without an inner scroller every world past the first few would be
+          // unreachable. Capped at every width, because an unbounded popover is no better
+          // on a desktop, only less obviously broken.
+          className="fixed inset-x-[12px] top-[54px] z-40 flex max-h-[calc(100dvh-70px)] w-auto flex-col overflow-y-auto mytheca-menu p-[7px] md:absolute md:inset-x-auto md:top-[38px] md:left-0 md:max-h-[calc(100dvh-60px)] md:w-[280px]"
         >
           <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-[11px] uppercase tracking-[0.18em] text-mute2">
             Storylines

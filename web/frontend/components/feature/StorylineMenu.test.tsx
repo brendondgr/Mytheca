@@ -125,3 +125,63 @@ describe("StorylineMenu", () => {
     expect(screen.getByText(/1 setting\b/)).toBeInTheDocument();
   });
 });
+
+describe("StorylineMenu at the narrow floor", () => {
+  it("names the active world even when its title is not drawn", () => {
+    // Below `md` the title span is hidden and the seal + caret carry the control visually.
+    // The accessible name has to stay complete — "Switch storyline" alone does not say
+    // which world is open.
+    setup();
+    expect(
+      screen.getByRole("button", { name: "Switch storyline — Embergate" }),
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to a bare name when there is no storyline at all", () => {
+    setup([]);
+    expect(screen.getByRole("button", { name: "Switch storyline" })).toBeInTheDocument();
+  });
+
+  it("hides the title in CSS, not by removing it — one DOM copy, no hydration swap", () => {
+    setup();
+    const title = screen.getByText("Embergate", { selector: "span" });
+    expect(title.className).toContain("hidden");
+    expect(title.className).toContain("md:inline");
+  });
+
+  it("switches worlds from the narrow trigger", async () => {
+    const user = userEvent.setup();
+    const { onSwitch } = setup();
+    await user.click(screen.getByRole("button", { name: "Switch storyline — Embergate" }));
+    // The row's own button, not the per-row edit/documents/prompt actions that also name it.
+    await user.click(screen.getByRole("button", { name: /^Tidefall/ }));
+    expect(onSwitch).toHaveBeenCalledWith("tidefall");
+  });
+
+  it("pins the popover to the viewport below md, so it cannot overhang", async () => {
+    // Measured at 320: the trigger sits 203px from the left, so an `absolute left-0` panel
+    // runs from 203 to 483 no matter how narrow it is told to be. Capping the width does
+    // nothing; anchoring to the viewport is the only form that cannot overhang.
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole("button", { name: "Switch storyline — Embergate" }));
+    const panel = screen.getByText("Storylines").parentElement!;
+    expect(panel.className).toContain("fixed");
+    expect(panel.className).toContain("inset-x-[12px]");
+    // ...and the desktop geometry is unchanged.
+    expect(panel.className).toContain("md:absolute");
+    expect(panel.className).toContain("md:left-0");
+    expect(panel.className).toContain("md:w-[280px]");
+  });
+
+  it("scrolls inside itself rather than running off the bottom", async () => {
+    // Measured at 320 against a real library: 4912px tall. `fixed` means the page cannot
+    // scroll it into view, so without this every world past the first few is unreachable.
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole("button", { name: "Switch storyline — Embergate" }));
+    const panel = screen.getByText("Storylines").parentElement!;
+    expect(panel.className).toContain("overflow-y-auto");
+    expect(panel.className).toContain("max-h-[calc(100dvh-70px)]");
+  });
+});
