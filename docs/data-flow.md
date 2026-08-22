@@ -272,6 +272,24 @@ play-through **fully reviewable and continuable**:
   live in `routes/play_record.py`, separate from `routes/play.py`, which carries the turn stream.
   The story player's play-through tray is the surface over them.
 
+- **History mutation goes through one module.** `services/session_state.py` is the only place a
+  play-through's record changes after the fact — rewind, branch, edit and re-roll are four faces
+  of the same three operations, and four separate implementations would drift silently. It gives
+  `truncate_session` (cut rows after a seq, then re-derive), `copy_history` (fresh ids, **same
+  seqs**, so ordering and `UNIQUE (session_id, seq)` both hold in the new session),
+  `rebuild_buffer`, `replay_stats`, `prune_graph_events`, `turn_boundary` (a rewind cuts at a
+  **turn boundary**, because `turn_traces` are keyed by the turn's opening seq) and
+  `require_expected_seq` (optimistic concurrency — a stale precondition 409s, where a `busy`
+  column could be left set by a client abort and wedge the session).
+
+  Per store: **Postgres** is canonical and everything else is re-derived from it; **Redis** is
+  rebuilt, never patched; **Neo4j** `:Event` nodes are pruned by their deterministic id, though
+  relationship *edges* written by cut turns are not rolled back (no per-turn provenance —
+  recorded in `docs/checklist.md`); **session stats** are cleared and replayed from the surviving
+  `state_update` rows; **presence** re-derives for free from the surviving
+  `character_status_change` rows. **Qdrant is not involved** — nothing on the play path indexes
+  transcript text, so an edited beat has no stale embedding.
+
 - **Stat values are scoped to a play-through.** `session_character_stats` holds what a stat is
   worth *inside one story*; `character_stats` holds the character's **authored** starting value.
   Play reads and writes the session scope (`services/session_stats.py` — `resolve` / `apply`,

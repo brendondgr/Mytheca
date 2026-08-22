@@ -37,6 +37,14 @@ Verified against the code on 2026-08-04.
   the requirement count, and the last beat collapses to a narrator beat covering whatever
   several characters are still owed. Both are correct — the cap is hard — but they read as
   summary rather than scene. Raising the scene's turn limit is the only remedy today.
+- **Graph edges from a rewound turn are not rolled back.** `session_state.truncate_session`
+  prunes the `:Event` node each cut turn wrote (deterministic id `evt_{session_id}_{turn_seq}`),
+  but the relationship **edges** and `:Consequence` nodes those turns wrote stay. The graph is a
+  best-effort accumulator with no per-turn provenance index, and adding one was out of scope for
+  `docs/plans/control-over-the-record.md`. The effect is that a rewound scene can leave a
+  relationship the transcript no longer explains. Fixing it means recording the turn seq on every
+  edge write in `graph_writer` and deleting by it.
+
 - **Relationship / mood stats** — extend the stat machinery to values with a relational target. Relationships currently live only in the graph.
 - **Scenario-level stat additions and range overrides** — described in old docs, never implemented; `Scenario` has no such column.
 - **Separate `GET /stream` transport** — the turn POST streams NDJSON directly. A standalone stream endpoint with Redis pub/sub fan-out is a seam, not a plan.
