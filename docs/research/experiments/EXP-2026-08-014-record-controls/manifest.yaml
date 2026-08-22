@@ -1,0 +1,64 @@
+id: EXP-2026-08-014
+slug: record-controls
+title: <one line, specific enough to read in a table>
+status: running
+date_started: 2026-08-22
+date_completed: null
+authors:
+- <name>
+purpose: 'One paragraph. What question does this answer, and which paper claim does it support or refute?
+
+  '
+hypothesis: 'Stated before the run. If exploratory, write "exploratory — no prior hypothesis".
+
+  '
+code:
+  commit: 505385e1324ac761404d0a3c1c5a6dc1f1130ee1
+  branch: fix/record-controls-audit
+  entrypoint: uv run python -m utils.scripts.research.run_record_controls --arm baseline --experiment
+    docs/research/experiments/EXP-2026-08-014-record-controls
+  dirty: true
+config:
+  path: <path to the config, or null if the entrypoint is fully self-describing>
+  hash: sha256:...
+data:
+  name: <dataset or world>
+  version: <version>
+  split: <split>
+  n_examples: 0
+  dvc_path: null
+  hash: md5:...
+seeds: []
+n_runs: 0
+environment:
+  python: '3.13'
+  lockfile: env/requirements.lock
+  container: null
+compute:
+  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
+  wall_clock_hours: 0.5489
+  estimated_cost_usd: 0.0
+llm:
+  model: <provider>/<model>@<version-or-date>
+  temperature: 0.0
+  top_p: 1.0
+  max_tokens: 8000
+  prompt_files: []
+  prompt_hash: sha256:...
+  tool_schema_hash: null
+  total_input_tokens: 0
+  total_output_tokens: 0
+  nondeterminism_note: 'Provider-side nondeterminism remains even at temperature 0; results are reported
+    as mean ± std over n_runs.
+
+    '
+metrics:
+  primary: <metric name, matching a key in values>
+  values: {}
+baselines_compared: []
+statistical_test: null
+supports_claims: []
+figures: []
+supersedes: null
+superseded_by: null
+related: []

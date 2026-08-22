@@ -109,6 +109,14 @@ instruction already given in the request.
 
 ---
 
+### Ordering note
+
+Phases **6 and 7 are committed before 2–5**. The dev backend runs under
+`uvicorn --reload` with `reload_dirs=[web/backend]`, so any backend edit restarts the
+server mid-run and would invalidate the baseline arm the moment it touched a file. The
+frontend phases are outside `reload_dirs` and can proceed while the live arm runs. The
+phase numbers below are unchanged — they are the dependency order, not the clock.
+
 ## 3. Hierarchical Step-by-Step Instructions
 
 ### Phase 1 — The live record-controls harness, and the baseline run
