@@ -27,9 +27,16 @@ factories (``get_http_client`` / ``open_ws``) so tests run fully offline, mirror
 | ``71`` | CLIPTextEncode | negative prompt (``inputs.text``) |
 | ``70`` | KSampler | ``seed``, ``steps``, ``cfg`` |
 | ``68`` | EmptySD3LatentImage | ``width``, ``height``, ``batch_size`` |
+| ``72`` | LoraLoaderModelOnly | ``lora_name``, ``strength_model`` — or bypassed entirely |
 | ``77`` | SaveImage | output read from here |
 
 Any field not passed keeps whatever was authored in the workflow JSON.
+
+The LoRA node is the one node that can be taken *out* of the graph rather than merely
+retuned: an art style with no LoRA (``anime``, ``photoreal`` — see
+``app.content.art_styles``) renders from the base checkpoint alone. That is done by
+rewiring rather than deleting, so the workflow file on disk stays the authored template —
+see :func:`_bypass_node`.
 """
 
 from __future__ import annotations
@@ -54,6 +61,7 @@ POSITIVE_NODE = "67"
 NEGATIVE_NODE = "71"
 SAMPLER_NODE = "70"
 LATENT_NODE = "68"
+LORA_NODE = "72"
 SAVE_NODE = "77"
 
 
@@ -144,6 +152,30 @@ def list_workflows() -> list[str]:
     return sorted(p.name for p in directory.glob("*.json"))
 
 
+def list_loras(base_url: str) -> list[str]:
+    """LoRA file names the server declares on ``LoraLoaderModelOnly``.
+
+    Reads ComfyUI's ``/object_info`` schema, where a node's enum inputs are declared as
+    ``[[choice, ...], {...}]``. Best-effort: a server that is down, or a payload shaped
+    differently than expected, yields ``[]`` rather than raising — the caller degrades to a
+    free-text field, which is strictly better than an Options page that will not load.
+    """
+    try:
+        res = _send("GET", f"{_normalize(base_url)}/object_info/LoraLoaderModelOnly")
+        if not res.is_success:
+            return []
+        payload = res.json()
+    except (APIError, ValueError):
+        return []
+    try:
+        choices = payload["LoraLoaderModelOnly"]["input"]["required"]["lora_name"][0]
+    except (KeyError, IndexError, TypeError):
+        return []
+    if not isinstance(choices, list):
+        return []
+    return [str(c) for c in choices if isinstance(c, str)]
+
+
 def load_workflow(name: str) -> dict[str, Any]:
     """Read a saved workflow JSON by file name (kept untouched as a template)."""
     safe = Path(name).name  # strip any path component
@@ -170,8 +202,16 @@ def build_prompt(
     width: int | None = None,
     height: int | None = None,
     batch_size: int | None = None,
+    lora_name: str | None = None,
+    lora_strength: float | None = None,
+    lora_enabled: bool | None = None,
 ) -> dict[str, Any]:
-    """Deep-copy the workflow and patch only the provided fields (see node map)."""
+    """Deep-copy the workflow and patch only the provided fields (see node map).
+
+    ``lora_enabled=False`` bypasses the LoRA node instead of patching it, so the render
+    runs on the base checkpoint. ``lora_enabled=None`` leaves the workflow's own LoRA
+    wiring exactly as authored.
+    """
     import copy
 
     wf = copy.deepcopy(workflow)
@@ -190,7 +230,37 @@ def build_prompt(
     _set(LATENT_NODE, "width", width)
     _set(LATENT_NODE, "height", height)
     _set(LATENT_NODE, "batch_size", batch_size)
+
+    if lora_enabled is False:
+        _bypass_node(wf, LORA_NODE, "model")
+    elif lora_enabled is True or lora_name is not None or lora_strength is not None:
+        _set(LORA_NODE, "lora_name", lora_name)
+        _set(LORA_NODE, "strength_model", lora_strength)
     return wf
+
+
+def _bypass_node(wf: dict[str, Any], node_id: str, passthrough: str) -> None:
+    """Route around ``node_id``: every consumer of its output takes its input instead.
+
+    Reads the wiring rather than assuming it, so a workflow whose LoRA loader sits on a
+    different checkpoint node still bypasses correctly. The node itself is left in the
+    graph — orphaned and therefore never executed — because deleting it would mean
+    rebuilding a template we deliberately treat as read-only. A workflow without the node,
+    or one whose node has no ``passthrough`` link, is left untouched.
+    """
+    node = wf.get(node_id)
+    if not isinstance(node, dict) or not isinstance(node.get("inputs"), dict):
+        return
+    upstream = node["inputs"].get(passthrough)
+    if not (isinstance(upstream, list) and len(upstream) == 2):
+        return  # nothing to route to — leave the graph as authored
+    for other in wf.values():
+        inputs = other.get("inputs") if isinstance(other, dict) else None
+        if not isinstance(inputs, dict):
+            continue
+        for key, value in inputs.items():
+            if isinstance(value, list) and len(value) == 2 and str(value[0]) == node_id:
+                inputs[key] = list(upstream)
 
 
 # ---- step 4: queue ---------------------------------------------------------
@@ -327,6 +397,9 @@ def generate(
     width: int | None = None,
     height: int | None = None,
     batch_size: int | None = None,
+    lora_name: str | None = None,
+    lora_strength: float | None = None,
+    lora_enabled: bool | None = None,
 ) -> tuple[bytes, dict[str, str]]:
     """Run the full pipeline and return ``(image_bytes, output_info)`` of the first image."""
     base = _normalize(base_url)
@@ -343,6 +416,9 @@ def generate(
         width=width,
         height=height,
         batch_size=batch_size,
+        lora_name=lora_name,
+        lora_strength=lora_strength,
+        lora_enabled=lora_enabled,
     )
     prompt_id = queue_prompt(base, patched, client_id)
     wait_for_completion(base, prompt_id, client_id)
