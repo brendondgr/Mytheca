@@ -79,6 +79,11 @@ class WorldPopulateRequest(CamelModel):
     # Artwork is opt-in and best-effort: every image is a ComfyUI render, so a run
     # with it on can take minutes and a failed render never fails its entity.
     with_artwork: bool = False
+    #: Which look every image the build renders should wear (``app.content.art_styles``).
+    #: Omitted = the operator's default from Options. A world build paints a whole cast and
+    #: every place in one go, which makes it the surface where a *consistent* style matters
+    #: most — so the choice is made once, up front, and applied to every render in the run.
+    art_style: str | None = None
 
 
 # ---- stream frames ----------------------------------------------------------

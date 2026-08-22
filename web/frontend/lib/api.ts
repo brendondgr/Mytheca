@@ -670,6 +670,8 @@ export interface PopulateWorldBody {
   maxCharacters?: number;
   maxSettings?: number;
   withArtwork?: boolean;
+  /** The look every image in the build wears; omitted uses the Options default. */
+  artStyle?: ArtStyleId;
   /** Re-attach to a run already in flight and replay from this frame onward. */
   fromSeq?: number;
 }

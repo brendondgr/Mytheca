@@ -155,3 +155,109 @@ def test_the_render_routes_default_to_painted_with_its_lora(client, monkeypatch)
     client.post("/api/characters/portrait", json={"positive": "a wiry smuggler"})
     assert seen["lora_name"] == "zit_watercolor.safetensors"
     assert seen["lora_enabled"] is True
+
+
+# ---- the world build (the "New Storyline" page's build step) ----------------
+
+
+def test_the_world_build_paints_its_whole_cast_in_the_chosen_style(
+    client, storyline_id, db_session, monkeypatch
+):
+    """One choice up front, applied to every render in the run.
+
+    The world build is the surface where a *consistent* style matters most — it paints a
+    whole cast and every place in one go, and a world half painted and half photoreal is
+    not a world. So this drives the real populate stages and watches what the render
+    helpers are handed.
+    """
+    from app.schemas.character import CharacterDraftResponse
+    from app.schemas.setting import SettingDraftResponse
+    from app.schemas.world_populate import RosterEntry
+    from app.services import world_populate
+
+    seen: list[str | None] = []
+    monkeypatch.setattr(
+        world_populate,
+        "_render_portrait",
+        lambda db, char, style=None: (seen.append(style), ("/media/portraits/x.webp", None))[1],
+    )
+    monkeypatch.setattr(
+        world_populate,
+        "_render_scene_art",
+        lambda db, setting, style=None: (seen.append(style), ("/media/scenes/x.webp", None))[1],
+    )
+    # The drafting agents are not what is under test; stub them so the stage reaches the
+    # render step without an LLM.
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "draft_character",
+        lambda *a, **k: CharacterDraftResponse(name="Mei", role="Smuggler"),
+    )
+    monkeypatch.setattr(
+        world_populate.setting_agent,
+        "draft_setting",
+        lambda *a, **k: SettingDraftResponse(name="The Harbor", type="Exploration"),
+    )
+    monkeypatch.setattr(world_populate, "_write_voice", lambda *a, **k: None)
+    monkeypatch.setattr(world_populate, "_write_starting_stats", lambda *a, **k: None)
+
+    entries = [RosterEntry(name="Mei", seed="a wiry smuggler")]
+    list(
+        world_populate._populate_characters(
+            db_session, storyline_id, entries, docs_overview=None, artwork=True, art_style="anime"
+        )
+    )
+    list(
+        world_populate._populate_settings(
+            db_session,
+            storyline_id,
+            [RosterEntry(name="The Harbor", seed="fog and brine")],
+            docs_overview=None,
+            artwork=True,
+            art_style="anime",
+        )
+    )
+
+    assert seen == ["anime", "anime"], "every render in the run must wear the chosen style"
+
+
+def test_the_world_build_defaults_to_no_style_so_options_decides(
+    client, storyline_id, db_session, monkeypatch
+):
+    from app.schemas.character import CharacterDraftResponse
+    from app.schemas.world_populate import RosterEntry
+    from app.services import world_populate
+
+    seen: list[str | None] = []
+    monkeypatch.setattr(
+        world_populate,
+        "_render_portrait",
+        lambda db, char, style=None: (seen.append(style), ("/media/portraits/x.webp", None))[1],
+    )
+    monkeypatch.setattr(
+        world_populate.character_agent,
+        "draft_character",
+        lambda *a, **k: CharacterDraftResponse(name="Mei", role="Smuggler"),
+    )
+    monkeypatch.setattr(world_populate, "_write_voice", lambda *a, **k: None)
+    monkeypatch.setattr(world_populate, "_write_starting_stats", lambda *a, **k: None)
+
+    list(
+        world_populate._populate_characters(
+            db_session,
+            storyline_id,
+            [RosterEntry(name="Mei", seed="a wiry smuggler")],
+            docs_overview=None,
+            artwork=True,
+        )
+    )
+    assert seen == [None], "None so the render service resolves the operator's default"
+
+
+def test_the_populate_request_carries_an_art_style():
+    from app.schemas.world_populate import WorldPopulateRequest
+
+    assert WorldPopulateRequest().art_style is None
+    assert (
+        WorldPopulateRequest.model_validate({"artStyle": "photoreal"}).art_style == "photoreal"
+    )

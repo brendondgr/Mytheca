@@ -57,7 +57,7 @@ describe("BuildWorldModal — asking", () => {
     expect(screen.getByRole("checkbox", { name: /write the characters/i })).toBeChecked();
     // The probe decides — a running ComfyUI means the author expects images.
     await waitFor(() =>
-      expect(screen.getByRole("checkbox", { name: /paint portraits/i })).toBeChecked(),
+      expect(screen.getByRole("checkbox", { name: /also paint portraits and scene art/i })).toBeChecked(),
     );
     expect(screen.getByText(/ComfyUI is running/i)).toBeInTheDocument();
   });
@@ -72,7 +72,7 @@ describe("BuildWorldModal — asking", () => {
     const h = show();
 
     await waitFor(() =>
-      expect(screen.getByRole("checkbox", { name: /paint portraits/i })).toBeDisabled(),
+      expect(screen.getByRole("checkbox", { name: /also paint portraits and scene art/i })).toBeDisabled(),
     );
     expect(screen.getByText(/No ComfyUI server is answering/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /create & build/i }));
@@ -80,6 +80,7 @@ describe("BuildWorldModal — asking", () => {
       enabled: true,
       withArtwork: false,
       source: "invent",
+      artStyle: null,
     });
   });
 
@@ -87,7 +88,7 @@ describe("BuildWorldModal — asking", () => {
     const user = userEvent.setup();
     const h = show();
     await waitFor(() =>
-      expect(screen.getByRole("checkbox", { name: /paint portraits/i })).toBeChecked(),
+      expect(screen.getByRole("checkbox", { name: /also paint portraits and scene art/i })).toBeChecked(),
     );
 
     await user.click(screen.getByRole("button", { name: /create & build/i }));
@@ -96,6 +97,7 @@ describe("BuildWorldModal — asking", () => {
       enabled: true,
       withArtwork: true,
       source: "invent",
+      artStyle: null,
     });
   });
 
@@ -106,6 +108,7 @@ describe("BuildWorldModal — asking", () => {
       enabled: false,
       withArtwork: false,
       source: "invent",
+      artStyle: null,
     });
   });
 });
@@ -268,5 +271,58 @@ describe("BuildWorldModal — finished", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(/only partly built/i);
     await userEvent.click(screen.getByRole("button", { name: /enter the world anyway/i }));
     expect(h.onEnter).toHaveBeenCalled();
+  });
+});
+
+describe("BuildWorldModal — art style", () => {
+  const artworkBox = () =>
+    screen.getByRole("checkbox", { name: /also paint portraits and scene art/i });
+
+  it("offers the picker only while artwork is actually going to be rendered", async () => {
+    const user = userEvent.setup();
+    show();
+    // A running ComfyUI pre-checks artwork, so the style question is live immediately.
+    await waitFor(() => expect(artworkBox()).toBeChecked());
+    expect(await screen.findByRole("radio", { name: /painted/i })).toBeInTheDocument();
+
+    // Decline the artwork and the question goes with it — there is nothing to style.
+    await user.click(artworkBox());
+    expect(screen.queryByRole("radio", { name: /painted/i })).not.toBeInTheDocument();
+  });
+
+  it("sends the chosen style once for the whole run", async () => {
+    const user = userEvent.setup();
+    const handlers = show();
+    await waitFor(() => expect(artworkBox()).toBeChecked());
+
+    await user.click(await screen.findByRole("radio", { name: /anime/i }));
+    await user.click(screen.getByRole("button", { name: /create & build/i }));
+
+    expect(handlers.onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ withArtwork: true, artStyle: "anime" }),
+    );
+  });
+
+  it("defaults to no style, so the Options default decides", async () => {
+    const user = userEvent.setup();
+    const handlers = show();
+    await waitFor(() => expect(artworkBox()).toBeChecked());
+
+    await user.click(screen.getByRole("button", { name: /create & build/i }));
+    expect(handlers.onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ artStyle: null }),
+    );
+  });
+
+  it("carries the style even on the world-only path, for a later build", async () => {
+    const user = userEvent.setup();
+    const handlers = show();
+    await waitFor(() => expect(artworkBox()).toBeChecked());
+
+    await user.click(await screen.findByRole("radio", { name: /photoreal/i }));
+    await user.click(screen.getByRole("button", { name: /just the world/i }));
+    expect(handlers.onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: false, artStyle: "photoreal" }),
+    );
   });
 });

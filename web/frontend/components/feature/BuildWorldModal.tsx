@@ -10,6 +10,8 @@ import * as api from "@/lib/api";
 import { API_BASE } from "@/lib/api";
 import { buildSummary, type BuildState } from "@/features/library/worldBuild";
 import type { PopulateOptions, RosterSource } from "@/lib/types";
+import { ArtStylePicker } from "@/components/feature/ArtStylePicker";
+import type { ArtStyleId } from "@/lib/api";
 
 /** "6 character files · 3 setting files · 2 lore files" */
 function describeFiles(files: { characters: number; settings: number; lore: number }): string {
@@ -62,6 +64,9 @@ export function BuildWorldModal({
 }) {
   const [enabled, setEnabled] = useState(defaults.enabled);
   const [withArtwork, setWithArtwork] = useState(defaults.withArtwork);
+  // Chosen once, up front, for the whole run: a world whose cast is half painted and half
+  // photoreal is not a world. `null` = the operator's default from Options.
+  const [artStyle, setArtStyle] = useState<ArtStyleId | null>(defaults.artStyle ?? null);
   // Files win by default: if the author uploaded and classified any, the build makes
   // *those* people and places. Inventing is a deliberate choice, never a surprise.
   const hasFiles = sourceFiles.characters + sourceFiles.settings + sourceFiles.lore > 0;
@@ -235,6 +240,15 @@ export function BuildWorldModal({
                   </span>
                 </span>
               </label>
+
+              {enabled && withArtwork && comfy === "up" ? (
+                <ArtStylePicker
+                  value={artStyle}
+                  onChange={setArtStyle}
+                  label="Style for every image in this build"
+                  className="ml-[25px]"
+                />
+              ) : null}
             </fieldset>
           </>
         ) : (
@@ -249,7 +263,9 @@ export function BuildWorldModal({
               </Button>
               <Button
                 variant="secondary"
-                onClick={() => onConfirm({ enabled: false, withArtwork: false, source })}
+                onClick={() =>
+                  onConfirm({ enabled: false, withArtwork: false, source, artStyle })
+                }
               >
                 Just the world
               </Button>
@@ -259,6 +275,7 @@ export function BuildWorldModal({
                     enabled,
                     withArtwork: enabled && withArtwork && comfy === "up",
                     source,
+                    artStyle,
                   })
                 }
               >

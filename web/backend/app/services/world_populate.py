@@ -240,7 +240,7 @@ def _write_starting_stats(db: Session, char) -> str | None:
         return f"Could not set {char.name}'s starting stats: {_message_of(exc)}"
 
 
-def _render_portrait(db: Session, char) -> tuple[str | None, str | None]:
+def _render_portrait(db: Session, char, style: str | None = None) -> tuple[str | None, str | None]:
     """Best-effort portrait for a persisted character. Returns ``(url, error)``."""
     try:
         prompts = character_agent.generate_portrait_prompts(
@@ -249,8 +249,9 @@ def _render_portrait(db: Session, char) -> tuple[str | None, str | None]:
             role=char.role,
             appearance=char.appearance,
             traits=char.traits,
+            style=style,
         )
-        result = portraits.generate_portrait(db, prompts.positive, prompts.negative)
+        result = portraits.generate_portrait(db, prompts.positive, prompts.negative, style=style)
         char.portrait = result["portrait"]
         char.portrait_positive = prompts.positive
         char.portrait_negative = prompts.negative
@@ -261,7 +262,7 @@ def _render_portrait(db: Session, char) -> tuple[str | None, str | None]:
         return None, f"Could not render a portrait for {char.name}: {_message_of(exc)}"
 
 
-def _render_scene_art(db: Session, setting) -> tuple[str | None, str | None]:
+def _render_scene_art(db: Session, setting, style: str | None = None) -> tuple[str | None, str | None]:
     """Best-effort establishing shot for a persisted setting. Returns ``(url, error)``."""
     try:
         prompts = setting_agent.generate_scene_art_prompts(
@@ -272,8 +273,9 @@ def _render_scene_art(db: Session, setting) -> tuple[str | None, str | None]:
             atmosphere=setting.atmosphere,
             features=setting.features,
             current_state=setting.current_state,
+            style=style,
         )
-        result = scene_art.generate_scene_art(db, prompts.positive, prompts.negative)
+        result = scene_art.generate_scene_art(db, prompts.positive, prompts.negative, style=style)
         setting.image = result["image"]
         setting.scene_art_positive = prompts.positive
         setting.scene_art_negative = prompts.negative
@@ -291,6 +293,7 @@ def _populate_characters(
     *,
     docs_overview: str | None,
     artwork: bool,
+    art_style: str | None = None,
 ) -> Iterator[PopulateEvent]:
     """Draft + persist each cast member (one ``entity`` frame per one that landed)."""
     total = len(entries)
@@ -358,7 +361,7 @@ def _populate_characters(
                 total=total,
                 message=f"Painting {char.name}…",
             )
-            image, err = _render_portrait(db, char)
+            image, err = _render_portrait(db, char, art_style)
             if err:
                 yield PopulateErrorFrame(message=err)
         yield PopulateEntityFrame(
@@ -373,6 +376,7 @@ def _populate_settings(
     *,
     docs_overview: str | None,
     artwork: bool,
+    art_style: str | None = None,
 ) -> Iterator[PopulateEvent]:
     """Draft + persist each place (one ``entity`` frame per one that landed)."""
     total = len(entries)
@@ -415,7 +419,7 @@ def _populate_settings(
                 total=total,
                 message=f"Painting {setting.name}…",
             )
-            image, err = _render_scene_art(db, setting)
+            image, err = _render_scene_art(db, setting, art_style)
             if err:
                 yield PopulateErrorFrame(message=err)
         yield PopulateEntityFrame(
@@ -567,6 +571,7 @@ def populate_world(
     max_characters: int = 5,
     max_settings: int = 3,
     with_artwork: bool = False,
+    art_style: str | None = None,
 ) -> Iterator[PopulateEvent]:
     """Plan, draft, and persist a new world's cast + places, streaming progress.
 
@@ -606,9 +611,21 @@ def populate_world(
     made = {"character": 0, "setting": 0}
     stages = (
         _populate_characters(
-            db, storyline_id, characters, docs_overview=grounding, artwork=artwork
+            db,
+            storyline_id,
+            characters,
+            docs_overview=grounding,
+            artwork=artwork,
+            art_style=art_style,
         ),
-        _populate_settings(db, storyline_id, settings, docs_overview=grounding, artwork=artwork),
+        _populate_settings(
+            db,
+            storyline_id,
+            settings,
+            docs_overview=grounding,
+            artwork=artwork,
+            art_style=art_style,
+        ),
     )
     for stage in stages:
         for event in stage:

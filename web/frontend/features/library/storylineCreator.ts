@@ -261,6 +261,7 @@ export async function runPopulate(
           docsOverview,
           source: opts.source,
           withArtwork: opts.withArtwork,
+          ...(opts.artStyle ? { artStyle: opts.artStyle } : {}),
           fromSeq: state.lastSeq + 1,
         },
         signal,
