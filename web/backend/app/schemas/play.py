@@ -98,10 +98,13 @@ class TurnRequest(CamelModel):
 
 
 class SessionSummary(CamelModel):
-    """One play-through's metadata for the resume list (newest ``updatedAt`` first).
+    """One play-through's metadata for the tray (newest ``updatedAt`` first).
 
-    ``turnCount`` is the number of player turns taken; ``preview`` is the first
-    player line (a human-readable label for the play-through).
+    ``turnCount`` is the number of player turns taken; ``preview`` is the first non-empty
+    player line. ``name`` is the player's own label, and the tray falls back to
+    ``preview`` when it is unset. ``parentSessionId`` + ``forkSeq`` are set together on a
+    play-through that was branched from another (and on the snapshot a rewind keeps),
+    recording which session it came from and the seq the copy ran through.
     """
 
     id: str
@@ -111,6 +114,23 @@ class SessionSummary(CamelModel):
     closed_at: datetime | None = None
     turn_count: int = 0
     preview: str = ""
+    name: str | None = None
+    parent_session_id: str | None = None
+    fork_seq: int | None = None
+
+
+class SessionCreateRequest(CamelModel):
+    """Start a fresh play-through of a scenario. An optional label; nothing else is
+    needed, because a new session opens empty and the first turn fills it."""
+
+    name: str | None = None
+
+
+class SessionRenameRequest(CamelModel):
+    """Relabel a play-through. A blank name clears the label, restoring the
+    first-player-line fallback."""
+
+    name: str | None = None
 
 
 class SessionListResponse(CamelModel):

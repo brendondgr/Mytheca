@@ -18,11 +18,11 @@ Verified against the code on 2026-08-04.
 - **Population never proposes scenarios.** It writes characters and settings only (each character whole — draft, voice profile, starting stats, portrait); the first scenario is still authored by hand.
 - **World-build runs are in-process and non-durable.** `services/world_populate_runs.py` keeps a run's frame log in memory, keyed by storyline. A backend restart ends the run (the client is told, and never silently rebuilds), and a multi-process deployment would not share the registry. Durable runs (a table + a worker) are unbuilt.
 - **A stopped build leaves a partly-built world.** *Stop* aborts the stream but does not roll back the rows already committed, and there is no in-app way to resume the run — the author finishes the cast by hand. Tied to the missing re-run entry point above.
-- **The scene direction is not persisted.** `TurnRequest.guidance` shapes the turn it was
-  sent with and shows up in the Inspector's `direction` trace steps, but it is not written to
-  the `user_turn` row — so a session reload does not restore it into the composer's direction
-  box, and an export cannot show what the player asked for versus what the turn delivered.
-  The row already carries `data = {text, directedAt, pov}`; adding `guidance` is additive.
+- **The scene direction is persisted but not yet restored or exported.** `TurnRequest.guidance`
+  is now written to the `user_turn` row (`data.guidance`), alongside `data.taggedDocIds` — so the
+  record is there. What is still missing is the two consumers: a session reload does not restore
+  it into the composer's direction box, and an export cannot show what the player asked for versus
+  what the turn delivered. Owned by `docs/plans/steering-the-scene.md` Phase 1.
 - **Nothing verifies that a requirement was actually met.** A beat marks its requirements
   delivered because it *carried* them into the prompt, not because the emitted prose reached
   them (a deliberate call — an LLM "did that happen?" check would roughly double the turn's
@@ -321,11 +321,10 @@ are **decisions, not oversights**, recorded here so they are not mistaken for dr
 
 ## `@` file tagging — deferred follow-ups
 
-- **The persisted player beat shows no attachment.** `@`-tagged files are visible in the
-  composer (chips) before sending and in the Inspector's `Files` step after, but the
-  `user_turn` row records only the stripped text, so a resumed scene cannot show which
-  files a past turn carried. Rendering an attachment chip on the transcript beat means
-  persisting the ids on the event and threading them through `rehydrateFromHistory`.
+- **The persisted player beat shows no attachment chip yet.** The ids are now on the row
+  (`user_turn.data.taggedDocIds`), so a resumed scene *can* know which files a past turn carried.
+  What remains is the rendering: threading them through `rehydrateFromHistory` and drawing the
+  chip on the transcript beat. Owned by `docs/plans/control-over-the-record.md` Phase 11.
 - **No token accounting for tagged text.** `ContextUsageDial` estimates from the beats and
   the model's reported `prompt_tokens`; up to 12 000 characters of tagged text is not in
   the pre-send estimate, so the dial under-reads until the turn's real usage comes back.

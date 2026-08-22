@@ -68,7 +68,15 @@ def test_record_user_turn_persists_text(db_session):
     stored = db_session.get(Event, event.id)
     assert stored.type == "user_turn"
     # `pov` defaults to None (today's guide/narrator behavior) alongside the existing keys.
-    assert stored.data == {"text": "hi", "directedAt": "mei", "pov": None}
+    # `guidance`/`taggedDocIds` are written on every row so a rewind or turn-scope re-roll can
+    # replay the turn with what it rode in with; both are empty for an undirected, untagged turn.
+    assert stored.data == {
+        "text": "hi",
+        "directedAt": "mei",
+        "pov": None,
+        "guidance": None,
+        "taggedDocIds": [],
+    }
 
 
 def test_record_user_turn_persists_pov(db_session):
@@ -81,7 +89,13 @@ def test_record_user_turn_persists_pov(db_session):
         text="I have nothing to say to you.", directed_at=None, pov="mei",
     )
     stored = db_session.get(Event, event.id)
-    assert stored.data == {"text": "I have nothing to say to you.", "directedAt": None, "pov": "mei"}
+    assert stored.data == {
+        "text": "I have nothing to say to you.",
+        "directedAt": None,
+        "pov": "mei",
+        "guidance": None,
+        "taggedDocIds": [],
+    }
 
 
 def test_persist_story_event_preserves_id_and_camel_data(db_session):

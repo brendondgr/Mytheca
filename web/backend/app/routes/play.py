@@ -50,16 +50,9 @@ _STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
 
 def _summary(db: Session, session: PlaySession) -> SessionSummary:
-    turn_count, preview = events_store.user_turn_stats(db, session.id)
-    return SessionSummary(
-        id=session.id,
-        scenario_id=session.scenario_id,
-        created_at=session.created_at,
-        updated_at=session.updated_at,
-        closed_at=session.closed_at,
-        turn_count=turn_count,
-        preview=preview,
-    )
+    """Thin alias — the shape lives in ``events_store`` so ``play_record`` renders the
+    identical summary (including the lineage fields)."""
+    return events_store.session_summary(db, session)
 
 
 @router.post("/{scenario_id}/turn")

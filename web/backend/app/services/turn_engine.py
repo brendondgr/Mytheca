@@ -443,6 +443,8 @@ def run_turn(
         text=text,
         directed_at=req.directed_at,
         pov=pov_id,
+        guidance=req.guidance,
+        tagged_doc_ids=req.tagged_doc_ids,
     )
     yield from tracer.emit(
         "turn",

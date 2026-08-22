@@ -45,7 +45,7 @@ function historyOf(sessionId: string): SessionHistory {
   return {
     session: {
       id: sessionId, scenarioId: scenario.id, createdAt: "t", updatedAt: "t",
-      closedAt: null, turnCount: 1, preview: "Prior line",
+      closedAt: null, turnCount: 1, preview: "Prior line", name: null, parentSessionId: null, forkSeq: null,
     },
     events: [
       { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId, ts: "t", visibility: "public", data: { text: "Prior line", directedAt: null } },
@@ -85,7 +85,7 @@ describe("useScenePlay scene reveal", () => {
 describe("useScenePlay resume + save-on-close", () => {
   it("rehydrates the transcript + trace from the latest saved session and continues it", async () => {
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
-      sessions: [{ id: "ps_prior", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "Prior line" }],
+      sessions: [{ id: "ps_prior", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "Prior line", name: null, parentSessionId: null, forkSeq: null }],
     });
     vi.mocked(getSessionHistory).mockResolvedValueOnce(historyOf("ps_prior"));
 
@@ -110,7 +110,7 @@ describe("useScenePlay resume + save-on-close", () => {
 
   it("fires the save-on-close signal when the player leaves", async () => {
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
-      sessions: [{ id: "ps_prior", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "Prior line" }],
+      sessions: [{ id: "ps_prior", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "Prior line", name: null, parentSessionId: null, forkSeq: null }],
     });
     vi.mocked(getSessionHistory).mockResolvedValueOnce(historyOf("ps_prior"));
     const { result, unmount } = renderHook(() => useScenePlay(scenario));
@@ -123,7 +123,7 @@ describe("useScenePlay resume + save-on-close", () => {
 describe("useScenePlay presence", () => {
   it("rehydrates presenceByChar from a persisted status change", async () => {
     const history: SessionHistory = {
-      session: { id: "ps_p", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" },
+      session: { id: "ps_p", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null },
       events: [
         { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_p", ts: "t", visibility: "public", data: { text: "x", directedAt: null } },
         { type: "character_status_change", id: "s", seq: 1, scenarioId: scenario.id, sessionId: "ps_p", ts: "t", visibility: "public", data: { characterId: speaker.id, status: "dead", reason: "", auto: true } },
@@ -131,7 +131,7 @@ describe("useScenePlay presence", () => {
       traces: [],
     };
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
-      sessions: [{ id: "ps_p", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" }],
+      sessions: [{ id: "ps_p", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null }],
     });
     vi.mocked(getSessionHistory).mockResolvedValueOnce(history);
 
@@ -142,7 +142,7 @@ describe("useScenePlay presence", () => {
   it("setPresence updates state and persists to the session", async () => {
     vi.mocked(apiSetPresence).mockClear();
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
-      sessions: [{ id: "ps_prior", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "Prior line" }],
+      sessions: [{ id: "ps_prior", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "Prior line", name: null, parentSessionId: null, forkSeq: null }],
     });
     vi.mocked(getSessionHistory).mockResolvedValueOnce(historyOf("ps_prior"));
     const { result } = renderHook(() => useScenePlay(scenario));
@@ -183,10 +183,10 @@ describe("useScenePlay stats baseline", () => {
       id === speaker.id ? { trust: 40, suspicion: 5 } : {},
     );
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
-      sessions: [{ id: "ps_b", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" }],
+      sessions: [{ id: "ps_b", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null }],
     });
     vi.mocked(getSessionHistory).mockResolvedValueOnce({
-      session: { id: "ps_b", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" },
+      session: { id: "ps_b", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null },
       events: [
         { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_b", ts: "t", visibility: "public", data: { text: "x", directedAt: null } },
         { type: "state_update", id: "s", seq: 1, scenarioId: scenario.id, sessionId: "ps_b", ts: "t", visibility: "public", data: { patch: {}, stat: { characterId: speaker.id, key: "trust", value: 85, reason: "won them over" } } },
@@ -391,10 +391,10 @@ describe("useScenePlay activity feed + per-character status", () => {
 
   it("activity feed starts empty and accumulates only live frames (no rehydration)", async () => {
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
-      sessions: [{ id: "ps_old", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "old" }],
+      sessions: [{ id: "ps_old", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "old", name: null, parentSessionId: null, forkSeq: null }],
     });
     vi.mocked(getSessionHistory).mockResolvedValueOnce({
-      session: { id: "ps_old", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "old" },
+      session: { id: "ps_old", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "old", name: null, parentSessionId: null, forkSeq: null },
       events: [
         { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_old", ts: "t", visibility: "public", data: { text: "old", directedAt: null } },
         { type: "character_dialogue", id: "d_old", seq: 1, scenarioId: scenario.id, sessionId: "ps_old", ts: "t", visibility: "public", data: { characterId: cid, text: '"Resumed."', done: true } },
@@ -482,10 +482,10 @@ describe("useScenePlay Player POV", () => {
 
   it("restores POV from the most recent user_turn on resume", async () => {
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
-      sessions: [{ id: "ps_pov", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" }],
+      sessions: [{ id: "ps_pov", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null }],
     });
     vi.mocked(getSessionHistory).mockResolvedValueOnce({
-      session: { id: "ps_pov", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" },
+      session: { id: "ps_pov", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null },
       events: [
         { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_pov", ts: "t", visibility: "public", data: { text: "I say nothing.", directedAt: null, pov: speaker.id } },
       ],
@@ -538,10 +538,10 @@ describe("useScenePlay context tokens (exact vs. estimate)", () => {
 
   it("seeds the exact value from a resumed session's persisted `context` trace", async () => {
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
-      sessions: [{ id: "ps_ct", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" }],
+      sessions: [{ id: "ps_ct", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null }],
     });
     vi.mocked(getSessionHistory).mockResolvedValueOnce({
-      session: { id: "ps_ct", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" },
+      session: { id: "ps_ct", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null },
       events: [
         { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_ct", ts: "t", visibility: "public", data: { text: "x", directedAt: null } },
       ],
@@ -582,7 +582,7 @@ describe("useScenePlay create image", () => {
   /** Resume a saved session so the hook has a session id to attach a moment to. */
   async function renderWithSession() {
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
-      sessions: [{ id: "ps_img", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x" }],
+      sessions: [{ id: "ps_img", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null }],
     });
     vi.mocked(getSessionHistory).mockResolvedValueOnce(historyOf("ps_img"));
     const { result } = renderHook(() => useScenePlay(scenario));

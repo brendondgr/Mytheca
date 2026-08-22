@@ -263,6 +263,21 @@ play-through **fully reviewable and continuable**:
   were previously transport-only survive for later review. `PlaySession` gains `updated_at`
   (bumped each turn) and `closed_at`.
 
+- **A scenario holds many play-throughs.** `PlaySession` also carries `name` (the player's own
+  label), plus `parent_session_id` + `fork_seq`, which are set together on a play-through forked
+  from another and record where it diverged. `POST /play/{id}/sessions` opens a fresh, empty one
+  **without touching the existing sessions**; `PATCH …/sessions/{sid}` relabels; `DELETE
+  …/sessions/{sid}` removes it with its `events` and `turn_traces` (deleted explicitly rather than
+  via the FK cascade, so Postgres and the SQLite test/dev database behave identically). All three
+  live in `routes/play_record.py`, separate from `routes/play.py`, which carries the turn stream.
+  The story player's play-through tray is the surface over them.
+
+- **The turn's own inputs are persisted.** The `user_turn` row's `data` carries `guidance` (the
+  scene direction) and `taggedDocIds` alongside `text`, `directedAt` and `pov`. Both were
+  previously request-only and died with the turn, which meant a reload could not restore the
+  direction into the composer and an export could not show what the player asked for against what
+  the turn delivered. Rows written before this carry neither key.
+
 ```
 Open a scenario (useScenePlay)
   → GET /play/{id}/sessions → resume the most-recent play-through

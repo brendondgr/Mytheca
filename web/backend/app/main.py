@@ -27,6 +27,7 @@ from app.routes import (
     graph,
     options,
     play,
+    play_record,
     rag,
     scenarios,
     settings,
@@ -128,6 +129,7 @@ def create_app() -> FastAPI:
         graph,
         rag,
         play,
+        play_record,
     ):
         api.include_router(module.router)
     app.include_router(api)

@@ -366,6 +366,22 @@ export const getSessionHistory = (scenarioId: string, sessionId: string) =>
   request<SessionHistory>(`/play/${scenarioId}/sessions/${sessionId}`);
 
 /**
+ * Start a **fresh** play-through. Deliberately never touches the existing ones: before this
+ * existed the client resumed the most recent session unconditionally, so a scenario could
+ * only ever hold one story.
+ */
+export const createPlaySession = (scenarioId: string, name?: string) =>
+  post<SessionSummary>(`/play/${scenarioId}/sessions`, { name: name ?? null });
+
+/** Relabel a play-through. A blank name clears the label and restores the `preview` fallback. */
+export const renamePlaySession = (scenarioId: string, sessionId: string, name: string | null) =>
+  patch<SessionSummary>(`/play/${scenarioId}/sessions/${sessionId}`, { name });
+
+/** Delete a play-through and its history (events + traces cascade server-side). */
+export const deletePlaySession = (scenarioId: string, sessionId: string) =>
+  del(`/play/${scenarioId}/sessions/${sessionId}`);
+
+/**
  * The save-on-close signal: mark a play-through closed. Fire-and-forget, and safe to call
  * during page unload — uses `navigator.sendBeacon` when available so the request survives
  * the navigation (every turn is already persisted; this only stamps recency/close).

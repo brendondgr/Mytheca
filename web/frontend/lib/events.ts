@@ -213,8 +213,15 @@ export interface SessionSummary {
   closedAt: string | null;
   /** Number of player turns taken. */
   turnCount: number;
-  /** The first player line — a human label for the play-through. */
+  /** The first **non-empty** player line — the tray's fallback label. Non-empty because a
+   *  text-less Continue turn writes a blank one. */
   preview: string;
+  /** The player's own label for this play-through; `null` falls back to `preview`. */
+  name: string | null;
+  /** Set together on a forked play-through (a branch, or a rewind's pre-cut snapshot):
+   *  the session it came from, and the parent `seq` the copy ran through, inclusive. */
+  parentSessionId: string | null;
+  forkSeq: number | null;
 }
 
 /**
