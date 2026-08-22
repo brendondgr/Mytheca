@@ -350,6 +350,12 @@ export interface RewindResult {
 /** The body for `POST /play/{scenarioId}/turn`. */
 export interface TurnRequestBody {
   text: string;
+  /**
+   * Who the line is aimed at. Set by the UI from the **first `@` cast mention in the
+   * message box** — the direction box's cast mentions are the subjects of the direction,
+   * not the addressee. The engine appends it to `intent.addressed` and promotes a freeform
+   * line to `direct`, so the person the player named is the one who answers.
+   */
   directedAt?: string | null;
   sessionId?: string | null;
   /** Request interleaved diagnostic `trace` frames (the Inspector panel). */

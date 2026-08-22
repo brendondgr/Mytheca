@@ -93,7 +93,9 @@ const PRESENCE_PHRASE: Record<PresenceStatus, string> = {
 /**
  * @param contextDocs The storyline's taggable context documents. Used only to resolve the
  *   `@name` tokens in the composer back into ids at send time — the hook never fetches or
- *   holds document text.
+ *   holds document text. The hook adds the **present cast** to this list itself (see
+ *   `mentionOptions`), because who is present is its own state and the caller would have to
+ *   read it back out to build the list.
  */
 export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOption[] = []) {
   const [seed] = useState(() => buildScene(scenario));
@@ -629,7 +631,12 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   }, []);
 
   const submit = useCallback(
-    (text: string, direction = "", taggedDocIds: string[] = []) => {
+    (
+      text: string,
+      direction = "",
+      taggedDocIds: string[] = [],
+      directedAt: string | null = null,
+    ) => {
       const t = text.trim();
       const d = direction.trim();
       // A turn is worth sending when the player said something **or** asked for something.
@@ -657,6 +664,10 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
               sessionId: sessionRef.current,
               trace: true,
               povCharacterId: pov,
+              // Set from an `@` cast mention in the message box. The engine appends it to
+              // `intent.addressed` and promotes a freeform line to `direct`, so the person
+              // the player named is the one who answers.
+              ...(directedAt ? { directedAt } : {}),
               // Only meaningful under POV — omitted otherwise so the backend keeps reading
               // the player's own line as the direction.
               guidance: d || null,
@@ -720,25 +731,54 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     [scenario.id],
   );
 
+  /**
+   * Everything `@` can name: the present cast, then the storyline's context files.
+   *
+   * One namespace, because the player types one `@` and does not think about which
+   * subsystem a name belongs to. `kind` is what splits the ids back apart on send — a cast
+   * mention aims the line (`directedAt`), a doc mention grounds it (`taggedDocIds`).
+   */
+  const mentionOptions = useMemo<MentionOption[]>(
+    () => [
+      ...scenario.cast
+        .filter((c) => (presenceByChar[c.id] ?? "present") === "present")
+        .map((c) => ({
+          id: c.id,
+          name: c.name,
+          kind: "cast" as const,
+          mono: c.mono,
+          color: c.color,
+          portrait: c.portrait,
+        })),
+      ...contextDocs.map((d) => ({ ...d, kind: "doc" as const })),
+    ],
+    [scenario.cast, presenceByChar, contextDocs],
+  );
+
   const send = useCallback(() => {
     if (sending) return;
     // Resolve @-tags from the FINAL text of both boxes rather than from accumulated click
     // state, so what is sent always matches what the player actually left written; the
     // `@name` tokens themselves are stripped so the line reaches the intent and direction
     // agents as clean prose.
-    const message = stripMentions(composer, contextDocs);
+    const message = stripMentions(composer, mentionOptions);
     const text = message.text.trim();
     // The direction applies to THIS turn only — it is consumed with the message, not kept
     // as a standing instruction the player would have to remember to clear.
     const rawDirection = pov ? guidance : "";
-    const directed = stripMentions(rawDirection, contextDocs);
+    const directed = stripMentions(rawDirection, mentionOptions);
     // Either box on its own is enough to send. Only both empty is nothing to do.
     if (!text && !directed.text.trim()) return;
-    const taggedDocIds = Array.from(new Set([...message.ids, ...directed.ids]));
+    const taggedDocIds = Array.from(new Set([...message.docIds, ...directed.docIds]));
+    // Who the line is aimed at, from the FIRST cast mention in the **message** box only.
+    // The message is what the player says; the direction box is what they ask the scene to
+    // do, and a character named there is a subject of the direction, not the addressee.
+    // (Cast ids from the direction box are held for the pinning work in Phase 8.)
+    const directedAt = message.castIds[0] ?? null;
     setComposer("");
     setGuidance("");
-    submit(text, directed.text, taggedDocIds);
-  }, [composer, contextDocs, guidance, pov, sending, submit]);
+    submit(text, directed.text, taggedDocIds, directedAt);
+  }, [composer, mentionOptions, guidance, pov, sending, submit]);
 
   // Selecting a follow-up no longer submits: it writes the suggested (situation-based, tone-
   // matched) text into the composer so the player can review and edit it before sending
@@ -755,6 +795,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     stats,
     statsByChar,
     presenceByChar,
+    mentionOptions,
     setPresence,
     relationships: graphRels.length ? graphRels : seed.relationships,
     turnOrder: seed.turnOrder,

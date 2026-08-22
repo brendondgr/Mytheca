@@ -488,16 +488,16 @@ describe("Composer", () => {
     it("lists the tagged file as a chip", async () => {
       const user = userEvent.setup();
       render(<Harness initial="@maerin.md what is she holding?" />);
-      const chips = screen.getByRole("list", { name: /tagged files/i });
+      const chips = screen.getByRole("list", { name: /tagged in this turn/i });
       expect(within(chips).getByText("maerin.md")).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: /remove maerin\.md/i }));
       expect(message()).toHaveValue("what is she holding?");
-      expect(screen.queryByRole("list", { name: /tagged files/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: /tagged in this turn/i })).not.toBeInTheDocument();
     });
 
     it("shows no chip row when nothing is tagged", () => {
       render(<Harness initial="just talking" />);
-      expect(screen.queryByRole("list", { name: /tagged files/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: /tagged in this turn/i })).not.toBeInTheDocument();
     });
 
     it("works in the scene-direction box too", async () => {
@@ -507,7 +507,7 @@ describe("Composer", () => {
       await user.keyboard("@har{Enter}");
       expect(direction()).toHaveValue("@harbor.md ");
       expect(
-        within(screen.getByRole("list", { name: /tagged files/i })).getByText("harbor.md"),
+        within(screen.getByRole("list", { name: /tagged in this turn/i })).getByText("harbor.md"),
       ).toBeInTheDocument();
     });
   });

@@ -377,7 +377,9 @@ export function StoryPlayerView({
           ) : null}
 
           <Composer
-            mentionOptions={contextDocs}
+            // Cast + context files in one `@` namespace, built by the hook because who is
+            // present is its own state.
+            mentionOptions={scene.mentionOptions}
             value={scene.composer}
             onChange={scene.setComposer}
             onSend={scene.send}

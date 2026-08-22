@@ -3,6 +3,8 @@ import { SceneConfigMenu } from "@/components/feature/SceneConfigMenu";
 import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
 import { GhostwriteButton } from "@/components/feature/GhostwriteButton";
 import { ContextUsageDial } from "@/components/feature/ContextUsageDial";
+import { Monogram } from "@/components/ui/Monogram";
+import { mediaUrl } from "@/lib/api";
 import { MentionMenu } from "@/components/feature/MentionMenu";
 import { DirectionRow } from "@/components/feature/DirectionRow";
 import {
@@ -295,12 +297,16 @@ export function Composer({
 
   // The files currently tagged in either box, in the order they appear. Derived, never
   // stored — the text is the single source of truth for what will be sent.
+  // Both kinds, in the order they appear: a cast mention aims the line, a doc mention
+  // grounds it, and the row previews everything the turn will carry either way.
   const taggedIds = tagging
     ? Array.from(
-        new Set([
-          ...stripMentions(value, mentionOptions).ids,
-          ...(showGuidance ? stripMentions(guidance, mentionOptions).ids : []),
-        ]),
+        new Set(
+          [value, ...(showGuidance ? [guidance] : [])].flatMap((box) => {
+            const m = stripMentions(box, mentionOptions);
+            return [...m.castIds, ...m.docIds];
+          }),
+        ),
       )
     : [];
   const taggedFiles = taggedIds
@@ -403,16 +409,38 @@ export function Composer({
           style={{ overflowY: "hidden" }}
         />
 
-        {/* Tagged files — a preview of exactly what this turn will carry as reference. */}
+        {/* Tagged in this turn — a preview of exactly what it will carry: who it is aimed
+            at (cast) and what grounds it (files). A cast chip wears the character's colour
+            and monogram so the two kinds are never confused at a glance. */}
         {taggedFiles.length > 0 ? (
           <ul
-            aria-label="Tagged files"
+            aria-label="Tagged in this turn"
             className="mb-[6px] flex flex-wrap items-center gap-[5px] px-[4px]"
           >
             {taggedFiles.map((file) => (
               <li key={file.id}>
-                <span className="flex items-center gap-[4px] rounded-[6px] border border-field-bd py-[1px] pr-[1px] pl-[7px] font-mono text-[10px] text-mute">
-                  <span aria-hidden>⎙</span>
+                <span
+                  className={`flex items-center gap-[4px] rounded-[6px] border py-[1px] pr-[1px] pl-[7px] font-mono text-[10px] text-mute ${
+                    file.kind === "cast" && file.color ? "" : "border-field-bd"
+                  }`}
+                  style={
+                    file.kind === "cast" && file.color
+                      ? { borderColor: file.color }
+                      : undefined
+                  }
+                >
+                  {file.kind === "cast" ? (
+                    <Monogram
+                      mono={file.mono ?? file.name.slice(0, 1).toUpperCase()}
+                      color={file.color ?? "#8E2B1C"}
+                      size={14}
+                      ring={1}
+                      fontSize={7}
+                      src={file.portrait ? mediaUrl(file.portrait) : null}
+                    />
+                  ) : (
+                    <span aria-hidden>⎙</span>
+                  )}
                   <span className="max-w-[160px] truncate">{file.name}</span>
                   {/* 24×24 minimum target (WCAG 2.5.8) — the glyph is small, the hit area is not. */}
                   <button

@@ -238,11 +238,23 @@ cold-path turn-writer (a later phase); stat changes are clamped during validatio
 
 ### @-tagged context files (the `@` command)
 
-The player types `@` in either composer box, picks one of the storyline's context documents,
-and that file's text is injected into **this turn only**.
+The player types `@` in either composer box and picks from **one namespace holding two
+kinds** — the present cast, and the storyline's context documents — because they type one `@`
+and do not think about which subsystem a name belongs to. The menu separates them into two
+labelled `role="group"` sections, and `kind` splits the ids back apart on send, since what they
+do is opposite: **a character aims the line** (`directedAt`, from the first cast mention in the
+*message* box — one named in the *direction* box is the subject of the direction, not the
+addressee), while **a file grounds it** (`taggedDocIds`, injected into **this turn only**). The
+roving highlight addresses a flat index across both groups, so the composer's keyboard handling
+is unchanged. Within each match tier, cast is ordered before docs, so a typed `@M` reaches Mei
+before `maerin.md`; tier still beats kind, so a file whose name *starts* with the query wins over
+a character who merely contains it.
+
+`useScenePlay` builds the combined list itself (`mentionOptions`) rather than taking it from the
+view, because who is present is the hook's own state.
 
 ```
-Composer (@ menu over useSceneData.contextDocs, from GET …/context-docs/index — names only)
+Composer (@ menu over useScenePlay.mentionOptions = present cast + useSceneData.contextDocs)
   → useScenePlay.send: stripMentions(message) + stripMentions(direction)
       → the `@` sigil is dropped and the NAME KEPT ("read @maerin.md" → "read maerin.md")
         + the ids still present in the text

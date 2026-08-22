@@ -12,13 +12,30 @@
  * `@maerin.md` by hand therefore drops the tag with no stale state to reconcile.
  */
 
-/** One taggable context document, as listed by `GET …/context-docs/index`. */
+/**
+ * One `@`-taggable thing: a context document, or a present cast member.
+ *
+ * Both live in one namespace because the player types one `@` and does not think in terms
+ * of which subsystem the name belongs to. What each *does* is entirely different, though —
+ * a doc is reference material for the turn (`taggedDocIds`), while a character is who the
+ * line is aimed at (`directedAt`) — so `kind` is required at the point the ids are split
+ * back apart, and `stripMentions` returns the two lists separately.
+ */
 export interface MentionOption {
   id: string;
   name: string;
+  /** Defaults to `"doc"` when absent, so every existing call site is unchanged. */
+  kind?: "doc" | "cast";
   category?: string;
   charCount?: number;
+  /** Cast rows only — the identity the menu and the chip wear. */
+  mono?: string;
+  color?: string;
+  portrait?: string | null;
 }
+
+/** `kind` with its default applied. */
+const kindOf = (opt: MentionOption): "doc" | "cast" => opt.kind ?? "doc";
 
 /** How many rows the menu shows at once. */
 export const MENTION_LIMIT = 8;
@@ -63,7 +80,14 @@ export function filterMentions(
   query: string,
 ): MentionOption[] {
   const q = query.trim().toLowerCase();
-  if (!q) return options.slice(0, MENTION_LIMIT);
+  // Cast before docs **within each tier**, so a typed `@M` offers Mei before `maerin.md`.
+  // Tier still wins over kind: a doc whose name starts with the query beats a character who
+  // merely contains it, because the player is most likely completing what they typed.
+  const byKind = (rows: MentionOption[]) => [
+    ...rows.filter((o) => kindOf(o) === "cast"),
+    ...rows.filter((o) => kindOf(o) === "doc"),
+  ];
+  if (!q) return byKind(options).slice(0, MENTION_LIMIT);
   const prefix: MentionOption[] = [];
   const rest: MentionOption[] = [];
   for (const opt of options) {
@@ -71,7 +95,7 @@ export function filterMentions(
     if (name.startsWith(q)) prefix.push(opt);
     else if (name.includes(q)) rest.push(opt);
   }
-  return [...prefix, ...rest].slice(0, MENTION_LIMIT);
+  return [...byKind(prefix), ...byKind(rest)].slice(0, MENTION_LIMIT);
 }
 
 /** The result of editing the text: the new value and where the caret should land. */
@@ -95,9 +119,17 @@ export function applyMention(
   return { text: next, caret: start + token.length };
 }
 
-/** The cleaned prose plus the document ids it referenced. */
+/** The cleaned prose plus the ids it referenced, split by what they do. */
 export interface StrippedMentions {
   text: string;
+  /** Context-document ids → `taggedDocIds` (reference material for the turn). */
+  docIds: string[];
+  /** Cast ids → the first one becomes `directedAt` (who the line is aimed at). */
+  castIds: string[];
+  /**
+   * Alias of {@link docIds}. Kept because the name predates cast mentions and reads as
+   * "the ids" at a dozen call sites; new code should say which kind it means.
+   */
   ids: string[];
 }
 
@@ -125,7 +157,8 @@ export function stripMentions(
   options: MentionOption[],
 ): StrippedMentions {
   const byLength = [...options].sort((a, b) => b.name.length - a.name.length);
-  const ids: string[] = [];
+  const docIds: string[] = [];
+  const castIds: string[] = [];
   let out = "";
   let i = 0;
   while (i < text.length) {
@@ -145,14 +178,15 @@ export function stripMentions(
       i += 1;
       continue;
     }
-    if (!ids.includes(hit.id)) ids.push(hit.id);
+    const bucket = kindOf(hit) === "cast" ? castIds : docIds;
+    if (!bucket.includes(hit.id)) bucket.push(hit.id);
     // The matched run as the player typed it — not `hit.name`, so their casing survives.
     out += text.slice(i + 1, i + 1 + hit.name.length);
     i += 1 + hit.name.length;
     // The trailing space is NOT swallowed any more: the name stays, so the space between it
     // and the next word is part of the sentence.
   }
-  return { text: out.replace(/[ \t]{2,}/g, " ").trim(), ids };
+  return { text: out.replace(/[ \t]{2,}/g, " ").trim(), docIds, castIds, ids: docIds };
 }
 
 /**

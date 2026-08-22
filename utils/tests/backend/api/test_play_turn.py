@@ -1153,3 +1153,29 @@ def test_self_declared_exit_removes_character(client, storyline_id, monkeypatch,
     assert len(status) == 1 and status[0]["data"]["status"] == "left"
     session_id = status[0]["sessionId"]
     assert presence.current_presence(db_session, session_id).get(cid) == "left"
+
+
+def test_directed_at_reaches_the_intent_as_an_addressed_character(
+    client, storyline_id, monkeypatch
+):
+    """The composer now sets `directedAt` from an `@` cast mention, so the field finally has
+    a UI producer. Nothing on the backend changed for it — which is exactly why it is worth
+    pinning: the frontend is relying on behaviour no test had ever asserted."""
+    _configure_llm(client)
+    _patch_llm(monkeypatch)
+    cid, sid = _refs(client, storyline_id)
+    scid = _scenario(client, storyline_id, [cid], sid)
+    resp = client.post(
+        f"/api/play/{scid}/turn",
+        json={"text": "Mei what did you see?", "directedAt": cid, "trace": True},
+    )
+    assert resp.status_code == 200
+    events = _stream(resp)
+    intent = next(
+        e for e in events if e.get("type") == "trace" and e.get("step") == "intent"
+    )
+    assert cid in intent["data"].get("addressedIds", []) or "Mei" in intent["data"].get(
+        "addressed", []
+    )
+    # A freeform line addressed to someone is promoted to a direct one.
+    assert intent["data"]["kind"] == "direct"

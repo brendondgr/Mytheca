@@ -66,3 +66,78 @@ describe("MentionMenu", () => {
     expect(container).toBeEmptyDOMElement();
   });
 });
+
+describe("MentionMenu cast + docs", () => {
+  const MIXED = [
+    { id: "ch_mei", name: "Mei", kind: "cast" as const, mono: "M", color: "#8E2B1C" },
+    { id: "cd_m", name: "maerin.md", kind: "doc" as const, charCount: 120 },
+  ];
+
+  it("splits the rows into two labelled groups", () => {
+    render(
+      <MentionMenu
+        id="m"
+        options={MIXED}
+        activeIndex={0}
+        optionId={(i) => `m-${i}`}
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.getByRole("group", { name: "Cast" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Context files" })).toBeInTheDocument();
+  });
+
+  it("says which kind each row is, so identical names are still distinguishable", () => {
+    render(
+      <MentionMenu
+        id="m"
+        options={MIXED}
+        activeIndex={0}
+        optionId={(i) => `m-${i}`}
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.getByRole("option", { name: "Mei, character" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "maerin.md, context file" })).toBeInTheDocument();
+  });
+
+  it("keeps a FLAT index across both groups, so the roving highlight is unchanged", () => {
+    // The composer's Arrow/Enter/Tab handling addresses one list; grouping must not
+    // renumber the rows or the highlight and `aria-activedescendant` would disagree.
+    render(
+      <MentionMenu
+        id="m"
+        options={MIXED}
+        activeIndex={1}
+        optionId={(i) => `m-${i}`}
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.getByRole("option", { name: "maerin.md, context file" })).toHaveAttribute(
+      "id",
+      "m-1",
+    );
+    expect(screen.getByRole("option", { name: "maerin.md, context file" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("option", { name: "Mei, character" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+  });
+
+  it("omits a group that has no rows", () => {
+    render(
+      <MentionMenu
+        id="m"
+        options={[MIXED[0]]}
+        activeIndex={0}
+        optionId={(i) => `m-${i}`}
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("group", { name: "Context files" })).not.toBeInTheDocument();
+  });
+});
+

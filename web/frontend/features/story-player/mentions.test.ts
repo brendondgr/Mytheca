@@ -96,21 +96,21 @@ describe("stripMentions", () => {
   // "Hey" — a visual glitch as the chip appears, and the removal of the one noun the
   // sentence was about, so the intent and direction agents never saw who was meant.
   it("drops the sigil and keeps the name, returning its id", () => {
-    expect(stripMentions("@maerin.md what is she holding?", OPTS)).toEqual({
+    expect(stripMentions("@maerin.md what is she holding?", OPTS)).toMatchObject({
       text: "maerin.md what is she holding?",
       ids: ["cd_m"],
     });
   });
 
   it("keeps a mid-sentence name in place, with its spacing intact", () => {
-    expect(stripMentions("check @harbor.md for the tide", OPTS)).toEqual({
+    expect(stripMentions("check @harbor.md for the tide", OPTS)).toMatchObject({
       text: "check harbor.md for the tide",
       ids: ["cd_h"],
     });
   });
 
   it("prefers the longest matching filename", () => {
-    expect(stripMentions("@old harbor notes.md please", OPTS)).toEqual({
+    expect(stripMentions("@old harbor notes.md please", OPTS)).toMatchObject({
       text: "old harbor notes.md please",
       ids: ["cd_o"],
     });
@@ -127,14 +127,14 @@ describe("stripMentions", () => {
   });
 
   it("leaves an unknown @token alone and reports no id", () => {
-    expect(stripMentions("@nothere.md stays", OPTS)).toEqual({
+    expect(stripMentions("@nothere.md stays", OPTS)).toMatchObject({
       text: "@nothere.md stays",
       ids: [],
     });
   });
 
   it("leaves a mid-word @ alone", () => {
-    expect(stripMentions("write to me@maerin.md now", OPTS)).toEqual({
+    expect(stripMentions("write to me@maerin.md now", OPTS)).toMatchObject({
       text: "write to me@maerin.md now",
       ids: [],
     });
@@ -145,7 +145,7 @@ describe("stripMentions", () => {
   });
 
   it("returns untouched text when nothing is tagged", () => {
-    expect(stripMentions("just talking", OPTS)).toEqual({ text: "just talking", ids: [] });
+    expect(stripMentions("just talking", OPTS)).toMatchObject({ text: "just talking", ids: [] });
   });
 
   it("is the self-healing path: a deleted tag drops its id", () => {
@@ -187,3 +187,59 @@ describe("removeMention", () => {
     expect(removeMention("nothing tagged here", maerin)).toBe("nothing tagged here");
   });
 });
+
+describe("cast mentions", () => {
+  const MIXED: MentionOption[] = [
+    { id: "cd_m", name: "maerin.md", kind: "doc", charCount: 120 },
+    { id: "ch_mei", name: "Mei", kind: "cast", mono: "M", color: "#8E2B1C" },
+    { id: "cd_h", name: "harbor.md", kind: "doc", charCount: 80 },
+    { id: "ch_ald", name: "Aldous", kind: "cast", mono: "A", color: "#2B5E8E" },
+  ];
+
+  it("splits the ids by what they do", () => {
+    // A doc grounds the line; a character aims it. They cannot share one list.
+    const out = stripMentions("@Mei, look at @harbor.md", MIXED);
+    expect(out.castIds).toEqual(["ch_mei"]);
+    expect(out.docIds).toEqual(["cd_h"]);
+    expect(out.text).toBe("Mei, look at harbor.md");
+  });
+
+  it("keeps `ids` as an alias of the document ids", () => {
+    // The name predates cast mentions and still means "the files this turn carries".
+    const out = stripMentions("@Mei and @harbor.md", MIXED);
+    expect(out.ids).toEqual(out.docIds);
+    expect(out.ids).not.toContain("ch_mei");
+  });
+
+  it("offers a character before a document within the same match tier", () => {
+    // A typed `@M` should reach Mei before maerin.md — the player is far more often
+    // addressing someone than attaching a file.
+    // `harbor.md` also contains an "m" (the extension), so it trails in the second tier.
+    expect(filterMentions(MIXED, "m").map((o) => o.id)).toEqual(["ch_mei", "cd_m", "cd_h"]);
+  });
+
+  it("still lets a stronger match win over kind", () => {
+    // `harbor.md` starts with the query; no character does. Tier beats kind.
+    expect(filterMentions(MIXED, "harbor")[0].id).toBe("cd_h");
+  });
+
+  it("puts cast first in the unfiltered list too", () => {
+    expect(filterMentions(MIXED, "").map((o) => o.id)).toEqual([
+      "ch_mei",
+      "ch_ald",
+      "cd_m",
+      "cd_h",
+    ]);
+  });
+
+  it("treats an option with no kind as a document, so old call sites are unchanged", () => {
+    const out = stripMentions("@maerin.md now", [{ id: "cd_m", name: "maerin.md" }]);
+    expect(out.docIds).toEqual(["cd_m"]);
+    expect(out.castIds).toEqual([]);
+  });
+
+  it("removes a cast tag by its whole token, like a doc tag", () => {
+    expect(removeMention("@Mei, look here", MIXED[1])).toBe(", look here");
+  });
+});
+

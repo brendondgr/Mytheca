@@ -1175,3 +1175,66 @@ describe("useScenePlay direction survives a POV change", () => {
     expect(result.current.guidance).toBe("");
   });
 });
+
+describe("useScenePlay @ a character", () => {
+  const DOCS = [
+    { id: "cd_m", name: "maerin.md" },
+    { id: "cd_h", name: "harbor.md" },
+  ];
+
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+  });
+
+  it("offers the present cast alongside the context files", async () => {
+    const { result } = renderHook(() => useScenePlay(scenario, DOCS));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    const kinds = result.current.mentionOptions.map((o) => o.kind);
+    expect(kinds).toContain("cast");
+    expect(kinds).toContain("doc");
+    // Cast first, so a typed `@M` reaches a character before a same-lettered file.
+    expect(result.current.mentionOptions[0].kind).toBe("cast");
+  });
+
+  it("aims the turn at the first character named in the message box", async () => {
+    const { result } = renderHook(() => useScenePlay(scenario, DOCS));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setComposer(`@${speaker.name} what did you see?`));
+    act(() => result.current.send());
+
+    const body = vi.mocked(postTurn).mock.calls.at(-1)?.[1] as unknown as Record<string, unknown>;
+    expect(body.directedAt).toBe(speaker.id);
+    // The name survives in the prose — it is who the sentence is about.
+    expect(body.text).toBe(`${speaker.name} what did you see?`);
+    expect(body).not.toHaveProperty("taggedDocIds");
+  });
+
+  it("does not aim the turn from a character named in the direction box", async () => {
+    // The message is what the player says; the direction is what they ask the scene to do.
+    // A character named there is the subject of the direction, not the addressee.
+    const { result } = renderHook(() => useScenePlay(scenario, DOCS));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setPov(speaker.id));
+    act(() => result.current.setGuidance(`@${speaker.name} should storm out`));
+    act(() => result.current.send());
+
+    const body = vi.mocked(postTurn).mock.calls.at(-1)?.[1] as unknown as Record<string, unknown>;
+    expect(body).not.toHaveProperty("directedAt");
+    expect(body.guidance).toBe(`${speaker.name} should storm out`);
+  });
+
+  it("omits directedAt when no character was named", async () => {
+    const { result } = renderHook(() => useScenePlay(scenario, DOCS));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    act(() => result.current.setComposer("A plain line."));
+    act(() => result.current.send());
+
+    const body = vi.mocked(postTurn).mock.calls.at(-1)?.[1] as unknown as Record<string, unknown>;
+    expect(body).not.toHaveProperty("directedAt");
+  });
+});
+
