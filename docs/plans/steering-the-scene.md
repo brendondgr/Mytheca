@@ -1,5 +1,109 @@
 # Steering the Scene
 
+> **SHIPPED — 11/11 phases, 2026-08-22.** What follows this block is the plan as written.
+> The record below is what actually happened.
+
+## 0. Completion record
+
+### What shipped, and why
+
+The plan's thesis was that Mytheca already had a director's contract inside the turn loop and
+that everything missing was where that contract *meets the player*. That held. Almost none of
+the work was new machinery; most of it was making an existing promise true.
+
+- **The direction survives.** It is persisted on the `user_turn` row, restored into the box on
+  reload, rendered in exports, and — the larger change — whatever a turn could not deliver is
+  carried to the next turn until it lands or the player dismisses it.
+- **A turn can be pure direction.** Under POV the message box is the character's own words, so
+  steering without speaking was impossible. It now is, and it is a different act from pressing
+  *Continue*: different trace, different export label, its own quiet aside in the transcript.
+- **The direction surface exists from the first frame.** `DirectionRow` is always rendered — a
+  labelled strip in narrator mode, the direction box under POV. Before this, the whole concept
+  was invisible to any player who had not happened to pick a POV character.
+- **`@Mei` means Mei.** Mentions keep their name (only the sigil goes), the menu offers the
+  cast alongside the files in one namespace, and the first character named in the message box
+  aims the turn.
+- **A requirement is confirmed by the prose that landed**, not by entering a prompt, and it can
+  be aimed at one character by name — a target the player set is never silently re-owned.
+- **The AI cannot bring a character into a scene.** It can only ask.
+- **The verb bar is grouped, gated and keyboard-operable**, and every verb hands the player a
+  sentence to argue with rather than a command to fire.
+
+### The diagnosis, and which causes are actually fixed
+
+The plan opened with seven causes for "it forgets what happens so often". Honestly:
+
+| # | Cause | Status |
+| --- | --- | --- |
+| 1 | `satisfy()` ran before the beat existed | **Fixed** (Phase 7) — attempted vs delivered |
+| 2 | Actor binding guessed then discarded | **Fixed** (Phase 8) — the player states it |
+| 3 | `rebind()` re-owned to the narrator every pass | **Fixed** (Phase 8) — a pin is never re-owned |
+| 4 | Long direction compressed, not spread | **Fixed** (Phase 7) — `pace()` |
+| 5 | Only one requirement per actor per beat | **Fixed** (Phase 7) — same `pace()` |
+| 6 | Direction did not survive the turn | **Fixed** (Phase 8) — standing direction |
+| 7 | Direction never persisted | **Fixed** (Phase 1) |
+
+Cause 1 was the largest, and it was observed live before the fix: a trace reading *"The
+narrator delivered 1 part(s) of your direction"* on a turn where **zero beats were
+persisted**.
+
+### What live testing found that tests could not
+
+Three defects surfaced only by running real generations through the local model. All three
+are now regression tests.
+
+1. **A beat that plainly delivered scored 0.33 and was retried twice**, burning half the
+   scene's budget re-doing work already done. Two causes, both about how prose works rather
+   than about that one sample: `"a character"` is an abstract placeholder that no prose ever
+   contains, and good writing **paraphrases a requirement's verbs while keeping its concrete
+   nouns**, so demanding half the words was demanding the paraphrase not happen.
+2. **The same class again, one level deeper.** Wren confessed — *"Aye, the ledger's a sham"* —
+   and the check missed it because the requirement said `"admits"`. A speech act is something
+   prose *performs*, never names; nobody writes "I admit". That whole class is now stopworded.
+3. **A live turn failed in 40ms** with "the turn failed unexpectedly". Not a code defect: the
+   running dev server predated the new column and the additive reconciler only runs at
+   startup, so SQLAlchemy selected a column Postgres did not have. Worth recording because the
+   failure reads exactly like a logic error and is not one.
+
+### Where this deviated from the plan
+
+- **Phase 8's pinned path would have been dead code as specified.** `from_directives` was to
+  bind against the scene's cast, but a directive naming an *absent* character is precisely the
+  case that produces a blocked pin — and binding to the cast dropped it. Directives now bind
+  against the whole storyline.
+- **Phase 9's "someone arrives" name matching** subsumed the plan's separate blocked-pin
+  source rather than complementing it, until the fix above made the pin path reachable.
+- **`beat_text_since` instead of widening four return signatures.** The plan proposed widening
+  `generate_speaker` / `beat_or_skip` / `narrator_interstitial` to return their emitted text.
+  Reading it off `turn_beats` — where every emitting path already records what it wrote —
+  keeps the confirm step out of the beat runners entirely.
+- **Two migrations were needed** (`standing_direction`, `direction_verbs`) where the plan said
+  none would be. The Alembic-≡-`create_all` gate caught both, as designed.
+- **`DIRECTION_COVERAGE_THRESHOLD` is 0.34, not 0.5**, for the reasons above — and it is
+  recorded as *unmeasured* in `docs/checklist.md` with a sweep protocol in
+  `docs/research/OPEN_QUESTIONS.md`. It is a reasoned default, not a finding.
+
+### Deliberately not built
+
+- **`TurnRequest.mode`** — inert, still accepted, never exposed. Recorded in
+  `docs/architecture.md` so it is not re-litigated.
+- **An LLM "did that happen?" verifier** — still rejected; it would roughly double a turn's
+  call count.
+- **Standing-direction expiry** and **inline mention chips** — both deferred, both in
+  `docs/checklist.md`.
+
+### Validation
+
+Full gates green at every phase commit. Final: **1456 backend, 1064 frontend**, typecheck
+clean, lint 0 errors, CSS + WCAG-AA contrast gates pass. Started the plan at 1387 / 946.
+
+Live-verified against the running app with real generations at phases 3, 7, 8 and 9 —
+including a 320px pass confirming no page overflow, 44px touch targets, one tab stop into the
+verb toolbar, and correct arrow/Home/End movement across group boundaries.
+
+---
+
+
 ## 1. Introduction
 
 Mytheca already has a real director's contract inside the turn loop. The player's
