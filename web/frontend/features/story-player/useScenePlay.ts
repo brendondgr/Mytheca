@@ -228,6 +228,19 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   const [sceneMemory, setSceneMemory] = useState<SceneMemory | null>(null);
   /** Where verbatim recall ends and the scene's rolling summary takes over. */
   const [summaryThroughSeq, setSummaryThroughSeq] = useState<number | null>(null);
+  /** The last message the player actually sent, for ArrowUp recall. */
+  const [lastSent, setLastSent] = useState("");
+
+  /**
+   * Put the last sent message back in the composer.
+   *
+   * Deliberately does **not** guard on the composer being empty — the shortcut hook already
+   * does, and doing it in both places would mean two rules to keep in step. It is a no-op
+   * with nothing to recall.
+   */
+  const recallLast = useCallback(() => {
+    if (lastSent) setComposer(lastSent);
+  }, [lastSent]);
 
   /**
    * Stop asking for something the scene still owes.
@@ -852,6 +865,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     // do, and a character named there is a subject of the direction, not the addressee.
     // (Cast ids from the direction box are held for the pinning work in Phase 8.)
     const directedAt = message.castIds[0] ?? null;
+    // Remembered so ArrowUp from an empty box can hand it back — the player's own words,
+    // not the stripped-for-the-model version, because that is what they would edit.
+    setLastSent(composer);
     setComposer("");
     setGuidance("");
     submit(text, directed.text, taggedDocIds, directedAt, directives);
@@ -921,6 +937,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     dismissStanding,
     sceneMemory,
     summaryThroughSeq,
+    lastSent,
+    recallLast,
     playOut,
     answerCastRequest,
     // How far into the scene we are, for the Exit verbs' gate. Counts what the player
@@ -963,7 +981,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     selectTake,
     choose,
     profileId,
-    openProfile: (id: string) => setProfileId(id),
+    // `null` closes the dossier — Escape needs a way to say that.
+    openProfile: (id: string | null) => setProfileId(id),
     closeProfile: () => setProfileId(null),
     // The play-through tray: every saved story for this scenario, and the actions over them.
     // The play-through record, re-exported unchanged so the split is invisible downstream.

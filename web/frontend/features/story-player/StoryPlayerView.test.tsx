@@ -334,3 +334,49 @@ describe("StoryPlayerView — what the scene knows", () => {
   });
 });
 
+describe("StoryPlayerView keyboard", () => {
+  it("opens and closes the shortcut sheet with ?", async () => {
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+
+    await user.keyboard("?");
+    expect(screen.getByRole("dialog", { name: /keyboard shortcuts/i })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: /keyboard shortcuts/i })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("jumps to the message box with /", async () => {
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.keyboard("/");
+    expect(screen.getByRole("textbox", { name: /your message/i })).toHaveFocus();
+  });
+
+  it("types / into the composer instead of stealing it", async () => {
+    // The first thing a player will do is type a slash in a sentence.
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    const box = screen.getByRole("textbox", { name: /your message/i });
+    await user.click(box);
+    await user.type(box, "he said and/or she did");
+    expect(box).toHaveValue("he said and/or she did");
+  });
+
+  it("closes the memory rail with Escape", async () => {
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.click(screen.getByRole("button", { name: "What the scene knows" }));
+    expect(
+      screen.getByRole("complementary", { name: "What the scene knows" }),
+    ).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("complementary", { name: "What the scene knows" }),
+    ).not.toBeInTheDocument();
+  });
+});
+

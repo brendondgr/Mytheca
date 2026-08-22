@@ -1396,3 +1396,44 @@ describe("useScenePlay play it out", () => {
   });
 });
 
+describe("useScenePlay recall", () => {
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+  });
+
+  it("hands back what the player actually typed, not the stripped version", async () => {
+    // The `@name` tokens are stripped for the model; the player would be editing their own
+    // words, so recall must give those back.
+    const { result } = renderHook(() => useScenePlay(scenario, [{ id: "cd_m", name: "maerin.md" }]));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setComposer("@maerin.md what is she holding?"));
+    act(() => result.current.send());
+    expect(result.current.composer).toBe("");
+
+    act(() => result.current.recallLast());
+    expect(result.current.composer).toBe("@maerin.md what is she holding?");
+  });
+
+  it("does nothing before anything has been sent", async () => {
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    act(() => result.current.recallLast());
+    expect(result.current.composer).toBe("");
+  });
+
+  it("keeps the last message available after a second recall", async () => {
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    act(() => result.current.setComposer("A line."));
+    act(() => result.current.send());
+
+    act(() => result.current.recallLast());
+    act(() => result.current.setComposer(""));
+    act(() => result.current.recallLast());
+    expect(result.current.composer).toBe("A line.");
+  });
+});
+

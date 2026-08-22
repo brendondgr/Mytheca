@@ -14,6 +14,8 @@ import type { ExportFormat } from "@/components/feature/ExportMenu";
 import { useScenePlay } from "./useScenePlay";
 import { availableVerbs } from "@/lib/sceneVerbs";
 import { useModelHealth } from "@/hooks/use-model-health";
+import { useSceneShortcuts } from "@/hooks/use-scene-shortcuts";
+import { ShortcutSheet } from "@/components/feature/ShortcutSheet";
 import type { SceneImage, SceneMessage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
 import { CastRail } from "@/components/feature/CastRail";
@@ -203,6 +205,46 @@ export function StoryPlayerView({
   } else if (!scene.streamError && seenError !== null) {
     setSeenError(null);
   }
+
+  /** The shortcut sheet, behind `?`. */
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  // Destructured before the memo so its dependencies are plain values rather than the whole
+  // `scene` object, which is rebuilt every render and would defeat the memo entirely.
+  const { recallLast, openProfile, profileId } = scene;
+
+  useSceneShortcuts(
+    useMemo(
+      () => ({
+        focusComposer: () => composerRef.current?.focus(),
+        recallLast,
+        // Ordered: the most transient thing first. Escape should close what the player most
+        // recently opened, and this is the only place that knows what is layered.
+        closeTopmost: () => {
+          if (helpOpen) return setHelpOpen(false), true;
+          if (lightbox) return setLightbox(null), true;
+          if (editingId) return setEditingId(null), true;
+          if (modalId) return setModalId(null), true;
+          if (memoryOpen) return setMemoryOpen(false), true;
+          if (inspectorOpen) return setInspectorOpen(false), true;
+          if (profileId) return openProfile(null), true;
+          return false;
+        },
+        toggleHelp: () => setHelpOpen((o) => !o),
+      }),
+      [
+        helpOpen,
+        lightbox,
+        editingId,
+        modalId,
+        memoryOpen,
+        inspectorOpen,
+        profileId,
+        recallLast,
+        openProfile,
+      ],
+    ),
+  );
 
   const memoryEdgeAt =
     scene.sceneMemory && scene.sceneMemory.droppedBeats > 0
@@ -562,6 +604,7 @@ export function StoryPlayerView({
           onClose={() => setInspectorOpen(false)}
           turns={scene.traceTurns}
         />
+        <ShortcutSheet open={helpOpen} onClose={() => setHelpOpen(false)} />
         <SceneMemoryPanel
           open={memoryOpen}
           onClose={() => setMemoryOpen(false)}

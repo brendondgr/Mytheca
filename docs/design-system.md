@@ -25,6 +25,30 @@ The recurring identity marks are the **❖ glyph** (`&#10070;`, the "Mytheca sea
 
 storyline · character · setting · scenario · scene · event · beat · turn · narrator · cast · stat · branch · tone/tension · session. Replace vague phrases ("AI-powered storytelling") with concrete actions: "Begin Scene", "Forge Character", "Add Setting", "New Scenario", "Choose a path", "Speak, or describe what you do".
 
+### Keyboard shortcuts in the scene
+
+| Key | Does |
+| --- | --- |
+| `/` | Jump to the message box |
+| `↑` | Bring back the last sent message — **from an empty box only** |
+| `Esc` | Close the topmost open thing |
+| `?` | Open/close the shortcut sheet |
+| `Enter` / `Shift+Enter` | Send / newline (pre-existing) |
+| `@` | Name a character, or attach a file (pre-existing) |
+
+Two rules, both non-negotiable:
+
+**Never take a key out of a text field.** `useSceneShortcuts` ignores every event originating
+in an editable target, except `Escape` and the empty-box `↑`. A shortcut that eats characters
+someone is typing is worse than no shortcut, and it is the first thing a player will hit. The
+composer's `@` menu already owns Arrow/Enter/Tab/Escape while open; the hook standing down
+inside editable targets is what keeps the two from fighting without either knowing about the
+other.
+
+**Never make a shortcut the only way.** Everything above has a pointer equivalent, and the
+sheet says so — a shortcut sheet that lists the only route to something is documenting an
+accessibility failure, not a convenience.
+
 ### The model-status light: four states, never colour alone
 
 The scene header's indicator has exactly four states, and each is a different problem with a
