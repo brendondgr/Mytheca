@@ -1,6 +1,22 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SceneArtModal } from "./SceneArtModal";
+
+import { resetArtStylesCache } from "@/hooks/use-art-styles";
+import { COMFY_FIXTURE } from "@/test/api-mock";
+
+const getSettings = vi.fn();
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
+  getSettings: (...args: unknown[]) => getSettings(...args),
+}));
+
+beforeEach(() => {
+  resetArtStylesCache();
+  getSettings.mockReset();
+  getSettings.mockResolvedValue({ comfy: COMFY_FIXTURE });
+});
 
 const baseProps = {
   open: true,
@@ -93,5 +109,54 @@ describe("SceneArtModal", () => {
   it("names the operation instead of a generic failure message", () => {
     render(<SceneArtModal {...baseProps} error="Something went wrong." />);
     expect(screen.getByRole("alert")).toHaveTextContent("Could not render the scene art.");
+  });
+
+  describe("art style", () => {
+    it("offers the picker and reports the choice", async () => {
+      const user = userEvent.setup();
+      const onArtStyleChange = vi.fn();
+      render(
+        <SceneArtModal
+          {...baseProps}
+          onGeneratePrompts={() => {}}
+          onGenerate={() => {}}
+          onArtStyleChange={onArtStyleChange}
+        />,
+      );
+      await user.click(await screen.findByRole("radio", { name: /anime/i }));
+      expect(onArtStyleChange).toHaveBeenCalledWith("anime");
+    });
+
+    it("shows the chosen style selected", async () => {
+      render(
+        <SceneArtModal
+          {...baseProps}
+          onGeneratePrompts={() => {}}
+          onGenerate={() => {}}
+          artStyle="photoreal"
+          onArtStyleChange={vi.fn()}
+        />,
+      );
+      expect(await screen.findByRole("radio", { name: /photoreal/i })).toBeChecked();
+    });
+
+    it("locks the picker while a generation is in flight", async () => {
+      render(
+        <SceneArtModal
+          {...baseProps}
+          onGeneratePrompts={() => {}}
+          onGenerate={() => {}}
+          generatingImage
+          onArtStyleChange={vi.fn()}
+        />,
+      );
+      for (const radio of await screen.findAllByRole("radio")) expect(radio).toBeDisabled();
+    });
+
+    it("omits the picker entirely when no handler is wired", () => {
+      render(<SceneArtModal {...baseProps} onGeneratePrompts={() => {}}
+          onGenerate={() => {}} />);
+      expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    });
   });
 });

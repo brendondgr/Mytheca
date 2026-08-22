@@ -713,7 +713,7 @@ export function StoryPlayerView({
                   <TranscriptFootBar
                     onContinue={scene.continueTurn}
                     continuing={scene.sending}
-                    onCreateImage={scene.createImage}
+                    onCreateImage={(artStyle) => scene.createImage(undefined, undefined, artStyle)}
                     creatingImage={scene.creatingImage}
                     imageStage={scene.imageStage}
                     imageError={scene.imageError}
@@ -914,8 +914,8 @@ export function StoryPlayerView({
         // replacing a picture is a different, destructive path and is not wired here.
         onRepaint={
           scene.sessionId
-            ? (prompt) => {
-                scene.createImage(prompt);
+            ? (prompt, artStyle) => {
+                scene.createImage(prompt, undefined, artStyle);
                 setLightbox(null);
               }
             : undefined

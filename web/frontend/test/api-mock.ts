@@ -415,6 +415,11 @@ export function makeApiMock() {
       negative: "people, text, watermark",
     })),
     generateSceneArt: vi.fn(async () => ({ image: "/media/scenes/test.webp" })),
+    generateScenarioSceneArtPrompts: vi.fn(async () => ({
+      positive: "a candlelit hall, tense",
+      negative: "people, text",
+    })),
+    generateScenarioSceneArt: vi.fn(async () => ({ image: "/media/scenes/scenario.webp" })),
 
     draftScenario: vi.fn(async (seed: string) => ({
       title: "Drafted Scene",

@@ -1,4 +1,5 @@
 import type { ResolvedScenario } from "@/lib/types";
+import type { ArtStyleId } from "@/lib/api";
 
 // Seed for a playable scene. The "Embergate Conspiracy" is fully scripted to
 // match the reference; any other scenario gets a believable generic opening
@@ -30,6 +31,12 @@ export interface SceneImage {
   caption: string;
   /** The ComfyUI prompt that produced it (shown behind a disclosure in the lightbox). */
   prompt: string;
+  /**
+   * The look it was painted in. Seeds the lightbox's repaint picker, so asking for another
+   * take keeps *this* picture's style rather than silently reverting to the global default.
+   * Absent on beats written before styles existed.
+   */
+  style?: ArtStyleId;
 }
 
 export interface SceneMessage {

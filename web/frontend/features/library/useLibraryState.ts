@@ -8,6 +8,7 @@ import { useToast } from "@/components/layout/ToastProvider";
 import { REVEAL_INTERVAL_MS } from "@/hooks/use-field-reveal";
 import { loadEntityDocs, syncEntityDocs } from "@/features/library/entityDocs";
 import type { Character, EntityScope, Scenario, Setting, StatDefinition, Storyline } from "@/lib/types";
+import type { ArtStyleId } from "@/lib/api";
 import {
   DEFAULT_DRAFTS,
   isDraftValid,
@@ -133,6 +134,10 @@ export function useLibraryState(initialStorylineId?: string) {
   const [generatingVoice, setGeneratingVoice] = useState(false);
   const [generatingStats, setGeneratingStats] = useState(false);
   const [applyingStats, setApplyingStats] = useState(false);
+  // Which look the next image is generated in — one piece of state, because a modal only
+  // ever hosts one entity at a time. `null` means "the operator's default from Options",
+  // which is what the picker shows selected until the author chooses otherwise.
+  const [artStyle, setArtStyle] = useState<ArtStyleId | null>(null);
   // Real-time draft feedback: which field is being written now + the current stage.
   const [activeField, setActiveField] = useState<string | null>(null);
   const [draftStage, setDraftStage] = useState<string | null>(null);
@@ -458,6 +463,7 @@ export function useLibraryState(initialStorylineId?: string) {
         appearance: draft.appearance,
         traits: draft.traits,
         personality: draft.personality,
+        artStyle: artStyle ?? undefined,
       });
       await revealPromptPair("_portraitPositive", "_portraitNegative", r.positive, r.negative);
     } catch (e) {
@@ -480,6 +486,7 @@ export function useLibraryState(initialStorylineId?: string) {
       const { portrait } = await api.generatePortrait({
         positive,
         negative: draft._portraitNegative?.trim() || undefined,
+        artStyle: artStyle ?? undefined,
       });
       setDraftState((prev) => ({ ...prev, portrait }));
     } catch (e) {
@@ -605,7 +612,7 @@ export function useLibraryState(initialStorylineId?: string) {
       setDraftStage(null);
     }
   }
-  /** Write the watercolor positive/negative scene-art prompts (editable after). */
+  /** Write the positive/negative scene-art prompts in the chosen style (editable after). */
   async function generateSceneArtPrompts() {
     if (!modal || modal.type !== "setting") return;
     setGeneratingPrompts(true);
@@ -618,6 +625,7 @@ export function useLibraryState(initialStorylineId?: string) {
         atmosphere: draft.atmosphere,
         features: draft.features,
         currentState: draft.currentState,
+        artStyle: artStyle ?? undefined,
       });
       await revealPromptPair("_sceneArtPositive", "_sceneArtNegative", r.positive, r.negative);
     } catch (e) {
@@ -640,6 +648,7 @@ export function useLibraryState(initialStorylineId?: string) {
       const { image } = await api.generateSceneArt({
         positive,
         negative: draft._sceneArtNegative?.trim() || undefined,
+        artStyle: artStyle ?? undefined,
       });
       setDraftState((prev) => ({ ...prev, image }));
     } catch (e) {
@@ -652,7 +661,7 @@ export function useLibraryState(initialStorylineId?: string) {
   }
 
   // ---- scenario scene-art authoring (ComfyUI, mirrors the setting path) ------
-  /** Write the watercolor positive/negative scene-art prompts for a scenario moment. */
+  /** Write the positive/negative scene-art prompts for a scenario moment, in the chosen style. */
   async function generateScenarioSceneArtPrompts() {
     if (!modal || modal.type !== "scenario") return;
     setGeneratingPrompts(true);
@@ -667,6 +676,7 @@ export function useLibraryState(initialStorylineId?: string) {
         opening: draft.opening,
         settingName: activeSetting?.name,
         settingDesc: activeSetting?.desc,
+        artStyle: artStyle ?? undefined,
       });
       await revealPromptPair("_sceneArtPositive", "_sceneArtNegative", r.positive, r.negative);
     } catch (e) {
@@ -689,6 +699,7 @@ export function useLibraryState(initialStorylineId?: string) {
       const { image } = await api.generateScenarioSceneArt({
         positive,
         negative: draft._sceneArtNegative?.trim() || undefined,
+        artStyle: artStyle ?? undefined,
       });
       setDraftState((prev) => ({ ...prev, image }));
     } catch (e) {
@@ -773,6 +784,7 @@ export function useLibraryState(initialStorylineId?: string) {
   }
   function closeModal() {
     setGenerating(false);
+    setArtStyle(null);
     setGeneratingPrompts(false);
     setGeneratingPortrait(false);
     setGeneratingStats(false);
@@ -783,6 +795,7 @@ export function useLibraryState(initialStorylineId?: string) {
   function openCreate(type: EntityType) {
     setDraftState({ ...DEFAULT_DRAFTS[type] });
     setError(null);
+    setArtStyle(null);
     setModal({ type, mode: "manual", editId: null });
     setMenuOpen(false);
     setGenerating(false);
@@ -1085,6 +1098,8 @@ export function useLibraryState(initialStorylineId?: string) {
     draftCharacter, generatePortraitPrompts, generatePortrait,
     proposeVoiceSamples, proposeStartingStats, applyStartingStats,
     generatingPrompts, generatingPortrait, generatingVoice, generatingStats, applyingStats,
+    // the look every image in this modal is generated in (null = the Options default)
+    artStyle, setArtStyle,
     // real-time draft feedback
     activeField, draftStage,
     // setting agentic authoring

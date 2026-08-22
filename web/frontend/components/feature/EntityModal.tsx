@@ -296,6 +296,8 @@ export function EntityModal({ lib }: { lib: ReturnType<typeof useLibraryState> }
         generatingImage={lib.generatingPortrait}
         onGenerate={lib.generateScenarioSceneArt}
         error={lib.error}
+        artStyle={lib.artStyle}
+        onArtStyleChange={lib.setArtStyle}
       />
 
       {/* Per-scenario writing-prompt overrides — staged into the draft, saved with the scene. */}

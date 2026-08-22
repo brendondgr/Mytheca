@@ -5,7 +5,8 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { TextArea } from "@/components/ui/TextArea";
-import { mediaUrl } from "@/lib/api";
+import { ArtStylePicker } from "@/components/feature/ArtStylePicker";
+import { mediaUrl, type ArtStyleId } from "@/lib/api";
 import type { SceneImage } from "@/features/story-player/scene-data";
 
 /**
@@ -30,11 +31,14 @@ export function SceneImageModal({
    * the prompt read-only. Removing or replacing a picture is a different feature and a
    * different (destructive) code path; nothing here deletes anything.
    */
-  onRepaint?: (prompt: string) => void;
+  onRepaint?: (prompt: string, artStyle?: ArtStyleId) => void;
   /** A moment stream is already in flight — a second would race it. */
   busy?: boolean;
 }) {
   const [showPrompt, setShowPrompt] = useState(false);
+  // Seeded from the beat, so painting again keeps THIS picture's look rather than reverting
+  // to the global default. Reset alongside the prompt when a different image opens.
+  const [style, setStyle] = useState<ArtStyleId | null>(image?.style ?? null);
   // Seeded from the image and keyed on it, so opening a different picture does not show the
   // previous one's prompt.
   const [draft, setDraft] = useState(image?.prompt ?? "");
@@ -42,6 +46,7 @@ export function SceneImageModal({
   if (image && image.prompt !== seenPrompt) {
     setSeenPrompt(image.prompt);
     setDraft(image.prompt);
+    setStyle(image.style ?? null);
   }
   if (!image) return null;
   const caption = image.caption || "A picture of this moment in the scene.";
@@ -98,7 +103,15 @@ export function SceneImageModal({
                       rows={4}
                       disabled={busy}
                     />
-                    <div className="mt-[8px] flex items-center justify-between gap-[8px]">
+                    <ArtStylePicker
+                      value={style}
+                      onChange={setStyle}
+                      label="Style"
+                      compact
+                      disabled={busy}
+                      className="mt-[10px]"
+                    />
+                    <div className="mt-[10px] flex flex-wrap items-center justify-between gap-[8px]">
                       <span
                         role="status"
                         className="font-mono text-[9px] tracking-[0.08em] text-mute2 uppercase"
@@ -107,7 +120,7 @@ export function SceneImageModal({
                       </span>
                       <Button
                         variant="secondary"
-                        onClick={() => onRepaint(draft)}
+                        onClick={() => onRepaint(draft, style ?? undefined)}
                         disabled={busy || !draft.trim()}
                       >
                         Paint again with this prompt
