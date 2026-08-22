@@ -163,13 +163,16 @@ Verified against the code on 2026-08-04.
 - **`TurnContext.subgraph` is fetched but unused.** The scenario subgraph is assembled every turn; its only consumer is a boolean `available` flag in the diagnostic trace. The graph reaches the model solely via `graph_reader.relationship_context()`. Either render the subgraph into the prompt or stop assembling it.
 - **Unused graph queries.** `graph_reader.presence_casting` and `graph_reader.secret_reachability` have no callers.
 - **`validate_relationship` substring fallback** will mis-bind on nested cast names ("Aldous" vs "Brother Aldous").
-- **Two frontend tests are load-flaky.** `features/library/{CharacterModal,SettingModal}.test.tsx`
-  → "drafts a full … from a seed into the form" hit Vitest's 5s per-test timeout on a busy
-  machine (they wait on the ~150 ms-per-field choreographed reveal). Observed 2026-08-11
-  while a dev server, a second backend and ComfyUI were running: ~50% failure at full
-  worker concurrency, 0/3 failures with `--maxWorkers=4`. The tests are correct; the
-  budget is too tight. Fix by raising the per-test timeout on those two, not by loosening
-  the assertions.
+- ~~**Two frontend tests are load-flaky.**~~ **Fixed 2026-08-21.** `CharacterModal` already
+  carried a trailing 15 s timeout; the two that did not — `SettingModal` ("drafts a full setting
+  from a seed into the form") and `ToastProvider` ("holds the auto-dismiss timer") — now take an
+  explicit **15 s per-test budget** instead of Vitest's 5 s default. That is the prescribed fix,
+  with the assertions untouched. Both were re-confirmed failing at load average ~47 (an unrelated
+  job on the machine) and pass there with the raised budget.
+  **The remaining constraint is the runner, not the tests:** on a loaded machine the *full* suite
+  needs `--maxWorkers=2`. At `--maxWorkers=4` under load ~47 a *different* test timed out on each
+  run (`LibraryView.editors`, then `ToastProvider`), which is contention, not a defect — the same
+  suite passed 876/876 at `--maxWorkers=2` under identical load.
 - ~~**A third: `components/layout/ToastProvider.test.tsx`**~~ **Fixed 2026-08-21.** It was
   not the 3 s auto-dismiss: the dismissal fires under *fake* timers, and what the test then
   waited for was the exit animation completing under *real* ones, against `waitFor`'s

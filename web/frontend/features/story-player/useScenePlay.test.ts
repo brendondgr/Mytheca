@@ -3,12 +3,15 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 import { useScenePlay } from "./useScenePlay";
 import {
   closePlaySession,
+  createPlaySession,
+  deletePlaySession,
   getCharacterStats,
   getLlmContextWindow,
   getSessionHistory,
   listPlaySessions,
   postSceneMoment,
   postTurn,
+  renamePlaySession,
   setPresence as apiSetPresence,
 } from "@/lib/api";
 import type { MomentStreamFrame, SessionHistory, TurnStreamFrame } from "@/lib/events";
@@ -29,6 +32,9 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   getCharacterStats: vi.fn(async () => ({}) as Record<string, number>),
   postTurn: vi.fn(),
   getScenarioRelationships: vi.fn(async () => ({ relationships: [] })),
+  createPlaySession: vi.fn(),
+  renamePlaySession: vi.fn(async () => ({}) as never),
+  deletePlaySession: vi.fn(async () => undefined),
   getLlmContextWindow: vi.fn(async () => ({ maxContextTokens: 16384, source: "configured" as const })),
   postSceneMoment: vi.fn(),
 }));
@@ -758,5 +764,168 @@ describe("@-tagged context files", () => {
     const body = vi.mocked(postTurn).mock.calls.at(-1)?.[1] as unknown as Record<string, unknown>;
     expect(body.text).toBe("@maerin.md stays");
     expect(body).not.toHaveProperty("taggedDocIds");
+  });
+});
+
+describe("useScenePlay play-through tray", () => {
+  const summary = (over: Partial<import("@/lib/events").SessionSummary>) => ({
+    id: "ps_x",
+    scenarioId: scenario.id,
+    createdAt: "2026-08-21T10:00:00Z",
+    updatedAt: "2026-08-21T10:00:00Z",
+    closedAt: null,
+    turnCount: 1,
+    preview: "x",
+    name: null,
+    parentSessionId: null,
+    forkSeq: null,
+    ...over,
+  });
+
+  it("resumes the most-recently-played play-through, not the first in the array", async () => {
+    // Deliberately out of recency order: the old code took sessions[0] unconditionally, so a
+    // list that is not pre-sorted would silently open the wrong story.
+    vi.mocked(listPlaySessions).mockResolvedValue({
+      sessions: [
+        summary({ id: "ps_old", updatedAt: "2026-08-20T10:00:00Z" }),
+        summary({ id: "ps_new", updatedAt: "2026-08-21T18:00:00Z" }),
+      ],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_new"));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_new"));
+    expect(vi.mocked(getSessionHistory)).toHaveBeenCalledWith(scenario.id, "ps_new");
+  });
+
+  it("exposes every play-through for the tray", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValue({
+      sessions: [summary({ id: "ps_a" }), summary({ id: "ps_b", updatedAt: "2026-08-19T10:00:00Z" })],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_a"));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+
+    await waitFor(() => expect(result.current.sessions).toHaveLength(2));
+    expect(result.current.sessions.map((s) => s.id)).toEqual(["ps_a", "ps_b"]);
+  });
+
+  it("starting a new play-through does not clobber the existing one", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [summary({ id: "ps_first" })] });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_first"));
+    vi.mocked(createPlaySession).mockResolvedValue(summary({ id: "ps_second", turnCount: 0, preview: "" }));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_first"));
+
+    await act(async () => {
+      await result.current.startNewPlaythrough();
+    });
+
+    // The scene moved to the new session, and the old one was closed rather than deleted.
+    expect(result.current.sessionId).toBe("ps_second");
+    expect(vi.mocked(closePlaySession)).toHaveBeenCalledWith(scenario.id, "ps_first");
+    expect(vi.mocked(deletePlaySession)).not.toHaveBeenCalled();
+    // The resumed transcript is gone from view — this is a fresh story, not a continuation.
+    expect(result.current.messages.some((m) => m.text === '"Resumed."')).toBe(false);
+  });
+
+  it("switching play-throughs loads the target's history", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValue({
+      sessions: [summary({ id: "ps_a" }), summary({ id: "ps_b", updatedAt: "2026-08-19T10:00:00Z" })],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_a"));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_a"));
+
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_b"));
+    await act(async () => {
+      await result.current.openSession("ps_b");
+    });
+
+    expect(result.current.sessionId).toBe("ps_b");
+  });
+
+  it("switching to the play-through already open is a no-op", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [summary({ id: "ps_a" })] });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_a"));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_a"));
+    const callsBefore = vi.mocked(getSessionHistory).mock.calls.length;
+
+    await act(async () => {
+      await result.current.openSession("ps_a");
+    });
+
+    expect(vi.mocked(getSessionHistory).mock.calls.length).toBe(callsBefore);
+  });
+
+  it("deleting the open play-through falls back to the newest survivor", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValue({
+      sessions: [summary({ id: "ps_a" }), summary({ id: "ps_b", updatedAt: "2026-08-19T10:00:00Z" })],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_a"));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_a"));
+
+    vi.mocked(listPlaySessions).mockResolvedValue({
+      sessions: [summary({ id: "ps_b", updatedAt: "2026-08-19T10:00:00Z" })],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_b"));
+
+    await act(async () => {
+      await result.current.deletePlaythrough("ps_a");
+    });
+
+    expect(vi.mocked(deletePlaySession)).toHaveBeenCalledWith(scenario.id, "ps_a");
+    expect(result.current.sessionId).toBe("ps_b");
+  });
+
+  it("deleting the last play-through returns to the seed scene rather than an empty column", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [summary({ id: "ps_only" })] });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_only"));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_only"));
+
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    await act(async () => {
+      await result.current.deletePlaythrough("ps_only");
+    });
+
+    expect(result.current.sessionId).toBeNull();
+    expect(result.current.messages.length).toBeGreaterThan(0);
+  });
+
+  it("renaming refreshes the list", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [summary({ id: "ps_a" })] });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_a"));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_a"));
+
+    await act(async () => {
+      await result.current.renamePlaythrough("ps_a", "  The kind run  ");
+    });
+
+    expect(vi.mocked(renamePlaySession)).toHaveBeenCalledWith(scenario.id, "ps_a", "The kind run");
+  });
+
+  it("a blank rename clears the label", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [summary({ id: "ps_a" })] });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_a"));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_a"));
+
+    await act(async () => {
+      await result.current.renamePlaythrough("ps_a", "   ");
+    });
+
+    expect(vi.mocked(renamePlaySession)).toHaveBeenCalledWith(scenario.id, "ps_a", null);
   });
 });

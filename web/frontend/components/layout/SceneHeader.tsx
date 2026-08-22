@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
 import { ExportMenu, type ExportFormat } from "@/components/feature/ExportMenu";
@@ -61,6 +62,7 @@ export function SceneHeader({
   canExport = false,
   onToggleInspector,
   inspectorOpen = false,
+  tray,
 }: {
   title: string;
   settingName: string;
@@ -78,6 +80,12 @@ export function SceneHeader({
   /** Toggle the Turn Inspector drawer (omit to hide the control). */
   onToggleInspector?: () => void;
   inspectorOpen?: boolean;
+  /**
+   * The play-through tray, rendered left of Export. Passed as a node rather than as props
+   * because the header is presentational and the tray needs the play hook's session state;
+   * threading six callbacks through here would make this component know about sessions.
+   */
+  tray?: ReactNode;
 }) {
   const meta = [`◆ ${settingName}`, genre, tone].filter(Boolean).join(" · ");
   return (
@@ -109,12 +117,15 @@ export function SceneHeader({
         {onViewModeChange ? (
           <ViewModeSwitch viewMode={viewMode ?? "chat"} onChange={onViewModeChange} />
         ) : null}
+        {tray}
         {onExport ? <ExportMenu onExport={onExport} disabled={!canExport} /> : null}
         <ThemeSwitcher />
-        <div className="hidden items-center gap-2 font-mono text-[9px] tracking-[0.12em] text-mute uppercase sm:flex">
-          <span className="h-[7px] w-[7px] rounded-full bg-success" aria-hidden /> Narrator
-          active
-        </div>
+        {/* The hardcoded green dot + "Narrator active" that used to sit here was removed: it
+            was a literal `<span>` reflecting no state at all, and a status light that is
+            always on teaches players to ignore every status light. Its width is also part of
+            what made the Inspector button unreachable at 320px. `docs/plans/making-it-legible.md`
+            Phase 7 puts a real model-health indicator in this slot; the durable 320px fix is
+            `docs/plans/reach.md` Phase 4's header overflow menu. */}
         {onToggleInspector ? (
           <button
             type="button"

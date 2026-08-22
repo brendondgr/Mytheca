@@ -45,7 +45,10 @@ async function openSettingCreator(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("SettingModal — agentic creator", () => {
-  it("drafts a full setting from a seed into the form", async () => {
+  // 15s, not the 5s default: this waits on the ~150ms-per-field choreographed reveal, so a
+  // busy machine blows the budget while the component is behaving correctly. Documented in
+  // docs/checklist.md as a load flake; the prescribed fix is the timeout, not the assertions.
+  it("drafts a full setting from a seed into the form", { timeout: 15_000 }, async () => {
     const user = userEvent.setup();
     const dialog = await openSettingCreator(user);
 

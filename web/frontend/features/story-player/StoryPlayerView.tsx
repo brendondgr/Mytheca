@@ -15,6 +15,7 @@ import { useScenePlay } from "./useScenePlay";
 import type { SceneImage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
 import { CastRail } from "@/components/feature/CastRail";
+import { PlaythroughTray } from "@/components/feature/PlaythroughTray";
 import { GraphView } from "@/components/feature/GraphView";
 import { DirectorRail } from "@/components/feature/DirectorRail";
 import { Composer } from "@/components/feature/Composer";
@@ -128,6 +129,19 @@ export function StoryPlayerView({
         canExport={Boolean(scene.sessionId)}
         onToggleInspector={viewMode === "graph" ? undefined : () => setInspectorOpen((o) => !o)}
         inspectorOpen={inspectorOpen}
+        tray={
+          <PlaythroughTray
+            sessions={scene.sessions}
+            currentSessionId={scene.sessionId}
+            onOpen={(id) => void scene.openSession(id)}
+            onCreate={() => void scene.startNewPlaythrough()}
+            onRename={(id, name) => void scene.renamePlaythrough(id, name)}
+            onDelete={(id) => void scene.deletePlaythrough(id)}
+            // Switching stories mid-sentence would leave a half-streamed beat attached to a
+            // play-through that is no longer on screen.
+            disabled={scene.sending}
+          />
+        }
       />
 
       <div className="flex min-h-0 flex-1">

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   closePlaySession,
+  createPlaySession,
+  deletePlaySession,
   getCharacterStats,
   getLlmContextWindow,
   getScenarioRelationships,
@@ -10,11 +12,17 @@ import {
   listPlaySessions,
   postSceneMoment,
   postTurn,
+  renamePlaySession,
   setPresence as apiSetPresence,
   updateScenario,
 } from "@/lib/api";
 import { estimateUsedTokens } from "@/lib/contextBudget";
-import type { MomentStreamFrame, PresenceStatus, TurnStreamFrame } from "@/lib/events";
+import type {
+  MomentStreamFrame,
+  PresenceStatus,
+  SessionSummary,
+  TurnStreamFrame,
+} from "@/lib/events";
 import type { BeatLength, ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
 import { stripMentions, type MentionOption } from "@/features/story-player/mentions";
@@ -64,6 +72,22 @@ import {
  * 80ms and snatching it away reads as a glitch, not as speed.
  */
 const SCENE_REVEAL_MIN_MS = 650;
+
+/**
+ * The play-through to open when none was asked for: the most recently played.
+ *
+ * The server already returns the list in recency order, but this reads the newest
+ * explicitly rather than taking `sessions[0]`. That index used to BE the whole
+ * session model — the story player resumed it unconditionally and threw the rest away, so a
+ * scenario could only ever hold one story. Naming the intent keeps the ordering assumption
+ * from silently becoming a feature again.
+ */
+export function mostRecent(sessions: SessionSummary[]): SessionSummary | null {
+  if (!sessions.length) return null;
+  return sessions.reduce((newest, s) =>
+    Date.parse(s.updatedAt) > Date.parse(newest.updatedAt) ? s : newest,
+  );
+}
 
 /**
  * The hard ceiling on the curtain, whether or not the scene ever reports ready.
@@ -226,6 +250,136 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     return () => window.clearTimeout(floor);
   }, [sceneReady]);
 
+  // Every play-through of this scenario, most-recently-played first — the tray's rows.
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  // The stat baseline (each cast member's persisted starting values). Held in a ref as well
+  // as in state because `loadSession` needs it when the player switches play-throughs, long
+  // after the mount effect that fetched it has finished.
+  const baselineRef = useRef<Record<string, StatChip[]>>({});
+
+  /** Re-read the play-through list (after create / rename / delete / the first turn). */
+  const refreshSessions = useCallback(async () => {
+    const list = await listPlaySessions(scenario.id).catch(() => ({ sessions: [] }));
+    setSessions(list.sessions);
+    return list.sessions;
+  }, [scenario.id]);
+
+  /**
+   * Replace the on-screen scene with one play-through's persisted history.
+   *
+   * This is the single path by which a session becomes "the open one" — first load, a tray
+   * switch, and (in later phases) branch and rewind all route through it, so there is one
+   * place that knows how to swap the transcript, stats, presence, POV and traces together.
+   * Resetting `choices` matters: a stale branch_choices row from the outgoing play-through
+   * would otherwise sit under the incoming one's last beat.
+   */
+  const loadSession = useCallback(
+    async (targetId: string) => {
+      const base = baselineRef.current;
+      const history = await getSessionHistory(scenario.id, targetId);
+      const scene = rehydrateFromHistory(history.events, history.traces, base);
+      rememberSession(history.session.id);
+      // Restore the "Speaking as" selection from the most recent user_turn's pov, so the
+      // next line continues in that character's voice (null → the guide/narrator default).
+      setPov(latestPov(history.events));
+      // Seed the dial with the resumed session's last real context-token count (null when
+      // none was recorded → the estimate fallback is used until the next turn streams one).
+      setLiveContextTokens(latestContextTokens(history.traces));
+      setMessages(scene.messages.length ? scene.messages : buildScene(scenario).messages);
+      if (scene.stats.length) setStats(scene.stats);
+      setStatsByChar(Object.keys(scene.statsByChar).length ? scene.statsByChar : base);
+      setPresenceByChar(scene.presenceByChar);
+      setTraceTurns(scene.traceTurns);
+      setChoices([]);
+      setStreamError(null);
+    },
+    [scenario, rememberSession],
+  );
+
+  /** Switch the scene to another saved play-through. No-op for the one already open. */
+  const openSession = useCallback(
+    async (targetId: string) => {
+      if (targetId === sessionRef.current) return;
+      // Stamp the outgoing one closed first, so recency reflects when it was last *played*
+      // rather than when it was last listed.
+      const outgoing = sessionRef.current;
+      if (outgoing) closePlaySession(scenario.id, outgoing);
+      await loadSession(targetId);
+      await refreshSessions();
+    },
+    [scenario.id, loadSession, refreshSessions],
+  );
+
+  /**
+   * Start a brand-new play-through and switch to it.
+   *
+   * The transcript resets to the scenario's seed opening rather than to nothing: an empty
+   * session has no events, so replaying it would leave the reader staring at a blank column
+   * where the scene intro belongs.
+   */
+  const startNewPlaythrough = useCallback(
+    async (name?: string) => {
+      const outgoing = sessionRef.current;
+      if (outgoing) closePlaySession(scenario.id, outgoing);
+      const created = await createPlaySession(scenario.id, name);
+      const fresh = buildScene(scenario);
+      rememberSession(created.id);
+      setMessages(fresh.messages);
+      setStats(fresh.stats);
+      setStatsByChar(baselineRef.current);
+      setPresenceByChar({});
+      setTraceTurns([]);
+      setChoices(fresh.choices);
+      setPov(null);
+      setGuidance("");
+      setLiveContextTokens(null);
+      setStreamError(null);
+      await refreshSessions();
+      return created;
+    },
+    [scenario, rememberSession, refreshSessions],
+  );
+
+  /** Relabel a play-through. A blank name clears it back to the first-player-line fallback. */
+  const renamePlaythrough = useCallback(
+    async (targetId: string, name: string) => {
+      await renamePlaySession(scenario.id, targetId, name.trim() || null);
+      await refreshSessions();
+    },
+    [scenario.id, refreshSessions],
+  );
+
+  /**
+   * Delete a play-through. Deleting the one currently open moves the scene to whatever is
+   * newest afterwards, or to a fresh seed scene when that was the last one — leaving the
+   * player looking at the transcript of something that no longer exists would be worse than
+   * either.
+   */
+  const deletePlaythrough = useCallback(
+    async (targetId: string) => {
+      await deletePlaySession(scenario.id, targetId);
+      const remaining = await refreshSessions();
+      if (targetId !== sessionRef.current) return;
+      const next = mostRecent(remaining);
+      if (next) {
+        await loadSession(next.id);
+        return;
+      }
+      const fresh = buildScene(scenario);
+      sessionRef.current = null;
+      setSessionId(null);
+      setMessages(fresh.messages);
+      setStats(fresh.stats);
+      setStatsByChar(baselineRef.current);
+      setPresenceByChar({});
+      setTraceTurns([]);
+      setChoices(fresh.choices);
+      setPov(null);
+      setLiveContextTokens(null);
+    },
+    [scenario, refreshSessions, loadSession],
+  );
+
   // Seed live per-character stats from each cast member's persisted starting values, then
   // resume the scenario's most recent play-through on top of that baseline: reload its full
   // history (turns, thoughts, live stats, and the graph/RAG trace) so nothing is ever lost
@@ -244,26 +398,17 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       );
       if (!alive) return;
       const base = baselineStatsByChar(Object.fromEntries(pairs));
+      baselineRef.current = base;
       setStatsByChar(base);
 
-      const { sessions } = await listPlaySessions(scenario.id).catch(() => ({ sessions: [] }));
-      if (!alive || !sessions.length) return;
-      const history = await getSessionHistory(scenario.id, sessions[0].id);
-      if (!alive) return;
-      const scene = rehydrateFromHistory(history.events, history.traces, base);
-      rememberSession(history.session.id);
-      // Restore the "Speaking as" selection from the most recent user_turn's pov, so the
-      // next line continues in that character's voice (null → the guide/narrator default).
-      setPov(latestPov(history.events));
-      // Seed the dial with the resumed session's last real context-token count (null when
-      // none was recorded → the estimate fallback is used until the next turn streams one).
-      setLiveContextTokens(latestContextTokens(history.traces));
-      if (scene.messages.length) setMessages(scene.messages);
-      if (scene.stats.length) setStats(scene.stats);
-      setStatsByChar(scene.statsByChar);
-      setPresenceByChar(scene.presenceByChar);
-      setTraceTurns(scene.traceTurns);
-      setChoices([]);
+      const list = await refreshSessions();
+      // `list_sessions` already orders by recency, but the tray now lets a play-through be
+      // renamed (which bumps recency) and deleted, so read the newest explicitly rather than
+      // trusting an index. An empty list is a scenario that has never been played: the seed
+      // scene stays up and the first turn opens a session for it.
+      const newest = mostRecent(list);
+      if (!alive || !newest) return;
+      await loadSession(newest.id);
     })()
       .catch(() => {})
       // Ready either way. A failed resume is a scene that starts fresh, not a
@@ -274,7 +419,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     return () => {
       alive = false;
     };
-  }, [scenario.id, scenario.cast, rememberSession]);
+    // `loadSession` closes over `scenario`, which is stable for the life of the route.
+  }, [scenario.id, scenario.cast, refreshSessions, loadSession]);
 
   // Save-on-close: mark the session closed when the player leaves (in-app unmount or a
   // real browser unload). Every turn already persists; this stamps the close + recency.
@@ -486,9 +632,13 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
           // failed generation, an aborted turn) — clear the empty placeholder here rather
           // than in an effect, so it cannot outlive the turn and cannot cascade a render.
           setMessages(dropPendingBeats);
+          // The turn changed this play-through's turn count, its recency, and — on the very
+          // first turn of a never-played scenario, where the session is created server-side
+          // and only announced on the stream — whether the tray knows it exists at all.
+          void refreshSessions();
         });
     },
-    [sending, scenario.id, stream, pov],
+    [sending, scenario.id, stream, pov, refreshSessions],
   );
 
   // Persist a per-scene control change (optimistic; best-effort write-back to the scenario).
@@ -586,6 +736,13 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     profileId,
     openProfile: (id: string) => setProfileId(id),
     closeProfile: () => setProfileId(null),
+    // The play-through tray: every saved story for this scenario, and the actions over them.
+    sessions,
+    refreshSessions,
+    openSession,
+    startNewPlaythrough,
+    renamePlaythrough,
+    deletePlaythrough,
     activity,
     activityByChar,
     turnStatus,

@@ -114,7 +114,11 @@ describe("ToastProvider / Toast", () => {
     await expectGone("status");
   });
 
-  it("holds the auto-dismiss timer while the pointer is over the toast", async () => {
+  // 15s, not the 5s default. This test drives fake timers and then waits on a real exit
+  // animation, so its wall-clock cost is set by the machine, not by the assertion. It failed
+  // under an unrelated job holding the box at load ~47. The budget is what is wrong here, not
+  // the assertion — see docs/checklist.md.
+  it("holds the auto-dismiss timer while the pointer is over the toast", { timeout: 15_000 }, async () => {
     vi.useFakeTimers();
     try {
       render(
