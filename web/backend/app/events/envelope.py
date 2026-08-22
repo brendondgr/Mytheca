@@ -31,12 +31,52 @@ class StatPatch(CamelModel):
     reason: str = ""
 
 
-class NarrationData(CamelModel):
+class BeatTake(CamelModel):
+    """One version of a beat's prose.
+
+    A re-roll keeps the old take rather than replacing it: the player asked for a *different*
+    line, not for the previous one to stop existing, and often the first was better. Takes
+    live **inside the beat's own row** (``data.takes``) rather than as extra events — a second
+    row would need a ``seq``, which would either break ``UNIQUE (session_id, seq)`` or poison
+    the transcript's ordering. One beat keeps one position in the scene however many times it
+    is re-rolled.
+    """
+
+    id: str
+    text: str
+    ts: str = ""
+
+
+class ImageTake(CamelModel):
+    """One rendered version of a scene image, kept for the same reason as :class:`BeatTake`."""
+
+    id: str
+    url: str
+    prompt: str = ""
+    negative: str = ""
+    caption: str = ""
+    ts: str = ""
+
+
+class TakesMixin(CamelModel):
+    """Alternate versions of a prose beat, and which one is showing.
+
+    Both default to empty/zero, so every row written before this, every delta frame and every
+    existing test is unchanged. ``text`` always mirrors the active take — it stays the single
+    source of truth for the buffer, the export, reload and the moment prompts, none of which
+    need to know takes exist.
+    """
+
+    takes: list[BeatTake] = Field(default_factory=list)
+    active_take: int = 0
+
+
+class NarrationData(TakesMixin):
     text: str
     done: bool = True
 
 
-class CharacterProseData(CamelModel):
+class CharacterProseData(TakesMixin):
     """One character beat as a single first-person passage.
 
     The whole beat — what they notice, what they do, what they say — in their own voice,
@@ -49,7 +89,7 @@ class CharacterProseData(CamelModel):
     done: bool = True
 
 
-class CharacterDialogueData(CamelModel):
+class CharacterDialogueData(TakesMixin):
     character_id: str
     text: str
     done: bool = True
@@ -133,6 +173,10 @@ class SceneImageData(CamelModel):
     negative: str = ""
     caption: str = ""
     character_ids: list[str] = Field(default_factory=list)
+    #: Alternate renders, kept when the player asks for another. ``url``/``prompt``/
+    #: ``caption`` above always mirror the active one.
+    takes: list[ImageTake] = Field(default_factory=list)
+    active_take: int = 0
 
 
 # ---- envelope (shared base + one class per type) ---------------------------

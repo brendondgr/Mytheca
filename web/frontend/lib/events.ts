@@ -18,10 +18,44 @@ interface PlayEnvelope {
   visibility: PlayVisibility;
 }
 
+/**
+ * One version of a beat's prose. A re-roll keeps the old take rather than replacing it — the
+ * player asked for a *different* line, not for the previous one to stop existing.
+ *
+ * Takes live inside the beat's own event `data`, never as extra events: a second row would
+ * need a `seq`, which would either break the `(sessionId, seq)` uniqueness or poison the
+ * transcript's ordering. One beat keeps one position however many times it is re-rolled.
+ */
+export interface BeatTake {
+  id: string;
+  text: string;
+  ts: string;
+}
+
+/** One rendered version of a scene image, kept for the same reason as `BeatTake`. */
+export interface ImageTake {
+  id: string;
+  url: string;
+  prompt: string;
+  negative: string;
+  caption: string;
+  ts: string;
+}
+
+/**
+ * Alternate versions of a prose beat, and which is showing. Both default to empty/zero, so
+ * events written before takes existed parse unchanged. `text` always mirrors the active
+ * take — it stays the single source of truth for everything that does not know takes exist.
+ */
+export interface Takes {
+  takes?: BeatTake[];
+  activeTake?: number;
+}
+
 /** Narrator prose. Delta-streamed: same id, incremental `text`, `done` flips true last. */
 export interface NarrationEvent extends PlayEnvelope {
   type: "narration";
-  data: { text: string; done: boolean };
+  data: { text: string; done: boolean } & Takes;
 }
 
 /**
@@ -33,13 +67,13 @@ export interface NarrationEvent extends PlayEnvelope {
  */
 export interface CharacterProseEvent extends PlayEnvelope {
   type: "character_prose";
-  data: { characterId: string; text: string; done: boolean };
+  data: { characterId: string; text: string; done: boolean } & Takes;
 }
 
 /** A character's spoken line. Delta-streamed (same id, incremental `text`, `done`). */
 export interface CharacterDialogueEvent extends PlayEnvelope {
   type: "character_dialogue";
-  data: { characterId: string; text: string; done: boolean };
+  data: { characterId: string; text: string; done: boolean } & Takes;
 }
 
 /** A character's physical beat. Sent as one full event. */
@@ -123,6 +157,9 @@ export interface SceneImageEvent extends PlayEnvelope {
     negative: string;
     caption: string;
     characterIds: string[];
+    /** Alternate renders; `url`/`prompt`/`caption` above mirror the active one. */
+    takes?: ImageTake[];
+    activeTake?: number;
   };
 }
 
@@ -137,6 +174,22 @@ export type PlayEvent =
   | InternalThoughtEvent
   | CharacterStatusChangeEvent
   | SceneImageEvent;
+
+/**
+ * A re-roll is starting for an existing beat: **clear that message's text** before the deltas
+ * that follow.
+ *
+ * A transport frame, not a persisted story event — nothing about it belongs in the record.
+ * The deltas after it are ordinary story-event frames re-emitting the same `id` and `seq`, so
+ * the accumulator needs no special case; this frame exists only because those deltas would
+ * otherwise append to the take being replaced.
+ */
+export interface BeatRerollFrame {
+  type: "beat_reroll";
+  eventId: string;
+  /** The index the new take will occupy once it completes. */
+  take: number;
+}
 
 /** Terminal in-band error frame (mid-stream failure). */
 export interface TurnErrorFrame {
@@ -175,7 +228,12 @@ export interface TurnReasoningFrame {
   done: boolean;
 }
 
-export type TurnStreamFrame = PlayEvent | TurnErrorFrame | TurnTraceFrame | TurnReasoningFrame;
+export type TurnStreamFrame =
+  | PlayEvent
+  | TurnErrorFrame
+  | TurnTraceFrame
+  | TurnReasoningFrame
+  | BeatRerollFrame;
 
 // ---- scene images (POST /play/{scenarioId}/moment/stream) ----
 

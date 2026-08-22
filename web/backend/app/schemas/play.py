@@ -204,6 +204,25 @@ class BeatEditRequest(CamelModel):
     expected_seq: int | None = None
 
 
+class RerollRequest(CamelModel):
+    """Generate another version of a beat.
+
+    ``scope`` of ``beat`` re-runs that beat alone, in place, against the context it
+    originally saw. ``turn`` re-runs the whole turn it belongs to — the owner asked for both,
+    because a beat that went wrong because the *turn* went wrong is not fixed by re-rolling
+    one line of it.
+    """
+
+    scope: Literal["beat", "turn"] = "beat"
+    expected_seq: int | None = None
+
+
+class TakeSelectRequest(CamelModel):
+    """Show one of a beat's kept versions."""
+
+    take: int
+
+
 class SessionListResponse(CamelModel):
     sessions: list[SessionSummary]
 

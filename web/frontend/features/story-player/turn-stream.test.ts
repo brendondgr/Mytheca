@@ -9,6 +9,8 @@ import type {
 } from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
+  clearBeatForReroll,
+  takesOf,
   replaceBeatText,
   NARRATOR_REASONING,
   NO_DIRECTION,
@@ -1083,5 +1085,56 @@ describe("replaceBeatText", () => {
   it("can rewrite the player's own line", () => {
     const messages: SceneMessage[] = [{ kind: "player", id: "u0", text: "what I said" }];
     expect(replaceBeatText(messages, "u0", "what I meant")[0].text).toBe("what I meant");
+  });
+});
+
+describe("clearBeatForReroll", () => {
+  it("empties the target beat so a re-roll's deltas do not append to the old take", () => {
+    const messages: SceneMessage[] = [
+      { kind: "char", who: "mei", id: "b1", text: "The old line.", thought: "old thought" },
+    ];
+    const next = clearBeatForReroll(messages, "b1");
+    expect(next[0].text).toBe("");
+    expect(next[0].thought).toBeUndefined();
+  });
+
+  it("returns the same array when the id is not present", () => {
+    const messages: SceneMessage[] = [{ kind: "char", who: "mei", id: "b1", text: "x" }];
+    expect(clearBeatForReroll(messages, "nope")).toBe(messages);
+  });
+
+  it("is what mergeFrame does with a beat_reroll frame", () => {
+    const messages: SceneMessage[] = [{ kind: "narrator", id: "n1", text: "Before." }];
+    const next = mergeFrame(messages, { type: "beat_reroll", eventId: "n1", take: 1 });
+    expect(next[0].text).toBe("");
+  });
+});
+
+describe("takesOf", () => {
+  it("is undefined for a beat that has never been re-rolled", () => {
+    expect(takesOf({ text: "x" })).toBeUndefined();
+    expect(takesOf({ text: "x", takes: [], activeTake: 0 })).toBeUndefined();
+  });
+
+  it("is undefined for a single take — one version is not a choice", () => {
+    expect(takesOf({ takes: [{ id: "t", text: "a", ts: "" }], activeTake: 0 })).toBeUndefined();
+  });
+
+  it("reports the count and which is showing", () => {
+    expect(
+      takesOf({
+        takes: [
+          { id: "t1", text: "a", ts: "" },
+          { id: "t2", text: "b", ts: "" },
+        ],
+        activeTake: 1,
+      }),
+    ).toEqual({ count: 2, active: 1 });
+  });
+
+  it("defaults the active index when it is missing", () => {
+    expect(
+      takesOf({ takes: [{ id: "t1", text: "a", ts: "" }, { id: "t2", text: "b", ts: "" }] }),
+    ).toEqual({ count: 2, active: 0 });
   });
 });

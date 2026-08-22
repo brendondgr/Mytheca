@@ -411,6 +411,36 @@ export const editBeat = (
   body: { text: string; expectedSeq?: number },
 ) => patch<PersistedEvent>(`/play/${scenarioId}/sessions/${sessionId}/beats/${eventId}`, body);
 
+/**
+ * Generate another version of a beat, streaming it back as NDJSON. `scope: "beat"` re-runs
+ * that beat alone in place; `scope: "turn"` replays the whole turn it belongs to.
+ */
+export function rerollBeat(
+  scenarioId: string,
+  sessionId: string,
+  eventId: string,
+  body: { scope: "beat" | "turn"; expectedSeq?: number },
+  signal?: AbortSignal,
+): AsyncGenerator<TurnStreamFrame> {
+  return postNdjson<TurnStreamFrame>(
+    `/play/${scenarioId}/sessions/${sessionId}/beats/${eventId}/reroll`,
+    body,
+    signal,
+  );
+}
+
+/** Show one of a beat's kept versions. The server rebuilds the buffer to match. */
+export const selectBeatTake = (
+  scenarioId: string,
+  sessionId: string,
+  eventId: string,
+  take: number,
+) =>
+  patch<PersistedEvent>(
+    `/play/${scenarioId}/sessions/${sessionId}/beats/${eventId}/take`,
+    { take },
+  );
+
 /** Delete a play-through and its history (events + traces cascade server-side). */
 export const deletePlaySession = (scenarioId: string, sessionId: string) =>
   del(`/play/${scenarioId}/sessions/${sessionId}`);

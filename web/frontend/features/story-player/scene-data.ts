@@ -55,6 +55,11 @@ export interface SceneMessage {
    * `user_turn` row with `data.pov`.
    */
   fromPlayer?: boolean;
+  /**
+   * How many versions of this beat exist and which is showing, when it has been re-rolled.
+   * Absent for a beat with a single take — the pager is not rendered at all then.
+   */
+  takes?: { count: number; active: number };
 }
 
 // A branch fork the player can pick — no dice/checks (D11): label + a narrative-

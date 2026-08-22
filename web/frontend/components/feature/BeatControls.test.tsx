@@ -12,6 +12,22 @@ describe("BeatControls", () => {
     expect(onEdit).toHaveBeenCalled();
   });
 
+  it("re-rolls just the beat", async () => {
+    const user = userEvent.setup();
+    const onReroll = vi.fn();
+    render(<BeatControls onReroll={onReroll} label="Mei's beat" />);
+    await user.click(screen.getByRole("button", { name: /^re-roll mei's beat/i }));
+    expect(onReroll).toHaveBeenCalledWith("beat");
+  });
+
+  it("offers re-running the whole turn as a separate action", async () => {
+    const user = userEvent.setup();
+    const onReroll = vi.fn();
+    render(<BeatControls onReroll={onReroll} label="Mei's beat" />);
+    await user.click(screen.getByRole("button", { name: /re-run the whole turn/i }));
+    expect(onReroll).toHaveBeenCalledWith("turn");
+  });
+
   it("renders nothing when no action is available", () => {
     const { container } = render(<BeatControls />);
     expect(container).toBeEmptyDOMElement();

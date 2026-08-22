@@ -38,6 +38,7 @@ def narrator_interstitial(
     show_reasoning: bool = False,
     lead: str | None = None,
     long: bool = False,
+    replace: dict[str, tuple[str, int]] | None = None,
 ) -> Generator[StoryEvent | TurnReasoningFrame, None, bool]:
     """Emit an optional narrator beat; skip silently on failure. Returns whether a beat
     was actually emitted (so the caller can tell a real opening from a no-op).
@@ -49,7 +50,9 @@ def narrator_interstitial(
     this is the very first thing a new player sees — it is the beat that most needs to
     start arriving early rather than landing whole after a long silence."""
     stream = narrator_agent.stream_interstitial(db, ctx, turn_beats, lead=lead, long=long)
-    live = emitter.open_stream("narration", buffer_role="narrator")
+    live = emitter.open_stream(
+        "narration", buffer_role="narrator", replace=(replace or {}).get("narration")
+    )
     try:
         while True:
             delta = next(stream)
@@ -145,6 +148,7 @@ def generate_speaker(
     direction: SceneDirection | None = None,
     requirements: list[DirectionRequirement] | None = None,
     tracer: Tracer | None = None,
+    replace: dict[str, tuple[str, int]] | None = None,
 ) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
     """Generate one speaker's beat, emit its events as they arrive, append them to
     ``turn_beats``, and return the beat's impact (Σ|stat delta|) for the live queue.
@@ -177,7 +181,7 @@ def generate_speaker(
         db, ctx, speaker, emitter, turn_beats, consequences,
         roster=roster, directive=directive, relationship_note=relationship_note,
         register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
-        tracer=tr, show_reasoning=show_reasoning, usage_out=usage,
+        tracer=tr, show_reasoning=show_reasoning, usage_out=usage, replace=replace,
     )
     if blocked:
         # The passage was the model briefing itself, and was withheld before the reader saw
@@ -199,7 +203,7 @@ def generate_speaker(
             db, ctx, speaker, emitter, turn_beats, consequences,
             roster=roster, directive=directive, relationship_note=relationship_note,
             register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
-            tracer=tr, show_reasoning=show_reasoning, usage_out=usage,
+            tracer=tr, show_reasoning=show_reasoning, usage_out=usage, replace=replace,
         )
         if blocked:
             yield from tr.emit(

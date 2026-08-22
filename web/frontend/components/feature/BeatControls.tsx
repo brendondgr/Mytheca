@@ -16,6 +16,7 @@ import { useState } from "react";
  */
 export function BeatControls({
   onEdit,
+  onReroll,
   onBranch,
   onRewind,
   rewindBeatCount,
@@ -24,6 +25,12 @@ export function BeatControls({
 }: {
   /** Rewrite this beat's prose. Omit for a beat that has none (a stat change, choices). */
   onEdit?: () => void;
+  /**
+   * Ask for another version. `scope: "turn"` replays the whole turn the beat belongs to —
+   * a beat that went wrong because the *turn* went wrong is not fixed by re-rolling one
+   * line of it. Omit for a beat that cannot be re-generated.
+   */
+  onReroll?: (scope: "beat" | "turn") => void;
   /** Fork the play-through here, leaving the original intact. Omit to hide. */
   onBranch?: () => void;
   /** Cut the play-through back to here. Omit to hide. */
@@ -37,7 +44,7 @@ export function BeatControls({
 }) {
   const [confirming, setConfirming] = useState(false);
 
-  if (!onEdit && !onBranch && !onRewind) return null;
+  if (!onEdit && !onReroll && !onBranch && !onRewind) return null;
 
   if (confirming && onRewind) {
     return (
@@ -81,6 +88,30 @@ export function BeatControls({
         >
           <span aria-hidden>✎</span>
         </button>
+      ) : null}
+      {onReroll ? (
+        <>
+          <button
+            type="button"
+            onClick={() => onReroll("beat")}
+            disabled={disabled}
+            aria-label={`Re-roll ${label}`}
+            title="Re-roll — another version of this beat; the current one is kept"
+            className="flex h-[24px] w-[24px] items-center justify-center rounded-[3px] text-[11px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span aria-hidden>⟳</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onReroll("turn")}
+            disabled={disabled}
+            aria-label={`Re-run the whole turn containing ${label}`}
+            title="Re-run the turn — when the beat went wrong because the turn did"
+            className="flex h-[24px] w-[24px] items-center justify-center rounded-[3px] text-[11px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span aria-hidden>⟲</span>
+          </button>
+        </>
       ) : null}
       {onBranch ? (
         <button

@@ -16,14 +16,21 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
+from collections.abc import Iterator
+
 from fastapi import APIRouter, Depends, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.errors import APIError
+from app.events.stream import TurnErrorFrame, to_ndjson_line
 from app.models import Event
 from app.schemas.play import (
     BeatEditRequest,
+    RerollRequest,
+    TakeSelectRequest,
     BranchRequest,
     PersistedEvent,
     RestoredTurn,
@@ -33,11 +40,14 @@ from app.schemas.play import (
     SessionRenameRequest,
     SessionSummary,
 )
-from app.services import crud, events_store, session_state
+from app.services import beat_rerun, crud, events_store, session_state
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/play", tags=["play"])
+
+# Keep proxies from buffering the live stream (mirrors routes/play.py).
+_STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
 
 @router.post("/{scenario_id}/sessions", response_model=SessionSummary, status_code=201)
@@ -224,3 +234,67 @@ def edit_beat(
     events_store.get_session(db, scenario_id, session_id)
     session_state.require_expected_seq(db, session_id, data.expected_seq)
     return session_state.edit_beat(db, session_id, event_id, data.text)
+
+
+@router.post("/{scenario_id}/sessions/{session_id}/beats/{event_id}/reroll")
+def reroll_beat(
+    scenario_id: str,
+    session_id: str,
+    event_id: str,
+    data: RerollRequest,
+    db: Session = Depends(get_db),
+):
+    """Generate another version of a beat, streaming it back as NDJSON.
+
+    Scope ``beat`` re-runs that beat alone, in place: the new take streams into the same
+    transcript position (same event id and seq) and the previous wording is **kept** as a
+    take rather than overwritten. Scope ``turn`` truncates back to the turn's opening and
+    replays the player's persisted line through the ordinary turn loop — a composition of
+    the rewind and turn machinery rather than new engine code.
+
+    The response body *is* the stream, matching the turn endpoint. A `beat_reroll` frame
+    leads, telling the client to clear the beat before the deltas that follow.
+    """
+    scenario = crud.get_scenario(db, scenario_id)
+    session = events_store.get_session(db, scenario_id, session_id)
+    session_state.require_expected_seq(db, session_id, data.expected_seq)
+    row = db.get(Event, event_id)
+    if row is None or row.session_id != session_id:
+        raise APIError(404, "invalid_reference", "Unknown beat for this play-through.")
+
+    def _lines() -> Iterator[str]:
+        try:
+            if data.scope == "turn":
+                for event in beat_rerun.rerun_turn(db, scenario, session, row):
+                    yield to_ndjson_line(event)
+            else:
+                for event in beat_rerun.rerun_beat(db, scenario, session, row):
+                    yield to_ndjson_line(event)
+        except APIError as exc:
+            yield to_ndjson_line(TurnErrorFrame(message=exc.message))
+        except Exception:
+            logger.exception("Re-roll failed (session=%s beat=%s)", session_id, event_id)
+            yield to_ndjson_line(TurnErrorFrame(message="That beat could not be re-rolled."))
+
+    # No keepalive wrapper: a re-roll streams deltas continuously, exactly like a turn, so
+    # the socket is never silent long enough to need one (routes/play.py's turn endpoint is
+    # the same; only the moment stream, which is silent during rendering, wraps).
+    return StreamingResponse(
+        _lines(), media_type="application/x-ndjson", headers=_STREAM_HEADERS
+    )
+
+
+@router.patch(
+    "/{scenario_id}/sessions/{session_id}/beats/{event_id}/take", response_model=PersistedEvent
+)
+def select_take(
+    scenario_id: str,
+    session_id: str,
+    event_id: str,
+    data: TakeSelectRequest,
+    db: Session = Depends(get_db),
+) -> Event:
+    """Show one of a beat's kept versions. Rebuilds the buffer, so the cast reads the take
+    the player is reading."""
+    events_store.get_session(db, scenario_id, session_id)
+    return beat_rerun.set_active_take(db, session_id, event_id, data.take)

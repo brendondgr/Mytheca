@@ -18,6 +18,7 @@ import { CastRail } from "@/components/feature/CastRail";
 import { PlaythroughTray } from "@/components/feature/PlaythroughTray";
 import { BeatControls } from "@/components/feature/BeatControls";
 import { BeatEditor } from "@/components/feature/BeatEditor";
+import { BeatTakePager } from "@/components/feature/BeatTakePager";
 import { RewindNotice } from "@/components/feature/RewindNotice";
 import { GraphView } from "@/components/feature/GraphView";
 import { DirectorRail } from "@/components/feature/DirectorRail";
@@ -71,6 +72,10 @@ const CHARACTER_PHASES = new Set(["thinking", "speaking", "acting"]);
 /** Beat kinds whose prose the player can rewrite. A picture and a set of choices
  *  have no words of their own to edit. */
 const EDITABLE_BEATS = new Set(["narrator", "char", "player"]);
+
+/** Beat kinds the engine can generate again. The player's own line is not one —
+ *  re-rolling it would mean the model writing what the player said. */
+const RERUNNABLE_BEATS = new Set(["narrator", "char"]);
 
 export function StoryPlayerView({
   scenario,
@@ -240,8 +245,27 @@ export function StoryPlayerView({
                         label={beatLabel(m, byId)}
                         rewindBeatCount={scene.messages.length - turnStartIndex(scene.messages, i)}
                         onEdit={EDITABLE_BEATS.has(m.kind) ? () => setEditingId(m.id!) : undefined}
+                        onReroll={
+                          // Never the player's own words — including a POV beat, which wears
+                          // a character's identity but was written by the player.
+                          RERUNNABLE_BEATS.has(m.kind) && !m.fromPlayer
+                            ? (scope) => scene.rerollBeat(m.id!, scope)
+                            : undefined
+                        }
                         onBranch={() => void scene.branchFrom(m.id!)}
                         onRewind={() => void scene.rewindTo(m.id!)}
+                        disabled={scene.sending}
+                      />
+                    </span>
+                  ) : null}
+                  {/* Only on a beat that has been re-rolled — one version is not a choice. */}
+                  {m.takes && m.id ? (
+                    <span className="absolute -bottom-[8px] right-0 z-10">
+                      <BeatTakePager
+                        count={m.takes.count}
+                        active={m.takes.active}
+                        label={beatLabel(m, byId)}
+                        onSelect={(take) => void scene.selectTake(m.id!, take)}
                         disabled={scene.sending}
                       />
                     </span>

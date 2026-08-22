@@ -152,6 +152,21 @@ def with_keepalive(
         yield item
 
 
+class BeatRerollFrame(CamelModel):
+    """A re-roll is starting for an existing beat: **clear its text** before what follows.
+
+    A transport frame, not a persisted story event — nothing about it belongs in the record.
+    The deltas after it are ordinary story-event frames re-emitting the same ``id`` and
+    ``seq``, so the client's accumulator needs no special case; this frame exists only
+    because those deltas would otherwise append to the take being replaced.
+    """
+
+    type: Literal["beat_reroll"] = "beat_reroll"
+    event_id: str
+    #: The index the new take will occupy once it completes.
+    take: int = 0
+
+
 class TurnErrorFrame(CamelModel):
     """Terminal in-band error frame for the turn stream.
 

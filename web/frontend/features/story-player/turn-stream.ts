@@ -115,6 +115,11 @@ export function dropPendingBeats(prev: SceneMessage[]): SceneMessage[] {
 export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneMessage[] {
   if (frame.type === "error") return prev; // surfaced separately by the hook
   if (frame.type === "reasoning") return prev; // live-only machinery, folded separately
+  if (frame.type === "beat_reroll") {
+    // A re-roll is about to stream a new take into an EXISTING beat. Clear it first: the
+    // deltas re-emit the same event id, and the accumulator appends by id.
+    return clearBeatForReroll(prev, frame.eventId);
+  }
   if (frame.type === "trace") {
     // One exception to "traces never touch the transcript": a chosen speaker opens their
     // beat immediately, before a single word exists. The layout commits early, the
@@ -321,8 +326,14 @@ export const NARRATOR_REASONING = "__narrator__";
 
 /** Capture the resolved session id from any envelope frame (for turn resume). */
 export function sessionIdOf(frame: TurnStreamFrame): string | null {
-  // Transport frames (error/trace/reasoning) carry no envelope — only story events do.
-  if (frame.type === "error" || frame.type === "trace" || frame.type === "reasoning") {
+  // Transport frames (error/trace/reasoning/beat_reroll) carry no envelope — only story
+  // events do.
+  if (
+    frame.type === "error" ||
+    frame.type === "trace" ||
+    frame.type === "reasoning" ||
+    frame.type === "beat_reroll"
+  ) {
     return null;
   }
   return frame.sessionId || null;
@@ -405,6 +416,35 @@ export interface RehydratedScene {
  * by a persisted event still reads as that real value, not the schema default.
  */
 /**
+ * Clear a beat's text before a re-roll's deltas arrive.
+ *
+ * The deltas re-emit the same event id, and the accumulator appends by id — so without this
+ * the new take would be concatenated onto the one it is replacing.
+ */
+export function clearBeatForReroll(
+  messages: SceneMessage[],
+  eventId: string,
+): SceneMessage[] {
+  let changed = false;
+  const next = messages.map((m) => {
+    if (m.id !== eventId) return m;
+    changed = true;
+    return { ...m, text: "", action: undefined, thought: undefined };
+  });
+  return changed ? next : messages;
+}
+
+/** Read the take count/active index off an event's data, if it carries them. */
+export function takesOf(
+  data: Record<string, unknown> | undefined,
+): { count: number; active: number } | undefined {
+  const takes = data?.takes;
+  if (!Array.isArray(takes) || takes.length < 2) return undefined;
+  const active = typeof data?.activeTake === "number" ? data.activeTake : 0;
+  return { count: takes.length, active };
+}
+
+/**
  * Replace one beat's prose by its event id.
  *
  * Lives here, beside `mergeFrame` and `rehydrateFromHistory`, so live, rehydrated and edited
@@ -468,6 +508,13 @@ export function rehydrateFromHistory(
     // narration / internal_thought / character_action / character_dialogue / scene_image
     // all fold exactly as they do live.
     messages = mergeFrame(messages, e as unknown as TurnStreamFrame);
+    // Takes are read on rehydrate rather than threaded through the delta accumulator: they
+    // are only ever *complete* when a re-roll finishes, and the re-roll path reloads the
+    // session afterwards. Doing it here keeps mergeDelta about accumulating text.
+    const takes = takesOf(e.data);
+    if (takes) {
+      messages = messages.map((m) => (m.id === e.id ? { ...m, takes } : m));
+    }
   }
 
   let traceTurns: TraceTurn[] = [];

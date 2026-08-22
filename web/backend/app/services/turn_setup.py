@@ -304,3 +304,54 @@ def prepare_turn(
         direction=direction,
         show_reasoning=show_reasoning,
     )
+
+
+def context_for_replay(
+    db: Session, scenario: Scenario, session_id: str, *, through_seq: int
+) -> tuple[TurnContext, list[dict]]:
+    """Rebuild the context a beat originally saw, for a re-roll.
+
+    ``prepare_turn`` cannot be re-run for this: it would record a **second** ``user_turn``
+    row, push the player's line into the buffer again, and spend another intent call. What a
+    re-roll needs is narrower — the same :class:`TurnContext`, and the same ``turn_beats``
+    the target beat was generated against.
+
+    ``through_seq`` is the last beat the re-run may see, i.e. the one **before** the target.
+    Walking the persisted rows rather than the Redis buffer is deliberate: the buffer is a
+    window, and the beat being re-rolled may already have fallen out of it.
+    """
+    ctx = assembler.assemble_context(db, scenario, session_id, None, player_text="")
+    turn_beats: list[dict] = []
+    rows = events_store.session_events(db, session_id)
+    # The turn this beat belongs to opens at the last `user_turn` at or before it.
+    opening_seq = 0
+    for row in rows:
+        if row.type == "user_turn" and row.seq <= through_seq:
+            opening_seq = row.seq
+    for row in rows:
+        if row.seq < opening_seq or row.seq > through_seq:
+            continue
+        data = row.data if isinstance(row.data, dict) else {}
+        text = str(data.get("text") or "").strip()
+        if not text:
+            continue
+        if row.type == "user_turn":
+            pov = data.get("pov")
+            turn_beats.append(
+                {
+                    "role": "character" if pov else "player",
+                    "text": text,
+                    "characterId": pov or None,
+                }
+            )
+        elif row.type in ("narration",):
+            turn_beats.append({"role": "narrator", "text": text, "characterId": None})
+        elif row.type in ("character_prose", "character_dialogue", "character_action"):
+            turn_beats.append(
+                {
+                    "role": "character",
+                    "text": text,
+                    "characterId": data.get("characterId"),
+                }
+            )
+    return ctx, turn_beats

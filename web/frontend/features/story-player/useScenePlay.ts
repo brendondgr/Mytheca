@@ -8,6 +8,8 @@ import {
   getScenarioRelationships,
   postSceneMoment,
   postTurn,
+  rerollBeat as apiRerollBeat,
+  selectBeatTake,
   setPresence as apiSetPresence,
   updateScenario,
 } from "@/lib/api";
@@ -523,6 +525,55 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       });
   }, [sending, scenario.id, stream, pov, refreshSessions]);
 
+  /**
+   * Generate another version of a beat, streaming it into the beat's existing position.
+   *
+   * Reloads the session when the stream ends rather than reconciling takes from the frames:
+   * the take list is only complete once the server has recorded it, and `loadSession` is the
+   * one path already proven to turn rows into a faithful transcript.
+   */
+  const rerollBeat = useCallback(
+    (eventId: string, scope: "beat" | "turn" = "beat") => {
+      const sid = sessionRef.current;
+      if (!sid || sending) return;
+      setStreamError(null);
+      void stream
+        .run((signal) =>
+          apiRerollBeat(scenario.id, sid, eventId, { scope }, signal),
+        )
+        .catch(() => setStreamError((e) => e ?? "That beat could not be re-rolled."))
+        .finally(() => {
+          setActivityByChar({});
+          setTurnStatus(IDLE_TURN_STATUS);
+          setMessages(dropPendingBeats);
+          void loadSession(sid);
+        });
+    },
+    [sending, scenario.id, stream, loadSession],
+  );
+
+  /** Show one of a beat's kept versions. Optimistic; reverts on failure. */
+  const selectTake = useCallback(
+    async (eventId: string, take: number) => {
+      const sid = sessionRef.current;
+      if (!sid || sending) return;
+      try {
+        const row = await selectBeatTake(scenario.id, sid, eventId, take);
+        const text = String((row.data as { text?: string }).text ?? "");
+        setMessages((current) =>
+          current.map((m) =>
+            m.id === eventId
+              ? { ...m, text, takes: m.takes ? { ...m.takes, active: take } : m.takes }
+              : m,
+          ),
+        );
+      } catch {
+        notify({ message: "That version could not be shown.", variant: "error" });
+      }
+    },
+    [sending, scenario.id, notify],
+  );
+
   const submit = useCallback(
     (text: string, direction = "", taggedDocIds: string[] = []) => {
       const t = text.trim();
@@ -669,6 +720,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     sessionId,
     send,
     continueTurn,
+    rerollBeat,
+    selectTake,
     choose,
     profileId,
     openProfile: (id: string) => setProfileId(id),

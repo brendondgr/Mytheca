@@ -28,6 +28,7 @@ from app.events.envelope import StoryEvent
 from app.events.stream import TurnTraceFrame, build_event, chunk_text
 from app.memory import buffer
 from app.schemas.base import EventType, Visibility
+from app.models import Event
 from app.services import events_store
 
 
@@ -81,6 +82,22 @@ class Emitter:
             visibility=visibility,
         )
 
+    def update_text(self, event_id: str, text: str) -> None:
+        """Rewrite an existing row's ``text`` in place — the re-roll path.
+
+        Deliberately does **not** touch the recent-turn buffer: a re-roll rewrites one beat
+        in the middle of a session, and pushing the new text would append it to the end of
+        the window rather than replacing it where it sits. The caller rebuilds the whole
+        buffer from the rows afterwards, which is the only way to get that right.
+        """
+        row = self._db.get(Event, event_id)
+        if row is None:  # pragma: no cover - defensive
+            return
+        data = dict(row.data) if isinstance(row.data, dict) else {}
+        data["text"] = text
+        row.data = data
+        self._db.commit()
+
     def persist(
         self, event: StoryEvent, *, buffer_role: str | None, character_id: str | None
     ) -> None:
@@ -101,14 +118,20 @@ class Emitter:
         character_id: str | None = None,
         visibility: Visibility | None = None,
         buffer_role: str | None = None,
+        replace: tuple[str, int] | None = None,
     ) -> "LiveSegment":
-        """Start streaming one event; the caller drives it with ``delta``/``close``."""
+        """Start streaming one event; the caller drives it with ``delta``/``close``.
+
+        ``replace`` is the re-roll path: give it an existing ``(event_id, seq)`` and the
+        segment streams into that beat's position and updates its row instead of inserting.
+        """
         return LiveSegment(
             self,
             type_,
             character_id=character_id,
             visibility=visibility,
             buffer_role=buffer_role,
+            replace=replace,
         )
 
     def emit(
@@ -198,14 +221,19 @@ class LiveSegment:
         character_id: str | None,
         visibility: Visibility | None,
         buffer_role: str | None,
+        replace: tuple[str, int] | None = None,
     ) -> None:
         self._emitter = emitter
         self._type = type_
         self._character_id = character_id
         self._visibility = visibility
         self._buffer_role = buffer_role
-        self._event_id = new_id("ev")
-        self._seq = emitter.take_seq()
+        # **Replace mode** (a re-roll): stream into an EXISTING beat's id and seq instead of
+        # claiming new ones, so the re-take lands in the same transcript position and `close`
+        # updates that row rather than inserting a second one. Taking a new seq here is what
+        # would push the re-rolled beat to the end of the scene.
+        self._replacing = replace is not None
+        self._event_id, self._seq = replace if replace else (new_id("ev"), emitter.take_seq())
         self._text = ""
         self._closed = False
 
@@ -234,7 +262,14 @@ class LiveSegment:
             character_id=self._character_id,
             visibility=self._visibility,
         )
-        self._emitter.persist(full, buffer_role=self._buffer_role, character_id=self._character_id)
+        if self._replacing:
+            # The row already exists; its `takes` bookkeeping belongs to the caller, which
+            # knows this is a re-roll. Persisting again would violate (session_id, seq).
+            self._emitter.update_text(self._event_id, self._text)
+        else:
+            self._emitter.persist(
+                full, buffer_role=self._buffer_role, character_id=self._character_id
+            )
         yield from self._frame("", done=True)
 
     def _frame(self, chunk: str, *, done: bool) -> Iterator[StoryEvent]:

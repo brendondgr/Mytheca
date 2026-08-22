@@ -91,6 +91,7 @@ def stream_emission(
     tracer: Tracer,
     show_reasoning: bool = False,
     usage_out: dict | None = None,
+    replace: dict[str, tuple[str, int]] | None = None,
 ): 
     """Drive one character generation as a stream; return ``(raw, prompt_tokens, impact, blocked)``.
 
@@ -147,7 +148,7 @@ def stream_emission(
             return (
                 yield from emit_segment_delta(
                     db, ctx, speaker, emitter, turn_beats, consequences,
-                    seg, open_segments, buffered, tracer,
+                    seg, open_segments, buffered, tracer, replace,
                 )
             )
         held.append(seg)
@@ -188,7 +189,7 @@ def stream_emission(
         for delta in pending:
             total += yield from emit_segment_delta(
                 db, ctx, speaker, emitter, turn_beats, consequences,
-                delta, open_segments, buffered, tracer,
+                delta, open_segments, buffered, tracer, replace,
             )
         return total
 
@@ -266,6 +267,7 @@ def emit_segment_delta(
     open_segments: dict[int, LiveSegment],
     buffered: dict[int, str],
     tracer: Tracer,
+    replace: dict[str, tuple[str, int]] | None = None,
 ) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
     """Route one parsed increment to the wire; return the stat impact it carried.
 
@@ -284,6 +286,11 @@ def emit_segment_delta(
                 character_id=seg.character_id,
                 visibility="private_to_user" if seg.type == "internal_thought" else None,
                 buffer_role=None if seg.type == "internal_thought" else "character",
+                # A re-roll streams each part back into the row it is replacing, keyed by
+                # type. The accompanying thought is replaced too, not appended: the old one
+                # explained the line that no longer exists, and leaving it would stack a
+                # fresh thought beside a stale one on every re-roll.
+                replace=(replace or {}).get(seg.type),
             )
             open_segments[seg.index] = live_seg
         if seg.text:
@@ -335,6 +342,20 @@ def emit_segment_delta(
             "action", f"{speaker.name} acts", detail=body, data={"characterId": seg.character_id}
         )
         return 0
+    # A re-roll rewrites one beat's WORDING; it must not re-apply its consequences. The
+    # original beat's stat, relationship and presence changes already happened and are
+    # recorded — applying the new take's as well would drift a character's stats a little
+    # further every time the player asked for a different line, and stack a fresh
+    # `state_update` row onto the end of the scene each time.
+    if replace is not None:
+        if seg.type in ("state_update", "relationship_update", "presence_change"):
+            yield from tracer.emit(
+                seg.type,
+                "Consequence skipped on a re-roll",
+                detail="A re-take changes the wording, not the world.",
+                data={"characterId": seg.character_id},
+            )
+            return 0
     if seg.type == "state_update":
         return (
             yield from apply_stat_change(
