@@ -35,10 +35,25 @@ Verified against the code on 2026-08-04.
   set it are the three research harnesses, which need a fixed depth rather than a moving
   target. It is a deliberate API-only escape hatch, not an oversight; delete it only when no
   experiment needs a pinned window.
-- **Compaction is unmeasured, and therefore off.** `TURN_CONTEXT_COMPACTION` defaults to
-  `false`. `EXP-2026-08-011` is the pre-registered two-arm experiment that would justify
-  changing that, and claim **C-013** stays `unsupported` until it reports. Nothing may describe
-  compaction as free, or default it on, before then.
+- **Compaction was measured, came out against itself, and stays off.**
+  `TURN_CONTEXT_COMPACTION` defaults to `false`.
+  [`EXP-2026-08-011`](research/experiments/EXP-2026-08-011-context-compaction/) ran on
+  2026-08-22 and the compacted arm **lost the planted fact the control kept** (3 of 9 content
+  tokens against 6; the summary had reduced *"owes the harbourmaster four hundred crowns, brass
+  key sewn into his collar"* to *"owes 400 crowns"*), while rewriting the summary **16 times**
+  against a predicted 4 and halving the reusable prompt prefix (80.3 % → 44.6 %). Claim
+  **C-013** stays `unsupported`. n = 1 scene per arm, so this is an existence proof against
+  compaction and not a rate — it does not make the claim `refuted` either. Nothing may describe
+  compaction as free, or default it on, on this evidence.
+- **`maybe_compact`'s trigger is wrong, and the experiment found it.** The gate tests
+  `fit.dropped_beats < block` — beats dropped *in total*, not beats dropped *since the last
+  summary* — so once one anchor block has ever fallen out of the window it never closes again
+  and the summary is rewritten nearly every turn. That is the whole of the prefix-reuse loss
+  above, and it means the bounded design the code's own comment describes **has never been
+  run**. The fix is a condition on `len(fresh)`, plus a unit test that fails on the current
+  one; it is deliberately not applied inside the completed experiment's change, because the
+  recorded numbers describe the code at `code.commit`.
+  → `research/experiments/EXP-2026-08-011-context-compaction/ISSUES.md` §6
 - **The memory edge is accurate to within a beat or two.** `MemoryEdge` marks where verbatim
   recall stops by counting back `windowBeats` rendered transcript messages — but messages and
   buffer beats are not exactly 1:1 (an internal thought folds into its speaker's beat), so the

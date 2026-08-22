@@ -3,21 +3,21 @@
     "aggregate": {
       "A": {
         "continuity_hits": 1,
-        "probe_score_mean": 0.778,
+        "probe_score_mean": 0.667,
         "probe_total": 1,
-        "prompt_tokens_mean": 2963.6,
+        "prompt_tokens_mean": 5381.1,
         "recap_calls_total": 0,
-        "reusable_prefix_share": 0.7094,
-        "turn_seconds_mean": 80.41
+        "reusable_prefix_share": 0.8032,
+        "turn_seconds_mean": 175.73
       },
       "B": {
-        "continuity_hits": 1,
-        "probe_score_mean": 0.778,
+        "continuity_hits": 0,
+        "probe_score_mean": 0.333,
         "probe_total": 1,
-        "prompt_tokens_mean": 2541.9,
-        "recap_calls_total": 0,
-        "reusable_prefix_share": 0.6275,
-        "turn_seconds_mean": 79.81
+        "prompt_tokens_mean": 3396.1,
+        "recap_calls_total": 16,
+        "reusable_prefix_share": 0.4461,
+        "turn_seconds_mean": 105.51
       }
     },
     "failed": 0,
@@ -25,34 +25,34 @@
       {
         "arm": "A",
         "probe_hit": true,
-        "probe_score": 0.778,
-        "prompt_tokens_mean": 2963.6,
+        "probe_score": 0.667,
+        "prompt_tokens_mean": 5381.1,
         "recap_calls": 0,
-        "reusable_prefix_share": 0.7094,
-        "scenario": "c568",
+        "reusable_prefix_share": 0.8032,
+        "scenario": "2fc2",
         "scene": 0,
-        "session": "ps_b7e7b96705",
+        "session": "ps_954013afe8",
         "status": "ok",
-        "storyline": "7878cba2",
-        "turn_seconds_mean": 80.41,
-        "turns": 10,
-        "wall_seconds": 804.2
+        "storyline": "440435b6",
+        "turn_seconds_mean": 175.73,
+        "turns": 30,
+        "wall_seconds": 5271.8
       },
       {
         "arm": "B",
-        "probe_hit": true,
-        "probe_score": 0.778,
-        "prompt_tokens_mean": 2541.9,
-        "recap_calls": 0,
-        "reusable_prefix_share": 0.6275,
-        "scenario": "ee5c",
+        "probe_hit": false,
+        "probe_score": 0.333,
+        "prompt_tokens_mean": 3396.1,
+        "recap_calls": 16,
+        "reusable_prefix_share": 0.4461,
+        "scenario": "ea37",
         "scene": 0,
-        "session": "ps_bb638f6f00",
+        "session": "ps_b983a38127",
         "status": "ok",
-        "storyline": "2a9e6c54",
-        "turn_seconds_mean": 79.81,
-        "turns": 10,
-        "wall_seconds": 798.1
+        "storyline": "69b0fb80",
+        "turn_seconds_mean": 105.51,
+        "turns": 30,
+        "wall_seconds": 3165.4
       }
     ]
   },
@@ -60,40 +60,40 @@
     {
       "arm": "A",
       "probe_hit": true,
-      "probe_score": 0.778,
-      "prompt_tokens_mean": 2963.6,
+      "probe_score": 0.667,
+      "prompt_tokens_mean": 5381.1,
       "recap_calls": 0,
-      "reusable_prefix_share": 0.7094,
-      "scenario": "c568",
+      "reusable_prefix_share": 0.8032,
+      "scenario": "2fc2",
       "scene": 0,
-      "session": "ps_b7e7b96705",
+      "session": "ps_954013afe8",
       "status": "ok",
-      "storyline": "7878cba2",
-      "turn_seconds_mean": 80.41,
-      "turns": 10,
-      "wall_seconds": 804.2
+      "storyline": "440435b6",
+      "turn_seconds_mean": 175.73,
+      "turns": 30,
+      "wall_seconds": 5271.8
     },
     {
       "arm": "B",
-      "probe_hit": true,
-      "probe_score": 0.778,
-      "prompt_tokens_mean": 2541.9,
-      "recap_calls": 0,
-      "reusable_prefix_share": 0.6275,
-      "scenario": "ee5c",
+      "probe_hit": false,
+      "probe_score": 0.333,
+      "prompt_tokens_mean": 3396.1,
+      "recap_calls": 16,
+      "reusable_prefix_share": 0.4461,
+      "scenario": "ea37",
       "scene": 0,
-      "session": "ps_bb638f6f00",
+      "session": "ps_b983a38127",
       "status": "ok",
-      "storyline": "2a9e6c54",
-      "turn_seconds_mean": 79.81,
-      "turns": 10,
-      "wall_seconds": 798.1
+      "storyline": "69b0fb80",
+      "turn_seconds_mean": 105.51,
+      "turns": 30,
+      "wall_seconds": 3165.4
     }
   ],
   "totals": {
     "input_tokens": 0,
-    "llm_calls": 0,
+    "llm_calls": 16,
     "output_tokens": 0,
-    "wall_clock_seconds": 1685.763
+    "wall_clock_seconds": 8438.704
   }
 }

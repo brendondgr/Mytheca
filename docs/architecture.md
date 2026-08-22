@@ -123,11 +123,19 @@ threatens the block anchoring that keeps the prompt-cache prefix stable, so `fit
 quantises to the same block and applies hysteresis: the window can only move in steps the
 anchoring already tolerates.
 
-**Compaction is built and defaults off.** Folding dropped beats into a rolling summary is a
-change to what the model reads, and this repository's own record says an unmeasured prompt
-change is how the last one went wrong. `TURN_CONTEXT_COMPACTION` is `false` until
-`EXP-2026-08-011` reports; claim C-013 is `unsupported` until then. That is a decision, not an
-unfinished feature.
+**Compaction is built, was measured, and stays off.** Folding dropped beats into a rolling
+summary is a change to what the model reads, and this repository's own record says an unmeasured
+prompt change is how the last one went wrong. So it was measured:
+[`EXP-2026-08-011`](research/experiments/EXP-2026-08-011-context-compaction/) ran two arms
+interleaved on 2026-08-22, and **the compacted arm lost the planted fact the control kept** —
+the summary had reduced "owes the harbourmaster four hundred crowns, brass key sewn into his
+collar" to `* Rensal: owes 400 crowns.`, and the character answered faithfully from that. It
+also rewrote the summary 16 times where the design predicts 4, which is a **defect in
+`maybe_compact`'s gate** (it counts beats dropped in total, not since the last summary) and the
+whole of the observed prefix-reuse loss. `TURN_CONTEXT_COMPACTION` stays `false`; claim C-013
+stays `unsupported`. n = 1 scene per arm, so that is an existence proof against it rather than a
+refutation — but it is nowhere near the evidence turning it on would need. That is a decision,
+not an unfinished feature.
 
 The scene's **rolling memory** is a second deliberate exception. `play_sessions.summary_text` / `summary_through_seq` / `summary_updated_at` hold what `history_compaction` folded out of the context window. It is not an event: an event would take a `seq`, appear in the transcript and the export, and be something a player could rewind *to* — none of which is true of a summary. `summary_through_seq` is what makes it honest rather than merely convenient: every path that rewrites history at or below that seq clears it, because a stale summary would have the cast confidently remembering the beats the player just removed.
 

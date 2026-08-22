@@ -240,6 +240,35 @@ Appended as each `RESULTS.md` §7 is written.
       same TAIL and have never been checked against each other.
 - [ ] **Re-run the tiers on a second model.** Everything is `gemma4-26B-mtp`.
 
+### From EXP-2026-08-011 (`complete` — context compaction, and the result is against it)
+
+- [ ] **Fix `maybe_compact`'s trigger and re-run.** The gate tests `fit.dropped_beats < block`
+      — beats dropped *in total*, not since the last summary — so once one anchor block has
+      fallen out it never closes, and the summary was rewritten 16 times in 30 turns against a
+      predicted 4. That is the whole of the prefix-reuse loss (80.3 % → 44.6 %). **The bounded
+      design the claim describes has therefore never been run.** Needs a condition on the fresh
+      beats plus a unit test that fails on the current one — the existing suite passes because
+      it asserts compaction *fires* after a block, never that it fires *only* then, and the
+      difference needs a scene long enough for a second block.
+      → `experiments/EXP-2026-08-011-context-compaction/ISSUES.md` §6
+- [ ] **Teach the recap agent to keep entity-attached specifics.** The summary reduced "owes
+      the harbourmaster four hundred crowns, brass key sewn into his collar" to
+      `* Rensal: owes 400 crowns.` — it kept the plot state and dropped the creditor and the
+      key. The character then answered the probe faithfully from a record that no longer held
+      the fact. Continuity is made of exactly the specifics a scene summary is built to drop,
+      and a prompt change is the cheapest lever on it.
+      → `experiments/EXP-2026-08-011-context-compaction/RESULTS.md` §4
+- [ ] **Make the control comparable.** Arm A was a fixed 100-beat window and never dropped the
+      plant, so it was "still reading the fact", not "compaction off". Re-run with a smaller
+      fixed `contextBeats` or more turns so H1 is an equivalence test rather than one a fixed
+      window wins by construction.
+      → `experiments/EXP-2026-08-011-context-compaction/ISSUES.md` §1
+- [ ] **Answer H3.** Prose quality is **not measured**: a blinded pairwise read of matched
+      beats was pre-registered and not performed, and a preference stated by a reader who
+      already knows the arms is not evidence. Needs a reader who has not seen them labelled.
+- [ ] **Raise n.** One scene per arm, one probe, one model, 140 min of local inference. The
+      result is an existence proof and cannot be read as a rate.
+
 ### From `docs/plans/steering-the-scene.md` Phase 7 (direction delivery)
 
 - [ ] **Sweep `DIRECTION_COVERAGE_THRESHOLD`.** A scene direction requirement is now confirmed

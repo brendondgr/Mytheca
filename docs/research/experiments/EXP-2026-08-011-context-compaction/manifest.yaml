@@ -3,7 +3,7 @@ slug: context-compaction
 title: Does compacting dropped history preserve continuity, and what does it cost?
 status: complete
 date_started: 2026-08-22
-date_completed: null
+date_completed: '2026-08-22'
 authors:
 - brendondgr
 purpose: 'When a scene outgrows the model''s context window the oldest beats are dropped, which is how
@@ -24,9 +24,9 @@ hypothesis: 'H1 continuity — with compaction on, a late-scene line referring t
 
   '
 code:
-  commit: 7eb778d0e73f7b31cb657bf44f18b0febd69d70b
+  commit: 59b10a9e173fe0e7212936ad644ab7eccae36c08
   branch: play-experience
-  entrypoint: uv run python -m utils.scripts.research.run_context_compaction --scenes 1 --turns 10 --api
+  entrypoint: uv run python -m utils.scripts.research.run_context_compaction --scenes 1 --turns 30 --api
     http://127.0.0.1:3355/api --experiment docs/research/experiments/EXP-2026-08-011-context-compaction
   dirty: true
 config:
@@ -40,17 +40,18 @@ data:
   dvc_path: null
   hash: null
 seeds: []
-n_runs: 0
+n_runs: 2
 environment:
   python: '3.13'
   lockfile: env/requirements.lock
   container: null
 compute:
   hardware: local CPU inference via the :4000 relay (llama.cpp, gemma-4-26B-it)
-  wall_clock_hours: 0.0
+  wall_clock_hours: 2.34
   estimated_cost_usd: 0.0
 llm:
-  model: relay/local -> llama.cpp gemma-4-26B-it (as served 2026-08-22)
+  model: relay/local -> llama.cpp gemma-4-26B-it (as served 2026-08-22; the configured
+    alias `skynet` was down all day — ISSUES.md §5)
   temperature: 0.0
   top_p: 1.0
   max_tokens: 8000
@@ -66,12 +67,106 @@ llm:
 
     '
 metrics:
-  primary: continuity_hits
-  values: {}
-baselines_compared: []
+  # The treatment's continuity probe: the number the claim rests on, and the one that
+  # came out against it. Every value below is n=1 — ONE scene per arm, so `std` is null
+  # throughout and none of these is a rate. RESULTS.md §5 says so in words.
+  primary: B.continuity_hits
+  values:
+    A.continuity_hits:
+      mean: 1
+      std: null
+      n: 1
+    A.probe_score:
+      mean: 0.667
+      std: null
+      n: 1
+    A.fact_tokens_recovered:
+      mean: 6
+      std: null
+      n: 1
+    A.prompt_tokens_mean:
+      mean: 5381.1
+      std: null
+      n: 1
+    A.reusable_prefix_share:
+      mean: 0.8032
+      std: null
+      n: 1
+    A.recap_calls:
+      mean: 0
+      std: null
+      n: 1
+    A.turn_seconds_mean:
+      mean: 175.73
+      std: null
+      n: 1
+    A.window_beats:
+      mean: 100
+      std: null
+      n: 1
+    A.dropped_beats:
+      mean: 0
+      std: null
+      n: 1
+    B.continuity_hits:
+      mean: 0
+      std: null
+      n: 1
+    B.probe_score:
+      mean: 0.333
+      std: null
+      n: 1
+    B.fact_tokens_recovered:
+      mean: 3
+      std: null
+      n: 1
+    B.prompt_tokens_mean:
+      mean: 3396.1
+      std: null
+      n: 1
+    B.reusable_prefix_share:
+      mean: 0.4461
+      std: null
+      n: 1
+    B.recap_calls:
+      mean: 16
+      std: null
+      n: 1
+    B.recap_calls_predicted_max:
+      mean: 4
+      std: null
+      n: 1
+    B.turn_seconds_mean:
+      mean: 105.51
+      std: null
+      n: 1
+    B.window_beats:
+      mean: 20
+      std: null
+      n: 1
+    B.dropped_beats:
+      mean: 70
+      std: null
+      n: 1
+    turns_per_scene:
+      mean: 30
+      std: null
+      n: 1
+    scenes_failed:
+      mean: 0
+      std: null
+      n: 1
+    fact_tokens_total:
+      mean: 9
+      std: null
+      n: 1
+baselines_compared:
+- arm A — fixed 100-beat window, TURN_CONTEXT_COMPACTION=false (the behaviour that shipped
+  before this plan); it is the control, and it never dropped the planted fact (ISSUES.md §1)
 statistical_test: null
 supports_claims: []
-figures: []
+figures:
+- context_compaction
 supersedes: null
 superseded_by: null
 related: []

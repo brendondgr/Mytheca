@@ -1,0 +1,170 @@
+{
+  "anchor_block": 20,
+  "arms": [
+    {
+      "arm": "A",
+      "budget_tokens": 0,
+      "compaction_folds": [],
+      "dropped_beats": 0,
+      "fact_tokens_hit": [
+        "brass",
+        "colla",
+        "crown",
+        "harbo",
+        "hundr",
+        "key"
+      ],
+      "fact_tokens_missed": [
+        "keeps",
+        "owes",
+        "sewn"
+      ],
+      "fact_tokens_wanted": [
+        "brass",
+        "colla",
+        "crown",
+        "harbo",
+        "hundr",
+        "keeps",
+        "key",
+        "owes",
+        "sewn"
+      ],
+      "probe_answer": "The light is a sudden, stinging glare that turns the world into a white smear. My eyes water, and I have to shout to be heard over the sudden roar of movement in the hall.\n\n\"Four hundred crowns to the harbourmaster and a brass key in your collar!\" I yell, my voice barely cutting through the chaos. I don't wait to see if you've memorized it; we need to be gone before the light settles on us.\n\nMy lungs are on fire, and my heart is a frantic, drumming thing against my ribs. I yank at your sleeve, my feet skidding toward the darkness of the stairs. We have to find the shadows before the Watchman finds us.\n\nThe radiance is a physical blow, turning the stranger's silhouette into a jagged black void. My eyes sting, squinting against the sudden, violent brightness. \n\n\"Stop reciting and start running!\" I yell, my voice cracking under the strain. \n\nMy boots slip on a patch of spilled ale as we lunge. The Watchman is a looming shadow, his lantern a sun that threatens to expose every secret we've spilled. I catch your sleeve, my grip firm and desperate.\n\nThe stranger is rising again, his movements heavy and predatory. We can't wait for him to find his footing. \n\n\"To the stairs!\" I command, pulling you toward the only darkness left.",
+      "prompt_tokens": 8693,
+      "scenario": "2fc2",
+      "score_matches_recorded": true,
+      "score_recomputed": 0.667,
+      "score_recorded": 0.667,
+      "session": "ps_954013afe8",
+      "summary_text": "",
+      "summary_through_seq": null,
+      "window_beats": 100,
+      "window_source": "fixed"
+    },
+    {
+      "arm": "B",
+      "budget_tokens": 2048,
+      "compaction_folds": [
+        {
+          "beatsFolded": 20,
+          "summaryChars": 1176,
+          "throughSeq": 29
+        },
+        {
+          "beatsFolded": 9,
+          "summaryChars": 1017,
+          "throughSeq": 42
+        },
+        {
+          "beatsFolded": 3,
+          "summaryChars": 779,
+          "throughSeq": 46
+        },
+        {
+          "beatsFolded": 2,
+          "summaryChars": 857,
+          "throughSeq": 49
+        },
+        {
+          "beatsFolded": 2,
+          "summaryChars": 790,
+          "throughSeq": 52
+        },
+        {
+          "beatsFolded": 2,
+          "summaryChars": 1010,
+          "throughSeq": 55
+        },
+        {
+          "beatsFolded": 2,
+          "summaryChars": 911,
+          "throughSeq": 58
+        },
+        {
+          "beatsFolded": 2,
+          "summaryChars": 1077,
+          "throughSeq": 61
+        },
+        {
+          "beatsFolded": 2,
+          "summaryChars": 1029,
+          "throughSeq": 64
+        },
+        {
+          "beatsFolded": 2,
+          "summaryChars": 986,
+          "throughSeq": 67
+        },
+        {
+          "beatsFolded": 2,
+          "summaryChars": 1023,
+          "throughSeq": 70
+        },
+        {
+          "beatsFolded": 2,
+          "summaryChars": 779,
+          "throughSeq": 73
+        },
+        {
+          "beatsFolded": 4,
+          "summaryChars": 1010,
+          "throughSeq": 79
+        },
+        {
+          "beatsFolded": 2,
+          "summaryChars": 1026,
+          "throughSeq": 82
+        },
+        {
+          "beatsFolded": 2,
+          "summaryChars": 1020,
+          "throughSeq": 85
+        },
+        {
+          "beatsFolded": 3,
+          "summaryChars": 916,
+          "throughSeq": 89
+        }
+      ],
+      "dropped_beats": 70,
+      "fact_tokens_hit": [
+        "colla",
+        "crown",
+        "hundr"
+      ],
+      "fact_tokens_missed": [
+        "brass",
+        "harbo",
+        "keeps",
+        "key",
+        "owes",
+        "sewn"
+      ],
+      "fact_tokens_wanted": [
+        "brass",
+        "colla",
+        "crown",
+        "harbo",
+        "hundr",
+        "keeps",
+        "key",
+        "owes",
+        "sewn"
+      ],
+      "probe_answer": "The floor gives another sickening lurch, and I have to plant my heels hard to keep from sliding into the black soup. The obsidian limb on the banister looks like a drowning hand, reaching for us. I squeeze your hand, my knuckles white against your skin.\n\n\"You want me to recite your ledger while we're drowning?\" I bark, my voice cracking as a fresh wave of brine hits my waist. \"Fine! Four hundred crowns is what you owe, and that collar is what's keeping you tied to this mess!\"\n\nI don't wait for you to confirm. I pull you harder toward the stairs, my eyes darting to the darkness where the entity looms. \"Keep that debt close and that collar tight, because if we don't reach the upper floor, the tide is going to collect it all!\"\n\nThe floor tilts so hard I nearly lose my footing, the black muck swirling around my knees like hungry fingers. I grab your wrist, my grip tight and unyielding, and heave you toward the stairs. We don't have time for memory tests.\n\n\"Four hundred crowns is the tally, and that collar is the leash!\" I bark, my breath coming in jagged gasps. \"Don't you dare forget it now, or the tide will collect it for us!\"\n\nThe ceiling groans, shedding more plaster into the rising black soup. I can feel the vibration of the thing above us in my marrow. I pull you upward, my eyes locked on the stairs, praying the wood holds for one more minute.",
+      "prompt_tokens": 4007,
+      "scenario": "ea37",
+      "score_matches_recorded": true,
+      "score_recomputed": 0.333,
+      "score_recorded": 0.333,
+      "session": "ps_b983a38127",
+      "summary_text": "The black sludge continues to rise, tilting the floor further as an obsidian-slick limb slams into the banister and shears off a section of the railing. Mei pulls Kira toward the stairs, shouting to ask if Old Silas has already been dissolved by the tide.\n\n* Rensal: owes 400 crowns.\n* Mei: a Watchman; leader; holds the iron key.\n* Kira: gripping her blade; intercepting obsidian limbs.\n* Old Silas: status unknown; potentially dissolved by the tide.\n* The Key: blackened iron; unlocks a warehouse in the lower docks; being hunted by the tide.\n* The Tide: black sludge rising; smells of salt and ancient things; dissolves the spirit and claims the body.\n* The Enemies: two masses of black sludge/obsidian limbs; a massive entity is descending the stairs.\n* Current Situation: the floor is tilting sharply left; a drainage grate is visible but too narrow to escape through; Mei and Kira are moving toward the stairs.",
+      "summary_through_seq": 89,
+      "window_beats": 20,
+      "window_source": "configured"
+    }
+  ],
+  "probe_fact": "Rensal Vey owes the harbourmaster four hundred crowns and keeps a brass key sewn into his collar",
+  "tail_chars": 2000
+}

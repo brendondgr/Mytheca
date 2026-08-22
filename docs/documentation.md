@@ -70,8 +70,9 @@ Detail: `architecture.md` (decisions), `data-flow.md` (the turn walkthrough), `a
   model's real context budget each turn rather than to a number the player picks, and what it
   reached is *reported* (the Inspector's `window` step, the config menu's "What the scene
   remembers", and a visible line in the transcript where verbatim recall ends). Folding the
-  beats that fall out into a rolling summary is built and **defaults off** pending
-  `EXP-2026-08-011`.
+  beats that fall out into a rolling summary is built and **defaults off** — `EXP-2026-08-011`
+  measured it and the compacted arm lost a fact the control kept, so C-013 stays
+  `unsupported`.
 - **The player's direction is a contract, not a hint** — `direction_agent` turns it into ordered requirements and the engine schedules them into the scene's `maxTurns` budget, taking the decision off the planner once the budget is as tight as the direction is long. Each beat is told the outcome it owes, never the words. **A requirement is confirmed by the prose that landed, not by entering a prompt** (`direction_check`), an unconfirmed one is retried and then reported honestly, and whatever the turn could not deliver is **carried to the next turn** until it lands or the player dismisses it. The player can aim a line at one character by `@`-naming them, and a target they set is never silently re-owned by the narrator — if that character is not in the scene, the requirement waits and the scene *asks* whether to bring them in. **The AI never introduces a character on its own initiative.**
 - **One isolated LLM call per speaker** — no shared multi-POV prompt, to keep voices distinct.
 - **Situational adaptation is computed, not requested** — `planner_agent.plan_beats` returns the beat's **register** (`light`/`neutral`/`tense`/`grave`) and **stakes** on the call it was already making. The register is stated as fact in the character prompt's recency tail, selects which voice samples the speaker is shown, and tunes the sampler. Telling a character in prose to "adapt to the moment" loses to the concrete voice samples proving how it sounds at rest; giving it a different set of samples does not.

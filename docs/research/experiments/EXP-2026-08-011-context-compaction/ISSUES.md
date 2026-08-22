@@ -65,7 +65,7 @@ The one thing run 1 does establish, weakly and at n=1: the **fitted** window is 
 fixed 100-beat one (2542 vs 2964 mean prompt tokens) without losing the probe. That is a result
 about Phase 3, not Phase 4, and it is n=1.
 
-## 3. Scale is small, and deliberately so
+## 3. Scale is small, and deliberately so (run 1; run 2's is §7)
 
 `--scenes 1 --turns 10` is **one scene per arm**. At roughly 80 s per turn on this hardware, a
 scene costs about 13 minutes; the fuller design in `PROTOCOL.md` (2+ scenes per arm) is hours.
@@ -78,3 +78,45 @@ aggregate block, where present, is a restatement of two numbers rather than a st
 commit series that introduced compaction, before the phase's final commit. The relevant code
 paths (`services/context_budget`, `services/history_compaction`, `agents/recap_agent`) were
 unchanged between the run's start and the recorded commit.
+
+## 5. The configured model was down; the run is on a different one
+
+The endpoint's configured alias `skynet` was unreachable for the whole of 2026-08-22 — the
+relay reported itself healthy, routed the alias to `auto`, and returned 503 after seven
+minutes. The app was pointed at the relay's `local` model (**gemma-4-26B-it**) and both arms
+ran on it, interleaved, in one process.
+
+This is exactly the drift `docs/checklist.md` warns about and the reason the arms alternate
+inside one run: the comparison here is between two configurations on one model on one
+afternoon, and it is not comparable to EXP-2026-08-007 (`qwen38-27B-awq`) or EXP-2026-08-008
+(`gemma4-26B-mtp`). The manifest records the model actually served, not the one configured.
+
+## 6. Run 2 found a defect in the thing it was measuring
+
+`maybe_compact` gates on `fit.dropped_beats < block` — beats dropped **in total**, not beats
+dropped **since the last summary**. Once a block has ever fallen out of the window the gate
+never closes again, so the summary is rewritten on almost every subsequent turn: 16 rewrites
+over 30 turns, folding 20 beats, then 9, then 2 and 3 repeatedly, against the 4 that H2
+predicted. The comment immediately above the condition describes the intended behaviour
+correctly, which is how it read as right.
+
+Consequences for how this experiment may be cited:
+
+- The **16 rewrites** and the **44.6 % reusable prefix** are honest measurements of the code at
+  `code.commit`, and they are what H2 was falsified by. They are **not** measurements of
+  "compaction bounded to one call per anchor block" — that design has never been run.
+- The **H1 result is unaffected**. What the summary retained is a property of the recap agent's
+  output, not of how often it was called; if anything, summarising more often should favour
+  arm B's recall, and it still lost the fact.
+
+The fix is recorded as a follow-up in `RESULTS.md` §7 and in `../../OPEN_QUESTIONS.md` rather
+than applied inside this folder: a completed experiment is append-only, and code that changes
+after the run belongs to the next run, not this one.
+
+## 7. Run 2's scale, and what it cost
+
+`--scenes 1 --turns 30`, both arms complete, `failed: 0`. Arm A took 87.9 min and arm B 52.8
+min — 140.6 min of local inference for **two rows**. The protocol's fuller design (2+ scenes per
+arm) is most of a day on this hardware, and the honest reading of that is in `RESULTS.md` §5:
+this experiment is under-powered, deliberately, and says so rather than dressing two numbers as
+a rate.

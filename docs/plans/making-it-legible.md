@@ -1,5 +1,69 @@
 # Making It Legible — the app explains itself, and stops counting beats
 
+> **SHIPPED — 12/12 phases, 2026-08-22.** Commit series `634559c … HEAD` on branch
+> `play-experience`. What follows this block is the plan as written; the record below is
+> what actually happened and where it differs.
+
+## 0. Completion record
+
+### What shipped
+
+The scene's memory stopped being a number the player guesses at. `services/context_budget`
+resolves the model's real context window once and fits a **block-quantised** transcript depth
+to it, with hysteresis so the window only moves in steps the prompt-cache anchoring already
+tolerates; the "Number of beats" slider is gone from the config popover and its whole prop
+chain. What the window reached is now *reported* three ways — the Inspector's `window` step,
+"What the scene remembers" in the config menu, and a visible `MemoryEdge` line in the
+transcript where verbatim recall ends. `SceneMemoryPanel` gives the player the same read the
+Inspector holds. Every scene control states its effect and, where one exists, its cost.
+
+Around that: a real model-health endpoint behind the header's status light (four states, never
+colour alone), keyboard fluency (`/`, `↑`, `Escape`, `?`) with a shortcut sheet, three
+dismissible persisted coach marks, client-side transcript search, a recap endpoint that reuses
+the compaction agent rather than inventing a second one, and editable scene-image prompts that
+re-paint as a new beat.
+
+### What the evidence changed
+
+**Compaction is built, was measured, and stays off.** Phase 4 delivered
+`services/history_compaction` + `agents/recap_agent` behind `TURN_CONTEXT_COMPACTION`, and
+Phase 12 ran the pre-registered two-arm experiment that was supposed to justify turning it on.
+It did the opposite:
+[`EXP-2026-08-011`](../research/experiments/EXP-2026-08-011-context-compaction/) recorded the
+compacted arm **losing the planted fact the control kept** (3 of 9 content tokens against 6) —
+the summary had reduced *"owes the harbourmaster four hundred crowns, brass key sewn into his
+collar"* to `* Rensal: owes 400 crowns.` — while rewriting the summary **16 times** against a
+predicted 4 and halving the reusable prompt prefix. Claim **C-013 stays `unsupported`**, the
+flag stays `false`, and that is the plan's own stated outcome for this result rather than a
+retreat from it.
+
+The run also **found a defect in the feature it was measuring**: `maybe_compact` gates on beats
+dropped *in total* rather than *since the last summary*, so the gate never closes after the
+first block. It is deliberately **not** fixed inside the experiment's change — the recorded
+numbers describe the code at `code.commit` — and is carried in `docs/checklist.md` and
+`docs/research/OPEN_QUESTIONS.md`.
+
+Two prior runs are on record rather than deleted: run 1 never fired the treatment at all
+(`recap_calls: 0` — a 10-turn scene cannot drop a 20-beat block), and the harness now refuses
+`--turns < 24` so that dead end cannot be walked into silently twice.
+
+### Where it differs from the plan
+
+- **H1 as pre-registered could not have come out the other way.** The control is a fixed
+  100-beat window, so it never dropped the plant; the fair question the design actually answers
+  is "does B match A while reading far less?". Recorded in the experiment's `ISSUES.md` §1
+  rather than edited into `PROTOCOL.md`, which is the pre-registration.
+- **H3 (prose quality) is `not measured`.** A blinded pairwise read was pre-registered and not
+  performed, and a preference from a reader who already knows the arms is not evidence.
+- The experiment ran on `gemma-4-26B-it`, not the configured `skynet`, which was down all day.
+
+### Validation at the close of the plan
+
+`uv run pytest` — **1552 passed**. `npm test` — **1182 passed**, 129 files.
+`make validate-research` — OK, 11 experiments, 0 warnings.
+
+---
+
 **Status:** proposed
 **Created:** 2026-08-21
 **Owner:** brendondgr
