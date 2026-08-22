@@ -123,6 +123,12 @@
    * expressed an opinion about their height are grown. */
   :where(button, a[href], [role="button"], select, summary) {
     min-height: 44px;
+    /* WCAG 2.5.8 (AA) is 24x24, and the floor above only ever covered HEIGHT — so a control
+       could be 44 tall and 18 wide and pass it silently. That is not hypothetical: the
+       composer's "Speaking as" trigger measured 18x44 at 320px. 24 and not 44 here on
+       purpose: 44 in both dimensions would inflate every icon button in a dense rail, which
+       is the design this rule's `:where()` zero specificity exists to protect. */
+    min-width: 24px;
   }
 
   .touch-target {

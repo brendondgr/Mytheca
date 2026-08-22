@@ -396,6 +396,8 @@ export function DirectorRail(props: DirectorRailProps) {
       aria-label="Scene"
       className="mytheca-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block"
     >
+      {/* See `CastRail`: the heading is on the shell so the sheet's own `<h2>` is not doubled. */}
+      <h2 className="sr-only">Scene</h2>
       <DirectorRailContent {...props} />
     </aside>
   );

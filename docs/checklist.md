@@ -435,6 +435,20 @@ Verified against the code on 2026-08-04.
   no strip at all (the client's `.finally` reset), so "the turn is ending" is never shown on
   the error path. That is deliberate — the `role="alert"` stream error says more than a
   wind-down label would — but it does mean the phase is not a guaranteed terminal state.
+- **39 controls are under WCAG 2.5.8's 24×24 floor with a *mouse*.** Measured 2026-08-22 on
+  `/storylines/new` at 1280 (`docs/plans/reach-acceptance.md`): `TriagePanel`'s Draft/RAG/Extract
+  chips (20px tall), the per-doc category selects (23px), and five text-buttons across the
+  creator ("New chat", "Generate primer", "Add statistic", "Cancel", "‹ Library" — 15–17px).
+  The coarse-pointer floor in `motion.css` covers touch only, deliberately: inflating every
+  control to 24px+ on a mouse would obey the rule while breaking the density the design system
+  specifies. **Left as-is on purpose**, not overlooked — `docs/plans/reach.md` Phase 11 says to
+  report the count rather than silently redesign it. The one exception already fixed: `Remove
+  <file>` was 10×24, a destructive control ten pixels wide, and is now 24×24. A real fix would
+  be `.touch-target-overlay` (a projected hit area that does not affect layout) applied per
+  control, ungated by pointer type.
+- **14 controls are under the repo's own 44px floor in *width* on touch.** All are 44px tall
+  and all clear 24×24, so this is the house standard rather than WCAG. Same trade-off, same
+  reason. Both counts are from `docs/plans/reach-acceptance.md`.
 - Graph mode is canvas-only below `lg`; the `sr-only` node/edge table remains the data alternative. Graph node clicks are wired for Character only — other types are hover-tooltip only.
 - **An unwanted scene image cannot be removed or replaced.** ~~Nor asked for by subject~~ —
   **the additive half shipped 2026-08-22** (`making-it-legible.md` Phase 11): the enlarged

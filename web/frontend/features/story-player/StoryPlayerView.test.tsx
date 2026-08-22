@@ -484,3 +484,28 @@ describe("StoryPlayerView transcript search", () => {
   });
 });
 
+
+describe("StoryPlayerView single-character shortcuts (WCAG 2.1.4)", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("responds to / by default", async () => {
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.keyboard("/");
+    expect(screen.getByRole("textbox", { name: /your message/i })).toHaveFocus();
+  });
+
+  it("can be turned off, which is what the criterion actually requires", async () => {
+    // Standing down inside text fields is necessary and is none of the three things WCAG
+    // 2.1.4 accepts: a screen-reader user browsing the transcript is not in a text field.
+    localStorage.setItem("mytheca-scene-shortcuts", "off");
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+
+    await user.keyboard("/");
+    expect(screen.getByRole("textbox", { name: /your message/i })).not.toHaveFocus();
+
+    await user.keyboard("?");
+    expect(screen.queryByRole("dialog", { name: /keyboard shortcuts/i })).not.toBeInTheDocument();
+  });
+});

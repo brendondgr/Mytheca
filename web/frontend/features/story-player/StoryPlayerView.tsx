@@ -57,6 +57,7 @@ import { CharacterProfileModal } from "@/components/feature/CharacterProfileModa
 import { TurnInspectorPanel } from "@/components/feature/TurnInspectorPanel";
 import { SceneMemoryPanel } from "@/components/feature/SceneMemoryPanel";
 import { MemoryEdge } from "@/components/feature/MemoryEdge";
+import { useShortcutsEnabled } from "@/hooks/use-shortcuts-enabled";
 
 
 /**
@@ -385,6 +386,11 @@ export function StoryPlayerView({
     },
   ];
 
+  // WCAG 2.1.4: `/` and `?` are single-character shortcuts, so there has to be a way to turn
+  // them off. Standing down inside text fields — which this hook already did — is necessary
+  // but is none of the three things the criterion accepts.
+  const shortcutsEnabled = useShortcutsEnabled();
+
   useSceneShortcuts(
     useMemo(
       () => ({
@@ -422,6 +428,7 @@ export function StoryPlayerView({
         openProfile,
       ],
     ),
+    shortcutsEnabled,
   );
 
   // `Cmd/Ctrl+F` opens find-in-scene — but ONLY when the player is not writing. Someone
@@ -536,7 +543,10 @@ export function StoryPlayerView({
           <GraphView scenarioId={scenario.id} />
         ) : (
         <>
-        <div className="relative flex min-w-0 flex-1 flex-col">
+        {/* The reading column IS the page's main region. It had no landmark at all: a
+            screen-reader user could reach both rails by name and had no way to jump to the
+            transcript between them. */}
+        <main className="relative flex min-w-0 flex-1 flex-col">
           <div
             ref={transcriptRef}
             // `.stream-viewport` sets overflow-anchor: none so the browser's own
@@ -847,7 +857,7 @@ export function StoryPlayerView({
             ghostwriting={scene.ghostwriting}
             canUndoGhostwrite={scene.canUndoGhostwrite}
           />
-        </div>
+        </main>
 
         {dossierProps ? (
           <CharacterDossier {...dossierProps} />

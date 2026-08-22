@@ -129,7 +129,11 @@ export function TriagePanel({
             type="button"
             aria-label={`Remove ${doc.name}`}
             onClick={() => onRemove(doc.name)}
-            className="flex-none cursor-pointer text-mute hover:text-accent"
+            // 24x24 (WCAG 2.5.8 AA) with a MOUSE, not only under the coarse-pointer floor.
+            // It measured 10x24: a destructive control ten pixels wide. The rest of this
+            // panel's density is deliberate and is left alone — this one is the exception
+            // because it deletes something and was the smallest target on the page.
+            className="flex h-[24px] w-[24px] flex-none cursor-pointer items-center justify-center rounded-[3px] text-mute hover:bg-hover hover:text-accent"
           >
             ×
           </button>

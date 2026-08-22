@@ -192,7 +192,11 @@ export function PovSelect({
             setOpen(true);
           }
         }}
-        className="flex min-w-0 items-center gap-[5px] rounded-[8px] border border-field-bd px-[8px] py-[3px] text-mute hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent"
+        // `min-w-[24px]`, not `min-w-0`: the label inside still truncates on a narrow
+        // composer row, but the control cannot collapse below the WCAG 2.5.8 floor doing it.
+        // It measured 18px wide at 320 — and the global coarse-pointer floor could not save
+        // it, because that rule is zero-specificity by design and `min-w-0` outranks it.
+        className="flex min-w-[24px] items-center gap-[5px] rounded-[8px] border border-field-bd px-[8px] py-[3px] text-mute hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent"
       >
         {selected ? (
           <Monogram

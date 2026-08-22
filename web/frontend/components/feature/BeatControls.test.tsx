@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { BeatControls } from "./BeatControls";
@@ -76,11 +76,56 @@ describe("BeatControls", () => {
 
   it("stays in the tab order while quiet, so it is not mouse-only", () => {
     render(<BeatControls onBranch={vi.fn()} onRewind={vi.fn()} />);
-    // Present and focusable even though the cluster is visually at opacity 0 until hover.
-    for (const b of screen.getAllByRole("button")) {
-      expect(b).not.toHaveAttribute("tabindex", "-1");
-      expect(b).toBeVisible();
-    }
+    const buttons = screen.getAllByRole("button");
+    // Present and visible even though the cluster is at opacity 0 until hover…
+    for (const b of buttons) expect(b).toBeVisible();
+    // …and reachable: exactly ONE tab stop, the rest on arrow keys. Five stops per beat put
+    // 57 controls in the tab order of a twelve-beat transcript.
+    expect(buttons.filter((b) => b.tabIndex === 0)).toHaveLength(1);
+  });
+
+  it("is one tab stop with arrow-key navigation inside", async () => {
+    const user = userEvent.setup();
+    render(<BeatControls onEdit={vi.fn()} onBranch={vi.fn()} onRewind={vi.fn()} label="Mei's beat" />);
+    const bar = screen.getByRole("toolbar", { name: "Actions for Mei's beat" });
+    const buttons = within(bar).getAllByRole("button");
+
+    await user.tab();
+    expect(buttons[0]).toHaveFocus();
+
+    await user.keyboard("{ArrowRight}");
+    expect(buttons[1]).toHaveFocus();
+
+    await user.keyboard("{End}");
+    expect(buttons.at(-1)).toHaveFocus();
+
+    await user.keyboard("{ArrowRight}"); // wraps
+    expect(buttons[0]).toHaveFocus();
+
+    await user.keyboard("{ArrowLeft}"); // wraps the other way
+    expect(buttons.at(-1)).toHaveFocus();
+  });
+
+  it("Tab leaves the cluster rather than cycling inside it", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <BeatControls onEdit={vi.fn()} onBranch={vi.fn()} />
+        <button type="button">after</button>
+      </>,
+    );
+    await user.tab();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "after" })).toHaveFocus();
+  });
+
+  it("keeps its single tab stop when a beat offers fewer controls", () => {
+    // The hazard of a hardcoded roving index: a beat with no Edit would assign the stop to a
+    // control that is never rendered, and the whole cluster would drop out of the tab order.
+    render(<BeatControls onRewind={vi.fn()} label="a stat change" />);
+    const buttons = screen.getAllByRole("button");
+    expect(buttons).toHaveLength(1);
+    expect(buttons.filter((b) => b.tabIndex === 0)).toHaveLength(1);
   });
 
   it("is reachable by keyboard alone", async () => {

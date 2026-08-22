@@ -362,6 +362,10 @@ export function CastRail(props: CastRailProps) {
       aria-label="Cast"
       className="mytheca-rail hidden w-[236px] flex-none overflow-auto border-r border-hair-strong p-[18px_16px] lg:block"
     >
+      {/* The heading lives on the SHELL, not in the content: the bottom sheet renders its own
+          visible `<h2>` from `Drawer`'s title, and two would be a duplicate. Without one on
+          this side the document went h1 straight to the dossier's h3 with nothing between. */}
+      <h2 className="sr-only">Cast</h2>
       <CastRailContent {...props} />
     </aside>
   );

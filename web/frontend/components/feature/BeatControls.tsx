@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 /**
  * The per-beat control cluster: what the player can do to a beat that has already landed.
@@ -13,6 +13,12 @@ import { useState } from "react";
  * Rewind confirms in place, because it removes content. Branch does not, because it removes
  * nothing — that asymmetry is the point: the non-destructive way to explore is the one that
  * costs a single click.
+ *
+ * **One tab stop per beat, not five.** The cluster is a `role="toolbar"` with a roving
+ * tabindex (the idiom `LibraryTabs` already uses): Tab enters it once and leaves it once,
+ * and Arrow keys / Home / End move between the controls inside. Measured before this: a
+ * twelve-beat transcript put **57** controls in the tab order, so reaching the composer by
+ * keyboard meant passing every edit, re-roll and rewind button in the scene.
  */
 export function BeatControls({
   onEdit,
@@ -43,6 +49,31 @@ export function BeatControls({
   label?: string;
 }) {
   const [confirming, setConfirming] = useState(false);
+  /** Which control in the cluster currently holds the single tab stop. */
+  const [active, setActive] = useState(0);
+  const barRef = useRef<HTMLSpanElement>(null);
+
+  /**
+   * Arrow / Home / End move within the cluster; everything else (Tab included) is left to
+   * the browser, which is what makes this one stop rather than a keyboard trap.
+   */
+  const onKeyDown = (event: React.KeyboardEvent<HTMLSpanElement>) => {
+    const keys = ["ArrowRight", "ArrowLeft", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    const items = [...(barRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
+    if (items.length === 0) return;
+    event.preventDefault();
+    const current = items.findIndex((el) => el === document.activeElement);
+    const from = current === -1 ? active : current;
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? items.length - 1
+          : (from + (event.key === "ArrowRight" ? 1 : -1) + items.length) % items.length;
+    setActive(next);
+    items[next]?.focus();
+  };
 
   if (!onEdit && !onReroll && !onBranch && !onRewind) return null;
 
@@ -75,68 +106,89 @@ export function BeatControls({
     );
   }
 
+  /**
+   * The controls that will actually be rendered, in order.
+   *
+   * Built as a list rather than five conditional blocks because the roving tabindex has to
+   * index the RENDERED controls. With hardcoded positions, a beat that has no `onEdit` — a
+   * stat change, a set of choices — would leave the tab stop assigned to a control that does
+   * not exist, and the whole cluster would drop out of the tab order.
+   */
+  const controls: { key: string; label: string; title: string; glyph: string; onClick: () => void }[] = [
+    ...(onEdit
+      ? [{
+          key: "edit",
+          label: `Edit ${label}`,
+          title: "Edit — rewrite this beat's words; nothing after it is lost",
+          glyph: "✎",
+          onClick: onEdit,
+        }]
+      : []),
+    ...(onReroll
+      ? [
+          {
+            key: "reroll-beat",
+            label: `Re-roll ${label}`,
+            title: "Re-roll — another version of this beat; the current one is kept",
+            glyph: "⟳",
+            onClick: () => onReroll("beat"),
+          },
+          {
+            key: "reroll-turn",
+            label: `Re-run the whole turn containing ${label}`,
+            title: "Re-run the turn — when the beat went wrong because the turn did",
+            glyph: "⟲",
+            onClick: () => onReroll("turn"),
+          },
+        ]
+      : []),
+    ...(onBranch
+      ? [{
+          key: "branch",
+          label: `Branch from ${label}`,
+          title: "Branch from here — keeps this play-through and starts a new one",
+          glyph: "⑂",
+          onClick: onBranch,
+        }]
+      : []),
+    ...(onRewind
+      ? [{
+          key: "rewind",
+          label: `Rewind to ${label}`,
+          title: "Rewind to here — removes this turn and everything after it",
+          glyph: "↺",
+          onClick: () => setConfirming(true),
+        }]
+      : []),
+  ];
+
+  // Clamped, so a cluster that loses a control mid-life still has exactly one tab stop.
+  const activeIndex = Math.min(active, controls.length - 1);
+
   return (
-    <span className="flex items-center gap-[2px] transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-      {onEdit ? (
+    <span
+      ref={barRef}
+      role="toolbar"
+      aria-label={`Actions for ${label}`}
+      aria-orientation="horizontal"
+      onKeyDown={onKeyDown}
+      className="flex items-center gap-[2px] transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+    >
+      {controls.map((control, i) => (
         <button
+          key={control.key}
           type="button"
-          onClick={onEdit}
+          onClick={control.onClick}
           disabled={disabled}
-          aria-label={`Edit ${label}`}
-          title="Edit — rewrite this beat's words; nothing after it is lost"
+          aria-label={control.label}
+          title={control.title}
+          tabIndex={i === activeIndex ? 0 : -1}
+          onFocus={() => setActive(i)}
           className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
         >
-          <span aria-hidden>✎</span>
+          <span aria-hidden>{control.glyph}</span>
         </button>
-      ) : null}
-      {onReroll ? (
-        <>
-          <button
-            type="button"
-            onClick={() => onReroll("beat")}
-            disabled={disabled}
-            aria-label={`Re-roll ${label}`}
-            title="Re-roll — another version of this beat; the current one is kept"
-            className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
-          >
-            <span aria-hidden>⟳</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onReroll("turn")}
-            disabled={disabled}
-            aria-label={`Re-run the whole turn containing ${label}`}
-            title="Re-run the turn — when the beat went wrong because the turn did"
-            className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
-          >
-            <span aria-hidden>⟲</span>
-          </button>
-        </>
-      ) : null}
-      {onBranch ? (
-        <button
-          type="button"
-          onClick={onBranch}
-          disabled={disabled}
-          aria-label={`Branch from ${label}`}
-          title="Branch from here — keeps this play-through and starts a new one"
-          className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
-        >
-          <span aria-hidden>⑂</span>
-        </button>
-      ) : null}
-      {onRewind ? (
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          disabled={disabled}
-          aria-label={`Rewind to ${label}`}
-          title="Rewind to here — removes this turn and everything after it"
-          className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
-        >
-          <span aria-hidden>↺</span>
-        </button>
-      ) : null}
+      ))}
     </span>
   );
 }

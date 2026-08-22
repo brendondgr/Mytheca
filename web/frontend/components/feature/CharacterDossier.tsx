@@ -166,6 +166,9 @@ export function CharacterDossier(props: CharacterDossierProps) {
       className="mytheca-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block"
       aria-label={`${props.character.name} — profile`}
     >
+      {/* The content's visible `<h3>` is the character's name; this is the section heading
+          above it, matching what `Drawer` renders in the sheet. */}
+      <h2 className="sr-only">{props.character.name} — profile</h2>
       <CharacterDossierContent {...props} />
     </aside>
   );

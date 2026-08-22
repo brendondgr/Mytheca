@@ -102,9 +102,11 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
         onEdit={lib.editScenario}
       />
 
-      <div className="mt-[16px] flex min-h-0 flex-1 flex-col border-t border-hair-strong">
+      {/* The three columns are the Library's main region — it had an `sr-only` h1 and no
+          landmark to jump to. */}
+      <main className="mt-[16px] flex min-h-0 flex-1 flex-col border-t border-hair-strong">
         <LibraryColumns lib={lib} />
-      </div>
+      </main>
 
       <EntityModal lib={lib} />
       <CharacterModal lib={lib} />
