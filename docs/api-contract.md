@@ -34,16 +34,16 @@ The contract between the Next.js frontend and the FastAPI backend. Request/respo
 | Story Graph | `GET /scenarios/{id}/graph` | **Implemented.** Loads the scenario's Story-Graph subgraph (cast + setting nodes + the edges among them), read live from Neo4j (§7.2). Returns `{ available, scenarioId, nodes[], edges[] }`; `available` is `false` with empty lists when the graph is disabled/unreachable (best-effort). See Story Graph Shapes below. |
 | Graph types | `GET /storylines/{id}/graph/types`, `POST /storylines/{id}/graph/types`, `PATCH /graph/types/{typeId}`, `DELETE /graph/types/{typeId}` | **Implemented.** The Type Registry (§1.4): list the node/edge types visible to a storyline (global built-ins + its own user types), and register/patch/delete user-defined types. Built-in types are immutable (409). Edge types require a `valence`; user types default `status: experimental`. |
 | Authoring | `POST /storylines/draft`, `POST /storylines/primer`, `POST /storylines/triage` | **Implemented.** The agent process of building a storyline: draft metadata from a one-sentence seed, generate the agent-facing World Primer, and **triage** dropped reference docs into Characters / Settings / Other with Draft/RAG inclusion (see Authoring Shapes below). Run over the configured LLM; no retrieval. |
-| World population | `POST /storylines/{id}/populate/stream` | **Implemented.** NDJSON. Fills a newly-created world with a generated cast + settings: plan a roster, draft each entry through the existing character/setting draft agents, persist it, and stream `status` / `entity` / `error` / `done` frames. Artwork is opt-in and best-effort; a per-entity failure never aborts the run. Pre-flight `404`/`400`. See World Population Stream below. |
+| World population | `POST /storylines/{id}/populate/stream` | **Implemented.** NDJSON. Fills a newly-created world with a generated cast + settings: plan a roster, draft each entry through the existing character/setting draft agents, persist it, and stream `status` / `entity` / `error` / `done` frames. Artwork is opt-in and best-effort (with an `artStyle` chosen once for the whole run); a per-entity failure never aborts the run. Pre-flight `404`/`400`. See World Population Stream below. |
 | Authoring (live) | `POST /storylines/triage/stream` | **Implemented.** NDJSON (`application/x-ndjson`) streaming triage so the New Storyline page renders the classification **as it happens** — one `status`+`item` per doc then a terminal `done`. Pre-flight failures (no context / unconfigured LLM) return a normal `400` before the stream opens; a per-doc failure falls back to `other`/RAG-on rather than aborting. See Live Authoring Stream below. |
 | Storyline agent (editing) | `POST /storylines/agent/create/stream`, `POST /storylines/{id}/agent/edit/stream`, `POST /storylines/{id}/agent/apply` | **Implemented.** The conversational, scope-aware agent that **replaced "Build the whole world"** on the storyline create/edit pages: chat about the storyline's own fields (title/genre/tagline/premise/World Primer/stat schema) within an author-set **write scope**, review a proposed `StoryPlan`, then approve to write it (create: fills the form; edit: applies through validated writes). Nothing is written before `…/agent/apply`. See Storyline Agent Shapes below. |
-| Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/voice-samples`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write watercolor portrait prompts, render the portrait via ComfyUI (saved as WebP, served at `/media`), derive a **voice & tone profile** (situation → sample-response pairs) from the character's prose, and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
-| Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write watercolor establishing-shot prompts, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
-| Scenario authoring | `POST /scenarios/draft`, `POST /scenarios/scene-art-prompts`, `POST /scenarios/scene-art` | **Implemented.** The agentic Scenario Creator: draft a scenario (title/genre/tone/goal/opening) from a seed, plus a **valid cast + setting chosen from the active world's real roster**. The model returns names from a numbered roster; the agent resolves names→ids server-side, **dropping** unknown cast and falling back to `""` for an unmatched setting — so the draft never invents or dangles a reference. Scene-art prompts and image generation follow the same watercolor pipeline as Setting authoring. Declared above `/scenarios/{id}`. See Scenario Authoring Shapes below. |
+| Character authoring | `POST /characters/draft`, `POST /characters/portrait-prompts`, `POST /characters/portrait`, `POST /characters/voice-samples`, `POST /characters/starting-stats` | **Implemented.** The agentic Character Creator (prep phase): draft a character's base identity from a seed (optionally grounded in the world + dropped docs), write portrait prompts in the chosen art style, render the portrait via ComfyUI (saved as WebP, served at `/media`), derive a **voice & tone profile** (situation → sample-response pairs) from the character's prose, and propose starting stats keyed to the storyline's stat schema. Produces §1 *node properties* only — no graph. See Character Authoring Shapes below. |
+| Setting authoring | `POST /settings/draft`, `POST /settings/scene-art-prompts`, `POST /settings/scene-art` | **Implemented.** The agentic Setting Creator (prep phase): draft a setting's base description + current state from a seed (optionally grounded in the world + dropped docs), write establishing-shot prompts in the chosen art style, and render the scene art via ComfyUI (saved as WebP under `/media/scenes`). Produces §4.1 Setting-*node properties* only — never the play-accrued event timeline or graph edges. See Setting Authoring Shapes below. |
+| Scenario authoring | `POST /scenarios/draft`, `POST /scenarios/scene-art-prompts`, `POST /scenarios/scene-art` | **Implemented.** The agentic Scenario Creator: draft a scenario (title/genre/tone/goal/opening) from a seed, plus a **valid cast + setting chosen from the active world's real roster**. The model returns names from a numbered roster; the agent resolves names→ids server-side, **dropping** unknown cast and falling back to `""` for an unmatched setting — so the draft never invents or dangles a reference. Scene-art prompts and image generation follow the same art-styled pipeline as Setting authoring. Declared above `/scenarios/{id}`. See Scenario Authoring Shapes below. |
 | Media | `GET /media/portraits/{file}.webp`, `GET /media/scenes/{file}.webp`, `GET /media/moments/{file}.webp` | **Implemented.** Read-only static mount (not under `/api`) serving generated character portraits, setting scene art, and in-play scene images from `MEDIA_DIR`. |
-| Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `GET /options/llm/context-window`, `GET /options/scene-presets`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup`, `PATCH /options/prompts` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation + writing-agent prompt overrides), read-only inference-engine detection (`/llm/backend`), context-window probe (`/llm/context-window`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
+| Options | `GET /options`, `PATCH /options/llm`, `PATCH /options/library`, `POST /options/llm/models`, `POST /options/llm/test`, `GET /options/llm/backend`, `GET /options/llm/context-window`, `GET /options/scene-presets`, `PATCH /options/comfy`, `GET /options/comfy/workflows`, `GET /options/comfy/loras`, `POST /options/comfy/status`, `GET /options/media/orphans`, `POST /options/media/cleanup`, `PATCH /options/prompts` | **Implemented.** Global settings (LLM endpoint + library defaults + ComfyUI image generation + writing-agent prompt overrides), read-only inference-engine detection (`/llm/backend`), context-window probe (`/llm/context-window`), and orphaned-media maintenance (`/media/orphans`, `/media/cleanup`). Prefix is `/options` (the Setting entity owns `/settings`). |
 | Play | `POST /play/{scenarioId}/turn` | **Implemented.** Submit a player turn; the response body **is** the NDJSON event stream (`application/x-ndjson`, one event per line). Body: `{ text, directedAt?, sessionId?, mode?, trace?, outcome?, povCharacterId?, guidance?, taggedDocIds?, continuation?, overrides? }` (omit `sessionId` to start a session). **A turn no longer requires `text`** — it is valid when **any** of `text`, `guidance`, `outcome` or `continuation` is present, and 400s with *"Say something, direct the scene, or press Continue."* otherwise. `continuation: true` with empty `text` is the **Continue** control: the scene runs on with no line from the player. `guidance` with empty `text` is a **direction-only** turn: the player steers without speaking — necessary under POV, where the message box is the character's own words and can no longer double as direction. The two are distinguished in the trace (`turn.data.directionOnly`) and in the export (`_(direction only)_` vs `_(let the scene continue)_`), and a direction-only turn's `guidance` becomes the play-through's tray label when no spoken line exists yet. A text-less turn still writes its `user_turn` row (so it keeps its trace grouping and its place in the export), but pushes **nothing** into the recent-turn buffer — a blank player beat would sit in the transcript window of every later prompt — seeds no `turn_beats`, and **skips the intent call** entirely, since classifying an empty string invites the model to invent an ask the player never made. **`directedAt`** now has a UI producer: the composer's `@` menu offers the **present cast** alongside the storyline's context files, and the first character `@`-named in the *message* box becomes `directedAt` (a character named in the *direction* box is the subject of the direction, not the addressee, so it does not). No backend change — the engine already appended it to `intent.addressed` and promoted `freeform` to `direct`. **`povCharacterId`** (Player POV) makes the player's line the chosen present character's own beat — seeded/persisted as a `character` line, `data.pov` on the `user_turn`, and that character locked out of the AI roster (see Turn Stream below). **`guidance`** is the narrator direction for the turn (the composer's second box, POV only) — see *Scene direction* below. The engine **interprets the line** (narrate / address / **puppet** a character / whole-group), then runs a **ReAct planner** that decides the next beat after each one — a character speaks/acts (in their own voice; a puppeted character *performs* the direction), the narrator sets context, or the turn ends. Speaker order is dynamic; the back-and-forth is bounded by the scenario's **`maxTurns`** (a hard ceiling on **every emitted beat — character replies and narrator beats** — so the loop ends there even if the planner would continue). A **cold scene open** with no directed character is **narrator-led**. At the end of the turn, up to **`suggestionsCount`** follow-up suggestions (0–4) are generated from the **most recent line**, written as **situation-based** moves from a general perspective matched to the player's own tone, and emitted as `branch_choices`; **selecting one writes its text into the composer** for the player to edit and send (it does not auto-submit) — a suggestion is a starting point, and the player's own wording is the point of the app. Each chip also carries **"Play it out"**, which submits it immediately as a direction-only turn with **`outcome`** set: the turn then opens with a fuller *progression* narration that plays the choice out over several beats rather than answering it in one line. `outcome` had been engine-supported all along with no UI producer; this is it. **`mode` is deprecated and inert** — it reaches exactly one place in the engine (the `turn` trace payload) and changes nothing about how a turn runs. Still accepted so no caller breaks, and deliberately never exposed: whether the narrator sets context between beats is the planner's call, from the scene. See `docs/architecture.md`. Character replies are grounded in their **graph relationships** (direct + 2-hop). Pre-flight failures (unknown scenario → 404, empty text → 400, bad session → 404/400) return a normal error envelope before the 200 stream opens; a mid-stream failure is the terminal `{ "type": "error", "message": "…" }` frame. See Turn Stream below. |
-| Scene image | `POST /play/{scenarioId}/moment/stream` | **Implemented.** The player's **Create image** action at the foot of the transcript: paint the moment the scene is in. The response body **is** an NDJSON stream. Body: `{ sessionId, beats?, prompt?, negative? }` (`beats` narrows the look-back window, clamped 2–40, default 8). **`prompt`** is the player's own wording from the enlarged view's editable prompt: when present the `moment_agent` call is **skipped entirely** — they have already said what they want painted, and re-deriving it would cost a call and override them. It is still passed through `moment_agent.strip_names`, so the appearance-not-names guarantee (`EXP-2026-08-002`) is not bypassed by hand-written input. A blank `prompt` falls back to the agent. The `moment_stage` frame sequence is unchanged either way, so the client's staged progress keeps working. Purely additive — this produces a **new** beat and removes nothing. Two stages, streamed as `{ "type": "moment_stage", "stage": "prompt" \| "render", "message", "positive", "caption" }` — `agents/moment_agent.py` writes an appearance-first ComfyUI prompt from the recent beats, the present in-frame cast, and the place; `services/scene_moment.py` renders it at a **landscape 1216×832** frame with a fresh seed, writes the WebP to `/media/moments`, and persists a `scene_image` event, which is the stream's last line. The `render` stage frame doubles as the keep-alive heartbeat. Pre-flight failures (unknown scenario → 404, unknown/mismatched session → 404/400, a scene with no beats yet → 400, unconfigured ComfyUI or model → 400) return a normal error envelope before the 200 opens; a mid-stream failure is the terminal `error` frame. |
+| Scene image | `POST /play/{scenarioId}/moment/stream` | **Implemented.** The player's **Create image** action at the foot of the transcript: paint the moment the scene is in. The response body **is** an NDJSON stream. Body: `{ sessionId, beats?, prompt?, negative?, artStyle? }` (`beats` narrows the look-back window, clamped 2–40, default 8; `artStyle` picks the look — omitted uses the operator's Options default, and it reaches **both** the prompt writer and the renderer). **`prompt`** is the player's own wording from the enlarged view's editable prompt: when present the `moment_agent` call is **skipped entirely** — they have already said what they want painted, and re-deriving it would cost a call and override them. It is still passed through `moment_agent.strip_names`, so the appearance-not-names guarantee (`EXP-2026-08-002`) is not bypassed by hand-written input. A blank `prompt` falls back to the agent. The `moment_stage` frame sequence is unchanged either way, so the client's staged progress keeps working. Purely additive — this produces a **new** beat and removes nothing. Two stages, streamed as `{ "type": "moment_stage", "stage": "prompt" \| "render", "message", "positive", "caption" }` — `agents/moment_agent.py` writes an appearance-first ComfyUI prompt from the recent beats, the present in-frame cast, and the place; `services/scene_moment.py` renders it at a **landscape 1216×832** frame with a fresh seed, writes the WebP to `/media/moments`, and persists a `scene_image` event, which is the stream's last line. The `render` stage frame doubles as the keep-alive heartbeat. Pre-flight failures (unknown scenario → 404, unknown/mismatched session → 404/400, a scene with no beats yet → 400, unconfigured ComfyUI or model → 400) return a normal error envelope before the 200 opens; a mid-stream failure is the terminal `error` frame. |
 | Presence | `POST /play/{scenarioId}/presence` | **Implemented.** Manually set a character's scene presence (the cast-rail control + its undo). Body: `{ sessionId, characterId, status }` (`status` ∈ `present`\|`unconscious`\|`departed`\|`left`\|`dead`). Persists a `character_status_change` event (`auto: false`) on the session and returns it in the wire-envelope shape; folds into presence like an engine-driven change and survives reload. A manual override is **not** bound by the engine's transition guard — the player may resurrect a `dead` character. 404 (unknown scenario/session/character), 422 (unknown status). Undo = the inverse call. |
 | Relationships | `GET /play/{scenarioId}/relationships` | **Implemented.** The scenario's live character↔character relationships from the story graph — `{ relationships: [{ source, sourceName, type, target, targetName, reason }] }`. Best-effort: an empty list when the graph is off/unreachable (the story player keeps its seed placeholder). 404 only when the scenario is unknown. |
 | Sessions | `GET /play/{scenarioId}/sessions` | **Implemented.** Every saved play-through of a scenario, most-recently-played first (the play-through tray) — `{ sessions: [{ id, scenarioId, createdAt, updatedAt, closedAt, turnCount, preview, name, parentSessionId, forkSeq }] }`. `preview` is the first **non-empty** player line (a text-less *Continue* turn writes a blank one); `name` is the player's own label and `null` falls back to `preview`; `parentSessionId` + `forkSeq` are set together on a forked play-through (a branch, or a rewind's pre-cut snapshot) and record which session it came from and the parent `seq` the copy ran through, inclusive. 404 when the scenario is unknown. |
@@ -253,7 +253,13 @@ key is **write-only**: it is stored server-side and never returned in clear.
   "comfy": {
     "baseUrl": "http://localhost:8199",
     "workflow": "ZiT-Workflow.json",
-    "params": { "steps": 4, "cfg": 1.0, "width": 1024, "height": 1024, "batchSize": 1, "negativePrompt": "" }
+    "params": { "steps": 4, "cfg": 1.0, "width": 1024, "height": 1024, "batchSize": 1, "negativePrompt": "" },
+    "artStyle": "painted",
+    "styles": [
+      { "id": "painted", "label": "Painted", "blurb": "Watercolor and oil washes — Mytheca's house look.", "loraName": "zit_watercolor.safetensors", "loraStrength": 0.8, "loraEnabled": true },
+      { "id": "anime", "label": "Anime", "blurb": "Cel-shaded illustration with clean, bold linework.", "loraName": "", "loraStrength": 0.8, "loraEnabled": false },
+      { "id": "photoreal", "label": "Photoreal", "blurb": "A photograph — natural texture and cinematic light.", "loraName": "", "loraStrength": 0.8, "loraEnabled": false }
+    ]
   },
   "prompts": {
     "catalog": [
@@ -370,10 +376,25 @@ left by cancelled drafts or deleted entities):
 protocol, not OpenAI-compatible):
 
 - `PATCH /options/comfy` — body may include `baseUrl`, `workflow`, `params`
-  (`steps`, `cfg`, `width`, `height`, `batchSize`, `negativePrompt`). Base URL is
-  normalized. Returns `ComfyConfigRead`.
+  (`steps`, `cfg`, `width`, `height`, `batchSize`, `negativePrompt`), `artStyle`, and
+  `styles`. Base URL is normalized. Returns `ComfyConfigRead`.
+  - **`artStyle`** — the default look for every generated image: `painted` (the default,
+    and what every image wore before styles existed) | `anime` | `photoreal`. An unknown
+    id is **coerced to the default, not rejected** — a stale client must not be able to
+    fail the whole settings save.
+  - **`styles`** — a patch of per-style LoRA overrides keyed by style id, each
+    `{ loraName?, loraStrength?, loraEnabled? }`. **Merged, not replaced**, so patching one
+    field leaves the rest. Unknown style ids are ignored (as with prompt overrides). A
+    style enabled with no `loraName` reads back as disabled: there is nothing to load.
+  - `ComfyConfigRead.styles` returns the whole catalog with **effective** values — the
+    authored defaults with any stored override folded in.
 - `GET /options/comfy/workflows` — `{ "workflows": ["ZiT-Workflow.json", …] }`,
   the `*.json` files saved in `utils/workflows/`.
+- `GET /options/comfy/loras` — `{ "loras": ["zit_watercolor.safetensors", …] }`, proxied
+  from ComfyUI's `/object_info/LoraLoaderModelOnly`. Optional `baseUrl` query falls back to
+  the stored one. **Best-effort:** an unreachable or unrecognised server returns `[]` with a
+  200 rather than an error, so the Options LoRA field degrades to free text instead of
+  blocking the page.
 - `POST /options/comfy/status` — `{ baseUrl? }` (fall back to stored). Server-side
   `GET {baseUrl}/system_stats` → `{ ok, comfyuiVersion, device, pythonVersion }`.
   Network/timeout → `502 bad_gateway`; missing URL → `400 bad_request`.
@@ -470,8 +491,15 @@ Library instead of an empty one. Body:
 
 ```json
 { "docsOverview": "…", "source": "auto", "maxCharacters": 5, "maxSettings": 3,
-  "withArtwork": false, "fromSeq": 0 }
+  "withArtwork": false, "artStyle": "painted", "fromSeq": 0 }
 ```
+
+**`artStyle`** is the look every image in the run wears (`painted` | `anime` | `photoreal`;
+omitted uses the operator's Options default). It is chosen **once for the whole run**, not
+per entity — a build paints a cast and every place in one go, so a world half painted and
+half photoreal is the failure mode the single choice is designed against. It reaches both
+`_render_portrait` and `_render_scene_art` in `services/world_populate.py`, and is ignored
+when `withArtwork` is false.
 
 **`source`** decides whose people get built. `documents` builds exactly the characters
 and places the author's own context files name; `invent` makes them up from the premise;
@@ -702,13 +730,13 @@ rule: `docsOverview` is inline dropped-file text used for one generation only.
   Empty `seed` **and** empty `docsOverview` → `400 bad_request`; unconfigured LLM
   → `400 bad_request`; a reply that is not valid JSON → `502 upstream_error`.
 - `POST /characters/portrait-prompts` — `{ name?, role?, appearance?, traits?,
-  personality?, species?, notes? }` (at least one descriptive field required).
-  Writes the watercolor ComfyUI prompts → `{ positive, negative }`: short
+  personality?, species?, notes?, artStyle? }` (at least one descriptive field required).
+  Writes the ComfyUI prompts in the chosen art style → `{ positive, negative }`: short
   comma-separated phrases leading with the subject's species/race so the image
   depicts that being.
 - `POST /characters/portrait` — `{ positive, negative?, baseUrl?, workflow?,
-  width?, height?, steps?, cfg? }`. Renders the portrait through the configured
-  ComfyUI watercolor pipeline, converts the result to **WebP**, saves it under
+  width?, height?, steps?, cfg?, artStyle? }`. Renders the portrait through the configured
+  ComfyUI pipeline in the chosen art style, converts the result to **WebP**, saves it under
   `MEDIA_DIR`, and returns `{ portrait: "/media/portraits/<uuid>.webp" }`. The URL
   is carried into the normal character create/PATCH `portrait` field (id-agnostic,
   so it works during creation before a row exists). The `positive` / `negative`
@@ -758,12 +786,12 @@ rule: `docsOverview` is inline dropped-file text used for one generation only.
   unconfigured LLM → `400 bad_request`; a reply that is not valid JSON →
   `502 upstream_error`.
 - `POST /settings/scene-art-prompts` — `{ name?, type?, desc?, atmosphere?,
-  features?, currentState?, notes? }` (at least one descriptive field required).
-  Writes the watercolor ComfyUI prompts → `{ positive, negative }`: an atmospheric
+  features?, currentState?, notes?, artStyle? }` (at least one descriptive field required).
+  Writes the ComfyUI prompts in the chosen art style → `{ positive, negative }`: an atmospheric
   establishing shot of the location itself, no people.
 - `POST /settings/scene-art` — `{ positive, negative?, baseUrl?, workflow?, width?,
-  height?, steps?, cfg? }`. Renders the establishing image through the configured
-  ComfyUI watercolor pipeline (landscape 16:9 default), converts to **WebP**, saves
+  height?, steps?, cfg?, artStyle? }`. Renders the establishing image through the configured
+  ComfyUI pipeline in the chosen art style (landscape 16:9 default), converts to **WebP**, saves
   it under `MEDIA_DIR/scenes`, and returns `{ image: "/media/scenes/<uuid>.webp" }`.
   The URL is carried into the normal setting create/PATCH `image` field (id-agnostic,
   so it works during creation before a row exists). Empty `positive` / unconfigured
@@ -797,14 +825,14 @@ roster** only).
     normal `POST /storylines/{id}/scenarios` saves it.
 
 - `POST /scenarios/scene-art-prompts` — `{ title?, genre?, tone?, goal?, opening?,
-  settingName?, settingDesc?, notes? }`. Calls the LLM to produce a watercolor
-  establishing-shot prompt pair for the scenario's setting atmosphere (no characters
+  settingName?, settingDesc?, notes?, artStyle? }`. Calls the LLM to produce an
+  establishing-shot prompt pair in the chosen art style for the scenario's setting atmosphere (no characters
   or people). Returns `{ positive, negative }` (`SceneArtPromptResponse`). At least
   one non-empty field required; unconfigured LLM → `400 bad_request`.
 
 - `POST /scenarios/scene-art` — `{ positive, negative?, baseUrl?, workflow?, width?,
-  height?, steps?, cfg? }`. Renders the scene-art image through the configured
-  ComfyUI watercolor pipeline (landscape 16:9 default), converts to **WebP**, saves
+  height?, steps?, cfg?, artStyle? }`. Renders the scene-art image through the configured
+  ComfyUI pipeline in the chosen art style (landscape 16:9 default), converts to **WebP**, saves
   it under `MEDIA_DIR/scenes`, and returns `{ image: "/media/scenes/<uuid>.webp" }`.
   The URL is stored in the scenario's `image` field. Empty `positive` /
   unconfigured ComfyUI → `400 bad_request`; a Comfy failure → `502`. **Opt-in —
@@ -861,7 +889,7 @@ Each maps to one frontend component.
 | `state_update` | Updates side panels (no chat message) | `patch` — partial scenario state; **stat changes ride here** |
 | `branch_choices` | Branch-choices panel | `prompt` (a planner question, usually empty), `choices[]` (`label`, `outcome`) |
 | `character_status_change` | Updates the cast rail (no chat message); an `auto` change also raises an **Undo** toast | `characterId`, `status` (`present`\|`unconscious`\|`departed`\|`left`\|`dead`), `reason`, `auto` |
-| `scene_image` | Centered, clickable landscape picture of the moment in the transcript (enlarges in a lightbox) | `url` (relative `/media/moments/…`), `prompt`, `negative`, `caption` (alt text), `characterIds` |
+| `scene_image` | Centered, clickable landscape picture of the moment in the transcript (enlarges in a lightbox) | `url` (relative `/media/moments/…`), `prompt`, `negative`, `caption` (alt text), `characterIds`, `style` (the art style it was painted in — seeds the lightbox's repaint picker; empty on rows written before styles existed) |
 | `cast_request` | A centred card in the transcript: *"The scene is asking for Kael"*, with **Bring them in** / **Not now**. Settles to a quiet line once answered | `characterId`, `reason` (the requirement or phrase that named them — the player's own words, quoted back) |
 
 **No dice (D11):** `branch_choices` options carry `label` + `outcome` (a narrative-direction

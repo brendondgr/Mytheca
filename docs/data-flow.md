@@ -751,12 +751,12 @@ entered — never a lost create.
 Character modal (CharacterModal) → lib/api.ts
   → POST /api/characters/draft            {seed, docsOverview?, storylineId?}
         → {name, role, traits, speech, goal, secret, appearance, background, personality, color}
-  → POST /api/characters/portrait-prompts {name, appearance, traits, species?, ...} → {positive, negative}
-  → POST /api/characters/portrait         {positive, negative}  → {portrait: "/media/portraits/<id>.webp"}
+  → POST /api/characters/portrait-prompts {name, appearance, traits, species?, artStyle?, ...} → {positive, negative}
+  → POST /api/characters/portrait         {positive, negative, artStyle?}  → {portrait: "/media/portraits/<id>.webp"}
         → routes/characters → agents/character_agent (draft/prompts/voice/stats; same
           settings_store + services/llm.chat_complete as the storyline agent)
         → routes/characters → services/portraits → services/comfyui.generate
-          (watercolor pipeline) → PNG → Pillow → WebP saved under MEDIA_DIR, served at /media
+          (art-styled pipeline) → PNG → Pillow → WebP saved under MEDIA_DIR, served at /media
   → POST /api/characters/voice-samples    {name, background, personality, ...} → {samples:[{situation,sample}]}
         (voice & tone comes FIRST — derived from the drafted prose before stats; best-effort → [];
          the model plans the character's distinctive voice first, then each pair is a previous
@@ -901,13 +901,52 @@ turn loop. Because it is a persisted event and not a column, it replays through 
 `mergeFrame` reducer on reload, appears in the session history, and exports as a Markdown
 image line — no separate rehydration path.
 
-Two properties are enforced by the server, not by the prompt writer's goodwill: the frame
+Three properties are enforced by the server, not by the prompt writer's goodwill: the frame
 is **pinned landscape** (1216x832 in `scene_moment.py`, not the Options defaults, which
-are tuned for portraits), and no character **name** may reach the image model — the system
+are tuned for portraits), the **art style** is applied at the render boundary rather than
+trusted to the prompt (see below), and no character **name** may reach the image model — the system
 prompt forbids it and `strip_names` rewrites any that survive into that character's own
 appearance phrases, because an image model cannot resolve a name into a face. The keep-alive
 heartbeat re-emits the stage that is *actually* running, so a long prompt write never
 reports itself as a render.
+
+## Art Style Resolution (every image path)
+
+```
+any image request  ─ artStyle? ─┐
+                                ▼
+   settings_store.resolve_art_style(db, artStyle)
+        artStyle ?? comfy.artStyle (the operator's default)  → art_styles.get(…)
+        ∪ comfy.styleLoras[id]                               → ResolvedStyle
+                                ▼
+        ┌───────────────────────┴───────────────────────┐
+        ▼                                               ▼
+  the prompt WRITER                              the RENDERER
+  agents/_style.resolve_style →                  art_styles.apply_style(…, surface)
+  model_hint + <surface>_tags into               drop other styles' tags → append this one's
+  the agent's system prompt                      comfyui.generate(lora_name, lora_strength,
+                                                                  lora_enabled)
+                                                   enabled → patch node 72
+                                                   disabled → _bypass_node routes around it
+```
+
+`resolve_art_style` is the **single** answer to "what look, and with which LoRA?", and both
+halves must agree: prompts *written* for one style and *painted* in another produce a
+muddle. Unknown ids fall back to the default rather than raising — an image request must
+never fail because a stale client named a retired style.
+
+`apply_style` **drops** competing style tags before appending its own, which is what makes a
+switch actually switch: a prompt stored while painted still ends in `watercolor portrait,
+soft washes`, and `painted`/`anime` both push `photorealistic` away — a negative that would
+flatly contradict a `photoreal` render. It is also the only place the look can land on a
+**hand-written** prompt (`SceneImageModal`'s repaint), which no agent ever sees.
+
+The three render services (`portraits` · `scene_art` · `scene_moment`) are the only places
+bytes are requested from ComfyUI, which is why applying the style there covers every image
+in the product. The **world build** (`services/world_populate.py`, the New Storyline page's
+build step) calls the first two directly, and threads one `art_style` — chosen once in
+`BuildWorldModal` and carried on `POST /storylines/{id}/populate/stream` — through every
+render in the run, so a generated world's cast and places share a look.
 
 ## Orphaned-Media Cleanup Flow (maintenance)
 

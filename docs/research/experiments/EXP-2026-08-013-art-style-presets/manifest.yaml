@@ -1,0 +1,82 @@
+# Experiment manifest — the machine-readable record.
+#
+# Every field below is required unless marked OPTIONAL. `make new-experiment`
+# pre-fills id, slug, dates, and the whole `code:` block from git.
+#
+# Do not delete a field you cannot fill. Write `unknown` and explain in ISSUES.md.
+# A back-filled experiment with three honest fields beats one with ten invented ones.
+
+id: EXP-2026-08-013
+slug: art-style-presets
+title: Three art styles emit the LoRA state and tag set they intend, on every image surface
+status: complete          # planned | running | complete | failed | superseded
+date_started: 2026-08-22
+date_completed: 2026-08-22
+authors: [brendondgr]
+
+purpose: >
+  Does the three-style art pipeline actually emit three different looks, and does the
+  ComfyUI graph it queues carry the LoRA state and tag set the chosen style intends, on
+  every image surface? Supports the implementation claim that selecting a style changes
+  what is rendered rather than only what the UI says.
+
+hypothesis: >
+  Exploratory on the visual half — no prior hypothesis about how different the three looks
+  would be. Falsifiable on the mechanical half: every (style x surface) condition should
+  carry exactly its own LoRA state and complete tag set, with none of the other styles'
+  tags. NOT pre-registered — see ISSUES.md.
+
+# --- Reproducibility block (all fields mandatory) ---
+code:
+  commit: adb9e4a1ef179554da4f5dbbcdb2efea297d6dff
+  branch: art-style-presets
+  entrypoint: "cd web/backend && ../../.venv/bin/python ../../docs/research/experiments/EXP-2026-08-013-art-style-presets/conformance.py"
+  dirty: true             # uncommitted changes at run time? if true, explain in ISSUES.md
+config:
+  path: null
+  hash: null
+data:
+  name: "two hand-written subject strings (one character, one place), fixed in render_samples.py"
+  version: n/a
+  split: n/a
+  n_examples: 6      # 3 styles x 2 surfaces
+  dvc_path: null           # OPTIONAL — null if not DVC-tracked
+  hash: null
+seeds: [20260822]   # the render seed; the metrics themselves are seed-independent
+n_runs: 1           # a deterministic graph transform — see ISSUES.md
+environment:
+  python: "3.13"
+  lockfile: env/requirements.lock
+  container: null          # OPTIONAL
+compute:
+  hardware: "AMD Radeon (ComfyUI 0.28.0), 128 GB RAM; metrics run CPU-only"
+  wall_clock_hours: 0.05
+  estimated_cost_usd: 0.0    # entirely local
+
+# --- LLM / agentic block ---
+# Mytheca is an LLM system. Do not omit this block; if a run genuinely made no LLM
+# call, write `llm: null` and say why in PROTOCOL.md.
+# No LLM call is made. The subject strings are fixed by hand precisely so that the STYLE is
+# the only variable — routing them through a prompt-writing agent would have added
+# generation noise to an experiment about a deterministic graph transform. See PROTOCOL.md.
+llm: null
+
+# --- Results block ---
+# `status: complete` with an empty `values` map fails validation. That is intentional.
+metrics:
+  primary: no_foreign_tags
+  values:
+    lora_state_correct: {mean: 6.0, std: 0.0, n: 6}
+    own_tags_complete: {mean: 6.0, std: 0.0, n: 6}
+    no_foreign_tags: {mean: 6.0, std: 0.0, n: 6}
+# The `painted` arm IS the pre-change behaviour: its tag strings were moved verbatim out of
+# the four agent modules, so a difference there would be a regression, not a result.
+baselines_compared: [painted]
+statistical_test: null     # deterministic transform; nothing to test. See ISSUES.md.
+
+# --- Linkage ---
+supports_claims: []        # every ID must exist in ../../CLAIMS.md
+figures: []                # every entry must have a file in figures/, and vice versa
+supersedes: null
+superseded_by: null
+related: []

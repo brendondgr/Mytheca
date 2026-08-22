@@ -1,0 +1,70 @@
+{
+  "rows": [
+    {
+      "surface": "portrait",
+      "style": "painted",
+      "lora_intended": "zit_watercolor.safetensors",
+      "lora_in_graph": "zit_watercolor.safetensors",
+      "lora_node_wired": true,
+      "own_tags_present": 7,
+      "own_tags_total": 7,
+      "foreign_tags_present": 0
+    },
+    {
+      "surface": "portrait",
+      "style": "anime",
+      "lora_intended": null,
+      "lora_in_graph": null,
+      "lora_node_wired": false,
+      "own_tags_present": 8,
+      "own_tags_total": 8,
+      "foreign_tags_present": 0
+    },
+    {
+      "surface": "portrait",
+      "style": "photoreal",
+      "lora_intended": null,
+      "lora_in_graph": null,
+      "lora_node_wired": false,
+      "own_tags_present": 8,
+      "own_tags_total": 8,
+      "foreign_tags_present": 0
+    },
+    {
+      "surface": "scene",
+      "style": "painted",
+      "lora_intended": "zit_watercolor.safetensors",
+      "lora_in_graph": "zit_watercolor.safetensors",
+      "lora_node_wired": true,
+      "own_tags_present": 8,
+      "own_tags_total": 8,
+      "foreign_tags_present": 0
+    },
+    {
+      "surface": "scene",
+      "style": "anime",
+      "lora_intended": null,
+      "lora_in_graph": null,
+      "lora_node_wired": false,
+      "own_tags_present": 9,
+      "own_tags_total": 9,
+      "foreign_tags_present": 0
+    },
+    {
+      "surface": "scene",
+      "style": "photoreal",
+      "lora_intended": null,
+      "lora_in_graph": null,
+      "lora_node_wired": false,
+      "own_tags_present": 8,
+      "own_tags_total": 8,
+      "foreign_tags_present": 0
+    }
+  ],
+  "summary": {
+    "n_conditions": 6,
+    "lora_state_correct": 6,
+    "own_tags_complete": 6,
+    "no_foreign_tags": 6
+  }
+}

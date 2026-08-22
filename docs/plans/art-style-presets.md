@@ -1,5 +1,10 @@
 # Art Style Presets — Painted · Anime · Photoreal
 
+> **Status: complete** (2026-08-22, branch `art-style-presets`, merged to `main`).
+> Delivered in nine phases, not eight: the world build ("New Storyline") was added as
+> Phase 8 at the owner's request after the plan was written, and documentation moved to
+> Phase 9. Visual and conformance results are recorded in `EXP-2026-08-013`.
+
 ## 1. Introduction
 
 Every image Mytheca generates today is locked to one look. The four image-writing agents
@@ -330,7 +335,25 @@ branch merges into `main` at the end of Phase 8.
 
 ---
 
-### Phase 8 — Documentation, full gate, and merge
+### Phase 8 — The world build ("New Storyline") *(added mid-implementation)*
+
+- **Locations:** `web/backend/app/schemas/world_populate.py` (`WorldPopulateRequest.art_style`),
+  `services/world_populate.py` (`_render_portrait` / `_render_scene_art` / both
+  `_populate_*` stages / `populate_world`), `services/world_populate_runs.py`,
+  `web/frontend/components/feature/BuildWorldModal.tsx` (an `ArtStylePicker`, shown only
+  while artwork is actually going to be rendered), `lib/types.ts` (`PopulateOptions.artStyle`),
+  `lib/api.ts`, `features/library/storylineCreator.ts`, `useStorylineCreator.ts`.
+- **Rationale:** The build is where the style matters *most* and where the plan had missed
+  it: it paints a whole cast and every place in one run, so it is the only surface where an
+  unstyled default produces a wholesale mismatch rather than one odd picture. The choice is
+  made **once for the run**, not per entity — a world half painted and half photoreal is the
+  failure mode worth designing against.
+- **Validation & Commit:** *`uv run pytest`, `npm test`, `npm run typecheck`, `npm run lint`.
+  Commit: `[Art Style Presets] (8/9) Complete: The New Storyline world build paints its whole cast and every place in one chosen style.`*
+
+---
+
+### Phase 9 — Documentation, the research record, full gate, and merge
 
 - **Locations:**
   - `docs/comfyui-image-generation.md` — the styles, the node-`72` patch/bypass rule, the
