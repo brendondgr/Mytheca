@@ -1,6 +1,6 @@
 import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { StoryPlayerView } from "./StoryPlayerView";
 import { postTurn, updateScenario } from "@/lib/api";
 import type { TurnStreamFrame } from "@/lib/events";
@@ -377,6 +377,47 @@ describe("StoryPlayerView keyboard", () => {
     expect(
       screen.queryByRole("complementary", { name: "What the scene knows" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("StoryPlayerView coach marks", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("shows exactly one hint at a time", () => {
+    render(<StoryPlayerView scenario={embergate} />);
+    const hints = screen
+      .getAllByRole("status")
+      .filter((el) => /Type what you say|Speak as one of the cast|Click anyone here/.test(el.textContent ?? ""));
+    expect(hints).toHaveLength(1);
+  });
+
+  it("moves to the next hint once one is dismissed", async () => {
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    expect(screen.getByText(/type what you say/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Got it" }));
+    expect(screen.getByText(/speak as one of the cast/i)).toBeInTheDocument();
+  });
+
+  it("counts acting on the thing as dismissing its hint", async () => {
+    // Anything that can only be dismissed by its × eventually traps someone.
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.type(screen.getByRole("textbox", { name: /your message/i }), "hello");
+    expect(screen.queryByText(/type what you say/i)).not.toBeInTheDocument();
+  });
+
+  it("never points at the cast rail when the rail is not on screen", async () => {
+    // jsdom's matchMedia reports no match, so this is the sub-`lg` case: after the two
+    // hints that DO have anchors, there must be nothing left rather than a hint aimed at
+    // a hidden rail.
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.click(screen.getByRole("button", { name: "Got it" }));
+    await user.click(screen.getByRole("button", { name: "Got it" }));
+    expect(screen.queryByText(/click anyone here/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Got it" })).not.toBeInTheDocument();
   });
 });
 

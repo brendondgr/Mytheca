@@ -16,6 +16,10 @@ import { availableVerbs } from "@/lib/sceneVerbs";
 import { useModelHealth } from "@/hooks/use-model-health";
 import { useSceneShortcuts } from "@/hooks/use-scene-shortcuts";
 import { ShortcutSheet } from "@/components/feature/ShortcutSheet";
+import { CoachMark } from "@/components/feature/CoachMark";
+import { useCoachMarks } from "@/hooks/use-coach-marks";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { COACH_MARKS, type CoachMarkId } from "@/lib/coachMarks";
 import type { SceneImage, SceneMessage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
 import { CastRail } from "@/components/feature/CastRail";
@@ -209,6 +213,16 @@ export function StoryPlayerView({
   /** The shortcut sheet, behind `?`. */
   const [helpOpen, setHelpOpen] = useState(false);
 
+  // Which hints can honestly be shown. The cast-rail one is suppressed below `lg`, where the
+  // rail does not exist — a hint pointing at nothing is worse than no hint. (The mobile plan
+  // owns the drawer that would earn it back.)
+  const wide = useMediaQuery("(min-width: 1024px)");
+  const availableMarks = useMemo<CoachMarkId[]>(
+    () => (wide ? ["composer", "pov", "cast-rail"] : ["composer", "pov"]),
+    [wide],
+  );
+  const { mark, dismiss } = useCoachMarks(availableMarks);
+
   // Destructured before the memo so its dependencies are plain values rather than the whole
   // `scene` object, which is rebuilt every render and would defeat the memo entirely.
   const { recallLast, openProfile, profileId } = scene;
@@ -311,13 +325,23 @@ export function StoryPlayerView({
         }
       />
 
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
+        {mark === "cast-rail" ? (
+          <CoachMark
+            text={COACH_MARKS["cast-rail"]}
+            onDismiss={() => dismiss("cast-rail")}
+            className="absolute top-[76px] left-[16px]"
+          />
+        ) : null}
         <CastRail
           cast={scenario.cast}
           speakingId={scene.speakingId}
           turnOrder={scene.turnOrder}
           charById={byId}
-          onProfile={scene.openProfile}
+          onProfile={(id) => {
+            if (mark === "cast-rail") dismiss("cast-rail");
+            scene.openProfile(id);
+          }}
           presenceByChar={scene.presenceByChar}
           setPresence={scene.setPresence}
           statDefs={statDefs}
@@ -514,6 +538,16 @@ export function StoryPlayerView({
             <JumpToLatest onClick={jumpToLatest} className="bottom-[96px]" />
           ) : null}
 
+          {/* Anchored above the composer band, one at a time. No overlay and no backdrop:
+              the scene stays fully usable, and a player who ignores these is never blocked. */}
+          {mark === "composer" || mark === "pov" ? (
+            <CoachMark
+              text={COACH_MARKS[mark]}
+              onDismiss={() => dismiss(mark)}
+              className="absolute right-[16px] bottom-[96px] left-auto sm:right-[30px]"
+            />
+          ) : null}
+
           <Composer
             // Cast + context files in one `@` namespace, built by the hook because who is
             // present is its own state.
@@ -551,7 +585,12 @@ export function StoryPlayerView({
               ) : null
             }
             value={scene.composer}
-            onChange={scene.setComposer}
+            onChange={(v) => {
+              // Acting on the thing a hint points at IS dismissing it. Anything that can only
+              // be dismissed by its × eventually traps someone.
+              if (mark === "composer") dismiss("composer");
+              scene.setComposer(v);
+            }}
             onSend={scene.send}
             sendDisabled={scene.sending}
             inputRef={composerRef}
@@ -566,7 +605,10 @@ export function StoryPlayerView({
             guidance={scene.guidance}
             onGuidanceChange={scene.setGuidance}
             pov={scene.pov}
-            onPovChange={scene.setPov}
+            onPovChange={(id) => {
+              if (mark === "pov") dismiss("pov");
+              scene.setPov(id);
+            }}
             povOptions={povOptions}
             usedTokens={scene.usedTokens}
             maxContextTokens={scene.maxContextTokens}

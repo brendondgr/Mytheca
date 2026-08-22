@@ -25,6 +25,28 @@ The recurring identity marks are the **❖ glyph** (`&#10070;`, the "Mytheca sea
 
 storyline · character · setting · scenario · scene · event · beat · turn · narrator · cast · stat · branch · tone/tension · session. Replace vague phrases ("AI-powered storytelling") with concrete actions: "Begin Scene", "Forge Character", "Add Setting", "New Scenario", "Choose a path", "Speak, or describe what you do".
 
+### Coach marks: hints, not a tour
+
+Three one-time hints on the story player, anchored to the three things a first-time player
+provably does not discover: that the composer takes **actions** as well as speech, that they
+can play **as** a character, and that the cast rail is **interactive**.
+
+The contract, all of it deliberate:
+
+- **One at a time, never a queue**, and never a modal walkthrough — no overlay, no backdrop,
+  no focus trap, no forced sequence. The scene stays fully usable and a player who ignores
+  them is never blocked. (The review ruled out a tour explicitly.)
+- `role="status"`, not `dialog` — announcing an aside as a dialog implies a modality it does
+  not have.
+- **Three ways out**: the × (a 24×24 target), `Escape`, or simply *acting on the thing it
+  points at*. Anything dismissible only one way eventually traps someone.
+- **Dismissal is stored as a set of ids**, not a "seen the tour" flag, so a fourth mark can
+  ship later without re-showing the first three.
+- **Never point at something that is not there.** The cast-rail hint is suppressed below `lg`,
+  where the rail does not exist.
+- Nothing renders before hydration (the dismissal set is in `localStorage`, which the server
+  cannot see), and a mangled stored value degrades to "show the hints" rather than crashing.
+
 ### Keyboard shortcuts in the scene
 
 | Key | Does |
