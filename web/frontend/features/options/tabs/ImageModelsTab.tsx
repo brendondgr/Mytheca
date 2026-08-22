@@ -4,7 +4,16 @@ import { useState } from "react";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { TextField } from "@/components/ui/TextField";
 import { Button } from "@/components/ui/Button";
-import { checkComfyStatus, fetchComfyWorkflows, type ComfyParams } from "@/lib/api";
+import { cn } from "@/lib/cn";
+import {
+  checkComfyStatus,
+  fetchComfyLoras,
+  fetchComfyWorkflows,
+  type ArtStyleId,
+  type ArtStyleOverride,
+  type ArtStyleRead,
+  type ComfyParams,
+} from "@/lib/api";
 import type { OptionsState } from "@/features/options/useOptionsSettings";
 
 const PARAM_FIELDS: { key: keyof Omit<ComfyParams, "negativePrompt">; label: string; step: number; min: number; max: number }[] = [
@@ -26,15 +35,32 @@ const DEFAULT_PARAMS: ComfyParams = {
 
 /**
  * The Image Generation tab: configure a local ComfyUI server, pick a saved
- * workflow (`GET /options/comfy/workflows`), tune default generation params, run
- * a live status check (`POST /options/comfy/status`), and save to the backend.
+ * workflow (`GET /options/comfy/workflows`), tune default generation params, choose the
+ * **default art style** and each style's LoRA, run a live status check
+ * (`POST /options/comfy/status`), and save to the backend.
  * Mirrors `LanguageModelsTab`'s lazy-init + keyed-remount pattern.
+ *
+ * The per-style LoRA rows are what make the style catalog operator-owned rather than
+ * hard-coded: `anime` ships with no LoRA because none is installed, and pointing it at one
+ * later is a change here, not a change in the backend. A style with its LoRA off renders on
+ * the base checkpoint — the workflow's LoRA node is bypassed rather than retuned.
  */
 export function ImageModelsTab({ opts }: { opts: OptionsState }) {
   const comfy = opts.settings?.comfy;
   const [baseUrl, setBaseUrl] = useState(comfy?.baseUrl ?? "");
   const [workflow, setWorkflow] = useState(comfy?.workflow ?? "");
   const [params, setParams] = useState<ComfyParams>(comfy?.params ?? DEFAULT_PARAMS);
+  const [artStyle, setArtStyle] = useState<ArtStyleId>(comfy?.artStyle ?? "painted");
+  // Keyed by style id, seeded from the effective values the backend returned.
+  const [styleLoras, setStyleLoras] = useState<Record<string, ArtStyleOverride>>(() =>
+    Object.fromEntries(
+      (comfy?.styles ?? []).map((s: ArtStyleRead) => [
+        s.id,
+        { loraName: s.loraName, loraStrength: s.loraStrength, loraEnabled: s.loraEnabled },
+      ]),
+    ),
+  );
+  const [loras, setLoras] = useState<string[]>([]);
 
   const [workflows, setWorkflows] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
@@ -66,6 +92,19 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
     }
   }
 
+  function patchStyle(id: string, patch: ArtStyleOverride) {
+    setStyleLoras((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }
+
+  async function loadLoras() {
+    try {
+      setLoras((await fetchComfyLoras()).loras);
+    } catch {
+      // Best-effort: the field stays free text. See the component docstring.
+      setLoras([]);
+    }
+  }
+
   async function runStatus() {
     if (!baseUrl.trim()) return;
     setChecking(true);
@@ -91,7 +130,7 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
     setSaving(true);
     setStatus(null);
     try {
-      await opts.saveComfy({ baseUrl, workflow, params });
+      await opts.saveComfy({ baseUrl, workflow, params, artStyle, styles: styleLoras });
       setStatus("Saved.");
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Could not save.");
@@ -200,6 +239,126 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
               className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
             />
           </label>
+        </fieldset>
+
+        <fieldset className="rounded-[4px] border border-cardbd p-[14px]">
+          <legend className="px-[6px] font-mono text-[9px] tracking-[0.14em] text-gold uppercase">
+            Art style
+          </legend>
+          <p className="mb-[10px] font-body text-[12.5px] text-ink-soft">
+            The look every generated image starts from — portraits, place art, scene art, and
+            the in-play picture alike. Each surface&apos;s own picker overrides it per render.
+          </p>
+          <div className="grid gap-[8px] sm:grid-cols-3">
+            {(comfy.styles ?? []).map((style) => (
+              <label
+                key={style.id}
+                className={cn(
+                  "flex cursor-pointer flex-col rounded-[4px] border p-[10px_12px]",
+                  "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent",
+                  style.id === artStyle
+                    ? "border-[1.5px] border-accent bg-card2"
+                    : "border-field-bd bg-field hover:border-hair-strong hover:bg-hover",
+                )}
+              >
+                <span className="flex items-center gap-[8px]">
+                  <input
+                    type="radio"
+                    name="default-art-style"
+                    value={style.id}
+                    checked={style.id === artStyle}
+                    onChange={() => setArtStyle(style.id)}
+                    className="accent-[var(--accent)]"
+                  />
+                  <span
+                    className={cn(
+                      "font-body text-[14px] text-ink",
+                      style.id === artStyle && "font-semibold text-accent",
+                    )}
+                  >
+                    {style.label}
+                  </span>
+                </span>
+                <span className="mt-[3px] font-body text-[12px] leading-[1.4] text-mute">
+                  {style.blurb}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="rounded-[4px] border border-cardbd p-[14px]">
+          <legend className="px-[6px] font-mono text-[9px] tracking-[0.14em] text-gold uppercase">
+            Style LoRAs
+          </legend>
+          <div className="mb-[10px] flex flex-wrap items-center justify-between gap-[10px]">
+            <p className="max-w-[46ch] font-body text-[12.5px] text-ink-soft">
+              Which LoRA each style loads. Turn one off and that style renders on the base
+              checkpoint alone — the workflow&apos;s LoRA node is routed around.
+            </p>
+            <Button variant="secondary" onClick={() => void loadLoras()}>
+              {loras.length > 0 ? `List LoRAs (${loras.length})` : "List LoRAs"}
+            </Button>
+          </div>
+          <div className="grid gap-[12px]">
+            {(comfy.styles ?? []).map((style) => {
+              const entry = styleLoras[style.id] ?? {};
+              const name = entry.loraName ?? "";
+              const options = name && !loras.includes(name) ? [name, ...loras] : loras;
+              return (
+                <div
+                  key={style.id}
+                  className="grid gap-[8px] sm:grid-cols-[auto_1fr_110px] sm:items-end"
+                >
+                  <label className="flex items-center gap-[8px] font-body text-[13.5px] text-ink">
+                    <input
+                      type="checkbox"
+                      checked={entry.loraEnabled ?? false}
+                      onChange={(e) => patchStyle(style.id, { loraEnabled: e.target.checked })}
+                      className="accent-[var(--accent)]"
+                      aria-label={`Use a LoRA for ${style.label}`}
+                    />
+                    <span className="min-w-[76px]">{style.label}</span>
+                  </label>
+                  <label className="block min-w-0">
+                    <FieldLabel>{`${style.label} LoRA file`}</FieldLabel>
+                    {options.length > 0 ? (
+                      <select
+                        value={name}
+                        onChange={(e) => patchStyle(style.id, { loraName: e.target.value })}
+                        className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
+                      >
+                        <option value="">None</option>
+                        {options.map((l) => (
+                          <option key={l} value={l}>
+                            {l}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={name}
+                        onChange={(e) => patchStyle(style.id, { loraName: e.target.value })}
+                        placeholder="List LoRAs, or type a file name"
+                        className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
+                      />
+                    )}
+                  </label>
+                  <TextField
+                    label="Strength"
+                    type="number"
+                    step={0.05}
+                    min={0}
+                    max={2}
+                    value={String(entry.loraStrength ?? 0.8)}
+                    onChange={(e) =>
+                      patchStyle(style.id, { loraStrength: Number(e.target.value) })
+                    }
+                  />
+                </div>
+              );
+            })}
+          </div>
         </fieldset>
 
         <div className="flex flex-wrap items-center gap-[12px]">

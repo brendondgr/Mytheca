@@ -13,6 +13,7 @@ import {
   type LlmConfigUpdate,
   type PromptsConfigUpdate,
 } from "@/lib/api";
+import { refreshArtStyles } from "@/hooks/use-art-styles";
 
 export interface OptionsState {
   settings: AppSettings | null;
@@ -74,6 +75,9 @@ export function useOptionsSettings(): OptionsState {
   const saveComfy = useCallback(async (body: ComfyConfigUpdate) => {
     const comfy = await updateComfyConfig(body);
     setSettings((prev) => (prev ? { ...prev, comfy } : prev));
+    // Every art-style picker in the app reads a process-lifetime cache of this blob, so a
+    // new default would otherwise not reach them until a reload.
+    refreshArtStyles();
   }, []);
 
   const savePrompts = useCallback(async (body: PromptsConfigUpdate) => {
