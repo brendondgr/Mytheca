@@ -1,7 +1,10 @@
+"use client";
+
 import type { LlmHealth } from "@/lib/types";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   SceneMenu,
   type ExportFormat,
@@ -72,6 +75,10 @@ export function SceneHeader({
   memoryOpen = false,
   health = null,
   tray,
+  trayPanel,
+  onOpenShortcuts,
+  extraControls = [],
+  extraSlot,
 }: {
   title: string;
   settingName: string;
@@ -102,10 +109,28 @@ export function SceneHeader({
    * threading six callbacks through here would make this component know about sessions.
    */
   tray?: ReactNode;
+  /**
+   * The tray's rows *without* its popover, for the narrow form — where the tray is a
+   * drill-down inside the scene menu rather than a second popover beside it. Two nodes
+   * rather than one because the header must not know about sessions either way.
+   */
+  trayPanel?: ReactNode;
+  /** Open the keyboard-shortcut sheet. Without this it is reachable only by pressing `?`,
+   *  which is to say: not at all on a phone. */
+  onOpenShortcuts?: () => void;
+  /** Anything another plan adds to the header. One array entry, at every width. */
+  extraControls?: SceneMenuItem[];
+  /** Rendered at the foot of the scene menu. */
+  extraSlot?: ReactNode;
 }) {
+  // The Tailwind `sm` breakpoint. `false` during SSR and wherever `matchMedia` is absent, so
+  // the server-rendered form is the NARROW one — safe in both directions, because the
+  // overflow menu is fully functional at every width while an inline cluster that never
+  // collapses is the bug being fixed.
+  const wide = useMediaQuery("(min-width: 640px)");
   const meta = [`◆ ${settingName}`, genre, tone].filter(Boolean).join(" · ");
   // Built here rather than by the caller so the header owns which of its controls fold in.
-  const sceneMenuItems: SceneMenuItem[] = [
+  const alwaysInMenu: SceneMenuItem[] = [
     ...(onOpenWriting
       ? [
           {
@@ -155,6 +180,52 @@ export function SceneHeader({
           },
         ]
       : []),
+    ...(onOpenShortcuts
+      ? [
+          {
+            key: "shortcuts",
+            label: "Keyboard shortcuts",
+            hint: "the keys this scene answers to",
+            icon: "⌨",
+            onSelect: onOpenShortcuts,
+          },
+        ]
+      : []),
+  ];
+
+  /**
+   * What folds in below `sm`: the play-through tray, the memory toggle and the theme
+   * switcher, ahead of the items that are in the menu at every width.
+   *
+   * The tray arrives as a **drill-down panel**, not as a nested popover — see
+   * `SceneMenuItem.panel`. Theme arrives as a `render` row, because a three-way switch
+   * flattened into three menu items would read as three unrelated commands.
+   */
+  const foldedIn: SceneMenuItem[] = wide
+    ? []
+    : [
+        ...(trayPanel
+          ? [{ key: "playthroughs", label: "Play-throughs", hint: "switch stories, or start another", icon: "❑", panel: trayPanel }]
+          : []),
+        ...(onToggleMemory
+          ? [
+              {
+                key: "memory",
+                label: "What the scene knows",
+                hint: "how far back the cast remembers, and what it is reading",
+                icon: "◍",
+                pressed: memoryOpen,
+                onSelect: onToggleMemory,
+              },
+            ]
+          : []),
+      ];
+
+  const sceneMenuItems: SceneMenuItem[] = [
+    ...foldedIn,
+    ...alwaysInMenu,
+    ...extraControls,
+    ...(wide ? [] : [{ key: "theme", label: "Theme", render: <ThemeSwitcher /> }]),
   ];
 
   return (
@@ -179,25 +250,30 @@ export function SceneHeader({
       </div>
       {/* Deliberately `flex-none`. Letting this cluster shrink was tried and is
         * worse: its children have intrinsic widths, so a squeezed container
-        * pushes them 50–150px past the edge instead of 7px. The real fix for
-        * the 320px floor is to collapse controls below `sm` — a design change,
-        * not a layout tweak. Tracked in docs/checklist.md. */}
+        * pushes them 50–150px past the edge instead of 7px. The real fix was never a
+        * layout tweak but a design change — collapsing controls below `sm` — and that is
+        * what this component now does, via `useMediaQuery` + the scene menu's item list.
+        *
+        * Rendered ONCE in one of two forms, never twice with one copy `aria-hidden`: a
+        * duplicated cluster produces duplicate accessible names and a tab order that
+        * visits invisible buttons. */}
       <div className="flex flex-none items-center gap-[8px] sm:gap-[14px]">
+        {/* Inline at every width: the scene's primary mode toggle, and whether the model
+            behind it is actually there. Both are compact, and both answer a question the
+            player should not have to open a menu to ask. */}
         {onViewModeChange ? (
           <ViewModeSwitch viewMode={viewMode ?? "chat"} onChange={onViewModeChange} />
         ) : null}
-        {tray}
-        <ThemeSwitcher />
+        {wide ? tray : null}
+        {wide ? <ThemeSwitcher /> : null}
         {/* The real model-health indicator, in the slot where a hardcoded green dot and
             "Narrator active" used to sit — a literal `<span>` reflecting no state at all. A
-            status light that is always on teaches players to ignore every status light.
-            Inside the `hidden … sm:flex` cluster, so the 320px control count is unchanged;
-            the durable 320px fix is `docs/plans/reach.md` Phase 4's header overflow menu. */}
-        <ModelStatus health={health} />
+            status light that is always on teaches players to ignore every status light. */}
+        <ModelStatus health={health} wide={wide} />
         {/* Two rails, and they are for two different questions: this one is the player's
             ("what does the scene know"), the Inspector is the developer's ("what did the loop
             do"). Mutually exclusive, because two 340px columns cannot both dock. */}
-        {onToggleMemory ? (
+        {wide && onToggleMemory ? (
           <button
             type="button"
             onClick={onToggleMemory}
@@ -210,11 +286,12 @@ export function SceneHeader({
             <span className="hidden sm:inline">Memory</span>
           </button>
         ) : null}
-        {/* One popover replacing three inline controls (Export, Inspector, and the new
-            Writing entry point). The cluster is `flex-none`, so every control here costs
-            width a 320px screen does not have — folding them in is how the header gains
-            capability while losing width. */}
-        {sceneMenuItems.length > 0 ? <SceneMenu items={sceneMenuItems} /> : null}
+        {/* One popover holding everything that does not fit. Below `sm` that is most of the
+            header; the cluster is `flex-none`, so every control left inline costs width a
+            320px screen does not have. */}
+        {sceneMenuItems.length > 0 || extraSlot ? (
+          <SceneMenu items={sceneMenuItems} extraSlot={extraSlot} />
+        ) : null}
       </div>
     </header>
   );
@@ -223,12 +300,15 @@ export function SceneHeader({
 /** How each health state reads to a player, in words — never by colour alone. */
 const HEALTH_COPY: Record<
   LlmHealth["state"],
-  { label: string; dot: string; text: string }
+  { label: string; dot: string; text: string; glyph: string }
 > = {
-  reachable: { label: "Model ready", dot: "bg-success", text: "text-mute" },
-  model_missing: { label: "Model not found", dot: "bg-gold", text: "text-gold" },
-  unreachable: { label: "Model unreachable", dot: "bg-danger", text: "text-danger" },
-  unconfigured: { label: "No model set", dot: "bg-mute2", text: "text-mute2" },
+  // `glyph` is the narrow form's second channel. A bare coloured dot at 320px would be
+  // colour alone, which is exactly what the labelled form exists to avoid — so the shape
+  // changes with the state too.
+  reachable: { label: "Model ready", dot: "bg-success", text: "text-mute", glyph: "●" },
+  model_missing: { label: "Model not found", dot: "bg-gold", text: "text-gold", glyph: "!" },
+  unreachable: { label: "Model unreachable", dot: "bg-danger", text: "text-danger", glyph: "✕" },
+  unconfigured: { label: "No model set", dot: "bg-mute2", text: "text-mute2", glyph: "○" },
 };
 
 /**
@@ -239,7 +319,7 @@ const HEALTH_COPY: Record<
  * leaving it to be noticed. Renders nothing until the first check has answered — a light that
  * guesses is worse than one that waits.
  */
-function ModelStatus({ health }: { health: LlmHealth | null }) {
+function ModelStatus({ health, wide }: { health: LlmHealth | null; wide: boolean }) {
   if (!health) return null;
   const copy = HEALTH_COPY[health.state];
   return (
@@ -249,10 +329,19 @@ function ModelStatus({ health }: { health: LlmHealth | null }) {
       title={
         health.backend ? `${health.detail} (${health.backend})` : health.detail
       }
-      className="hidden flex-none items-center gap-[6px] font-mono text-[9px] tracking-[0.12em] uppercase sm:flex"
+      className="flex flex-none items-center gap-[6px] font-mono text-[9px] tracking-[0.12em] uppercase"
     >
-      <span aria-hidden className={`h-[6px] w-[6px] flex-none rounded-full ${copy.dot}`} />
-      <span className={copy.text}>{copy.label}</span>
+      {wide ? (
+        <>
+          <span aria-hidden className={`h-[6px] w-[6px] flex-none rounded-full ${copy.dot}`} />
+          <span className={copy.text}>{copy.label}</span>
+        </>
+      ) : (
+        // The name still says it in words; only the drawing shrinks. It used to be
+        // `hidden sm:flex` — invisible at exactly the width where a broken endpoint is
+        // hardest to diagnose.
+        <span aria-hidden className={`text-[11px] leading-none ${copy.text}`}>{copy.glyph}</span>
+      )}
     </span>
   );
 }

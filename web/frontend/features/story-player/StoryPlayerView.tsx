@@ -26,7 +26,10 @@ import type { SceneImage, SceneMessage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
 import { PromptOverridesModal } from "@/components/feature/PromptOverridesModal";
 import { CastRail, CastRailContent, type CastRailProps } from "@/components/feature/CastRail";
-import { PlaythroughTray } from "@/components/feature/PlaythroughTray";
+import {
+  PlaythroughTray,
+  PlaythroughTrayContent,
+} from "@/components/feature/PlaythroughTray";
 import { BeatControls } from "@/components/feature/BeatControls";
 import { BeatEditor } from "@/components/feature/BeatEditor";
 import { BeatTakePager } from "@/components/feature/BeatTakePager";
@@ -501,6 +504,20 @@ export function StoryPlayerView({
             disabled={scene.sending}
           />
         }
+        // The same tray without its popover, for the narrow header — where it drills down
+        // inside the scene menu instead of opening a second popover beside it.
+        trayPanel={
+          <PlaythroughTrayContent
+            sessions={scene.sessions}
+            currentSessionId={scene.sessionId}
+            onOpen={(id) => void scene.openSession(id)}
+            onCreate={() => void scene.startNewPlaythrough()}
+            onRename={(id, name) => void scene.renamePlaythrough(id, name)}
+            onDelete={(id) => void scene.deletePlaythrough(id)}
+            onDone={() => undefined}
+          />
+        }
+        onOpenShortcuts={() => setHelpOpen(true)}
       />
 
       <div className="relative flex min-h-0 flex-1">

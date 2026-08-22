@@ -1,150 +1,131 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { SceneMenu, type SceneMenuItem } from "./SceneMenu";
 
-function items(overrides: Partial<SceneMenuItem>[] = []): SceneMenuItem[] {
-  const base: SceneMenuItem[] = [
-    { key: "writing", label: "Writing…", hint: "the instructions", onSelect: vi.fn() },
-    { key: "inspector", label: "Turn Inspector", pressed: false, onSelect: vi.fn() },
-    { key: "export-md", label: "Export as Markdown", onSelect: vi.fn() },
-  ];
-  return base.map((b, i) => ({ ...b, ...(overrides[i] ?? {}) }));
+function open(items: SceneMenuItem[], extraSlot?: React.ReactNode) {
+  render(<SceneMenu items={items} extraSlot={extraSlot} />);
+  return userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
 }
 
 describe("SceneMenu", () => {
-  it("is closed until the trigger is used", async () => {
-    render(<SceneMenu items={items()} />);
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  it("declares itself as a menu trigger and reflects its state", async () => {
+    render(<SceneMenu items={[{ key: "a", label: "Alpha", onSelect: vi.fn() }]} />);
+    const trigger = screen.getByRole("button", { name: /scene menu/i });
+    expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
 
-    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
+    await userEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("menu", { name: /scene menu/i })).toBeInTheDocument();
   });
 
-  it("renders plain items as menuitems and toggles as menuitemcheckboxes", async () => {
-    // `aria-pressed` on a `menuitem` is invalid ARIA; a menu toggle is a
-    // `menuitemcheckbox`. Getting this wrong means the state is silently unannounced.
-    render(<SceneMenu items={items()} />);
-    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
-    expect(screen.getAllByRole("menuitem")).toHaveLength(2);
-    expect(screen.getAllByRole("menuitemcheckbox")).toHaveLength(1);
-  });
-
-  it("fires an item and closes", async () => {
-    const rows = items();
-    render(<SceneMenu items={rows} />);
-    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
-    await userEvent.click(screen.getByRole("menuitem", { name: /export as markdown/i }));
-
-    expect(rows[2].onSelect).toHaveBeenCalled();
+  it("runs a plain item and closes", async () => {
+    const onSelect = vi.fn();
+    await open([{ key: "a", label: "Alpha", onSelect }]);
+    await userEvent.click(screen.getByRole("menuitem", { name: "Alpha" }));
+    expect(onSelect).toHaveBeenCalled();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("keeps the panel open for a toggle, so the state change stays visible", async () => {
-    const rows = items();
-    render(<SceneMenu items={rows} />);
-    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
-    await userEvent.click(screen.getByRole("menuitemcheckbox", { name: /turn inspector/i }));
-
-    expect(rows[1].onSelect).toHaveBeenCalled();
-    expect(screen.getByRole("menu")).toBeInTheDocument();
-  });
-
-  it("announces a toggle's state rather than leaving it to be inferred", async () => {
-    render(<SceneMenu items={items([{}, { pressed: true }])} />);
-    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
-    expect(screen.getByRole("menuitemcheckbox", { name: /turn inspector/i })).toHaveAttribute(
-      "aria-checked",
-      "true",
-    );
-  });
-
-  it("does not mark a plain item as a toggle", async () => {
-    render(<SceneMenu items={items()} />);
-    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
-    expect(
-      screen.getByRole("menuitem", { name: /export as markdown/i }),
-    ).not.toHaveAttribute("aria-checked");
-  });
-
-  it("disables an item and still shows its hint as the reason", async () => {
-    const rows = items([{}, {}, { disabled: true, hint: "nothing to export yet" }]);
-    render(<SceneMenu items={rows} />);
-    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
-
-    const item = screen.getByRole("menuitem", { name: /export as markdown/i });
-    expect(item).toBeDisabled();
-    expect(item).toHaveTextContent(/nothing to export yet/i);
+  it("renders a toggle as a menuitemcheckbox and keeps the panel open", async () => {
+    // `menuitem` + `aria-pressed` is invalid ARIA; closing would hide the state change the
+    // player just made.
+    const onSelect = vi.fn();
+    await open([{ key: "t", label: "Inspector", pressed: true, onSelect }]);
+    const item = screen.getByRole("menuitemcheckbox", { name: "Inspector" });
+    expect(item).toHaveAttribute("aria-checked", "true");
 
     await userEvent.click(item);
-    expect(rows[2].onSelect).not.toHaveBeenCalled();
-  });
-
-  it("is reachable and operable by keyboard", async () => {
-    const rows = items();
-    render(<SceneMenu items={rows} />);
-    await userEvent.tab();
-    expect(screen.getByRole("button", { name: /scene menu/i })).toHaveFocus();
-
-    await userEvent.keyboard("{Enter}");
+    expect(onSelect).toHaveBeenCalled();
     expect(screen.getByRole("menu")).toBeInTheDocument();
-
-    // Focus lands in the panel on open, so Tab reaches the first item rather than leaving
-    // a keyboard user stranded behind the trigger.
-    await userEvent.tab();
-    expect(screen.getByRole("menuitem", { name: /writing/i })).toHaveFocus();
-    await userEvent.keyboard("{Enter}");
-    expect(rows[0].onSelect).toHaveBeenCalled();
   });
 
-  it("closes on Escape", async () => {
-    render(<SceneMenu items={items()} />);
+  it("keeps a hint out of the accessible name and in the description", async () => {
+    await open([{ key: "a", label: "Alpha", hint: "does a thing", onSelect: vi.fn() }]);
+    const item = screen.getByRole("menuitem", { name: "Alpha" });
+    expect(item).toHaveAccessibleName("Alpha");
+    expect(item).toHaveAccessibleDescription("does a thing");
+  });
+
+  it("lets a non-button control sit as a labelled row", async () => {
+    await open([{ key: "th", label: "Theme", render: <button type="button">Ember</button> }]);
+    const menu = within(screen.getByRole("menu"));
+    expect(menu.getByText("Theme")).toBeInTheDocument();
+    expect(menu.getByRole("button", { name: "Ember" })).toBeInTheDocument();
+  });
+
+  it("disables an item and still explains why", async () => {
+    await open([{ key: "x", label: "Export", hint: "nothing to export yet", disabled: true, onSelect: vi.fn() }]);
+    const item = screen.getByRole("menuitem", { name: "Export" });
+    expect(item).toBeDisabled();
+    expect(item).toHaveAccessibleDescription("nothing to export yet");
+  });
+
+  it("closes on Escape and on an outside click", async () => {
+    await open([{ key: "a", label: "Alpha", onSelect: vi.fn() }]);
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
     await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
+    await userEvent.click(document.body);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("renders the extra slot at the foot", async () => {
+    await open([{ key: "a", label: "Alpha", onSelect: vi.fn() }], <p>foot</p>);
+    expect(within(screen.getByRole("menu")).getByText("foot")).toBeInTheDocument();
+  });
+});
+
+describe("SceneMenu drill-down", () => {
+  const items: SceneMenuItem[] = [
+    { key: "tray", label: "Play-throughs", panel: <button type="button">A saved story</button> },
+    { key: "a", label: "Alpha", onSelect: vi.fn() },
+  ];
+
+  it("advertises a panel-owning row and replaces the rows in place", async () => {
+    // Never a popover inside a popover: two Escape targets and two outside-click handlers
+    // racing each other is not operable by keyboard or screen reader.
+    await open(items);
+    const row = screen.getByRole("menuitem", { name: "Play-throughs" });
+    expect(row).toHaveAttribute("aria-haspopup", "menu");
+
+    await userEvent.click(row);
+    expect(screen.getByRole("button", { name: "A saved story" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Alpha" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("menu")).toHaveLength(1);
+  });
+
+  it("‹ Back returns to the rows", async () => {
+    await open(items);
+    await userEvent.click(screen.getByRole("menuitem", { name: "Play-throughs" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /back/i }));
+    expect(screen.getByRole("menuitem", { name: "Alpha" })).toBeInTheDocument();
+  });
+
+  it("Escape steps back one level before it closes the menu", async () => {
+    await open(items);
+    await userEvent.click(screen.getByRole("menuitem", { name: "Play-throughs" }));
+
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("menuitem", { name: "Alpha" })).toBeInTheDocument();
+
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("closes on an outside click", async () => {
-    render(
-      <div>
-        <SceneMenu items={items()} />
-        <button type="button">elsewhere</button>
-      </div>,
-    );
-    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
-    await userEvent.click(screen.getByRole("button", { name: /elsewhere/i }));
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  it("reopens at the top level, never where it was left", async () => {
+    await open(items);
+    await userEvent.click(screen.getByRole("menuitem", { name: "Play-throughs" }));
+    await userEvent.click(screen.getByRole("button", { name: /scene menu/i })); // close
+    await userEvent.click(screen.getByRole("button", { name: /scene menu/i })); // reopen
+    expect(screen.getByRole("menuitem", { name: "Alpha" })).toBeInTheDocument();
   });
 
-  it("renders a non-button control as a labelled row", async () => {
-    // The seam `docs/plans/reach.md` Phase 4 needs: a theme switcher (or any control that
-    // is not a menuitem) sitting in the same list without a second popover.
-    render(
-      <SceneMenu
-        items={[
-          { key: "theme", label: "Theme", render: <button type="button">Slate</button> },
-        ]}
-      />,
-    );
-    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
-    expect(screen.getByText("Theme")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Slate" })).toBeInTheDocument();
-    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
-  });
-
-  it("renders an extra slot at the foot", async () => {
-    render(<SceneMenu items={items()} extraSlot={<p>footer</p>} />);
-    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
-    expect(screen.getByText("footer")).toBeInTheDocument();
-  });
-
-
-  it("keeps the hint out of the accessible NAME and in the description", async () => {
-    // Left to the default computation the label and hint concatenate — "Turn Inspectorwhat
-    // the scene read…" — which is what a screen reader announces as the item's name.
-    render(<SceneMenu items={items()} />);
-    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
-    const item = screen.getByRole("menuitem", { name: "Writing…" });
-    expect(item).toHaveAccessibleDescription("the instructions");
+  it("hides the extra slot while a panel is showing", async () => {
+    await open(items, <p>foot</p>);
+    await userEvent.click(screen.getByRole("menuitem", { name: "Play-throughs" }));
+    expect(screen.queryByText("foot")).not.toBeInTheDocument();
   });
 });

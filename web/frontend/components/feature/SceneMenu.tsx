@@ -29,6 +29,16 @@ export interface SceneMenuItem {
    */
   pressed?: boolean;
   render?: ReactNode;
+  /**
+   * A panel this row owns. Selecting the row **replaces the menu's rows with this panel**
+   * plus a "‹ Back" row, rather than opening a second popover on top of the first.
+   *
+   * That rule is not a style preference. A popover inside a popover has two Escape targets,
+   * two outside-click handlers racing each other and a focus order that leaves the inner
+   * panel behind the outer one — it is not operable by keyboard or screen reader in any sane
+   * way. Drilling down in place keeps one focus context and one way out.
+   */
+  panel?: ReactNode;
 }
 
 /**
@@ -60,18 +70,32 @@ export function SceneMenu({
   triggerLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
+  /** The key of the drilled-into row, or `null` at the top level. */
+  const [drilled, setDrilled] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
+  const openItem = drilled ? (items.find((i) => i.key === drilled) ?? null) : null;
+
+  // Reopening at the level the player drilled to last time would be a small mystery every
+  // time. Reset on the action that closes, never in an effect watching `open`.
+  const close = () => {
+    setOpen(false);
+    setDrilled(null);
+  };
 
   useEffect(() => {
     if (!open) return;
     panelRef.current?.focus();
     const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) close();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      // One Escape target, whatever level is showing: Escape steps back out of a panel
+      // before it closes the menu, which is what a single focus context implies.
+      if (e.key !== "Escape") return;
+      if (drilled) setDrilled(null);
+      else setOpen(false);
     };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
@@ -79,13 +103,15 @@ export function SceneMenu({
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+    // `drilled` is a dependency because Escape's meaning depends on it: step back out of a
+    // panel, or close the menu.
+  }, [open, drilled]);
 
   return (
     <div ref={ref} className="relative flex-none">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? close() : setOpen(true))}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={panelId}
@@ -103,9 +129,22 @@ export function SceneMenu({
           role="menu"
           aria-label={label}
           tabIndex={-1}
-          className="absolute top-[38px] right-0 z-40 w-[248px] mytheca-menu p-[7px] focus:outline-none"
+          className="absolute top-[38px] right-0 z-40 flex max-h-[calc(100dvh-70px)] w-[248px] flex-col overflow-y-auto mytheca-menu p-[7px] focus:outline-none"
         >
-          {items.map((item) =>
+          {openItem ? (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => setDrilled(null)}
+                className="flex w-full items-center gap-[7px] rounded-[3px] border-b border-hair px-[11px] py-[9px] text-left font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:bg-hover hover:text-ink"
+              >
+                <span aria-hidden>‹</span> Back
+              </button>
+              <div className="min-h-0 flex-1">{openItem.panel}</div>
+            </>
+          ) : (
+          items.map((item) =>
             item.render ? (
               <div
                 key={item.key}
@@ -132,11 +171,16 @@ export function SceneMenu({
                 // announce as the item's name.
                 aria-label={item.label}
                 aria-describedby={item.hint ? `${panelId}-${item.key}-hint` : undefined}
+                aria-haspopup={item.panel ? "menu" : undefined}
                 onClick={() => {
+                  if (item.panel) {
+                    setDrilled(item.key);
+                    return;
+                  }
                   item.onSelect?.();
                   // A toggle keeps the panel open: closing it would hide the state change
                   // the player just made. Everything else closes, because it navigated.
-                  if (item.pressed === undefined) setOpen(false);
+                  if (item.pressed === undefined) close();
                 }}
                 className="flex w-full flex-col gap-[2px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent aria-checked:text-accent"
               >
@@ -154,8 +198,9 @@ export function SceneMenu({
                 ) : null}
               </button>
             ),
+          )
           )}
-          {extraSlot}
+          {openItem ? null : extraSlot}
         </div>
       ) : null}
     </div>

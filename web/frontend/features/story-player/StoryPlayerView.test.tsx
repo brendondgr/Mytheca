@@ -329,12 +329,17 @@ describe("StoryPlayerView — what the scene knows", () => {
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
 
-    await user.click(screen.getByRole("button", { name: "What the scene knows" }));
+    // jsdom reports no media query match, so this is the narrow header: the memory toggle
+    // lives in the scene menu rather than inline. (The rail bar's "Knows" trigger is the
+    // other way to the same state.)
+    await user.click(screen.getByRole("button", { name: /scene menu/i }));
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "What the scene knows" }));
     expect(
       screen.getByRole("complementary", { name: "What the scene knows" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /scene menu/i }));
+    // The menu is still open — a toggle keeps it that way, so the state change the player
+    // just made stays visible.
     await user.click(screen.getByRole("menuitemcheckbox", { name: "Turn Inspector" }));
     expect(screen.getByRole("complementary", { name: "Turn inspector" })).toBeInTheDocument();
     expect(
@@ -383,7 +388,9 @@ describe("StoryPlayerView keyboard", () => {
   it("closes the memory rail with Escape", async () => {
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
-    await user.click(screen.getByRole("button", { name: "What the scene knows" }));
+    // Opened from the rail bar rather than the header menu: a toggle keeps the menu open, so
+    // the header path would spend the first Escape closing the menu. Same state either way.
+    await user.click(screen.getByRole("button", { name: "Knows" }));
     expect(
       screen.getByRole("complementary", { name: "What the scene knows" }),
     ).toBeInTheDocument();

@@ -1,7 +1,38 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { SceneHeader } from "./SceneHeader";
+
+/**
+ * Make `useMediaQuery` answer for a given viewport width.
+ *
+ * jsdom does not implement `matchMedia`, and the shared setup stubs it to `matches: false` —
+ * which is the NARROW form. That is the right default (the server renders narrow too), but it
+ * means the wide form is only ever exercised by a test that asks for it.
+ */
+function atWidth(width: number) {
+  window.matchMedia = ((query: string) =>
+    ({
+      matches: (() => {
+        const min = Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? NaN);
+        return Number.isNaN(min) ? false : width >= min;
+      })(),
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }) as unknown as MediaQueryList) as typeof window.matchMedia;
+}
+
+const WIDE = 1024;
+const NARROW = 320;
+const original = window.matchMedia;
+afterEach(() => {
+  window.matchMedia = original;
+});
 
 describe("SceneHeader export control", () => {
   // Export is no longer an inline header control: it folded into the scene menu along with
@@ -42,7 +73,10 @@ describe("SceneHeader export control", () => {
     expect(screen.queryByRole("menuitem", { name: /export as/i })).not.toBeInTheDocument();
   });
 
-  it("shows no scene menu at all when it would be empty", () => {
+  it("shows no scene menu at all when it would be empty — at a width where it can be", () => {
+    // Only the wide form can have an empty menu. Below `sm` the theme switcher lives in
+    // there, so there is always at least one row.
+    atWidth(WIDE);
     render(<SceneHeader title="Standoff" settingName="Hearth" />);
     expect(screen.queryByRole("button", { name: /scene menu/i })).not.toBeInTheDocument();
   });
@@ -146,15 +180,35 @@ describe("SceneHeader model status", () => {
   });
 
   it("reports readiness in words, not only by colour", () => {
+    atWidth(WIDE);
     render(<SceneHeader title="Salt" settingName="Hearth" health={health()} />);
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent(/model ready/i);
     expect(status).toHaveAccessibleName(/model ready/i);
   });
 
+  it("keeps the words in its NAME when it shrinks to a glyph below sm", () => {
+    // It used to be `hidden sm:flex` — absent at exactly the width where a broken endpoint
+    // is hardest to diagnose. It is now always rendered; only the drawing shrinks.
+    atWidth(NARROW);
+    const { rerender } = render(
+      <SceneHeader title="Salt" settingName="Hearth" health={health()} />,
+    );
+    const status = screen.getByRole("status");
+    expect(status).toBeVisible();
+    expect(status).toHaveAccessibleName(/model ready/i);
+
+    // The glyph is the second channel: a bare coloured dot at 320px would be colour alone.
+    const ready = status.textContent;
+    rerender(<SceneHeader title="Salt" settingName="Hearth" health={health({ state: "unreachable" })} />);
+    expect(screen.getByRole("status").textContent).not.toBe(ready);
+    expect(screen.getByRole("status")).toHaveAccessibleName(/model unreachable/i);
+  });
+
   it("distinguishes a missing model from a dead endpoint", () => {
     // They are different problems with different fixes — a typo in Options versus a dead
     // process — and a single "something is wrong" would send the player to the wrong one.
+    atWidth(WIDE);
     const { rerender } = render(
       <SceneHeader title="Salt" settingName="Hearth" health={health({ state: "model_missing" })} />,
     );
@@ -165,6 +219,7 @@ describe("SceneHeader model status", () => {
   });
 
   it("says nothing is set up rather than raising an alarm", () => {
+    atWidth(WIDE);
     render(<SceneHeader title="Salt" settingName="Hearth" health={health({ state: "unconfigured" })} />);
     expect(screen.getByRole("status")).toHaveTextContent(/no model set/i);
   });
@@ -181,3 +236,110 @@ describe("SceneHeader model status", () => {
   });
 });
 
+
+describe("SceneHeader below sm — the overflow menu", () => {
+  /** Everything a scene player can do from the header. */
+  function full(over: Record<string, unknown> = {}) {
+    return (
+      <SceneHeader
+        title="Salt"
+        settingName="Hearth"
+        viewMode="chat"
+        onViewModeChange={vi.fn()}
+        onExport={vi.fn()}
+        canExport
+        onToggleInspector={vi.fn()}
+        onOpenWriting={vi.fn()}
+        onToggleMemory={vi.fn()}
+        onOpenShortcuts={vi.fn()}
+        health={{
+          state: "reachable",
+          backend: "llamacpp",
+          model: "m",
+          checkedAt: "2026-08-22T00:00:00Z",
+          detail: "served",
+        }}
+        tray={<button type="button">Play-throughs</button>}
+        trayPanel={<button type="button">A saved story</button>}
+        {...over}
+      />
+    );
+  }
+
+  it("keeps only the mode switch and the health light inline", () => {
+    atWidth(NARROW);
+    render(full());
+    expect(screen.getByRole("group", { name: /scene view/i })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    // Everything else is one tap further in — and, crucially, rendered ONCE. A duplicated
+    // cluster would produce two "What the scene knows" and a tab order visiting invisible
+    // buttons.
+    expect(screen.queryByRole("button", { name: "What the scene knows" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: /theme/i })).not.toBeInTheDocument();
+  });
+
+  it("reaches every remaining control through the ⋯ menu", async () => {
+    atWidth(NARROW);
+    render(full());
+    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
+    const menu = within(screen.getByRole("menu", { name: /scene menu/i }));
+
+    expect(menu.getByRole("menuitem", { name: "Play-throughs" })).toBeInTheDocument();
+    expect(menu.getByRole("menuitemcheckbox", { name: "What the scene knows" })).toBeInTheDocument();
+    expect(menu.getByRole("menuitem", { name: "Writing…" })).toBeInTheDocument();
+    expect(menu.getByRole("menuitemcheckbox", { name: "Turn Inspector" })).toBeInTheDocument();
+    expect(menu.getByRole("menuitem", { name: "Export as Markdown" })).toBeInTheDocument();
+    expect(menu.getByRole("menuitem", { name: "Export as JSON" })).toBeInTheDocument();
+    expect(menu.getByRole("menuitem", { name: "Keyboard shortcuts" })).toBeInTheDocument();
+    // The theme switcher rides in as a labelled row rather than three flattened commands.
+    expect(menu.getByText("Theme")).toBeInTheDocument();
+  });
+
+  it("drills a panel-owning item down in place, and ‹ Back returns", async () => {
+    // Never a popover inside a popover: two Escape targets and two outside-click handlers
+    // racing each other is not operable by keyboard or screen reader.
+    atWidth(NARROW);
+    render(full());
+    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Play-throughs" }));
+
+    expect(screen.getByRole("button", { name: "A saved story" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Writing…" })).not.toBeInTheDocument();
+    // Still exactly one menu — the panel replaced the rows rather than stacking on them.
+    expect(screen.getAllByRole("menu")).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole("menuitem", { name: /back/i }));
+    expect(screen.getByRole("menuitem", { name: "Writing…" })).toBeInTheDocument();
+  });
+
+  it("Escape steps back out of a panel before it closes the menu", async () => {
+    atWidth(NARROW);
+    render(full());
+    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Play-throughs" }));
+
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("menuitem", { name: "Writing…" })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("carries anything another plan adds, at one array entry", async () => {
+    atWidth(NARROW);
+    const onSelect = vi.fn();
+    render(full({ extraControls: [{ key: "x", label: "Something new", onSelect }] }));
+    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Something new" }));
+    expect(onSelect).toHaveBeenCalled();
+  });
+
+  it("leaves the wide form inline and unchanged", () => {
+    atWidth(WIDE);
+    render(full());
+    expect(screen.getByRole("button", { name: "What the scene knows" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play-throughs" })).toBeInTheDocument();
+    // Theme is inline, not a menu row.
+    expect(screen.queryByText("Theme")).not.toBeInTheDocument();
+  });
+});

@@ -37,15 +37,7 @@ type RowMode = "idle" | "renaming" | "confirming-delete";
  * stays one focus context: opening a dialog over a popover means two nested traps and an
  * Escape key that has to decide which one it means.
  */
-export function PlaythroughTray({
-  sessions,
-  currentSessionId,
-  onOpen,
-  onCreate,
-  onRename,
-  onDelete,
-  disabled = false,
-}: {
+export interface PlaythroughTrayProps {
   sessions: SessionSummary[];
   /** The play-through currently on screen (`null` before the first turn of a fresh scene). */
   currentSessionId: string | null;
@@ -55,41 +47,43 @@ export function PlaythroughTray({
   onDelete: (sessionId: string) => void;
   /** True while a turn is streaming — switching stories mid-sentence is not a thing. */
   disabled?: boolean;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
+}
+
+/**
+ * The tray's rows, with no popover of its own.
+ *
+ * It exists because below `sm` this list has to live *inside* the scene menu, and a popover
+ * inside a popover is not operable by keyboard or screen reader in any sane way. The menu
+ * drills down to this content in place instead — one focus context, one Escape target.
+ *
+ * `onDone` is what the popover form uses to close itself after a row navigates; the
+ * drill-down form uses it to step back up. Neither knows about the other.
+ */
+export function PlaythroughTrayContent({
+  sessions,
+  currentSessionId,
+  onOpen,
+  onCreate,
+  onRename,
+  onDelete,
+  onDone,
+}: Omit<PlaythroughTrayProps, "disabled"> & { onDone: () => void }) {
   const [rowMode, setRowMode] = useState<Record<string, RowMode>>({});
   const [draftName, setDraftName] = useState("");
 
   /**
-   * Close the tray, abandoning any half-finished rename or delete confirmation so reopening
+   * Leave the tray, abandoning any half-finished rename or delete confirmation so returning
    * never presents a row mid-edit with a stale draft in it.
    *
    * The reset happens HERE, on the action, rather than in an effect watching `open`. Doing
    * it in an effect means a synchronous setState during commit, which cascades an extra
    * render pass for every close.
    */
-  const closeTray = useCallback(() => {
-    setOpen(false);
+  const leave = useCallback(() => {
     setRowMode({});
     setDraftName("");
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocMouseDown(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) closeTray();
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") closeTray();
-    }
-    document.addEventListener("mousedown", onDocMouseDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onDocMouseDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, closeTray]);
+    onDone();
+  }, [onDone]);
 
   const modeOf = (id: string): RowMode => rowMode[id] ?? "idle";
   const setMode = (id: string, mode: RowMode) =>
@@ -105,29 +99,7 @@ export function PlaythroughTray({
   );
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => (open ? closeTray() : setOpen(true))}
-        disabled={disabled}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls="playthrough-tray"
-        title="Play-throughs — switch between saved stories, or start a new one"
-        className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[10px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
-      >
-        <span aria-hidden>❑</span>
-        <span className="hidden sm:inline">Play-throughs</span>
-        {count > 1 ? <span className="tabular-nums">{count}</span> : null}
-      </button>
-
-      {open ? (
-        <div
-          id="playthrough-tray"
-          role="menu"
-          aria-label="Play-throughs"
-          className="absolute top-[38px] left-0 z-40 flex w-[300px] max-w-[calc(100vw-24px)] flex-col mytheca-menu p-[7px]"
-        >
+    <>
           {count === 0 ? (
             <p className="px-[11px] py-[10px] font-body text-[13px] text-mute">
               This scene has not been played yet. Your first message starts a play-through.
@@ -200,7 +172,7 @@ export function PlaythroughTray({
                           role="menuitem"
                           onClick={() => {
                             if (!isCurrent) onOpen(session.id);
-                            closeTray();
+                            leave();
                           }}
                           aria-current={isCurrent ? "true" : undefined}
                           className="flex min-w-0 flex-1 flex-col gap-[2px] rounded-[3px] px-[7px] py-[7px] text-left hover:bg-hover"
@@ -260,7 +232,7 @@ export function PlaythroughTray({
             role="menuitem"
             onClick={() => {
               onCreate();
-              closeTray();
+              leave();
             }}
             className="mt-[4px] flex w-full items-center gap-[7px] rounded-[3px] border-t border-hair px-[11px] py-[9px] text-left hover:bg-hover"
           >
@@ -276,6 +248,63 @@ export function PlaythroughTray({
               </span>
             </span>
           </button>
+    </>
+  );
+}
+
+/**
+ * The saved play-throughs of this scene: switch between them, rename, delete, or start
+ * another. A `❑`-triggered popover at `sm` and up; below `sm` the scene menu drills down to
+ * {@link PlaythroughTrayContent} instead, because this trigger does not fit beside the rest
+ * of the header and a popover cannot open inside a popover.
+ */
+export function PlaythroughTray({ disabled = false, ...props }: PlaythroughTrayProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocMouseDown(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const count = props.sessions.length;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        disabled={disabled}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls="playthrough-tray"
+        title="Play-throughs — switch between saved stories, or start a new one"
+        className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[10px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
+      >
+        <span aria-hidden>❑</span>
+        <span className="hidden sm:inline">Play-throughs</span>
+        {count > 1 ? <span className="tabular-nums">{count}</span> : null}
+      </button>
+
+      {open ? (
+        <div
+          id="playthrough-tray"
+          role="menu"
+          aria-label="Play-throughs"
+          className="absolute top-[38px] left-0 z-40 flex w-[300px] max-w-[calc(100vw-24px)] flex-col mytheca-menu p-[7px]"
+        >
+          <PlaythroughTrayContent {...props} onDone={() => setOpen(false)} />
         </div>
       ) : null}
     </div>
