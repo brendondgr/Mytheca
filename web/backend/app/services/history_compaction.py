@@ -164,6 +164,58 @@ def maybe_compact(
     )
 
 
+def recap(db: Session, session: PlaySession, scenario: Scenario, *, through_seq: int) -> str:
+    """"Tell me what happened" — prose for the player, on demand.
+
+    **Deliberately the same agent as compaction**, not a second summarisation path. That is
+    the whole reason ``recap_agent.summarize_history`` was built as a standalone,
+    connection-taking function rather than being folded into :func:`maybe_compact`: two model
+    calls with two prompts would drift apart in tone and, worse, in what each considers a fact
+    worth keeping — so the recap a player reads would disagree with the memory the cast reads.
+
+    Incremental for the same reason compaction is: when the requested range starts above the
+    stored summary's boundary, that summary is the starting point rather than something to
+    re-derive. Returns ``""`` rather than raising when there is nothing to say or no model to
+    say it with — a recap is a convenience, and it must not be able to fail a page.
+    """
+    already = session.summary_through_seq
+    previous = summary_for(session) if (already is not None and already <= through_seq) else ""
+    after = already if (already is not None and already <= through_seq) else None
+    beats = _beats_to_fold(db, session.id, after_seq=after, limit=_RECAP_MAX_BEATS)
+    beats = [(seq, text) for seq, text in beats if seq <= through_seq]
+    if not beats:
+        # Nothing above the boundary that is not already summarised. The stored summary IS
+        # the answer, which is the honest response rather than an empty one.
+        return previous
+
+    try:
+        conn = _conn(db)
+    except APIError:
+        return previous
+    if conn is None:
+        return previous
+
+    storyline = db.get(Storyline, scenario.storyline_id)
+    prompts = prompt_registry.resolve_prompts(
+        settings_store.get_prompts_overrides(db),
+        (storyline.prompt_overrides if storyline else None) or {},
+        scenario.prompt_overrides or {},
+    )
+    text = recap_agent.summarize_history(
+        conn,
+        previous_summary=previous,
+        beats=[t for _seq, t in beats],
+        system=prompts.get(prompt_registry.RECAP_SUMMARIZE),
+    )
+    return text or previous
+
+
+#: How many beats one on-demand recap will read. A cap, because a player can ask for this at
+#: any point in an arbitrarily long scene and a prompt that grows without bound eventually
+#: fails the request rather than answering it slowly.
+_RECAP_MAX_BEATS = 120
+
+
 def _beats_to_fold(
     db: Session, session_id: str, *, after_seq: int | None, limit: int
 ) -> list[tuple[int, str]]:

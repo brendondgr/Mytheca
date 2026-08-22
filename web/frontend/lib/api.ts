@@ -371,6 +371,22 @@ export const getSessionHistory = (scenarioId: string, sessionId: string) =>
   request<SessionHistory>(`/play/${scenarioId}/sessions/${sessionId}`);
 
 /**
+ * "Tell me what happened" — prose describing the scene up to `throughSeq`.
+ *
+ * Server-side because it is a model call, and it must be the **same** call compaction makes:
+ * two summarisers would drift apart in tone and in what each counts as a fact worth keeping.
+ */
+export const postSessionRecap = (
+  scenarioId: string,
+  sessionId: string,
+  throughSeq?: number | null,
+) =>
+  request<{ text: string }>(`/play/${scenarioId}/sessions/${sessionId}/recap`, {
+    method: "POST",
+    body: JSON.stringify({ throughSeq: throughSeq ?? null }),
+  });
+
+/**
  * Is the configured model endpoint actually usable right now?
  *
  * Cheap and cached server-side, so the header can poll it — the alternative is a player

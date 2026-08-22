@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ENTER_TRANSITION } from "@/lib/motion";
 import { exportSessionUrl } from "@/lib/api";
@@ -15,6 +15,8 @@ import { useScenePlay } from "./useScenePlay";
 import { availableVerbs } from "@/lib/sceneVerbs";
 import { useModelHealth } from "@/hooks/use-model-health";
 import { useSceneShortcuts } from "@/hooks/use-scene-shortcuts";
+import { TranscriptSearch } from "@/components/feature/TranscriptSearch";
+import { matchBeats, stepMatch } from "./transcript-search";
 import { ShortcutSheet } from "@/components/feature/ShortcutSheet";
 import { CoachMark } from "@/components/feature/CoachMark";
 import { useCoachMarks } from "@/hooks/use-coach-marks";
@@ -213,6 +215,21 @@ export function StoryPlayerView({
   /** The shortcut sheet, behind `?`. */
   const [helpOpen, setHelpOpen] = useState(false);
 
+  // Find-in-scene. Client-side: the whole transcript is already in memory after rehydration,
+  // so a round-trip would be slower AND would stop working without a substrate.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [matchIndex, setMatchIndex] = useState(0);
+  const matches = useMemo(
+    () => (searchOpen ? matchBeats(scene.messages, query) : []),
+    [searchOpen, scene.messages, query],
+  );
+  const matchTotal = matches.length;
+  // Clamped during render rather than corrected in an effect: editing the query shortens the
+  // list under a stale index, and an effect would render one frame pointing past the end.
+  const activeMatch = matchTotal ? Math.min(matchIndex, matchTotal - 1) : 0;
+  const highlighted = matchTotal ? matches[activeMatch].index : -1;
+
   // Which hints can honestly be shown. The cast-rail one is suppressed below `lg`, where the
   // rail does not exist — a hint pointing at nothing is worse than no hint. (The mobile plan
   // owns the drawer that would earn it back.)
@@ -236,6 +253,7 @@ export function StoryPlayerView({
         // recently opened, and this is the only place that knows what is layered.
         closeTopmost: () => {
           if (helpOpen) return setHelpOpen(false), true;
+          if (searchOpen) return setSearchOpen(false), true;
           if (lightbox) return setLightbox(null), true;
           if (editingId) return setEditingId(null), true;
           if (modalId) return setModalId(null), true;
@@ -248,6 +266,7 @@ export function StoryPlayerView({
       }),
       [
         helpOpen,
+        searchOpen,
         lightbox,
         editingId,
         modalId,
@@ -259,6 +278,22 @@ export function StoryPlayerView({
       ],
     ),
   );
+
+  // `Cmd/Ctrl+F` opens find-in-scene — but ONLY when the player is not writing. Someone
+  // mid-sentence reaching for find-in-page means the browser's, and stealing it there is the
+  // same failure as a shortcut eating a keystroke.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "f" || !(e.metaKey || e.ctrlKey)) return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName?.toLowerCase();
+      if (tag === "textarea" || tag === "input" || el?.isContentEditable) return;
+      e.preventDefault();
+      setSearchOpen(true);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const memoryEdgeAt =
     scene.sceneMemory && scene.sceneMemory.droppedBeats > 0
@@ -387,6 +422,14 @@ export function StoryPlayerView({
                   />
                 ) : null}
                 <motion.div
+                  // Marked rather than tinted: `aria-current` carries the "this is the one
+                  // you are on" to a screen reader, which a highlight colour cannot.
+                  aria-current={highlighted === i ? "true" : undefined}
+                  ref={
+                    highlighted === i
+                      ? (el) => el?.scrollIntoView({ block: "center", behavior: "smooth" })
+                      : undefined
+                  }
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={ENTER_TRANSITION}
@@ -395,7 +438,7 @@ export function StoryPlayerView({
                   // The beat currently being written gets a couple of lines of
                   // reserved height, so the composer does not hop the instant
                   // the first token lands and again as the line wraps.
-                  className={`group relative${
+                  className={`${highlighted === i ? "rounded-[6px] ring-2 ring-accent" : ""} group relative${
                     scene.sending && i === scene.messages.length - 1 ? " min-h-[3.2em]" : ""
                   }`}
                 >
@@ -532,6 +575,25 @@ export function StoryPlayerView({
             streaming={scene.sending}
             nameOf={(id) => (id ? (byId(id)?.name ?? id) : "Someone")}
           />
+
+          {searchOpen ? (
+            <div className="flex-none px-[16px] pt-[10px] sm:px-[30px]">
+              <TranscriptSearch
+                query={query}
+                onQueryChange={(next) => {
+                  setQuery(next);
+                  setMatchIndex(0);
+                }}
+                current={activeMatch}
+                total={matchTotal}
+                onStep={(delta) => setMatchIndex((i) => stepMatch(i, matchTotal, delta))}
+                onClose={() => {
+                  setSearchOpen(false);
+                  setQuery("");
+                }}
+              />
+            </div>
+          ) : null}
 
           {/* Only while the reader has scrolled away from the live edge. */}
           {readerScrolledUp ? (

@@ -27,6 +27,8 @@ from app.schemas.play import (
     PersistedTrace,
     PresenceRequest,
     SessionHistoryResponse,
+    RecapRequest,
+    RecapResponse,
     SceneKnowledgeResponse,
     SessionListResponse,
     SessionSummary,
@@ -39,6 +41,7 @@ from app.services import (
     crud,
     direction_runtime,
     events_store,
+    history_compaction,
     graph_reader,
     presence,
     scene_knowledge,
@@ -247,6 +250,31 @@ def scene_context(scenario_id: str, session_id: str, db: Session = Depends(get_d
     crud.get_scenario(db, scenario_id)
     session = events_store.get_session(db, scenario_id, session_id)  # 404/400
     return scene_knowledge.scene_knowledge(db, session)
+
+
+@router.post(
+    "/{scenario_id}/sessions/{session_id}/recap", response_model=RecapResponse
+)
+def session_recap(
+    scenario_id: str,
+    session_id: str,
+    body: RecapRequest,
+    db: Session = Depends(get_db),
+):
+    """"Tell me what happened" — prose for the player, on demand.
+
+    Runs the **same** agent compaction uses, so the recap a player reads cannot drift in tone
+    or in what it considers a fact from the memory the cast reads. Never 500s on an
+    unreachable model: an empty recap is a convenience not delivered, not a page that broke.
+    """
+    scenario = crud.get_scenario(db, scenario_id)
+    session = events_store.get_session(db, scenario_id, session_id)  # 404/400
+    through = body.through_seq
+    if through is None:
+        through = events_store.next_seq(db, session.id)
+    return RecapResponse(
+        text=history_compaction.recap(db, session, scenario, through_seq=through)
+    )
 
 
 @router.post(

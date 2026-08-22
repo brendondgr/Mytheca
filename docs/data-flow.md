@@ -1243,6 +1243,13 @@ or an empty reply each leave the previous summary standing and report a reason o
 `compaction` trace step. It **ships off** pending the measurement in Phase 12 — nothing may
 claim compaction is free until it has been compared against the writing it replaces.
 
+**"Tell me what happened", on demand.** `POST …/sessions/{id}/recap` runs the *same* agent, over
+the events up to a requested seq, reusing the stored summary as its starting point when the
+range begins above the boundary. It is the same call on purpose: two summarisers would drift
+apart in tone and in what each counts as a fact, and the recap a player reads would then
+disagree with the memory the cast reads. It never fails a page — no model, an unreachable one,
+or an empty scene all return an empty recap.
+
 What the fit decided is **reported, not configured**: the `window` trace step
 ("The scene reached back N beat(s)") carries `windowBeats`, `windowSource`
 (`detected`/`configured`/`fallback`/`fixed`), `droppedBeats` and `budgetTokens`. When the window is

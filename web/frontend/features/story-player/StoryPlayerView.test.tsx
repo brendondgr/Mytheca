@@ -421,3 +421,42 @@ describe("StoryPlayerView coach marks", () => {
   });
 });
 
+describe("StoryPlayerView transcript search", () => {
+  it("opens with Cmd+F when the player is not writing", async () => {
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.keyboard("{Meta>}f{/Meta}");
+    expect(screen.getByRole("search", { name: /search this scene/i })).toBeInTheDocument();
+  });
+
+  it("leaves Cmd+F to the browser while the composer has focus", async () => {
+    // Someone mid-sentence reaching for find-in-page means the browser's. Stealing it there
+    // is the same failure as a shortcut eating a keystroke.
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.click(screen.getByRole("textbox", { name: /your message/i }));
+    await user.keyboard("{Meta>}f{/Meta}");
+    expect(screen.queryByRole("search", { name: /search this scene/i })).not.toBeInTheDocument();
+  });
+
+  it("closes with Escape", async () => {
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.keyboard("{Meta>}f{/Meta}");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("search", { name: /search this scene/i })).not.toBeInTheDocument();
+  });
+
+  it("marks the active match for assistive tech, not only by colour", async () => {
+    const user = userEvent.setup();
+    render(<StoryPlayerView scenario={embergate} />);
+    await user.keyboard("{Meta>}f{/Meta}");
+    // The seeded scene's opening narration is searchable text.
+    const box = screen.getByRole("searchbox", { name: /find in this scene/i });
+    await user.type(box, "the");
+    await waitFor(() =>
+      expect(document.querySelector('[aria-current="true"]')).toBeInTheDocument(),
+    );
+  });
+});
+

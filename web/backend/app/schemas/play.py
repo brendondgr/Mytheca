@@ -272,6 +272,23 @@ class GhostwriteRequest(CamelModel):
     mode: Literal["character", "narrator"] = "character"
 
 
+class RecapRequest(CamelModel):
+    """Ask for prose describing what has happened up to a point in the scene.
+
+    ``throughSeq`` defaults to the whole scene. It exists so the request can mean "recap
+    everything above the line where verbatim memory stops", which is the question the memory
+    panel actually asks.
+    """
+
+    through_seq: int | None = None
+
+
+class RecapResponse(CamelModel):
+    """What happened, in prose. ``""`` when there is nothing to say or no model to say it."""
+
+    text: str = ""
+
+
 class SceneKnowledgeRetrieval(CamelModel):
     """Whether the world-lore lookup ran this turn, and what came of it."""
 

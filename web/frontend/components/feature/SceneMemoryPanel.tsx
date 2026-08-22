@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AsyncPanel, type AsyncStatus } from "@/components/ui/AsyncPanel";
 import { CloseButton } from "@/components/ui/CloseButton";
 import { Eyebrow } from "@/components/ui/Eyebrow";
-import { getSceneKnowledge } from "@/lib/api";
+import { getSceneKnowledge, postSessionRecap } from "@/lib/api";
 import type { SceneKnowledge } from "@/lib/events";
 
 /**
@@ -96,7 +96,9 @@ export function SceneMemoryPanel({
             emptyTitle="Nothing yet"
             emptyMessage="Send a message and this fills in with what the cast can actually see."
           >
-            {data ? <Sections data={data} /> : null}
+            {data ? (
+              <Sections data={data} scenarioId={scenarioId} sessionId={sessionId} />
+            ) : null}
           </AsyncPanel>
         )}
       </div>
@@ -104,7 +106,66 @@ export function SceneMemoryPanel({
   );
 }
 
-function Sections({ data }: { data: SceneKnowledge }) {
+/**
+ * "Tell me what happened", on demand.
+ *
+ * Its own async state rather than the panel's, so asking for a recap never blanks out the
+ * facts already on screen — the player asked for one more thing, not for the panel to reset.
+ */
+function RecapSection({
+  scenarioId,
+  sessionId,
+}: {
+  scenarioId: string;
+  sessionId: string;
+}) {
+  const [status, setStatus] = useState<AsyncStatus>("idle");
+  const [text, setText] = useState("");
+
+  const run = () => {
+    setStatus("loading");
+    postSessionRecap(scenarioId, sessionId)
+      .then((res) => {
+        setText(res.text);
+        // An empty recap is a real outcome (nothing to say, or no model), and saying so is
+        // better than an empty panel that looks broken.
+        setStatus(res.text ? "success" : "empty");
+      })
+      .catch(() => setStatus("error"));
+  };
+
+  return (
+    <Section title="What happened so far">
+      {status === "success" ? (
+        <p className="whitespace-pre-wrap">{text}</p>
+      ) : status === "loading" ? (
+        <p className="text-mute2">Reading the scene back…</p>
+      ) : status === "error" ? (
+        <p className="text-danger">That could not be written just now.</p>
+      ) : status === "empty" ? (
+        <p className="text-mute2">There is nothing to recap yet.</p>
+      ) : null}
+      <button
+        type="button"
+        onClick={run}
+        disabled={status === "loading"}
+        className="mt-[6px] min-h-[28px] rounded-[6px] border border-field-bd px-[10px] font-mono text-[9px] tracking-[0.08em] text-mute uppercase hover:bg-hover hover:text-ink disabled:opacity-50"
+      >
+        {status === "idle" ? "Recap the scene" : "Write it again"}
+      </button>
+    </Section>
+  );
+}
+
+function Sections({
+  data,
+  scenarioId,
+  sessionId,
+}: {
+  data: SceneKnowledge;
+  scenarioId: string;
+  sessionId: string;
+}) {
   const { direction, retrieval, summary } = data;
   return (
     <div className="flex flex-col gap-[16px]">
@@ -134,6 +195,8 @@ function Sections({ data }: { data: SceneKnowledge }) {
           <p className="whitespace-pre-wrap">{summary.text}</p>
         </Section>
       ) : null}
+
+      <RecapSection scenarioId={scenarioId} sessionId={sessionId} />
 
       <Section title="Files you attached">
         {data.taggedNames.length ? (

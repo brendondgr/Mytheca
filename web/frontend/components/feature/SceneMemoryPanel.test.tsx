@@ -1,12 +1,14 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { SceneMemoryPanel } from "./SceneMemoryPanel";
-import { getSceneKnowledge } from "@/lib/api";
+import userEvent from "@testing-library/user-event";
+import { getSceneKnowledge, postSessionRecap } from "@/lib/api";
 import type { SceneKnowledge } from "@/lib/events";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   getSceneKnowledge: vi.fn(),
+  postSessionRecap: vi.fn(),
 }));
 
 const KNOWLEDGE: SceneKnowledge = {
@@ -117,3 +119,47 @@ describe("SceneMemoryPanel", () => {
     expect(screen.getByRole("button", { name: /close/i })).toBeInTheDocument();
   });
 });
+
+describe("SceneMemoryPanel recap", () => {
+  beforeEach(() => {
+    reads(KNOWLEDGE);
+    vi.mocked(postSessionRecap).mockImplementation(() =>
+      Promise.resolve({ text: "Mei arrived, then the lamp went over." }),
+    );
+  });
+
+  it("offers a recap and renders it inline", async () => {
+    const user = userEvent.setup();
+    render(<SceneMemoryPanel open onClose={() => {}} scenarioId="s" sessionId="ps" />);
+    await user.click(await screen.findByRole("button", { name: /recap the scene/i }));
+    expect(
+      await screen.findByText("Mei arrived, then the lamp went over."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the facts on screen while the recap is being written", async () => {
+    // Asking for one more thing must not blank out what is already there.
+    const user = userEvent.setup();
+    render(<SceneMemoryPanel open onClose={() => {}} scenarioId="s" sessionId="ps" />);
+    await user.click(await screen.findByRole("button", { name: /recap the scene/i }));
+    expect(screen.getByText(/how far back the cast remembers/i)).toBeInTheDocument();
+  });
+
+  it("says so rather than looking broken when there is nothing to recap", async () => {
+    vi.mocked(postSessionRecap).mockImplementation(() => Promise.resolve({ text: "" }));
+    const user = userEvent.setup();
+    render(<SceneMemoryPanel open onClose={() => {}} scenarioId="s" sessionId="ps" />);
+    await user.click(await screen.findByRole("button", { name: /recap the scene/i }));
+    expect(await screen.findByText(/nothing to recap yet/i)).toBeInTheDocument();
+  });
+
+  it("reports a failure without taking the panel down with it", async () => {
+    vi.mocked(postSessionRecap).mockImplementation(() => Promise.reject(new Error("offline")));
+    const user = userEvent.setup();
+    render(<SceneMemoryPanel open onClose={() => {}} scenarioId="s" sessionId="ps" />);
+    await user.click(await screen.findByRole("button", { name: /recap the scene/i }));
+    expect(await screen.findByText(/could not be written just now/i)).toBeInTheDocument();
+    expect(screen.getByText(/how far back the cast remembers/i)).toBeInTheDocument();
+  });
+});
+
