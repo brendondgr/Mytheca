@@ -181,7 +181,10 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
       //
       // It delta-streams like visible prose, and is usually the FIRST thing a turn can
       // show, so chunks must accumulate rather than replace. Tracked by `thoughtId`
-      // because the beat's own `id` belongs to the dialogue that follows.
+      // ONLY — a thought never claims the beat's `id`, which belongs to the prose row the
+      // beat controls point at. It used to: a character who thought and acted but never
+      // spoke ended up with the thought's id on the beat, so Edit silently rewrote the
+      // private thought and Re-roll was refused (`internal_thought` is not re-runnable).
       const open = prev.findIndex((m) => m.thoughtId === event.id);
       if (open !== -1) {
         const next = prev.slice();
@@ -198,7 +201,6 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
         ...prev,
         {
           kind: "char",
-          id: event.id,
           thoughtId: event.id,
           who: event.data.characterId,
           thought: event.data.text,
@@ -208,10 +210,13 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
 
     case "character_action": {
       // Merge into the speaker's still-open beat (e.g. one opened by their thought).
+      // The action claims the beat's `id` if nothing has yet — a beat opened by a thought
+      // has none, and this is the row Edit and Re-roll must point at until (and unless)
+      // dialogue follows and takes it over.
       const last = prev[prev.length - 1];
       if (isOpenCharBeat(last, event.data.characterId) && last.action === undefined) {
         const next = prev.slice();
-        next[next.length - 1] = { ...last, action: event.data.text };
+        next[next.length - 1] = { ...last, id: last.id ?? event.id, action: event.data.text };
         return next;
       }
       return [
