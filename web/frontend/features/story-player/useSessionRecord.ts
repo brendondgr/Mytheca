@@ -19,6 +19,7 @@ import { buildScene, type SceneChoice, type SceneMessage, type StatChip } from "
 import {
   replaceBeatText,
   latestContextTokens,
+  latestGuidance,
   latestPov,
   rehydrateFromHistory,
   type PresenceMap,
@@ -121,6 +122,8 @@ export function useSessionRecord({
       // Restore the "Speaking as" selection from the most recent user_turn's pov, so the
       // next line continues in that character's voice (null → the guide/narrator default).
       apply.setPov(latestPov(history.events));
+      // What the player last asked the scene to do, back in the box they asked it from.
+      apply.setGuidance(latestGuidance(history.events));
       // Seed the dial with the resumed session's last real context-token count (null when
       // none was recorded → the estimate fallback is used until the next turn streams one).
       apply.setLiveContextTokens(latestContextTokens(history.traces));

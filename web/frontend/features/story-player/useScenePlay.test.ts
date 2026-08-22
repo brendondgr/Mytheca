@@ -1043,3 +1043,43 @@ describe("useScenePlay branch + rewind", () => {
     expect(body).toHaveProperty("expectedSeq");
   });
 });
+
+describe("useScenePlay direction restore", () => {
+  it("puts the direction back in the box on reload", async () => {
+    // Direction used to die with the turn it rode in on, so reopening a scene silently
+    // dropped what the player had asked it to do.
+    const history = historyOf("ps_dir");
+    history.events = [
+      {
+        type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_dir",
+        ts: "t", visibility: "public",
+        data: { text: "I hold my ground.", directedAt: null, guidance: "Mei should snap." },
+      },
+    ];
+    vi.mocked(listPlaySessions).mockResolvedValue({
+      sessions: [{
+        id: "ps_dir", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null,
+        turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null,
+      }],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValue(history);
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+
+    await waitFor(() => expect(result.current.guidance).toBe("Mei should snap."));
+  });
+
+  it("leaves the box empty when the last turn carried no direction", async () => {
+    vi.mocked(listPlaySessions).mockResolvedValue({
+      sessions: [{
+        id: "ps_nodir", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null,
+        turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null,
+      }],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_nodir"));
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_nodir"));
+    expect(result.current.guidance).toBe("");
+  });
+});

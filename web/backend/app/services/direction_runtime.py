@@ -17,13 +17,17 @@ it, and do not move these back into ``turn_engine``.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
+
+from sqlalchemy.orm import Session
 
 from app.agents import planner_agent
 from app.agents.direction_agent import DirectionRequirement, SceneDirection
 from app.events.stream import TurnTraceFrame
-from app.services import turn_setup
 from app.services.assembler import TurnContext
+from app.agents import direction_agent
+from app.agents.intent_agent import TurnIntent
+from app.schemas.play import TurnRequest
 from app.services.turn_emit import Tracer
 
 def delivered(
@@ -39,7 +43,7 @@ def delivered(
     if not owed:
         return
     direction.satisfy(owed)
-    who = turn_setup.name_of(ctx, by) or "The narrator"
+    who = name_of(ctx, by) or "The narrator"
     yield from tracer.emit(
         "direction",
         f"{who} delivered {len(owed)} part(s) of your direction",
@@ -100,5 +104,56 @@ def plan_still_valid(
         return False
     member = ctx.cast_by_id(decision.actor_id)
     return member is not None and member.is_present
+def name_of(ctx: TurnContext, character_id: str | None) -> str | None:
+    """The cast member's display name for a trace payload (``None`` → the narrator)."""
+    member = ctx.cast_by_id(character_id) if character_id else None
+    return member.name if member is not None else None
 
 
+def build_direction(
+    db: Session,
+    ctx: TurnContext,
+    req: TurnRequest,
+    *,
+    intent: TurnIntent,
+    pov_id: str | None,
+    text: str,
+    tracer: Tracer,
+) -> Generator[TurnTraceFrame, None, SceneDirection]:
+    """Resolve what the player directed this turn, and trace it.
+
+    Moved out of the turn's opening so there is **one owner** of the direction, rather than
+    the setup module holding a copy of logic this module then grows. `turn_setup.prepare_turn`
+    drives it with ``yield from``.
+    """
+    # The scene direction (Narrator-Guided Scenes). Where it comes from depends on who the
+    # player is speaking as:
+    #  • POV mode — the ``text`` field is the CHARACTER'S line, so direction can only come
+    #    from the separate guidance box; it is parsed on its own call.
+    #  • Narrator mode — the player's line IS the direction, and the intent call above
+    #    already broke it into requirements, so nothing extra is spent. An ordinary
+    #    conversational line yields none, and the turn runs exactly as it did before.
+    # Requirements naming an absent character (or the POV character, whom the AI never
+    # voices) are rebound to the narrator so they can still be delivered.
+    guidance = (req.guidance or "").strip()
+    if guidance:
+        direction = direction_agent.parse(db, ctx, guidance)
+    elif pov_id is None and intent.requirements:
+        direction = SceneDirection(text=intent.directive or text, requirements=intent.requirements)
+    else:
+        direction = SceneDirection()
+    direction.rebind({m.id for m in ctx.cast if m.is_present}, locked_id=pov_id)
+    if direction.active:
+        yield from tracer.emit(
+            "direction",
+            f"You directed the scene ({len(direction.requirements)} thing(s) to deliver)",
+            detail=direction.text,
+            data={
+                "source": "guidance" if guidance else "message",
+                "requirements": [
+                    {"text": r.text, "actor": name_of(ctx, r.actor_id)}
+                    for r in direction.requirements
+                ],
+            },
+        )
+    return direction

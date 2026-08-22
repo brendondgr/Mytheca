@@ -9,6 +9,7 @@ import type {
 } from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
+  latestGuidance,
   clearBeatForReroll,
   takesOf,
   replaceBeatText,
@@ -1136,5 +1137,33 @@ describe("takesOf", () => {
     expect(
       takesOf({ takes: [{ id: "t1", text: "a", ts: "" }, { id: "t2", text: "b", ts: "" }] }),
     ).toEqual({ count: 2, active: 0 });
+  });
+});
+
+describe("latestGuidance", () => {
+  const ut = (seq: number, data: Record<string, unknown>): PersistedEvent => ({
+    type: "user_turn", id: `u${seq}`, seq, scenarioId: "sc", sessionId: "ps",
+    ts: "t", visibility: "public", data,
+  });
+
+  it("is the direction of the most recent player turn", () => {
+    expect(
+      latestGuidance([
+        ut(0, { text: "one", guidance: "Old direction." }),
+        ut(2, { text: "two", guidance: "The current direction." }),
+      ]),
+    ).toBe("The current direction.");
+  });
+
+  it("is empty when the last turn carried no direction", () => {
+    expect(latestGuidance([ut(0, { text: "one", guidance: "Old." }), ut(2, { text: "two" })])).toBe("");
+  });
+
+  it("is empty for a session that has never been played", () => {
+    expect(latestGuidance([])).toBe("");
+  });
+
+  it("tolerates a row written before direction was persisted", () => {
+    expect(latestGuidance([ut(0, { text: "legacy" })])).toBe("");
   });
 });

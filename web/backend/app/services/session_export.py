@@ -23,6 +23,11 @@ from app.models import Event, PlaySession, Scenario, TurnTrace
 _STEP_LABELS = {
     "turn": "Turn",
     "intent": "Intent",
+    # Both were emitted but unlabelled, so they rendered under a raw step name.
+    "direction": "Scene direction",
+    "files": "Tagged files",
+    "reading": "Reading your message",
+    "planning": "Deciding who speaks next",
     "assemble": "Scene assembly",
     "lore": "RAG / lore look-up",
     "plan": "Planner",
@@ -97,6 +102,11 @@ def group_turns(
                 "player": {
                     "text": str(ut.data.get("text", "")),
                     "directedAt": _name(ut.data.get("directedAt"), names),
+                    # What the player asked the scene to do, beside what it did. Without it
+                    # an export cannot answer the one question a reader would ask of a
+                    # directed turn: did it deliver?
+                    "guidance": str(ut.data.get("guidance") or ""),
+                    "taggedDocIds": list(ut.data.get("taggedDocIds") or []),
                 },
                 "beats": beats,
                 "trace": trace_steps,
@@ -189,7 +199,14 @@ def render_markdown(
         lines.append(f"## Turn {turn['turn']}")
         player = turn["player"]
         directed = f" (to {player['directedAt']})" if player["directedAt"] else ""
-        lines.append(f"**You**{directed}: {player['text']}")
+        if player["text"]:
+            lines.append(f"**You**{directed}: {player['text']}")
+        else:
+            # A text-less turn: the player let the scene run, or directed without speaking.
+            lines.append("**You**: _(let the scene continue)_")
+        if player.get("guidance"):
+            lines.append("")
+            lines.append(f"_Direction:_ {player['guidance']}")
         lines.append("")
         for beat in turn["beats"]:
             rendered = _beat_md(beat)

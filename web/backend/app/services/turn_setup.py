@@ -22,23 +22,17 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.agents import direction_agent, intent_agent
-from app.agents.intent_agent import TurnIntent
+from app.agents import intent_agent
 from app.agents.direction_agent import SceneDirection
+from app.agents.intent_agent import TurnIntent
 from app.events.stream import TurnTraceFrame
 from app.memory import buffer
 from app.models import Scenario
 from app.schemas.play import TurnRequest
-from app.services import assembler, events_store, settings_store
+from app.services import assembler, direction_runtime, events_store, settings_store
 from app.services.assembler import CastMember, TurnContext
 from app.services.turn_emit import Emitter, Tracer
 from app.services.turn_writer import Consequence
-
-
-def name_of(ctx: TurnContext, character_id: str | None) -> str | None:
-    """The cast member's display name for a trace payload (``None`` → the narrator)."""
-    member = ctx.cast_by_id(character_id) if character_id else None
-    return member.name if member is not None else None
 
 
 
@@ -258,36 +252,9 @@ def prepare_turn(
         },
     )
 
-    # The scene direction (Narrator-Guided Scenes). Where it comes from depends on who the
-    # player is speaking as:
-    #  • POV mode — the ``text`` field is the CHARACTER'S line, so direction can only come
-    #    from the separate guidance box; it is parsed on its own call.
-    #  • Narrator mode — the player's line IS the direction, and the intent call above
-    #    already broke it into requirements, so nothing extra is spent. An ordinary
-    #    conversational line yields none, and the turn runs exactly as it did before.
-    # Requirements naming an absent character (or the POV character, whom the AI never
-    # voices) are rebound to the narrator so they can still be delivered.
-    guidance = (req.guidance or "").strip()
-    if guidance:
-        direction = direction_agent.parse(db, ctx, guidance)
-    elif pov is None and intent.requirements:
-        direction = SceneDirection(text=intent.directive or text, requirements=intent.requirements)
-    else:
-        direction = SceneDirection()
-    direction.rebind({m.id for m in ctx.cast if m.is_present}, locked_id=pov_id)
-    if direction.active:
-        yield from tracer.emit(
-            "direction",
-            f"You directed the scene ({len(direction.requirements)} thing(s) to deliver)",
-            detail=direction.text,
-            data={
-                "source": "guidance" if guidance else "message",
-                "requirements": [
-                    {"text": r.text, "actor": name_of(ctx, r.actor_id)}
-                    for r in direction.requirements
-                ],
-            },
-        )
+    direction = yield from direction_runtime.build_direction(
+        db, ctx, req, intent=intent, pov_id=pov_id, text=text, tracer=tracer
+    )
 
     return TurnSetup(
         session=session,

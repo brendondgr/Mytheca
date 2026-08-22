@@ -544,6 +544,22 @@ export function latestPov(events: PersistedEvent[]): string | null {
   return null;
 }
 
+/**
+ * The scene direction on resume — the `guidance` of the most recent `user_turn` row.
+ *
+ * The mirror of {@link latestPov}. Direction used to die with the turn it rode in on, so a
+ * reload silently dropped what the player had asked the scene to do; the row carries it now,
+ * and this is what puts it back in the box.
+ */
+export function latestGuidance(events: PersistedEvent[]): string {
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i].type !== "user_turn") continue;
+    const guidance = events[i].data.guidance;
+    return typeof guidance === "string" ? guidance : "";
+  }
+  return "";
+}
+
 /** Map streamed branch options to renderable choices (no dice — D11). */
 export function branchOptionsToChoices(
   options: { label: string; outcome: string }[],

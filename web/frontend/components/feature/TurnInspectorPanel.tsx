@@ -16,6 +16,11 @@ const STEP_META: Record<string, { tag: string; color: string }> = {
   // The player's @-tagged context files — distinct from `lore`, which is the gated
   // retrieval the engine decides on by itself.
   files: { tag: "Files", color: "#0d9488" },
+  // What the player asked the scene to do, and what of it each beat carried. Emitted since
+  // narrator-guided scenes shipped; it rendered under a raw step name until now.
+  direction: { tag: "Direct", color: "#c2410c" },
+  reading: { tag: "Reads", color: "#8b5cf6" },
+  planning: { tag: "Plans", color: "#d97706" },
   plan: { tag: "Plan", color: "#d97706" },
   director: { tag: "Director", color: "#d97706" },
   speaker: { tag: "Speaker", color: "#2563eb" },

@@ -52,7 +52,7 @@ carried further at the owner's request so no module is both a library and a loop
 | `beat_stream.py` | Emission → delta-streamed events, and the two per-beat stops (`runaway_chars`, the degeneration threshold). | `turn_effects`, `turn_emit` |
 | `turn_effects.py` | Consequences a beat declares — stat, presence, relationship — each validated before applying. **A leaf: depends on no other turn module.** | — |
 | `turn_emit.py` | `Emitter` (seq + persist + buffer + withhold), `LiveSegment` (delta accumulation), `Tracer`. | — |
-| `direction_runtime.py` | The runtime half of scene direction: `delivered`, `direction_lead`, `plan_still_valid`. (`direction_agent` is the parsing half.) | `turn_setup` |
+| `direction_runtime.py` | The runtime half of scene direction: `build_direction` (resolve what the player directed this turn), `delivered`, `direction_lead`, `plan_still_valid`, `name_of`. (`direction_agent` is the parsing half.) **One owner** — `turn_setup.prepare_turn` drives `build_direction` with `yield from` rather than holding a copy. | — |
 | `turn_finalize.py` | The tail: suggestions → cold-path graph write → reflection → `touch_session`. | — |
 
 The dependency graph is acyclic and one-directional: `turn_effects` → `beat_stream` →
