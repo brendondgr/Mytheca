@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { useScenePlay } from "./useScenePlay";
 import {
+  branchPlaySession,
   closePlaySession,
   createPlaySession,
   deletePlaySession,
@@ -12,6 +13,7 @@ import {
   postSceneMoment,
   postTurn,
   renamePlaySession,
+  rewindPlaySession,
   setPresence as apiSetPresence,
 } from "@/lib/api";
 import type { MomentStreamFrame, SessionHistory, TurnStreamFrame } from "@/lib/events";
@@ -33,6 +35,8 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   postTurn: vi.fn(),
   getScenarioRelationships: vi.fn(async () => ({ relationships: [] })),
   createPlaySession: vi.fn(),
+  branchPlaySession: vi.fn(),
+  rewindPlaySession: vi.fn(),
   renamePlaySession: vi.fn(async () => ({}) as never),
   deletePlaySession: vi.fn(async () => undefined),
   getLlmContextWindow: vi.fn(async () => ({ maxContextTokens: 16384, source: "configured" as const })),
@@ -927,5 +931,115 @@ describe("useScenePlay play-through tray", () => {
     });
 
     expect(vi.mocked(renamePlaySession)).toHaveBeenCalledWith(scenario.id, "ps_a", null);
+  });
+});
+
+describe("useScenePlay branch + rewind", () => {
+  const summary = (over: Partial<import("@/lib/events").SessionSummary>) => ({
+    id: "ps_x", scenarioId: scenario.id, createdAt: "t", updatedAt: "2026-08-21T10:00:00Z",
+    closedAt: null, turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null,
+    ...over,
+  });
+
+  async function openScene() {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [summary({ id: "ps_a" })] });
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_a"));
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.sessionId).toBe("ps_a"));
+    return result;
+  }
+
+  it("branching moves the player into the fork and keeps the original", async () => {
+    const result = await openScene();
+    vi.mocked(branchPlaySession).mockResolvedValue(summary({ id: "ps_fork", parentSessionId: "ps_a" }));
+    vi.mocked(getSessionHistory).mockResolvedValue(historyOf("ps_fork"));
+    vi.mocked(listPlaySessions).mockResolvedValue({
+      sessions: [summary({ id: "ps_fork", parentSessionId: "ps_a" }), summary({ id: "ps_a" })],
+    });
+
+    await act(async () => {
+      await result.current.branchFrom("ev_1");
+    });
+
+    expect(vi.mocked(branchPlaySession)).toHaveBeenCalledWith(
+      scenario.id, "ps_a", expect.objectContaining({ atEventId: "ev_1" }),
+    );
+    expect(result.current.sessionId).toBe("ps_fork");
+    // The original is still listed — branching must never cost you the story you had.
+    expect(result.current.sessions.map((s) => s.id)).toContain("ps_a");
+  });
+
+  it("rewinding hands the player's line back with its direction and POV", async () => {
+    const result = await openScene();
+    vi.mocked(rewindPlaySession).mockResolvedValue({
+      session: summary({ id: "ps_a" }),
+      cutSeq: 0,
+      removedEvents: 4,
+      removedTraces: 1,
+      snapshotSessionId: "ps_snap",
+      restoredTurn: {
+        text: "I say the wrong thing.",
+        guidance: "Mei should storm out.",
+        pov: speaker.id,
+        taggedDocIds: [],
+      },
+    });
+
+    await act(async () => {
+      await result.current.rewindTo("ev_1");
+    });
+
+    // This is the "natural prompt": the words come back, editable, with what they rode in with.
+    expect(result.current.composer).toBe("I say the wrong thing.");
+    expect(result.current.guidance).toBe("Mei should storm out.");
+    expect(result.current.pov).toBe(speaker.id);
+  });
+
+  it("a rewind reports what it removed and how to undo it", async () => {
+    const result = await openScene();
+    vi.mocked(rewindPlaySession).mockResolvedValue({
+      session: summary({ id: "ps_a" }), cutSeq: 0, removedEvents: 4, removedTraces: 1,
+      snapshotSessionId: "ps_snap", restoredTurn: null,
+    });
+
+    await act(async () => {
+      await result.current.rewindTo("ev_1");
+    });
+
+    expect(result.current.rewound).toEqual({ removedEvents: 4, snapshotSessionId: "ps_snap" });
+    act(() => result.current.clearRewound());
+    expect(result.current.rewound).toBeNull();
+  });
+
+  it("a rewind reloads the session rather than truncating the transcript locally", async () => {
+    const result = await openScene();
+    const before = vi.mocked(getSessionHistory).mock.calls.length;
+    vi.mocked(rewindPlaySession).mockResolvedValue({
+      session: summary({ id: "ps_a" }), cutSeq: 0, removedEvents: 2, removedTraces: 0,
+      snapshotSessionId: null, restoredTurn: null,
+    });
+
+    await act(async () => {
+      await result.current.rewindTo("ev_1");
+    });
+
+    // Reload is the one path already proven to produce a faithful transcript; a second,
+    // subtly different local truncation is exactly how the two would drift.
+    expect(vi.mocked(getSessionHistory).mock.calls.length).toBeGreaterThan(before);
+  });
+
+  it("carries an expectedSeq precondition so a stale view cannot cut the wrong rows", async () => {
+    const result = await openScene();
+    vi.mocked(rewindPlaySession).mockResolvedValue({
+      session: summary({ id: "ps_a" }), cutSeq: 0, removedEvents: 1, removedTraces: 0,
+      snapshotSessionId: null, restoredTurn: null,
+    });
+
+    await act(async () => {
+      await result.current.rewindTo("ev_1");
+    });
+
+    const body = vi.mocked(rewindPlaySession).mock.calls[0][2];
+    expect(body).toHaveProperty("expectedSeq");
   });
 });

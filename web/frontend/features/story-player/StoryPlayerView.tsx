@@ -12,10 +12,12 @@ import type {
 } from "@/lib/types";
 import type { ExportFormat } from "@/components/feature/ExportMenu";
 import { useScenePlay } from "./useScenePlay";
-import type { SceneImage } from "./scene-data";
+import type { SceneImage, SceneMessage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
 import { CastRail } from "@/components/feature/CastRail";
 import { PlaythroughTray } from "@/components/feature/PlaythroughTray";
+import { BeatControls } from "@/components/feature/BeatControls";
+import { RewindNotice } from "@/components/feature/RewindNotice";
 import { GraphView } from "@/components/feature/GraphView";
 import { DirectorRail } from "@/components/feature/DirectorRail";
 import { Composer } from "@/components/feature/Composer";
@@ -31,6 +33,32 @@ import { SceneImageModal } from "@/components/feature/SceneImageModal";
 import { CharacterDossier } from "@/components/feature/CharacterDossier";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { TurnInspectorPanel } from "@/components/feature/TurnInspectorPanel";
+
+
+/**
+ * The index of the player turn a beat belongs to — the nearest player-authored beat at or
+ * before it. A rewind removes that whole turn, so this is what makes the confirmation able
+ * to say how many beats actually go instead of asking the player to guess.
+ */
+export function turnStartIndex(messages: SceneMessage[], index: number): number {
+  for (let i = index; i >= 0; i -= 1) {
+    const m = messages[i];
+    if (m.kind === "player" || (m.kind === "char" && m.fromPlayer)) return i;
+  }
+  return 0;
+}
+
+/** What a beat is called, for the controls' accessible names. */
+function beatLabel(m: SceneMessage, byId: (id: string) => Character | undefined): string {
+  if (m.kind === "player") return "your message";
+  if (m.kind === "narrator") return "the narration";
+  if (m.kind === "image") return "this picture";
+  if (m.kind === "char" && m.who) {
+    const name = byId(m.who)?.name ?? "this character";
+    return m.fromPlayer ? `your line as ${name}` : `${name}'s beat`;
+  }
+  return "this beat";
+}
 
 /** The signature surface: a three-zone "open book" live scene. */
 /**
@@ -188,15 +216,28 @@ export function StoryPlayerView({
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={ENTER_TRANSITION}
+                  // `group relative` anchors the per-beat controls, which stay at opacity 0
+                  // until this beat is hovered or contains focus.
                   // The beat currently being written gets a couple of lines of
                   // reserved height, so the composer does not hop the instant
                   // the first token lands and again as the line wraps.
-                  className={
-                    scene.sending && i === scene.messages.length - 1
-                      ? "min-h-[3.2em]"
-                      : undefined
-                  }
+                  className={`group relative${
+                    scene.sending && i === scene.messages.length - 1 ? " min-h-[3.2em]" : ""
+                  }`}
                 >
+                  {/* Only for beats that are actually persisted: a `choices` row and the
+                      optimistic bubble of an in-flight turn have no row to point at. */}
+                  {m.id && !scene.sending ? (
+                    <span className="absolute -top-[10px] right-0 z-10">
+                      <BeatControls
+                        label={beatLabel(m, byId)}
+                        rewindBeatCount={scene.messages.length - turnStartIndex(scene.messages, i)}
+                        onBranch={() => void scene.branchFrom(m.id!)}
+                        onRewind={() => void scene.rewindTo(m.id!)}
+                        disabled={scene.sending}
+                      />
+                    </span>
+                  ) : null}
                   <TranscriptBeat
                     message={m}
                     charById={byId}
@@ -217,6 +258,24 @@ export function StoryPlayerView({
                   a typing indicator in it, so the strip stands down to avoid saying the
                   same thing twice. It keeps the pre-generation phases — gathering, reading,
                   planning — which no beat can show, because no beat exists yet. */}
+              {/* A rewind removes half the page; without this it reads as a bug. Announced,
+                  because the visual change is the only other signal and a non-sighted
+                  reader cannot receive it. */}
+              {scene.rewound ? (
+                <RewindNotice
+                  removedEvents={scene.rewound.removedEvents}
+                  onUndo={
+                    scene.rewound.snapshotSessionId
+                      ? () => {
+                          const id = scene.rewound?.snapshotSessionId;
+                          if (id) void scene.openSession(id);
+                          scene.clearRewound();
+                        }
+                      : undefined
+                  }
+                  onDismiss={scene.clearRewound}
+                />
+              ) : null}
               <TurnStatusStrip
                 status={scene.turnStatus}
                 streaming={scene.sending && !CHARACTER_PHASES.has(scene.turnStatus.phase)}

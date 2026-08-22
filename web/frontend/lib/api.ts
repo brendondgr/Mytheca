@@ -11,6 +11,7 @@ import type {
   PersistedEvent,
   PresenceStatus,
   SessionHistory,
+  RewindResult,
   SessionSummary,
   TurnRequestBody,
   TurnStreamFrame,
@@ -376,6 +377,27 @@ export const createPlaySession = (scenarioId: string, name?: string) =>
 /** Relabel a play-through. A blank name clears the label and restores the `preview` fallback. */
 export const renamePlaySession = (scenarioId: string, sessionId: string, name: string | null) =>
   patch<SessionSummary>(`/play/${scenarioId}/sessions/${sessionId}`, { name });
+
+/**
+ * Fork a play-through at a beat into a new one. The original is untouched — that is the
+ * whole point, and it is why branch is safe to offer on every beat.
+ */
+export const branchPlaySession = (
+  scenarioId: string,
+  sessionId: string,
+  body: { atEventId: string; name?: string; expectedSeq?: number },
+) => post<SessionSummary>(`/play/${scenarioId}/sessions/${sessionId}/branch`, body);
+
+/**
+ * Cut a play-through back to a beat. The whole turn containing that beat goes, with
+ * everything after it; the removed history is kept as its own play-through unless
+ * `keepSnapshot` is false, and the player's line comes back in `restoredTurn`.
+ */
+export const rewindPlaySession = (
+  scenarioId: string,
+  sessionId: string,
+  body: { atEventId: string; keepSnapshot?: boolean; expectedSeq?: number },
+) => post<RewindResult>(`/play/${scenarioId}/sessions/${sessionId}/rewind`, body);
 
 /** Delete a play-through and its history (events + traces cascade server-side). */
 export const deletePlaySession = (scenarioId: string, sessionId: string) =>

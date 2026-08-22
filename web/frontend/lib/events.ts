@@ -257,6 +257,25 @@ export interface SessionHistory {
   traces: PersistedTrace[];
 }
 
+/** The player's own line, handed back by a rewind so the scene can continue from it. */
+export interface RestoredTurn {
+  text: string;
+  guidance: string | null;
+  pov: string | null;
+  taggedDocIds: string[];
+}
+
+/** What a rewind removed, and what the player gets back. */
+export interface RewindResult {
+  session: SessionSummary;
+  cutSeq: number;
+  removedEvents: number;
+  removedTraces: number;
+  /** The play-through holding the removed history, when a snapshot was kept. */
+  snapshotSessionId: string | null;
+  restoredTurn: RestoredTurn | null;
+}
+
 /** The body for `POST /play/{scenarioId}/turn`. */
 export interface TurnRequestBody {
   text: string;

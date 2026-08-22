@@ -133,6 +133,60 @@ class SessionRenameRequest(CamelModel):
     name: str | None = None
 
 
+class BranchRequest(CamelModel):
+    """Fork a play-through at a beat, leaving the original untouched.
+
+    ``atEventId`` is any event in the transcript; the fork point is the end of the **turn**
+    that event belongs to, so the branch inherits whole turns rather than half of one.
+    ``expectedSeq`` is the client's view of the session's highest seq — a mismatch means the
+    play-through moved on (another tab, a turn that finished) and the request 409s.
+    """
+
+    at_event_id: str
+    name: str | None = None
+    expected_seq: int | None = None
+
+
+class RewindRequest(CamelModel):
+    """Cut a play-through back to a beat and carry on from there.
+
+    The cut is at a **turn boundary**: the turn containing ``atEventId`` goes, along with
+    everything after it. ``keepSnapshot`` (default true) forks the pre-cut history into its
+    own play-through first, so the undo is a row in the tray rather than a hidden ten-second
+    window — and no ``deleted_at`` column every other query would have to filter.
+    """
+
+    at_event_id: str
+    keep_snapshot: bool = True
+    expected_seq: int | None = None
+
+
+class RestoredTurn(CamelModel):
+    """The player's own line, handed back so the scene can continue from it.
+
+    This is what makes a rewind a *prompt* rather than just a deletion: the words come back
+    into the composer, editable, with the direction and attachments they rode in with (all
+    persisted on the ``user_turn`` row).
+    """
+
+    text: str = ""
+    guidance: str | None = None
+    pov: str | None = None
+    tagged_doc_ids: list[str] = Field(default_factory=list)
+
+
+class RewindResponse(CamelModel):
+    """What the cut removed, and what the player gets back."""
+
+    session: SessionSummary
+    cut_seq: int
+    removed_events: int = 0
+    removed_traces: int = 0
+    #: The play-through holding the removed history, when ``keepSnapshot`` was set.
+    snapshot_session_id: str | None = None
+    restored_turn: RestoredTurn | None = None
+
+
 class SessionListResponse(CamelModel):
     sessions: list[SessionSummary]
 

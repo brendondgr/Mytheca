@@ -419,10 +419,14 @@ export function rehydrateFromHistory(
       // Player POV: a user_turn with `data.pov` was authored by the player AS that character
       // → a right-side player-authored character beat. Without `pov` it stays a player beat.
       const pov = e.data.pov;
+      // The row id is carried onto the beat so the player's OWN line can be targeted by the
+      // beat controls — rewinding and editing your own message is the point of them, and a
+      // beat with no id cannot be pointed at. `user_turn` rows never stream, so this is the
+      // only place a player beat can acquire one.
       messages =
         typeof pov === "string" && pov
-          ? [...messages, { kind: "char", who: pov, fromPlayer: true, text: String(e.data.text ?? "") }]
-          : [...messages, { kind: "player", text: String(e.data.text ?? "") }];
+          ? [...messages, { kind: "char", who: pov, fromPlayer: true, text: String(e.data.text ?? ""), id: e.id }]
+          : [...messages, { kind: "player", text: String(e.data.text ?? ""), id: e.id }];
       continue;
     }
     if (e.type === "state_update") {

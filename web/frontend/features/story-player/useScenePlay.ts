@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  branchPlaySession,
   closePlaySession,
   createPlaySession,
   deletePlaySession,
@@ -13,6 +14,7 @@ import {
   postSceneMoment,
   postTurn,
   renamePlaySession,
+  rewindPlaySession,
   setPresence as apiSetPresence,
   updateScenario,
 } from "@/lib/api";
@@ -252,6 +254,24 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
 
   // Every play-through of this scenario, most-recently-played first — the tray's rows.
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  /**
+   * The last beat we know is persisted, for the optimistic-concurrency precondition on the
+   * record-mutating endpoints. A ref rather than state: it is read at call time by a
+   * callback, and re-rendering the whole player because a seq advanced would be waste.
+   */
+  const latestSeqRef = useRef<number | null>(null);
+  /**
+   * Whether a turn is streaming, readable from a callback. `sending` itself is derived from
+   * the stream further down, so the record-mutating actions — declared above it — cannot see
+   * it. Mutating the record mid-sentence would leave a half-streamed beat attached to rows
+   * that no longer exist.
+   */
+  const sendingRef = useRef(false);
+  /** Set immediately after a rewind, so the transcript can say what just happened. */
+  const [rewound, setRewound] = useState<{
+    removedEvents: number;
+    snapshotSessionId: string | null;
+  } | null>(null);
   // The stat baseline (each cast member's persisted starting values). Held in a ref as well
   // as in state because `loadSession` needs it when the player switches play-throughs, long
   // after the mount effect that fetched it has finished.
@@ -277,6 +297,11 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     async (targetId: string) => {
       const base = baselineRef.current;
       const history = await getSessionHistory(scenario.id, targetId);
+      // The precondition the record-mutating endpoints check against.
+      latestSeqRef.current = history.events.reduce(
+        (top, e) => (typeof e.seq === "number" && e.seq > top ? e.seq : top),
+        -1,
+      );
       const scene = rehydrateFromHistory(history.events, history.traces, base);
       rememberSession(history.session.id);
       // Restore the "Speaking as" selection from the most recent user_turn's pov, so the
@@ -380,6 +405,66 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     [scenario, refreshSessions, loadSession],
   );
 
+  /**
+   * Fork this play-through at a beat and move into the fork. The original is untouched and
+   * stays in the tray, which is the whole reason branch is safe to offer on every beat.
+   */
+  const branchFrom = useCallback(
+    async (eventId: string, name?: string) => {
+      const sid = sessionRef.current;
+      if (!sid || sendingRef.current) return;
+      const fork = await branchPlaySession(scenario.id, sid, {
+        atEventId: eventId,
+        name,
+        expectedSeq: latestSeqRef.current ?? undefined,
+      });
+      closePlaySession(scenario.id, sid);
+      await loadSession(fork.id);
+      await refreshSessions();
+      notify({
+        message: "Branched — the original is still in your play-throughs.",
+        variant: "success",
+      });
+      return fork;
+    },
+    [scenario.id, loadSession, refreshSessions, notify],
+  );
+
+  /**
+   * Cut this play-through back to a beat and hand the player's own line back.
+   *
+   * The reload is deliberate rather than a local truncation of `messages`: `loadSession` is
+   * the one path already proven to turn persisted rows into a faithful transcript, and a
+   * second, subtly different truncation is exactly how the two would drift.
+   */
+  const rewindTo = useCallback(
+    async (eventId: string) => {
+      const sid = sessionRef.current;
+      if (!sid || sendingRef.current) return;
+      const result = await rewindPlaySession(scenario.id, sid, {
+        atEventId: eventId,
+        keepSnapshot: true,
+        expectedSeq: latestSeqRef.current ?? undefined,
+      });
+      await loadSession(sid);
+      await refreshSessions();
+      // The player's own words come back, editable, with the direction and attachments they
+      // rode in with. This is what makes a rewind a prompt rather than just a deletion.
+      const restored = result.restoredTurn;
+      if (restored) {
+        setComposer(restored.text);
+        setGuidance(restored.guidance ?? "");
+        setPov(restored.pov ?? null);
+      }
+      setRewound({
+        removedEvents: result.removedEvents,
+        snapshotSessionId: result.snapshotSessionId,
+      });
+      return result;
+    },
+    [scenario.id, loadSession, refreshSessions],
+  );
+
   // Seed live per-character stats from each cast member's persisted starting values, then
   // resume the scenario's most recent play-through on top of that baseline: reload its full
   // history (turns, thoughts, live stats, and the graph/RAG trace) so nothing is ever lost
@@ -473,6 +558,10 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   );
 
   const onFrame = useCallback((frame: TurnStreamFrame) => {
+    // Track the highest persisted seq as it streams, so a record action taken straight after
+    // a turn carries a current precondition rather than a stale one from the last load.
+    const seq = (frame as { seq?: number }).seq;
+    if (typeof seq === "number" && seq > (latestSeqRef.current ?? -1)) latestSeqRef.current = seq;
     const sid = sessionIdOf(frame);
     if (sid && sid !== sessionRef.current) rememberSession(sid);
 
@@ -541,6 +630,11 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
 
   const stream = useEventStream<TurnStreamFrame>(onFrame);
   const sending = stream.status === "streaming";
+  // Mirror into a ref so the record actions declared above can read it. Writing a ref in an
+  // effect costs no extra render, unlike threading the value back up through state.
+  useEffect(() => {
+    sendingRef.current = sending;
+  }, [sending]);
 
 
   // Choosing who to speak as. Leaving POV (back to Narrator) also drops the direction box's
@@ -740,6 +834,11 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     sessions,
     refreshSessions,
     openSession,
+    branchFrom,
+    rewindTo,
+    // Set right after a rewind so the transcript can say what happened; cleared on send.
+    rewound,
+    clearRewound: () => setRewound(null),
     startNewPlaythrough,
     renamePlaythrough,
     deletePlaythrough,

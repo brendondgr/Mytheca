@@ -357,7 +357,12 @@ describe("rehydrateFromHistory", () => {
     const scene = rehydrateFromHistory(events, traces);
 
     // The player line + the speaker's thought/action/dialogue fold into one char beat.
-    expect(scene.messages[0]).toEqual({ kind: "player", text: "I slide the coin toward Mei." });
+    expect(scene.messages[0]).toEqual({
+      kind: "player",
+      text: "I slide the coin toward Mei.",
+      // The row id rides along so the beat controls can target the player's own line.
+      id: "ev0",
+    });
     const beat = scene.messages[1];
     expect(beat.kind).toBe("char");
     expect(beat.thought).toBe("Coin first.");
@@ -446,6 +451,7 @@ describe("rehydrateFromHistory", () => {
       kind: "char",
       who: "mei",
       fromPlayer: true,
+      id: "ev0",
       text: "I have nothing to say to you.",
     });
     // The AI's reaction stays an ordinary (left-side) character beat — not player-authored.
@@ -456,7 +462,7 @@ describe("rehydrateFromHistory", () => {
 
   it("keeps a user_turn without pov as a plain left-side player beat", () => {
     const scene = rehydrateFromHistory([pe("user_turn", 0, { text: "hi", directedAt: null })], []);
-    expect(scene.messages[0]).toEqual({ kind: "player", text: "hi" });
+    expect(scene.messages[0]).toEqual({ kind: "player", text: "hi", id: "ev0" });
   });
 });
 
