@@ -197,24 +197,12 @@ function CastMemberRow({
   );
 }
 
-/** Left rail: cast "in the scene" (with a speaking/thinking marker + presence control),
- * those out of the scene grouped below, and the turn order. Presence lets the player
- * remove/restore any character; the engine also removes them automatically on death/departure.
- * `activityByChar` drives per-character "Thinking" (dots) and "Speaking" status labels. */
-export function CastRail({
-  cast,
-  speakingId,
-  turnOrder,
-  charById,
-  onProfile,
-  presenceByChar = {},
-  setPresence,
-  statDefs,
-  statsByChar = {},
-  activityByChar = {},
-  storylineCast = [],
-  joinDisabled = false,
-}: {
+/**
+ * Every prop the cast rail takes. Named so the `lg`-only shell and the mobile drawer are
+ * provably passing the same thing — the split only guarantees "identical functionality" if
+ * neither surface can quietly take a narrower set.
+ */
+export interface CastRailProps {
   cast: Character[];
   speakingId: string | null;
   turnOrder: string[];
@@ -236,7 +224,33 @@ export function CastRail({
   storylineCast?: Character[];
   /** No session yet: there is nothing to attach a presence change to. */
   joinDisabled?: boolean;
-}) {
+}
+
+/**
+ * The cast rail's contents, with no container of its own: cast "in the scene" (with a
+ * speaking/thinking marker + presence control), those out of the scene grouped below, anyone
+ * elsewhere in the world, and the turn order. Presence lets the player remove/restore any
+ * character; the engine also removes them automatically on death/departure. `activityByChar`
+ * drives per-character "Thinking" (dots) and "Speaking" status labels.
+ *
+ * Container-free on purpose: {@link CastRail} wraps it in the desktop `<aside>` and the mobile
+ * bottom sheet wraps the very same component, so a capability added here cannot reach one
+ * width and miss the other.
+ */
+export function CastRailContent({
+  cast,
+  speakingId,
+  turnOrder,
+  charById,
+  onProfile,
+  presenceByChar = {},
+  setPresence,
+  statDefs,
+  statsByChar = {},
+  activityByChar = {},
+  storylineCast = [],
+  joinDisabled = false,
+}: CastRailProps) {
   const statusOf = (id: string): PresenceStatus => presenceByChar[id] ?? "present";
   const present = cast.filter((c) => statusOf(c.id) === "present");
   const away = cast.filter((c) => statusOf(c.id) !== "present");
@@ -245,7 +259,7 @@ export function CastRail({
   const elsewhere = storylineCast.filter((c) => !inScene.has(c.id));
 
   return (
-    <aside className="mytheca-rail hidden w-[236px] flex-none overflow-auto border-r border-hair-strong p-[18px_16px] lg:block">
+    <>
       <Eyebrow tracking="0.16em" className="mb-3 block">
         In the Scene
       </Eyebrow>
@@ -330,6 +344,25 @@ export function CastRail({
       ) : null}
 
       <TurnOrder order={turnOrder} charById={charById} />
+    </>
+  );
+}
+
+/**
+ * The desktop shell: the `lg`-only left rail. Below `lg` this renders nothing at all and the
+ * story player reaches the same content through a bottom sheet — one landmark at a time, never
+ * two copies in the tree.
+ *
+ * `aria-label` is not decoration here: an unnamed `<aside>` is a complementary landmark a
+ * screen-reader user has no way to tell apart from the other one on the page.
+ */
+export function CastRail(props: CastRailProps) {
+  return (
+    <aside
+      aria-label="Cast"
+      className="mytheca-rail hidden w-[236px] flex-none overflow-auto border-r border-hair-strong p-[18px_16px] lg:block"
+    >
+      <CastRailContent {...props} />
     </aside>
   );
 }

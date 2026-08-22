@@ -179,3 +179,23 @@ describe("DirectionChecklist carried-over debt", () => {
   });
 });
 
+
+describe("DirectionChecklist announcements", () => {
+  const progress = {
+    items: [
+      { text: "Beth confronts Mei", state: "delivered" as const, by: "beth" },
+      { text: "Mei admits the letter", state: "outstanding" as const },
+    ],
+    undelivered: [],
+  };
+
+  it("announces progress politely by default", () => {
+    render(<DirectionChecklist progress={progress} />);
+    expect(screen.getByText(/1 of 2 delivered/)).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("live={false} keeps the line but stops it interrupting", () => {
+    render(<DirectionChecklist progress={progress} live={false} />);
+    expect(screen.getByText(/1 of 2 delivered/)).toHaveAttribute("aria-live", "off");
+  });
+});

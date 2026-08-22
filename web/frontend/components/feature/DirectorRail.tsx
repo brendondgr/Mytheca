@@ -255,14 +255,22 @@ function stripSubject(label: string, who: string, name: string): string {
 function ScenePulse({
   activity,
   charById,
+  live = true,
 }: {
   activity: ActivityEntry[];
   charById?: (id: string) => { name: string; color: string } | undefined;
+  /**
+   * Whether this feed announces. `false` for a surface that is mounted only while it is
+   * open: a log that appears and immediately reads out twelve entries the player already
+   * scrolled past is worse than silence. The `role="log"` and the label stay either way, so
+   * the region is still navigable — it just stops interrupting.
+   */
+  live?: boolean;
 }) {
   return (
     <div
       role="log"
-      aria-live="polite"
+      aria-live={live ? "polite" : "off"}
       aria-label="Scene pulse"
       className="max-h-[52dvh] overflow-y-auto"
     >
@@ -325,14 +333,7 @@ function ScenePulse({
  * data streams now belong to the CharacterDossier (relationships) and the cast rail
  * (per-character stats). `charById` resolves a characterId to a name+color for the feed.
  */
-export function DirectorRail({
-  stats,
-  activity = [],
-  charById,
-  direction = NO_DIRECTION,
-  standing = [],
-  onDismissStanding,
-}: {
+export interface DirectorRailProps {
   stats: StatChip[];
   activity?: ActivityEntry[];
   charById?: (id: string) => { name: string; color: string } | undefined;
@@ -342,13 +343,33 @@ export function DirectorRail({
   standing?: StandingItem[];
   /** Stop asking for one carried-over item (`null` → all). Omit to hide the control. */
   onDismissStanding?: (itemId: string | null) => void;
-}) {
+  /**
+   * Whether the two live regions in here announce. The always-mounted desktop rail leaves it
+   * `true`; a bottom sheet that exists only while it is open passes `false` — see
+   * {@link ScenePulse}.
+   */
+  live?: boolean;
+}
+
+/**
+ * The director rail's contents, with no container of its own — wrapped by {@link DirectorRail}
+ * on desktop and by a bottom sheet below `lg`, so neither width can drift from the other.
+ */
+export function DirectorRailContent({
+  stats,
+  activity = [],
+  charById,
+  direction = NO_DIRECTION,
+  standing = [],
+  onDismissStanding,
+  live = true,
+}: DirectorRailProps) {
   return (
-    <aside className="mytheca-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block">
+    <>
       <Eyebrow tracking="0.16em" className="mb-[9px] block">
         Scene pulse
       </Eyebrow>
-      <ScenePulse activity={activity} charById={charById} />
+      <ScenePulse activity={activity} charById={charById} live={live} />
 
       <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
         Scene state
@@ -359,7 +380,23 @@ export function DirectorRail({
         progress={direction}
         standing={standing}
         onDismiss={onDismissStanding}
+        live={live}
       />
+    </>
+  );
+}
+
+/**
+ * The desktop shell: the `lg`-only right rail. Named, because an unnamed `<aside>` is
+ * indistinguishable from the cast rail in a landmark list.
+ */
+export function DirectorRail(props: DirectorRailProps) {
+  return (
+    <aside
+      aria-label="Scene"
+      className="mytheca-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block"
+    >
+      <DirectorRailContent {...props} />
     </aside>
   );
 }

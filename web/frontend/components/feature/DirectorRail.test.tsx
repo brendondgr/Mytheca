@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { DirectorRail } from "./DirectorRail";
+import { DirectorRail, DirectorRailContent } from "./DirectorRail";
 import type { ActivityEntry } from "@/features/story-player/turn-stream";
 
 const stats = [{ label: "Suspicion", value: 2, kind: "neutral" as const }];
@@ -102,5 +102,29 @@ describe("DirectorRail", () => {
   it("does NOT render a Relationships section (regression)", () => {
     render(<DirectorRail stats={stats} />);
     expect(screen.queryByText("Relationships")).not.toBeInTheDocument();
+  });
+});
+
+describe("DirectorRail shell vs. content", () => {
+  it("names its landmark", () => {
+    render(<DirectorRail stats={stats} />);
+    expect(screen.getByRole("complementary", { name: "Scene" })).toBeInTheDocument();
+  });
+
+  it("renders the same sections with no landmark of its own", () => {
+    render(<DirectorRailContent stats={stats} activity={activity} charById={charById} />);
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(screen.getByRole("log")).toBeInTheDocument();
+    expect(screen.getByText("Suspicion")).toBeInTheDocument();
+  });
+
+  it("live={false} silences the log without removing it from the page", () => {
+    // A sheet that mounts on open would otherwise announce the whole backlog at once. The
+    // region stays navigable — it just stops interrupting.
+    render(<DirectorRailContent stats={stats} activity={activity} charById={charById} live={false} />);
+    const log = screen.getByRole("log");
+    expect(log).toHaveAttribute("aria-live", "off");
+    expect(log).toHaveAttribute("aria-label", "Scene pulse");
+    expect(screen.getByText("Maerin")).toBeInTheDocument();
   });
 });

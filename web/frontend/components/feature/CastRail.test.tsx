@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { CastRail } from "./CastRail";
+import { CastRail, CastRailContent } from "./CastRail";
 import type { Character, StatDefinition } from "@/lib/types";
 
 function char(id: string, name: string): Character {
@@ -162,3 +162,29 @@ describe("CastRail — Elsewhere in the World", () => {
   });
 });
 
+
+describe("CastRail shell vs. content", () => {
+  it("names its landmark, so it is distinguishable from the other rail", () => {
+    renderRail();
+    expect(screen.getByRole("complementary", { name: "Cast" })).toBeInTheDocument();
+  });
+
+  it("renders the same sections with no landmark of its own", () => {
+    // What the bottom sheet mounts. It must carry the rail's capabilities — the presence
+    // control, the turn order — while adding no second `complementary` to the page.
+    render(
+      <CastRailContent
+        cast={cast}
+        speakingId={null}
+        turnOrder={["You", "mei", "kira"]}
+        charById={(id) => cast.find((c) => c.id === id)}
+        onProfile={noop}
+        setPresence={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(screen.getByText("In the Scene")).toBeInTheDocument();
+    expect(screen.getByText("Turn order")).toBeInTheDocument();
+    expect(screen.getByLabelText("Presence for Mei")).toBeInTheDocument();
+  });
+});

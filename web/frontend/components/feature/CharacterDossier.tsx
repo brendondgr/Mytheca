@@ -14,14 +14,7 @@ import type { Relationship, StatChip } from "@/features/story-player/scene-data"
  * relationships, so the profile "hops up" in place instead of a modal. "Back to
  * scene" restores the Director rail.
  */
-export function CharacterDossier({
-  character,
-  statDefs,
-  stats,
-  relationships,
-  onClose,
-  onOpenProfile,
-}: {
+export interface CharacterDossierProps {
   character: Character;
   statDefs: StatDefinition[];
   /** This character's live stat values (from `state_update` events) — drives the sliders. */
@@ -30,7 +23,20 @@ export function CharacterDossier({
   onClose: () => void;
   /** Clicking the portrait opens the full profile modal for this character. */
   onOpenProfile: (id: string) => void;
-}) {
+}
+
+/**
+ * The dossier's contents, with no container of its own — wrapped by
+ * {@link CharacterDossier} on desktop and by the scene bottom sheet below `lg`.
+ */
+export function CharacterDossierContent({
+  character,
+  statDefs,
+  stats,
+  relationships,
+  onClose,
+  onOpenProfile,
+}: CharacterDossierProps) {
   const c = character;
   // `StatSchema` already renders only `visibility === "public"` defs, so a hidden stat never
   // reaches this rail — the gap was the CHANGES, which used to stream into the transcript
@@ -38,10 +44,7 @@ export function CharacterDossier({
   const carriesAnything = statDefs.some((d) => d.visibility === "public" && d.carryOver);
 
   return (
-    <aside
-      className="mytheca-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block"
-      aria-label={`${c.name} — profile`}
-    >
+    <>
       <button
         type="button"
         onClick={onClose}
@@ -151,6 +154,19 @@ export function CharacterDossier({
           </p>
         </>
       ) : null}
+    </>
+  );
+}
+
+/** The desktop shell: the `lg`-only right rail, replacing the director rail while a cast
+ * member is selected. */
+export function CharacterDossier(props: CharacterDossierProps) {
+  return (
+    <aside
+      className="mytheca-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block"
+      aria-label={`${props.character.name} — profile`}
+    >
+      <CharacterDossierContent {...props} />
     </aside>
   );
 }

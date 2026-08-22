@@ -25,6 +25,7 @@ export function DirectionChecklist({
   standing = [],
   onDismiss,
   className,
+  live = true,
 }: {
   progress: DirectionProgress;
   /**
@@ -36,12 +37,19 @@ export function DirectionChecklist({
   /** Stop asking for one item (`null` → all of them). Omit to hide the control. */
   onDismiss?: (itemId: string | null) => void;
   className?: string;
+  /**
+   * Whether the progress line announces. `false` when this checklist is inside a surface
+   * that mounts on open — otherwise the whole turn's progress is read out at once, after the
+   * fact, the moment the sheet appears.
+   */
+  live?: boolean;
 }) {
   const { items, undelivered } = progress;
   // A standing item whose text is already on this turn's checklist is the same debt being
   // worked on right now — show it once, in the live list, wearing the carried-over badge.
-  const live = new Set(items.map((i) => i.text));
-  const waiting = standing.filter((s) => !live.has(s.text));
+  // Named `onThisTurn`, not `live` — `live` is the announcement prop above.
+  const onThisTurn = new Set(items.map((i) => i.text));
+  const waiting = standing.filter((s) => !onThisTurn.has(s.text));
   const carriedText = new Set(standing.map((s) => s.text));
   if (!items.length && !waiting.length) return null;
 
@@ -73,7 +81,7 @@ export function DirectionChecklist({
 
       {/* One polite announcement of overall progress. Announcing each item as it lands
           would talk over the prose the transcript is already reading out. */}
-      <p className="sr-only" aria-live="polite">
+      <p className="sr-only" aria-live={live ? "polite" : "off"}>
         {done} of {items.length} delivered
         {tried ? `, ${tried} attempted but not confirmed` : ""}
         {standing.length ? `, ${standing.length} carried over` : ""}

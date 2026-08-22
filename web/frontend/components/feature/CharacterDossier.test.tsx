@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { CharacterDossier } from "./CharacterDossier";
+import { CharacterDossier, CharacterDossierContent } from "./CharacterDossier";
 import { SEED_STAT_DEFS } from "@/lib/seed-data";
 import type { Character, StatDefinition } from "@/lib/types";
 import type { StatChip } from "@/features/story-player/scene-data";
@@ -147,5 +147,27 @@ describe("CharacterDossier — what stats do between scenes", () => {
       { ...SEED_STAT_DEFS[0], visibility: "hidden", carryOver: true } as StatDefinition,
     ]);
     expect(screen.getByText(/start fresh in every play-through/i)).toBeInTheDocument();
+  });
+});
+
+describe("CharacterDossier shell vs. content", () => {
+  it("keeps the per-character landmark name on the desktop shell", () => {
+    renderDossier();
+    expect(screen.getByRole("complementary", { name: "Maerin — profile" })).toBeInTheDocument();
+  });
+
+  it("renders the same dossier with no landmark of its own", () => {
+    render(
+      <CharacterDossierContent
+        character={MAERIN}
+        statDefs={SEED_STAT_DEFS}
+        relationships={[]}
+        onClose={vi.fn()}
+        onOpenProfile={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Maerin" })).toBeInTheDocument();
+    expect(screen.getByText("Relationships")).toBeInTheDocument();
   });
 });
