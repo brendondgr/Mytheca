@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { SceneConfigMenu } from "./SceneConfigMenu";
 
-function setup(overrides = {}) {
+function setup(overrides: Record<string, unknown> = {}) {
   const props = {
     maxTurns: 5,
     onMaxTurnsChange: vi.fn(),
@@ -13,6 +13,7 @@ function setup(overrides = {}) {
     beatLength: "medium" as const,
     onBeatLengthChange: vi.fn(),
     onPinnedChange: vi.fn(),
+    onPresetChange: vi.fn(),
     ...overrides,
   };
   render(<SceneConfigMenu {...props} />);
@@ -284,6 +285,96 @@ describe("SceneConfigMenu says what each control does", () => {
       expect(screen.queryByText(/spring back/i)).not.toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "Max turns — pinned to this scene" }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe("scene presets", () => {
+    const PRESETS = [
+      {
+        id: "fast_banter",
+        label: "Fast banter",
+        blurb: "Short beats, quick exchanges, plenty of follow-ups.",
+        values: { maxTurns: 3, suggestionsCount: 4, beatLength: "short" as const },
+      },
+      {
+        id: "slow_burn",
+        label: "Slow burn",
+        blurb: "Long beats, fewer of them.",
+        values: { maxTurns: 6, suggestionsCount: 2, beatLength: "long" as const },
+      },
+    ];
+
+    async function openWith(overrides = {}) {
+      const user = userEvent.setup();
+      const props = setup({ presets: PRESETS, ...overrides });
+      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+      return { user, props };
+    }
+
+    it("offers Custom plus every preset, above the individual controls", async () => {
+      await openWith();
+      const picker = screen.getByRole("combobox", { name: /what kind of scene this is/i });
+      expect([...picker.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
+        "Custom",
+        "Fast banter",
+        "Slow burn",
+      ]);
+    });
+
+    it("renders the named preset's blurb", async () => {
+      await openWith({ scenePreset: "slow_burn", presetState: "clean" });
+      expect(
+        screen.getByRole("combobox", { name: /what kind of scene this is/i }),
+      ).toHaveAccessibleDescription(/long beats, fewer of them/i);
+    });
+
+    it("reports the pick rather than setting the controls itself", async () => {
+      const { user, props } = await openWith();
+      await user.selectOptions(
+        screen.getByRole("combobox", { name: /what kind of scene this is/i }),
+        "fast_banter",
+      );
+      expect(props.onPresetChange).toHaveBeenCalledWith("fast_banter");
+      expect(props.onMaxTurnsChange).not.toHaveBeenCalled();
+    });
+
+    it("clears the preset when Custom is chosen", async () => {
+      const { user, props } = await openWith({ scenePreset: "fast_banter", presetState: "clean" });
+      await user.selectOptions(
+        screen.getByRole("combobox", { name: /what kind of scene this is/i }),
+        "Custom",
+      );
+      expect(props.onPresetChange).toHaveBeenCalledWith(null);
+    });
+
+    it("marks a drifted scene and offers a reset", async () => {
+      const { user, props } = await openWith({
+        scenePreset: "slow_burn",
+        presetState: "modified",
+      });
+      expect(screen.getByText(/· modified/i)).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /reset to slow burn/i }));
+      expect(props.onPresetChange).toHaveBeenCalledWith("slow_burn");
+    });
+
+    it("offers no reset while the scene still matches its preset", async () => {
+      await openWith({ scenePreset: "slow_burn", presetState: "clean" });
+      expect(screen.queryByRole("button", { name: /reset to/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/· modified/i)).not.toBeInTheDocument();
+    });
+
+    it("hides the picker entirely when no catalogue arrived", async () => {
+      // A failed fetch must leave every underlying control exactly where it was.
+      const user = userEvent.setup();
+      setup();
+      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+      expect(
+        screen.queryByRole("combobox", { name: /what kind of scene this is/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("combobox", { name: /how many beats one message produces/i }),
       ).toBeInTheDocument();
     });
   });

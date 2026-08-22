@@ -192,6 +192,20 @@ All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every 
 
 A three-zone "open book": a **left cast rail** (At the table · turn order, portrait avatars with per-character **"Thinking"/"Speaking"** activity indicators), a **reading-first center column** (a `SceneIntro` "scene is set" band — setting, genre/tone, the player's aim, dramatis personae — then the transcript of beats and a **two-row composer**), and a **right director rail** (a live **"Scene pulse"** activity feed + scene-state chips). The per-scene **Config** (gear button → popover with "Max turns" 1–10, "Suggestions" 0–4, and a "Number of beats" 5–100 slider) now lives in the composer's **bottom-left controls row**, not the header. The transcript is the primary surface and stays centered at ≤720px; the `SceneIntro` band ensures the reading column carries the full scene context even on mobile, where the rails collapse to drawers. This is deliberately **not** a generic three-pane SaaS shell or a card grid.
 
+**Presets before controls.** The scene-config popover opens with **"What kind of scene this
+is"** — Custom plus four named presets (`content/scene_presets.py`) — above the three
+individual controls, because that is the question a player actually has; the controls answer
+the one they have to be taught to ask. The selected preset's **blurb names the trade, not the
+numbers**: the numbers are in the controls immediately beneath it, and restating them in prose
+tells the reader only what they can already see. A preset writes through the **pinned** path
+(it is a statement about the scene, not one turn) in a single scenario write, and drops any
+pending per-turn override for the controls it sets — leaving one would have the next turn
+silently contradict the preset just chosen. Moving a control afterwards does **not** clear the
+preset: the row reads *· modified* and a **"Reset to <preset>"** button appears, which is only
+offered in that state (a reset with nothing to undo is a button that does nothing). Choosing
+Custom clears the name and touches no value. If the catalogue fails to load the picker does
+not render at all and every control stays exactly where it was.
+
 **Pins — permanent versus this-turn.** Every row in the scene-config popover carries a
 24×24 **pin toggle** to the right of its caption, and the pin decides where a change *goes*,
 not what it is. **Pinned** (the default, and where every control starts) is the original

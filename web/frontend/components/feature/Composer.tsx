@@ -3,6 +3,7 @@ import {
   SceneConfigMenu,
   type SceneControlKey,
 } from "@/components/feature/SceneConfigMenu";
+import type { ScenePreset } from "@/lib/api";
 import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
 import { GhostwriteButton } from "@/components/feature/GhostwriteButton";
 import { ContextUsageDial } from "@/components/feature/ContextUsageDial";
@@ -67,6 +68,10 @@ export function Composer({
   onBeatLengthChange,
   pinned,
   onPinnedChange,
+  presets,
+  scenePreset,
+  presetState,
+  onPresetChange,
   // Player POV (rendered to the right of Config when a handler is supplied).
   pov = null,
   onPovChange,
@@ -120,6 +125,11 @@ export function Composer({
    */
   pinned?: Record<SceneControlKey, boolean>;
   onPinnedChange?: (key: SceneControlKey, pinned: boolean) => void;
+  /** Named scene presets. Empty hides the picker; every control stays where it was. */
+  presets?: ScenePreset[];
+  scenePreset?: string | null;
+  presetState?: "none" | "clean" | "modified";
+  onPresetChange?: (id: string | null) => void;
   /** Real transcript beats (one string each) — feeds the config's content-real readout. */
   /** Player POV: the id of the character the player is speaking AS (`null` = Narrator). */
   pov?: string | null;
@@ -537,6 +547,10 @@ export function Composer({
               onBeatLengthChange={onBeatLengthChange}
               pinned={pinned}
               onPinnedChange={onPinnedChange}
+              presets={presets}
+              scenePreset={scenePreset}
+              presetState={presetState}
+              onPresetChange={onPresetChange}
               sceneMemory={sceneMemory}
               summarised={summarised}
               secondsPerBeat={secondsPerBeat}

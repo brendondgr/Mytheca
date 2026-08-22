@@ -482,6 +482,17 @@ export function makeApiMock() {
       reasoningVisibility: "summary" as const,
       source: "configured" as const,
     })),
+    // The scene-config preset catalogue. One entry rather than the real four: the shape is
+    // what the story player needs from this mock, and the real table is covered where it
+    // lives (utils/tests/backend/api/test_options.py).
+    getScenePresets: vi.fn(async () => [
+      {
+        id: "interrogation",
+        label: "Interrogation",
+        blurb: "Two beats a message: you ask, someone answers.",
+        values: { maxTurns: 2, suggestionsCount: 3, beatLength: "medium" as const },
+      },
+    ]),
     updateLibraryDefaults: vi.fn(async (body: Record<string, unknown>) => ({
       defaultStorylineId: null,
       openLastStoryline: true,

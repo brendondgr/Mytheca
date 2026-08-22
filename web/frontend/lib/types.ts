@@ -162,6 +162,12 @@ export interface Scenario {
    */
   beatLength?: BeatLength;
   /**
+   * The named preset the play controls above were last set from, or absent/`null` for
+   * *Custom*. It records **intent, not truth** — the controls stay authoritative, so moving
+   * one leaves this set and the UI reads "modified" and offers a reset.
+   */
+  scenePreset?: string | null;
+  /**
    * The scene's own one-tap direction verbs, appended to the built-in bar's groups. `label`
    * is the chip, `text` is the phrasing written into the direction box for the player to
    * edit — separate on purpose, since a verb exists to hand them a sentence to argue with

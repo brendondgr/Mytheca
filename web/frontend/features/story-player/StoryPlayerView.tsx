@@ -666,6 +666,10 @@ export function StoryPlayerView({
             onBeatLengthChange={scene.setBeatLength}
             pinned={scene.pinned}
             onPinnedChange={scene.setPinned}
+            presets={scene.presets}
+            scenePreset={scene.scenePreset}
+            presetState={scene.presetState}
+            onPresetChange={scene.applyPreset}
             sceneMemory={scene.sceneMemory}
             summarised={Boolean(scene.summaryThroughSeq)}
             guidance={scene.guidance}

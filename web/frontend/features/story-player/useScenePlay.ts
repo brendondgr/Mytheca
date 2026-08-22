@@ -6,6 +6,7 @@ import {
   getCharacterStats,
   getLlmContextWindow,
   getScenarioRelationships,
+  getScenePresets,
   postGhostwrite,
   postSceneMoment,
   clearStandingDirection,
@@ -15,6 +16,7 @@ import {
   setPresence as apiSetPresence,
   updateScenario,
 } from "@/lib/api";
+import type { ScenePreset } from "@/lib/api";
 import { estimateUsedTokens } from "@/lib/contextBudget";
 import type {
   GhostwriteStreamFrame,
@@ -151,6 +153,13 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // The pending per-turn overrides. Cleared when the turn settles, on the error path too —
   // the clear lives in `.finally`, because a turn that failed still consumed the intent.
   const [turnOverrides, setTurnOverrides] = useState<TurnOverridesBody>({});
+  // The named preset the controls were last set from (`null` = Custom), and the catalogue
+  // itself. The catalogue is fetched best-effort: a failure leaves it empty and the picker
+  // simply does not render, which is the same degradation shape as the context-window read.
+  const [scenePreset, setScenePresetState] = useState<string | null>(
+    scenario.scenePreset ?? null,
+  );
+  const [presets, setPresets] = useState<ScenePreset[]>([]);
   /**
    * The envelope for the next turn — omitted entirely when every control is pinned, so a
    * player who ignores this feature sends the exact request body they sent before it existed.
@@ -453,6 +462,14 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   useEffect(() => {
     getLlmContextWindow()
       .then((r) => setMaxContextTokens(r.maxContextTokens))
+      .catch(() => {});
+  }, []);
+
+  // The preset catalogue, once, best-effort. Empty on failure — the picker hides and every
+  // underlying control is exactly where it was, so the scene stays fully usable.
+  useEffect(() => {
+    getScenePresets()
+      .then(setPresets)
       .catch(() => {});
   }, []);
 
@@ -915,6 +932,57 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     [clearOverride],
   );
 
+  /**
+   * Apply a named preset: every bundled value in ONE `updateScenario` call, together with
+   * the id.
+   *
+   * Written through the **pinned** path deliberately — a preset is a statement about the
+   * scene, not about one turn — and any pending per-turn override for a bundled control is
+   * dropped, because leaving one would have the next turn silently contradict the preset the
+   * player just chose. Passing `null` selects *Custom*: it clears the id and touches no
+   * value, so "I am no longer following a preset" costs the player nothing.
+   */
+  const applyPreset = useCallback(
+    (id: string | null) => {
+      const chosen = presets.find((p) => p.id === id) ?? null;
+      setScenePresetState(chosen ? chosen.id : null);
+      if (!chosen) {
+        void updateScenario(scenario.id, { scenePreset: null }).catch(() => {});
+        return;
+      }
+      setMaxTurnsState(chosen.values.maxTurns);
+      setSuggestionsCountState(chosen.values.suggestionsCount);
+      setBeatLengthState(chosen.values.beatLength);
+      setTurnOverrides({});
+      void updateScenario(scenario.id, {
+        scenePreset: chosen.id,
+        maxTurns: chosen.values.maxTurns,
+        suggestionsCount: chosen.values.suggestionsCount,
+        beatLength: chosen.values.beatLength,
+      }).catch(() => {});
+    },
+    [presets, scenario.id],
+  );
+
+  /**
+   * `"none"` — no preset named. `"clean"` — the live values still match the named one.
+   * `"modified"` — a control has been moved since.
+   *
+   * Derived rather than stored: the controls are authoritative, so the only honest way to
+   * know whether the scene still *is* the preset is to compare. `"modified"` is what makes
+   * the reset offerable, and it is also why the id is kept rather than cleared on the first
+   * manual change — clearing it would silently discard the thing the reset returns to.
+   */
+  const presetState = useMemo<"none" | "clean" | "modified">(() => {
+    const named = presets.find((p) => p.id === scenePreset);
+    if (!named) return "none";
+    const same =
+      named.values.maxTurns === maxTurns &&
+      named.values.suggestionsCount === suggestionsCount &&
+      named.values.beatLength === beatLength;
+    return same ? "clean" : "modified";
+  }, [presets, scenePreset, maxTurns, suggestionsCount, beatLength]);
+
   /** What the next turn will actually run with — the override when there is one. */
   const effective = useMemo(
     () => ({
@@ -1077,6 +1145,12 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setPinned,
     turnOverrides,
     effective,
+    // Presets: the catalogue, the current id, whether the scene has drifted from it, and
+    // the one call that applies (or clears) one.
+    presets,
+    scenePreset,
+    presetState,
+    applyPreset,
     pov,
     setPov: choosePov,
     loading,

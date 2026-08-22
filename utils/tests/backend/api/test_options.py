@@ -295,3 +295,44 @@ def test_an_override_stored_for_a_hidden_key_still_round_trips(client):
     # …and it is still not offered for editing.
     assert "director.who_is_up" not in {s["key"] for s in prompts["catalog"]}
 
+
+
+def test_scene_presets_are_listed(client):
+    resp = client.get("/api/options/scene-presets")
+    assert resp.status_code == 200
+    presets = resp.json()
+    assert len(presets) == 4
+    assert {p["id"] for p in presets} == {
+        "fast_banter",
+        "slow_burn",
+        "cinematic",
+        "interrogation",
+    }
+    for p in presets:
+        assert p["label"] and p["blurb"]
+        assert set(p["values"]) == {"maxTurns", "suggestionsCount", "beatLength"}
+
+
+def test_every_preset_validates_against_scenario_update(client):
+    """The test that stops the table drifting out of the bounds it has to live inside.
+
+    A preset is applied by writing its values through the ordinary scenario update, so a
+    value the update schema would reject is a preset that silently does nothing.
+    """
+    from app.schemas.scenario import ScenarioUpdate
+
+    for p in client.get("/api/options/scene-presets").json():
+        resolved = ScenarioUpdate(**p["values"])
+        assert resolved.max_turns == p["values"]["maxTurns"]
+        assert resolved.suggestions_count == p["values"]["suggestionsCount"]
+        assert resolved.beat_length == p["values"]["beatLength"]
+
+
+def test_presets_are_recognisably_different_from_the_defaults(client):
+    """A preset that lands one step from the default teaches the player nothing."""
+    defaults = {"maxTurns": 5, "suggestionsCount": 4, "beatLength": "medium"}
+    seen = []
+    for p in client.get("/api/options/scene-presets").json():
+        assert p["values"] != defaults
+        assert p["values"] not in seen  # and from each other
+        seen.append(p["values"])

@@ -15,7 +15,9 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.schemas.reasoning import THINKING_BUDGET
+from app.content.scene_presets import BUILTIN_SCENE_PRESETS
 from app.schemas.settings import (
+    ScenePresetRead,
     ComfyConfigRead,
     ComfyConfigUpdate,
     ComfyStatusRequest,
@@ -127,6 +129,17 @@ def llm_context_window(db: Session = Depends(get_db)):
     return LlmContextWindowResponse(
         max_context_tokens=window.max_tokens, source=window.source
     )
+
+
+@router.get("/scene-presets", response_model=list[ScenePresetRead])
+def scene_presets():
+    """The named scene presets a player can pick instead of setting three controls.
+
+    Read-only and DB-free: the catalogue is authored code (``content/scene_presets``), not
+    data, for the same reason the graph type registry is — a preset is part of how the app
+    reads, and an operator editing one in a database row would be editing the product.
+    """
+    return [ScenePresetRead(**preset) for preset in BUILTIN_SCENE_PRESETS]
 
 
 @router.get("/llm/health", response_model=LlmHealthResponse)

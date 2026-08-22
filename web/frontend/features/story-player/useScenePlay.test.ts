@@ -17,6 +17,7 @@ import {
   rewindPlaySession,
   setPresence as apiSetPresence,
   updateScenario,
+  getScenePresets,
 } from "@/lib/api";
 import type { MomentStreamFrame, SessionHistory, TurnStreamFrame } from "@/lib/events";
 import {
@@ -45,6 +46,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   getLlmContextWindow: vi.fn(async () => ({ maxContextTokens: 16384, source: "configured" as const })),
   postSceneMoment: vi.fn(),
   updateScenario: vi.fn(async () => ({}) as never),
+  getScenePresets: vi.fn(async () => []),
 }));
 
 /** Build a mock async generator that yields the given frames then completes. */
@@ -1559,5 +1561,93 @@ describe("useScenePlay — pinned versus per-turn scene controls", () => {
       continuation: true,
       overrides: { maxTurns: 2 },
     });
+  });
+});
+
+describe("useScenePlay — scene presets", () => {
+  const PRESETS = [
+    {
+      id: "interrogation",
+      label: "Interrogation",
+      blurb: "Two beats a message.",
+      values: { maxTurns: 2, suggestionsCount: 3, beatLength: "medium" as const },
+    },
+  ];
+
+  beforeEach(() => {
+    vi.mocked(updateScenario).mockClear();
+    vi.mocked(getScenePresets).mockResolvedValue(PRESETS);
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  async function ready() {
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.presets.length).toBe(1));
+    return result;
+  }
+
+  it("applies every bundled value in ONE call, and records the id", async () => {
+    const result = await ready();
+    act(() => result.current.applyPreset("interrogation"));
+
+    expect(vi.mocked(updateScenario)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(scenario.id, {
+      scenePreset: "interrogation",
+      maxTurns: 2,
+      suggestionsCount: 3,
+      beatLength: "medium",
+    });
+    expect(result.current.presetState).toBe("clean");
+  });
+
+  it("reads as modified once a control is moved, and the reset restores it", async () => {
+    const result = await ready();
+    act(() => result.current.applyPreset("interrogation"));
+    act(() => result.current.setMaxTurns(9));
+
+    expect(result.current.presetState).toBe("modified");
+    // The id is deliberately NOT cleared on a manual change — clearing it would discard
+    // the very thing the reset returns to.
+    expect(result.current.scenePreset).toBe("interrogation");
+
+    act(() => result.current.applyPreset("interrogation"));
+    expect(result.current.presetState).toBe("clean");
+    expect(result.current.maxTurns).toBe(2);
+  });
+
+  it("Custom clears the id without touching a value", async () => {
+    const result = await ready();
+    act(() => result.current.applyPreset("interrogation"));
+    vi.mocked(updateScenario).mockClear();
+
+    act(() => result.current.applyPreset(null));
+
+    expect(result.current.scenePreset).toBeNull();
+    expect(result.current.presetState).toBe("none");
+    expect(result.current.maxTurns).toBe(2); // unchanged
+    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(scenario.id, { scenePreset: null });
+  });
+
+  it("drops a pending per-turn override when a preset is applied", async () => {
+    // Leaving one would have the next turn silently contradict the preset just chosen.
+    const result = await ready();
+    act(() => result.current.setPinned("maxTurns", false));
+    act(() => result.current.setMaxTurns(1));
+    expect(result.current.turnOverrides).toEqual({ maxTurns: 1 });
+
+    act(() => result.current.applyPreset("interrogation"));
+    expect(result.current.turnOverrides).toEqual({});
+  });
+
+  it("leaves the scene fully usable when the preset fetch fails", async () => {
+    vi.mocked(getScenePresets).mockRejectedValueOnce(new Error("offline"));
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.reveal).toBe(true), { timeout: 4000 });
+
+    expect(result.current.presets).toEqual([]);
+    expect(result.current.presetState).toBe("none");
+    act(() => result.current.setMaxTurns(4));
+    expect(result.current.maxTurns).toBe(4);
   });
 });

@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from app.schemas.base import CamelModel
+from app.schemas.base import BeatLength, CamelModel
 
 
 #: How much of a turn's thinking the player sees.
@@ -278,3 +278,27 @@ class MediaCleanupResponse(CamelModel):
     deleted_count: int
     freed_bytes: int
     skipped_recent_count: int
+
+
+class ScenePresetValues(CamelModel):
+    """The play controls one preset sets. Mirrors the bounds ``ScenarioUpdate`` enforces —
+    the test that every preset validates against ``ScenarioUpdate`` is what keeps the two
+    honest, rather than a second copy of the numbers."""
+
+    max_turns: int
+    suggestions_count: int
+    beat_length: BeatLength
+
+
+class ScenePresetRead(CamelModel):
+    """One entry of ``GET /options/scene-presets``.
+
+    ``blurb`` names the **trade**, not the numbers: the numbers are visible in the controls
+    directly beneath it in the popover, and repeating them in prose tells the reader only
+    what they can already see.
+    """
+
+    id: str
+    label: str
+    blurb: str
+    values: ScenePresetValues

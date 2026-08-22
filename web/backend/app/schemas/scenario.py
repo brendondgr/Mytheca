@@ -6,6 +6,7 @@ from typing import Literal
 
 from pydantic import Field, field_validator
 
+from app.content.scene_presets import SCENE_PRESET_IDS
 from app.schemas.base import BeatLength, BranchTag, CamelModel
 
 
@@ -18,6 +19,11 @@ class Branch(CamelModel):
 
 #: How the transcript window is chosen. ``None`` reads as ``"auto"``.
 ContextPolicy = Literal["auto", "fixed"]
+
+#: The named scene presets, built from the catalogue rather than retyped — a fifth preset is
+#: then a one-line change in ``content/scene_presets`` and cannot drift from the schema that
+#: validates it. ``None`` is *Custom*, and is the default.
+ScenePresetId = Literal[SCENE_PRESET_IDS]  # type: ignore[valid-type]
 
 
 class SceneVerb(CamelModel):
@@ -61,6 +67,10 @@ class ScenarioBase(CamelModel):
     context_beats: int = Field(default=14, ge=5, le=100)
     context_policy: ContextPolicy | None = None
     beat_length: BeatLength = "medium"
+    # The preset the controls above were last set from, or ``None`` for *Custom*. Validated
+    # against the known ids for the same reason ``beat_length`` is a ``Literal``: an unknown
+    # value should be a 422 here, not a label the UI silently fails to resolve later.
+    scene_preset: ScenePresetId | None = None
     # Per-scenario writing-prompt overrides ({registry key -> prompt text}) — override the
     # storyline's prompts for this scene only.
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
@@ -92,6 +102,7 @@ class ScenarioUpdate(CamelModel):
     context_beats: int | None = Field(default=None, ge=5, le=100)
     context_policy: ContextPolicy | None = None
     beat_length: BeatLength | None = None
+    scene_preset: ScenePresetId | None = None
     direction_verbs: list[SceneVerb] | None = Field(default=None, max_length=8)
     prompt_overrides: dict[str, str] | None = None
     image: str | None = None
@@ -114,6 +125,7 @@ class ScenarioRead(CamelModel):
     context_beats: int = 14
     context_policy: ContextPolicy | None = None
     beat_length: BeatLength = "medium"
+    scene_preset: ScenePresetId | None = None
     direction_verbs: list[SceneVerb] = Field(default_factory=list)
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
     image: str | None = None

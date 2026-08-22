@@ -5,6 +5,10 @@ import { SceneControlSelect } from "@/components/ui/SceneControlSelect";
 import type { SceneMemory } from "@/features/story-player/turn-stream";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { BEAT_LENGTHS, BEAT_LENGTH_LABELS, type BeatLength } from "@/lib/types";
+import type { ScenePreset } from "@/lib/api";
+
+/** The "no preset" option. A real, selectable value, not an absence the player has to infer. */
+const CUSTOM = "__custom__";
 
 const MAX_TURN_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const SUGGESTION_OPTIONS = [0, 1, 2, 3, 4];
@@ -148,6 +152,10 @@ export function SceneConfigMenu({
   secondsPerBeat,
   pinned = { maxTurns: true, suggestionsCount: true, beatLength: true },
   onPinnedChange,
+  presets = [],
+  scenePreset = null,
+  presetState = "none",
+  onPresetChange,
   openUp = false,
   disabled = false,
 }: {
@@ -175,12 +183,23 @@ export function SceneConfigMenu({
    */
   pinned?: Record<SceneControlKey, boolean>;
   onPinnedChange?: (key: SceneControlKey, pinned: boolean) => void;
+  /**
+   * The named scene presets. Empty (the default, and what a failed fetch leaves) hides the
+   * picker entirely — every underlying control stays exactly where it was.
+   */
+  presets?: ScenePreset[];
+  /** The preset the controls were last set from, or `null` for Custom. */
+  scenePreset?: string | null;
+  /** Whether the live values still match the named preset. */
+  presetState?: "none" | "clean" | "modified";
+  onPresetChange?: (id: string | null) => void;
   /** Open the popover upward (for the bottom-of-screen composer). */
   openUp?: boolean;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const unpinnedCount = Object.values(pinned).filter((p) => !p).length;
+  const active = presets.find((p) => p.id === scenePreset) ?? null;
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
@@ -243,6 +262,43 @@ export function SceneConfigMenu({
           <Eyebrow tracking="0.16em" color="var(--accent)">
             Scene configuration
           </Eyebrow>
+
+          {/* The preset picker sits ABOVE the individual controls, because it answers the
+              question a player actually has ("what kind of scene do I want") while the
+              controls answer the one they have to be taught to ask. It renders only when a
+              catalogue arrived — a failed fetch leaves everything below untouched. */}
+          {presets.length > 0 ? (
+            <section
+              aria-label="Scene preset"
+              className="flex flex-col gap-[5px] border-b border-field-bd pb-[11px]"
+            >
+              <SceneControlSelect
+                label="What kind of scene this is"
+                value={scenePreset ?? CUSTOM}
+                options={[
+                  { value: CUSTOM, label: "Custom" },
+                  ...presets.map((p) => ({ value: p.id, label: p.label })),
+                ]}
+                onChange={(v) => onPresetChange?.(v === CUSTOM ? null : v)}
+                help={active?.blurb ?? "Set each control below yourself."}
+                scopeNote={presetState === "modified" ? "· modified" : undefined}
+                disabled={disabled || !onPresetChange}
+                className="w-full [&_select]:w-full"
+              />
+              {/* Reversibility. Offered only once the scene has actually drifted, because a
+                  reset with nothing to undo is a button that does nothing. */}
+              {presetState === "modified" && scenePreset ? (
+                <button
+                  type="button"
+                  onClick={() => onPresetChange?.(scenePreset)}
+                  disabled={disabled}
+                  className="self-start rounded-[6px] border border-field-bd px-[8px] py-[4px] font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase hover:border-accent hover:text-accent disabled:opacity-50"
+                >
+                  Reset to {active?.label ?? "preset"}
+                </button>
+              ) : null}
+            </section>
+          ) : null}
 
           {/* Each row states its EFFECT, and its cost where there is an honest number. A
               label alone tells a player what a setting is called; it never tells them what

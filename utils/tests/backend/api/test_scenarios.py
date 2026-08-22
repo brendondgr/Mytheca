@@ -259,3 +259,49 @@ def test_context_beats_still_validates_even_though_it_is_fixed_mode_only(
             json={"title": "Bad", "contextBeats": bad},
         )
         assert resp.status_code == 422
+
+
+def test_scene_preset_round_trips(client, storyline_id):
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios", json={"title": "Preset"}
+    ).json()["id"]
+    assert client.get(f"/api/scenarios/{scid}").json()["scenePreset"] is None
+
+    client.patch(f"/api/scenarios/{scid}", json={"scenePreset": "slow_burn"})
+    assert client.get(f"/api/scenarios/{scid}").json()["scenePreset"] == "slow_burn"
+
+    # Custom clears it without touching any value.
+    before = client.get(f"/api/scenarios/{scid}").json()
+    client.patch(f"/api/scenarios/{scid}", json={"scenePreset": None})
+    after = client.get(f"/api/scenarios/{scid}").json()
+    assert after["scenePreset"] is None
+    assert (after["maxTurns"], after["suggestionsCount"], after["beatLength"]) == (
+        before["maxTurns"],
+        before["suggestionsCount"],
+        before["beatLength"],
+    )
+
+
+def test_an_unknown_scene_preset_is_rejected(client, storyline_id):
+    """A 422 here, not a label the UI silently fails to resolve later."""
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios", json={"title": "Preset"}
+    ).json()["id"]
+    assert client.patch(f"/api/scenarios/{scid}", json={"scenePreset": "vibes"}).status_code == 422
+
+
+def test_the_controls_stay_authoritative_after_a_preset_is_named(client, storyline_id):
+    """`scenePreset` records intent, not truth — moving a control leaves it set, which is
+    exactly what lets the UI say "modified" and offer a reset."""
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios", json={"title": "Preset"}
+    ).json()["id"]
+    client.patch(
+        f"/api/scenarios/{scid}",
+        json={"scenePreset": "interrogation", "maxTurns": 2, "beatLength": "medium"},
+    )
+    client.patch(f"/api/scenarios/{scid}", json={"maxTurns": 7})
+
+    row = client.get(f"/api/scenarios/{scid}").json()
+    assert row["maxTurns"] == 7
+    assert row["scenePreset"] == "interrogation"

@@ -21,6 +21,7 @@ import type {
 } from "@/lib/events";
 import type {
   AgentEditFrame,
+  BeatLength,
   AgentMessage,
   Character,
   ContextDocument,
@@ -1181,6 +1182,20 @@ export const testLlmConnection = (body: {
 export const getLlmBackend = () => request<LlmBackendInfo>("/options/llm/backend");
 export const getLlmContextWindow = () =>
   request<LlmContextWindow>("/options/llm/context-window");
+
+/**
+ * A named point in the space the scene controls already describe. `blurb` names the trade,
+ * not the numbers — those are visible in the controls directly beneath it.
+ */
+export interface ScenePreset {
+  id: string;
+  label: string;
+  blurb: string;
+  values: { maxTurns: number; suggestionsCount: number; beatLength: BeatLength };
+}
+
+export const getScenePresets = () =>
+  request<ScenePreset[]>("/options/scene-presets");
 export const updatePromptsConfig = (body: PromptsConfigUpdate) =>
   patch<PromptsConfig>("/options/prompts", body);
 

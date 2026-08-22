@@ -529,6 +529,12 @@ Options page (/options) → lib/api.ts → GET/PATCH /api/options
   → Image Generation tab: GET /api/options/comfy/workflows · POST /api/options/comfy/status
       → comfyui client → {baseUrl}/system_stats (status); the full generate
         pipeline (POST /prompt → WebSocket wait → /history → /view) is server-side
+  → Story player, on mount: GET /api/options/scene-presets (best-effort — a failure leaves
+      the picker unrendered and every underlying control exactly where it was)
+      → picking one is a single PATCH /api/scenarios/{id} carrying maxTurns +
+        suggestionsCount + beatLength + scenePreset. The controls stay authoritative;
+        scenePreset records INTENT, so moving one afterwards reads as "modified" and the
+        reset re-applies the named values.
   → Prompts tab: PATCH /api/options/prompts
       → settings_store.set_prompts_overrides (PROMPTS_KEY namespace, registry-key gated;
         blank value clears a key) → folded into TurnContext.prompts each turn

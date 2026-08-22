@@ -68,6 +68,13 @@ class Scenario(Base):
     # ``context_beats`` below, which is otherwise ignored. Nullable, so the additive
     # reconciler adds it with a plain ADD COLUMN and no Alembic migration is required.
     context_policy: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    # The named preset the play controls above were last set from
+    # (``content/scene_presets``), or NULL for *Custom*. It records the player's INTENT, not
+    # a source of truth: the controls stay authoritative, and moving one leaves this set so
+    # the UI can say "modified" and offer a reset. Nullable, so the additive reconciler adds
+    # it with a plain ADD COLUMN and no Alembic migration is required — deliberately with no
+    # ``server_default``, because "no preset" is a real and common state.
+    scene_preset: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     # The scene's OWN one-tap direction verbs, appended to the built-in bar's groups.
     # ``[{"label", "group", "text"}]``. Nullable (older rows read as none), so
     # ``core/bootstrap._reconcile_additive_columns`` adds it with a plain ADD COLUMN and no
