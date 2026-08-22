@@ -195,6 +195,57 @@ def replay_stats(db: Session, session_id: str, character_ids: list[str] | None =
     return [f"{cid}:{key}" for (cid, key) in latest]
 
 
+#: Beat types whose prose the player may rewrite. Everything else is either machinery
+#: (``state_update``, ``branch_choices``, ``character_status_change``) or a derived artefact
+#: the text does not own (``scene_image`` — its caption is editable, its prose is not).
+#: ``internal_thought`` is editable too: it is a beat the player reads, and a slip in one is
+#: as visible as a slip in speech.
+EDITABLE_TYPES = frozenset(
+    {
+        "narration",
+        "character_prose",
+        "character_dialogue",
+        "character_action",
+        "internal_thought",
+        "user_turn",
+    }
+)
+
+
+def edit_beat(db: Session, session_id: str, event_id: str, text: str) -> Event:
+    """Rewrite one beat's prose in place, then rebuild the buffer.
+
+    The rebuild is the point. Without it the model keeps reading the **old** wording out of
+    Redis while the player reads the new one — the exact class of silent divergence this
+    module exists to prevent, and one that would surface as the cast reacting to a line that
+    is no longer on screen.
+
+    Editing a ``user_turn`` is allowed for **any** player line, not just the most recent. The
+    row is rewritten and play continues from wherever the player sends next; discarding what
+    followed is what rewind is for, and conflating the two would make every edit destructive.
+    """
+    row = db.get(Event, event_id)
+    if row is None or row.session_id != session_id:
+        raise APIError(404, "invalid_reference", "Unknown beat for this play-through.")
+    if row.type not in EDITABLE_TYPES:
+        raise APIError(
+            422,
+            "unprocessable",
+            f"A {row.type.replace('_', ' ')} beat has no prose to edit.",
+            {"type": row.type},
+        )
+    data = dict(row.data) if isinstance(row.data, dict) else {}
+    data["text"] = text
+    #: Marks the row as player-authored, so an export or a later reader can tell the
+    #: difference between what the model wrote and what the player rewrote.
+    data["editedByPlayer"] = True
+    row.data = data
+    db.commit()
+    db.refresh(row)
+    rebuild_buffer(db, session_id)
+    return row
+
+
 def prune_graph_events(session_id: str, removed_turn_seqs: list[int]) -> None:
     """Drop the ``:Event`` node each cut turn wrote. Best-effort; a disabled Neo4j no-ops."""
     for turn_seq in removed_turn_seqs:

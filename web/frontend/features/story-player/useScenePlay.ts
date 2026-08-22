@@ -647,6 +647,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     renamePlaythrough: record.renamePlaythrough,
     deletePlaythrough: record.deletePlaythrough,
     branchFrom: record.branchFrom,
+    editBeatText: record.editBeatText,
     rewindTo: record.rewindTo,
     rewound: record.rewound,
     clearRewound: record.clearRewound,

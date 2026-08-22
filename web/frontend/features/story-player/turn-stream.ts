@@ -404,6 +404,29 @@ export interface RehydratedScene {
  * per-character map (each cast member's persisted starting stats) so a stat never touched
  * by a persisted event still reads as that real value, not the schema default.
  */
+/**
+ * Replace one beat's prose by its event id.
+ *
+ * Lives here, beside `mergeFrame` and `rehydrateFromHistory`, so live, rehydrated and edited
+ * transcripts all move through the same module rather than the editor growing its own idea
+ * of what a beat is.
+ */
+export function replaceBeatText(
+  messages: SceneMessage[],
+  eventId: string,
+  text: string,
+): SceneMessage[] {
+  let changed = false;
+  const next = messages.map((m) => {
+    if (m.id !== eventId) return m;
+    changed = true;
+    return { ...m, text };
+  });
+  // Returning the original array when nothing matched keeps React from re-rendering the
+  // whole transcript for an id that is not in it.
+  return changed ? next : messages;
+}
+
 export function rehydrateFromHistory(
   events: PersistedEvent[],
   traces: PersistedTrace[],

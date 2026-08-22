@@ -187,6 +187,18 @@ class RewindResponse(CamelModel):
     restored_turn: RestoredTurn | None = None
 
 
+class BeatEditRequest(CamelModel):
+    """Rewrite one beat's prose.
+
+    Allowed on any beat that *has* prose — narration, a character's passage, and the player's
+    own lines. Machinery beats (a stat change, a set of choices) have nothing to rewrite and
+    are refused with a 422 rather than silently ignored.
+    """
+
+    text: str
+    expected_seq: int | None = None
+
+
 class SessionListResponse(CamelModel):
     sessions: list[SessionSummary]
 

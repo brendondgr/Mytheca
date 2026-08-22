@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import type { RefObject } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 import {
   branchPlaySession,
   closePlaySession,
@@ -9,6 +9,7 @@ import {
   deletePlaySession,
   getSessionHistory,
   listPlaySessions,
+  editBeat,
   renamePlaySession,
   rewindPlaySession,
 } from "@/lib/api";
@@ -16,6 +17,7 @@ import type { SessionSummary } from "@/lib/events";
 import type { ResolvedScenario } from "@/lib/types";
 import { buildScene, type SceneChoice, type SceneMessage, type StatChip } from "./scene-data";
 import {
+  replaceBeatText,
   latestContextTokens,
   latestPov,
   rehydrateFromHistory,
@@ -33,7 +35,8 @@ import { mostRecent } from "./playthroughs";
  * re-implementing "replace the transcript" slightly differently.
  */
 export interface SceneWriters {
-  setMessages: (m: SceneMessage[]) => void;
+  /** Accepts an updater, so an optimistic edit can read the current transcript. */
+  setMessages: Dispatch<SetStateAction<SceneMessage[]>>;
   setStats: (s: StatChip[]) => void;
   setStatsByChar: (s: Record<string, StatChip[]>) => void;
   setPresenceByChar: (p: PresenceMap) => void;
@@ -276,8 +279,41 @@ export function useSessionRecord({
     [scenario.id, loadSession, refreshSessions, sessionRef],
   );
 
+  /**
+   * Rewrite one beat's prose.
+   *
+   * Optimistic: the new wording lands in the transcript immediately and is rolled back if the
+   * write fails. An edit is a small, local, obviously-reversible change — making the player
+   * watch a spinner for it would be worse than the rare revert.
+   */
+  const editBeatText = useCallback(
+    async (eventId: string, text: string) => {
+      const sid = sessionRef.current;
+      if (!sid || sendingRef.current) return;
+      let previous: SceneMessage[] = [];
+      apply.setMessages((current) => {
+        previous = current;
+        return replaceBeatText(current, eventId, text);
+      });
+      try {
+        await editBeat(scenario.id, sid, eventId, {
+          text,
+          expectedSeq: latestSeqRef.current ?? undefined,
+        });
+      } catch (err) {
+        apply.setMessages(() => previous);
+        apply.notify({
+          message: err instanceof Error ? err.message : "That edit could not be saved.",
+          variant: "error",
+        });
+      }
+    },
+    [scenario.id, apply, sessionRef],
+  );
+
   return {
     sessions,
+    editBeatText,
     refreshSessions,
     loadSession,
     openSession,

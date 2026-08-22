@@ -17,6 +17,7 @@ import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader
 import { CastRail } from "@/components/feature/CastRail";
 import { PlaythroughTray } from "@/components/feature/PlaythroughTray";
 import { BeatControls } from "@/components/feature/BeatControls";
+import { BeatEditor } from "@/components/feature/BeatEditor";
 import { RewindNotice } from "@/components/feature/RewindNotice";
 import { GraphView } from "@/components/feature/GraphView";
 import { DirectorRail } from "@/components/feature/DirectorRail";
@@ -67,6 +68,10 @@ function beatLabel(m: SceneMessage, byId: (id: string) => Character | undefined)
  */
 const CHARACTER_PHASES = new Set(["thinking", "speaking", "acting"]);
 
+/** Beat kinds whose prose the player can rewrite. A picture and a set of choices
+ *  have no words of their own to edit. */
+const EDITABLE_BEATS = new Set(["narrator", "char", "player"]);
+
 export function StoryPlayerView({
   scenario,
   statDefs = [],
@@ -109,6 +114,8 @@ export function StoryPlayerView({
     [scene],
   );
   const [modalId, setModalId] = useState<string | null>(null);
+  // The beat currently open in the inline editor (its event id), or null.
+  const [editingId, setEditingId] = useState<string | null>(null);
   // The transcript scene image currently enlarged (null = the lightbox is closed).
   const [lightbox, setLightbox] = useState<SceneImage | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -232,12 +239,24 @@ export function StoryPlayerView({
                       <BeatControls
                         label={beatLabel(m, byId)}
                         rewindBeatCount={scene.messages.length - turnStartIndex(scene.messages, i)}
+                        onEdit={EDITABLE_BEATS.has(m.kind) ? () => setEditingId(m.id!) : undefined}
                         onBranch={() => void scene.branchFrom(m.id!)}
                         onRewind={() => void scene.rewindTo(m.id!)}
                         disabled={scene.sending}
                       />
                     </span>
                   ) : null}
+                  {editingId && editingId === m.id ? (
+                    <BeatEditor
+                      initialText={m.text ?? ""}
+                      label={beatLabel(m, byId)}
+                      onSave={(text) => {
+                        void scene.editBeatText(m.id!, text);
+                        setEditingId(null);
+                      }}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  ) : (
                   <TranscriptBeat
                     message={m}
                     charById={byId}
@@ -248,6 +267,7 @@ export function StoryPlayerView({
                     streaming={scene.sending && i === scene.messages.length - 1}
                     reasoningByChar={scene.reasoningByChar}
                   />
+                  )}
                 </motion.div>
               ))}
               {/* What the turn is doing, while it is being written. Sits in the same slot

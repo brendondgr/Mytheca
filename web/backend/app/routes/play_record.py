@@ -23,7 +23,9 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.models import Event
 from app.schemas.play import (
+    BeatEditRequest,
     BranchRequest,
+    PersistedEvent,
     RestoredTurn,
     RewindRequest,
     RewindResponse,
@@ -201,3 +203,24 @@ def rewind_play_session(
         snapshot_session_id=snapshot_id,
         restored_turn=restored,
     )
+
+
+@router.patch(
+    "/{scenario_id}/sessions/{session_id}/beats/{event_id}", response_model=PersistedEvent
+)
+def edit_beat(
+    scenario_id: str,
+    session_id: str,
+    event_id: str,
+    data: BeatEditRequest,
+    db: Session = Depends(get_db),
+) -> Event:
+    """Rewrite one beat's prose — a character's line, the narration, or the player's own.
+
+    The cheapest of the record operations and the one that most needs the buffer rebuild:
+    without it the cast would go on reading the old wording out of Redis while the player
+    reads the new one.
+    """
+    events_store.get_session(db, scenario_id, session_id)
+    session_state.require_expected_seq(db, session_id, data.expected_seq)
+    return session_state.edit_beat(db, session_id, event_id, data.text)

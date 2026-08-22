@@ -4,6 +4,14 @@ import { describe, it, expect, vi } from "vitest";
 import { BeatControls } from "./BeatControls";
 
 describe("BeatControls", () => {
+  it("edits on one click — it removes nothing", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    render(<BeatControls onEdit={onEdit} label="Mei's beat" />);
+    await user.click(screen.getByRole("button", { name: /edit mei's beat/i }));
+    expect(onEdit).toHaveBeenCalled();
+  });
+
   it("renders nothing when no action is available", () => {
     const { container } = render(<BeatControls />);
     expect(container).toBeEmptyDOMElement();

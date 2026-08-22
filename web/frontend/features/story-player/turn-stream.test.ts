@@ -9,6 +9,7 @@ import type {
 } from "@/lib/events";
 import type { SceneMessage, StatChip } from "./scene-data";
 import {
+  replaceBeatText,
   NARRATOR_REASONING,
   NO_DIRECTION,
   applyDirection,
@@ -1055,5 +1056,32 @@ describe("pending beats (the wait has a place to live)", () => {
   it("returns the same reference when there is nothing to drop", () => {
     const msgs: SceneMessage[] = [{ kind: "narrator", id: "n1", text: "Rain." }];
     expect(dropPendingBeats(msgs)).toBe(msgs);
+  });
+});
+
+describe("replaceBeatText", () => {
+  const beat = (id: string, text: string): SceneMessage => ({ kind: "char", who: "mei", id, text });
+
+  it("rewrites the matching beat and leaves the rest alone", () => {
+    const messages = [beat("a", "one"), beat("b", "two"), beat("c", "three")];
+    const next = replaceBeatText(messages, "b", "rewritten");
+    expect(next.map((m) => m.text)).toEqual(["one", "rewritten", "three"]);
+  });
+
+  it("returns the same array when the id is not in the transcript", () => {
+    // Identity matters: a new array would re-render the whole transcript for nothing.
+    const messages = [beat("a", "one")];
+    expect(replaceBeatText(messages, "missing", "x")).toBe(messages);
+  });
+
+  it("does not mutate the beat it replaces", () => {
+    const messages = [beat("a", "one")];
+    replaceBeatText(messages, "a", "two");
+    expect(messages[0].text).toBe("one");
+  });
+
+  it("can rewrite the player's own line", () => {
+    const messages: SceneMessage[] = [{ kind: "player", id: "u0", text: "what I said" }];
+    expect(replaceBeatText(messages, "u0", "what I meant")[0].text).toBe("what I meant");
   });
 });

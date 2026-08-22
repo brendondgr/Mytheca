@@ -399,6 +399,18 @@ export const rewindPlaySession = (
   body: { atEventId: string; keepSnapshot?: boolean; expectedSeq?: number },
 ) => post<RewindResult>(`/play/${scenarioId}/sessions/${sessionId}/rewind`, body);
 
+/**
+ * Rewrite one beat's prose — a character's line, the narration, or the player's own. The
+ * server rebuilds the recent-turn buffer, so the cast reads the new wording on the next turn
+ * rather than the old one out of Redis.
+ */
+export const editBeat = (
+  scenarioId: string,
+  sessionId: string,
+  eventId: string,
+  body: { text: string; expectedSeq?: number },
+) => patch<PersistedEvent>(`/play/${scenarioId}/sessions/${sessionId}/beats/${eventId}`, body);
+
 /** Delete a play-through and its history (events + traces cascade server-side). */
 export const deletePlaySession = (scenarioId: string, sessionId: string) =>
   del(`/play/${scenarioId}/sessions/${sessionId}`);

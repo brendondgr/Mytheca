@@ -15,12 +15,15 @@ import { useState } from "react";
  * costs a single click.
  */
 export function BeatControls({
+  onEdit,
   onBranch,
   onRewind,
   rewindBeatCount,
   disabled = false,
   label = "this beat",
 }: {
+  /** Rewrite this beat's prose. Omit for a beat that has none (a stat change, choices). */
+  onEdit?: () => void;
   /** Fork the play-through here, leaving the original intact. Omit to hide. */
   onBranch?: () => void;
   /** Cut the play-through back to here. Omit to hide. */
@@ -34,7 +37,7 @@ export function BeatControls({
 }) {
   const [confirming, setConfirming] = useState(false);
 
-  if (!onBranch && !onRewind) return null;
+  if (!onEdit && !onBranch && !onRewind) return null;
 
   if (confirming && onRewind) {
     return (
@@ -67,6 +70,18 @@ export function BeatControls({
 
   return (
     <span className="flex items-center gap-[2px] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+      {onEdit ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={disabled}
+          aria-label={`Edit ${label}`}
+          title="Edit — rewrite this beat's words; nothing after it is lost"
+          className="flex h-[24px] w-[24px] items-center justify-center rounded-[3px] text-[11px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <span aria-hidden>✎</span>
+        </button>
+      ) : null}
       {onBranch ? (
         <button
           type="button"
