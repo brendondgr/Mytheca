@@ -1,5 +1,86 @@
 # Control Over the Record
 
+> **STATUS: COMPLETE — 12/12 phases, 2026-08-22.** Implemented in commit series
+> `09cc82e … 5290c41` on branch `play-experience`. The record below is what actually
+> shipped and where it differs from the plan; the phases that follow are kept as the
+> specification they were built from.
+
+## What shipped, and why
+
+The scenario stopped having exactly one silently-resumed play-through, and the transcript
+stopped being append-only. Concretely, a player can now:
+
+| Do | How it works |
+| --- | --- |
+| Keep several stories per scene | `PlaythroughTray` over `GET/POST/PATCH/DELETE …/sessions`. The client no longer reads `sessions[0]`. |
+| Fork at any beat | `POST …/branch` — copies history through the **end of the containing turn** with fresh ids and the **same seqs**; the source is untouched. |
+| Cut back and carry on | `POST …/rewind` — cuts at a **turn boundary**, keeps the pre-cut history as its own play-through (undo is a tray row, not soft-deletion), and hands the player's own line back **with its direction and attachments**. |
+| Rewrite any beat, theirs included | `PATCH …/beats/{id}` — and the Redis buffer is rebuilt, so the cast reads what the player reads. |
+| Ask for a different line | `POST …/beats/{id}/reroll` — streams into the **same event id and seq**, keeps the previous wording as a take behind a pager. |
+| Let the scene run | `continuation: true` with no text — no buffer push, no `turn_beats` seed, **no intent call**. |
+| Have their line drafted | `POST …/ghostwrite/stream` — persists **nothing** until they send. |
+
+Two decisions shaped everything else. **Takes live inside the beat's own row**, never as extra
+events: a second row needs a `seq`, which would break `UNIQUE (session_id, seq)` or poison the
+ordering. And **history mutation goes through one module** (`session_state`), because rewind,
+branch, edit and re-roll are the same three operations — cut rows, re-derive, rebuild caches —
+and four implementations would drift silently.
+
+## How the engine had to change
+
+`turn_engine.py` was 1,986 lines with a ~800-line `run_turn`. It now defines exactly two things
+and calls out to seven modules — `turn_setup` · `beat_runner` · `beat_stream` · `turn_effects` ·
+`turn_emit` · `direction_runtime` · `turn_finalize` — acyclic, one-directional, none over 800
+lines. That split is what made a single-beat re-run possible at all: `LiveSegment` gained a
+**replace mode** (stream into an existing id/seq, update the row instead of inserting), and
+`replace` threads down as a per-type mapping.
+
+## Where this deviated from the plan
+
+- **Alembic migrations were required.** The plan said additive-nullable columns needed none
+  because the bootstrap reconciler self-heals. `test_alembic.py` enforces Alembic ≡ `create_all`,
+  and Alembic is authoritative. Two migrations written.
+- **A 12th phase was inserted**: session-scoped stat values (owner decision D-1), ahead of
+  `session_state`, because it changes what "roll the stats back" means. With session scope, rewind
+  replays surviving `state_update` rows onto the authored baseline — no per-event provenance, and
+  correct for rows written before any of this. The `StatPatch.fromValue` scheme the plan was built
+  around was not needed.
+- **Phases 9 and 10 were swapped** (Continue before re-roll): smaller, and it owns the
+  `validate_turn_inputs` relaxation the Steering plan consumes.
+- **Scene-image re-roll/delete was NOT built.** Phase 9's title claimed it; only the prose seam
+  landed. Recorded in `docs/checklist.md` and handed to `making-it-legible.md` Phase 11.
+- **`useScenePlay` was split** into `useSessionRecord` when it passed 800 lines, re-exporting its
+  surface unchanged so no other plan needs a rebase.
+
+## Defects found by building it
+
+Each was caught by a test or a live run, not by reading:
+
+1. A blanket underscore-strip made `runaway_chars = runaway_chars(...)` self-referential — 82 tests.
+2. `delete_session` relied on an FK cascade SQLite does not enforce, so dev accumulated orphan rows.
+3. `rehydrateFromHistory` dropped the event id on player beats, so the player's own line could not
+   be targeted — the exact thing the owner asked for.
+4. `record_take` read `data.text` *after* the stream, which had already overwritten it — the
+   original take was silently lost.
+5. A re-roll **re-applied** the beat's consequences: a fresh `state_update` row each time and the
+   character's stats drifting further on every re-roll.
+6. A re-roll **appended** the accompanying `internal_thought`, stacking a stale thought beside the
+   new line it no longer explained.
+7. The first stat design gated the *starting* value on `carry_over`, discarding the authored
+   starting stats world population writes.
+
+## Validation
+
+1381 backend and 940 frontend tests (from 1253 / 850), typecheck clean, lint 0 errors, frontend
+CSS gate passing. Every phase was also exercised against the running app — real Postgres, real
+Redis, real generations on the local `skynet` relay — including a two-turn play-through branched
+and rewound, an edit whose new wording was confirmed *in the live Redis buffer*, a beat re-rolled
+three times with the transcript shape byte-identical, and a ghostwritten line drafted from a
+plain-English note.
+
+---
+
+
 ## 1. Introduction
 
 Today a Mytheca scenario has exactly one play-through — `useScenePlay.ts:249` calls
