@@ -8,11 +8,16 @@ already points at the configured provider.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.app_setting import AppSetting
+from app.content import art_styles
+from app.content.art_styles import ArtStyle
 from app.schemas.settings import (
+    ArtStyleRead,
     ComfyConfigRead,
     ComfyConfigUpdate,
     ComfyParams,
@@ -156,11 +161,46 @@ def _comfy_defaults() -> dict:
         "baseUrl": s.comfyui_base_url,
         "workflow": "ZiT-Workflow.json",
         "params": ComfyParams().model_dump(by_alias=True),
+        "artStyle": art_styles.DEFAULT_STYLE_ID,
+        # Per-style LoRA overrides, keyed by style id. Empty by default: the catalog's own
+        # defaults are the fallback, so a fresh install renders exactly as it always did.
+        "styleLoras": {},
     }
 
 
 def _comfy_doc(db: Session) -> dict:
     return {**_comfy_defaults(), **_get_row(db, COMFY_KEY)}
+
+
+@dataclass(frozen=True)
+class ResolvedStyle:
+    """A style plus the LoRA it actually renders with, after operator overrides.
+
+    The one answer to "what look, and with which LoRA?" — every render path asks for this
+    and passes ``lora_*`` straight through to :func:`app.services.comfyui.generate`.
+    """
+
+    style: ArtStyle
+    lora_name: str
+    lora_strength: float
+    lora_enabled: bool
+
+
+def _style_lora(doc: dict, style: ArtStyle) -> ResolvedStyle:
+    """Fold this style's stored override (if any) over its catalog defaults."""
+    stored = (doc.get("styleLoras") or {}).get(style.id) or {}
+    name = str(stored.get("loraName", style.default_lora or "") or "").strip()
+    strength = stored.get("loraStrength", style.default_lora_strength)
+    # Enabled defaults to "does the catalog give this style a LoRA at all" — so `anime`
+    # and `photoreal` bypass the node until an operator points them at a file.
+    enabled = stored.get("loraEnabled", bool(style.default_lora))
+    return ResolvedStyle(
+        style=style,
+        lora_name=name,
+        lora_strength=float(strength if strength is not None else style.default_lora_strength),
+        # A style cannot be "enabled" with no file to load.
+        lora_enabled=bool(enabled) and bool(name),
+    )
 
 
 def get_comfy(db: Session) -> ComfyConfigRead:
@@ -169,6 +209,19 @@ def get_comfy(db: Session) -> ComfyConfigRead:
         base_url=doc.get("baseUrl", ""),
         workflow=doc.get("workflow", "ZiT-Workflow.json"),
         params=ComfyParams.model_validate(doc.get("params") or {}),
+        art_style=art_styles.get(doc.get("artStyle")).id,
+        styles=[
+            ArtStyleRead(
+                id=style.id,
+                label=style.label,
+                blurb=style.blurb,
+                lora_name=resolved.lora_name,
+                lora_strength=resolved.lora_strength,
+                lora_enabled=resolved.lora_enabled,
+            )
+            for style in art_styles.catalog()
+            for resolved in (_style_lora(doc, style),)
+        ],
     )
 
 
@@ -180,8 +233,36 @@ def update_comfy(db: Session, data: ComfyConfigUpdate) -> ComfyConfigRead:
         doc["workflow"] = data.workflow
     if data.params is not None:
         doc["params"] = data.params.model_dump(by_alias=True)
+    if data.art_style is not None:
+        # Coerced, not rejected: a stale client naming a retired style falls back to the
+        # default rather than failing the whole settings save.
+        doc["artStyle"] = art_styles.get(data.art_style).id
+    if data.styles is not None:
+        known = set(art_styles.ids())
+        loras = dict(doc.get("styleLoras") or {})
+        for style_id, override in data.styles.items():
+            if style_id not in known:
+                continue
+            entry = dict(loras.get(style_id) or {})
+            patch = override.model_dump(by_alias=True, exclude_none=True)
+            if "loraName" in patch:
+                patch["loraName"] = str(patch["loraName"]).strip()
+            entry.update(patch)
+            loras[style_id] = entry
+        doc["styleLoras"] = loras
     _set_row(db, COMFY_KEY, doc)
     return get_comfy(db)
+
+
+def resolve_art_style(db: Session, style_id: str | None = None) -> ResolvedStyle:
+    """The style to render in: the request's choice, else the stored global default.
+
+    Unknown ids resolve to the default (see ``art_styles.get``) so an image request never
+    fails over a style name.
+    """
+    doc = _comfy_doc(db)
+    chosen = style_id if (style_id or "").strip() else doc.get("artStyle")
+    return _style_lora(doc, art_styles.get(chosen))
 
 
 def resolve_comfy_base_url(db: Session, base_url: str | None) -> str:
