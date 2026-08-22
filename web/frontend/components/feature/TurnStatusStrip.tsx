@@ -47,7 +47,7 @@ export function TurnStatusStrip({
   // Cast lookup → the name the `speaker` trace carried → a neutral stand-in. The middle
   // step matters on a resumed scene, where a character may stream before the cast settles.
   const who = character?.name ?? status.name ?? "Someone";
-  const label = labelFor(status.phase, who);
+  const label = labelFor(status.phase, who, status.planner);
   // The turn is over bar the bookkeeping — nothing more is being written, so dots would
   // promise something that is not coming.
   const showDots = status.phase !== "ending";
@@ -100,7 +100,16 @@ export function TurnStatusStrip({
  * before the first token, which is the longest part of a turn and used to show nothing but
  * the generic fallback below.
  */
-function labelFor(phase: TurnStatus["phase"], who: string): string {
+function labelFor(
+  phase: TurnStatus["phase"],
+  who: string,
+  planner?: TurnStatus["planner"],
+): string {
+  // Planning off: nothing is being worked out, and saying otherwise would make a turn the
+  // player deliberately made fast look like one that is stuck.
+  if (phase === "planning" && planner === "off") {
+    return "The cast answers in order";
+  }
   switch (phase) {
     case "gathering":
       return "Gathering the scene";

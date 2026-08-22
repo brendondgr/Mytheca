@@ -84,7 +84,11 @@ function PinIcon({ filled }: { filled: boolean }) {
 }
 
 /** The three controls a turn may override, keyed as the wire names them. */
-export type SceneControlKey = "maxTurns" | "suggestionsCount" | "beatLength";
+export type SceneControlKey =
+  | "maxTurns"
+  | "suggestionsCount"
+  | "beatLength"
+  | "planner";
 
 /**
  * Short names for the pins. The row captions state a consequence and are far too long to
@@ -94,6 +98,7 @@ const PIN_NAMES: Record<SceneControlKey, string> = {
   maxTurns: "Max turns",
   suggestionsCount: "Suggestions",
   beatLength: "Beat length",
+  planner: "Turn planning",
 };
 
 /**
@@ -147,10 +152,12 @@ export function SceneConfigMenu({
   onSuggestionsCountChange,
   beatLength = "medium",
   onBeatLengthChange,
+  plannerMode = "planner",
+  onPlannerModeChange,
   sceneMemory = null,
   summarised = false,
   secondsPerBeat,
-  pinned = { maxTurns: true, suggestionsCount: true, beatLength: true },
+  pinned = { maxTurns: true, suggestionsCount: true, beatLength: true, planner: true },
   onPinnedChange,
   presets = [],
   scenePreset = null,
@@ -166,6 +173,9 @@ export function SceneConfigMenu({
   /** How much a character says in one beat — short 1–2 ¶, medium 2–4 ¶, long 5–6 ¶. */
   beatLength?: BeatLength;
   onBeatLengthChange?: (value: BeatLength) => void;
+  /** Whether a director reads each moment, or the cast simply answers in order. */
+  plannerMode?: "planner" | "off";
+  onPlannerModeChange?: (value: "planner" | "off") => void;
   /** How far back the last turn reached — reported, not configured. */
   sceneMemory?: SceneMemory | null;
   /** Whether the beats that dropped out were kept as a summary (compaction on). */
@@ -371,6 +381,36 @@ export function SceneConfigMenu({
               to your next message only, then spring back.
             </p>
           ) : null}
+
+          {/* The single largest latency lever a player has, and the copy says what it
+              COSTS rather than only what it saves. Turning planning off is not a quality
+              setting with an upside — it trades a real read of the moment for roughly half
+              a turn's wall clock, and a control that hid that would be lying. */}
+          <SceneControlSelect
+            label="Turn planning"
+            value={plannerMode}
+            options={[
+              { value: "planner", label: "On · a director reads each moment" },
+              { value: "off", label: "Off · the cast answers in order" },
+            ]}
+            onChange={(v) => onPlannerModeChange?.(v as "planner" | "off")}
+            help={
+              plannerMode === "off"
+                ? "Much faster — planning is over half of a turn. Nothing judges the moment: no scene-setting narration between beats, no read of how tense things are, and a character the story has written out stays in the rotation until you remove them from the cast rail."
+                : "A director reads each moment, decides who speaks, sets the scene between beats, and pitches how tense the beat is. It is over half of a turn's time."
+            }
+            action={
+              <PinToggle
+                controlKey="planner"
+                pinned={pinned.planner}
+                onChange={onPinnedChange}
+                disabled={disabled}
+              />
+            }
+            scopeNote={pinned.planner ? undefined : "· this turn"}
+            disabled={disabled || !onPlannerModeChange}
+            className="w-full [&_select]:w-full"
+          />
 
           {/* Read-only. This is what replaced the "Number of beats" slider: the app decides
               the depth, and reports it, instead of asking the player to guess at it. */}

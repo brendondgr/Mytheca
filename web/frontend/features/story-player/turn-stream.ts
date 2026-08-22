@@ -919,6 +919,12 @@ export interface TurnStatus {
    * the label; absent when the engine offered no reason.
    */
   detail?: string;
+  /**
+   * Set to `"off"` while the turn is running the model-free beat order. The strip says so
+   * rather than claiming something is being worked out — a turn that is fast because the
+   * player asked for it to be fast must not read as a turn that is broken.
+   */
+  planner?: "off";
 }
 
 /** Nothing is in flight. Also the reset value between turns. */
@@ -930,7 +936,8 @@ function sameStatus(a: TurnStatus, b: TurnStatus): boolean {
     a.phase === b.phase &&
     a.characterId === b.characterId &&
     a.name === b.name &&
-    a.detail === b.detail
+    a.detail === b.detail &&
+    a.planner === b.planner
   );
 }
 
@@ -996,6 +1003,9 @@ function nextTurnStatus(prev: TurnStatus, frame: TurnStreamFrame): TurnStatus {
     }
     const phase = PHASE_BY_STEP[frame.step];
     if (phase) {
+      if (frame.step === "planning" && frame.data.planner === "off") {
+        return { phase, planner: "off" };
+      }
       return { phase, detail: frame.step === "intent" ? intentReason(frame) : undefined };
     }
     return prev;

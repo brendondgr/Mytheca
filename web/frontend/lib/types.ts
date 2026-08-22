@@ -168,6 +168,12 @@ export interface Scenario {
    */
   scenePreset?: string | null;
   /**
+   * Whether this scene runs the ReAct planner (`"planner"`, and absent/`null` reads as
+   * that) or the model-free scripted beat order (`"off"`). The scene's default; a turn may
+   * still override it.
+   */
+  plannerMode?: "planner" | "off" | null;
+  /**
    * The scene's own one-tap direction verbs, appended to the built-in bar's groups. `label`
    * is the chip, `text` is the phrasing written into the direction box for the player to
    * edit — separate on purpose, since a verb exists to hand them a sentence to argue with

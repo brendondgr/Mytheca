@@ -45,6 +45,21 @@ Verified against the code on 2026-08-04.
   **C-013** stays `unsupported`. n = 1 scene per arm, so this is an existence proof against
   compaction and not a rate — it does not make the claim `refuted` either. Nothing may describe
   compaction as free, or default it on, on this evidence.
+- **Planning off is unmeasured, in both directions.** `plannerMode: "off"` /
+  `overrides.planner: "off"` replaces the ReAct planner with `services/beat_order`. The
+  saving is *inferred* from EXP-2026-08-005's 41 %-of-turn-time figure for the planner, and
+  the quality cost is *argued* from what the mode structurally cannot do (no register, no
+  stakes, no mid-turn narration, no exits). **Neither has been run.** The control's copy
+  states the cost, which is the honest position while it is unmeasured, but nothing may claim
+  a speed-up figure until it is.
+
+  Protocol sketch: an **interleaved A/B inside one process run**, per this file's own rule
+  that day-apart comparisons on this endpoint are worthless — the same scripted lines against
+  the same generated world, alternating `planner` / `off` scene by scene. Report seconds per
+  turn and beats per turn as counts, and treat any prose-quality claim as needing a blinded
+  read or not being made at all (`EXP-2026-08-011` §H3 is the worked example of choosing "not
+  measured" over a rubric invented afterwards). Per-run rows and no aggregate if any scene
+  fails.
 - **`maybe_compact`'s trigger is wrong, and the experiment found it.** The gate tests
   `fit.dropped_beats < block` — beats dropped *in total*, not beats dropped *since the last
   summary* — so once one anchor block has ever fallen out of the window it never closes again

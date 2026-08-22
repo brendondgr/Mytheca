@@ -66,6 +66,8 @@ export function Composer({
   onSuggestionsCountChange,
   beatLength,
   onBeatLengthChange,
+  plannerMode,
+  onPlannerModeChange,
   pinned,
   onPinnedChange,
   presets,
@@ -123,6 +125,8 @@ export function Composer({
    * message only, which the Config button reports with a dot so the state is visible
    * without opening the popover.
    */
+  plannerMode?: "planner" | "off";
+  onPlannerModeChange?: (value: "planner" | "off") => void;
   pinned?: Record<SceneControlKey, boolean>;
   onPinnedChange?: (key: SceneControlKey, pinned: boolean) => void;
   /** Named scene presets. Empty hides the picker; every control stays where it was. */
@@ -545,6 +549,8 @@ export function Composer({
               onSuggestionsCountChange={onSuggestionsCountChange}
               beatLength={beatLength}
               onBeatLengthChange={onBeatLengthChange}
+              plannerMode={plannerMode}
+              onPlannerModeChange={onPlannerModeChange}
               pinned={pinned}
               onPinnedChange={onPinnedChange}
               presets={presets}

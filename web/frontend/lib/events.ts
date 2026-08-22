@@ -516,4 +516,10 @@ export interface TurnOverridesBody {
   suggestionsCount?: number | null;
   /** How much a character says in one beat, for this turn. */
   beatLength?: BeatLength | null;
+  /**
+   * `"off"` runs the turn on the model-free scripted beat order instead of the ReAct
+   * planner. Much faster — planning is over half of a turn — and it costs something real:
+   * no register, no stakes, no narrator beats between speakers, and no exits.
+   */
+  planner?: "planner" | "off" | null;
 }

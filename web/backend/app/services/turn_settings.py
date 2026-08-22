@@ -26,7 +26,7 @@ from dataclasses import dataclass
 
 from app.models import Scenario
 from app.schemas.base import BEAT_LENGTHS, DEFAULT_BEAT_LENGTH, BeatLength
-from app.schemas.play import TurnOverrides
+from app.schemas.play import PlannerMode, TurnOverrides
 
 #: The per-turn ceiling on ``max_turns``, mirroring ``TurnOverrides``. A scene row may hold
 #: more; an override may not ask for more.
@@ -42,6 +42,8 @@ class TurnSettings:
     max_turns: int
     suggestions_count: int
     beat_length: BeatLength
+    #: ``"planner"`` (the default) or ``"off"`` — see ``services/beat_order``.
+    planner: PlannerMode = "planner"
 
 
 def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnSettings:
@@ -66,8 +68,15 @@ def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnS
     if beat_length not in BEAT_LENGTHS:
         beat_length = DEFAULT_BEAT_LENGTH
 
+    planner = ov.planner or getattr(scenario, "planner_mode", None) or "planner"
+    if planner not in ("planner", "off"):
+        planner = "planner"
+
     return TurnSettings(
-        max_turns=max_turns, suggestions_count=suggestions, beat_length=beat_length
+        max_turns=max_turns,
+        suggestions_count=suggestions,
+        beat_length=beat_length,
+        planner=planner,
     )
 
 

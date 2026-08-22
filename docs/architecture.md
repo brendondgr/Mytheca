@@ -113,6 +113,24 @@ A stat is a bounded numeric value on a character. Health, trust, suspicion, pati
 
 ## Presence
 
+**The planner is optional, and the alternative is not new code.** A turn normally runs
+`planner_agent.plan_beats` — the ReAct planner that decides who is up, sets the scene between
+beats and reads how tense the moment is. `plannerMode: "off"` (per scene) or
+`overrides.planner: "off"` (per turn) runs `services/beat_order` instead: a deterministic
+order with no model call. It wraps `planner_agent.scripted_beat`, which has always decided
+the beat when the endpoint was unconfigured or the planner call failed — so switching planning
+off chooses a path that is already exercised everywhere, rather than introducing a second one.
+The one addition is a round-robin, because a fallback whose job is "do not stall" ends a
+freeform turn after one responder, and as a *chosen* mode that would collapse every message to
+a single line.
+
+EXP-2026-08-005 measured the planner at 41 % of all turn time, which makes this the largest
+latency lever a player has. The cost is real and is stated at the control rather than buried:
+no `register`, no `stakes`, no narrator beats between speakers, and no exits — a character the
+story has written out stays in the rotation until the player removes them from the cast rail.
+**Neither the saving nor the quality difference has been measured**; that is recorded as a
+deferral, not implied to be settled.
+
 **Context is fitted, not configured.** The transcript window is chosen per turn from the
 model's real context budget (`services/context_budget`), not from a number the player picks —
 the right depth is whatever the model can hold, and the app knows the model's window while the

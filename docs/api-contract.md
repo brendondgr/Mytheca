@@ -962,7 +962,8 @@ scene open with no directed character opens narrator-first.
 
 ```json
 { "maxTurns": 1-10 | null, "suggestionsCount": 0-4 | null,
-  "beatLength": "short" | "medium" | "long" | null }
+  "beatLength": "short" | "medium" | "long" | null,
+  "planner": "planner" | "off" | null }
 ```
 
 Every field is optional and `null`-defaulted; an unset field falls back to the `Scenario`
@@ -982,6 +983,25 @@ Three properties are the contract:
   the `turn` trace step, so the Inspector and the export can say what the turn actually ran
   with. Since the override is spent when the turn ends, that row is the only record it
   happened.
+**Turn planning (`overrides.planner`, `Scenario.plannerMode`).** `"planner"` (the default;
+`null` reads as that) runs `planner_agent.plan_beats` — the ReAct planner that reads each
+moment, decides who speaks, inserts narrator beats and reports the beat's `register` and
+`stakes`. `"off"` runs `services/beat_order` instead: the model-free scripted order, wrapping
+the same `planner_agent.scripted_beat` that has always decided the beat when the endpoint was
+unconfigured, plus a round-robin so a turn does not collapse to one line. **No model call is
+made to select a beat.**
+
+EXP-2026-08-005 measured the planner at 41 % of all turn time, so this is the largest latency
+lever a player has, and what it costs is real: `register` and `stakes` are `None`/`""` on
+every beat (consumers fall back to their pre-register behaviour), no narrator beat is inserted
+between speakers, and no character is ever written out of the scene. **The latency and quality
+difference between the two modes is unmeasured** — see `docs/checklist.md`.
+
+Everything the *engine* enforces is unchanged in either mode: the exchange guard, the forced
+direction schedule, the POV lockout, the silent-turn backstop, the runaway backstop and the
+hard `maxTurns` cap. The `planning` trace step carries `data.planner: "off"` so the Inspector
+and the turn-status strip can say a fast turn is fast on purpose.
+
 - **Withheld from the agents.** Like `taggedDocIds`, it is out of scope for the intent,
   direction and planner agents. It changes how a turn is **run** — beats produced, how much a
   character says, whether follow-ups are offered — never what the turn is **about**, so it

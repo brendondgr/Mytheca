@@ -78,6 +78,7 @@ from app.services import turn_setup
 from app.services import direction_runtime
 from app.services import turn_effects
 from app.services import turn_finalize
+from app.services import beat_order
 from app.services import turn_settings
 
 
@@ -325,7 +326,30 @@ def run_turn(
         decision: planner_agent.BeatDecision | None = None
         forced_reason = "the rest of your direction has to fit the beats that are left"
         if not outstanding or len(outstanding) < remaining:
-            if not planned:
+            if settings.planner == "off":
+                # Planning off: the scripted order decides, with no model call and no
+                # lookahead queue. Everything BELOW this branch is untouched — the forced
+                # direction schedule, the exchange guard, the POV and silent-turn backstops,
+                # the runaway stop and the hard cap are the engine's rules, not the
+                # planner's, and they still apply exactly as they did.
+                yield from tracer.emit(
+                    "planning",
+                    "Planning off — the cast answers in order",
+                    detail=(
+                        f"{remaining} beat(s) left in the scene's budget. No model call: "
+                        "nobody reads the moment, so this beat carries no register."
+                    ),
+                    data={"planner": "off"},
+                )
+                planned = [
+                    beat_order.next_beat(
+                        ctx, intent, acted,
+                        scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
+                        direction=direction if direction.active else None,
+                        beats_left=remaining,
+                    )
+                ]
+            elif not planned:
                 depth = min(lookahead, max(1, remaining))
                 yield from tracer.emit(
                     "planning",

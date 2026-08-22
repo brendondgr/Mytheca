@@ -65,7 +65,7 @@ Detail: `architecture.md` (decisions), `data-flow.md` (the turn walkthrough), `a
 ## Major Decisions
 
 - **Event-driven rendering** — the AI emits typed events, the backend validates, the frontend renders. 8 event types.
-- **ReAct planner with lookahead** — `planner_agent.plan_beats` decides up to `TURN_PLANNER_LOOKAHEAD` beats per call from the present roster, and the engine re-plans when the queue empties or a planned beat goes stale. It replaced the older one-shot `director_agent.who_is_up` / `rerank`, which are now **dead code kept only for their unit tests**. Deciding one beat at a time made this agent 41 % of all turn time (EXP-2026-08-005); `next_beat` remains as the one-beat wrapper.
+- **ReAct planner with lookahead, and it can be switched off** — `planner_agent.plan_beats` decides up to `TURN_PLANNER_LOOKAHEAD` beats per call from the present roster, and the engine re-plans when the queue empties or a planned beat goes stale. It replaced the older one-shot `director_agent.who_is_up` / `rerank`, which are now **dead code kept only for their unit tests**. Deciding one beat at a time made this agent 41 % of all turn time (EXP-2026-08-005); `next_beat` remains as the one-beat wrapper. A scene (or one turn) can bypass it entirely — `plannerMode: "off"` runs `services/beat_order`, the model-free scripted order, which is the largest latency lever a player has and costs the register, the stakes, mid-turn narration and exits.
 - **The scene remembers as much as the model can hold** — the transcript window is fitted to the
   model's real context budget each turn rather than to a number the player picks, and what it
   reached is *reported* (the Inspector's `window` step, the config menu's "What the scene

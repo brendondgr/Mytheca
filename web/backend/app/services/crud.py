@@ -576,6 +576,8 @@ def create_scenario(db: Session, storyline_id: str, data: ScenarioCreate) -> Sce
         context_beats=data.context_beats,
         context_policy=data.context_policy,
         beat_length=data.beat_length,
+        scene_preset=data.scene_preset,
+        planner_mode=data.planner_mode,
         direction_verbs=[v.model_dump() for v in data.direction_verbs] or None,
         prompt_overrides=dict(data.prompt_overrides or {}),
         position=_next_position(db, Scenario, storyline_id),

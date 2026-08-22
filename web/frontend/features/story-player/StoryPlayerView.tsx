@@ -664,6 +664,8 @@ export function StoryPlayerView({
             onSuggestionsCountChange={scene.setSuggestionsCount}
             beatLength={scene.effective.beatLength}
             onBeatLengthChange={scene.setBeatLength}
+            plannerMode={scene.effective.planner}
+            onPlannerModeChange={scene.setPlannerMode}
             pinned={scene.pinned}
             onPinnedChange={scene.setPinned}
             presets={scene.presets}

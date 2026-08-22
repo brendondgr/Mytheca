@@ -14,6 +14,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     onBeatLengthChange: vi.fn(),
     onPinnedChange: vi.fn(),
     onPresetChange: vi.fn(),
+    onPlannerModeChange: vi.fn(),
     ...overrides,
   };
   render(<SceneConfigMenu {...props} />);
@@ -204,7 +205,12 @@ describe("SceneConfigMenu says what each control does", () => {
   });
 
   describe("pins — per-turn versus permanent", () => {
-    const ALL_PINNED = { maxTurns: true, suggestionsCount: true, beatLength: true };
+    const ALL_PINNED = {
+      maxTurns: true,
+      suggestionsCount: true,
+      beatLength: true,
+      planner: true,
+    };
 
     async function open(overrides = {}) {
       const user = userEvent.setup();
@@ -244,7 +250,7 @@ describe("SceneConfigMenu says what each control does", () => {
     });
 
     it("counts the unpinned settings in the footer", async () => {
-      await open({ pinned: { maxTurns: false, suggestionsCount: false, beatLength: true } });
+      await open({ pinned: { ...ALL_PINNED, maxTurns: false, suggestionsCount: false } });
       expect(
         screen.getByText(/2 settings apply to your next message only/i),
       ).toBeInTheDocument();
@@ -376,6 +382,49 @@ describe("SceneConfigMenu says what each control does", () => {
       expect(
         screen.getByRole("combobox", { name: /how many beats one message produces/i }),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("turn planning", () => {
+    it("offers both modes with the director's job spelled out", async () => {
+      const user = userEvent.setup();
+      setup({ onPlannerModeChange: vi.fn() });
+      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+      const control = screen.getByRole("combobox", { name: /turn planning/i });
+      expect([...control.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
+        "On · a director reads each moment",
+        "Off · the cast answers in order",
+      ]);
+      expect(control).toHaveAccessibleDescription(/over half of a turn/i);
+    });
+
+    it("states the LOSS when planning is off, not only the speed", async () => {
+      // A control that advertised the saving without the cost would be lying.
+      const user = userEvent.setup();
+      setup({ plannerMode: "off", onPlannerModeChange: vi.fn() });
+      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+      const control = screen.getByRole("combobox", { name: /turn planning/i });
+      expect(control).toHaveAccessibleDescription(/nothing judges the moment/i);
+      expect(control).toHaveAccessibleDescription(/no scene-setting narration/i);
+      expect(control).toHaveAccessibleDescription(/stays in the rotation/i);
+    });
+
+    it("reports the change", async () => {
+      const user = userEvent.setup();
+      const props = setup({ onPlannerModeChange: vi.fn() });
+      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+      await user.selectOptions(screen.getByRole("combobox", { name: /turn planning/i }), "off");
+      expect(props.onPlannerModeChange).toHaveBeenCalledWith("off");
+    });
+
+    it("is pinnable like the other controls", async () => {
+      const user = userEvent.setup();
+      const props = setup({ onPlannerModeChange: vi.fn() });
+      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+      await user.click(
+        screen.getByRole("button", { name: "Turn planning — pinned to this scene" }),
+      );
+      expect(props.onPinnedChange).toHaveBeenCalledWith("planner", false);
     });
   });
 });

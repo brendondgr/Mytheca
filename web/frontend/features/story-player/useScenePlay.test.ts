@@ -1461,6 +1461,7 @@ describe("useScenePlay — pinned versus per-turn scene controls", () => {
       maxTurns: true,
       suggestionsCount: true,
       beatLength: true,
+      planner: true,
     });
     expect(result.current.turnOverrides).toEqual({});
   });
@@ -1649,5 +1650,52 @@ describe("useScenePlay — scene presets", () => {
     expect(result.current.presetState).toBe("none");
     act(() => result.current.setMaxTurns(4));
     expect(result.current.maxTurns).toBe(4);
+  });
+});
+
+describe("useScenePlay — turn planning", () => {
+  beforeEach(() => {
+    vi.mocked(updateScenario).mockClear();
+    vi.mocked(postTurn).mockClear();
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  async function ready() {
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    return result;
+  }
+
+  it("defaults to the planner, so an existing scene is unchanged", async () => {
+    const result = await ready();
+    expect(result.current.plannerMode).toBe("planner");
+    expect(result.current.effective.planner).toBe("planner");
+  });
+
+  it("persists a pinned change to the scene", async () => {
+    const result = await ready();
+    act(() => result.current.setPlannerMode("off"));
+    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(scenario.id, { plannerMode: "off" });
+    expect(result.current.effective.planner).toBe("off");
+  });
+
+  it("sends an unpinned change as a per-turn override and writes nothing", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const result = await ready();
+
+    act(() => result.current.setPinned("planner", false));
+    act(() => result.current.setPlannerMode("off"));
+    expect(vi.mocked(updateScenario)).not.toHaveBeenCalled();
+    expect(result.current.plannerMode).toBe("planner");
+    expect(result.current.effective.planner).toBe("off");
+
+    act(() => result.current.setComposer("One fast turn."));
+    act(() => result.current.send());
+    await waitFor(() => expect(vi.mocked(postTurn)).toHaveBeenCalled());
+    expect(vi.mocked(postTurn).mock.calls[0][1]).toMatchObject({
+      overrides: { planner: "off" },
+    });
+    await waitFor(() => expect(result.current.effective.planner).toBe("planner"));
   });
 });

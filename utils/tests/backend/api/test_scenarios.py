@@ -305,3 +305,16 @@ def test_the_controls_stay_authoritative_after_a_preset_is_named(client, storyli
     row = client.get(f"/api/scenarios/{scid}").json()
     assert row["maxTurns"] == 7
     assert row["scenePreset"] == "interrogation"
+
+
+def test_scene_preset_and_planner_mode_survive_creation(client, storyline_id):
+    """`create_scenario` lists its columns explicitly, so a new one is silently dropped
+    until it is added there. Both of these were, which is what this pins."""
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios",
+        json={"title": "Made with both", "scenePreset": "fast_banter", "plannerMode": "off"},
+    ).json()["id"]
+
+    row = client.get(f"/api/scenarios/{scid}").json()
+    assert row["scenePreset"] == "fast_banter"
+    assert row["plannerMode"] == "off"

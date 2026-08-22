@@ -58,6 +58,11 @@ class TurnDirective(CamelModel):
     actor_id: str | None = None
 
 
+#: Whether the ReAct planner decides each beat, or the model-free scripted order does.
+#: ``None`` reads as ``"planner"`` — the behaviour that shipped.
+PlannerMode = Literal["planner", "off"]
+
+
 class TurnOverrides(CamelModel):
     """Scene settings applied to **this turn only**.
 
@@ -81,6 +86,9 @@ class TurnOverrides(CamelModel):
     max_turns: int | None = Field(default=None, ge=1, le=10)
     suggestions_count: int | None = Field(default=None, ge=0, le=4)
     beat_length: BeatLength | None = None
+    #: ``"off"`` runs the turn on ``services/beat_order`` instead of the planner — no model
+    #: call for beat selection, and no register, stakes, narrator interstitials or exits.
+    planner: PlannerMode | None = None
 
 
 class TurnRequest(CamelModel):

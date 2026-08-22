@@ -128,4 +128,20 @@ describe("TurnStatusStrip — the wait is legible", () => {
     render(<TurnStatusStrip status={{ phase: "planning" }} streaming charById={charById} />);
     expect(screen.getByText("Working out what happens next")).toBeInTheDocument();
   });
+
+
+  it("says the cast is answering in order when planning is off", () => {
+    // A turn the player deliberately made fast must not read as one that is stuck. The
+    // default label promises something is being worked out, and with planning off nothing
+    // is — no model call decides this beat.
+    render(
+      <TurnStatusStrip
+        status={{ phase: "planning", planner: "off" }}
+        streaming
+        charById={charById}
+      />,
+    );
+    expect(screen.getByText("The cast answers in order")).toBeInTheDocument();
+    expect(screen.queryByText("Working out what happens next")).not.toBeInTheDocument();
+  });
 });

@@ -75,6 +75,10 @@ class Scenario(Base):
     # it with a plain ADD COLUMN and no Alembic migration is required — deliberately with no
     # ``server_default``, because "no preset" is a real and common state.
     scene_preset: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    # Whether the ReAct planner decides each beat (``"planner"``, and NULL reads as that) or
+    # the model-free scripted order does (``"off"`` — ``services/beat_order``). Nullable so
+    # every existing scene reads as today's behaviour.
+    planner_mode: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     # The scene's OWN one-tap direction verbs, appended to the built-in bar's groups.
     # ``[{"label", "group", "text"}]``. Nullable (older rows read as none), so
     # ``core/bootstrap._reconcile_additive_columns`` adds it with a plain ADD COLUMN and no

@@ -149,6 +149,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     maxTurns: true,
     suggestionsCount: true,
     beatLength: true,
+    planner: true,
   });
   // The pending per-turn overrides. Cleared when the turn settles, on the error path too —
   // the clear lives in `.finally`, because a turn that failed still consumed the intent.
@@ -160,6 +161,11 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     scenario.scenePreset ?? null,
   );
   const [presets, setPresets] = useState<ScenePreset[]>([]);
+  // Whether this scene runs the planner. Pinnable like the other three, because a player
+  // may well want one fast turn without committing the whole scene to it.
+  const [plannerMode, setPlannerModeState] = useState<"planner" | "off">(
+    scenario.plannerMode === "off" ? "off" : "planner",
+  );
   /**
    * The envelope for the next turn — omitted entirely when every control is pinned, so a
    * player who ignores this feature sends the exact request body they sent before it existed.
@@ -904,6 +910,18 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     },
     [scenario.id, pinned.suggestionsCount, clearOverride],
   );
+  const setPlannerMode = useCallback(
+    (value: "planner" | "off") => {
+      if (!pinned.planner) {
+        setTurnOverrides((o) => ({ ...o, planner: value }));
+        return;
+      }
+      setPlannerModeState(value);
+      clearOverride("planner");
+      void updateScenario(scenario.id, { plannerMode: value }).catch(() => {});
+    },
+    [scenario.id, pinned.planner, clearOverride],
+  );
   const setBeatLength = useCallback(
     (value: BeatLength) => {
       if (!pinned.beatLength) {
@@ -989,8 +1007,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       maxTurns: turnOverrides.maxTurns ?? maxTurns,
       suggestionsCount: turnOverrides.suggestionsCount ?? suggestionsCount,
       beatLength: turnOverrides.beatLength ?? beatLength,
+      planner: turnOverrides.planner ?? plannerMode,
     }),
-    [turnOverrides, maxTurns, suggestionsCount, beatLength],
+    [turnOverrides, maxTurns, suggestionsCount, beatLength, plannerMode],
   );
 
   /**
@@ -1138,6 +1157,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setSuggestionsCount,
     beatLength,
     setBeatLength,
+    plannerMode,
+    setPlannerMode,
     // Scope. `effective` is what the menu renders — the pending override when there is one,
     // the scene's own value otherwise — so an unpinned control still shows what was picked
     // without that value having been written anywhere.

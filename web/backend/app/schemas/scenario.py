@@ -8,6 +8,7 @@ from pydantic import Field, field_validator
 
 from app.content.scene_presets import SCENE_PRESET_IDS
 from app.schemas.base import BeatLength, BranchTag, CamelModel
+from app.schemas.play import PlannerMode
 
 
 class Branch(CamelModel):
@@ -71,6 +72,9 @@ class ScenarioBase(CamelModel):
     # against the known ids for the same reason ``beat_length`` is a ``Literal``: an unknown
     # value should be a 422 here, not a label the UI silently fails to resolve later.
     scene_preset: ScenePresetId | None = None
+    # Whether the ReAct planner decides each beat, or the model-free scripted order does.
+    # ``None`` reads as ``"planner"`` — the behaviour that shipped. See ``schemas/play``.
+    planner_mode: PlannerMode | None = None
     # Per-scenario writing-prompt overrides ({registry key -> prompt text}) — override the
     # storyline's prompts for this scene only.
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
@@ -103,6 +107,7 @@ class ScenarioUpdate(CamelModel):
     context_policy: ContextPolicy | None = None
     beat_length: BeatLength | None = None
     scene_preset: ScenePresetId | None = None
+    planner_mode: PlannerMode | None = None
     direction_verbs: list[SceneVerb] | None = Field(default=None, max_length=8)
     prompt_overrides: dict[str, str] | None = None
     image: str | None = None
@@ -126,6 +131,7 @@ class ScenarioRead(CamelModel):
     context_policy: ContextPolicy | None = None
     beat_length: BeatLength = "medium"
     scene_preset: ScenePresetId | None = None
+    planner_mode: PlannerMode | None = None
     direction_verbs: list[SceneVerb] = Field(default_factory=list)
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
     image: str | None = None

@@ -131,7 +131,7 @@ def plan_beats(
     try:
         base_url, api_key, model, params = resolve_llm(db)
     except APIError:
-        return [_fallback_beat(
+        return [scripted_beat(
             ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
             direction=direction,
         )]
@@ -158,7 +158,7 @@ def plan_beats(
         )
         data = extract_json(raw)
     except APIError:
-        return [_fallback_beat(
+        return [scripted_beat(
             ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
             direction=direction,
         )]
@@ -179,7 +179,7 @@ def plan_beats(
         if decision.action in ("end", "ask"):
             break
     if not decisions:
-        return [_fallback_beat(
+        return [scripted_beat(
             ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
             direction=direction,
         )]
@@ -342,7 +342,7 @@ def next_beat(
     )[0]
 
 
-def _fallback_beat(
+def scripted_beat(
     ctx: TurnContext,
     intent: TurnIntent,
     acted: list[str],
@@ -351,7 +351,20 @@ def _fallback_beat(
     locked_id: str | None = None,
     direction: SceneDirection | None = None,
 ) -> BeatDecision:
-    """Model-free next beat: honor an explicit group/addressed target, else end.
+    """The scripted beat order: honour an explicit group/addressed target, else end.
+
+    **Public, and no longer only a fallback.** This was ``_fallback_beat``, reached when the
+    endpoint was unconfigured or the planner call failed. It is now also the *deliberate*
+    order a scene runs on when the player turns planning off
+    (``services/beat_order`` wraps it), which makes it the one beat decision in the app that
+    costs nothing — no model call, no latency, no tokens.
+
+    That is the whole trade, and it is a real one: this function decides *who is next*, and
+    nothing here reads the moment. No ``register``, no ``stakes``, no judgement about
+    whether the scene wants a narrator beat in the middle of it. What it gives back is
+    roughly half a turn's wall clock.
+
+    Model-free next beat: honour an explicit group/addressed target, else end.
 
     Keeps the loop sensible offline (and in tests): a broadcast walks the whole cast, an
     addressed character reacts once, freeform input mid-scene gets one responder. On a
