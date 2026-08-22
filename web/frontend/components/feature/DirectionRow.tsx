@@ -36,9 +36,11 @@ export function DirectionRow({
   textareaRef?: RefObject<HTMLTextAreaElement | null>;
   /**
    * Mention plumbing (aria, key/caret handlers) owned by the composer. Only ever applied in
-   * POV mode — in narrator mode there is no textarea to attach it to.
+   * POV mode — in narrator mode there is no textarea to attach it to. Its `onChange` runs
+   * *after* `onChange` above rather than instead of it, so there is exactly one writer of
+   * the value and the composer's side-effects (resize, mention sync) compose onto it.
    */
-  textareaProps?: React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+  textareaProps?: Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "ref">;
   /** Slot for the direction verb bar, which attaches to this row in both modes. */
   children?: ReactNode;
 }) {
@@ -57,15 +59,18 @@ export function DirectionRow({
       </div>
       {mode === "pov" ? (
         <textarea
+          {...textareaProps}
           ref={textareaRef}
           rows={1}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            textareaProps?.onChange?.(e);
+          }}
           aria-label="Scene direction"
           placeholder="Guide the scene — what happens next…"
           className="composer-input mt-[2px] block w-full resize-none bg-transparent px-[4px] py-[2px] font-body text-[13px] text-mute placeholder:text-mute2 focus:outline-none"
           style={{ overflowY: "hidden" }}
-          {...textareaProps}
         />
       ) : null}
     </div>

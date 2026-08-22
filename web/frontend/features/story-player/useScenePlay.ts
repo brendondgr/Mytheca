@@ -452,10 +452,11 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // Choosing who to speak as. Leaving POV (back to Narrator) also drops the direction box's
   // text — in narrator mode the message box carries the direction, so keeping it would send
   // the same steer twice.
-  const choosePov = useCallback((id: string | null) => {
-    setPov(id);
-    if (id === null) setGuidance("");
-  }, []);
+  // Leaving POV used to clear the direction, on the assumption it was a POV artefact. It is
+  // not: the direction is a scene-level intent, and the row exists in both modes now. The
+  // text is kept — narrator mode just explains that the message box carries it. (It is still
+  // cleared on send: a direction applies to the turn it rode in on, not to every later one.)
+  const choosePov = useCallback((id: string | null) => setPov(id), []);
 
   // ---- Create image (the transcript's scene-image action) -------------------
   // Its own stream, independent of the turn stream: a picture can be asked for between

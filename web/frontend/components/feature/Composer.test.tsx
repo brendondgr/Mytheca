@@ -512,3 +512,103 @@ describe("Composer", () => {
     });
   });
 });
+
+describe("Composer direction row", () => {
+  const POV_OPTS = [{ id: "mei", name: "Mei", mono: "M", color: "#8E2B1C", portrait: null }];
+
+  it("shows the direction strip in narrator mode, with no second textarea", () => {
+    // Until the row was unconditional, the whole direction concept was invisible to any
+    // player who had not happened to pick a POV character — which is most of them.
+    render(
+      <Composer
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        guidance=""
+        onGuidanceChange={() => {}}
+        onPovChange={() => {}}
+        povOptions={POV_OPTS}
+        pov={null}
+      />,
+    );
+    expect(screen.getByText(/this message steers the scene/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: /scene direction/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("swaps the strip for the direction box when a POV is picked", () => {
+    const { rerender } = render(
+      <Composer
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        guidance=""
+        onGuidanceChange={() => {}}
+        onPovChange={() => {}}
+        povOptions={POV_OPTS}
+        pov={null}
+      />,
+    );
+    rerender(
+      <Composer
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        guidance=""
+        onGuidanceChange={() => {}}
+        onPovChange={() => {}}
+        povOptions={POV_OPTS}
+        pov="mei"
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: /scene direction/i })).toBeInTheDocument();
+    expect(screen.queryByText(/this message steers the scene/i)).not.toBeInTheDocument();
+  });
+
+  it("has no direction row at all when the parent owns no direction", () => {
+    render(<Composer value="" onChange={() => {}} onSend={() => {}} />);
+    expect(screen.queryByText(/^Direction$/)).not.toBeInTheDocument();
+  });
+
+  it("still writes the direction through onGuidanceChange under POV", () => {
+    const onGuidanceChange = vi.fn();
+    render(
+      <Composer
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        guidance=""
+        onGuidanceChange={onGuidanceChange}
+        onPovChange={() => {}}
+        povOptions={POV_OPTS}
+        pov="mei"
+      />,
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: /scene direction/i }), {
+      target: { value: "make it worse" },
+    });
+    expect(onGuidanceChange).toHaveBeenCalledTimes(1);
+    expect(onGuidanceChange).toHaveBeenCalledWith("make it worse");
+  });
+
+  it("does not offer Send for a direction that narrator mode will drop", () => {
+    // A direction kept across a POV switch (or restored on resume) is inert in narrator
+    // mode — the message box IS the direction there, so `send()` drops it. Counting it
+    // would light up Send with nothing to post, and the turn would come back a 400.
+    render(
+      <Composer
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        guidance="a direction from earlier"
+        onGuidanceChange={() => {}}
+        onPovChange={() => {}}
+        povOptions={POV_OPTS}
+        pov={null}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
+});
+

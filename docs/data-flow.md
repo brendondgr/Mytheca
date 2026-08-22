@@ -130,13 +130,17 @@ on resume the current POV is derived from the most recent `user_turn.data.pov`;
 `rehydrateFromHistory` turns a `user_turn` row with `pov` set into that same right-side
 character beat (without `pov` it stays a left-side player beat).
 
-**Scene direction.** The player directs the scene, and the turn is held to it. In narrator mode
-the message box already carries the direction; under Player POV it holds the character's line
-instead, so the composer grows a **second, shorter box above it** (`guidance` — rendered only
-when `pov` is set, since a second box in narrator mode would duplicate the first). The panel
+**Scene direction.** The player directs the scene, and the turn is held to it. The **direction
+row is always rendered** (`components/feature/DirectionRow.tsx`); what changes between modes is
+its *role*, never whether it exists. In narrator mode it is a one-line labelled strip — the
+message box below already carries the direction, so there is still exactly one text input. Under
+Player POV the message box holds the character's line instead, so the same row expands into the
+direction textarea (`guidance`). Until the row was unconditional the whole direction concept was
+invisible to any player who had not happened to pick a POV character. The panel
 grows upward as it fills, capped then scrolling, so it lifts the transcript rather than covering
-it. `useScenePlay` clears the box on send (the direction applies to that turn only) and when POV
-is dropped. Server-side the direction becomes an ordered list of `direction_agent`
+it. `useScenePlay` clears the box on send (the direction applies to that turn only) but **not** when
+POV is dropped — the direction is a scene-level intent, not a POV artefact, and with the row in
+both modes clearing it would silently discard what was written. Server-side the direction becomes an ordered list of `direction_agent`
 requirements — parsed on its own call for POV guidance, or lifted off the intent call that
 already read the player's line in narrator mode — and the turn engine schedules them across the
 scene's `maxTurns` budget: the planner paces them while there is room, and once what is owed

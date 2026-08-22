@@ -1144,3 +1144,33 @@ describe("useScenePlay direction-only turns", () => {
     expect(result.current.messages.some((m) => m.kind === "direction")).toBe(false);
   });
 });
+
+describe("useScenePlay direction survives a POV change", () => {
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  it("keeps the direction when the player leaves POV", async () => {
+    // The direction is a scene-level intent, not a POV artefact — and with the row present
+    // in both modes, clearing it on the way out would silently discard what was written.
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setPov(speaker.id));
+    act(() => result.current.setGuidance("Make it worse."));
+    act(() => result.current.setPov(null));
+    expect(result.current.guidance).toBe("Make it worse.");
+  });
+
+  it("still clears the direction on send — it applies to that turn only", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setPov(speaker.id));
+    act(() => result.current.setGuidance("Make it worse."));
+    act(() => result.current.send());
+    expect(result.current.guidance).toBe("");
+  });
+});

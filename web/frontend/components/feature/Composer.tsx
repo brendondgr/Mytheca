@@ -4,6 +4,7 @@ import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
 import { GhostwriteButton } from "@/components/feature/GhostwriteButton";
 import { ContextUsageDial } from "@/components/feature/ContextUsageDial";
 import { MentionMenu } from "@/components/feature/MentionMenu";
+import { DirectionRow } from "@/components/feature/DirectionRow";
 import {
   applyMention,
   filterMentions,
@@ -137,9 +138,12 @@ export function Composer({
   const hasConfig = Boolean(
     onMaxTurnsChange ?? onSuggestionsCountChange ?? onContextBeatsChange ?? onBeatLengthChange,
   );
-  // The direction box belongs to POV mode only — in narrator mode the message box below
-  // already carries the direction.
-  const showGuidance = Boolean(onGuidanceChange) && Boolean(pov);
+  // The direction ROW is always rendered when the parent owns a direction at all; what
+  // changes between modes is its role. `showGuidance` remains the narrower question — is
+  // there a direction *textarea* on screen — because the mention plumbing, the tagged-id
+  // derivation and the untag path all key off a real second input existing.
+  const hasDirection = Boolean(onGuidanceChange);
+  const showGuidance = hasDirection && Boolean(pov);
 
   // Placeholder reflects the active POV: "Speaking as Mei…" when the player has chosen a
   // character to voice, else the default guide/narrator prompt.
@@ -246,7 +250,12 @@ export function Composer({
   // direction-only turn is a real turn (the scene is steered without the character
   // speaking), so guarding on the message box alone would make the direction box a field
   // you can fill and cannot send.
-  const hasContent = Boolean(value.trim() || (guidance ?? "").trim());
+  //
+  // `showGuidance`, not `hasDirection`: in narrator mode the direction value is inert — the
+  // message box IS the direction, so `send()` drops it. A direction kept across a POV switch
+  // (or restored on resume) would otherwise light up Send with nothing to post, and the turn
+  // would come back a 400.
+  const hasContent = Boolean(value.trim() || (showGuidance && (guidance ?? "").trim()));
 
   /**
    * Shared key handling. While the menu is open it owns Arrow/Enter/Tab/Escape — Enter in
@@ -335,32 +344,32 @@ export function Composer({
             onSelect={selectMention}
           />
         ) : null}
-        {/* Scene direction (Player POV) — the narrator's box, above the character's line and
-            separated from it by a hairline so the two are never mistaken for one field. */}
-        {showGuidance ? (
-          <div className="mb-[6px] border-b border-field-bd pb-[6px]">
-            <textarea
-              ref={guidanceRef}
-              rows={1}
-              value={guidance}
-              onChange={(e) => {
-                onGuidanceChange?.(e.target.value);
+        {/* Scene direction — always present, above the message box and separated from it by
+            a hairline. A labelled strip in narrator mode (the message box IS the direction);
+            the direction textarea under POV, where the message box is the character's line.
+            The mention plumbing only rides along when there is a textarea to attach it to. */}
+        {hasDirection ? (
+          <DirectionRow
+            mode={pov ? "pov" : "narrator"}
+            value={guidance}
+            onChange={(next) => onGuidanceChange?.(next)}
+            povName={povName}
+            textareaRef={guidanceRef}
+            textareaProps={{
+              // Side-effects only — DirectionRow writes the value.
+              onChange: (e) => {
                 resize(e.currentTarget, GUIDANCE_MAX_HEIGHT);
                 syncMention("guidance", e.currentTarget);
-              }}
-              onKeyDown={(e) => onFieldKeyDown(e, "guidance")}
-              onKeyUp={(e) => {
+              },
+              onKeyDown: (e) => onFieldKeyDown(e, "guidance"),
+              onKeyUp: (e) => {
                 if (!MENU_KEYS.has(e.key)) syncMention("guidance", e.currentTarget);
-              }}
-              onClick={(e) => syncMention("guidance", e.currentTarget)}
-              onBlur={() => setMention(null)}
-              {...mentionAria("guidance")}
-              aria-label="Scene direction"
-              placeholder="Guide the scene — what happens next…"
-              className="composer-input block w-full resize-none bg-transparent px-[4px] py-[2px] font-body text-[13px] text-mute placeholder:text-mute2 focus:outline-none"
-              style={{ overflowY: "hidden" }}
-            />
-          </div>
+              },
+              onClick: (e) => syncMention("guidance", e.currentTarget),
+              onBlur: () => setMention(null),
+              ...mentionAria("guidance"),
+            }}
+          />
         ) : null}
 
         {/* The message input — no focus outline (the container carries the accent border). */}
