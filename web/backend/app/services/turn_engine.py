@@ -666,7 +666,20 @@ def run_turn(
                 "undelivered": [
                     r.text for r in direction.requirements if not r.delivered
                 ],
+                # Blocked on someone who is not in the scene — reported separately because
+                # "the person you named is not here" is a different problem from "the turn
+                # ran out of beats", and only one of them is fixed by a longer scene.
+                "blocked": [r.text for r in direction.requirements if r.blocked],
             },
+        )
+
+    # A direction outlives the turn it rode in on. Whatever was not delivered is written back
+    # to the session so the NEXT turn re-owes it, oldest debt first — including anything
+    # blocked on an absent character. This is written even when the direction was fully
+    # delivered, because that is what clears a debt the previous turn left.
+    if direction.active or session.standing_direction:
+        direction_runtime.save_standing(
+            db, session, direction_runtime.to_standing(direction, turn=seq0)
         )
 
     # Nobody produced anything at all (no narration, no character) → a quiet holding

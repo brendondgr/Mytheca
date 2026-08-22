@@ -113,6 +113,8 @@ A stat is a bounded numeric value on a character. Health, trust, suspicion, pati
 
 ## Presence
 
+The scene's **standing direction** is the deliberate exception to that rule: `play_sessions.standing_direction` (JSON, nullable) stores what a turn could not deliver so the next turn re-owes it. It *could* be replayed from the session's `direction` trace rows, but that would make the turn loop's correctness depend on diagnostics being retained — and traces are the first thing an operator prunes. A debt that silently empties because someone pruned the trace table would look exactly like the bug it exists to fix. See `docs/data-flow.md` § Scene direction.
+
 Runtime scene presence is **derived from the session's event log** — `character_status_change` events folded by `services/presence.py` (latest per character, default `present`). No extra table, survives reload. Five statuses: `present` · `unconscious` · `departed` · `left` · `dead`. Only `present` members are selectable by the planner.
 
 Four detection paths, all automatic: a `health`-keyed stat clamped to its floor; the planner's `exit` beat; a character's self-declared `presence_change` block; and a manual override (`POST /play/{id}/presence`), which is not bound by the transition guard so the player may resurrect.
@@ -156,7 +158,7 @@ There is no authentication of any kind: no user model, no auth routes, no sessio
 - Server-side clamping of every proposed side effect.
 - Best-effort substrates throughout (Neo4j / Qdrant / Redis / ComfyUI down → degrade, never block).
 - **No dice** — narrative resolution only; `branch_choices` carry `label` + `outcome` and the check card was retired.
-- **Alembic adopted** — 12 migrations, coexisting with `create_all` + an additive reconciler. (Earlier docs said "Alembic deferred"; that is wrong.)
+- **Alembic adopted** — 17 migrations, coexisting with `create_all` + an additive reconciler. (Earlier docs said "Alembic deferred"; that is wrong.)
 - Persistence: sync SQLAlchemy 2.0 + Postgres; tests on in-memory SQLite.
 - Story-Graph visualization via `react-force-graph-2d` (canvas + d3-force), isolated in `components/feature/GraphCanvas.tsx`, lazy-loaded with `next/dynamic({ ssr:false })`. Deterministic type→color map (`lib/graphColors.ts`) plus a visible legend and an `sr-only` table as the canvas text alternative.
 - Provider-agnostic LLM access is one OpenAI-compatible proxy (`services/llm.py`) serving cloud OpenAI, vLLM, and llama.cpp alike. It offers a blocking primitive (`chat_complete` / `chat_complete_usage`) and a streaming one (`chat_complete_stream`, SSE). The streaming primitive separates the model's **reasoning** channel from its **answer** channel — reading whichever field the endpoint uses for it — **`delta.reasoning_content` on llama.cpp, `delta.reasoning` on vLLM** (`llm._reasoning_field` checks both; reading only one silently discards the channel on the other, which looks like a model that does no reasoning) — and splitting inline `<think>` blocks out of `delta.content` where neither is offered — and degrades to the blocking path (one delta at the end) on any endpoint that refuses `stream: true`, so callers never branch on transport. Structural JSON calls stay blocking: their result is useless until complete.

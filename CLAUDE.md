@@ -17,7 +17,7 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 - **No authentication exists.** No `User` model, no auth routes, no sessions or tokens. Nothing is gated.
 - **8 story-event types**, not 5: `narration` · `character_dialogue` · `character_action` · `internal_thought` · `state_update` · `branch_choices` · `character_status_change` · `scene_image` (the player's in-narrative picture).
 - **Streaming is NDJSON in the turn POST response.** No SSE endpoint, no WebSocket for story events, no `message_start`/`message_delta`/`message_end` frames — delta streaming re-emits the *same* event `id`+`seq` with an **incremental** `text` chunk and `done: false`, and the final frame carries `done: true` with an **empty** `text`. Accumulate by `id`; the persisted row holds the full text. Reading the text off the `done` frame alone gets you `""` for every streamed beat.
-- **Alembic is in use** (12 migrations), coexisting with `create_all` + an additive reconciler.
+- **Alembic is in use** (17 migrations), coexisting with `create_all` + an additive reconciler.
 - **`director_agent.who_is_up` and `rerank` are dead code** — tests only. `planner_agent.plan_beats` makes the real decision (up to `TURN_PLANNER_LOOKAHEAD` beats per call; `next_beat` is its one-beat wrapper), and its reply also carries each beat's **register** (`light`/`neutral`/`tense`/`grave`) + `stakes`, which drive the character prompt's tail, voice-sample selection, and sampler.
 - **The graph reaches the prompt via `graph_reader.relationship_context()`**, not `TurnContext.subgraph` (which is diagnostics-only).
 - **`web/shared/contracts/` is empty.** The FE↔BE contract is hand-mirrored in `web/frontend/lib/events.ts` + `lib/types.ts`.
@@ -74,7 +74,7 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 | DB models (14 tables) | `models/` | `storyline.py` `character.py` `setting.py` `scenario.py` `event.py` `stat.py` (StatDefinition + CharacterStat + SessionCharacterStat) `session.py` `turn_trace.py` `context_document.py` (Doc + Link) `graph_type.py` `app_setting.py` |
 | Pydantic schemas | `schemas/` | `base.py` + mirrors of `models/` + `play.py` `rag.py` `reasoning.py` `settings.py` `storyline_edit.py` |
 | Config/clients | `core/` | `config.py` `db.py` `redis.py` `neo4j.py` `qdrant.py` `bootstrap.py` (preflight) `seed.py` `errors.py` `ids.py` |
-| Migrations | `web/backend/alembic/` | `env.py` + `versions/` (12 migrations; non-additive changes only) |
+| Migrations | `web/backend/alembic/` | `env.py` + `versions/` (17 migrations; non-additive changes only) |
 | Docker | `web/backend/docker-compose.yml`, `docker/neo4j/` | Postgres · Redis · Neo4j · Qdrant, started by root `app.py` |
 
 ## Frontend — `web/frontend/`

@@ -230,3 +230,112 @@ def test_last_beat_with_one_owed_still_goes_to_its_owner():
 def test_schedule_survives_an_exhausted_budget():
     beat = direction_agent.schedule(_reqs(("one", "a"), ("two", "b")), remaining=0)
     assert beat is not None and beat.actor_id is None and len(beat.requirements) == 2
+
+
+# ---- explicit directives: the player names the target ------------------------
+
+
+def test_from_directives_builds_a_direction_with_no_llm_call():
+    d = direction_agent.from_directives(
+        [("Mei backs down", "mei"), ("the lamp goes over", None)], {"mei", "kira"}
+    )
+    assert [r.text for r in d.requirements] == ["Mei backs down", "the lamp goes over"]
+    assert [r.actor_id for r in d.requirements] == ["mei", None]
+    # Only the aimed one is pinned — an unaimed line is still the narrator's to place.
+    assert [r.pinned for r in d.requirements] == [True, False]
+    assert d.active
+
+
+def test_from_directives_drops_an_actor_outside_the_cast():
+    """Same rule as `resolve_requirements`: degrade to the narrator rather than guess."""
+    d = direction_agent.from_directives([("someone reacts", "ghost")], {"mei"})
+    assert d.requirements[0].actor_id is None
+    assert d.requirements[0].pinned is False
+
+
+def test_from_directives_skips_blank_lines_and_caps_the_list():
+    items = [("", None), ("   ", None), *[(f"thing {i}", None) for i in range(10)]]
+    d = direction_agent.from_directives(items, set())
+    assert len(d.requirements) == direction_agent.MAX_REQUIREMENTS
+    assert d.requirements[0].text == "thing 0"
+
+
+def test_from_directives_with_nothing_usable_is_an_inactive_direction():
+    assert direction_agent.from_directives([("", None)], set()).active is False
+
+
+# ---- rebind: a guess is rescued, an instruction is not ------------------------
+
+
+def test_rebind_still_rescues_an_unpinned_requirement():
+    d = SceneDirection(
+        text="x", requirements=[DirectionRequirement(id="r1", text="Kira shouts", actor_id="kira")]
+    )
+    d.rebind(present_ids={"mei"})
+    assert d.requirements[0].actor_id is None
+    assert d.requirements[0].blocked is False
+
+
+def test_rebind_never_re_owns_a_pinned_requirement():
+    d = SceneDirection(
+        text="x",
+        requirements=[
+            DirectionRequirement(id="r1", text="Kira shouts", actor_id="kira", pinned=True)
+        ],
+    )
+    d.rebind(present_ids={"mei"})
+    # It stays Kira's, and is reported as waiting rather than quietly reassigned.
+    assert d.requirements[0].actor_id == "kira"
+    assert d.requirements[0].blocked is True
+
+
+def test_a_blocked_requirement_is_not_scheduled():
+    """It cannot be delivered by anyone, so offering it to the beat loop would waste beats."""
+    d = SceneDirection(
+        text="x",
+        requirements=[
+            DirectionRequirement(id="r1", text="Kira shouts", actor_id="kira", pinned=True),
+            DirectionRequirement(id="r2", text="the lamp goes over"),
+        ],
+    )
+    d.rebind(present_ids={"mei"})
+    assert [r.id for r in d.outstanding()] == ["r2"]
+
+
+def test_a_character_walking_back_in_unblocks_what_waited_on_them():
+    """`blocked` is recomputed each pass, not latched — presence changes mid-turn."""
+    req = DirectionRequirement(id="r1", text="Kira shouts", actor_id="kira", pinned=True)
+    d = SceneDirection(text="x", requirements=[req])
+    d.rebind(present_ids={"mei"})
+    assert req.blocked is True
+    d.rebind(present_ids={"mei", "kira"})
+    assert req.blocked is False
+    assert [r.id for r in d.outstanding()] == ["r1"]
+
+
+def test_rebind_leaves_the_pov_characters_pinned_requirement_alone():
+    """The bug: under POV this re-owned everything aimed at the player's own character on
+    every pass of the beat loop, because the AI never voices them. The AI not voicing them
+    does not mean the requirement cannot be met — the narrator can describe it, and the
+    player can do it on their next turn."""
+    req = DirectionRequirement(id="r1", text="Mei backs down", actor_id="mei", pinned=True)
+    d = SceneDirection(text="x", requirements=[req])
+    d.rebind(present_ids={"mei", "kira"}, locked_id="mei")
+    assert req.actor_id == "mei"
+    assert req.blocked is False
+
+
+def test_rebind_still_moves_an_unpinned_pov_requirement_to_the_narrator():
+    """An inferred target keeps the old rescue: the model guessed, and the AI cannot voice
+    that character, so the narrator is the only way it lands this turn."""
+    req = DirectionRequirement(id="r1", text="Mei backs down", actor_id="mei")
+    d = SceneDirection(text="x", requirements=[req])
+    d.rebind(present_ids={"mei", "kira"}, locked_id="mei")
+    assert req.actor_id is None
+
+
+def test_rebind_leaves_a_delivered_requirement_alone():
+    req = DirectionRequirement(id="r1", text="done", actor_id="kira", delivered=True)
+    d = SceneDirection(text="x", requirements=[req])
+    d.rebind(present_ids={"mei"})
+    assert req.actor_id == "kira"

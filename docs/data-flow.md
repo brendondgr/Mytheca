@@ -175,6 +175,34 @@ The closing trace therefore reports **three** counts, not two: delivered, `uncon
 The client's checklist mirrors those three states — `✓`, `◐` "the scene may not have reached
 this", `○` — distinguished by glyph and words, not colour alone.
 
+**The player can name the target.** The direction box is read **per line** on send
+(`mentions.splitDirectives`): each line is one thing the turn owes, and an `@` cast mention on
+that line aims it at that character, sent as `TurnRequest.directives`. When those are present
+the engine builds the requirements from them **verbatim and spends no LLM call** — there is
+nothing left to infer. A line with no cast mention is the narrator's to place, and a box with
+no cast mention *anywhere* sends no directives at all and is parsed server-side exactly as it
+is today (otherwise "Mei storms out and Aldous grabs her wrist" would arrive as one
+requirement instead of two).
+
+A target the player set is **pinned**, and `rebind()` never re-owns a pinned requirement. Two
+cases, and neither is a rebind: if the character is present (including when they are the POV
+character) it stays theirs — the AI not voicing them does not mean the requirement cannot be
+met, and silently re-owning it is what made "everything you aim at your own character" vanish;
+if the character is absent it is marked **blocked**, reported on its own trace row ("Mei is not
+in the scene — this part is waiting"), excluded from scheduling, and carried over. An *inferred*
+target keeps the old narrator rescue, because a guess deserves one and an instruction does not.
+
+**The direction outlives the turn.** Whatever is not delivered is written back to
+`play_sessions.standing_direction` and re-owed on the next turn, **ahead of** whatever is asked
+then (oldest debt first — it is the part most at risk of never landing, and the player asked for
+it first). Duplicate text collapses onto the standing entry, so restating a direction does not
+double the debt, and the merged list is capped at `MAX_REQUIREMENTS`. A resumed scene reads it
+from `SessionHistory.standingDirection`, and the player can cancel any of it via
+`POST …/sessions/{id}/standing-direction` — a debt that cannot be cancelled would be a bug, not
+a feature. The column is **stored, not derived**: it could be replayed from the `direction`
+trace rows, but that would make the turn loop's correctness depend on diagnostics being
+retained, and traces are the first thing an operator prunes.
+
 **Pacing.** How many requirements ride on one beat is `direction_runtime.pace(owed, remaining)`
 = `ceil(len(owed) / remaining)`: one per beat while there is room, more only when the budget
 forces it. The old code used a fixed `[:1]` slice at the per-beat sites and an all-or-one

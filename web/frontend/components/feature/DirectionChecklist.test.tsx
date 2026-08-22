@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
 import { DirectionChecklist } from "./DirectionChecklist";
 import { NO_DIRECTION } from "@/features/story-player/turn-stream";
 
@@ -109,6 +109,73 @@ describe("DirectionChecklist attempted state", () => {
     );
     expect(screen.queryByText(/did not fit this scene/i)).not.toBeInTheDocument();
     expect(screen.getByText(/the scene may not have reached this/i)).toBeInTheDocument();
+  });
+});
+
+describe("DirectionChecklist carried-over debt", () => {
+  const OWED = [
+    { id: "s1", text: "the lamp goes over", actorId: null, pinned: false, fromTurn: 0 },
+  ];
+
+  it("shows what an earlier turn could not deliver, even with no turn in progress", () => {
+    // The debt exists BETWEEN turns, when there is no progress to show. A component that
+    // rendered nothing without live items would hide it exactly when it matters.
+    render(
+      <DirectionChecklist progress={{ items: [], undelivered: [] }} standing={OWED} />,
+    );
+    expect(screen.getByText("the lamp goes over")).toBeInTheDocument();
+    expect(screen.getByLabelText(/still owed from an earlier turn/i)).toBeInTheDocument();
+  });
+
+  it("badges a live item that is being re-owed, rather than listing it twice", () => {
+    render(
+      <DirectionChecklist
+        progress={{
+          items: [{ text: "the lamp goes over", state: "attempted" as const }],
+          undelivered: [],
+        }}
+        standing={OWED}
+      />,
+    );
+    expect(screen.getAllByText("the lamp goes over")).toHaveLength(1);
+    expect(screen.getAllByText(/carried over/i).length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText(/still owed from an earlier turn/i)).not.toBeInTheDocument();
+  });
+
+  it("lets the player stop asking for it", () => {
+    // A debt the player cannot cancel is a bug, not a feature.
+    const onDismiss = vi.fn();
+    render(
+      <DirectionChecklist
+        progress={{ items: [], undelivered: [] }}
+        standing={OWED}
+        onDismiss={onDismiss}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Stop asking for the lamp goes over" }));
+    expect(onDismiss).toHaveBeenCalledWith("s1");
+  });
+
+  it("hides the dismiss control when no handler is supplied", () => {
+    render(<DirectionChecklist progress={{ items: [], undelivered: [] }} standing={OWED} />);
+    expect(screen.queryByRole("button", { name: /stop asking/i })).not.toBeInTheDocument();
+  });
+
+  it("counts the debt in the live announcement", () => {
+    render(
+      <DirectionChecklist
+        progress={{ items: [{ text: "A", state: "delivered" as const }], undelivered: [] }}
+        standing={OWED}
+      />,
+    );
+    expect(screen.getByText(/1 of 1 delivered, 1 carried over/i)).toBeInTheDocument();
+  });
+
+  it("still renders nothing when there is neither progress nor a debt", () => {
+    const { container } = render(
+      <DirectionChecklist progress={{ items: [], undelivered: [] }} standing={[]} />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 });
 

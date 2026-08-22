@@ -12,6 +12,7 @@ import {
   listPlaySessions,
   postSceneMoment,
   postTurn,
+  clearStandingDirection,
   renamePlaySession,
   rewindPlaySession,
   setPresence as apiSetPresence,
@@ -33,6 +34,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   setPresence: vi.fn(async () => ({}) as never),
   getCharacterStats: vi.fn(async () => ({}) as Record<string, number>),
   postTurn: vi.fn(),
+  clearStandingDirection: vi.fn(),
   getScenarioRelationships: vi.fn(async () => ({ relationships: [] })),
   createPlaySession: vi.fn(),
   branchPlaySession: vi.fn(),
@@ -65,6 +67,7 @@ function historyOf(sessionId: string): SessionHistory {
       { turn: 0, n: 1, step: "turn", title: "You", detail: "Prior line", data: {} },
       { turn: 0, n: 2, step: "commit", title: "Graph", detail: "wrote", data: {} },
     ],
+    standingDirection: [],
   };
 }
 
@@ -139,6 +142,7 @@ describe("useScenePlay presence", () => {
         { type: "character_status_change", id: "s", seq: 1, scenarioId: scenario.id, sessionId: "ps_p", ts: "t", visibility: "public", data: { characterId: speaker.id, status: "dead", reason: "", auto: true } },
       ],
       traces: [],
+      standingDirection: [],
     };
     vi.mocked(listPlaySessions).mockResolvedValueOnce({
       sessions: [{ id: "ps_p", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null, turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null }],
@@ -202,6 +206,7 @@ describe("useScenePlay stats baseline", () => {
         { type: "state_update", id: "s", seq: 1, scenarioId: scenario.id, sessionId: "ps_b", ts: "t", visibility: "public", data: { patch: {}, stat: { characterId: speaker.id, key: "trust", value: 85, reason: "won them over" } } },
       ],
       traces: [],
+      standingDirection: [],
     });
 
     const { result } = renderHook(() => useScenePlay(scenario));
@@ -410,6 +415,7 @@ describe("useScenePlay activity feed + per-character status", () => {
         { type: "character_dialogue", id: "d_old", seq: 1, scenarioId: scenario.id, sessionId: "ps_old", ts: "t", visibility: "public", data: { characterId: cid, text: '"Resumed."', done: true } },
       ],
       traces: [],
+      standingDirection: [],
     });
 
     const { result } = renderHook(() => useScenePlay(scenario));
@@ -500,6 +506,7 @@ describe("useScenePlay Player POV", () => {
         { type: "user_turn", id: "u", seq: 0, scenarioId: scenario.id, sessionId: "ps_pov", ts: "t", visibility: "public", data: { text: "I say nothing.", directedAt: null, pov: speaker.id } },
       ],
       traces: [],
+      standingDirection: [],
     });
 
     const { result } = renderHook(() => useScenePlay(scenario));
@@ -559,6 +566,7 @@ describe("useScenePlay context tokens (exact vs. estimate)", () => {
         { turn: 0, n: 1, step: "turn", title: "You", detail: "x", data: {} },
         { turn: 0, n: 2, step: "context", title: "Context window", detail: "", data: { promptTokens: 5120 } },
       ],
+      standingDirection: [],
     });
 
     const { result } = renderHook(() => useScenePlay(scenario));
@@ -1235,6 +1243,92 @@ describe("useScenePlay @ a character", () => {
 
     const body = vi.mocked(postTurn).mock.calls.at(-1)?.[1] as unknown as Record<string, unknown>;
     expect(body).not.toHaveProperty("directedAt");
+  });
+});
+
+describe("useScenePlay directives + standing direction", () => {
+  const DOCS = [{ id: "cd_m", name: "maerin.md" }];
+
+  beforeEach(() => {
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+  });
+
+  it("sends directives when a direction line names a character", async () => {
+    const { result } = renderHook(() => useScenePlay(scenario, DOCS));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setPov(speaker.id));
+    act(() => result.current.setGuidance(`@${speaker.name} backs down\nthe lamp goes over`));
+    act(() => result.current.send());
+
+    const body = vi.mocked(postTurn).mock.calls.at(-1)?.[1] as unknown as Record<string, unknown>;
+    expect(body.directives).toEqual([
+      { text: `${speaker.name} backs down`, actorId: speaker.id },
+      { text: "the lamp goes over", actorId: null },
+    ]);
+  });
+
+  it("omits directives for a free-prose direction", async () => {
+    // Nothing regresses for a player who ignores the feature — the backend parses the box
+    // exactly as it does today.
+    const { result } = renderHook(() => useScenePlay(scenario, DOCS));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+
+    act(() => result.current.setPov(speaker.id));
+    act(() => result.current.setGuidance("Something happens and it goes badly."));
+    act(() => result.current.send());
+
+    const body = vi.mocked(postTurn).mock.calls.at(-1)?.[1] as unknown as Record<string, unknown>;
+    expect(body).not.toHaveProperty("directives");
+    expect(body.guidance).toBe("Something happens and it goes badly.");
+  });
+
+  it("seeds the standing debt from a resumed session", async () => {
+    const history = historyOf("ps_debt");
+    history.standingDirection = [
+      { id: "s1", text: "the lamp goes over", actorId: null, pinned: false, fromTurn: 0 },
+    ];
+    vi.mocked(listPlaySessions).mockResolvedValue({
+      sessions: [{
+        id: "ps_debt", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null,
+        turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null,
+      }],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValue(history);
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.standing).toHaveLength(1));
+    expect(result.current.standing[0].text).toBe("the lamp goes over");
+  });
+
+  it("drops a dismissed item immediately, without waiting for the server", async () => {
+    // The player has decided; waiting on a round-trip to acknowledge a cancellation reads
+    // as the control not working.
+    const history = historyOf("ps_debt2");
+    history.standingDirection = [
+      { id: "s1", text: "the lamp goes over", actorId: null, pinned: false, fromTurn: 0 },
+    ];
+    vi.mocked(listPlaySessions).mockResolvedValue({
+      sessions: [{
+        id: "ps_debt2", scenarioId: scenario.id, createdAt: "t", updatedAt: "t", closedAt: null,
+        turnCount: 1, preview: "x", name: null, parentSessionId: null, forkSeq: null,
+      }],
+    });
+    vi.mocked(getSessionHistory).mockResolvedValue(history);
+    vi.mocked(clearStandingDirection).mockResolvedValue({ standingDirection: [] });
+
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.standing).toHaveLength(1));
+
+    act(() => result.current.dismissStanding("s1"));
+    expect(result.current.standing).toEqual([]);
+    expect(vi.mocked(clearStandingDirection)).toHaveBeenCalledWith(
+      scenario.id,
+      "ps_debt2",
+      ["s1"],
+    );
   });
 });
 

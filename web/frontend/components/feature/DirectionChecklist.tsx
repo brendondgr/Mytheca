@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import type { DirectionProgress } from "@/features/story-player/turn-stream";
+import type { StandingItem } from "@/lib/events";
 import { cn } from "@/lib/cn";
 
 /**
@@ -21,13 +22,28 @@ import { cn } from "@/lib/cn";
  */
 export function DirectionChecklist({
   progress,
+  standing = [],
+  onDismiss,
   className,
 }: {
   progress: DirectionProgress;
+  /**
+   * What an earlier turn could not deliver and the next one will re-owe. Shown alongside
+   * this turn's progress, because between turns there IS no progress — a standing item that
+   * only appeared mid-turn would blink in and out.
+   */
+  standing?: StandingItem[];
+  /** Stop asking for one item (`null` → all of them). Omit to hide the control. */
+  onDismiss?: (itemId: string | null) => void;
   className?: string;
 }) {
   const { items, undelivered } = progress;
-  if (!items.length) return null;
+  // A standing item whose text is already on this turn's checklist is the same debt being
+  // worked on right now — show it once, in the live list, wearing the carried-over badge.
+  const live = new Set(items.map((i) => i.text));
+  const waiting = standing.filter((s) => !live.has(s.text));
+  const carriedText = new Set(standing.map((s) => s.text));
+  if (!items.length && !waiting.length) return null;
 
   const done = items.filter((i) => i.state === "delivered").length;
   const tried = items.filter((i) => i.state === "attempted").length;
@@ -60,6 +76,7 @@ export function DirectionChecklist({
       <p className="sr-only" aria-live="polite">
         {done} of {items.length} delivered
         {tried ? `, ${tried} attempted but not confirmed` : ""}
+        {standing.length ? `, ${standing.length} carried over` : ""}
       </p>
 
       <ul className="grid gap-[6px]">
@@ -94,6 +111,11 @@ export function DirectionChecklist({
                   )}
                 >
                   {item.text}
+                  {carriedText.has(item.text) ? (
+                    <span className="ml-[5px] rounded-[4px] border border-field-bd px-[4px] py-[1px] align-middle font-mono text-[8px] tracking-[0.1em] text-mute2 uppercase">
+                      carried over
+                    </span>
+                  ) : null}
                   {note ? (
                     <span
                       className={cn(
@@ -110,6 +132,39 @@ export function DirectionChecklist({
           })}
         </AnimatePresence>
       </ul>
+
+      {waiting.length ? (
+        <ul
+          aria-label="Still owed from an earlier turn"
+          className="mt-[8px] grid gap-[6px] border-t border-field-bd pt-[8px]"
+        >
+          {waiting.map((s) => (
+            <li key={s.id} className="flex items-start gap-[7px]">
+              <span aria-hidden className="mt-[3px] flex-none font-mono text-[10px] leading-none text-mute2">
+                ○
+              </span>
+              <span className="min-w-0 flex-1 font-body text-[12.5px] leading-[1.4] text-mute2">
+                {s.text}
+                <span className="ml-[5px] rounded-[4px] border border-field-bd px-[4px] py-[1px] align-middle font-mono text-[8px] tracking-[0.1em] uppercase">
+                  carried over
+                </span>
+              </span>
+              {onDismiss ? (
+                // 24x24 minimum target (WCAG 2.5.8) — the glyph is small, the hit area is
+                // not. Labelled with the text so the control is unambiguous out of context.
+                <button
+                  type="button"
+                  onClick={() => onDismiss(s.id)}
+                  aria-label={`Stop asking for ${s.text}`}
+                  className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[4px] text-[12px] text-mute2 hover:bg-hover hover:text-ink"
+                >
+                  ×
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       <p className="mt-[8px] font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase">
         {done}/{items.length} delivered

@@ -278,7 +278,8 @@ def prepare_turn(
     )
 
     direction = yield from direction_runtime.build_direction(
-        db, ctx, req, intent=intent, pov_id=pov_id, text=text, tracer=tracer
+        db, ctx, req, intent=intent, pov_id=pov_id, text=text, tracer=tracer,
+        session=session, turn=seq0,
     )
 
     return TurnSetup(

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { ENTER_TRANSITION } from "@/lib/motion";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { DirectionChecklist } from "@/components/feature/DirectionChecklist";
+import type { StandingItem } from "@/lib/events";
 import { NO_DIRECTION, type DirectionProgress } from "@/features/story-player/turn-stream";
 import type { StatDefinition } from "@/lib/types";
 import type { Relationship, StatChip } from "@/features/story-player/scene-data";
@@ -329,12 +330,18 @@ export function DirectorRail({
   activity = [],
   charById,
   direction = NO_DIRECTION,
+  standing = [],
+  onDismissStanding,
 }: {
   stats: StatChip[];
   activity?: ActivityEntry[];
   charById?: (id: string) => { name: string; color: string } | undefined;
   /** The player's scene direction and how much of it the turn has delivered. */
   direction?: DirectionProgress;
+  /** What an earlier turn could not deliver, and the next one will re-owe. */
+  standing?: StandingItem[];
+  /** Stop asking for one carried-over item (`null` → all). Omit to hide the control. */
+  onDismissStanding?: (itemId: string | null) => void;
 }) {
   return (
     <aside className="mytheca-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block">
@@ -348,7 +355,11 @@ export function DirectorRail({
       </Eyebrow>
       <StateChips stats={stats} />
 
-      <DirectionChecklist progress={direction} />
+      <DirectionChecklist
+        progress={direction}
+        standing={standing}
+        onDismiss={onDismissStanding}
+      />
     </aside>
   );
 }

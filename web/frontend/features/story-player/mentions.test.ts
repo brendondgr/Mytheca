@@ -5,6 +5,7 @@ import {
   findMentionQuery,
   MENTION_LIMIT,
   removeMention,
+  splitDirectives,
   stripMentions,
   type MentionOption,
 } from "./mentions";
@@ -240,6 +241,55 @@ describe("cast mentions", () => {
 
   it("removes a cast tag by its whole token, like a doc tag", () => {
     expect(removeMention("@Mei, look here", MIXED[1])).toBe(", look here");
+  });
+});
+
+describe("splitDirectives", () => {
+  const MIXED: MentionOption[] = [
+    { id: "ch_mei", name: "Mei", kind: "cast" },
+    { id: "ch_ald", name: "Aldous", kind: "cast" },
+    { id: "cd_h", name: "harbor.md", kind: "doc" },
+  ];
+
+  it("reads the box one line at a time, aiming each at its @mention", () => {
+    expect(
+      splitDirectives("@Mei backs down\n@Aldous grabs her wrist\nthe lamp goes over", MIXED),
+    ).toEqual([
+      { text: "Mei backs down", actorId: "ch_mei" },
+      { text: "Aldous grabs her wrist", actorId: "ch_ald" },
+      { text: "the lamp goes over", actorId: null },
+    ]);
+  });
+
+  it("sends nothing at all when no line names a character", () => {
+    // Free prose stays free prose: the backend's parse step is what splits "Mei storms out
+    // and Aldous grabs her wrist" into two requirements, and sending it as one directive
+    // would quietly disable that.
+    expect(splitDirectives("Mei storms out and Aldous grabs her wrist", MIXED)).toEqual([]);
+    expect(splitDirectives("", MIXED)).toEqual([]);
+  });
+
+  it("skips blank lines", () => {
+    expect(splitDirectives("@Mei backs down\n\n   \nthe lamp goes over", MIXED)).toEqual([
+      { text: "Mei backs down", actorId: "ch_mei" },
+      { text: "the lamp goes over", actorId: null },
+    ]);
+  });
+
+  it("takes the first character on a line when several are named", () => {
+    expect(splitDirectives("@Mei apologises to @Aldous", MIXED)).toEqual([
+      { text: "Mei apologises to Aldous", actorId: "ch_mei" },
+    ]);
+  });
+
+  it("does not treat a document mention as a target", () => {
+    // A doc grounds a line; it cannot perform one. Without a cast mention anywhere, the
+    // whole box is still free prose.
+    expect(splitDirectives("check @harbor.md first", MIXED)).toEqual([]);
+  });
+
+  it("keeps the name in the directive text, as the send path does", () => {
+    expect(splitDirectives("@Mei backs down", MIXED)[0].text).toBe("Mei backs down");
   });
 });
 

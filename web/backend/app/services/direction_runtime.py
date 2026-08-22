@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from app.agents import planner_agent
 from app.agents.direction_agent import DirectionRequirement, SceneDirection
 from app.events.stream import TurnTraceFrame
+from app.models import PlaySession
 from app.services.assembler import TurnContext
 from app.agents import direction_agent
 from app.agents.intent_agent import TurnIntent
@@ -34,6 +35,92 @@ from app.core.config import get_settings
 from app.schemas.play import TurnRequest
 from app.services import direction_check
 from app.services.turn_emit import Tracer
+
+# ---- carry-over: a direction outlives the turn it rode in on ----------------
+
+
+def load_standing(session: PlaySession) -> list[DirectionRequirement]:
+    """The requirements a previous turn could not deliver, oldest debt first.
+
+    Rebuilt from the session's stored list rather than from the ``direction`` trace rows: a
+    turn's correctness must not depend on diagnostics being retained, and traces are the
+    first thing an operator prunes. Malformed rows are skipped rather than raising — a bad
+    JSON blob must not be able to take a play-through down.
+    """
+    rows = session.standing_direction if isinstance(session.standing_direction, list) else []
+    out: list[DirectionRequirement] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("text") or "").strip()
+        if not text:
+            continue
+        out.append(
+            DirectionRequirement(
+                id=str(row.get("id") or f"std{len(out) + 1}"),
+                text=text,
+                actor_id=row.get("actorId") or None,
+                pinned=bool(row.get("pinned")),
+                from_turn=row.get("fromTurn") if isinstance(row.get("fromTurn"), int) else None,
+            )
+        )
+    return out
+
+
+def merge_standing(
+    direction: SceneDirection, standing: list[DirectionRequirement], *, turn: int
+) -> SceneDirection:
+    """Put what the player is still owed **ahead of** what they just asked for.
+
+    Oldest debt first, because a requirement that has already survived a turn is the one
+    most at risk of never landing — and because the player asked for it first. Duplicates
+    (the same text asked for again) collapse onto the standing entry, so re-stating a
+    direction does not double the debt. Capped at ``MAX_REQUIREMENTS``: past that the extras
+    would be bundled into one packed beat anyway, which reads worse than deferring them, so
+    the newest are dropped and the debt is kept.
+    """
+    if not standing:
+        return direction
+    seen = {r.text.strip().lower() for r in standing}
+    fresh = [r for r in direction.requirements if r.text.strip().lower() not in seen]
+    merged = [*standing, *fresh][: direction_agent.MAX_REQUIREMENTS]
+    for req in merged:
+        if req.from_turn is None and req in standing:
+            req.from_turn = turn
+    text = direction.text.strip()
+    if not text:
+        # A turn with no direction of its own still owes the debt, and the debt IS the
+        # direction for that turn — otherwise `active` is False and nothing schedules it.
+        text = "\n".join(r.text for r in merged)
+    return SceneDirection(text=text, requirements=merged)
+
+
+def to_standing(direction: SceneDirection, *, turn: int) -> list[dict]:
+    """Everything not delivered, as rows for ``PlaySession.standing_direction``.
+
+    ``fromTurn`` is stamped on the way out so a requirement carries the turn it was *first*
+    asked for, not the turn it most recently failed on — the checklist's "carried over"
+    badge is about age, and re-stamping it every turn would make an old debt look new.
+    """
+    return [
+        {
+            "id": r.id,
+            "text": r.text,
+            "actorId": r.actor_id,
+            "pinned": r.pinned,
+            "fromTurn": r.from_turn if r.from_turn is not None else turn,
+        }
+        for r in direction.requirements
+        if not r.delivered
+    ]
+
+
+def save_standing(db: Session, session: PlaySession, rows: list[dict]) -> None:
+    """Write the debt back, clearing the column to ``None`` when nothing is owed."""
+    session.standing_direction = rows or None
+    db.add(session)
+    db.flush()
+
 
 def max_attempts() -> int:
     """How many beats may attempt one requirement before the turn stops re-owing it."""
@@ -228,6 +315,8 @@ def build_direction(
     pov_id: str | None,
     text: str,
     tracer: Tracer,
+    session: PlaySession | None = None,
+    turn: int = 0,
 ) -> Generator[TurnTraceFrame, None, SceneDirection]:
     """Resolve what the player directed this turn, and trace it.
 
@@ -245,12 +334,35 @@ def build_direction(
     # Requirements naming an absent character (or the POV character, whom the AI never
     # voices) are rebound to the narrator so they can still be delivered.
     guidance = (req.guidance or "").strip()
-    if guidance:
+    cast_ids = {m.id for m in ctx.cast}
+    directives = [(d.text, d.actor_id) for d in req.directives if (d.text or "").strip()]
+    if directives:
+        # The player wrote the targets themselves. Nothing left to infer, so no LLM call.
+        direction = direction_agent.from_directives(directives, cast_ids)
+        source = "directives"
+    elif guidance:
         direction = direction_agent.parse(db, ctx, guidance)
+        source = "guidance"
     elif pov_id is None and intent.requirements:
         direction = SceneDirection(text=intent.directive or text, requirements=intent.requirements)
+        source = "message"
     else:
         direction = SceneDirection()
+        source = "message"
+    # What a previous turn could not deliver is owed before anything asked for now.
+    standing = load_standing(session) if session is not None else []
+    if standing:
+        direction = merge_standing(direction, standing, turn=turn)
+        yield from tracer.emit(
+            "direction",
+            f"{len(standing)} part(s) of an earlier direction are still owed",
+            detail="; ".join(r.text for r in standing),
+            data={
+                "carried": [
+                    {"id": r.id, "text": r.text, "fromTurn": r.from_turn} for r in standing
+                ]
+            },
+        )
     direction.rebind({m.id for m in ctx.cast if m.is_present}, locked_id=pov_id)
     if direction.active:
         yield from tracer.emit(
@@ -258,11 +370,53 @@ def build_direction(
             f"You directed the scene ({len(direction.requirements)} thing(s) to deliver)",
             detail=direction.text,
             data={
-                "source": "guidance" if guidance else "message",
+                "source": source,
                 "requirements": [
-                    {"text": r.text, "actor": name_of(ctx, r.actor_id)}
+                    {
+                        "text": r.text,
+                        "actor": name_of(ctx, r.actor_id),
+                        "pinned": r.pinned,
+                        **({"fromTurn": r.from_turn} if r.from_turn is not None else {}),
+                    }
                     for r in direction.requirements
                 ],
             },
         )
+        yield from report_blocked(tracer, ctx, direction)
     return direction
+
+
+def report_blocked(
+    tracer: Tracer, ctx: TurnContext, direction: SceneDirection
+) -> Iterator[TurnTraceFrame]:
+    """Say which pinned requirements are waiting on a character who is not in the scene.
+
+    Without this the requirement would look identical to one the turn simply never got to,
+    and the player would have no way to tell "the scene ran out of beats" from "the person
+    you named is not here". It is also the hook Phase 9 attaches its offer to.
+    """
+    waiting = [r for r in direction.requirements if r.blocked and not r.delivered]
+    if not waiting:
+        return
+    for name, reqs in _by_actor(ctx, waiting).items():
+        yield from tracer.emit(
+            "direction",
+            f"{name} is not in the scene — {len(reqs)} part(s) of your direction wait",
+            detail="; ".join(r.text for r in reqs),
+            data={
+                "blocked": [r.text for r in reqs],
+                "characterId": reqs[0].actor_id,
+                "characterName": name,
+            },
+        )
+
+
+def _by_actor(
+    ctx: TurnContext, requirements: list[DirectionRequirement]
+) -> dict[str, list[DirectionRequirement]]:
+    """Group requirements by their bound character's display name, order preserved."""
+    out: dict[str, list[DirectionRequirement]] = {}
+    for req in requirements:
+        name = name_of(ctx, req.actor_id) or "Someone"
+        out.setdefault(name, []).append(req)
+    return out

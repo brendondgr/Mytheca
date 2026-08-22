@@ -184,6 +184,9 @@ def test_pov_guidance_is_parsed_and_delivered_in_full(client, storyline_id, monk
         "unconfirmed": [],
         "never": [],
         "undelivered": [],
+        # Blocked on an absent character — a different problem from running out of beats,
+        # and only one of the two is fixed by a longer scene.
+        "blocked": [],
     }
     assert _prose_beats(events) <= 4  # inside the scene's cap
 
@@ -263,7 +266,12 @@ def test_a_requirement_naming_the_pov_character_moves_to_the_narrator(
         )
     )
     opening = _traces(events, "direction")[0]
-    assert opening["data"]["requirements"] == [{"text": "Mei drops the letter", "actor": None}]
+    # `pinned: False` — the model *inferred* this target from the guidance text, so the
+    # engine is still free to re-own it. A target the PLAYER names (an `@` mention, sent as
+    # a directive) is pinned and would not have moved.
+    assert opening["data"]["requirements"] == [
+        {"text": "Mei drops the letter", "actor": None, "pinned": False}
+    ]
     assert _traces(events, "direction")[-1]["data"]["undelivered"] == []
 
 

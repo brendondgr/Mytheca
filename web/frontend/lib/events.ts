@@ -322,10 +322,28 @@ export interface PersistedTrace {
 }
 
 /** The full record of one play-through — used to rehydrate the player on resume. */
+/** One thing the player is still owed, surviving from an earlier turn. */
+export interface StandingItem {
+  id: string;
+  text: string;
+  /** Who it is aimed at (`null` → the narrator's to place). */
+  actorId: string | null;
+  /** The player named that character themselves, so it is never silently re-owned. */
+  pinned: boolean;
+  /** The seq of the turn it was **first** asked for — its age, not its last failure. */
+  fromTurn: number | null;
+}
+
 export interface SessionHistory {
   session: SessionSummary;
   events: PersistedEvent[];
   traces: PersistedTrace[];
+  /**
+   * What an earlier turn could not deliver and the next one will re-owe. Present so a
+   * resumed scene can show the debt up front rather than springing it on the player
+   * mid-turn.
+   */
+  standingDirection: StandingItem[];
 }
 
 /** The player's own line, handed back by a rewind so the scene can continue from it. */
@@ -357,6 +375,14 @@ export interface TurnRequestBody {
    * line to `direct`, so the person the player named is the one who answers.
    */
   directedAt?: string | null;
+  /**
+   * The direction box read line-by-line, each line optionally aimed at a character the
+   * player `@`-mentioned on it. Non-empty `directives` **replace** `guidance` parsing — the
+   * backend uses them verbatim and spends no LLM call re-guessing what was already stated,
+   * and a target the player set is never silently re-owned by the narrator. Omitted for a
+   * free-prose direction, which keeps today's behaviour exactly.
+   */
+  directives?: { text: string; actorId: string | null }[];
   sessionId?: string | null;
   /** Request interleaved diagnostic `trace` frames (the Inspector panel). */
   trace?: boolean;

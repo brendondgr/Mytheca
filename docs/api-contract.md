@@ -1003,7 +1003,24 @@ unconfirmed requirement is retried up to `DIRECTION_MAX_ATTEMPTS` (default 2). T
 confirmed), `never` (the turn ran out of beats first) and `undelivered` (everything not
 confirmed, kept for the client reducer). How many requirements ride on one beat is
 `ceil(owed / remaining beats)` — one per beat while there is room, more only when the budget
-forces it. Best-effort
+forces it.
+
+**`directives`** lets the client state the targets instead of having them inferred:
+`[{ text, actorId }]`, one per line of the direction box, with `actorId` set from an `@` cast
+mention on that line. Non-empty `directives` **replace** `guidance` parsing — the requirements
+are built from them verbatim with **no LLM call** — and a directive with a resolved `actorId`
+is *pinned*: never re-owned by the narrator, and marked `blocked` (reported on its own
+`direction` trace row, excluded from scheduling, carried over) when that character is not in
+the scene. An `actorId` outside the cast degrades to `null` rather than being guessed at. Empty
+(the default) keeps today's behaviour exactly.
+
+**Carry-over.** Whatever a turn does not deliver is stored on
+`play_sessions.standing_direction` and re-owed on the next turn, ahead of whatever is asked
+then. `GET …/sessions/{id}` returns it as `standingDirection`
+(`[{ id, text, actorId, pinned, fromTurn }]`, `fromTurn` being the seq it was **first** asked
+for). **`POST /play/{scenarioId}/sessions/{sessionId}/standing-direction`** — body
+`{ "itemIds": [...] | null }` — drops the named entries, or all of them with `null`; returns
+the remainder. Idempotent, and it must exist: a debt the player cannot cancel is a bug. Best-effort
 throughout: with no LLM configured the whole direction becomes one narrator-owned requirement.
 `guidance` **is** persisted on the `user_turn` row (`data.guidance`, `null` when the turn carried
 no direction), alongside `data.taggedDocIds`. Both used to die with the turn; the row is what a

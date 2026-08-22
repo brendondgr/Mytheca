@@ -424,6 +424,8 @@ export function StoryPlayerView({
             activity={scene.activity}
             charById={byId}
             direction={scene.direction}
+            standing={scene.standing}
+            onDismissStanding={scene.dismissStanding}
           />
         )}
 

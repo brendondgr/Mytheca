@@ -95,6 +95,16 @@ class DirectionRequirement:
     attempted: bool = False
     delivered: bool = False
     attempts: int = 0
+    #: The player named this target themselves (an `@` mention on the direction line), so it
+    #: was never a guess and must never be silently re-owned. See :meth:`SceneDirection.rebind`.
+    pinned: bool = False
+    #: A pinned requirement whose character is not in the scene. It cannot be delivered by
+    #: anyone and it must not be handed to the narrator instead — the player asked for *that*
+    #: person. It waits, is reported as waiting, and is carried to the next turn.
+    blocked: bool = False
+    #: The turn this requirement was first asked for, when it survived a turn undelivered.
+    #: ``None`` for a requirement asked for on the current turn.
+    from_turn: int | None = None
 
     @property
     def satisfied(self) -> bool:
@@ -125,7 +135,9 @@ class SceneDirection:
         return [
             r
             for r in self.requirements
-            if not r.delivered and (max_attempts is None or r.attempts < max_attempts)
+            if not r.delivered
+            and not r.blocked
+            and (max_attempts is None or r.attempts < max_attempts)
         ]
 
     def unconfirmed(self, max_attempts: int) -> list[DirectionRequirement]:
@@ -148,15 +160,34 @@ class SceneDirection:
     def rebind(self, present_ids: set[str], locked_id: str | None = None) -> None:
         """Re-own requirements the cast can no longer perform (in place).
 
-        A requirement bound to someone who is absent — or to the **POV character**, whom
-        the AI never voices — can never be satisfied by that character's beat. Rebinding it
-        to the narrator (``actor_id = None``) keeps the promise: narration can still make
-        the event occur.
+        A requirement bound to someone who is absent can never be satisfied by that
+        character's beat. Rebinding it to the narrator (``actor_id = None``) keeps the
+        promise: narration can still make the event occur.
+
+        **A pinned target is never re-owned.** The player named that character themselves —
+        handing their line to the narrator is not a rescue, it is ignoring the instruction.
+        Two cases, and neither is a rebind:
+
+        * the character is **present** (including when they are the POV character): the
+          requirement stays theirs. Under POV the AI will not voice them, but that does not
+          mean the requirement cannot be met — the narrator can describe what they do, and
+          the player can do it themselves on their next turn. Silently re-owning it is what
+          made "everything you aim at your own character" vanish;
+        * the character is **absent**: the requirement is marked ``blocked`` rather than
+          rebound. It waits, is reported as waiting, and is carried to the next turn — and
+          it is the hook Phase 9 uses to offer bringing that character in.
+
+        ``blocked`` is recomputed each pass rather than latched, so a character walking back
+        into the scene unblocks what was waiting on them.
         """
         for req in self.requirements:
-            if req.actor_id is None:
+            if req.actor_id is None or req.delivered:
                 continue
-            if req.actor_id == locked_id or req.actor_id not in present_ids:
+            absent = req.actor_id not in present_ids
+            if req.pinned:
+                req.blocked = absent
+                continue
+            if absent or req.actor_id == locked_id:
                 req.actor_id = None
 
     def attempt(self, requirements: list[DirectionRequirement]) -> None:
@@ -223,6 +254,41 @@ def resolve_requirements(
         if len(out) >= limit:
             break
     return out
+
+
+def from_directives(
+    items: list[tuple[str, str | None]], cast_ids: set[str], *, limit: int = MAX_REQUIREMENTS
+) -> SceneDirection:
+    """Build a direction straight from what the player wrote, with no LLM call.
+
+    ``items`` is ``(text, actor_id)`` per directive — one line of the direction box each,
+    with the ``actor_id`` of an ``@`` cast mention on that line. The player already said
+    *what* and *who*, so spending a round-trip to re-guess it is both slower and worse: the
+    parse step exists to infer a target, and there is nothing left to infer.
+
+    An ``actor_id`` outside the cast is dropped to ``None`` rather than guessed at (the same
+    rule :func:`resolve_requirements` uses). A directive **with** a resolved actor is
+    ``pinned`` — the player named them, so :meth:`SceneDirection.rebind` will never re-own it.
+    """
+    out: list[DirectionRequirement] = []
+    for text, actor in items:
+        clean = (text or "").strip()
+        if not clean:
+            continue
+        bound = actor if actor in cast_ids else None
+        out.append(
+            DirectionRequirement(
+                id=f"req{len(out) + 1}",
+                text=clean,
+                actor_id=bound,
+                pinned=bound is not None,
+            )
+        )
+        if len(out) >= limit:
+            break
+    if not out:
+        return SceneDirection()
+    return SceneDirection(text="\n".join(r.text for r in out), requirements=out)
 
 
 def parse(db: Session, ctx: TurnContext, text: str) -> SceneDirection:

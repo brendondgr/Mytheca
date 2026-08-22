@@ -13,7 +13,7 @@ import {
   renamePlaySession,
   rewindPlaySession,
 } from "@/lib/api";
-import type { SessionSummary } from "@/lib/events";
+import type { SessionSummary, StandingItem } from "@/lib/events";
 import type { ResolvedScenario } from "@/lib/types";
 import { buildScene, type SceneChoice, type SceneMessage, type StatChip } from "./scene-data";
 import {
@@ -48,6 +48,8 @@ export interface SceneWriters {
   setComposer: (c: string) => void;
   setLiveContextTokens: (n: number | null) => void;
   setStreamError: (e: string | null) => void;
+  /** What an earlier turn could not deliver and the next one will re-owe. */
+  setStanding: (items: StandingItem[]) => void;
   notify: (input: { message: string; variant?: "success" | "error" | "info" }) => unknown;
 }
 
@@ -124,6 +126,8 @@ export function useSessionRecord({
       apply.setPov(latestPov(history.events));
       // What the player last asked the scene to do, back in the box they asked it from.
       apply.setGuidance(latestGuidance(history.events));
+      // The debt the next turn will re-owe, shown up front rather than sprung mid-turn.
+      apply.setStanding(history.standingDirection ?? []);
       // Seed the dial with the resumed session's last real context-token count (null when
       // none was recorded → the estimate fallback is used until the next turn streams one).
       apply.setLiveContextTokens(latestContextTokens(history.traces));
@@ -174,6 +178,7 @@ export function useSessionRecord({
       apply.setChoices(fresh.choices);
       apply.setPov(null);
       apply.setGuidance("");
+      apply.setStanding([]);
       apply.setLiveContextTokens(null);
       apply.setStreamError(null);
       await refreshSessions();

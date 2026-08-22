@@ -12,6 +12,7 @@ import type {
   PersistedEvent,
   PresenceStatus,
   SessionHistory,
+  StandingItem,
   RewindResult,
   SessionSummary,
   TurnRequestBody,
@@ -366,6 +367,22 @@ export const listPlaySessions = (scenarioId: string) =>
 /** The full record of one play-through (events + traces) — replayed to rehydrate the player. */
 export const getSessionHistory = (scenarioId: string, sessionId: string) =>
   request<SessionHistory>(`/play/${scenarioId}/sessions/${sessionId}`);
+
+/**
+ * Stop asking for some (or all) of what the scene still owes.
+ *
+ * A direction now outlives the turn it rode in on — but a debt the player cannot cancel is a
+ * bug, not a feature. `itemIds` drops the named entries; `null` clears everything.
+ */
+export const clearStandingDirection = (
+  scenarioId: string,
+  sessionId: string,
+  itemIds: string[] | null,
+) =>
+  request<{ standingDirection: StandingItem[] }>(
+    `/play/${scenarioId}/sessions/${sessionId}/standing-direction`,
+    { method: "POST", body: JSON.stringify({ itemIds }) },
+  );
 
 /**
  * Start a **fresh** play-through. Deliberately never touches the existing ones: before this

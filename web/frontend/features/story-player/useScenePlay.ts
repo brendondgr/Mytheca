@@ -8,6 +8,7 @@ import {
   getScenarioRelationships,
   postGhostwrite,
   postSceneMoment,
+  clearStandingDirection,
   postTurn,
   rerollBeat as apiRerollBeat,
   selectBeatTake,
@@ -20,10 +21,16 @@ import type {
   MomentStreamFrame,
   PresenceStatus,
   TurnStreamFrame,
+  StandingItem,
 } from "@/lib/events";
 import type { BeatLength, ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
-import { stripMentions, type MentionOption } from "@/features/story-player/mentions";
+import {
+  splitDirectives,
+  stripMentions,
+  type Directive,
+  type MentionOption,
+} from "@/features/story-player/mentions";
 import { useSessionRecord } from "./useSessionRecord";
 import { mostRecent } from "./playthroughs";
 import { useToast } from "@/components/layout/ToastProvider";
@@ -157,6 +164,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   const [reasoningByChar, setReasoningByChar] = useState<Record<string, string>>({});
   // What the player asked the scene to do this turn, and how much has landed.
   const [direction, setDirection] = useState<DirectionProgress>(NO_DIRECTION);
+
   // Live "scene pulse" activity feed: newest entries first, capped at 12. Live-only by
   // design — not seeded from history. Both the Director rail (Phase 6) and the cast rail
   // read from this feed. Resets to [] automatically on new scene load (initial state).
@@ -199,6 +207,35 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     sessionRef.current = id;
     setSessionId(id);
   }, []);
+
+  /**
+   * What an earlier turn could not deliver and the next one will re-owe.
+   *
+   * Kept separate from `direction` (this turn's live progress) rather than merged into it:
+   * the debt exists **between** turns, when there is no progress to show, and merging them
+   * would make a standing item disappear the moment a turn started and reappear when it
+   * ended.
+   */
+  const [standing, setStanding] = useState<StandingItem[]>([]);
+
+  /**
+   * Stop asking for something the scene still owes.
+   *
+   * Optimistic — the row goes immediately, because the player has decided and waiting on a
+   * round-trip to acknowledge a cancellation reads as the control not working. A failed
+   * write is reconciled by the next `loadSession`.
+   */
+  const dismissStanding = useCallback(
+    (itemId: string | null) => {
+      const sid = sessionRef.current;
+      if (!sid) return;
+      setStanding((items) => (itemId === null ? [] : items.filter((i) => i.id !== itemId)));
+      void clearStandingDirection(scenario.id, sid, itemId === null ? null : [itemId]).catch(
+        () => {},
+      );
+    },
+    [scenario.id],
+  );
 
   /** Each cast member's authored starting stats — the baseline a loaded session layers on. */
   const baselineRef = useRef<Record<string, StatChip[]>>({});
@@ -261,6 +298,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       setComposer,
       setLiveContextTokens,
       setStreamError,
+      setStanding,
       notify,
     }),
     [notify],
@@ -636,6 +674,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       direction = "",
       taggedDocIds: string[] = [],
       directedAt: string | null = null,
+      directives: Directive[] = [],
     ) => {
       const t = text.trim();
       const d = direction.trim();
@@ -668,6 +707,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
               // `intent.addressed` and promotes a freeform line to `direct`, so the person
               // the player named is the one who answers.
               ...(directedAt ? { directedAt } : {}),
+              // Present only when the player aimed a line at someone. The backend then
+              // uses them verbatim and spends no call re-guessing what was already said.
+              ...(directives.length ? { directives } : {}),
               // Only meaningful under POV — omitted otherwise so the backend keeps reading
               // the player's own line as the direction.
               guidance: d || null,
@@ -770,6 +812,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     // Either box on its own is enough to send. Only both empty is nothing to do.
     if (!text && !directed.text.trim()) return;
     const taggedDocIds = Array.from(new Set([...message.docIds, ...directed.docIds]));
+    // The direction box read per line, when any line names a character. Free prose sends
+    // none and is parsed server-side exactly as today.
+    const directives = splitDirectives(rawDirection, mentionOptions);
     // Who the line is aimed at, from the FIRST cast mention in the **message** box only.
     // The message is what the player says; the direction box is what they ask the scene to
     // do, and a character named there is a subject of the direction, not the addressee.
@@ -777,7 +822,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     const directedAt = message.castIds[0] ?? null;
     setComposer("");
     setGuidance("");
-    submit(text, directed.text, taggedDocIds, directedAt);
+    submit(text, directed.text, taggedDocIds, directedAt, directives);
   }, [composer, mentionOptions, guidance, pov, sending, submit]);
 
   // Selecting a follow-up no longer submits: it writes the suggested (situation-based, tone-
@@ -796,6 +841,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     statsByChar,
     presenceByChar,
     mentionOptions,
+    standing,
+    dismissStanding,
     setPresence,
     relationships: graphRels.length ? graphRels : seed.relationships,
     turnOrder: seed.turnOrder,

@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base
+from app.core.db import Base, JSONColumn
 from app.core.ids import new_id
 
 
@@ -53,3 +53,18 @@ class PlaySession(Base):
         ForeignKey("play_sessions.id", ondelete="SET NULL"), nullable=True, index=True
     )
     fork_seq: Mapped[int | None] = mapped_column(nullable=True)
+    # What the player asked for that the turn could not deliver, carried forward.
+    #
+    # A direction used to die with the turn it rode in on: anything the beats did not reach
+    # was simply gone, which is most of why "it forgets what happens so often". This holds
+    # the outstanding requirements as a list of
+    # ``{"id", "text", "actorId", "pinned", "fromTurn"}`` so the next turn re-owes them,
+    # oldest debt first. ``None`` (the default, and what an empty list is written back as)
+    # means the player is owed nothing.
+    #
+    # Deliberately **stored, not derived**. It could be recomputed by replaying every
+    # `direction` trace row of the session, but that makes the turn loop's correctness
+    # depend on diagnostics being retained — and traces are the first thing an operator
+    # prunes. Nullable, so ``core/bootstrap._reconcile_additive_columns`` adds it with a
+    # plain ADD COLUMN and no Alembic migration is required.
+    standing_direction: Mapped[list | None] = mapped_column(JSONColumn, nullable=True)

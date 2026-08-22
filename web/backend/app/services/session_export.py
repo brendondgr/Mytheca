@@ -110,9 +110,40 @@ def group_turns(
                 },
                 "beats": beats,
                 "trace": trace_steps,
+                # What the direction actually did on this turn, lifted out of its own trace
+                # rows. Without it a reader can see the direction and the prose but not the
+                # engine's own verdict on whether the two met — which is the whole question.
+                "direction": _direction_of(trace_steps),
             }
         )
     return turns
+
+
+def _direction_of(trace_steps: list[dict[str, Any]]) -> dict[str, list[str]]:
+    """Fold a turn's ``direction`` trace rows into asked / delivered / unconfirmed / carried.
+
+    Reads the closing summary for the verdict (it is the one row that has seen the whole
+    turn) and the opening row for what was asked, so a turn whose beats each reported
+    partial progress does not have its counts double-added.
+    """
+    rows = [t for t in trace_steps if t["step"] == "direction"]
+    out: dict[str, list[str]] = {"asked": [], "delivered": [], "unconfirmed": [], "carried": []}
+    for row in rows:
+        data = row.get("data") or {}
+        if reqs := data.get("requirements"):
+            out["asked"] = [
+                str(r.get("text") if isinstance(r, dict) else r) for r in reqs
+            ]
+        if carried := data.get("carried"):
+            out["carried"] = [
+                str(c.get("text") if isinstance(c, dict) else c) for c in carried
+            ]
+        # The closing summary is the only row carrying a `total`; its lists are the verdict.
+        if "total" in data:
+            out["unconfirmed"] = [str(t) for t in (data.get("unconfirmed") or [])]
+            undelivered = {str(t) for t in (data.get("undelivered") or [])}
+            out["delivered"] = [t for t in out["asked"] if t not in undelivered]
+    return out
 
 
 def _session_meta(session: PlaySession) -> dict[str, Any]:
@@ -211,6 +242,19 @@ def render_markdown(
         if player.get("guidance"):
             lines.append("")
             lines.append(f"_Direction:_ {player['guidance']}")
+        direction = turn.get("direction") or {}
+        if any(direction.values()):
+            if direction.get("carried"):
+                lines.append(
+                    "_Carried over from an earlier turn:_ "
+                    + "; ".join(direction["carried"])
+                )
+            if direction.get("delivered"):
+                lines.append("_Delivered:_ " + "; ".join(direction["delivered"]))
+            if direction.get("unconfirmed"):
+                lines.append(
+                    "_Not confirmed delivered:_ " + "; ".join(direction["unconfirmed"])
+                )
         lines.append("")
         for beat in turn["beats"]:
             rendered = _beat_md(beat)

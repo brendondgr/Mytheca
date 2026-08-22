@@ -38,6 +38,22 @@ class PresenceRequest(CamelModel):
     reason: str = ""
 
 
+class TurnDirective(CamelModel):
+    """One line of the player's direction, with the character they aimed it at.
+
+    The direction box is read **per line**: each line is one thing the turn owes, and an
+    ``@`` cast mention on that line pins ``actorId`` to that character. When the player
+    supplies these, the engine uses them verbatim and does **not** call
+    ``direction_agent.parse`` — they already said what and who, so a round-trip to re-guess
+    it is slower and worse. A pinned target is never silently re-owned by the narrator; if
+    that character is not in the scene, the requirement waits rather than being handed to
+    someone else.
+    """
+
+    text: str
+    actor_id: str | None = None
+
+
 class TurnRequest(CamelModel):
     """One player turn.
 
@@ -100,6 +116,11 @@ class TurnRequest(CamelModel):
     #: ``turn_engine.validate_turn_inputs``, this is what lets a player watch rather than
     #: always having to speak to move a scene forward.
     continuation: bool = False
+    #: The direction box read line-by-line, each line optionally aimed at a character the
+    #: player ``@``-mentioned on it. Non-empty ``directives`` **replace** ``guidance`` parsing:
+    #: the engine builds the requirements from them directly. Empty (the default) keeps
+    #: today's behaviour exactly — free prose in the box is parsed by ``direction_agent``.
+    directives: list[TurnDirective] = Field(default_factory=list)
 
 
 class SessionSummary(CamelModel):
@@ -267,6 +288,39 @@ class PersistedTrace(CamelModel):
     data: dict[str, Any]
 
 
+class StandingItem(CamelModel):
+    """One thing the player is still owed, surviving from an earlier turn.
+
+    ``fromTurn`` is the seq of the turn it was **first** asked for — not the turn it most
+    recently failed on, so the checklist's "carried over" badge reflects age. ``actorId`` is
+    who it is aimed at, and ``pinned`` says the player named them (so it is waiting for that
+    character rather than being available to the narrator).
+    """
+
+    id: str
+    text: str
+    actor_id: str | None = None
+    pinned: bool = False
+    from_turn: int | None = None
+
+
+class StandingDirectionRequest(CamelModel):
+    """Stop asking for some of what is still owed.
+
+    ``itemIds`` names the entries to drop; ``None`` clears the whole debt. A standing
+    direction the player cannot cancel would be a bug rather than a feature — they have to
+    be able to change their mind about something the scene has not managed to do.
+    """
+
+    item_ids: list[str] | None = None
+
+
+class StandingDirectionResponse(CamelModel):
+    """What is still owed after the change."""
+
+    standing_direction: list[StandingItem]
+
+
 class SessionHistoryResponse(CamelModel):
     """The full record of one play-through: metadata + every event (incl. hidden
     thoughts + the ``user_turn`` rows) + every diagnostic trace step."""
@@ -274,6 +328,9 @@ class SessionHistoryResponse(CamelModel):
     session: SessionSummary
     events: list[PersistedEvent]
     traces: list[PersistedTrace]
+    #: What an earlier turn could not deliver, so a resumed scene can show the debt it is
+    #: about to re-owe rather than surprising the player with it mid-turn.
+    standing_direction: list[StandingItem] = Field(default_factory=list)
 
 
 # ---- in-narrative image generation (the player's "Create image" action) -----

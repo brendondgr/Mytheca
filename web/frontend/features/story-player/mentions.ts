@@ -215,3 +215,38 @@ export function removeMention(text: string, option: MentionOption): string {
   }
   return out.replace(/[ \t]{2,}/g, " ").trim();
 }
+
+/** One line of the direction box, with the character it was aimed at. */
+export interface Directive {
+  text: string;
+  actorId: string | null;
+}
+
+/**
+ * Split the direction box into directives — **one per line**.
+ *
+ * A line is one thing the turn owes, and an `@` cast mention on that line aims it at that
+ * character. Reading the box per line rather than as one blob is what lets the player state
+ * a target instead of hoping the model infers one, and a stated target is never silently
+ * re-owned by the narrator.
+ *
+ * Returns `[]` when nothing on any line names a character. That is deliberate: a free-prose
+ * direction is sent as plain `guidance` and parsed server-side exactly as it is today, so a
+ * player who never uses `@` sees no change at all. Sending single-line directives for
+ * ordinary prose would quietly disable the parse step that splits "Mei storms out and Aldous
+ * grabs her wrist" into two requirements.
+ */
+export function splitDirectives(text: string, options: MentionOption[]): Directive[] {
+  const lines = (text || "").split(/\r?\n/);
+  const out: Directive[] = [];
+  let aimed = false;
+  for (const line of lines) {
+    const stripped = stripMentions(line, options);
+    if (!stripped.text.trim()) continue;
+    const actorId = stripped.castIds[0] ?? null;
+    if (actorId) aimed = true;
+    out.push({ text: stripped.text.trim(), actorId });
+  }
+  return aimed ? out : [];
+}
+

@@ -29,10 +29,14 @@ from app.schemas.play import (
     SessionHistoryResponse,
     SessionListResponse,
     SessionSummary,
+    StandingDirectionRequest,
+    StandingDirectionResponse,
+    StandingItem,
     TurnRequest,
 )
 from app.services import (
     crud,
+    direction_runtime,
     events_store,
     graph_reader,
     presence,
@@ -203,7 +207,51 @@ def session_history(scenario_id: str, session_id: str, db: Session = Depends(get
             )
             for t in traces
         ],
+        standing_direction=_standing(session),
     )
+
+
+def _standing(session) -> list[StandingItem]:
+    """The session's outstanding direction, in wire shape.
+
+    Read through ``direction_runtime.load_standing`` rather than off the column directly, so
+    the one place that tolerates a malformed row is the same one the turn loop uses.
+    """
+    return [
+        StandingItem(
+            id=r.id, text=r.text, actor_id=r.actor_id, pinned=r.pinned, from_turn=r.from_turn
+        )
+        for r in direction_runtime.load_standing(session)
+    ]
+
+
+@router.post(
+    "/{scenario_id}/sessions/{session_id}/standing-direction",
+    response_model=StandingDirectionResponse,
+)
+def clear_standing_direction(
+    scenario_id: str,
+    session_id: str,
+    body: StandingDirectionRequest,
+    db: Session = Depends(get_db),
+):
+    """Stop asking for some (or all) of what the scene still owes.
+
+    A direction now outlives the turn it rode in on, which is the point — but a debt the
+    player cannot cancel is a bug, not a feature. ``itemIds`` drops the named entries;
+    ``None`` clears everything. Idempotent: ids that are already gone are simply not there.
+    """
+    crud.get_scenario(db, scenario_id)
+    session = events_store.get_session(db, scenario_id, session_id)  # 404/400
+    if body.item_ids is None:
+        remaining: list[dict] = []
+    else:
+        drop = set(body.item_ids)
+        rows = session.standing_direction if isinstance(session.standing_direction, list) else []
+        remaining = [r for r in rows if isinstance(r, dict) and r.get("id") not in drop]
+    direction_runtime.save_standing(db, session, remaining)
+    db.commit()
+    return StandingDirectionResponse(standing_direction=_standing(session))
 
 
 @router.post("/{scenario_id}/sessions/{session_id}/close", response_model=SessionSummary)
