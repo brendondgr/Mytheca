@@ -192,6 +192,33 @@ All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every 
 
 A three-zone "open book": a **left cast rail** (At the table · turn order, portrait avatars with per-character **"Thinking"/"Speaking"** activity indicators), a **reading-first center column** (a `SceneIntro` "scene is set" band — setting, genre/tone, the player's aim, dramatis personae — then the transcript of beats and a **two-row composer**), and a **right director rail** (a live **"Scene pulse"** activity feed + scene-state chips). The per-scene **Config** (gear button → popover with "Max turns" 1–10, "Suggestions" 0–4, and a "Number of beats" 5–100 slider) now lives in the composer's **bottom-left controls row**, not the header. The transcript is the primary surface and stays centered at ≤720px; the `SceneIntro` band ensures the reading column carries the full scene context even on mobile, where the rails collapse to drawers. This is deliberately **not** a generic three-pane SaaS shell or a card grid.
 
+**Pins — permanent versus this-turn.** Every row in the scene-config popover carries a
+24×24 **pin toggle** to the right of its caption, and the pin decides where a change *goes*,
+not what it is. **Pinned** (the default, and where every control starts) is the original
+behaviour exactly: picking a value writes it to the scenario and it stays. **Unpinned**, the
+same pick applies to the **next message only** and then springs back — nothing is written,
+and the menu still shows the chosen value because it renders the pending override in
+preference to the scene's own.
+
+Scope is stated in **text, never in colour alone**, in three independent places: the pin's
+`aria-pressed` plus an accessible name that says which scope is in force ("Max turns —
+pinned to this scene" / "Max turns — this turn only"); a filled versus **outlined** pin glyph
+(shape, not hue); and a "· this turn" suffix on the row's own caption. A footer line appears
+only while something is unpinned — *"2 settings apply to your next message only, then spring
+back."* — and the closed **Config** button grows an accent dot whose meaning lives in the
+button's accessible name, so the state is legible without opening the popover.
+
+The footer and the scope suffix are `--ink`, **not** `--accent`: accent on the menu ground is
+3.67:1 in Slate and 4.40:1 in Ember, which is fine for a border or a glyph and fails AA for
+copy. `check_contrast.py` carries that pair as `accent(nontext) / menu` at 3:1 so the
+distinction is enforced rather than remembered. The pins take the **global** `:focus-visible`
+outline; they deliberately do not set `focus:outline-none`, which would be inert anyway (that
+rule is unlayered and a Tailwind utility cannot override it).
+
+Re-pinning a control **discards** its pending override rather than promoting it to the scene.
+Promoting would make a pin click a silent permanent write, which is the exact surprise the
+pin exists to remove.
+
 **Graph view mode.** The `SceneHeader` carries a compact **Chat ⇄ Graph** segmented switch (left of Export). Switching to **Graph** replaces the center transcript+composer column with `GraphView` — the scenario's Story-Graph as a force-directed canvas (`react-force-graph-2d`), nodes/edges colored by type (see the Story-Graph node/edge colors bullet above) with an sr-only node/edge table. The cast rail stays; the Director rail + Turn Inspector are replaced by the **`GraphInspectorPanel`** right rail. The graph is fetched (and its renderer chunk loaded) only on first switch, and shows a calm "offline" state when the graph DB is down. **Graph Inspector:** with nothing selected it shows the **type breakdown** (node types and edge types, each `swatch · type · count`); **clicking a node or edge** highlights it on the canvas (selection ring / thicker link) and switches the rail to that element's **properties** (its `metadata`, a colored type badge, name-resolved edge endpoints), with a **Back** button to the overview; clicking the background clears. It is an author-facing diagnostic (like the Turn Inspector), so it surfaces every property the graph carries. Mirrors the `DirectorRail` shell (`hidden … lg:block`), so on `< lg` the graph shows canvas-only (the sr-only table remains the data alternative).
 
 **Context usage dial.** A small (24 px) circular **button** (`ContextUsageDial`) in the composer's bottom controls row, immediately left of Send, visible only when the model's context-window size is known. The ring fills with `used / max` and is stroke-coloured by the same token-driven thresholds — `--color-success` (green) below 50 %, `--color-gold` at 50–75 %, `--color-danger` at or above 75 %. The ring is **purely visual — no number in the centre**; the count surfaces only on **hover / keyboard-focus**, in a tooltip above the dial reading `"8.3K of 16K tokens · 56% · exact"`. That same text is the button's `aria-label`, so the exact figure and its provenance (the model's reported `usage.prompt_tokens` vs. a char/4 estimate) are always available non-visually. The arc transition is `motion-reduce:transition-none`. It replaced the earlier slim full-width **context usage bar**.

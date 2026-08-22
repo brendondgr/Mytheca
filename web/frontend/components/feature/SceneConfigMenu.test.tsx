@@ -12,6 +12,7 @@ function setup(overrides = {}) {
     onContextBeatsChange: vi.fn(),
     beatLength: "medium" as const,
     onBeatLengthChange: vi.fn(),
+    onPinnedChange: vi.fn(),
     ...overrides,
   };
   render(<SceneConfigMenu {...props} />);
@@ -200,5 +201,90 @@ describe("SceneConfigMenu says what each control does", () => {
       screen.getByRole("combobox", { name: /how many beats one message produces/i }),
     ).not.toHaveAccessibleDescription(/per extra beat/i);
   });
-});
 
+  describe("pins — per-turn versus permanent", () => {
+    const ALL_PINNED = { maxTurns: true, suggestionsCount: true, beatLength: true };
+
+    async function open(overrides = {}) {
+      const user = userEvent.setup();
+      const props = setup(overrides);
+      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+      return { user, props };
+    }
+
+    it("gives every control a pin whose accessible name states the scope", async () => {
+      await open({ pinned: ALL_PINNED });
+      for (const name of ["Max turns", "Suggestions", "Beat length"]) {
+        const pin = screen.getByRole("button", { name: `${name} — pinned to this scene` });
+        expect(pin).toHaveAttribute("aria-pressed", "true");
+      }
+    });
+
+    it("says 'this turn only' on an unpinned control, in the name and on the row", async () => {
+      // Scope is never colour alone: the pin's accessible name carries it for a screen
+      // reader, and the caption carries it visibly.
+      await open({ pinned: { ...ALL_PINNED, beatLength: false } });
+      const pin = screen.getByRole("button", { name: "Beat length — this turn only" });
+      expect(pin).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByText(/· this turn/i)).toBeInTheDocument();
+    });
+
+    it("reports the flip rather than changing the setting", async () => {
+      const { user, props } = await open({ pinned: ALL_PINNED });
+      await user.click(screen.getByRole("button", { name: "Max turns — pinned to this scene" }));
+      expect(props.onPinnedChange).toHaveBeenCalledWith("maxTurns", false);
+      // A pin says where a change goes; it is not itself a change.
+      expect(props.onMaxTurnsChange).not.toHaveBeenCalled();
+    });
+
+    it("hides the spring-back footer while everything is pinned", async () => {
+      await open({ pinned: ALL_PINNED });
+      expect(screen.queryByText(/spring back/i)).not.toBeInTheDocument();
+    });
+
+    it("counts the unpinned settings in the footer", async () => {
+      await open({ pinned: { maxTurns: false, suggestionsCount: false, beatLength: true } });
+      expect(
+        screen.getByText(/2 settings apply to your next message only/i),
+      ).toBeInTheDocument();
+    });
+
+    it("counts one unpinned setting in the singular", async () => {
+      await open({ pinned: { ...ALL_PINNED, maxTurns: false } });
+      expect(screen.getByText(/1 setting applies to your next message only/i)).toBeInTheDocument();
+    });
+
+    it("marks the closed Config button when anything is unpinned", async () => {
+      // The state has to be visible without opening the popover, and the dot alone is not
+      // visible to a screen reader — hence the text beside it.
+      setup({ pinned: { ...ALL_PINNED, suggestionsCount: false } });
+      expect(
+        screen.getByRole("button", { name: /settings apply to this turn only/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("leaves the Config button unmarked when every control is pinned", async () => {
+      setup({ pinned: ALL_PINNED });
+      expect(
+        screen.queryByRole("button", { name: /settings apply to this turn only/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("reaches every pin by keyboard", async () => {
+      const { user, props } = await open({ pinned: ALL_PINNED });
+      const pin = screen.getByRole("button", { name: "Suggestions — pinned to this scene" });
+      pin.focus();
+      expect(pin).toHaveFocus();
+      await user.keyboard("{Enter}");
+      expect(props.onPinnedChange).toHaveBeenCalledWith("suggestionsCount", false);
+    });
+
+    it("is pinned by default, so a player who ignores pins sees no change", async () => {
+      await open();
+      expect(screen.queryByText(/spring back/i)).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Max turns — pinned to this scene" }),
+      ).toBeInTheDocument();
+    });
+  });
+});

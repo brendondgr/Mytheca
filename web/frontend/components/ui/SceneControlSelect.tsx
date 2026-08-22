@@ -37,6 +37,8 @@ export function SceneControlSelect<T extends string | number>({
   onChange,
   help,
   cost,
+  action,
+  scopeNote,
   disabled = false,
   className,
 }: {
@@ -53,17 +55,52 @@ export function SceneControlSelect<T extends string | number>({
   help?: ReactNode;
   /** What it costs, when there is an honest number — tokens, seconds, beats. */
   cost?: ReactNode;
+  /**
+   * A control that acts *on* this setting rather than setting it — today, the pin that
+   * decides whether a change sticks to the scene or lasts one turn.
+   *
+   * Rendered **outside** the `<label>` deliberately: a button inside a label is activated
+   * by clicking the label, so a pin nested there would fire whenever the player aimed at
+   * the caption.
+   */
+  action?: ReactNode;
+  /**
+   * A short suffix on the caption saying what scope the current value has (e.g. *this
+   * turn*). Visible text, because scope must never be carried by colour alone — the pin's
+   * own accessible name says the same thing for a screen reader.
+   */
+  scopeNote?: ReactNode;
   disabled?: boolean;
   className?: string;
 }) {
   const items = normalize(options);
   const helpId = useId();
+  const selectId = useId();
   return (
-    <label className={cn("flex flex-none flex-col gap-[3px]", className)}>
-      <span className="font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase">
-        {label}
-      </span>
+    <div className={cn("flex flex-none flex-col gap-[3px]", className)}>
+      <div className="flex items-center justify-between gap-[6px]">
+        <label
+          htmlFor={selectId}
+          className="font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase"
+        >
+          {label}
+          {scopeNote ? (
+            // The leading space is not decoration — the same trap as `cost` below: a CSS
+            // margin separates these visually but `textContent` concatenates them, so the
+            // caption read "…SAYS AT ONCE· this turn".
+            // `text-ink`, not `text-accent`: accent on the menu ground is 3.67:1 in Slate
+            // and 4.40:1 in Ember, which is fine for a border and fails AA for text. The
+            // pin glyph beside it is what carries the accent.
+            <span className="ml-[5px] text-ink normal-case">
+              {" "}
+              {scopeNote}
+            </span>
+          ) : null}
+        </label>
+        {action}
+      </div>
       <select
+        id={selectId}
         value={String(value)}
         onChange={(e) => {
           const picked = items.find((o) => String(o.value) === e.target.value);
@@ -97,6 +134,6 @@ export function SceneControlSelect<T extends string | number>({
           ) : null}
         </p>
       ) : null}
-    </label>
+    </div>
   );
 }

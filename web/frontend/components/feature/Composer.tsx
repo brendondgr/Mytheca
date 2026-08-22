@@ -1,5 +1,8 @@
 import { useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { SceneConfigMenu } from "@/components/feature/SceneConfigMenu";
+import {
+  SceneConfigMenu,
+  type SceneControlKey,
+} from "@/components/feature/SceneConfigMenu";
 import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
 import { GhostwriteButton } from "@/components/feature/GhostwriteButton";
 import { ContextUsageDial } from "@/components/feature/ContextUsageDial";
@@ -62,6 +65,8 @@ export function Composer({
   onSuggestionsCountChange,
   beatLength,
   onBeatLengthChange,
+  pinned,
+  onPinnedChange,
   // Player POV (rendered to the right of Config when a handler is supplied).
   pov = null,
   onPovChange,
@@ -108,6 +113,13 @@ export function Composer({
   onSuggestionsCountChange?: (value: number) => void;
   beatLength?: BeatLength;
   onBeatLengthChange?: (value: BeatLength) => void;
+  /**
+   * Which scene controls are pinned to the scene. Anything unpinned applies to the next
+   * message only, which the Config button reports with a dot so the state is visible
+   * without opening the popover.
+   */
+  pinned?: Record<SceneControlKey, boolean>;
+  onPinnedChange?: (key: SceneControlKey, pinned: boolean) => void;
   /** Real transcript beats (one string each) — feeds the config's content-real readout. */
   /** Player POV: the id of the character the player is speaking AS (`null` = Narrator). */
   pov?: string | null;
@@ -523,6 +535,8 @@ export function Composer({
               onSuggestionsCountChange={onSuggestionsCountChange}
               beatLength={beatLength}
               onBeatLengthChange={onBeatLengthChange}
+              pinned={pinned}
+              onPinnedChange={onPinnedChange}
               sceneMemory={sceneMemory}
               summarised={summarised}
               secondsPerBeat={secondsPerBeat}

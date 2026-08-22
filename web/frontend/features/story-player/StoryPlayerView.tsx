@@ -656,12 +656,16 @@ export function StoryPlayerView({
             onSend={scene.send}
             sendDisabled={scene.sending}
             inputRef={composerRef}
-            maxTurns={scene.maxTurns}
+            // `effective`, not the scene's own values: an unpinned control shows what the
+            // player picked for the next message, even though nothing was written anywhere.
+            maxTurns={scene.effective.maxTurns}
             onMaxTurnsChange={scene.setMaxTurns}
-            suggestionsCount={scene.suggestionsCount}
+            suggestionsCount={scene.effective.suggestionsCount}
             onSuggestionsCountChange={scene.setSuggestionsCount}
-            beatLength={scene.beatLength}
+            beatLength={scene.effective.beatLength}
             onBeatLengthChange={scene.setBeatLength}
+            pinned={scene.pinned}
+            onPinnedChange={scene.setPinned}
             sceneMemory={scene.sceneMemory}
             summarised={Boolean(scene.summaryThroughSeq)}
             guidance={scene.guidance}

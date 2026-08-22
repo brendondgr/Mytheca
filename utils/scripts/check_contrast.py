@@ -57,6 +57,10 @@ PAIRS: list[tuple[str, str, str, float, bool]] = [
     ("accent / page", "--accent", "--page-bg", 4.5, True),
     ("accent / card", "--accent", "--card-bg", 4.5, True),
     ("accent / field", "--accent", "--field-bg", 4.5, True),
+    # NOT a text pair. Accent on the menu ground is 3.67:1 in Slate and 4.40:1 in Ember, so
+    # it may carry a border or a glyph inside a popover and must never carry copy — the
+    # scene-config pins are the live case (their scope is stated in text, in `--ink`).
+    ("accent(nontext) / menu", "--accent", "--menu-bg", 3.0, True),
     # Light text on accent-filled controls (mono-uppercase UI text; the locked
     # design system treats it as large/UI text → 3:1; documented trade-off).
     ("accent-ink / accent", ACCENT_INK, "--accent", 3.0, True),

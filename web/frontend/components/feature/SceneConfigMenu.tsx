@@ -58,6 +58,84 @@ const BEAT_LENGTH_TOKENS: Record<BeatLength, number> = {
   long: 520,
 };
 
+
+/** Filled = pinned to the scene, outlined = this turn only. Shape, not colour. */
+function PinIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 17v5" />
+      <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z" />
+    </svg>
+  );
+}
+
+/** The three controls a turn may override, keyed as the wire names them. */
+export type SceneControlKey = "maxTurns" | "suggestionsCount" | "beatLength";
+
+/**
+ * Short names for the pins. The row captions state a consequence and are far too long to
+ * read out as "«How many beats one message produces» — this turn only".
+ */
+const PIN_NAMES: Record<SceneControlKey, string> = {
+  maxTurns: "Max turns",
+  suggestionsCount: "Suggestions",
+  beatLength: "Beat length",
+};
+
+/**
+ * Scope toggle for one control.
+ *
+ * `aria-pressed` carries the state, and the accessible name says which scope is in force —
+ * "Max turns — pinned to this scene" / "Max turns — this turn only" — so the meaning never
+ * depends on seeing the glyph. The visible difference is a filled versus outlined pin plus
+ * the caption's own "· this turn" suffix: two non-colour signals, because scope changes what
+ * a click permanently does to the player's scene and a hue alone cannot carry that.
+ */
+function PinToggle({
+  controlKey,
+  pinned,
+  onChange,
+  disabled,
+}: {
+  controlKey: SceneControlKey;
+  pinned: boolean;
+  onChange?: (key: SceneControlKey, pinned: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pinned}
+      aria-label={`${PIN_NAMES[controlKey]} — ${
+        pinned ? "pinned to this scene" : "this turn only"
+      }`}
+      disabled={disabled}
+      onClick={() => onChange?.(controlKey, !pinned)}
+      // No `focus:outline-none` here: the global `:focus-visible` rule in `globals.css` is
+      // UNLAYERED and a Tailwind utility (in `@layer utilities`) cannot override it, so the
+      // class would be inert and imply a suppression that never happens. The 2px accent
+      // outline is the focus indicator; the border change is a second, quieter signal.
+      className={`flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[6px] border focus-visible:border-accent disabled:opacity-50 ${
+        pinned
+          ? "border-field-bd text-mute2 hover:border-accent hover:text-accent"
+          : "border-accent text-accent"
+      }`}
+    >
+      <PinIcon filled={pinned} />
+    </button>
+  );
+}
+
 export function SceneConfigMenu({
   maxTurns = 5,
   onMaxTurnsChange,
@@ -68,6 +146,8 @@ export function SceneConfigMenu({
   sceneMemory = null,
   summarised = false,
   secondsPerBeat,
+  pinned = { maxTurns: true, suggestionsCount: true, beatLength: true },
+  onPinnedChange,
   openUp = false,
   disabled = false,
 }: {
@@ -88,11 +168,19 @@ export function SceneConfigMenu({
    * entirely before a turn has run rather than guessed at.
    */
   secondsPerBeat?: number;
+  /**
+   * Whether each control is pinned to the scene. Pinned (the default) is today's behaviour
+   * exactly: a change is written to the scenario and stays. Unpinned, a change applies to
+   * the next message only and then springs back.
+   */
+  pinned?: Record<SceneControlKey, boolean>;
+  onPinnedChange?: (key: SceneControlKey, pinned: boolean) => void;
   /** Open the popover upward (for the bottom-of-screen composer). */
   openUp?: boolean;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const unpinnedCount = Object.values(pinned).filter((p) => !p).length;
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
@@ -123,11 +211,22 @@ export function SceneConfigMenu({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label="Scene configuration"
+        aria-label={
+          unpinnedCount > 0
+            ? "Scene configuration — settings apply to this turn only"
+            : "Scene configuration"
+        }
         className="flex flex-none items-center gap-[5px] rounded-[8px] border border-field-bd px-[9px] py-[5px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent"
       >
         <GearIcon />
         Config
+        {/* Visible without opening the popover: something above is about to spring back.
+            The dot is decoration — the button's own accessible name carries the meaning,
+            because a coloured dot says nothing to a screen reader and nothing to a reader
+            who cannot separate the hues. */}
+        {unpinnedCount > 0 ? (
+          <span aria-hidden className="h-[5px] w-[5px] flex-none rounded-full bg-accent" />
+        ) : null}
       </button>
 
       {open ? (
@@ -155,6 +254,15 @@ export function SceneConfigMenu({
             onChange={(v) => onMaxTurnsChange?.(v)}
             help="The cap on replies — narrator beats count too. The scene can still end sooner."
             cost={secondsPerBeat ? `≈ ${secondsPerBeat}s per extra beat` : undefined}
+            action={
+              <PinToggle
+                controlKey="maxTurns"
+                pinned={pinned.maxTurns}
+                onChange={onPinnedChange}
+                disabled={disabled}
+              />
+            }
+            scopeNote={pinned.maxTurns ? undefined : "· this turn"}
             disabled={disabled || !onMaxTurnsChange}
             className="w-full [&_select]:w-full"
           />
@@ -165,6 +273,15 @@ export function SceneConfigMenu({
             options={SUGGESTION_OPTIONS}
             onChange={(v) => onSuggestionsCountChange?.(v)}
             help="Shown under the last beat. 0 turns them off."
+            action={
+              <PinToggle
+                controlKey="suggestionsCount"
+                pinned={pinned.suggestionsCount}
+                onChange={onPinnedChange}
+                disabled={disabled}
+              />
+            }
+            scopeNote={pinned.suggestionsCount ? undefined : "· this turn"}
             disabled={disabled || !onSuggestionsCountChange}
             className="w-full [&_select]:w-full"
           />
@@ -176,9 +293,28 @@ export function SceneConfigMenu({
             onChange={(v) => onBeatLengthChange?.(v)}
             help="Paragraphs per beat. Narration is unaffected — it has its own length."
             cost={`≈ ${BEAT_LENGTH_TOKENS[beatLength].toLocaleString()} tokens a beat`}
+            action={
+              <PinToggle
+                controlKey="beatLength"
+                pinned={pinned.beatLength}
+                onChange={onPinnedChange}
+                disabled={disabled}
+              />
+            }
+            scopeNote={pinned.beatLength ? undefined : "· this turn"}
             disabled={disabled || !onBeatLengthChange}
             className="w-full [&_select]:w-full"
           />
+
+          {/* The scope footer. Rendered only when something is unpinned, because a line
+              that is always there stops being read — and its whole job is to warn that the
+              values above are about to spring back. */}
+          {unpinnedCount > 0 ? (
+            <p className="font-body text-[11px] leading-[1.45] text-ink">
+              {unpinnedCount === 1 ? "1 setting applies" : `${unpinnedCount} settings apply`}{" "}
+              to your next message only, then spring back.
+            </p>
+          ) : null}
 
           {/* Read-only. This is what replaced the "Number of beats" slider: the app decides
               the depth, and reports it, instead of asking the player to guess at it. */}

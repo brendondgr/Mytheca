@@ -16,6 +16,7 @@ import {
   renamePlaySession,
   rewindPlaySession,
   setPresence as apiSetPresence,
+  updateScenario,
 } from "@/lib/api";
 import type { MomentStreamFrame, SessionHistory, TurnStreamFrame } from "@/lib/events";
 import {
@@ -43,6 +44,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   deletePlaySession: vi.fn(async () => undefined),
   getLlmContextWindow: vi.fn(async () => ({ maxContextTokens: 16384, source: "configured" as const })),
   postSceneMoment: vi.fn(),
+  updateScenario: vi.fn(async () => ({}) as never),
 }));
 
 /** Build a mock async generator that yields the given frames then completes. */
@@ -1437,3 +1439,125 @@ describe("useScenePlay recall", () => {
   });
 });
 
+describe("useScenePlay — pinned versus per-turn scene controls", () => {
+  beforeEach(() => {
+    vi.mocked(updateScenario).mockClear();
+    vi.mocked(postTurn).mockClear();
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  async function ready() {
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    return result;
+  }
+
+  it("starts with every control pinned, so nothing changes for a player who ignores this", async () => {
+    const result = await ready();
+    expect(result.current.pinned).toEqual({
+      maxTurns: true,
+      suggestionsCount: true,
+      beatLength: true,
+    });
+    expect(result.current.turnOverrides).toEqual({});
+  });
+
+  it("writes a pinned change to the scenario and sends no overrides", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const result = await ready();
+
+    act(() => result.current.setMaxTurns(3));
+    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(scenario.id, { maxTurns: 3 });
+    expect(result.current.turnOverrides).toEqual({});
+
+    act(() => result.current.setComposer("Go on."));
+    act(() => result.current.send());
+    await waitFor(() => expect(vi.mocked(postTurn)).toHaveBeenCalled());
+    expect(vi.mocked(postTurn).mock.calls[0][1]).not.toHaveProperty("overrides");
+  });
+
+  it("keeps an unpinned change off the scenario and sends it as an override", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const result = await ready();
+
+    act(() => result.current.setPinned("maxTurns", false));
+    act(() => result.current.setMaxTurns(1));
+
+    // Nothing was written. The value is still shown, because `effective` prefers the
+    // override — that is what lets the menu display a choice that lives nowhere yet.
+    expect(vi.mocked(updateScenario)).not.toHaveBeenCalled();
+    expect(result.current.effective.maxTurns).toBe(1);
+    expect(result.current.maxTurns).toBe(scenario.maxTurns ?? 5);
+
+    act(() => result.current.setComposer("Just this once."));
+    act(() => result.current.send());
+    await waitFor(() => expect(vi.mocked(postTurn)).toHaveBeenCalled());
+    expect(vi.mocked(postTurn).mock.calls[0][1]).toMatchObject({
+      overrides: { maxTurns: 1 },
+    });
+  });
+
+  it("springs back once the turn settles", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const result = await ready();
+
+    act(() => result.current.setPinned("beatLength", false));
+    act(() => result.current.setBeatLength("long"));
+    act(() => result.current.setComposer("A long one."));
+    act(() => result.current.send());
+
+    await waitFor(() => expect(result.current.turnOverrides).toEqual({}));
+    // The pin itself does not spring back — only the value it scoped.
+    expect(result.current.pinned.beatLength).toBe(false);
+    expect(result.current.effective.beatLength).toBe(scenario.beatLength ?? "medium");
+  });
+
+  it("springs back on the error path too — a failed turn still spent the intent", async () => {
+    async function* failing(): AsyncGenerator<TurnStreamFrame> {
+      throw new Error("stream died");
+    }
+    vi.mocked(postTurn).mockReturnValue(failing());
+    const result = await ready();
+
+    act(() => result.current.setPinned("suggestionsCount", false));
+    act(() => result.current.setSuggestionsCount(0));
+    expect(result.current.turnOverrides).toEqual({ suggestionsCount: 0 });
+
+    act(() => result.current.setComposer("Boom."));
+    act(() => result.current.send());
+
+    await waitFor(() => expect(result.current.turnOverrides).toEqual({}));
+  });
+
+  it("discards a pending override when the control is re-pinned, never promotes it", async () => {
+    // Promoting would make a pin click a silent permanent write to the player's scene,
+    // which is exactly the surprise this feature removes.
+    const result = await ready();
+
+    act(() => result.current.setPinned("suggestionsCount", false));
+    act(() => result.current.setSuggestionsCount(0));
+    expect(result.current.effective.suggestionsCount).toBe(0);
+
+    act(() => result.current.setPinned("suggestionsCount", true));
+    expect(result.current.turnOverrides).toEqual({});
+    expect(vi.mocked(updateScenario)).not.toHaveBeenCalled();
+    expect(result.current.effective.suggestionsCount).toBe(scenario.suggestionsCount ?? 4);
+  });
+
+  it("carries an unpinned setting onto a Continue turn", async () => {
+    // The footer promises "your next message", and pressing Continue is that message.
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const result = await ready();
+
+    act(() => result.current.setPinned("maxTurns", false));
+    act(() => result.current.setMaxTurns(2));
+    act(() => result.current.continueTurn());
+
+    await waitFor(() => expect(vi.mocked(postTurn)).toHaveBeenCalled());
+    expect(vi.mocked(postTurn).mock.calls[0][1]).toMatchObject({
+      continuation: true,
+      overrides: { maxTurns: 2 },
+    });
+  });
+});

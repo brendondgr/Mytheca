@@ -22,7 +22,9 @@ import type {
   PresenceStatus,
   TurnStreamFrame,
   StandingItem,
+  TurnOverridesBody,
 } from "@/lib/events";
+import type { SceneControlKey } from "@/components/feature/SceneConfigMenu";
 import type { BeatLength, ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
 import {
@@ -136,6 +138,38 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   );
   const [beatLength, setBeatLengthState] = useState<BeatLength>(
     scenario.beatLength ?? "medium",
+  );
+  // Scope, per control. Pinned (the default, and every control starts there) is exactly
+  // today's behaviour: a change is written to the scenario and stays. Unpinned, a change
+  // rides on the next turn's `overrides` envelope and is then discarded — which is why a
+  // player who never touches a pin sees no difference at all.
+  const [pinned, setPinnedState] = useState<Record<SceneControlKey, boolean>>({
+    maxTurns: true,
+    suggestionsCount: true,
+    beatLength: true,
+  });
+  // The pending per-turn overrides. Cleared when the turn settles, on the error path too —
+  // the clear lives in `.finally`, because a turn that failed still consumed the intent.
+  const [turnOverrides, setTurnOverrides] = useState<TurnOverridesBody>({});
+  /**
+   * The envelope for the next turn — omitted entirely when every control is pinned, so a
+   * player who ignores this feature sends the exact request body they sent before it existed.
+   */
+  const overridesBody = useMemo(
+    () =>
+      Object.keys(turnOverrides).length > 0
+        ? ({ overrides: turnOverrides } as const)
+        : ({} as const),
+    [turnOverrides],
+  );
+  /**
+   * The spring-back. Called from every turn path's `.finally`, error included: a turn that
+   * failed still spent the player's "just this once", and leaving the override pending would
+   * silently apply it to whatever they sent next.
+   */
+  const clearTurnOverrides = useCallback(
+    () => setTurnOverrides((o) => (Object.keys(o).length ? {} : o)),
+    [],
   );
   // Player POV: the id of the character the player is speaking AS (null = the default
   // guide/narrator behavior). Drives the "Speaking as" composer select, the optimistic
@@ -619,6 +653,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
             sessionId: sessionRef.current,
             trace: true,
             povCharacterId: pov,
+            // Continue is a turn like any other, so an unpinned control applies to it. The
+            // footer promises "your next message", and pressing Continue IS that message.
+            ...overridesBody,
           },
           signal,
         ),
@@ -628,9 +665,10 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
         setActivityByChar({});
         setTurnStatus(IDLE_TURN_STATUS);
         setMessages(dropPendingBeats);
+        clearTurnOverrides();
         void refreshSessions();
       });
-  }, [sending, scenario.id, stream, pov, refreshSessions]);
+  }, [sending, scenario.id, stream, pov, refreshSessions, overridesBody, clearTurnOverrides]);
 
   /**
    * Generate another version of a beat, streaming it into the beat's existing position.
@@ -781,6 +819,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
               // keeps them out of the intent/direction/planner agents, so they inform what
               // is said without steering what happens.
               ...(taggedDocIds.length ? { taggedDocIds } : {}),
+              // Scene settings for this turn only, when any control is unpinned.
+              ...overridesBody,
             },
             signal,
           ),
@@ -798,36 +838,91 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
           // failed generation, an aborted turn) — clear the empty placeholder here rather
           // than in an effect, so it cannot outlive the turn and cannot cascade a render.
           setMessages(dropPendingBeats);
+          // The spring-back: an unpinned setting lasted exactly this turn.
+          clearTurnOverrides();
           // The turn changed this play-through's turn count, its recency, and — on the very
           // first turn of a never-played scenario, where the session is created server-side
           // and only announced on the stream — whether the tray knows it exists at all.
           void refreshSessions();
         });
     },
-    [sending, scenario.id, stream, pov, refreshSessions],
+    [sending, scenario.id, stream, pov, refreshSessions, overridesBody, clearTurnOverrides],
   );
 
-  // Persist a per-scene control change (optimistic; best-effort write-back to the scenario).
+  /** Drop one key from the pending overrides, leaving the object identical when absent. */
+  const clearOverride = useCallback((key: SceneControlKey) => {
+    setTurnOverrides((o) => {
+      if (!(key in o)) return o;
+      const next = { ...o };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  // A per-scene control change. **Pinned** is the original behaviour — optimistic local
+  // write plus a best-effort write-back to the scenario. **Unpinned** writes the value into
+  // the next turn's envelope and does not touch the scenario at all; the displayed value
+  // comes from `effective` below, so the menu still shows what the player picked.
   const setMaxTurns = useCallback(
     (n: number) => {
+      if (!pinned.maxTurns) {
+        setTurnOverrides((o) => ({ ...o, maxTurns: n }));
+        return;
+      }
       setMaxTurnsState(n);
+      clearOverride("maxTurns");
       void updateScenario(scenario.id, { maxTurns: n }).catch(() => {});
     },
-    [scenario.id],
+    [scenario.id, pinned.maxTurns, clearOverride],
   );
   const setSuggestionsCount = useCallback(
     (n: number) => {
+      if (!pinned.suggestionsCount) {
+        setTurnOverrides((o) => ({ ...o, suggestionsCount: n }));
+        return;
+      }
       setSuggestionsCountState(n);
+      clearOverride("suggestionsCount");
       void updateScenario(scenario.id, { suggestionsCount: n }).catch(() => {});
     },
-    [scenario.id],
+    [scenario.id, pinned.suggestionsCount, clearOverride],
   );
   const setBeatLength = useCallback(
     (value: BeatLength) => {
+      if (!pinned.beatLength) {
+        setTurnOverrides((o) => ({ ...o, beatLength: value }));
+        return;
+      }
       setBeatLengthState(value);
+      clearOverride("beatLength");
       void updateScenario(scenario.id, { beatLength: value }).catch(() => {});
     },
-    [scenario.id],
+    [scenario.id, pinned.beatLength, clearOverride],
+  );
+
+  /**
+   * Flip a control's scope.
+   *
+   * Re-pinning **discards** any pending override rather than promoting it to the scenario.
+   * Promoting would make a pin click a silent permanent write to the player's scene, which
+   * is precisely the surprise this whole feature exists to remove.
+   */
+  const setPinned = useCallback(
+    (key: SceneControlKey, next: boolean) => {
+      setPinnedState((p) => ({ ...p, [key]: next }));
+      if (next) clearOverride(key);
+    },
+    [clearOverride],
+  );
+
+  /** What the next turn will actually run with — the override when there is one. */
+  const effective = useMemo(
+    () => ({
+      maxTurns: turnOverrides.maxTurns ?? maxTurns,
+      suggestionsCount: turnOverrides.suggestionsCount ?? suggestionsCount,
+      beatLength: turnOverrides.beatLength ?? beatLength,
+    }),
+    [turnOverrides, maxTurns, suggestionsCount, beatLength],
   );
 
   /**
@@ -920,6 +1015,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
               sessionId: sessionRef.current,
               trace: true,
               povCharacterId: pov,
+              ...overridesBody,
             },
             signal,
           ),
@@ -929,10 +1025,11 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
           setActivityByChar({});
           setTurnStatus(IDLE_TURN_STATUS);
           setMessages(dropPendingBeats);
+          clearTurnOverrides();
           void refreshSessions();
         });
     },
-    [sending, scenario.id, stream, pov, refreshSessions],
+    [sending, scenario.id, stream, pov, refreshSessions, overridesBody, clearTurnOverrides],
   );
 
   const lastSpeaker = [...messages].reverse().find((m) => m.kind === "char");
@@ -973,6 +1070,13 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setSuggestionsCount,
     beatLength,
     setBeatLength,
+    // Scope. `effective` is what the menu renders — the pending override when there is one,
+    // the scene's own value otherwise — so an unpinned control still shows what was picked
+    // without that value having been written anywhere.
+    pinned,
+    setPinned,
+    turnOverrides,
+    effective,
     pov,
     setPov: choosePov,
     loading,
