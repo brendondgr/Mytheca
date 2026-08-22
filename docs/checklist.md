@@ -80,6 +80,24 @@ Verified against the code on 2026-08-04.
   this file already names has to run**: repetition of a character's own phrasings across a
   long session, or blinded speaker attribution, with the penalties off and on. EXP-2026-08-007
   measured *structure*, not drift, and it ran on **one model**.
+- **Scene presets are built-in only.** The four in `content/scene_presets.py` are authored
+  code, deliberately (a preset is part of how the app reads, not data an operator edits in a
+  row — the same reasoning as the graph type registry). A **storyline-authored** preset is a
+  real want and is not built: it would need a table, a schema, an authoring surface, and a
+  decision about whether a world's presets replace or extend the built-ins.
+- **Looseness cannot be edited from the dossier.** `CharacterDossier` shows a character's
+  word-choice setting read-only during play; changing it means going back to the Library.
+  Deliberate for now — editing a character mid-scene is a different decision from reading
+  one, and it raises "does this apply to the beat already streaming".
+- **The scene-config popover is up to seven controls.** `depth-for-players.md` took it from
+  three to seven (preset · max turns · suggestions · beat length · planning · ties ·
+  register), and at 320×720 it measured **1004px tall with its top edge at -386px** — the
+  first three controls were off-screen and unreachable, and the panel was not scrollable.
+  Fixed in Phase 12 by bounding it to the viewport (`max-h-[calc(100dvh-140px)]` +
+  `overflow-y-auto`), which is now what keeps the *next* control reachable rather than
+  silently lost off the top. **The pressure itself is not fixed**: a seventh control in a
+  popover is close to the limit of what a player will read, and the honest next move is
+  grouping or a second surface, not an eighth row.
 - **`StatDefinition.carry_over` was unreachable until 2026-08-22, so nothing had ever
   carried.** Found while implementing `depth-for-players.md` Phase 11. The column existed on
   the model and `session_stats.carry_forward` read it, but the field was absent from
@@ -307,7 +325,7 @@ Verified against the code on 2026-08-04.
 
   **`depth-for-players.md` Phase 10 did NOT close this.** The tie-scope control widens the *relationship* read and adds one off-scene query; it gives `subgraph` no job at all. Recorded explicitly because "the graph is now used" is exactly the kind of half-truth that would let this bullet be deleted by someone skimming.
 - **Nothing writes `Secret` nodes, so `graph_reader.secret_reachability` can never return a row.** Found 2026-08-22 while surveying the graph for `depth-for-players.md` Phase 10. `Secret` is a built-in node type in `content/graph_registry.py` (with `severity`, `truth_value`, `visibility`) and `_SECRET_REACHABILITY` reads it — but **every** `graph_writer.upsert_node` call site passes a hardcoded `type_name`, and the only three values in the codebase are `Character`, `Setting` and `Event` (`crud.sync_character`/`sync_setting`, `turn_writer._append_event`, `relationships`, `graph_reader.ensure_scenario_materialized`). No agent proposes one either. So this is dead in a stronger sense than "no callers": the query is correct and the data it reads has never existed on any world. Either write `Secret` nodes (the character's `secret` prose field is the obvious source, and the registry already says "often also a Secret node") or delete the query and the type together — but do not cite secret-reachability as a working feature.
-- **Unused graph queries.** `graph_reader.presence_casting` and `graph_reader.secret_reachability` have no callers.
+- **Unused graph queries.** `graph_reader.presence_casting` and `graph_reader.secret_reachability` have no callers. **Still open after `depth-for-players.md` Phase 10** — that phase added `offscene_ties` and gave neither of these a job. `secret_reachability` is the worse of the two: nothing has ever written a `Secret` node, so it could not return a row even if it were called (see above).
 - **`validate_relationship` substring fallback** will mis-bind on nested cast names ("Aldous" vs "Brother Aldous").
 - ~~**Two frontend tests are load-flaky.**~~ **Fixed 2026-08-21.** `CharacterModal` already
   carried a trailing 15 s timeout; the two that did not — `SettingModal` ("drafts a full setting

@@ -1,5 +1,88 @@
 # Depth for Players
 
+> **SHIPPED — 12/12 phases, 2026-08-22.** Commit series `59b10a9 … HEAD` on branch
+> `play-experience`. What follows this block is the plan as written; the record below is what
+> actually happened and where it differs.
+
+## 0. Completion record
+
+### What shipped
+
+The scene became the place a player tunes how a turn runs. A **per-turn override envelope**
+(`TurnOverrides` → `turn_settings.resolve`) sits under everything: any control can be **pinned**
+to the scene or spent on the next message and then spring back, with the scope stated in text
+on each row. Over it, a **named preset** answers the question a player actually has ("what kind
+of scene is this") instead of the three they have to be taught to ask.
+
+Four new controls, each with its consequence written at the point of use: **turn planning off**
+(the model-free `services/beat_order`, the largest latency lever in the app, whose copy states
+what it costs — no register, no mid-turn narration, no exits), a **pinned register** for one
+message, **tie scope** over the story graph, and a per-character **word-choice** dial that
+biases `top_p` and nothing else. The header's **☰ Scene** menu reaches the writing prompts,
+each badged with the layer its live value comes from.
+
+### What the code disagreed with, and won
+
+Five of the twelve phases were written against a repository that had moved. Each was checked
+rather than implemented:
+
+- **Phase 2's re-export** would have been dead code — the private names it named
+  (`_relationship_note`, `_apply_stat_change`) do not exist; the split landed with those
+  helpers public on their owners. The module map went into the docstring and `docs/structure.md`
+  instead.
+- **"A nullable column needs no Alembic migration"** is false here.
+  `test_alembic.py::test_baseline_columns_match_create_all` enforces it, and caught all four
+  new columns.
+- **Phase 8's "the register still leads"** does not hold at ±2: the dial's full range (0.12)
+  is wider than the register span (0.10). The test pins the relationship that *is* true and a
+  second one documents the edge.
+- **Phase 11's central premise was obsolete.** Owner decision D-1 had already made play
+  session-scoped, so `state_update` never touched the authored value. The real hazard is
+  `carry_forward`, and it is narrower — which is what `CharacterStat.baseline` now guards.
+- **Phase 11's "start fresh" checkbox was not built**, deliberately: nothing could carry (see
+  below), so it would have been a control that silently does nothing — which this plan forbids
+  elsewhere.
+
+### Defects found and fixed
+
+- `crud.create_scenario` and `create_character` enumerate their columns, so `scenePreset`,
+  `plannerMode` and `looseness` were silently dropped on **create** while PATCH worked.
+- `StatDefinition.carry_over` was readable by `carry_forward` but present in no schema and no
+  insert, so **nothing could ever carry** — D-1's "reset, with an opt-in carry" had no way to
+  opt in.
+- `aria-pressed` on `role="menuitem"` is invalid ARIA; menu toggles are `menuitemcheckbox`.
+- Menu-row hints were concatenating into the accessible **name** ("Turn Inspectorwhat the
+  scene read…").
+- Accent text on the menu ground fails AA (3.67:1 Slate); the pin footer and scope suffix use
+  `--ink`, and `check_contrast.py` now carries the pair as non-text.
+- The **`world` tie scope did nothing on a dense graph** — the in-scene ties filled the 8-line
+  budget and the off-scene clause was always trimmed. Off-scene ties now hold a reserved share.
+- The **config popover grew unreachable**: seven controls, 1004px tall at 320×720, top edge at
+  -386px, not scrollable. Bounded to the viewport in Phase 12.
+
+### What is deliberately still open
+
+Recorded in `docs/checklist.md`, not implied away: the **`world` tie scope is a product
+question** awaiting a human decision (shipped non-default); planning-off's latency and quality
+trade, the looseness step size, and the value of a pinned register are all **unmeasured**;
+`carry_over` has no authoring UI; scene presets are built-in only; `TurnContext.subgraph`,
+`presence_casting` and `secret_reachability` all remain unused, and nothing has ever written a
+`Secret` node.
+
+### Validation at the close of the plan
+
+`uv run pytest` — **1653 passed**. `npm test` — **1280 passed**, 130 files. `npm run typecheck`
+clean; `npm run lint` 0 errors. `check_contrast.py` and `check_frontend_css.mjs` both pass.
+Live pass at 320 / 375 / 768 / 1024: no horizontal page overflow, `scrollHeight ===
+clientHeight` at every width, every visible target ≥44px tall under `pointer: coarse`, and the
+config panel fits and scrolls. Focus indication verified **structurally** against the served
+stylesheet (the bare `:focus-visible` rule is unlayered and no new control suppresses it)
+because `document.hasFocus()` is false in this environment — the standing constraint recorded
+in the checklist. The scene header still overflows **17px at 320** (down from 45px);
+`docs/plans/reach.md` Phase 4 owns the durable fix and that bullet's removal.
+
+---
+
 ## 1. Introduction
 
 Mytheca already contains most of the machinery a demanding player would want: a three-layer

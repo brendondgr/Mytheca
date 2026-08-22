@@ -95,6 +95,17 @@ Implemented and exercised end to end:
 - Persistent sessions: every turn and its diagnostic trace are stored (`events`, `turn_traces`); reopening a scenario resumes the latest session; sessions export as JSON or Markdown.
 - Hybrid RAG with embed-on-save and a conservative retrieval gate.
 - Story-Graph view in the story player (force-directed canvas + inspector rail) with an accessible text alternative.
+- **Play-time customisation.** The scene, not the Options page, is where the player tunes how
+  a turn runs. The config popover carries a **named preset** ("what kind of scene this is")
+  over the individual controls, and each control states its consequence and, where an honest
+  number exists, its cost. Every control can be **pinned** to the scene or applied to the next
+  message only and then spring back, with the scope shown in text. Beyond the three original
+  controls the player can now turn **turn planning off** (the largest latency lever there is,
+  and the one whose copy states what it costs), **pin how a beat is pitched** for one message,
+  and choose **how much of a character's history** the story graph carries into a beat. A
+  character's own **word choice** is a five-stop dial in the Library that biases the sampler
+  and nothing else. The scene header's **☰ Scene** menu reaches the writing prompts —
+  "How this world writes" — with each prompt badged by the layer its live value comes from.
 - Three themes, four font-size presets, and a WCAG-AA contrast gate script.
 
 Not built: authentication (no user model, no auth routes), a standalone `GET /stream` transport, admin surfaces, dice resolution, and any evaluation/benchmark harness. Open items: `checklist.md`.

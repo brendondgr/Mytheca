@@ -325,7 +325,13 @@ export function SceneConfigMenu({
           role="dialog"
           aria-label="Scene configuration"
           tabIndex={-1}
-          className={`absolute left-0 z-40 flex w-[264px] flex-col gap-[13px] mytheca-menu p-[14px] focus:outline-none ${
+          // `max-h` + `overflow-y-auto` are load-bearing, not defensive. This panel grew from
+          // three controls to seven across `docs/plans/depth-for-players.md`, and at 320x720
+          // it measured 1004px tall opening upward from the composer — its top edge sat at
+          // -386px and the first three controls were off-screen and unreachable, with the
+          // panel itself not scrollable. Bounding it to the viewport is what keeps a control
+          // added by the next phase reachable rather than silently lost off the top.
+          className={`absolute left-0 z-40 flex max-h-[calc(100dvh-140px)] w-[264px] flex-col gap-[13px] overflow-y-auto mytheca-menu p-[14px] focus:outline-none ${
             openUp ? "bottom-[38px]" : "top-[38px]"
           }`}
         >
