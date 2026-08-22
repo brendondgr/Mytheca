@@ -32,8 +32,35 @@ FastAPI, Python 3.13, `uv`.
 
 | Concern | Where it actually lives |
 | --- | --- |
-| Turn loop / coordination | `app/services/turn_engine.py` |
+| Turn loop / coordination | `app/services/turn_engine.py` — **orchestrator only**, split 2026-08-21 into `turn_setup.py` · `beat_runner.py` · `beat_stream.py` · `turn_effects.py` · `turn_emit.py` · `direction_runtime.py` · `turn_finalize.py` |
 | Who acts next | `app/agents/planner_agent.py` (`plan_beats`) — up to `TURN_PLANNER_LOOKAHEAD` beats per ReAct call; `next_beat` is the one-beat wrapper |
+
+
+### The turn loop's module layout
+
+`turn_engine.py` was 1,986 lines with a ~800-line `run_turn`. It is now the **orchestrator
+only** — it decides who speaks next, how long the turn runs and what the direction still
+owes, and calls out for everything else. The split was made so a **single beat** can be
+re-run without replaying a whole turn (`docs/plans/control-over-the-record.md` Phase 8), and
+carried further at the owner's request so no module is both a library and a loop.
+
+| Module | Owns | Depends on |
+| --- | --- | --- |
+| `turn_engine.py` | `validate_turn_inputs` + `run_turn`. Nothing else. | all of the below |
+| `turn_setup.py` | `prepare_turn` — resolve session, assemble context, resolve POV, record the player's line, read intent + direction. A generator returning `TurnSetup`. | `turn_emit` |
+| `beat_runner.py` | Produce one already-decided beat: `generate_speaker`, `beat_or_skip`, `narrator_interstitial`, `relationship_note`. | `beat_stream`, `turn_emit` |
+| `beat_stream.py` | Emission → delta-streamed events, and the two per-beat stops (`runaway_chars`, the degeneration threshold). | `turn_effects`, `turn_emit` |
+| `turn_effects.py` | Consequences a beat declares — stat, presence, relationship — each validated before applying. **A leaf: depends on no other turn module.** | — |
+| `turn_emit.py` | `Emitter` (seq + persist + buffer + withhold), `LiveSegment` (delta accumulation), `Tracer`. | — |
+| `direction_runtime.py` | The runtime half of scene direction: `delivered`, `direction_lead`, `plan_still_valid`. (`direction_agent` is the parsing half.) | `turn_setup` |
+| `turn_finalize.py` | The tail: suggestions → cold-path graph write → reflection → `touch_session`. | — |
+
+The dependency graph is acyclic and one-directional: `turn_effects` → `beat_stream` →
+`beat_runner`, with `turn_emit` as a shared leaf and `turn_engine` at the top. Ordering
+inside `prepare_turn` and `finalize_turn` is load-bearing and unchanged by the split:
+context is assembled against committed history *before* the player's line is recorded (so
+the POV cast member resolves first), and the graph write happens *before* reflection (so a
+character reflects against a committed world).
 | How grave the moment is | `app/agents/planner_agent.py` (`plan_beats` → per-beat `register` + `stakes`, no extra call) |
 | Voicing one character | `app/agents/character_turn_agent.py` (think → speak, one isolated call) |
 | Narration interstitials | `app/agents/narrator_agent.py` |

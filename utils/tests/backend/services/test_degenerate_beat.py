@@ -97,12 +97,12 @@ def test_the_runaway_stop_is_far_beyond_any_honest_passage():
     paragraphs; EXP-2026-08-009: 1,292 over 3.89 — both ≈ 340).
     """
     from app.agents import character_turn_agent
-    from app.services.turn_engine import _CHARS_PER_TOKEN, _DEGENERATE_AFTER_CHARS, _runaway_chars
+    from app.services.beat_stream import _CHARS_PER_TOKEN, _DEGENERATE_AFTER_CHARS, runaway_chars
 
     chars_per_paragraph = 340
     target_paragraphs = {"short": 2, "medium": 4, "long": 6}
     for tier, paragraphs in target_paragraphs.items():
-        stop = _runaway_chars(tier)
+        stop = runaway_chars(tier)
         honest = paragraphs * chars_per_paragraph
         assert stop >= 3 * honest, f"{tier}: {stop} would cut an honest beat short"
         assert stop > _DEGENERATE_AFTER_CHARS, tier
@@ -112,7 +112,7 @@ def test_the_runaway_stop_is_far_beyond_any_honest_passage():
 
     # The tiers are ordered, and `long` keeps exactly the bound that shipped before the
     # control existed — nothing about the longest tier changes.
-    assert _runaway_chars("short") < _runaway_chars("medium") < _runaway_chars("long")
-    assert _runaway_chars("long") == (character_turn_agent._VOICE_PROSE_TOKENS or 2048) * 4
+    assert runaway_chars("short") < runaway_chars("medium") < runaway_chars("long")
+    assert runaway_chars("long") == (character_turn_agent._VOICE_PROSE_TOKENS or 2048) * 4
     # An unknown tier is not unbounded: it falls back to the module default.
-    assert _runaway_chars(None) == _runaway_chars("long")
+    assert runaway_chars(None) == runaway_chars("long")
