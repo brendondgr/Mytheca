@@ -36,7 +36,14 @@ from app.schemas.settings import (
     PromptsConfigUpdate,
     SettingsRead,
 )
-from app.services import comfyui, llm, llm_backend, media_cleanup, settings_store
+from app.services import (
+    comfyui,
+    context_budget,
+    llm,
+    llm_backend,
+    media_cleanup,
+    settings_store,
+)
 from app.services.llm_backend import InferenceBackend
 
 router = APIRouter(prefix="/options", tags=["options"])
@@ -111,14 +118,12 @@ def llm_context_window(db: Session = Depends(get_db)):
     stored ``maxContextTokens`` setting when the probe is unavailable or fails
     (``source="configured"``).
     """
-    base_url, api_key = settings_store.resolve_llm_credentials(db, None, None)
-    detected = (
-        llm_backend.get_context_window(base_url, api_key) if base_url.strip() else None
+    # Delegated to `services/context_budget` so the number shown to the player and the number
+    # the turn engine budgets against are the same value rather than two independent reads.
+    window = context_budget.resolve_window(db)
+    return LlmContextWindowResponse(
+        max_context_tokens=window.max_tokens, source=window.source
     )
-    if detected is not None:
-        return LlmContextWindowResponse(max_context_tokens=detected, source="detected")
-    configured = settings_store.get_llm(db).max_context_tokens
-    return LlmContextWindowResponse(max_context_tokens=configured, source="configured")
 
 
 # ---- ComfyUI image generation ----------------------------------------------

@@ -84,6 +84,24 @@ class Settings(BaseSettings):
     # ``ReasoningEffort.QUICK`` (128 tokens) to keep that per-beat cost small.
     turn_planner_lookahead: int = 1
 
+    # --- How much of the scene fits in the model's context ---
+    # The transcript depth used to be a per-scene slider the player had to guess at. These
+    # four make the app answer it instead (see services/context_budget.py).
+    #
+    # The most of the window the recent transcript may occupy. Filling a context window with
+    # transcript is not using it well: the character prompt's TAIL is the act-now region, and
+    # burying it behind a huge history is how a model stops following its direction.
+    turn_context_max_fraction: float = 0.5
+    # Answer allowance plus margin, on top of the measured non-transcript prompt parts.
+    turn_context_reserve_tokens: int = 512
+    # Used when the engine reports no window AND the operator configured none — reported as
+    # `fallback`, never dressed up as `configured`.
+    turn_context_fallback_window: int = 8192
+    # Roll history that falls out of the window into a running summary. Ships OFF pending the
+    # interleaved two-arm experiment (owner decision D-2, 2026-08-21): nothing may claim
+    # compaction is free until it has been measured against the writing it summarises.
+    turn_context_compaction: bool = False
+
     # --- Confirming that a direction actually landed ---
     # A requirement used to be marked satisfied the moment it was put INTO a prompt, which
     # is a promise rather than an outcome: a beat that came back empty, was withheld, or
