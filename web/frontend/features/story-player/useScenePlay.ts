@@ -2,19 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  branchPlaySession,
   closePlaySession,
-  createPlaySession,
-  deletePlaySession,
   getCharacterStats,
   getLlmContextWindow,
   getScenarioRelationships,
-  getSessionHistory,
-  listPlaySessions,
   postSceneMoment,
   postTurn,
-  renamePlaySession,
-  rewindPlaySession,
   setPresence as apiSetPresence,
   updateScenario,
 } from "@/lib/api";
@@ -22,12 +15,13 @@ import { estimateUsedTokens } from "@/lib/contextBudget";
 import type {
   MomentStreamFrame,
   PresenceStatus,
-  SessionSummary,
   TurnStreamFrame,
 } from "@/lib/events";
 import type { BeatLength, ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
 import { stripMentions, type MentionOption } from "@/features/story-player/mentions";
+import { useSessionRecord } from "./useSessionRecord";
+import { mostRecent } from "./playthroughs";
 import { useToast } from "@/components/layout/ToastProvider";
 import {
   buildScene,
@@ -55,11 +49,8 @@ import {
   branchOptionsToChoices,
   foldTrace,
   graphRelationshipsToRel,
-  latestContextTokens,
-  latestPov,
   mergeFrame,
   type PresenceMap,
-  rehydrateFromHistory,
   sessionIdOf,
   type DirectionProgress,
   type TraceTurn,
@@ -74,22 +65,6 @@ import {
  * 80ms and snatching it away reads as a glitch, not as speed.
  */
 const SCENE_REVEAL_MIN_MS = 650;
-
-/**
- * The play-through to open when none was asked for: the most recently played.
- *
- * The server already returns the list in recency order, but this reads the newest
- * explicitly rather than taking `sessions[0]`. That index used to BE the whole
- * session model — the story player resumed it unconditionally and threw the rest away, so a
- * scenario could only ever hold one story. Naming the intent keeps the ordering assumption
- * from silently becoming a feature again.
- */
-export function mostRecent(sessions: SessionSummary[]): SessionSummary | null {
-  if (!sessions.length) return null;
-  return sessions.reduce((newest, s) =>
-    Date.parse(s.updatedAt) > Date.parse(newest.updatedAt) ? s : newest,
-  );
-}
 
 /**
  * The hard ceiling on the curtain, whether or not the scene ever reports ready.
@@ -219,6 +194,15 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setSessionId(id);
   }, []);
 
+  /** Each cast member's authored starting stats — the baseline a loaded session layers on. */
+  const baselineRef = useRef<Record<string, StatChip[]>>({});
+  /**
+   * Whether a turn is streaming, readable from a callback. `sending` is derived from the
+   * stream further down, so the record actions cannot see it directly. Mutating the record
+   * mid-sentence would leave a half-streamed beat attached to rows that no longer exist.
+   */
+  const sendingRef = useRef(false);
+
   // Loader → content reveal.
   //
   // This used to be a blind `setTimeout(2200)` on mount: the curtain held for
@@ -252,218 +236,42 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     return () => window.clearTimeout(floor);
   }, [sceneReady]);
 
-  // Every play-through of this scenario, most-recently-played first — the tray's rows.
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  /**
-   * The last beat we know is persisted, for the optimistic-concurrency precondition on the
-   * record-mutating endpoints. A ref rather than state: it is read at call time by a
-   * callback, and re-rendering the whole player because a seq advanced would be waste.
-   */
-  const latestSeqRef = useRef<number | null>(null);
-  /**
-   * Whether a turn is streaming, readable from a callback. `sending` itself is derived from
-   * the stream further down, so the record-mutating actions — declared above it — cannot see
-   * it. Mutating the record mid-sentence would leave a half-streamed beat attached to rows
-   * that no longer exist.
-   */
-  const sendingRef = useRef(false);
-  /** Set immediately after a rewind, so the transcript can say what just happened. */
-  const [rewound, setRewound] = useState<{
-    removedEvents: number;
-    snapshotSessionId: string | null;
-  } | null>(null);
-  // The stat baseline (each cast member's persisted starting values). Held in a ref as well
-  // as in state because `loadSession` needs it when the player switches play-throughs, long
-  // after the mount effect that fetched it has finished.
-  const baselineRef = useRef<Record<string, StatChip[]>>({});
-
-  /** Re-read the play-through list (after create / rename / delete / the first turn). */
-  const refreshSessions = useCallback(async () => {
-    const list = await listPlaySessions(scenario.id).catch(() => ({ sessions: [] }));
-    setSessions(list.sessions);
-    return list.sessions;
-  }, [scenario.id]);
-
-  /**
-   * Replace the on-screen scene with one play-through's persisted history.
-   *
-   * This is the single path by which a session becomes "the open one" — first load, a tray
-   * switch, and (in later phases) branch and rewind all route through it, so there is one
-   * place that knows how to swap the transcript, stats, presence, POV and traces together.
-   * Resetting `choices` matters: a stale branch_choices row from the outgoing play-through
-   * would otherwise sit under the incoming one's last beat.
-   */
-  const loadSession = useCallback(
-    async (targetId: string) => {
-      const base = baselineRef.current;
-      const history = await getSessionHistory(scenario.id, targetId);
-      // The precondition the record-mutating endpoints check against.
-      latestSeqRef.current = history.events.reduce(
-        (top, e) => (typeof e.seq === "number" && e.seq > top ? e.seq : top),
-        -1,
-      );
-      const scene = rehydrateFromHistory(history.events, history.traces, base);
-      rememberSession(history.session.id);
-      // Restore the "Speaking as" selection from the most recent user_turn's pov, so the
-      // next line continues in that character's voice (null → the guide/narrator default).
-      setPov(latestPov(history.events));
-      // Seed the dial with the resumed session's last real context-token count (null when
-      // none was recorded → the estimate fallback is used until the next turn streams one).
-      setLiveContextTokens(latestContextTokens(history.traces));
-      setMessages(scene.messages.length ? scene.messages : buildScene(scenario).messages);
-      if (scene.stats.length) setStats(scene.stats);
-      setStatsByChar(Object.keys(scene.statsByChar).length ? scene.statsByChar : base);
-      setPresenceByChar(scene.presenceByChar);
-      setTraceTurns(scene.traceTurns);
-      setChoices([]);
-      setStreamError(null);
-    },
-    [scenario, rememberSession],
+  // The play-through record — which stories exist, which is open, and every operation that
+  // changes one after the fact. Extracted to its own hook when this file passed the repo's
+  // 800-line ceiling; its surface is re-exported below unchanged.
+  // Memoised: the record hook's callbacks take this as a dependency, so an object literal
+  // rebuilt each render would give every one of them a new identity on every render.
+  // `useState` setters are stable, and `notify` comes from a context that keeps it stable.
+  const sceneWriters = useMemo(
+    () => ({
+      setMessages,
+      setStats,
+      setStatsByChar,
+      setPresenceByChar,
+      setTraceTurns,
+      setChoices,
+      setPov,
+      setGuidance,
+      setComposer,
+      setLiveContextTokens,
+      setStreamError,
+      notify,
+    }),
+    [notify],
   );
+  const record = useSessionRecord({
+    scenario,
+    sessionRef,
+    rememberSession,
+    setSessionId,
+    baselineRef,
+    sendingRef,
+    apply: sceneWriters,
+  });
+  // Destructured so the render body writes to a plain ref rather than through the hook's
+  // return object, which the immutability lint rule (correctly) refuses.
+  const { loadSession, refreshSessions, latestSeqRef } = record;
 
-  /** Switch the scene to another saved play-through. No-op for the one already open. */
-  const openSession = useCallback(
-    async (targetId: string) => {
-      if (targetId === sessionRef.current) return;
-      // Stamp the outgoing one closed first, so recency reflects when it was last *played*
-      // rather than when it was last listed.
-      const outgoing = sessionRef.current;
-      if (outgoing) closePlaySession(scenario.id, outgoing);
-      await loadSession(targetId);
-      await refreshSessions();
-    },
-    [scenario.id, loadSession, refreshSessions],
-  );
-
-  /**
-   * Start a brand-new play-through and switch to it.
-   *
-   * The transcript resets to the scenario's seed opening rather than to nothing: an empty
-   * session has no events, so replaying it would leave the reader staring at a blank column
-   * where the scene intro belongs.
-   */
-  const startNewPlaythrough = useCallback(
-    async (name?: string) => {
-      const outgoing = sessionRef.current;
-      if (outgoing) closePlaySession(scenario.id, outgoing);
-      const created = await createPlaySession(scenario.id, name);
-      const fresh = buildScene(scenario);
-      rememberSession(created.id);
-      setMessages(fresh.messages);
-      setStats(fresh.stats);
-      setStatsByChar(baselineRef.current);
-      setPresenceByChar({});
-      setTraceTurns([]);
-      setChoices(fresh.choices);
-      setPov(null);
-      setGuidance("");
-      setLiveContextTokens(null);
-      setStreamError(null);
-      await refreshSessions();
-      return created;
-    },
-    [scenario, rememberSession, refreshSessions],
-  );
-
-  /** Relabel a play-through. A blank name clears it back to the first-player-line fallback. */
-  const renamePlaythrough = useCallback(
-    async (targetId: string, name: string) => {
-      await renamePlaySession(scenario.id, targetId, name.trim() || null);
-      await refreshSessions();
-    },
-    [scenario.id, refreshSessions],
-  );
-
-  /**
-   * Delete a play-through. Deleting the one currently open moves the scene to whatever is
-   * newest afterwards, or to a fresh seed scene when that was the last one — leaving the
-   * player looking at the transcript of something that no longer exists would be worse than
-   * either.
-   */
-  const deletePlaythrough = useCallback(
-    async (targetId: string) => {
-      await deletePlaySession(scenario.id, targetId);
-      const remaining = await refreshSessions();
-      if (targetId !== sessionRef.current) return;
-      const next = mostRecent(remaining);
-      if (next) {
-        await loadSession(next.id);
-        return;
-      }
-      const fresh = buildScene(scenario);
-      sessionRef.current = null;
-      setSessionId(null);
-      setMessages(fresh.messages);
-      setStats(fresh.stats);
-      setStatsByChar(baselineRef.current);
-      setPresenceByChar({});
-      setTraceTurns([]);
-      setChoices(fresh.choices);
-      setPov(null);
-      setLiveContextTokens(null);
-    },
-    [scenario, refreshSessions, loadSession],
-  );
-
-  /**
-   * Fork this play-through at a beat and move into the fork. The original is untouched and
-   * stays in the tray, which is the whole reason branch is safe to offer on every beat.
-   */
-  const branchFrom = useCallback(
-    async (eventId: string, name?: string) => {
-      const sid = sessionRef.current;
-      if (!sid || sendingRef.current) return;
-      const fork = await branchPlaySession(scenario.id, sid, {
-        atEventId: eventId,
-        name,
-        expectedSeq: latestSeqRef.current ?? undefined,
-      });
-      closePlaySession(scenario.id, sid);
-      await loadSession(fork.id);
-      await refreshSessions();
-      notify({
-        message: "Branched — the original is still in your play-throughs.",
-        variant: "success",
-      });
-      return fork;
-    },
-    [scenario.id, loadSession, refreshSessions, notify],
-  );
-
-  /**
-   * Cut this play-through back to a beat and hand the player's own line back.
-   *
-   * The reload is deliberate rather than a local truncation of `messages`: `loadSession` is
-   * the one path already proven to turn persisted rows into a faithful transcript, and a
-   * second, subtly different truncation is exactly how the two would drift.
-   */
-  const rewindTo = useCallback(
-    async (eventId: string) => {
-      const sid = sessionRef.current;
-      if (!sid || sendingRef.current) return;
-      const result = await rewindPlaySession(scenario.id, sid, {
-        atEventId: eventId,
-        keepSnapshot: true,
-        expectedSeq: latestSeqRef.current ?? undefined,
-      });
-      await loadSession(sid);
-      await refreshSessions();
-      // The player's own words come back, editable, with the direction and attachments they
-      // rode in with. This is what makes a rewind a prompt rather than just a deletion.
-      const restored = result.restoredTurn;
-      if (restored) {
-        setComposer(restored.text);
-        setGuidance(restored.guidance ?? "");
-        setPov(restored.pov ?? null);
-      }
-      setRewound({
-        removedEvents: result.removedEvents,
-        snapshotSessionId: result.snapshotSessionId,
-      });
-      return result;
-    },
-    [scenario.id, loadSession, refreshSessions],
-  );
 
   // Seed live per-character stats from each cast member's persisted starting values, then
   // resume the scenario's most recent play-through on top of that baseline: reload its full
@@ -831,17 +639,17 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     openProfile: (id: string) => setProfileId(id),
     closeProfile: () => setProfileId(null),
     // The play-through tray: every saved story for this scenario, and the actions over them.
-    sessions,
-    refreshSessions,
-    openSession,
-    branchFrom,
-    rewindTo,
-    // Set right after a rewind so the transcript can say what happened; cleared on send.
-    rewound,
-    clearRewound: () => setRewound(null),
-    startNewPlaythrough,
-    renamePlaythrough,
-    deletePlaythrough,
+    // The play-through record, re-exported unchanged so the split is invisible downstream.
+    sessions: record.sessions,
+    refreshSessions: record.refreshSessions,
+    openSession: record.openSession,
+    startNewPlaythrough: record.startNewPlaythrough,
+    renamePlaythrough: record.renamePlaythrough,
+    deletePlaythrough: record.deletePlaythrough,
+    branchFrom: record.branchFrom,
+    rewindTo: record.rewindTo,
+    rewound: record.rewound,
+    clearRewound: record.clearRewound,
     activity,
     activityByChar,
     turnStatus,
