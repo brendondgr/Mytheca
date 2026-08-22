@@ -103,7 +103,25 @@ export type SceneControlKey =
   | "maxTurns"
   | "suggestionsCount"
   | "beatLength"
-  | "planner";
+  | "planner"
+  | "ties";
+
+/** How much of a speaker's relationship history reaches their beat. */
+export type TieScope = "addressed" | "scene" | "world";
+
+const TIE_OPTIONS: { value: TieScope; label: string }[] = [
+  { value: "addressed", label: "Whoever they're talking to" },
+  { value: "scene", label: "Everyone in the room" },
+  { value: "world", label: "…and people elsewhere" },
+];
+
+/** What each stop actually does, said as a consequence rather than a scope name. */
+const TIE_HELP: Record<TieScope, string> = {
+  addressed: "Only how the speaker feels about whoever they are talking to.",
+  scene: "How the speaker feels about everyone in the room.",
+  world:
+    "…and about people elsewhere in this world. Characters may then mention someone the scene has never introduced.",
+};
 
 /**
  * Short names for the pins. The row captions state a consequence and are far too long to
@@ -114,6 +132,7 @@ const PIN_NAMES: Record<SceneControlKey, string> = {
   suggestionsCount: "Suggestions",
   beatLength: "Beat length",
   planner: "Turn planning",
+  ties: "Ties",
 };
 
 /**
@@ -169,12 +188,21 @@ export function SceneConfigMenu({
   onBeatLengthChange,
   plannerMode = "planner",
   onPlannerModeChange,
+  tieScope = "scene",
+  onTieScopeChange,
+  graphAvailable = true,
   register = null,
   onRegisterChange,
   sceneMemory = null,
   summarised = false,
   secondsPerBeat,
-  pinned = { maxTurns: true, suggestionsCount: true, beatLength: true, planner: true },
+  pinned = {
+    maxTurns: true,
+    suggestionsCount: true,
+    beatLength: true,
+    planner: true,
+    ties: true,
+  },
   onPinnedChange,
   presets = [],
   scenePreset = null,
@@ -193,6 +221,15 @@ export function SceneConfigMenu({
   /** Whether a director reads each moment, or the cast simply answers in order. */
   plannerMode?: "planner" | "off";
   onPlannerModeChange?: (value: "planner" | "off") => void;
+  /** How much of a speaker's relationship history reaches their beat. */
+  tieScope?: TieScope;
+  onTieScopeChange?: (value: TieScope) => void;
+  /**
+   * Whether the story graph exists on this install. `false` disables the Ties control **and
+   * says why** — a control that silently does nothing is worse than one that is honestly
+   * unavailable.
+   */
+  graphAvailable?: boolean;
   /**
    * A register pinned for the next message, or `null` to let the scene decide. There is no
    * pinned/unpinned choice here — it is per-turn by construction.
@@ -432,6 +469,32 @@ export function SceneConfigMenu({
             }
             scopeNote={pinned.planner ? undefined : "· this turn"}
             disabled={disabled || !onPlannerModeChange}
+            className="w-full [&_select]:w-full"
+          />
+
+          {/* The story graph, put to work. Two of the three stops are the same query the
+              engine already makes every beat with a wider id list; only the third adds one.
+              Disabled-with-a-reason when there is no graph at all. */}
+          <SceneControlSelect
+            label="How much history a character carries"
+            value={tieScope}
+            options={TIE_OPTIONS}
+            onChange={(v) => onTieScopeChange?.(v as TieScope)}
+            help={
+              graphAvailable
+                ? TIE_HELP[tieScope]
+                : "The story graph is off for this install, so nobody carries their history into a beat."
+            }
+            action={
+              <PinToggle
+                controlKey="ties"
+                pinned={pinned.ties}
+                onChange={onPinnedChange}
+                disabled={disabled || !graphAvailable}
+              />
+            }
+            scopeNote={pinned.ties ? undefined : "· this turn"}
+            disabled={disabled || !onTieScopeChange || !graphAvailable}
             className="w-full [&_select]:w-full"
           />
 

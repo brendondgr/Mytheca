@@ -311,3 +311,82 @@ def test_an_unknown_register_is_rejected_at_the_boundary(client, storyline_id, m
     )
 
     assert resp.status_code == 422
+
+
+def test_the_tie_scope_is_recorded_on_the_relationship_step(client, storyline_id, monkeypatch):
+    """A player who widened the scope should be able to see that it took effect."""
+    _configure_llm(client)
+    _route(monkeypatch, [{"action": "speak", "actor": 1}, {"action": "end"}])
+    # A note is only emitted when the graph returns something, so stand one in — the point
+    # here is the trace payload, not the graph.
+    from app.services import graph_reader
+
+    monkeypatch.setattr(
+        graph_reader,
+        "relationship_context",
+        lambda *a, **k: {
+            "direct": [
+                {"target": "x", "name": "Bo", "type": "trusts", "outgoing": True, "reason": ""}
+            ],
+            "indirect": [],
+        },
+    )
+    monkeypatch.setattr(graph_reader, "offscene_ties", lambda *a, **k: [])
+    scid, ids = _scene(client, storyline_id, names=("Ana", "Bo"))
+
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={
+                "text": "I press her.",
+                "directedAt": ids[0],
+                "trace": True,
+                "overrides": {"ties": "world"},
+            },
+        )
+    )
+    step = next(e for e in events if e["type"] == "trace" and e["step"] == "relationship")
+
+    assert step["data"]["scope"] == "world"
+    assert step["data"]["offscene"] == 0
+
+
+def test_the_default_tie_scope_is_scene(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    _route(monkeypatch, [{"action": "speak", "actor": 1}, {"action": "end"}])
+    from app.services import graph_reader
+
+    monkeypatch.setattr(
+        graph_reader,
+        "relationship_context",
+        lambda *a, **k: {
+            "direct": [
+                {"target": "x", "name": "Bo", "type": "trusts", "outgoing": True, "reason": ""}
+            ],
+            "indirect": [],
+        },
+    )
+    scid, ids = _scene(client, storyline_id, names=("Ana", "Bo"))
+
+    events = _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "Hi.", "directedAt": ids[0], "trace": True},
+        )
+    )
+    step = next(e for e in events if e["type"] == "trace" and e["step"] == "relationship")
+
+    assert step["data"]["scope"] == "scene"
+
+
+def test_an_unknown_tie_scope_is_rejected_at_the_boundary(client, storyline_id, monkeypatch):
+    _configure_llm(client)
+    _route(monkeypatch, [{"action": "end"}])
+    scid, ids = _scene(client, storyline_id, names=("Ana",))
+
+    resp = client.post(
+        f"/api/play/{scid}/turn",
+        json={"text": "Hi.", "directedAt": ids[0], "overrides": {"ties": "galaxy"}},
+    )
+
+    assert resp.status_code == 422

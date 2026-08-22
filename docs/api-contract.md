@@ -964,7 +964,8 @@ scene open with no directed character opens narrator-first.
 { "maxTurns": 1-10 | null, "suggestionsCount": 0-4 | null,
   "beatLength": "short" | "medium" | "long" | null,
   "planner": "planner" | "off" | null,
-  "register": "light" | "neutral" | "tense" | "grave" | null }
+  "register": "light" | "neutral" | "tense" | "grave" | null,
+  "ties": "addressed" | "scene" | "world" | null }
 ```
 
 Every field is optional and `null`-defaulted; an unset field falls back to the `Scenario`
@@ -984,6 +985,20 @@ Three properties are the contract:
   the `turn` trace step, so the Inspector and the export can say what the turn actually ran
   with. Since the override is spent when the turn ends, that row is the only record it
   happened.
+**Tie scope (`overrides.ties`, `Scenario.tieScope`).** How much of a speaker's relationship
+history reaches their beat: `"addressed"` (only the person they are talking to — what shipped
+before this control), **`"scene"`** (everyone present; the default, and what `null` reads as)
+or `"world"` (…plus their ties to characters **not** in the scene, as a marked *"Elsewhere:
+…"* clause). The first two cost **no new query** — they are the same graph read with a wider
+id list; only `world` adds one. Full detail, including why `world` is non-default, in
+`docs/story-graph-neo4j.md` §*Tie scope*. The `relationship` trace step carries `data.scope`
+and `data.offscene`.
+
+`GET /play/{scenarioId}/relationships` gained **`graphAvailable`** (additive; existing clients
+ignore it) so a client can tell "this world has no relationships yet" from "there is no graph
+on this install" — identical from the list alone, and the difference is whether the Ties
+control is worth offering or would silently do nothing.
+
 **Pinning the register (`overrides.register`).** How the beat is pitched, on one axis from
 banter to life-and-death. **Per-turn only, and deliberately so: there is no `Scenario`
 column.** "How tense this beat is" is a property of a moment, and a scene-wide one would be

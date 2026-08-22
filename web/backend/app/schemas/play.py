@@ -62,6 +62,10 @@ class TurnDirective(CamelModel):
 #: life-and-death. Mirrors ``planner_agent._REGISTERS``.
 Register = Literal["light", "neutral", "tense", "grave"]
 
+#: How much of a speaker's relationship history reaches their beat.
+#: ``None`` reads as ``"scene"``.
+TieScope = Literal["addressed", "scene", "world"]
+
 #: Whether the ReAct planner decides each beat, or the model-free scripted order does.
 #: ``None`` reads as ``"planner"`` — the behaviour that shipped.
 PlannerMode = Literal["planner", "off"]
@@ -103,6 +107,8 @@ class TurnOverrides(CamelModel):
     #: every import. An explicit alias keeps the contract exactly as documented and keeps the
     #: suite free of a warning that would have to be explained to every future reader.
     beat_register: Register | None = Field(default=None, alias="register")
+    #: How wide a speaker's remembered history is for this turn — see ``TieScope``.
+    ties: TieScope | None = None
 
 
 class TurnRequest(CamelModel):

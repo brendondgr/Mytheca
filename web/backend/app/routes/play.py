@@ -178,9 +178,17 @@ def scenario_relationships(scenario_id: str, db: Session = Depends(get_db)):
 
     Best-effort: an empty list when the graph is off/unreachable (the story player then
     keeps its seed placeholder). 404 only when the scenario itself is unknown.
+
+    ``graphAvailable`` distinguishes the two reasons the list can be empty — "this world has
+    no relationships yet" from "there is no graph on this install". They look identical from
+    the list alone, and the difference decides whether the scene's **Ties** control is a
+    setting worth offering or a control that would silently do nothing.
     """
     crud.get_scenario(db, scenario_id)  # 404 when the scenario is unknown
-    return {"relationships": graph_reader.scenario_relationships(db, scenario_id)}
+    return {
+        "relationships": graph_reader.scenario_relationships(db, scenario_id),
+        "graphAvailable": bool(graph_reader.scenario_graph(db, scenario_id).get("available")),
+    }
 
 
 @router.get("/{scenario_id}/sessions", response_model=SessionListResponse)

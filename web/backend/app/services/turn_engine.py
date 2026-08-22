@@ -32,24 +32,13 @@ prompt, as an outcome to reach — the speaker still chooses their own words and
 character.
 
 **This module is the orchestrator only** — it defines exactly ``validate_turn_inputs`` and
-``run_turn``. Everything a turn does lives in a sibling, and a caller that wants one of those
-helpers imports it from its owner rather than through here:
-
-* ``turn_setup.prepare_turn`` — everything before the first beat
-* ``beat_runner`` — ``narrator_interstitial`` · ``relationship_note`` · ``beat_or_skip`` ·
-  ``generate_speaker``
-* ``beat_stream`` — emission → delta-streamed events, and the per-beat stops
-* ``turn_effects`` — ``apply_declared_presence`` · ``apply_presence_change`` ·
-  ``apply_relationship_change`` · ``apply_stat_change``
-* ``turn_emit`` — ``Emitter`` · ``LiveSegment`` · ``Tracer``
-* ``direction_runtime`` / ``direction_check`` — what the direction owes, and whether the
-  prose reached it
-* ``turn_finalize`` — suggestions → graph write → reflection → recency
-
-No aliases are re-exported from this module. The split landed with these helpers **public on
-their owners**, so there is no private name from an older layout for anything to import, and
-an alias here would be a second place for the same function to live. The full table, with the
-800-line ceiling that keeps it this way, is in ``docs/structure.md``.
+``run_turn``. Everything a turn does lives in a sibling (``turn_setup`` · ``beat_runner`` ·
+``beat_stream`` · ``turn_effects`` · ``turn_emit`` · ``direction_runtime`` ·
+``direction_check`` · ``turn_finalize``), and a caller that wants one of those helpers imports
+it from its owner rather than through here. **No aliases are re-exported from this module**:
+the split landed with the helpers public on their owners, so an alias here would be a second
+place for the same function to live. The table of which module owns what — and the 800-line
+ceiling that keeps it that way — is in ``docs/structure.md``.
 """
 
 from __future__ import annotations
@@ -80,7 +69,6 @@ from app.services import turn_effects
 from app.services import turn_finalize
 from app.services import beat_order
 from app.services import turn_settings
-
 
 
 def validate_turn_inputs(db: Session, scenario_id: str, req: TurnRequest) -> Scenario:
@@ -142,6 +130,11 @@ def run_turn(
     # than from ``scenario`` so an override cannot be honoured in one site and missed in
     # another.
     settings = setup.settings or turn_settings.resolve(scenario, req.overrides)
+    # Three beat paths never consult the planner — a puppeted beat, a forced-direction beat
+    # and the silent-turn backstop — so before the register pin they carried none at all. A
+    # pin is exactly the case where one should reach them, and it is the same answer for all
+    # three, so it is resolved once here rather than three times below.
+    unplanned_register, unplanned_source = turn_settings.pitch(settings, None)
 
     # Narration leads, before anyone speaks. Two cases (feedback #1/#2/#3):
     #  • Branch continuation — the player picked a narrative direction (``outcome``): open
@@ -225,9 +218,6 @@ def run_turn(
         if (m := ctx.cast_by_id(cid)) is not None and m.id != pov_id
     ]
     for speaker in puppet_members:
-        # A puppeted beat carried no register at all before this: the planner never ran for
-        # it, so nobody read the moment. A pin is exactly the case where one should reach it.
-        puppet_register, puppet_source = turn_settings.pitch(settings, None)
         yield from tracer.emit(
             "speaker",
             f"{speaker.name} performs your direction",
@@ -236,15 +226,19 @@ def run_turn(
                 "characterId": speaker.id,
                 "name": speaker.name,
                 "puppet": True,
-                "register": puppet_register or "",
-                "registerSource": puppet_source,
+                "register": unplanned_register or "",
+                "registerSource": unplanned_source,
             },
         )
         note = beat_runner.relationship_note(
-            ctx, speaker.id, intent.addressed or [m.id for m in ctx.cast if m.id != speaker.id]
+            ctx,
+            speaker.id,
+            intent.addressed or [m.id for m in ctx.cast if m.id != speaker.id],
+            scope=settings.ties,
         )
-        if note:
-            yield from tracer.emit("relationship", f"{speaker.name}'s ties", detail=note, data={"characterId": speaker.id})
+        yield from beat_runner.relationship_step(
+            tracer, speaker.name, speaker.id, note, settings.ties
+        )
         # A puppeted character performs the direction, so their own requirements ride on the
         # very beat the player asked for rather than waiting for a later one.
         owed = direction.for_actor(speaker.id, attempt_cap)
@@ -253,7 +247,7 @@ def run_turn(
         yield from beat_runner.generate_speaker(
             db, ctx, speaker, emitter, turn_beats, consequences,
             show_reasoning=show_reasoning, directive=intent.directive, relationship_note=note,
-            register=puppet_register,
+            register=unplanned_register,
             direction=direction, requirements=owed, tracer=tracer,
         )
         yield from direction_runtime.confirm(
@@ -421,16 +415,16 @@ def run_turn(
                     data={"characterId": forced_actor.id, "requirements": [r.text for r in owed]},
                 )
                 note = beat_runner.relationship_note(
-                    ctx, forced_actor.id, [m.id for m in ctx.cast if m.id != forced_actor.id]
+                    ctx, forced_actor.id, [m.id for m in ctx.cast if m.id != forced_actor.id],
+                    scope=settings.ties,
                 )
                 mark = len(turn_beats)
-                forced_register, _ = turn_settings.pitch(settings, None)
                 played = yield from beat_runner.beat_or_skip(
                     tracer, forced_actor, tally,
                     db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
                     consequences=consequences,
                     show_reasoning=show_reasoning, relationship_note=note,
-                    register=forced_register,
+                    register=unplanned_register,
                     direction=direction, requirements=owed,
                 )
                 yield from direction_runtime.confirm(
@@ -493,7 +487,8 @@ def run_turn(
                     },
                 )
                 note = beat_runner.relationship_note(
-                    ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id]
+                    ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id],
+                    scope=settings.ties,
                 )
                 played = yield from beat_runner.beat_or_skip(
                     tracer, responder, tally,
@@ -625,9 +620,11 @@ def run_turn(
             ctx,
             actor.id,
             [addressing.id] if addressing else [m.id for m in ctx.cast if m.id != actor.id],
+            scope=settings.ties,
         )
-        if note:
-            yield from tracer.emit("relationship", f"{actor.name}'s ties", detail=note, data={"characterId": actor.id})
+        yield from beat_runner.relationship_step(
+            tracer, actor.name, actor.id, note, settings.ties
+        )
         # One of this actor's own requirements rides on the beat the planner chose for them
         # (the rest, if any, wait for a later beat or the forced schedule above).
         actor_owed = direction.for_actor(actor.id, attempt_cap)
@@ -668,8 +665,6 @@ def run_turn(
             next((m for m in ctx.cast if m.is_present and m.id != pov_id), None),
         )
         if responder is not None:
-            # Another path that carried no register: the planner is not consulted here at all.
-            backstop_register, backstop_source = turn_settings.pitch(settings, None)
             yield from tracer.emit(
                 "speaker",
                 f"{responder.name} responds",
@@ -678,20 +673,21 @@ def run_turn(
                     "characterId": responder.id,
                     "name": responder.name,
                     "backstop": True,
-                    "register": backstop_register or "",
-                    "registerSource": backstop_source,
+                    "register": unplanned_register or "",
+                    "registerSource": unplanned_source,
                     "stakes": "",
                 },
             )
             note = beat_runner.relationship_note(
-                ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id]
+                ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id],
+                scope=settings.ties,
             )
             yield from beat_runner.beat_or_skip(
                 tracer, responder, tally,
                 db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
                 consequences=consequences,
                 show_reasoning=show_reasoning, relationship_note=note,
-                register=backstop_register,
+                register=unplanned_register,
                 direction=direction,
             )
             beats += 1
@@ -793,7 +789,3 @@ def run_turn(
         needs_branch=needs_branch,
         suggestions_count=settings.suggestions_count,
     )
-
-
-
-

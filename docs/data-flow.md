@@ -70,7 +70,8 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
         sees what the direction still owes + the beats left; once what is owed would
         fill them, direction_agent.schedule picks the beat instead:
           decision.action == "speak" →
-            graph_reader.relationship_context (via turn_engine._relationship_note) →
+            graph_reader.relationship_context + offscene_ties (via beat_runner.relationship_note,
+              scoped by settings.ties: addressed | scene (default) | world) →
             character_turn_agent.stream_line (prompt ordered stable → transcript →
               volatile for prefix-cache reuse; relationship note folded into the tail)
               → services.llm.chat_complete_stream

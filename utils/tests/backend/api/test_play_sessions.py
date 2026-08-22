@@ -146,3 +146,22 @@ def test_unknown_scenario_and_session_404(client, storyline_id, monkeypatch):
     # A session that belongs to a different scenario is a 400.
     _, other = _scenario(client, storyline_id)
     assert client.get(f"/api/play/{other}/sessions/{session_id}").status_code == 400
+
+
+def test_relationships_reports_whether_the_graph_is_available(client, storyline_id):
+    """An empty list has two very different causes — "no relationships yet" and "no graph on
+    this install" — and the difference decides whether the Ties control is worth offering."""
+    scid = client.post(
+        f"/api/storylines/{storyline_id}/scenarios", json={"title": "Ties"}
+    ).json()["id"]
+
+    body = client.get(f"/api/play/{scid}/relationships").json()
+
+    assert body["relationships"] == []
+    # No Neo4j in the test environment, which is the point: the field says so rather than
+    # leaving the client to guess from an empty list.
+    assert body["graphAvailable"] is False
+
+
+def test_relationships_still_404s_for_an_unknown_scenario(client):
+    assert client.get("/api/play/nope/relationships").status_code == 404

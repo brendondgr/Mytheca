@@ -358,8 +358,15 @@ export interface GraphRelationship {
 }
 
 /** The scenario's live relationships (empty when the graph is off — caller keeps its seed). */
+/**
+ * `graphAvailable` separates "this world has no relationships yet" from "there is no graph
+ * on this install" — identical from the list alone, and the difference decides whether the
+ * scene's **Ties** control is a real setting or one that would silently do nothing.
+ */
 export const getScenarioRelationships = (scenarioId: string) =>
-  request<{ relationships: GraphRelationship[] }>(`/play/${scenarioId}/relationships`);
+  request<{ relationships: GraphRelationship[]; graphAvailable?: boolean }>(
+    `/play/${scenarioId}/relationships`,
+  );
 
 // ---- persisted scenes (resume + save-on-close + export) ----
 

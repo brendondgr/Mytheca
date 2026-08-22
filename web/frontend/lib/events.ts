@@ -528,4 +528,10 @@ export interface TurnOverridesBody {
    * planner's own read, and with planning off it is the only source of a register there is.
    */
   register?: "light" | "neutral" | "tense" | "grave" | null;
+  /**
+   * How much of a speaker's relationship history reaches their beat: `addressed` (only the
+   * person they are talking to), `scene` (everyone in the room — the default), or `world`
+   * (plus their ties to people elsewhere, who the scene may then mention).
+   */
+  ties?: "addressed" | "scene" | "world" | null;
 }

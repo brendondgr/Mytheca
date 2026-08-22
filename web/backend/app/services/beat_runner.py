@@ -72,10 +72,40 @@ def narrator_interstitial(
 
 
 
-def relationship_note(ctx: TurnContext, speaker_id: str, other_ids: list[str]) -> str:
+#: How much of a speaker's history reaches their beat. Mirrors ``schemas.play.TieScope``.
+#:
+#: ``"addressed"`` is what shipped before this control: the caller's own ``other_ids``, which
+#: the planner narrows to just the addressee. ``"scene"`` — the default — is the same query
+#: with a wider id list, so it costs nothing new and gives a speaker the room rather than one
+#: person. ``"world"`` adds ``graph_reader.offscene_ties``, the only new query in the feature.
+_TIE_SCOPES = ("addressed", "scene", "world")
+
+#: How many relationship lines a speaker is given, and how many of those the `world` stop may
+#: reserve for people outside the scene. The total is the prompt budget; the reservation is
+#: what stops a dense in-scene graph from silently crowding the off-scene ties out entirely.
+_NOTE_LINES = 8
+_NOTE_ELSEWHERE = 2
+
+
+def relationship_note(
+    ctx: TurnContext,
+    speaker_id: str,
+    other_ids: list[str],
+    *,
+    scope: str = "scene",
+) -> str:
     """A plain-language summary of how ``speaker`` relates to the others (graph, 2-hop).
 
+    ``scope`` decides who counts (see :data:`_TIE_SCOPES`). At ``"scene"`` and ``"world"`` the
+    id list is every other **present** cast member rather than the caller's — a speaker
+    carrying only the addressee's history is why two characters could stand in the same room
+    with a decade between them and neither mention it.
+
     Best-effort → "" when the graph is off / empty (Reactive Turn Director D4)."""
+    if scope not in _TIE_SCOPES:
+        scope = "scene"
+    if scope in ("scene", "world"):
+        other_ids = [m.id for m in ctx.cast if m.is_present and m.id != speaker_id]
     ctxrel = graph_reader.relationship_context(speaker_id, other_ids)
     lines: list[str] = []
     for d in ctxrel.get("direct", []):
@@ -92,9 +122,60 @@ def relationship_note(ctx: TurnContext, speaker_id: str, other_ids: list[str]) -
             continue
         seen.add(key)
         lines.append(f"You and {i['name']} are both connected to {i['via']}.")
-    return " ".join(lines[:8])
+    if scope != "world":
+        return " ".join(lines[:_NOTE_LINES])
+
+    # Marked as elsewhere, deliberately: without the clause a speaker reads these as people
+    # in the room and answers them.
+    elsewhere: list[str] = []
+    for tie in graph_reader.offscene_ties(
+        speaker_id,
+        [m.id for m in ctx.cast],
+        getattr(ctx, "storyline_id", "") or "",
+    ):
+        verb = str(tie.get("type", "")).replace("_", " ")
+        reason = f" ({tie['reason']})" if tie.get("reason") else ""
+        if tie.get("outgoing"):
+            elsewhere.append(f"Elsewhere: you {verb} {tie['name']}{reason}, who is not in this scene.")
+        else:
+            elsewhere.append(f"Elsewhere: {tie['name']} {verb} you{reason}, and is not in this scene.")
+
+    # Off-scene ties get a RESERVED share of the budget rather than the leftovers.
+    #
+    # Appending them and trimming to 8 was the obvious thing and it is wrong: a live check
+    # against a world with a dense in-scene graph produced eight in-scene lines and the
+    # elsewhere clause was cut every time, so the `world` stop did nothing at all — silently,
+    # and precisely on the worlds rich enough to want it. The total is still capped at
+    # `_NOTE_LINES`; what changes is that the room can no longer crowd the world out entirely.
+    reserved = min(len(elsewhere), _NOTE_ELSEWHERE)
+    return " ".join(lines[: _NOTE_LINES - reserved] + elsewhere[:reserved])
 
 
+
+
+def relationship_step(
+    tracer: "Tracer", name: str, character_id: str, note: str, scope: str
+) -> Generator[TurnTraceFrame, None, None]:
+    """Trace one speaker's ties, if there are any.
+
+    Lives beside :func:`relationship_note` rather than in the beat loop because it describes
+    that function's output, and the loop was carrying two byte-identical copies of it.
+    """
+    if not note:
+        return
+    yield from tracer.emit(
+        "relationship",
+        f"{name}'s ties",
+        detail=note,
+        data={
+            "characterId": character_id,
+            "scope": scope,
+            # How many lines describe someone who is NOT in the room. Only the `world` stop
+            # can produce them, and a player who turned it on should be able to see whether
+            # it did anything.
+            "offscene": note.count("Elsewhere:"),
+        },
+    )
 
 
 def beat_or_skip(

@@ -45,6 +45,20 @@ Verified against the code on 2026-08-04.
   **C-013** stays `unsupported`. n = 1 scene per arm, so this is an existence proof against
   compaction and not a rate — it does not make the claim `refuted` either. Nothing may describe
   compaction as free, or default it on, on this evidence.
+- **Blocking product question: should the `world` tie scope be offered at all?** At that
+  stop a speaker is given their ties to characters who are **not in the scene**, marked as
+  *"Elsewhere: …, who is not in this scene."* The intended effect is a character who carries
+  their life with them. The risk is the same mechanism read badly: a character mentioning
+  somebody the player has never met, in a scene that has no way to introduce them, which is
+  indistinguishable from the model inventing a person. The prompt marker is a mitigation, not
+  a proof — nothing measures whether the cast honours it.
+
+  Shipped **non-default** (`scene` is the default and `NULL` reads as it), behind an explicit
+  control whose copy states the consequence in as many words. **This needs a human decision**,
+  not an experiment: whether that is a feature of a living world or a bug in a scene is a
+  question about what the product is for. If the answer is no, the stop is one entry removed
+  from `TIE_OPTIONS` and one branch removed from `beat_runner.relationship_note`; the query
+  and its tests can stay.
 - **The looseness step size is chosen, not measured.** A character's `looseness` moves the
   register's `top_p` by **±0.03 per notch** (`character_turn_agent._LOOSENESS_STEP`), clamped
   to `[0.70, 0.98]`. That number was picked so a single notch is at most one register row's
@@ -269,7 +283,10 @@ Verified against the code on 2026-08-04.
   **Revisit when `EXP-2026-08-001` reaches a verdict**; if the baseline is no longer needed,
   delete both functions, their tests and their registry entries together.
 - **Stale module docstrings elsewhere in the tree.** The three worst offenders were corrected on 2026-08-04 (`services/turn_engine.py` described a "P3 single speaker / `_pick_speaker`" design that no longer exists, `main.py` said the brain and event stream were "added in later phases", and `graph_writer.py` called the edge/consequence writer unused machinery). Other modules have not been swept — treat any "this phase…" docstring as suspect until verified.
-- **`TurnContext.subgraph` is fetched but unused.** The scenario subgraph is assembled every turn; its only consumer is a boolean `available` flag in the diagnostic trace. The graph reaches the model solely via `graph_reader.relationship_context()`. Either render the subgraph into the prompt or stop assembling it.
+- **`TurnContext.subgraph` is fetched but unused.** The scenario subgraph is assembled every turn; its only consumer is a boolean `available` flag in the diagnostic trace. The graph reaches the model solely via `graph_reader.relationship_context()` — and, at the `world` tie scope, `graph_reader.offscene_ties()`. Either render the subgraph into the prompt or stop assembling it.
+
+  **`depth-for-players.md` Phase 10 did NOT close this.** The tie-scope control widens the *relationship* read and adds one off-scene query; it gives `subgraph` no job at all. Recorded explicitly because "the graph is now used" is exactly the kind of half-truth that would let this bullet be deleted by someone skimming.
+- **Nothing writes `Secret` nodes, so `graph_reader.secret_reachability` can never return a row.** Found 2026-08-22 while surveying the graph for `depth-for-players.md` Phase 10. `Secret` is a built-in node type in `content/graph_registry.py` (with `severity`, `truth_value`, `visibility`) and `_SECRET_REACHABILITY` reads it — but **every** `graph_writer.upsert_node` call site passes a hardcoded `type_name`, and the only three values in the codebase are `Character`, `Setting` and `Event` (`crud.sync_character`/`sync_setting`, `turn_writer._append_event`, `relationships`, `graph_reader.ensure_scenario_materialized`). No agent proposes one either. So this is dead in a stronger sense than "no callers": the query is correct and the data it reads has never existed on any world. Either write `Secret` nodes (the character's `secret` prose field is the obvious source, and the registry already says "often also a Secret node") or delete the query and the type together — but do not cite secret-reachability as a working feature.
 - **Unused graph queries.** `graph_reader.presence_casting` and `graph_reader.secret_reachability` have no callers.
 - **`validate_relationship` substring fallback** will mis-bind on nested cast names ("Aldous" vs "Brother Aldous").
 - ~~**Two frontend tests are load-flaky.**~~ **Fixed 2026-08-21.** `CharacterModal` already

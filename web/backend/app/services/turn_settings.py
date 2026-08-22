@@ -26,7 +26,7 @@ from dataclasses import dataclass
 
 from app.models import Scenario
 from app.schemas.base import BEAT_LENGTHS, DEFAULT_BEAT_LENGTH, BeatLength
-from app.schemas.play import PlannerMode, Register, TurnOverrides
+from app.schemas.play import PlannerMode, Register, TieScope, TurnOverrides
 
 #: The per-turn ceiling on ``max_turns``, mirroring ``TurnOverrides``. A scene row may hold
 #: more; an override may not ask for more.
@@ -46,6 +46,8 @@ class TurnSettings:
     planner: PlannerMode = "planner"
     #: A register the player pinned for this turn, or ``None`` to let the scene decide.
     register: Register | None = None
+    #: How much of a speaker's history reaches their beat.
+    ties: TieScope = "scene"
 
 
 def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnSettings:
@@ -74,12 +76,17 @@ def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnS
     if planner not in ("planner", "off"):
         planner = "planner"
 
+    ties = ov.ties or getattr(scenario, "tie_scope", None) or "scene"
+    if ties not in ("addressed", "scene", "world"):
+        ties = "scene"
+
     return TurnSettings(
         max_turns=max_turns,
         suggestions_count=suggestions,
         beat_length=beat_length,
         planner=planner,
         register=ov.beat_register,
+        ties=ties,
     )
 
 

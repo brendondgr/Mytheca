@@ -169,3 +169,85 @@ def test_scenario_graph_graceful_when_read_raises(db_session, monkeypatch):
     monkeypatch.setattr(neo4j_mod, "read_session", _boom)
     result = graph_reader.scenario_graph(db_session, scenario.id)
     assert result["available"] is False  # never raises to the caller
+
+
+# ---- off-scene ties (the `world` tie scope) ---------------------------------
+
+
+class _OffsceneReadSession:
+    """Answers _REL_OFFSCENE, recording the parameters it was called with."""
+
+    def __init__(self, rows):
+        self.rows = rows
+        self.calls: list[tuple[str, dict]] = []
+
+    def run(self, cypher: str, **params):
+        self.calls.append((cypher, params))
+        return _Result(self.rows)
+
+
+def _tie(target, name, src, rel="resents", reason=""):
+    return {
+        "target": target,
+        "name": name,
+        "type": rel,
+        "src": src,
+        "props": {"reason": reason} if reason else {},
+    }
+
+
+def test_offscene_ties_is_empty_with_the_graph_disabled(monkeypatch):
+    """The whole degradation story: no graph means every tie scope behaves as today."""
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: False)
+    assert graph_reader.offscene_ties("mei", ["mei", "kira"], "embergate") == []
+
+
+def test_offscene_ties_is_empty_without_a_character(monkeypatch):
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
+    assert graph_reader.offscene_ties("", ["mei"], "embergate") == []
+
+
+def test_offscene_ties_excludes_the_scene_and_scopes_to_the_storyline(monkeypatch):
+    session = _OffsceneReadSession([_tie("corvin", "Corvin", "mei", "resents", "the ledger")])
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
+    monkeypatch.setattr(neo4j_mod, "read_session", _cm_returning(session))
+
+    ties = graph_reader.offscene_ties("mei", ["mei", "kira"], "embergate")
+
+    assert ties == [
+        {
+            "target": "corvin",
+            "name": "Corvin",
+            "type": "resents",
+            "outgoing": True,
+            "reason": "the ledger",
+        }
+    ]
+    # The scene's cast is excluded IN the query, not filtered afterwards — a speaker with
+    # thirty in-scene edges would otherwise fill the LIMIT with rows nobody wanted.
+    cypher, params = session.calls[0]
+    assert "NOT b.id IN $scene_ids" in cypher
+    assert "LIMIT 8" in cypher
+    assert params["scene_ids"] == ["mei", "kira"]
+    assert params["storyline"] == "embergate"
+
+
+def test_offscene_ties_marks_an_incoming_edge(monkeypatch):
+    session = _OffsceneReadSession([_tie("corvin", "Corvin", "corvin")])
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
+    monkeypatch.setattr(neo4j_mod, "read_session", _cm_returning(session))
+
+    assert graph_reader.offscene_ties("mei", ["mei"], "embergate")[0]["outgoing"] is False
+
+
+def test_offscene_ties_never_raises(monkeypatch):
+    """Best-effort, like every other graph read: a turn must not die for a tie."""
+
+    @contextmanager
+    def _boom(**kwargs):
+        raise RuntimeError("neo4j is on fire")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
+    monkeypatch.setattr(neo4j_mod, "read_session", _boom)
+    assert graph_reader.offscene_ties("mei", ["mei"], "embergate") == []

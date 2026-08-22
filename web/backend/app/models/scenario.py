@@ -79,6 +79,10 @@ class Scenario(Base):
     # the model-free scripted order does (``"off"`` — ``services/beat_order``). Nullable so
     # every existing scene reads as today's behaviour.
     planner_mode: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    # How much of a speaker's relationship history reaches their beat: ``"addressed"`` (the
+    # addressee only — what shipped before the control), ``"scene"`` (everyone present; the
+    # default, and what NULL reads as) or ``"world"`` (plus their off-scene ties). Nullable.
+    tie_scope: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     # The scene's OWN one-tap direction verbs, appended to the built-in bar's groups.
     # ``[{"label", "group", "text"}]``. Nullable (older rows read as none), so
     # ``core/bootstrap._reconcile_additive_columns`` adds it with a plain ADD COLUMN and no

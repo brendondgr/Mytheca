@@ -16,6 +16,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     onPresetChange: vi.fn(),
     onPlannerModeChange: vi.fn(),
     onRegisterChange: vi.fn(),
+    onTieScopeChange: vi.fn(),
     ...overrides,
   };
   render(<SceneConfigMenu {...props} />);
@@ -211,6 +212,7 @@ describe("SceneConfigMenu says what each control does", () => {
       suggestionsCount: true,
       beatLength: true,
       planner: true,
+      ties: true,
     };
 
     async function open(overrides = {}) {
@@ -483,6 +485,63 @@ describe("SceneConfigMenu says what each control does", () => {
 
       await user.selectOptions(control, "Auto · the scene decides");
       expect(props.onRegisterChange).toHaveBeenCalledWith(null);
+    });
+  });
+
+  describe("ties — the story graph, under the player's control", () => {
+    async function open(overrides = {}) {
+      const user = userEvent.setup();
+      const props = setup(overrides);
+      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+      return { user, props };
+    }
+
+    it("offers the three scopes", async () => {
+      await open();
+      const control = screen.getByRole("combobox", { name: /how much history a character carries/i });
+      expect([...control.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
+        "Whoever they're talking to",
+        "Everyone in the room",
+        "…and people elsewhere",
+      ]);
+    });
+
+    it("defaults to the room, not the addressee", async () => {
+      // A speaker carrying only the addressee's history is why two characters could stand
+      // in the same room with a decade between them and neither mention it.
+      await open();
+      expect(
+        screen.getByRole("combobox", { name: /how much history a character carries/i }),
+      ).toHaveValue("scene");
+    });
+
+    it("warns that the world stop can introduce a stranger", async () => {
+      await open({ tieScope: "world" });
+      expect(
+        screen.getByRole("combobox", { name: /how much history a character carries/i }),
+      ).toHaveAccessibleDescription(/someone the scene has never introduced/i);
+    });
+
+    it("disables itself AND says why when there is no graph", async () => {
+      // A control that silently does nothing is worse than one that is honestly unavailable.
+      await open({ graphAvailable: false });
+      const control = screen.getByRole("combobox", { name: /how much history a character carries/i });
+      expect(control).toBeDisabled();
+      expect(control).toHaveAccessibleDescription(/the story graph is off for this install/i);
+    });
+
+    it("disables its pin too when there is no graph", async () => {
+      await open({ graphAvailable: false });
+      expect(screen.getByRole("button", { name: /^Ties — /i })).toBeDisabled();
+    });
+
+    it("reports a change", async () => {
+      const { user, props } = await open();
+      await user.selectOptions(
+        screen.getByRole("combobox", { name: /how much history a character carries/i }),
+        "world",
+      );
+      expect(props.onTieScopeChange).toHaveBeenCalledWith("world");
     });
   });
 });

@@ -15,7 +15,7 @@ the implementation plan is `docs/plans/story-graph-neo4j-substrate.md`.
 | Type Registry | `app/models/graph_type.py`, `app/services/type_registry.py`, `app/content/graph_registry.py`, `app/routes/graph.py` | §1.4 — the semantic type system in Postgres; built-in seed catalogue (§5). |
 | Write path | `app/services/graph_writer.py` (hooked into `services/crud.py`) | §6 — node/edge upsert with dynamic labels, `:Consequence` reification, registry validation; best-effort. |
 | Read path | `app/services/graph_reader.py`, `GET /api/scenarios/{id}/graph` | §7.2 — read-only Cypher templates over the scenario subgraph; materialize-on-load. |
-| Turn-loop read consumer | `graph_reader.relationship_context`, called from `services/turn_engine.py`'s `_relationship_note()` | Direct + 2-hop character↔character edges, folded into the character-turn LLM prompt (§7.2 — the graph's actual influence on generated dialogue). |
+| Turn-loop read consumer | `graph_reader.relationship_context` + `graph_reader.offscene_ties`, called from `services/beat_runner.relationship_note()` | Direct + 2-hop character↔character edges, folded into the character-turn LLM prompt (§7.2 — the graph's actual influence on generated dialogue). **How wide is the player's choice** — see *Tie scope* below. |
 
 ## Connection lifecycle (the operating boundary, §8)
 
@@ -120,3 +120,37 @@ Neo4j (`utils/tests/backend/{data,api,services}/test_{neo4j,graph_types,graph_wr
 A conftest autouse fixture disables the graph for the suite; graph tests enable it
 explicitly with a fake driver/session. Live validation against the running
 container is recorded in `docs/checklist.md`.
+
+## Tie scope — how much of a speaker's history reaches their beat
+
+A per-scene setting (`scenarios.tie_scope`) with a per-turn override
+(`TurnRequest.overrides.ties`). `NULL` reads as `scene`, which is the default.
+
+| Stop | Who the speaker is given | Cost |
+| --- | --- | --- |
+| `addressed` | Only the ids the caller passed — which the planner narrows to the addressee. What shipped before this control. | none |
+| **`scene`** (default) | Every other **present** cast member. | none — the same `_REL_DIRECT` / `_REL_INDIRECT` queries with a wider `$others` list |
+| `world` | …plus the speaker's direct ties to characters **not** in the scene, rendered as a marked trailing clause: *"Elsewhere: you resent Corvin, who is not in this scene."* | one extra query per beat (`_REL_OFFSCENE`) |
+
+`_REL_OFFSCENE` is read-only and fully parameterised, excludes the scene's cast **inside**
+the match (so its `LIMIT 8` applies to rows that will actually be used rather than being
+spent on in-scene edges), and is storyline-scoped so a tie cannot reach across worlds. The
+off-scene clause is folded in **before** the existing 8-line cap, so `world` cannot grow the
+prompt: it competes for the same budget, and the in-scene ties are added first, so the cap
+trims the *elsewhere* tail rather than the people in the room.
+
+**Why the default moved to `scene`.** A speaker given only the addressee's history is why two
+characters could stand in the same room with a decade between them and neither mention it.
+That change costs nothing — it is the same query with a longer id list.
+
+**What this is not.** This is **prompt-side edge expansion**. It is *not* the RAG-side
+`related`-edge expansion the checklist lists as unbuilt (`docs/rag.md`), it gives
+`TurnContext.subgraph` no job (still fetched, still unused — see `docs/checklist.md`), and it
+cannot use `secret_reachability`, because nothing in the codebase has ever written a `Secret`
+node (also recorded in the checklist).
+
+**Degradation.** `offscene_ties` guards on `neo4j.is_enabled()` and swallows every exception,
+exactly as `relationship_context` does. With no graph, all three stops produce the same empty
+note and the beat is byte-identical to today's. `GET /play/{id}/relationships` reports
+`graphAvailable` so the UI can disable the control **and say why**, rather than offering one
+that silently does nothing.

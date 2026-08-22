@@ -67,6 +67,19 @@ _REL_DIRECT = (
     "RETURN b.id AS target, b.label AS name, type(r) AS type, "
     "startNode(r).id AS src, properties(r) AS props"
 )
+#: A speaker's direct ties to characters who are NOT in this scene.
+#:
+#: The scene's own cast is excluded rather than filtered afterwards, so the LIMIT applies to
+#: the rows that will actually be used — a speaker with thirty in-scene edges would otherwise
+#: return thirty rows and none of them off-scene. Storyline-scoped, so a tie cannot reach
+#: across worlds. Read-only, parameterised, and capped: this is the only query the tie-scope
+#: feature adds, and it runs at most once per beat and only at the `world` stop.
+_REL_OFFSCENE = (
+    "MATCH (a:Character {id: $id})-[r]-(b:Character) "
+    "WHERE NOT b.id IN $scene_ids AND b.id <> $id AND b.storyline = $storyline "
+    "RETURN DISTINCT b.id AS target, b.label AS name, type(r) AS type, "
+    "startNode(r).id AS src, properties(r) AS props LIMIT 8"
+)
 _REL_INDIRECT = (
     "MATCH (a:Character {id: $id})-[]-(mid:Character)-[]-(b:Character) "
     "WHERE b.id IN $others AND mid.id <> $id AND NOT mid.id IN $others AND a.id <> b.id "
@@ -145,6 +158,41 @@ def relationship_context(character_id: str, other_ids: list[str]) -> dict:
     except Exception as exc:  # pragma: no cover - defensive; never blocks a turn
         logger.debug("relationship_context (%s) unavailable: %s", character_id, exc)
         return empty
+
+
+def offscene_ties(character_id: str, scene_ids: list[str], storyline_id: str) -> list[dict]:
+    """A speaker's direct ties to characters **not** in this scene.
+
+    Best-effort in exactly the shape :func:`relationship_context` uses — the graph being off
+    or unreachable returns ``[]`` and the beat is byte-identical to one with no ties at all.
+    That is the whole degradation story for the tie-scope feature: an install without Neo4j
+    behaves today's way at every stop.
+
+    Entries carry ``outgoing`` (True = the speaker feels toward the other) so the caller can
+    render direction, matching ``relationship_context``'s ``direct`` rows.
+    """
+    if not character_id or not neo4j.is_enabled():
+        return []
+    try:
+        with neo4j.read_session() as session:
+            return [
+                {
+                    "target": r["target"],
+                    "name": r["name"],
+                    "type": r["type"],
+                    "outgoing": r["src"] == character_id,
+                    "reason": (dict(r["props"] or {})).get("reason", ""),
+                }
+                for r in session.run(
+                    _REL_OFFSCENE,
+                    id=character_id,
+                    scene_ids=list(scene_ids or []),
+                    storyline=storyline_id,
+                )
+            ]
+    except Exception as exc:  # pragma: no cover - defensive; never blocks a turn
+        logger.debug("offscene_ties (%s) unavailable: %s", character_id, exc)
+        return []
 
 
 # ---- materialize-on-load (idempotent upsert from Postgres) ----------------

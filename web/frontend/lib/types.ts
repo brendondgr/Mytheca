@@ -180,6 +180,11 @@ export interface Scenario {
    */
   plannerMode?: "planner" | "off" | null;
   /**
+   * The scene's default tie scope — how much of a speaker's relationship history reaches
+   * their beat. Absent/`null` reads as `"scene"`.
+   */
+  tieScope?: "addressed" | "scene" | "world" | null;
+  /**
    * The scene's own one-tap direction verbs, appended to the built-in bar's groups. `label`
    * is the chip, `text` is the phrasing written into the direction box for the player to
    * edit — separate on purpose, since a verb exists to hand them a sentence to argue with

@@ -684,6 +684,9 @@ export function StoryPlayerView({
             onPlannerModeChange={scene.setPlannerMode}
             register={scene.register}
             onRegisterChange={scene.setRegister}
+            tieScope={scene.effective.ties}
+            onTieScopeChange={scene.setTieScope}
+            graphAvailable={scene.graphAvailable}
             pinned={scene.pinned}
             onPinnedChange={scene.setPinned}
             presets={scene.presets}

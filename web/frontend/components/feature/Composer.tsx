@@ -3,6 +3,7 @@ import {
   SceneConfigMenu,
   type SceneControlKey,
   type Register,
+  type TieScope,
 } from "@/components/feature/SceneConfigMenu";
 import type { ScenePreset } from "@/lib/api";
 import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
@@ -71,6 +72,9 @@ export function Composer({
   onPlannerModeChange,
   register,
   onRegisterChange,
+  tieScope,
+  onTieScopeChange,
+  graphAvailable,
   pinned,
   onPinnedChange,
   presets,
@@ -132,6 +136,9 @@ export function Composer({
   onPlannerModeChange?: (value: "planner" | "off") => void;
   register?: Register | null;
   onRegisterChange?: (value: Register | null) => void;
+  tieScope?: TieScope;
+  onTieScopeChange?: (value: TieScope) => void;
+  graphAvailable?: boolean;
   pinned?: Record<SceneControlKey, boolean>;
   onPinnedChange?: (key: SceneControlKey, pinned: boolean) => void;
   /** Named scene presets. Empty hides the picker; every control stays where it was. */
@@ -558,6 +565,9 @@ export function Composer({
               onPlannerModeChange={onPlannerModeChange}
               register={register}
               onRegisterChange={onRegisterChange}
+              tieScope={tieScope}
+              onTieScopeChange={onTieScopeChange}
+              graphAvailable={graphAvailable}
               pinned={pinned}
               onPinnedChange={onPinnedChange}
               presets={presets}

@@ -26,7 +26,10 @@ import type {
   StandingItem,
   TurnOverridesBody,
 } from "@/lib/events";
-import type { SceneControlKey } from "@/components/feature/SceneConfigMenu";
+import type {
+  SceneControlKey,
+  TieScope,
+} from "@/components/feature/SceneConfigMenu";
 import type { BeatLength, ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
 import {
@@ -150,6 +153,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     suggestionsCount: true,
     beatLength: true,
     planner: true,
+    ties: true,
   });
   // The pending per-turn overrides. Cleared when the turn settles, on the error path too —
   // the clear lives in `.finally`, because a turn that failed still consumed the intent.
@@ -166,6 +170,13 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   const [plannerMode, setPlannerModeState] = useState<"planner" | "off">(
     scenario.plannerMode === "off" ? "off" : "planner",
   );
+  const [tieScope, setTieScopeState] = useState<TieScope>(
+    (scenario.tieScope as TieScope) ?? "scene",
+  );
+  // Whether the story graph exists at all on this install. `false` is not "no relationships
+  // yet" — it is "nobody can carry any history into a beat", which is why the Ties control
+  // disables itself and says so rather than silently doing nothing.
+  const [graphAvailable, setGraphAvailable] = useState(false);
   /**
    * The envelope for the next turn — omitted entirely when every control is pinned, so a
    * player who ignores this feature sends the exact request body they sent before it existed.
@@ -453,7 +464,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     let alive = true;
     getScenarioRelationships(scenario.id)
       .then((r) => {
-        if (alive && r.relationships.length) {
+        if (!alive) return;
+        setGraphAvailable(Boolean(r.graphAvailable));
+        if (r.relationships.length) {
           setGraphRels(graphRelationshipsToRel(r.relationships, scenario.cast));
         }
       })
@@ -930,6 +943,19 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setTurnOverrides((o) => ({ ...o, register: value }));
   }, [clearOverride]);
 
+  const setTieScope = useCallback(
+    (value: TieScope) => {
+      if (!pinned.ties) {
+        setTurnOverrides((o) => ({ ...o, ties: value }));
+        return;
+      }
+      setTieScopeState(value);
+      clearOverride("ties");
+      void updateScenario(scenario.id, { tieScope: value }).catch(() => {});
+    },
+    [scenario.id, pinned.ties, clearOverride],
+  );
+
   const setPlannerMode = useCallback(
     (value: "planner" | "off") => {
       if (!pinned.planner) {
@@ -1028,8 +1054,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       suggestionsCount: turnOverrides.suggestionsCount ?? suggestionsCount,
       beatLength: turnOverrides.beatLength ?? beatLength,
       planner: turnOverrides.planner ?? plannerMode,
+      ties: (turnOverrides.ties as TieScope | undefined) ?? tieScope,
     }),
-    [turnOverrides, maxTurns, suggestionsCount, beatLength, plannerMode],
+    [turnOverrides, maxTurns, suggestionsCount, beatLength, plannerMode, tieScope],
   );
 
   /**
@@ -1179,6 +1206,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setBeatLength,
     plannerMode,
     setPlannerMode,
+    tieScope,
+    setTieScope,
+    graphAvailable,
     // Always per-turn: no pin, and it clears itself when the turn settles.
     register: turnOverrides.register ?? null,
     setRegister,

@@ -1462,6 +1462,7 @@ describe("useScenePlay — pinned versus per-turn scene controls", () => {
       suggestionsCount: true,
       beatLength: true,
       planner: true,
+      ties: true,
     });
     expect(result.current.turnOverrides).toEqual({});
   });
@@ -1753,5 +1754,57 @@ describe("useScenePlay — the register pin", () => {
     act(() => result.current.setRegister(null));
     expect(result.current.register).toBeNull();
     expect(result.current.turnOverrides).toEqual({});
+  });
+});
+
+describe("useScenePlay — tie scope", () => {
+  beforeEach(() => {
+    vi.mocked(updateScenario).mockClear();
+    vi.mocked(postTurn).mockClear();
+    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(getCharacterStats).mockResolvedValue({});
+  });
+
+  async function ready() {
+    const { result } = renderHook(() => useScenePlay(scenario));
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    return result;
+  }
+
+  it("defaults to the room", async () => {
+    const result = await ready();
+    expect(result.current.tieScope).toBe("scene");
+    expect(result.current.effective.ties).toBe("scene");
+  });
+
+  it("persists a pinned change", async () => {
+    const result = await ready();
+    act(() => result.current.setTieScope("world"));
+    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(scenario.id, { tieScope: "world" });
+  });
+
+  it("sends an unpinned change for one turn and springs back", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const result = await ready();
+
+    act(() => result.current.setPinned("ties", false));
+    act(() => result.current.setTieScope("addressed"));
+    expect(vi.mocked(updateScenario)).not.toHaveBeenCalled();
+    expect(result.current.effective.ties).toBe("addressed");
+
+    act(() => result.current.setComposer("Just this once."));
+    act(() => result.current.send());
+    await waitFor(() => expect(vi.mocked(postTurn)).toHaveBeenCalled());
+    expect(vi.mocked(postTurn).mock.calls[0][1]).toMatchObject({
+      overrides: { ties: "addressed" },
+    });
+    await waitFor(() => expect(result.current.effective.ties).toBe("scene"));
+  });
+
+  it("reports the graph as unavailable when the endpoint says so", async () => {
+    // The control disables itself off this flag, so getting it wrong means either a dead
+    // control or a hidden working one.
+    const result = await ready();
+    expect(result.current.graphAvailable).toBe(false);
   });
 });
