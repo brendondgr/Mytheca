@@ -194,6 +194,10 @@ class SceneImageData(CamelModel):
     negative: str = ""
     caption: str = ""
     character_ids: list[str] = Field(default_factory=list)
+    #: The art style the picture was painted in (``app.content.art_styles``). Recorded so a
+    #: repaint can start from the look the beat already has rather than the global default.
+    #: Empty on rows written before styles existed.
+    style: str = ""
     #: Alternate renders, kept when the player asks for another. ``url``/``prompt``/
     #: ``caption`` above always mirror the active one.
     takes: list[ImageTake] = Field(default_factory=list)

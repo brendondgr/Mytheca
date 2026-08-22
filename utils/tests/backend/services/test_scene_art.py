@@ -47,7 +47,9 @@ def test_generate_scene_art_writes_webp_and_returns_url(db_session, tmp_path, mo
         assert im.format == "WEBP"
     # Prompts + a landscape 16:9 frame + a concrete seed reached the pipeline.
     assert captured["positive"].startswith("fog-bound harbor")
-    assert captured["negative"] == "people, text"
+    # The caller's negatives are kept, with the default style's own pushed-away looks added.
+    assert captured["negative"].startswith("people, text")
+    assert "photorealistic" in captured["negative"]
     assert captured["width"] == 1024 and captured["height"] == 576
     assert isinstance(captured["seed"], int)
 

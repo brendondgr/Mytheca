@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from app.agents import moment_agent
 from app.agents._common import resolve_llm
 from app.agents.moment_agent import FramedCharacter
+from app.content import art_styles
 from app.core.config import get_settings
 from app.core.errors import APIError
 from app.events.envelope import SceneImageEvent, StoryEvent
@@ -228,6 +229,7 @@ def generate_moment(
     height: int | None = None,
     prompt: str | None = None,
     negative: str | None = None,
+    style: str | None = None,
 ) -> Iterator[MomentStageFrame | StoryEvent]:
     """Write the prompt, render it, persist the beat — yielding a frame per stage.
 
@@ -243,7 +245,13 @@ def generate_moment(
     It is still passed through :func:`moment_agent.strip_names`. That guarantee — no character
     NAMES in an image prompt, only appearance — is the subject of ``EXP-2026-08-002``, and a
     hand-written prompt is exactly the hole through which it would quietly leak back.
+
+    ``style`` is an art-style id; ``None`` uses the operator's stored default. It reaches both
+    halves of the work: the agent is told which look to write toward, and the finished prompts
+    are passed through :func:`art_styles.apply_style` — which is what carries the look onto a
+    *hand-written* prompt, the one path no agent ever sees.
     """
+    resolved = settings_store.resolve_art_style(db, style)
     yield MomentStageFrame(stage="prompt", message="Reading the scene…")
 
     written = (prompt or "").strip()
@@ -263,7 +271,13 @@ def generate_moment(
             world=ctx.world,
             place=ctx.place,
             conn=ctx.conn,
+            style=resolved.style.id,
         )
+
+    styled_positive, styled_negative = art_styles.apply_style(
+        prompts.positive, prompts.negative, resolved.style, surface="moment"
+    )
+    prompts = prompts.model_copy(update={"positive": styled_positive, "negative": styled_negative})
 
     yield MomentStageFrame(
         stage="render",
@@ -285,6 +299,9 @@ def generate_moment(
         height=height or _MOMENT_H,
         seed=random.randint(0, _SEED_MAX),
         batch_size=1,
+        lora_name=resolved.lora_name or None,
+        lora_strength=resolved.lora_strength,
+        lora_enabled=resolved.lora_enabled,
     )
     filename = save_webp(_moments_dir(), image_bytes)
 
@@ -295,6 +312,7 @@ def generate_moment(
             "prompt": prompts.positive,
             "negative": prompts.negative,
             "caption": prompts.caption,
+            "style": resolved.style.id,
             "characterIds": [c.id for c in ctx.cast],
         },
         scenario_id=ctx.scenario.id,

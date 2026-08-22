@@ -60,7 +60,9 @@ def test_generate_portrait_writes_webp_and_returns_url(db_session, tmp_path, mon
         assert im.format == "WEBP"
     # Prompts + a portrait 832×1216 (2:3) frame + a concrete seed reached the pipeline.
     assert captured["positive"].startswith("young orc warrior")
-    assert captured["negative"] == "blurry, text"
+    # The caller's negatives are kept, with the default style's own pushed-away looks added.
+    assert captured["negative"].startswith("blurry, text")
+    assert "photorealistic" in captured["negative"]
     assert captured["width"] == 832 and captured["height"] == 1216
     assert isinstance(captured["seed"], int)
 
