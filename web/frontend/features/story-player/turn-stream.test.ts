@@ -1284,3 +1284,46 @@ describe("latestGuidance", () => {
     expect(latestGuidance([ut(0, { text: "legacy" })])).toBe("");
   });
 });
+
+describe("rehydrateFromHistory — hidden events", () => {
+  function ev(overrides: Record<string, unknown>) {
+    return {
+      id: "e1",
+      seq: 1,
+      scenarioId: "s",
+      sessionId: "ps",
+      ts: "t",
+      visibility: "public",
+      ...overrides,
+    } as never;
+  }
+
+  it("skips a hidden event, so a reload agrees with the live stream", () => {
+    // A `hidden` stat's state_update is persisted but never streamed. Replaying it here
+    // would make a reloaded scene show something the live scene deliberately did not.
+    const { stats } = rehydrateFromHistory(
+      [
+        ev({
+          type: "state_update",
+          visibility: "hidden",
+          data: { patch: {}, stat: { key: "suspicion", label: "Suspicion", value: 62, delta: 12 } },
+        }),
+      ],
+      [],
+    );
+    expect(stats).toEqual([]);
+  });
+
+  it("still replays a public one", () => {
+    const { stats } = rehydrateFromHistory(
+      [
+        ev({
+          type: "state_update",
+          data: { patch: {}, stat: { key: "suspicion", label: "Suspicion", value: 62, delta: 12 } },
+        }),
+      ],
+      [],
+    );
+    expect(stats.length).toBe(1);
+  });
+});

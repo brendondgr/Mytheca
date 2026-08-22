@@ -9,7 +9,7 @@ Verified against the code on 2026-08-04.
 | Decision | State |
 | --- | --- |
 | **Auth mechanism** | Completely undesigned. There is no `User` model, no auth routes, and no session or token handling anywhere in `web/backend/app/`. JWT-vs-cookie, provider, and whether the app becomes multi-tenant at all are open. Everything downstream — protected routes, per-user libraries, admin surfaces — is blocked on this. |
-| ~~**Stat lifecycle across scenarios**~~ | **Decided 2026-08-21 (owner decision D-1): reset, with an opt-in carry.** Stat *values* are scoped to a play-through (`session_character_stats`); `character_stats` holds the character's **authored** starting value and is what every new play-through begins from. `StatDefinition.carry_over` decides whether a play-through's ending value writes back onto the character when the session closes — so a stat carries between scenes only when it says so. Two play-throughs of one scenario no longer share a value, which is what makes branch and rewind correct. **Still open:** how a `hidden`-visibility stat should render is untouched by this and remains undecided (see `docs/plans/depth-for-players.md`). |
+| ~~**Stat lifecycle across scenarios**~~ | **Decided 2026-08-21 (owner decision D-1): reset, with an opt-in carry.** Stat *values* are scoped to a play-through (`session_character_stats`); `character_stats` holds the character's **authored** starting value and is what every new play-through begins from. `StatDefinition.carry_over` decides whether a play-through's ending value writes back onto the character when the session closes — so a stat carries between scenes only when it says so. Two play-throughs of one scenario no longer share a value, which is what makes branch and rewind correct. **`hidden` visibility is now implemented** (`depth-for-players.md` Phase 11): a hidden stat's `state_update` is persisted, traced and exported but **not streamed**, and `rehydrateFromHistory` skips it so a reload agrees with the live stream. The values were already excluded from the rails — `StatSchema` renders only `public` defs — so the gap was the changes, not the display. |
 | **Deployment target** | Undecided: containerized full-stack on one host vs. split hosting. Nothing is configured. |
 
 ## Unbuilt capabilities
@@ -80,6 +80,26 @@ Verified against the code on 2026-08-04.
   this file already names has to run**: repetition of a character's own phrasings across a
   long session, or blinded speaker attribution, with the penalties off and on. EXP-2026-08-007
   measured *structure*, not drift, and it ran on **one model**.
+- **`StatDefinition.carry_over` was unreachable until 2026-08-22, so nothing had ever
+  carried.** Found while implementing `depth-for-players.md` Phase 11. The column existed on
+  the model and `session_stats.carry_forward` read it, but the field was absent from
+  `StatDefinitionBase` / `Update` / `Read`, absent from `create_stat_definition`'s insert, and
+  had no UI — so it could only ever be `False`, and `carry_forward` was dead in the same way
+  `secret_reachability` is. Owner decision D-1's "reset, with an opt-in carry" had a reset and
+  **no way to opt in**. The field is now on the schema and the create path, so the mechanism
+  is reachable; **it still has no authoring UI**, which is the remaining half.
+- **`CharacterStat.baseline` is defensive, and the risk it defends against is real but not
+  yet live.** `carry_forward` overwrites the authored value in place, so a character who had
+  been played once would no longer remember what they were written with, with no way back.
+  Because `carry_over` could never be true (above), that had never actually happened on any
+  world — which is exactly why it was worth fixing *before* enabling the flag rather than
+  after. `POST /characters/{id}/stats/reset` restores it; a stat that never carried has no
+  captured baseline and resets to itself.
+- **"Start this scene fresh" was NOT built, deliberately.** `depth-for-players.md` Phase 11
+  specifies a Begin-scene checkbox that resets the cast. With nothing carrying (above) it
+  would be a control that silently does nothing, which the same plan forbids elsewhere. The
+  reset endpoint it needs exists and is tested; the checkbox belongs with the carry-over
+  authoring UI, and both should land together or not at all.
 - **Planning off is unmeasured, in both directions.** `plannerMode: "off"` /
   `overrides.planner: "off"` replaces the ReAct planner with `services/beat_order`. The
   saving is *inferred* from EXP-2026-08-005's 41 %-of-turn-time figure for the planner, and

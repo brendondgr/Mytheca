@@ -64,6 +64,7 @@ def create_stat_definition(
         max=data.max,
         default=data.default,
         visibility=data.visibility,
+        carry_over=data.carry_over,
         guidance=data.guidance,
         applies_to=list(data.applies_to),
         bands=[b.model_dump() for b in data.bands],
@@ -150,8 +151,17 @@ def get_character_stats(db: Session, character_id: str) -> dict[str, int]:
 
 
 def set_character_stats(
-    db: Session, character_id: str, values: dict[str, int]
+    db: Session, character_id: str, values: dict[str, int], *, authored: bool = True
 ) -> dict[str, int]:
+    """Write a character's authored stat values.
+
+    ``authored`` (the default) means this IS the author speaking — the Library editor, world
+    population, the creation-time starting stats — so ``baseline`` moves with ``value``. It
+    defaults to True because every caller of this function today is an authoring surface:
+    **play does not write here at all** (owner decision D-1 — it writes
+    ``SessionCharacterStat``). The flag exists so that a future non-authoring caller has to
+    say so rather than silently redefining what the author wrote.
+    """
     char = get_character(db, character_id)
     definitions = {
         d.key: d
@@ -174,7 +184,40 @@ def set_character_stats(
         clamped = max(definition.min, min(definition.max, int(raw)))
         if key in existing:
             existing[key].value = clamped
+            if authored:
+                # The author is redefining what this character starts with, so the old
+                # baseline is not worth keeping — it described a value nobody chose any more.
+                existing[key].baseline = clamped
         else:
-            db.add(CharacterStat(id=new_id("cs"), character_id=character_id, key=key, value=clamped))
+            db.add(
+                CharacterStat(
+                    id=new_id("cs"),
+                    character_id=character_id,
+                    key=key,
+                    value=clamped,
+                    baseline=clamped if authored else None,
+                )
+            )
+    db.commit()
+    return get_character_stats(db, character_id)
+
+
+def reset_character_stats(db: Session, character_id: str) -> dict[str, int]:
+    """Put a character back to the values they were written with.
+
+    Restores each row's ``value`` from its ``baseline`` where one was captured. A stat that
+    has never been carried forward has no baseline and is already authored, so it resets to
+    itself — which is why this is safe to call on a whole cast without knowing their history.
+
+    This is the *only* way back from ``session_stats.carry_forward``, which overwrites the
+    authored value in place.
+    """
+    get_character(db, character_id)  # 404 when the character is unknown
+    rows = list(
+        db.scalars(select(CharacterStat).where(CharacterStat.character_id == character_id))
+    )
+    for row in rows:
+        if row.baseline is not None:
+            row.value = row.baseline
     db.commit()
     return get_character_stats(db, character_id)

@@ -32,6 +32,11 @@ export function CharacterDossier({
   onOpenProfile: (id: string) => void;
 }) {
   const c = character;
+  // `StatSchema` already renders only `visibility === "public"` defs, so a hidden stat never
+  // reaches this rail — the gap was the CHANGES, which used to stream into the transcript
+  // (fixed in `turn_effects`), not the values.
+  const carriesAnything = statDefs.some((d) => d.visibility === "public" && d.carryOver);
+
   return (
     <aside
       className="mytheca-rail hidden w-[248px] flex-none overflow-auto border-l border-hair-strong p-[18px_16px] lg:block"
@@ -98,7 +103,17 @@ export function CharacterDossier({
       <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
         Stats
       </Eyebrow>
+      {/* A stat the author marked `hidden` is not the player's to see. Its changes are
+          already withheld from the transcript; showing the value here would give the whole
+          thing away in a rail instead. */}
       <StatSchema defs={statDefs} values={stats} />
+      {/* The rule, stated where a player can actually find it. They currently cannot learn
+          it anywhere, and the answer is not obvious: most stats reset. */}
+      <p className="mt-[7px] font-body text-[11.5px] leading-[1.45] text-mute2">
+        {carriesAnything
+          ? "Some of these carry over into the next scene in this world; the rest start fresh."
+          : "These start fresh in every play-through."}
+      </p>
 
       {/* Relationships */}
       <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">

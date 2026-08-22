@@ -554,6 +554,11 @@ export function rehydrateFromHistory(
   let presenceByChar: PresenceMap = {};
 
   for (const e of events) {
+    // A hidden event is persisted but never streamed (a `hidden` stat's `state_update` is
+    // the live case). Replaying one on reload would make a reloaded scene show something the
+    // live scene deliberately did not — the transcript would disagree with itself depending
+    // on whether the player refreshed.
+    if (e.visibility === "hidden") continue;
     if (e.type === "user_turn") {
       // Player POV: a user_turn with `data.pov` was authored by the player AS that character
       // → a right-side player-authored character beat. Without `pov` it stays a player beat.

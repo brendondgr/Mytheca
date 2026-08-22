@@ -21,10 +21,12 @@ Four canonical objects, plus the Story Event abstraction and the Stat system.
 
 **Not modelled:** there is no `User` table and no `Scene` table. Character relationships are **not** Postgres columns — they live only as Neo4j graph edges.
 
-**Stats** are bounded numeric values defined per storyline (`stat_definitions`) and held per character (`character_stats`), each with labeled bands and an optional Markdown guidance file. The validator clamps every AI-proposed change to `[min, max]`.
+**Stats** are bounded numeric values defined per storyline (`stat_definitions`), each with labeled bands and an optional Markdown guidance file. The validator clamps every AI-proposed change to `[min, max]`.
+
+Their **lifecycle** is the part that trips people up (owner decision D-1). A value lives in **two** places: `character_stats` is the character's **authored** starting value, and `session_character_stats` is what a stat is worth *inside one play-through* — which is where play writes, and why two play-throughs of one scenario no longer share a value and a branch or rewind is predictable. A stat carries into the next scene only when its definition says `carry_over`; the default is **reset**. When it does carry, `character_stats.baseline` preserves the authored value the first time the carry would destroy it, and `POST /characters/{id}/stats/reset` is the way back. A stat whose `visibility` is `hidden` still moves and is still recorded — its change is simply never streamed to the transcript.
 
 **Story Events** — 8 types, defined in `web/backend/app/events/envelope.py`:
-`narration` · `character_dialogue` · `character_action` · `internal_thought` · `state_update` · `branch_choices` · `character_status_change` · `scene_image`.
+`narration` · `character_dialogue` · `character_action` · `internal_thought` · `state_update` · `branch_choices` · `character_status_change` · `scene_image` · `cast_request`.
 The first seven come from the turn loop; `scene_image` is the one the **player** triggers —
 a picture of the moment, painted on demand from the scene and persisted as a beat.
 

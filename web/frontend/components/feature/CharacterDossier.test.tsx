@@ -113,3 +113,39 @@ describe("CharacterDossier — how they speak", () => {
     expect(screen.queryByText(/how they speak/i)).not.toBeInTheDocument();
   });
 });
+
+describe("CharacterDossier — what stats do between scenes", () => {
+  const defs = (carryOver: boolean): StatDefinition[] => [
+    { ...SEED_STAT_DEFS[0], visibility: "public", carryOver } as StatDefinition,
+  ];
+
+  function renderWith(statDefs: StatDefinition[]) {
+    render(
+      <CharacterDossier
+        character={MAERIN}
+        statDefs={statDefs}
+        relationships={[]}
+        onClose={vi.fn()}
+        onOpenProfile={vi.fn()}
+      />,
+    );
+  }
+
+  it("states the rule when nothing carries — which is the default", () => {
+    // A player cannot find this out anywhere else, and the answer is not obvious.
+    renderWith(defs(false));
+    expect(screen.getByText(/start fresh in every play-through/i)).toBeInTheDocument();
+  });
+
+  it("says so when something does carry", () => {
+    renderWith(defs(true));
+    expect(screen.getByText(/carry over into the next scene/i)).toBeInTheDocument();
+  });
+
+  it("does not count a hidden stat as one the player will see carry", () => {
+    renderWith([
+      { ...SEED_STAT_DEFS[0], visibility: "hidden", carryOver: true } as StatDefinition,
+    ]);
+    expect(screen.getByText(/start fresh in every play-through/i)).toBeInTheDocument();
+  });
+});

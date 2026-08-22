@@ -47,4 +47,17 @@ def get_character_stats(character_id: str, db: Session = Depends(get_db)):
 def set_character_stats(
     character_id: str, values: dict[str, int], db: Session = Depends(get_db)
 ):
-    return stat_service.set_character_stats(db, character_id, values)
+    """The authoring write: this is the author saying what the character starts with."""
+    return stat_service.set_character_stats(db, character_id, values, authored=True)
+
+
+@router.post("/characters/{character_id}/stats/reset", response_model=dict[str, int])
+def reset_character_stats(character_id: str, db: Session = Depends(get_db)):
+    """Put a character back to the values they were written with.
+
+    The only way back from ``session_stats.carry_forward``, which overwrites the authored
+    value in place when a play-through closes. A stat that has never carried has no captured
+    baseline and resets to itself, so this is safe on a whole cast without knowing what any
+    of them have been through.
+    """
+    return stat_service.reset_character_stats(db, character_id)

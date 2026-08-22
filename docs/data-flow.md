@@ -459,13 +459,26 @@ byte-identically to how it was played — there is no second rendering path to k
 
 ```
 Director/character agent proposes a change (stat key, delta or value, reason)
-  → emitted as a state_update event
   → Validator confirms the stat exists and clamps the result to [min, max]
+  → session_stats.apply writes it to THIS play-through (session_character_stats), never to
+    the character's authored row — a branch or a rewind of another play-through is untouched
+  → emitted as a state_update event, with visibility="hidden" when the StatDefinition says so
   → event streamed to the UI (carries the change's characterId, key, clamped value, reason)
+    — UNLESS hidden, in which case the row is persisted and simply not yielded, and
+    rehydrateFromHistory skips it too so a reload agrees with the live stream
   → Director rail's Scene-state chips update (flat, global) AND the per-character store
     (`statsByChar`, keyed by characterId) updates
   → narrator may reference the new state next turn
 ```
+
+**Where a value lives, and what survives the scene** (owner decision D-1). Play writes
+`session_character_stats`; `character_stats` holds the character's **authored** starting
+value and is what every new play-through begins from. `StatDefinition.carry_over` decides
+whether a play-through's ending value writes back onto the character at session close
+(`session_stats.carry_forward`) — the default is `false`, so a stat is scoped to the
+play-through it moved in unless it says otherwise. That write **overwrites the authored
+value in place**, which is why `character_stats.baseline` captures it once, the first time it
+would be destroyed, and `POST /characters/{id}/stats/reset` restores from it.
 
 The change carries a **reason**, giving a free audit trail ("Health −25: struck by the falling beam") useful for debugging the model and for showing the player *why* a number moved. Current stat values plus their guidance files feed back into agent context each turn, so a near-dead character fights weakly and a high-strength character can plausibly force a door.
 

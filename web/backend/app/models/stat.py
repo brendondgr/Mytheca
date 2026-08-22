@@ -81,6 +81,17 @@ class CharacterStat(Base):
     )
     key: Mapped[str] = mapped_column(String)
     value: Mapped[int] = mapped_column(default=0)
+    # The value the AUTHOR wrote, kept recoverable.
+    #
+    # ``value`` is not safe to treat as authored: ``session_stats.carry_forward`` overwrites
+    # it at session close for any stat marked ``carry_over``, so a character who has been
+    # played once no longer remembers what they were written with. Play itself never touches
+    # this table (D-1 — it writes ``SessionCharacterStat``), so this column exists for
+    # exactly one hazard: the carry-forward write.
+    #
+    # NULL means "never carried over, so ``value`` is still the authored one". Set on an
+    # authoring write, and captured once by the first carry-forward that would destroy it.
+    baseline: Mapped[int | None] = mapped_column(nullable=True, default=None)
 
     character: Mapped[Character] = relationship(back_populates="stats")
 

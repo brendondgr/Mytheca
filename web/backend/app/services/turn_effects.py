@@ -170,8 +170,19 @@ def apply_stat_change(
     value = patch.value if patch.value is not None else 0
     # Written to THIS play-through, so a branch or a rewind of another one is untouched.
     session_stats.apply(db, ctx.session_id, patch.character_id, {patch.key: value})
+    # An author who marked a stat `hidden` meant it: the change is persisted (so the
+    # Inspector, the export and a rewind's replay all still see it) and simply not streamed.
+    # `Emitter.emit` already declines to yield a hidden event, so nothing new is needed here
+    # beyond asking the definition what it wants. Before this, `visibility` had no effect at
+    # play time at all and a hidden stat announced itself in the transcript.
+    definition = next(
+        (d for d in ctx.stat_defs if d.key == patch.key), None
+    )
+    hidden = bool(definition is not None and definition.visibility == "hidden")
     yield from emitter.emit(
-        "state_update", {"patch": {}, "stat": patch.model_dump(by_alias=True)}
+        "state_update",
+        {"patch": {}, "stat": patch.model_dump(by_alias=True)},
+        visibility="hidden" if hidden else None,
     )
     delta = patch.delta or 0
     yield from tr.emit(

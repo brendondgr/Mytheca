@@ -48,6 +48,16 @@ class StatDefinitionBase(CamelModel):
     max: int = 100
     default: int = 0
     visibility: Visibility = "public"
+    # Does this stat survive the play-through it moved in?
+    #
+    # ``False`` (the default, per owner decision D-1) means the stat is scoped to its
+    # play-through and the next scene opens at the character's authored value. ``True`` means
+    # ``session_stats.carry_forward`` writes it back onto the character at session close.
+    #
+    # **Exposed here as of depth-for-players.md Phase 11.** The column and
+    # ``carry_forward`` both existed, but no schema carried the field and no UI set it, so it
+    # could never be anything but false and the whole carry-over mechanism was unreachable.
+    carry_over: bool = False
     guidance: str | None = None
     applies_to: list[str] = Field(default_factory=lambda: ["character"])
     bands: list[StatBand] = Field(default_factory=list)
@@ -77,6 +87,7 @@ class StatDefinitionUpdate(CamelModel):
     max: int | None = None
     default: int | None = None
     visibility: Visibility | None = None
+    carry_over: bool | None = None
     guidance: str | None = None
     applies_to: list[str] | None = None
     bands: list[StatBand] | None = None

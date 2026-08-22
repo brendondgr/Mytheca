@@ -299,6 +299,11 @@ export interface StatDefinition {
   max: number;
   default: number;
   visibility: StatVisibility;
+  /**
+   * Does this stat survive the play-through it moved in? `false` (the default) means it is
+   * scoped to that play-through and the next scene opens at the character's authored value.
+   */
+  carryOver?: boolean;
   guidance: string | null;
   appliesTo: string[];
   bands: StatBand[];

@@ -111,6 +111,12 @@ def carry_forward(db: Session, session_id: str) -> dict[str, int]:
             if d is None or not d.carry_over:
                 continue
             if row.key in existing:
+                # Capture the authored value the FIRST time it would be destroyed, and never
+                # again — a second carry-forward must not overwrite the baseline with the
+                # first one's result, or "back to how they were written" would drift a scene
+                # at a time until it meant nothing.
+                if existing[row.key].baseline is None:
+                    existing[row.key].baseline = existing[row.key].value
                 existing[row.key].value = row.value
             else:
                 db.add(
@@ -119,6 +125,9 @@ def carry_forward(db: Session, session_id: str) -> dict[str, int]:
                         character_id=character_id,
                         key=row.key,
                         value=row.value,
+                        # No authored row existed, so the definition's default IS what this
+                        # character was written with. Recording it keeps reset meaningful.
+                        baseline=d.default,
                     )
                 )
             carried[f"{character_id}:{row.key}"] = row.value
