@@ -35,7 +35,7 @@ from typing import Any
 
 from . import REPO_ROOT
 from .record import RunRecord, git_block, hardware, update_manifest, write_environment, write_metrics
-from .run_conversation_scaling import API, _post, build_world
+from .run_conversation_scaling import API, build_world
 
 #: The relay, read for the model id actually served. "skynet" is a route, not a model —
 #: the relay hot-swaps its upstream, so the run has to record what answered it.

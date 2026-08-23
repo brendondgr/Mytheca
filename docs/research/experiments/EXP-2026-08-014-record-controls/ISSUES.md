@@ -27,11 +27,48 @@ rather than deleted, and the re-run of the rewind probe is reported beside it.
 `interior_keys_after` and `standing_after_from_cut_turns` — are counts of Redis keys and
 JSON rows. They are unaffected by anything the model says.
 
-## A-2 · The re-run of the baseline rewind probe is a different scene
+## A-3 · The replay-window read was added after the baseline arm
 
-The re-run builds its own world and takes its own turns against a nondeterministic
-endpoint, so its numbers are not the first run's numbers re-scored. Both rows are reported;
-neither is averaged into the other. `n = 1` per row, as the protocol fixed.
+`PROTOCOL.md` proposed to detect H3 through `reroll.self_overlap` — how much of the wording a
+re-take reuses. The baseline returned 0.341 mean / 0.409 max, which cannot separate "the model
+was shown the line it was replacing" from "two versions of one beat share their nouns". A
+**direct** read was added instead (`replay_window_holds`): build the same `TurnContext` the
+re-roll builds and look for the target's own text in it. No model is involved, so the baseline's
+own recorded scene was re-read on the unmodified code rather than re-run — the row is
+`reroll_replay_window` in `data/metrics-baseline.json`, and later arms measure it inline.
+`self_overlap` is still reported and is still not evidence.
+
+## O-1 · Two incidental defects, observed and NOT fixed here
+
+Both were visible in the fixed arm's recorded scene (`5d4f`) and both are about the **turn
+loop's narration**, not the record operations this experiment tests. They are recorded because
+seeing them and saying nothing is how they get lost, and carried to `docs/checklist.md`.
+
+1. **One turn wrote the same narration three times.** Rows at seq 6, 7 and 9 of session
+   `ps_9e3e4a8b6e` are three distinct `narration` events holding byte-identical text
+   ("The partner's grin curdles…"). Not a delta-accumulation artefact of the harness — three
+   separate `Event` rows in Postgres.
+2. **A narration row carried prompt scaffolding into the transcript.** Seq 4 of the same
+   session begins `] ... 'Is this how you greet a business associate?' I ask."). *` — a
+   fragment of the emission format rather than prose.
+
+n = 1 scene each; neither is a rate, and neither is investigated here. Scope for this run was
+the five record operations.
+
+## A-2 · The baseline's discounted recall was never back-filled
+
+A-1 says the amendment was made "before the fixed arm ran". It was — but the baseline rewind
+probe was **not** re-run to obtain the discounted figure for it, so
+`recall_coverage_discounted` exists for the fixed arm only and the figure draws the baseline
+bar as `n/r` rather than imputing one. Re-running would have meant a second, different scene
+against a nondeterministic endpoint, which is not the same number re-scored; and the answer
+text was not stored on that first run, which is the omission the amendment also fixed for
+next time.
+
+The consequence is stated plainly in RESULTS §4 rather than smoothed over: the two arms'
+recall figures come from **different scenes with different floors** (0.000 and 0.111), so the
+readable comparison is each arm's coverage *against its own floor*, not against each other.
+The mechanism counts, which are what decide H1 and H2, are unaffected.
 
 ## K-1 · The graph leak is measured, not fixed
 

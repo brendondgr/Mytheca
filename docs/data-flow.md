@@ -98,8 +98,14 @@ accumulates by event `id` (incremental `text` chunks, `done` flips true last). T
 are produced **live** — `llm.chat_complete_stream` feeds the model's tokens through
 `emission.EmissionAccumulator` as they arrive, so a segment reaches the wire the moment the
 parser recognises it. The thought therefore completes while the spoken line is still being
-written. A `thought` accumulates against `thoughtId` rather than the beat's `id`, which
-belongs to the dialogue that follows it.
+written. A `thought` accumulates against `thoughtId` and **never claims the
+beat's `id`**, which belongs to the beat's prose — the dialogue if the speaker speaks, the
+action if they only act. That is a correctness property, not bookkeeping: the beat's `id` is
+what every record control points at, and while a thought could take it, a character who
+thought and acted but never spoke handed **Edit** the private thought to rewrite (silently)
+and got a 422 from **Re-roll** (`internal_thought` is not re-runnable). A beat that is *only*
+a thought therefore has no id and offers no controls, which is the honest answer — a private
+aside is not a beat of the story record.
 
 One trace step also reaches the transcript: `speaker` opens the chosen character's beat
 **before any words exist** (`pending: true`), so the wait has a place to live and the
@@ -407,13 +413,47 @@ play-through **fully reviewable and continuable**:
   `require_expected_seq` (optimistic concurrency — a stale precondition 409s, where a `busy`
   column could be left set by a client abort and wedge the session).
 
-  Per store: **Postgres** is canonical and everything else is re-derived from it; **Redis** is
-  rebuilt, never patched; **Neo4j** `:Event` nodes are pruned by their deterministic id, though
-  relationship *edges* written by cut turns are not rolled back (no per-turn provenance —
-  recorded in `docs/checklist.md`); **session stats** are cleared and replayed from the surviving
+  Per store: **Postgres** is canonical and everything else is re-derived from it; the **Redis
+  recent-turn buffer** is rebuilt, never patched; **Redis interior state** is *cleared*, not
+  rebuilt (see below); the session's **outstanding direction** is pruned to what surviving turns
+  raised; **Neo4j** `:Event` nodes are pruned by their deterministic id, though relationship
+  *edges* written by cut turns are not rolled back (no per-turn provenance — recorded in
+  `docs/checklist.md`); **session stats** are cleared and replayed from the surviving
   `state_update` rows; **presence** re-derives for free from the surviving
   `character_status_change` rows. **Qdrant is not involved** — nothing on the play path indexes
   transcript text, so an edited beat has no stale embedding.
+
+- **What a rewind actually makes the scene forget.** Cutting the rows is the easy half; the
+  state *derived* from them is what decides whether the scene behaves as though the cut turns
+  happened. Two of those were missed until they were measured
+  ([`EXP-2026-08-014`](research/experiments/EXP-2026-08-014-record-controls/)), and both are
+  things a row-oriented cut cannot see:
+
+  - **Per-character interior state** (`memory/interior.py`, `interior:{session}:{character}`) is
+    each character's current stance and retrospective, written by `services/reflection.py` after
+    every turn and read straight into the prompt by `assembler._build_cast`. It is **cleared**
+    (`interior.clear_session`) rather than rebuilt — there is no surviving row to re-derive a
+    stance from, and there is only ever one record per character, so a survivor would always be
+    a stance formed partly from beats that no longer exist. The next turn's reflection writes a
+    fresh one. Over-clearing costs one recomputation the turn performs anyway.
+  - **`PlaySession.standing_direction`** carries what a turn could not deliver so the next turn
+    re-owes it. `session_state.standing_through` keeps only the rows whose `fromTurn` (the
+    raising turn's `Event.seq`) is at or below the cut. A row with no usable `fromTurn` is kept:
+    an un-cancelled requirement costs a beat and is reported as outstanding, while a
+    wrongly-cancelled one silently loses what the player asked for.
+
+  The same `standing_through` is what a **branch** uses to carry the parent's debt to the fork.
+  A fork inherits the direction (it is what the player asked for and has not been given) and
+  does **not** inherit the rolling summary (it is a derived record that would go stale the
+  moment the branch diverged, with no seq to notice by).
+
+- **A re-roll's window stops where its beats do.** `turn_setup.context_for_replay` takes a
+  `through_seq` — the beat before the target — and passes it to `assemble_context`, which trims
+  that many entries off the **tail** of the transcript window before `_build_cast` reads it for
+  voice anchors. Without it the window came straight off the Redis buffer, which still holds the
+  beat being replaced and everything after it, so the model was asked for another version of a
+  line it could see and continued from it instead. `through_seq=None` — every ordinary turn —
+  leaves the window byte-identical, which a test asserts.
 
 - **Stat values are scoped to a play-through.** `session_character_stats` holds what a stat is
   worth *inside one story*; `character_stats` holds the character's **authored** starting value.

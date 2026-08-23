@@ -173,7 +173,7 @@ Four detection paths, all automatic: a `health`-keyed stat clamped to its floor;
 ## Data Layer
 
 - **PostgreSQL** — 13 tables covering the four canonical objects, stats, events, play sessions, turn traces, context documents, app settings, and the Story-Graph type registry. Sync SQLAlchemy 2.0 + psycopg3; camelCase over the wire; string PKs; branches as JSON, stats normalized.
-- **Redis** — recent-turn buffer (`memory/buffer.py`) and per-character interior state (`memory/interior.py`). Best-effort.
+- **Redis** — recent-turn buffer (`memory/buffer.py`) and per-character interior state (`memory/interior.py`). Best-effort. The two are **not** interchangeable when history is rewritten: the buffer is a cache of the event rows and is *rebuilt* from them, while interior state is a stance a model formed and has no surviving row to be re-derived from, so a rewind *clears* it (`interior.clear_session`) and the next turn's reflection writes a fresh one. Treating them alike is how a rewound scene keeps its characters' old minds.
 - **Neo4j** — the Story Graph. Node `type` → label, edge `type` → relationship type, every node also `:Node`; dynamic labels bound as parameters (`MERGE (n:Node {id}) SET n:$($type)`, 5.26+). The Type Registry in Postgres is the semantic source of truth; Neo4j holds instances. Consequences are reified `:Consequence` nodes. Best-effort — never blocks CRUD.
 - **Qdrant** — one `mytheca_lore` collection with named dense + sparse vectors (fastembed `BAAI/bge-large-en-v1.5` 1024-dim + BM25), fused by RRF. Embed-on-save, prune-on-delete. Best-effort.
 
