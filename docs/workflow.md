@@ -90,6 +90,22 @@ A root `Makefile` carries the research-record targets. It does **not** replace
 Contract: `research/AGENT_INSTRUCTIONS.md`. There is deliberately **no CI and no
 pre-commit hook** — see `research/DECISIONS.md` D-005 and `checklist.md`.
 
+**A live experiment run and a backend edit cannot overlap.** `app.py backend` serves under
+`uvicorn(reload=True, reload_dirs=[web/backend])`, so saving *any* file under
+`web/backend/` restarts the worker and drops whatever request is in flight. A harness that
+drives the running API — every runner in `utils/scripts/research/` does — will record that
+as a crashed probe. Sequence the work: run the arm, then edit. `web/frontend/`,
+`utils/` and `docs/` are outside `reload_dirs` and are safe to touch mid-run.
+
+**`make figures` regenerates every experiment, not just yours.** Matplotlib stamps a fresh
+timestamp and fresh clip-path ids into each SVG, so the other folders come back as modified
+with no data change — and a completed experiment folder is append-only. Revert them before
+committing:
+
+```bash
+git checkout -- $(git diff --name-only | grep docs/research/experiments/ | grep -v <YOUR-EXP-ID>)
+```
+
 ### Frontend (Next.js)
 
 Installed: **Next.js 16.2.9** (App Router, Turbopack) · React 19.2.4 · TypeScript 5 · **Tailwind CSS v4** (CSS-first `@theme`) · **Framer Motion 12** · **`react-force-graph-2d`** (lazy-loaded via `next/dynamic({ ssr:false })` for the story-player Graph view) · **Vitest 4 + React Testing Library** (tests co-located beside components). Fonts (Cinzel / EB Garamond / IBM Plex Mono) load via `next/font` in `app/layout.tsx`.
