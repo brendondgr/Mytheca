@@ -126,6 +126,34 @@ describe("mergeFrame", () => {
     expect(msgs[0].text).toBe("As you wish.");
   });
 
+  // The beat's `id` is what every record control points at, so which row it names is a
+  // correctness property, not a detail. A thought must never claim it: it did, and a
+  // character who thought and acted but never spoke handed Edit the private thought to
+  // rewrite and got a 422 from Re-roll (`internal_thought` is not re-runnable).
+  it("gives the beat the DIALOGUE's id when the speaker speaks", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Stay calm." }));
+    msgs = mergeFrame(msgs, ev("character_action", "a1", { characterId: "mei", text: "Mei leans back." }));
+    msgs = mergeFrame(msgs, ev("character_dialogue", "d1", { characterId: "mei", text: "As you wish.", done: true }));
+    expect(msgs[0].id).toBe("d1");
+    expect(msgs[0].thoughtId).toBe("t1");
+  });
+
+  it("gives the beat the ACTION's id when the speaker acts without speaking", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Stay calm." }));
+    msgs = mergeFrame(msgs, ev("character_action", "a1", { characterId: "mei", text: "Mei leans back." }));
+    expect(msgs[0].id).toBe("a1");
+    expect(msgs[0].thoughtId).toBe("t1");
+  });
+
+  it("leaves a beat that is only a thought with no id, so it offers no controls", () => {
+    let msgs: SceneMessage[] = [];
+    msgs = mergeFrame(msgs, ev("internal_thought", "t1", { characterId: "mei", text: "Coin first." }));
+    expect(msgs[0].id).toBeUndefined();
+    expect(msgs[0].thoughtId).toBe("t1");
+  });
+
   it("accumulates a streamed thought instead of replacing it", () => {
     // The thought delta-streams now — it is usually the first thing a turn can show —
     // so chunks must append. Replacing would leave only the final fragment on screen.
@@ -447,6 +475,42 @@ describe("rehydrateFromHistory", () => {
     expect(scene.traceTurns).toHaveLength(1);
     expect(scene.traceTurns[0].label).toBe("I slide the coin toward Mei.");
     expect(scene.traceTurns[0].steps.map((s) => s.step)).toEqual(["turn", "lore", "commit"]);
+  });
+
+  // A reload is where this bit most, because no `speaker` trace frame opens an id-less
+  // pending beat: the thought was the first row, so it took the beat's id and kept it
+  // whenever the character never spoke. Every record control then pointed at the thought.
+  it("gives a rehydrated beat its prose row's id, never the thought's", () => {
+    const spoke = rehydrateFromHistory(
+      [
+        pe("user_turn", 0, { text: "hi", directedAt: null }),
+        pe("internal_thought", 1, { characterId: "mei", text: "Stay calm." }),
+        pe("character_action", 2, { characterId: "mei", text: "leans back" }),
+        pe("character_dialogue", 3, { characterId: "mei", text: '"As you wish."', done: true }),
+      ],
+      [],
+    );
+    expect(spoke.messages[1].id).toBe("ev3");
+    expect(spoke.messages[1].thoughtId).toBe("ev1");
+
+    const acted = rehydrateFromHistory(
+      [
+        pe("user_turn", 0, { text: "hi", directedAt: null }),
+        pe("internal_thought", 1, { characterId: "mei", text: "Stay calm." }),
+        pe("character_action", 2, { characterId: "mei", text: "leans back" }),
+      ],
+      [],
+    );
+    expect(acted.messages[1].id).toBe("ev2");
+
+    const onlyThought = rehydrateFromHistory(
+      [
+        pe("user_turn", 0, { text: "hi", directedAt: null }),
+        pe("internal_thought", 1, { characterId: "mei", text: "Stay calm." }),
+      ],
+      [],
+    );
+    expect(onlyThought.messages[1].id).toBeUndefined();
   });
 
   it("replays a persisted scene_image back into its place in the transcript", () => {

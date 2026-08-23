@@ -69,6 +69,40 @@ Each was caught by a test or a live run, not by reading:
 7. The first stat design gated the *starting* value on `carry_over`, discarding the authored
    starting stats world population writes.
 
+## AMENDMENTS
+
+**2026-08-22 — three of these operations were incomplete, and one pointed at the wrong row.**
+Audited against the live model by `docs/plans/record-controls-audit.md` /
+[`EXP-2026-08-014`](../research/experiments/EXP-2026-08-014-record-controls/). This plan is
+complete and append-only, so what follows corrects it rather than editing the text above.
+
+The "Validation" section below says a rewind was exercised against the running app. It was —
+but only the *rows* were checked, and the record's own thesis is that everything derived from
+the rows has to be re-derived with them. Four gaps, each measured:
+
+1. **A rewind cleared no interior state.** Each character's disposition and retrospective
+   (`memory/interior.py`) survived the cut and went straight back into the prompt via
+   `assembler._build_cast`. The module had no clear function at all. Now
+   `interior.clear_session`, called from `truncate_session`.
+2. **A rewind left the direction the cut turns raised.** `PlaySession.standing_direction`
+   is not a row, so truncation never saw it. Now pruned by `session_state.standing_through`.
+3. **A branch dropped the parent's outstanding direction.** `copy_history` carried events,
+   traces and stats but not the debt. Now carried, pruned to the fork seq.
+4. **A re-roll saw the beat it was replacing.** `context_for_replay`'s `turn_beats` half
+   honoured its boundary; its `TurnContext` half took the window straight off the live Redis
+   buffer. Now `assemble_context(through_seq=…)`.
+
+Separately, in the frontend: a character's beat took its `id` from the `internal_thought`
+when the character never spoke, so **Edit** silently rewrote the thought and **Re-roll** was
+refused with a 422. The beat now carries its prose row's id. And **Edit is offered only on
+the player's own lines** — an owner decision, taken after this plan shipped: the answer to a
+bad line from the cast is Re-roll. `PATCH …/beats/{id}` keeps its breadth.
+
+What this audit found *working* as documented: the buffer rebuild, the summary invalidation,
+the stat replay, the restored player line with its direction and attachments, the snapshot
+fork, re-roll's id/seq stability and its take pager, the whole-turn re-run, and every
+structural property of a branch.
+
 ## Validation
 
 1381 backend and 940 frontend tests (from 1253 / 850), typecheck clean, lint 0 errors, frontend

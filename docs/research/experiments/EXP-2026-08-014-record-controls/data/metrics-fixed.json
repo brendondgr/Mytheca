@@ -1,0 +1,254 @@
+{
+  "arm": "fixed",
+  "notes": [
+    "rewind probe: session=ps_9e3e4a8b6e scenario=5d4f cut_seq=4 interior_after=0 standing_after=1",
+    "reroll probe: session=ps_8100e046a1 beat=ev_982be6fcaf takes=4",
+    "rerun_turn probe: session=ps_c0f0715dcf rows 8 \u2192 8",
+    "branch probe: source=ps_2088ae11c9 fork=ps_4f48b272f1",
+    "edit probe: session=ps_757219b5e0"
+  ],
+  "relay": {
+    "data": [
+      {
+        "created": 1787441242,
+        "id": "auto",
+        "object": "model",
+        "owned_by": "relay",
+        "relay": {
+          "routing": "active endpoint (hot-swap)"
+        }
+      },
+      {
+        "created": 1787441242,
+        "id": "local",
+        "object": "model",
+        "owned_by": "relay:llama.cpp \u00b7 local",
+        "relay": {
+          "endpoint": "llama.cpp \u00b7 local",
+          "health": "healthy",
+          "protocol": "openai",
+          "upstream_model": "gemma-4-26B-it"
+        }
+      },
+      {
+        "created": 1787441242,
+        "id": "skynet",
+        "object": "model",
+        "owned_by": "relay:skynet",
+        "relay": {
+          "endpoint": "skynet",
+          "health": "healthy",
+          "protocol": "openai",
+          "upstream_model": "auto"
+        }
+      },
+      {
+        "created": 1787441242,
+        "id": "agent",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode-go/ox-alpha-free"
+        }
+      },
+      {
+        "created": 1787441242,
+        "id": "opencode-go/ox-alpha-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode-go/ox-alpha-free"
+        }
+      },
+      {
+        "created": 1787441242,
+        "id": "opencode/nemotron-3.5-lightning-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/nemotron-3.5-lightning-free"
+        }
+      },
+      {
+        "created": 1787441242,
+        "id": "opencode/nemotron-3-ultra-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/nemotron-3-ultra-free"
+        }
+      },
+      {
+        "created": 1787441242,
+        "id": "opencode/hy3-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/hy3-free"
+        }
+      },
+      {
+        "created": 1787441242,
+        "id": "opencode/muse-spark-1.2-contributor-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/muse-spark-1.2-contributor-free"
+        }
+      },
+      {
+        "created": 1787441242,
+        "id": "opencode/x-preview-f-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/x-preview-f-free"
+        }
+      },
+      {
+        "created": 1787441242,
+        "id": "opencode/mimo-v2.5-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/mimo-v2.5-free"
+        }
+      }
+    ],
+    "object": "list"
+  },
+  "rows": [
+    {
+      "arm": "fixed",
+      "fork_rows": 8,
+      "fork_standing": 1,
+      "fork_summary_cleared": 1,
+      "ids_fresh": 1,
+      "parent_recorded": 1,
+      "parent_standing": 1,
+      "probe": "branch",
+      "scenario": "a38b",
+      "seqs_identical": 1,
+      "source_rows_after_fork_played": 8,
+      "source_rows_before": 8,
+      "source_rows_delta": 0,
+      "source_untouched_by_fork_play": 1,
+      "standing_inherited": 1,
+      "storyline": "e8842df3",
+      "text_identical": 1
+    },
+    {
+      "ai_buffer_text_matches": 1,
+      "ai_row_text_matches": 1,
+      "ai_row_type": "narration",
+      "ai_status": "ok",
+      "arm": "fixed",
+      "player_buffer_text_matches": 1,
+      "player_edited_flag": 1,
+      "player_row_text_matches": 1,
+      "probe": "edit",
+      "scenario": "3710",
+      "storyline": "e8b5dceb",
+      "thought_row_present": 0
+    },
+    {
+      "active_take": 3,
+      "active_take_is_last": 1,
+      "arm": "fixed",
+      "id_stable": 1,
+      "leads_with_beat_reroll": 1,
+      "probe": "reroll_beat",
+      "replay_window_beats": 2,
+      "scenario": "106a",
+      "self_overlap_max": 0.2931,
+      "self_overlap_mean": 0.2838,
+      "seq_stable": 1,
+      "state_update_delta": 0,
+      "status": "ok",
+      "storyline": "d2c93a53",
+      "take_select_ok": 1,
+      "take_select_reaches_buffer": 1,
+      "takes": 4,
+      "takes_distinct": 4,
+      "target_in_replay_window": 0,
+      "target_in_turn_beats": 0,
+      "target_in_voice_anchors": 0,
+      "target_type": "character_prose",
+      "thought_delta": 0,
+      "total_rows_delta": 0
+    },
+    {
+      "arm": "fixed",
+      "beats_after_rerun": 3,
+      "first_new_seq": 5,
+      "first_new_seq_is_opening_plus_one": 1,
+      "opening_seq": 4,
+      "player_text_preserved": 1,
+      "probe": "rerun_turn",
+      "rows_after": 8,
+      "rows_before": 8,
+      "scenario": "ecb3",
+      "seqs_contiguous": 1,
+      "seqs_unique": 1,
+      "status": "ok",
+      "storyline": "eccdacff",
+      "user_turn_rows": 1
+    },
+    {
+      "arm": "fixed",
+      "buffer_beats_after": 5,
+      "buffer_leak_beats": 0,
+      "cut_seq": 4,
+      "events_above_cut": 0,
+      "events_after": 5,
+      "events_before": 15,
+      "graph_edges_after": 4,
+      "graph_edges_before": 4,
+      "interior_before": 3,
+      "interior_keys_after": 0,
+      "plant_coverage": 0.0,
+      "probe": "rewind",
+      "probe_answer": "The partner\u2019s grin curdles, his eyes darting toward the door behind you. Aldous leans forward, his shadow swallowing the table as he slides the ledger toward you, the heavy leather coming to a rest against your knuckles.\nThe partner\u2019s grin curdles, his eyes darting toward the door behind you. Aldous leans forward, his shadow swallowing the table as he slides the ledger toward you, the heavy leather coming to a rest against your knuckles.\nI watch the heavy leather press against your knuckles, a silent weight between us. My heart hammers a rhythm that has nothing to do with the rain. I do not look at the door, though I can feel the partner's gaze drifting there.\n\n\"A business associate is someone who values the truth,\" I say. I pull my hand back, the ring on my finger catching the light like a warning. \"A partner is someone who knows when the truth has become too expensive to keep.\"\n\nI wait for you to look down. I wait for the mask to slip.\nThe partner\u2019s grin curdles, his eyes darting toward the door behind you. Aldous leans forward, his shadow swallowing the table as he slides the ledger toward you, the heavy leather coming to a rest against your knuckles.",
+      "recall_above_floor": -0.1111,
+      "recall_coverage": 0.0,
+      "recall_coverage_discounted": 0.0,
+      "recall_floor": 0.1111,
+      "removed_events": 10,
+      "restored_guidance_matches": 1,
+      "restored_text_matches": 1,
+      "scenario": "5d4f",
+      "snapshot_kept": 1,
+      "standing_after": 1,
+      "standing_after_from_cut_turns": 0,
+      "standing_before": 1,
+      "standing_setup_ok": 1,
+      "storyline": "f1db5768",
+      "summary_after": 0
+    }
+  ],
+  "superseded": []
+}

@@ -299,3 +299,112 @@ def test_a_branch_starts_with_no_memory_of_its_own(db_session, played, world):
     assert db_session.get(PlaySession, fork.id).summary_text is None
     # …and the parent is untouched.
     assert db_session.get(PlaySession, sid).summary_text is not None
+
+
+# ---- what a rewind has to make the scene forget ----------------------------
+#
+# Cutting the rows is the easy half. Everything derived from them has to go too, and the
+# two below are the ones that were missed: they are not rows, so truncation never saw
+# them, and both feed straight back into the next prompt.
+
+
+def test_a_rewind_clears_the_casts_interior_state(db_session, played, monkeypatch):
+    """Each character's disposition and retrospective are derived from the beats the cut
+    just removed, and `assembler._build_cast` reads them straight into the prompt. Leaving
+    them is how a rewound scene keeps behaving as though the cut turns happened."""
+    cleared: list[str] = []
+    monkeypatch.setattr(
+        session_state.interior, "clear_session", lambda sid: cleared.append(sid) or 0
+    )
+
+    session_state.truncate_session(db_session, played["session"].id, after_seq=2)
+
+    assert cleared == [played["session"].id]
+
+
+def test_a_rewind_drops_a_direction_raised_by_a_cut_turn(db_session, played):
+    """`standing_direction` carries what a turn could not deliver so the next turn re-owes
+    it. A requirement raised by a turn the player just deleted is a debt to a turn that no
+    longer exists — the scene would go on chasing something un-asked-for."""
+    from app.models import PlaySession
+
+    sid = played["session"].id
+    row = db_session.get(PlaySession, sid)
+    row.standing_direction = [
+        {"id": "r1", "text": "Have Mei admit the debt.", "actorId": None, "pinned": False, "fromTurn": 0},
+        {"id": "r2", "text": "Have the lamp go over.", "actorId": None, "pinned": False, "fromTurn": 3},
+    ]
+    db_session.add(row)
+    db_session.commit()
+
+    session_state.truncate_session(db_session, sid, after_seq=2)
+
+    standing = db_session.get(PlaySession, sid).standing_direction or []
+    # `fromTurn` is the turn's opening `Event.seq`, so the cut is exact rather than a guess.
+    assert [r["id"] for r in standing] == ["r1"]
+
+
+def test_a_rewind_past_everything_clears_the_debt_to_none(db_session, played):
+    """Empty is written back as NULL, the same way `direction_runtime.save_standing` does
+    it — one representation of "owes nothing", not two."""
+    from app.models import PlaySession
+
+    sid = played["session"].id
+    row = db_session.get(PlaySession, sid)
+    row.standing_direction = [{"id": "r1", "text": "Anything.", "fromTurn": 3}]
+    db_session.add(row)
+    db_session.commit()
+
+    session_state.truncate_session(db_session, sid, after_seq=-1)
+
+    assert db_session.get(PlaySession, sid).standing_direction is None
+
+
+def test_a_rewind_keeps_a_debt_with_no_recorded_turn(db_session, played):
+    """A row written before `fromTurn` existed, or a hand-edited one, has no seq to judge
+    by. Keeping it is the safe direction: an un-cancelled requirement costs a beat, a
+    wrongly-cancelled one loses what the player asked for."""
+    from app.models import PlaySession
+
+    sid = played["session"].id
+    row = db_session.get(PlaySession, sid)
+    row.standing_direction = [{"id": "r1", "text": "Legacy row."}, "not-a-dict"]
+    db_session.add(row)
+    db_session.commit()
+
+    session_state.truncate_session(db_session, sid, after_seq=2)
+
+    standing = db_session.get(PlaySession, sid).standing_direction or []
+    assert [r["id"] for r in standing if isinstance(r, dict)] == ["r1"]
+
+
+def test_a_branch_inherits_what_the_parent_still_owed(db_session, played, world):
+    """A fork is the parent up to the fork point. The summary is dropped for a stated
+    reason; the debt has none, and losing it makes "branch here and try again" quietly
+    different from carrying on."""
+    from app.models import PlaySession
+
+    sid = played["session"].id
+    row = db_session.get(PlaySession, sid)
+    row.standing_direction = [
+        {"id": "r1", "text": "Owed before the fork.", "fromTurn": 0},
+        {"id": "r2", "text": "Owed after it.", "fromTurn": 3},
+    ]
+    db_session.add(row)
+    db_session.commit()
+    fork = events_store.create_session(db_session, world["scenario_id"])
+
+    session_state.copy_history(db_session, sid, fork.id, through_seq=2)
+
+    inherited = db_session.get(PlaySession, fork.id).standing_direction or []
+    assert [r["id"] for r in inherited] == ["r1"]
+    # The parent keeps everything it was owed.
+    assert len(db_session.get(PlaySession, sid).standing_direction) == 2
+
+
+def test_a_branch_of_a_session_that_owes_nothing_inherits_nothing(db_session, played, world):
+    fork = events_store.create_session(db_session, world["scenario_id"])
+    session_state.copy_history(db_session, played["session"].id, fork.id, through_seq=2)
+    from app.models import PlaySession
+
+    assert db_session.get(PlaySession, fork.id).standing_direction is None

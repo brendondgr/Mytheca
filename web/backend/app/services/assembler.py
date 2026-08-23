@@ -34,6 +34,7 @@ from app.services import (
     graph_reader,
     presence,
     retrieval_gate,
+    session_state,
     session_stats,
     settings_store,
     stat_guidance,
@@ -177,12 +178,20 @@ def assemble_context(
     tagged_doc_ids: list[str] | None = None,
     *,
     beat_length_override: BeatLength | None = None,
+    through_seq: int | None = None,
 ) -> TurnContext:
     """Assemble the read-only ``TurnContext`` for one turn (best-effort throughout).
 
     ``tagged_doc_ids`` are the player's @-tagged context documents; they are resolved here
     (storyline-checked and bounded) into ``tagged_notes`` — reference material, never
     direction. See ``_tagged_notes``.
+
+    ``through_seq`` is the last ``Event.seq`` this context may see, and only a **re-roll**
+    sets it (``turn_setup.context_for_replay``). Without it the transcript window comes
+    straight off the Redis buffer, which still holds the beat being replaced and everything
+    after it — so the model was being asked for another version of a line it could see, and
+    continued from it rather than replacing it. ``None``, which is every ordinary turn,
+    leaves the window exactly as it was.
 
     ``beat_length_override`` is this turn's per-turn tier (``TurnOverrides.beatLength``).
     It is applied **here** rather than after assembly because ``ctx.beat_length`` has two
@@ -246,6 +255,13 @@ def assemble_context(
         window_source = window.source
         dropped = fit.dropped_beats
     recent_beats = buffer.anchored_turns(session_id, window_beats, block)
+    if through_seq is not None:
+        # Dropped from the TAIL: the buffer is oldest-first and mirrors the rows, so the
+        # beats above the boundary are exactly its last N entries. `max(0, ...)` because a
+        # negative slice index would silently return the WHOLE window — the opposite of what
+        # was asked for, and a failure that would read as the trim never having run.
+        above = session_state.buffered_rows_after(db, session_id, through_seq)
+        recent_beats = recent_beats[: max(0, len(recent_beats) - above)]
     # Runtime scene presence, folded from this session's status-change event log.
     presence_map = presence.current_presence(db, session_id)
     cast = _build_cast(db, scenario, session_id, stat_defs, recent_beats, presence_map)

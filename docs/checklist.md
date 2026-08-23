@@ -149,21 +149,44 @@ Verified against the code on 2026-08-04.
   IS an edge, and roughly where), and the exact figures are in the scene-memory panel, which
   reads them from the engine rather than counting rendered messages. Making it exact would mean
   carrying a per-message buffer-beat count through the transcript.
-- **A standing direction never expires.** What a turn could not deliver is carried forward
-  indefinitely until it lands or the player dismisses it (`play_sessions.standing_direction`).
-  A direction the scene has quietly moved past will keep being re-owed, and the only remedy is
-  the dismiss control. A turn-count or relevance-based expiry was not designed.
+- **A standing direction never expires on its own.** What a turn could not deliver is carried
+  forward indefinitely until it lands or the player dismisses it
+  (`play_sessions.standing_direction`). A direction the scene has quietly moved past will keep
+  being re-owed, and the remedies are the dismiss control and a rewind past the turn that raised
+  it (`session_state.standing_through` drops rows whose `fromTurn` is above the cut). A
+  turn-count or relevance-based expiry was not designed.
 - **`@` mentions have no inline chip.** The composer's tagged row shows what a turn will
   carry, but inside the textarea an `@name` is plain text — there is no styled token, because
   a `<textarea>` cannot hold one. Doing it properly means a contenteditable or an overlay, and
   both were judged too large for `docs/plans/steering-the-scene.md`.
-- **Graph edges from a rewound turn are not rolled back.** `session_state.truncate_session`
-  prunes the `:Event` node each cut turn wrote (deterministic id `evt_{session_id}_{turn_seq}`),
-  but the relationship **edges** and `:Consequence` nodes those turns wrote stay. The graph is a
-  best-effort accumulator with no per-turn provenance index, and adding one was out of scope for
+- **Graph edges from a rewound turn are not rolled back — now the last thing a rewind fails to
+  forget.** `session_state.truncate_session` prunes the `:Event` node each cut turn wrote
+  (deterministic id `evt_{session_id}_{turn_seq}`), but the relationship **edges** and
+  `:Consequence` nodes those turns wrote stay. The graph is a best-effort accumulator with no
+  per-turn provenance index, and adding one was out of scope for
   `docs/plans/control-over-the-record.md`. The effect is that a rewound scene can leave a
-  relationship the transcript no longer explains. Fixing it means recording the turn seq on every
-  edge write in `graph_writer` and deleting by it.
+  relationship the transcript no longer explains, and `graph_reader.relationship_context()` puts
+  it in the next prompt. Fixing it means recording the turn seq on every edge write in
+  `graph_writer` and deleting by it.
+
+  **Measured, not assumed:** [`EXP-2026-08-014`](research/experiments/EXP-2026-08-014-record-controls/)
+  records `graph_edges_before` / `graph_edges_after` on a live rewind. As of that run the other
+  two leaks it found — interior state and the standing direction — are closed, so this is the
+  only known channel by which a rewound scene can still know something the transcript does not.
+  n = 1 scene, so the *size* of the leak is not established; its existence is.
+
+- **A turn can write the same narration more than once.** Observed live on 2026-08-22
+  ([`EXP-2026-08-014`](research/experiments/EXP-2026-08-014-record-controls/) `ISSUES.md`
+  O-1): one turn produced three distinct `narration` event rows holding **byte-identical**
+  text. Three rows in Postgres, not a streaming artefact. Nothing in the beat loop dedupes a
+  narrator interstitial against what the narrator already said this turn. n = 1 scene, so the
+  rate is unknown; the existence is not. Uninvestigated — it surfaced inside a run scoped to
+  the record operations.
+- **Emission scaffolding can reach the transcript as prose.** Same run, same scene: a
+  `narration` row began `] ... 'Is this how you greet a business associate?' I ask."). *` —
+  a fragment of the emission format, persisted and rendered as narration. `services/emission.py`
+  and `services/validator.py` are the places that would have to reject it. Also n = 1, also
+  uninvestigated for the same reason.
 
 - **Alternate takes are capped at five.** `beat_rerun.MAX_TAKES` keeps the five most recent
   versions of a beat and drops the oldest. A player who re-rolls a beat six times cannot get

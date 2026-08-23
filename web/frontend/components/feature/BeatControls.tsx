@@ -29,7 +29,12 @@ export function BeatControls({
   disabled = false,
   label = "this beat",
 }: {
-  /** Rewrite this beat's prose. Omit for a beat that has none (a stat change, choices). */
+  /**
+   * Rewrite this beat's prose. Passed only for a beat the **player wrote** — their own
+   * line, or a POV line they authored in a character's name. Omitted for the cast's prose
+   * and the narration, whose answer to "I don't like that line" is *Re-roll*; and omitted
+   * for a beat with no prose at all (a stat change, a set of choices).
+   */
   onEdit?: () => void;
   /**
    * Ask for another version. `scope: "turn"` replays the whole turn the beat belongs to —

@@ -382,9 +382,13 @@ def context_for_replay(
 
     ``through_seq`` is the last beat the re-run may see, i.e. the one **before** the target.
     Walking the persisted rows rather than the Redis buffer is deliberate: the buffer is a
-    window, and the beat being re-rolled may already have fallen out of it.
+    window, and the beat being re-rolled may already have fallen out of it. It is passed
+    **into** the assembler for the opposite reason: left to itself the assembler takes its
+    transcript window straight off that buffer, which still holds the beat being replaced.
     """
-    ctx = assembler.assemble_context(db, scenario, session_id, None, player_text="")
+    ctx = assembler.assemble_context(
+        db, scenario, session_id, None, player_text="", through_seq=through_seq
+    )
     turn_beats: list[dict] = []
     rows = events_store.session_events(db, session_id)
     # The turn this beat belongs to opens at the last `user_turn` at or before it.

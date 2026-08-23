@@ -67,6 +67,37 @@ def set_interior(session_id: str, character_id: str, record: InteriorRecord) -> 
         logger.debug("interior.set_interior failed: %s", exc)
 
 
+def clear_session(session_id: str) -> int:
+    """Drop every character's interior state for one play-through, best-effort.
+
+    Called when history is cut (``services.session_state.truncate_session``). Without it a
+    rewind is only half a rewind: the beats go, but each character walks back into the scene
+    carrying the disposition and retrospective those beats produced, which
+    ``assembler._build_cast`` reads straight into the next prompt. The transcript forgets and
+    the cast does not.
+
+    **The whole session goes, not just the records above the cut.** A record carries the seq
+    it was computed after, so it could be filtered — but there is only ever one per character
+    (each turn overwrites the last), so a surviving record is only ever the *latest* stance,
+    formed partly from beats that no longer exist. Over-clearing costs one recomputation on
+    the next turn, which reflection performs anyway; under-clearing is the bug this exists to
+    fix.
+
+    Returns how many keys were deleted, for diagnostics. Zero with no Redis, like every other
+    helper here — a rewind must never depend on the cache being up.
+    """
+    client = _redis()
+    if client is None:
+        return 0
+    pattern = _KEY.format(session_id=session_id, character_id="*")
+    try:
+        keys = list(client.scan_iter(match=pattern))
+        return int(client.delete(*keys)) if keys else 0
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("interior.clear_session failed: %s", exc)
+        return 0
+
+
 def get_interior(session_id: str, character_id: str) -> InteriorRecord | None:
     """Return a character's interior state, or ``None`` when absent/unavailable."""
     client = _redis()

@@ -1,0 +1,259 @@
+{
+  "arm": "baseline",
+  "notes": [
+    "rewind probe: session=ps_adf3b29eee scenario=a5e3 cut_seq=5 interior_after=3 standing_after=2",
+    "reroll probe: session=ps_2aeb0e4a85 beat=ev_984addfd09 takes=4",
+    "rerun_turn probe: session=ps_0377717865 rows 9 \u2192 9",
+    "branch probe: source=ps_0fa200ee0a fork=ps_333d9aef2f",
+    "edit probe: session=ps_ce569fe50c"
+  ],
+  "relay": {
+    "data": [
+      {
+        "created": 1787438975,
+        "id": "auto",
+        "object": "model",
+        "owned_by": "relay",
+        "relay": {
+          "routing": "active endpoint (hot-swap)"
+        }
+      },
+      {
+        "created": 1787438975,
+        "id": "local",
+        "object": "model",
+        "owned_by": "relay:llama.cpp \u00b7 local",
+        "relay": {
+          "endpoint": "llama.cpp \u00b7 local",
+          "health": "healthy",
+          "protocol": "openai",
+          "upstream_model": "gemma-4-26B-it"
+        }
+      },
+      {
+        "created": 1787438975,
+        "id": "skynet",
+        "object": "model",
+        "owned_by": "relay:skynet",
+        "relay": {
+          "endpoint": "skynet",
+          "health": "healthy",
+          "protocol": "openai",
+          "upstream_model": "auto"
+        }
+      },
+      {
+        "created": 1787438975,
+        "id": "agent",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode-go/ox-alpha-free"
+        }
+      },
+      {
+        "created": 1787438975,
+        "id": "opencode-go/ox-alpha-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode-go/ox-alpha-free"
+        }
+      },
+      {
+        "created": 1787438975,
+        "id": "opencode/nemotron-3.5-lightning-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/nemotron-3.5-lightning-free"
+        }
+      },
+      {
+        "created": 1787438975,
+        "id": "opencode/nemotron-3-ultra-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/nemotron-3-ultra-free"
+        }
+      },
+      {
+        "created": 1787438975,
+        "id": "opencode/hy3-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/hy3-free"
+        }
+      },
+      {
+        "created": 1787438975,
+        "id": "opencode/muse-spark-1.2-contributor-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/muse-spark-1.2-contributor-free"
+        }
+      },
+      {
+        "created": 1787438975,
+        "id": "opencode/x-preview-f-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/x-preview-f-free"
+        }
+      },
+      {
+        "created": 1787438975,
+        "id": "opencode/mimo-v2.5-free",
+        "object": "model",
+        "owned_by": "relay:opencode",
+        "relay": {
+          "endpoint": "opencode",
+          "health": "healthy",
+          "protocol": "opencode",
+          "upstream_model": "opencode/mimo-v2.5-free"
+        }
+      }
+    ],
+    "object": "list"
+  },
+  "rows": [
+    {
+      "arm": "baseline",
+      "fork_rows": 8,
+      "fork_standing": 0,
+      "fork_summary_cleared": 1,
+      "ids_fresh": 1,
+      "parent_recorded": 1,
+      "parent_standing": 1,
+      "probe": "branch",
+      "scenario": "d382",
+      "seqs_identical": 1,
+      "source_rows_after_fork_played": 8,
+      "source_rows_before": 8,
+      "source_rows_delta": 0,
+      "source_untouched_by_fork_play": 1,
+      "standing_inherited": 0,
+      "storyline": "4b579f15",
+      "text_identical": 1
+    },
+    {
+      "ai_buffer_text_matches": 1,
+      "ai_row_text_matches": 1,
+      "ai_row_type": "narration",
+      "ai_status": "ok",
+      "arm": "baseline",
+      "player_buffer_text_matches": 1,
+      "player_edited_flag": 1,
+      "player_row_text_matches": 1,
+      "probe": "edit",
+      "scenario": "35fb",
+      "storyline": "d8f1cb70",
+      "thought_row_present": 0
+    },
+    {
+      "active_take": 3,
+      "active_take_is_last": 1,
+      "arm": "baseline",
+      "id_stable": 1,
+      "leads_with_beat_reroll": 1,
+      "probe": "reroll_beat",
+      "scenario": "da4d",
+      "self_overlap_max": 0.4085,
+      "self_overlap_mean": 0.3412,
+      "seq_stable": 1,
+      "state_update_delta": 0,
+      "status": "ok",
+      "storyline": "cdc98dfa",
+      "take_select_ok": 1,
+      "take_select_reaches_buffer": 1,
+      "takes": 4,
+      "takes_distinct": 4,
+      "target_type": "character_prose",
+      "thought_delta": 0,
+      "total_rows_delta": 0
+    },
+    {
+      "arm": "baseline",
+      "beat": "ev_984addfd09",
+      "note": "Re-read of the reroll_beat probe's own scene on the baseline code, via --replay-window. No model calls, so it is the same scene the row above measured, not a new one.",
+      "probe": "reroll_replay_window",
+      "replay_window_beats": 8,
+      "scenario": "da4d",
+      "session": "ps_2aeb0e4a85",
+      "target_in_replay_window": 1,
+      "target_in_turn_beats": 0,
+      "target_in_voice_anchors": 1
+    },
+    {
+      "arm": "baseline",
+      "beats_after_rerun": 4,
+      "first_new_seq": 5,
+      "first_new_seq_is_opening_plus_one": 1,
+      "opening_seq": 4,
+      "player_text_preserved": 1,
+      "probe": "rerun_turn",
+      "rows_after": 9,
+      "rows_before": 9,
+      "scenario": "0d0a",
+      "seqs_contiguous": 1,
+      "seqs_unique": 1,
+      "status": "ok",
+      "storyline": "fab8752e",
+      "user_turn_rows": 1
+    },
+    {
+      "arm": "baseline",
+      "buffer_beats_after": 5,
+      "buffer_leak_beats": 0,
+      "cut_seq": 5,
+      "events_above_cut": 0,
+      "events_after": 6,
+      "events_before": 17,
+      "graph_edges_after": 1,
+      "graph_edges_before": 1,
+      "interior_before": 3,
+      "interior_keys_after": 3,
+      "plant_coverage": 0.0,
+      "probe": "rewind",
+      "recall_above_floor": 0.3333,
+      "recall_coverage": 0.3333,
+      "recall_floor": 0.0,
+      "removed_events": 11,
+      "restored_guidance_matches": 1,
+      "restored_text_matches": 1,
+      "scenario": "a5e3",
+      "snapshot_kept": 1,
+      "standing_after": 2,
+      "standing_after_from_cut_turns": 2,
+      "standing_before": 2,
+      "standing_setup_ok": 1,
+      "storyline": "7bac5d2f",
+      "summary_after": 0
+    }
+  ]
+}

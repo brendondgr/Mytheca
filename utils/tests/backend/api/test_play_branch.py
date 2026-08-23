@@ -186,3 +186,34 @@ def test_branch_rejects_an_event_from_another_play_through(client, storyline_id,
         f"/api/play/{scid}/sessions/{other}/branch", json={"atEventId": events[0]["id"]}
     )
     assert resp.status_code == 404
+
+
+def test_branch_carries_what_the_parent_still_owed(client, storyline_id, monkeypatch, db_session):
+    """A fork is the parent up to the fork point. The rolling summary is deliberately NOT
+    copied (it would go stale the moment the branch diverged, with no seq to notice by) —
+    the outstanding direction has no such reason, and losing it makes "branch here and try
+    again" quietly different from carrying on."""
+    from app.models import PlaySession
+
+    scid, sid = _played(client, storyline_id, monkeypatch)
+    turns = [e for e in _history(client, scid, sid)["events"] if e["type"] == "user_turn"]
+
+    row = db_session.get(PlaySession, sid)
+    row.standing_direction = [
+        {"id": "before", "text": "Have Mei name the ledger.", "fromTurn": turns[0]["seq"]},
+        {"id": "after", "text": "Have the lamp go over.", "fromTurn": turns[1]["seq"]},
+    ]
+    db_session.add(row)
+    db_session.commit()
+
+    fork = client.post(
+        f"/api/play/{scid}/sessions/{sid}/branch", json={"atEventId": turns[0]["id"]}
+    ).json()
+
+    db_session.expire_all()
+    inherited = db_session.get(PlaySession, fork["id"]).standing_direction or []
+    # Only what was owed at or before the fork point — the later debt belongs to a turn the
+    # fork never inherited.
+    assert [r["id"] for r in inherited] == ["before"]
+    # The parent keeps both.
+    assert len(db_session.get(PlaySession, sid).standing_direction) == 2
