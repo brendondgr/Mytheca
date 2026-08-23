@@ -144,3 +144,33 @@ describe("BeatControls", () => {
     for (const b of screen.getAllByRole("button")) expect(b).toBeDisabled();
   });
 });
+
+describe("BeatControls — a rewind that empties the scene says so", () => {
+  // Reported from a live scene as "Rewind to Here deletes the whole thread". It does not
+  // delete anything permanently (the pre-cut history forks to a tray row and the notice
+  // offers Undo) — but a rewind takes the containing turn AND everything after it, so from
+  // the first turn that is the whole transcript, and the confirmation said "Remove 5 beats?"
+  // in exactly the same words it uses to trim one exchange off the end.
+  it("names the consequence when the cut takes the whole play-through", async () => {
+    const user = userEvent.setup();
+    render(<BeatControls onRewind={vi.fn()} rewindBeatCount={5} rewindEmptiesScene label="Mei's beat" />);
+    await user.click(screen.getByRole("button", { name: "Rewind to Mei's beat" }));
+    expect(screen.getByText(/Empty the scene — all 5 beats\?/i)).toBeInTheDocument();
+  });
+
+  it("still counts beats normally when the scene survives the cut", async () => {
+    const user = userEvent.setup();
+    render(<BeatControls onRewind={vi.fn()} rewindBeatCount={5} label="Mei's beat" />);
+    await user.click(screen.getByRole("button", { name: "Rewind to Mei's beat" }));
+    expect(screen.getByText(/Remove 5 beats\?/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Empty the scene/i)).not.toBeInTheDocument();
+  });
+
+  it("warns in the tooltip before the player even commits to confirming", () => {
+    render(<BeatControls onRewind={vi.fn()} rewindBeatCount={5} rewindEmptiesScene label="Mei's beat" />);
+    expect(screen.getByRole("button", { name: "Rewind to Mei's beat" })).toHaveAttribute(
+      "title",
+      expect.stringMatching(/empties the scene/i),
+    );
+  });
+});

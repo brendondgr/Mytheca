@@ -255,3 +255,94 @@ def test_the_export_records_what_the_direction_did(client, storyline_id, monkeyp
     second = data["turns"][1]["direction"]
     assert "the lamp goes over" in second["carried"]
 
+
+
+# ---- ids have to be unique, because dismissal is by id ----------------------
+#
+# Reported from the browser as three React "two children with the same key" warnings
+# (`req1`, `req2`, `req3`). The console warning is the harmless half. The other half is that
+# `clear_standing_direction` drops EVERY row whose id is in `itemIds`, so a duplicate id made
+# the dismiss control remove requirements the player never pointed at.
+
+
+def test_a_carried_debt_and_a_fresh_direction_do_not_share_an_id(
+    client, storyline_id, monkeypatch
+):
+    """`direction_agent` numbers every fresh parse from `req1`, and a standing row keeps the
+    `reqN` it was given on the turn that raised it. Merging the two id spaces collided."""
+    _configure_llm(client)
+    _route(monkeypatch, requirements=LAMP, narrator=OFF_TOPIC)
+    scid = _scenario(client, storyline_id)
+    _turn(client, scid, "The lamp goes over.")
+    psid = _session_id(client, scid)
+
+    # A second turn asking for something DIFFERENT, so it cannot collapse onto the standing
+    # entry by text and must instead be given an id of its own.
+    _route(monkeypatch, requirements=[{"actor": None, "must": "the door slams"}],
+           narrator=OFF_TOPIC)
+    _turn(client, scid, "The door slams.", session_id=psid)
+
+    standing = _standing(client, scid, psid)
+    ids = [s["id"] for s in standing]
+    assert len(standing) == 2, standing
+    assert len(set(ids)) == len(ids), ids
+
+
+def test_dismissing_one_requirement_leaves_the_other(client, storyline_id, monkeypatch):
+    """The functional half of the same bug: with a shared id, cancelling one debt cancelled
+    its namesake too — silently, and with no way for the player to tell."""
+    _configure_llm(client)
+    _route(monkeypatch, requirements=LAMP, narrator=OFF_TOPIC)
+    scid = _scenario(client, storyline_id)
+    _turn(client, scid, "The lamp goes over.")
+    psid = _session_id(client, scid)
+    _route(monkeypatch, requirements=[{"actor": None, "must": "the door slams"}],
+           narrator=OFF_TOPIC)
+    _turn(client, scid, "The door slams.", session_id=psid)
+
+    standing = _standing(client, scid, psid)
+    assert len(standing) == 2
+    resp = client.post(
+        f"/api/play/{scid}/sessions/{psid}/standing-direction",
+        json={"itemIds": [standing[0]["id"]]},
+    )
+
+    assert resp.status_code == 200
+    remaining = resp.json()["standingDirection"]
+    assert len(remaining) == 1
+    assert remaining[0]["text"] == standing[1]["text"]
+
+
+def test_a_row_written_with_a_duplicate_id_is_healed_on_read(db_session, client, storyline_id):
+    """No migration: the column already holds duplicates in dev. `load_standing` is the one
+    function that tolerates a malformed row, so it is where the repair belongs — the
+    play-through is correct from its next read, and correct on disk from its next write."""
+    from app.models import PlaySession
+    from app.services import direction_runtime, events_store
+
+    scid = _scenario(client, storyline_id)
+    session = events_store.create_session(db_session, scid)
+    row = db_session.get(PlaySession, session.id)
+    row.standing_direction = [
+        {"id": "req1", "text": "the lamp goes over", "fromTurn": 0},
+        {"id": "req1", "text": "the door slams", "fromTurn": 2},
+        {"id": "req1", "text": "the tide turns", "fromTurn": 4},
+    ]
+    db_session.add(row)
+    db_session.commit()
+
+    loaded = direction_runtime.load_standing(row)
+
+    assert [r.text for r in loaded] == ["the lamp goes over", "the door slams", "the tide turns"]
+    assert len({r.id for r in loaded}) == 3
+    # The first keeps the id a client may already be holding; only the newcomers move.
+    assert loaded[0].id == "req1"
+
+
+def test_uniquify_is_a_no_op_when_the_ids_are_already_distinct():
+    from app.agents.direction_agent import DirectionRequirement
+    from app.services import direction_runtime
+
+    reqs = [DirectionRequirement(id=f"req{i}", text=f"t{i}") for i in (1, 2, 3)]
+    assert direction_runtime.uniquify_ids(reqs) == 0
+    assert [r.id for r in reqs] == ["req1", "req2", "req3"]

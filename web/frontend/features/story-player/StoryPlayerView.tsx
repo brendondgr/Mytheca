@@ -618,6 +618,10 @@ export function StoryPlayerView({
                       <BeatControls
                         label={beatLabel(m, byId)}
                         rewindBeatCount={scene.messages.length - turnStartIndex(scene.messages, i)}
+                        // A rewind takes the containing turn AND everything after it, so
+                        // from the first turn that is the whole scene. Same confirmation
+                        // copy for both read as "Rewind to Here deleted the whole thread".
+                        rewindEmptiesScene={turnStartIndex(scene.messages, i) === 0}
                         onEdit={isPlayerAuthored(m) ? () => setEditingId(m.id!) : undefined}
                         onReroll={
                           // Never the player's own words — including a POV beat, which wears

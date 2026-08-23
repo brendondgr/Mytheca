@@ -66,7 +66,36 @@ def load_standing(session: PlaySession) -> list[DirectionRequirement]:
                 from_turn=row.get("fromTurn") if isinstance(row.get("fromTurn"), int) else None,
             )
         )
+    # Rows written before `merge_standing` de-duplicated can already hold repeats, and a
+    # repeat makes the dismiss control drop more than the player pointed at. Healed on read
+    # so an existing play-through is correct from its next turn, with no migration: this is
+    # the one function that tolerates a malformed row, which is where that belongs.
+    uniquify_ids(out)
     return out
+
+
+def uniquify_ids(requirements: list[DirectionRequirement]) -> int:
+    """Make every requirement's id unique **in place**, keeping the first of each clash.
+
+    Order matters: standing requirements come first, so they keep the ids the client is
+    already holding and only the newcomer is renamed. A renamed id is the next free
+    ``req<N>``, so the ids stay readable rather than becoming opaque.
+
+    Returns how many were renamed, for the trace.
+    """
+    used = set()
+    renamed = 0
+    for req in requirements:
+        if req.id not in used:
+            used.add(req.id)
+            continue
+        n = len(used) + 1
+        while f"req{n}" in used:
+            n += 1
+        req.id = f"req{n}"
+        used.add(req.id)
+        renamed += 1
+    return renamed
 
 
 def merge_standing(
@@ -89,6 +118,12 @@ def merge_standing(
     for req in merged:
         if req.from_turn is None and req in standing:
             req.from_turn = turn
+    # Two independently-numbered id spaces meet here: a standing row carries the `reqN` it
+    # was given on the turn that raised it, and `direction_agent` numbers each fresh parse
+    # from `req1` again. Concatenating them collides, and the collision is not cosmetic —
+    # `routes/play.clear_standing_direction` drops **every** row whose id is in `itemIds`,
+    # so dismissing one requirement silently dismissed its namesakes as well.
+    uniquify_ids(merged)
     text = direction.text.strip()
     if not text:
         # A turn with no direction of its own still owes the debt, and the debt IS the

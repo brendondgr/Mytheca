@@ -26,6 +26,7 @@ export function BeatControls({
   onBranch,
   onRewind,
   rewindBeatCount,
+  rewindEmptiesScene = false,
   disabled = false,
   label = "this beat",
 }: {
@@ -48,6 +49,17 @@ export function BeatControls({
   onRewind?: () => void;
   /** How many beats a rewind would remove — named in the confirmation, never guessed at. */
   rewindBeatCount?: number;
+  /**
+   * True when this beat sits in the play-through's **first** turn, so rewinding to it takes
+   * the whole scene rather than trimming a tail.
+   *
+   * A rewind removes the containing turn *and everything after it*, which from turn one is
+   * everything — and the confirmation used to say "Remove 5 beats?" in exactly the words it
+   * uses to trim one exchange off the end. Reported from a live scene as "Rewind to Here
+   * deletes the whole thread". Nothing is actually lost (the pre-cut history forks to a tray
+   * row and the notice offers Undo); what was missing was being told.
+   */
+  rewindEmptiesScene?: boolean;
   /** True while a turn is streaming: the record must not be edited mid-sentence. */
   disabled?: boolean;
   /** What this beat is, for the controls' accessible names. */
@@ -86,9 +98,11 @@ export function BeatControls({
     return (
       <span className="flex items-center gap-[6px]">
         <span className="font-mono text-[9px] tracking-[0.08em] text-mute uppercase">
-          {rewindBeatCount
-            ? `Remove ${rewindBeatCount} beat${rewindBeatCount === 1 ? "" : "s"}?`
-            : "Rewind here?"}
+          {rewindEmptiesScene && rewindBeatCount
+            ? `Empty the scene — all ${rewindBeatCount} beats?`
+            : rewindBeatCount
+              ? `Remove ${rewindBeatCount} beat${rewindBeatCount === 1 ? "" : "s"}?`
+              : "Rewind here?"}
         </span>
         <button
           type="button"
@@ -160,7 +174,9 @@ export function BeatControls({
       ? [{
           key: "rewind",
           label: `Rewind to ${label}`,
-          title: "Rewind to here — removes this turn and everything after it",
+          title: rewindEmptiesScene
+            ? "Rewind to here — this is the first turn, so it empties the scene (undoable)"
+            : "Rewind to here — removes this turn and everything after it",
           glyph: "↺",
           onClick: () => setConfirming(true),
         }]
