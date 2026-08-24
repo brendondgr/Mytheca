@@ -279,6 +279,16 @@ def main() -> int:
     ap.add_argument("--json", action="store_true", help="emit the findings as JSON too")
     args = ap.parse_args()
 
+    # Line-buffered, always. A turn against a local model takes minutes, so this is watched
+    # through `tail -f` as often as it is read afterwards — and when a run is killed for
+    # taking too long, a block-buffered stdout means the file is EMPTY and the very run that
+    # most needed diagnosing left nothing behind. That happened once; it does not need to
+    # happen twice.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except AttributeError:
+        pass
+
     api = Api(args.api)
     storyline, scenario, cast = build_world(api)
     print(f"world: storyline={storyline} scenario={scenario} cast={', '.join(cast.values())}\n")

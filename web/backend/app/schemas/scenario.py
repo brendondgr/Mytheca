@@ -21,10 +21,16 @@ class Branch(CamelModel):
 #: How the transcript window is chosen. ``None`` reads as ``"auto"``.
 ContextPolicy = Literal["auto", "fixed"]
 
-#: The named scene presets, built from the catalogue rather than retyped — a fifth preset is
-#: then a one-line change in ``content/scene_presets`` and cannot drift from the schema that
+#: The named scene presets, built from the catalogue rather than retyped — a preset added to
+#: ``content/scene_presets`` is then a one-line change and cannot drift from the schema that
 #: validates it. ``None`` is *Custom*, and is the default.
-ScenePresetId = Literal[SCENE_PRESET_IDS]  # type: ignore[valid-type]
+#:
+#: The catalogue is currently **empty** (see that module for why), and ``Literal[()]`` is not a
+#: type — pydantic raises on it at import. So an empty catalogue degrades to ``str``: the
+#: column still round-trips whatever a pre-existing row holds, which is what stops this change
+#: from 500-ing every scenario written while presets existed. Restoring a preset restores the
+#: strict enum with no edit here.
+ScenePresetId = Literal[SCENE_PRESET_IDS] if SCENE_PRESET_IDS else str  # type: ignore[valid-type]
 
 
 class SceneVerb(CamelModel):

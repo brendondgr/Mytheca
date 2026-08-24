@@ -229,6 +229,64 @@ Verified against the code on 2026-08-04.
 - **YAML config loaders** in `app/content/` — only the Markdown stat-guidance loader exists. Entities live in Postgres, so this may simply be unnecessary; decide rather than leave it pending.
 - **Dice-based resolution** — explicitly dropped (decision D11), not merely deferred. The `CheckCard` renderer was removed. Reopen only as a deliberate reversal.
 
+## Adaptive pacing — what removing the controls left open
+
+`maxTurns` and `beatLength` were removed on 2026-08-24, along with the four scene presets
+that were defined entirely in terms of them. What replaced them is a prompt directive with no
+number in it and the planner's own judgement about when a turn is done. Four things that
+leaves genuinely open:
+
+- **Turn length is now the planner's problem, and it was not good at it.** With the cap gone,
+  the first live run produced **16 beats on one player message** and was still going — the
+  planner almost never chose `end`, because `maxTurns` had always ended turns for it and its
+  own prompt told it not to ("do not end a turn that has been one character talking while
+  another is standing right there"). That rule is now scoped to ORDER rather than length, and
+  `end` is stated as the default once the direction is delivered. **The fix is unmeasured.**
+  A turn against the local model costs roughly a minute a beat, so this is the difference
+  between a two-minute wait and a sixteen-minute one, and it should be the first thing any
+  pacing experiment looks at.
+- **`TURN_MAX_BEATS` (24) is now the only ceiling, and it was chosen as a runaway guard.** It
+  was never meant to pace anything, and 24 beats is not a turn anybody wants. Expect to
+  re-tune it, and record the tuning rather than quietly editing the default.
+- **The backstop can overshoot by one.** It is checked once per loop iteration and one
+  iteration may emit both a narrator beat and a character beat. Harmless — it exists to stop a
+  loop and protect the endpoint, and one extra beat costs neither — but if it ever has to be
+  exact, the check must move to the emission sites.
+- **The `Scenario.max_turns` / `beat_length` columns still exist and are unread.** Dropping
+  them was deliberately *not* done: another process may be running against the same dev
+  database, and a column drop would 500 it. They can go in a migration whenever that is
+  known to be safe. `scene_preset` is in the same position, and `ScenePresetId` currently
+  degrades to `str` because `Literal[()]` is not a type.
+- **`direction_agent.schedule` is now nearly unreachable.** It takes over when what the
+  direction still owes no longer fits the beats that are left; with the budget at 24 rather
+  than 5, a direction has to carry a dozen requirements to trigger it. It remains the only
+  thing standing between a long direction and a silently dropped requirement, so it stays —
+  but it is a safety net that will rarely fire, and its test now has to force the backstop
+  down to exercise it at all.
+
+## Point of view — what the smoke test measures and what it does not
+
+- **The narrator has no gate.** Character beats are held and judged before a word is shown
+  (`beat_stream._pass` — scratchpad, echo, second-person, cross-speaker); narration streams
+  straight out with nothing checking it. The worst line in the pre-fix baseline was the
+  narrator's ("he reaches out to grab your wrist"), and the prompt fix is currently the only
+  thing preventing it. A narration gate is defence in depth that has not been built.
+- **`utils/scripts/scene_smoke.py` is a smoke test, not an experiment.** n=1, no arms, nothing
+  recorded. It is a pass/fail gate for "does the scene still read correctly", and its numbers
+  must not be quoted as measurements — anything comparative belongs in
+  `docs/research/experiments/` under `AGENT_INSTRUCTIONS.md`. The before/after it produced
+  (10 problems → 1; second-person 10 → 0) is an existence proof that the defect was real and
+  is gone on that scene, not a rate.
+- **It renders nothing until the turn completes.** It collects the whole NDJSON stream and
+  then prints, so a long turn shows only its header for minutes. Stdout is line-buffered so a
+  killed run keeps what it had, but per-beat progress would need the render to move into the
+  frame loop.
+- **`cross_speaker_speech` is a lexical check on a closed list of speech verbs.** It catches
+  an attribution (`Zoe says, "…"`, `"…," Zoe says`, `Zoe: "…"`) and deliberately not reported
+  speech. Its threshold is not measured; the failure direction is chosen (a missed leak costs
+  a raised eyebrow, a false positive silently strips good writing), and it is the same
+  unmeasured-lexical-rule position `direction_check` is already in.
+
 ## Known defects and rough edges
 
 - ~~**The prompt cache is wasted, and it IS worth reclaiming at the configured settings.**~~

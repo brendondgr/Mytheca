@@ -297,20 +297,16 @@ def test_an_override_stored_for_a_hidden_key_still_round_trips(client):
 
 
 
-def test_scene_presets_are_listed(client):
+def test_the_scene_preset_catalogue_is_empty_but_the_route_still_answers(client):
+    """All four presets were defined purely in terms of `maxTurns` and `beatLength`.
+
+    Both controls were removed on 2026-08-24 — pacing is the scene's judgement now — which
+    left a preset with nothing to name. The route is kept and returns `[]` so no client
+    404s, and the composer's picker already hid itself on an empty list.
+    """
     resp = client.get("/api/options/scene-presets")
     assert resp.status_code == 200
-    presets = resp.json()
-    assert len(presets) == 4
-    assert {p["id"] for p in presets} == {
-        "fast_banter",
-        "slow_burn",
-        "cinematic",
-        "interrogation",
-    }
-    for p in presets:
-        assert p["label"] and p["blurb"]
-        assert set(p["values"]) == {"maxTurns", "suggestionsCount", "beatLength"}
+    assert resp.json() == []
 
 
 def test_every_preset_validates_against_scenario_update(client):

@@ -282,12 +282,20 @@ def test_scene_preset_round_trips(client, storyline_id):
     )
 
 
-def test_an_unknown_scene_preset_is_rejected(client, storyline_id):
-    """A 422 here, not a label the UI silently fails to resolve later."""
+def test_a_scene_preset_still_round_trips_while_the_catalogue_is_empty(client, storyline_id):
+    """The strict enum is gone with the catalogue, and that is the point.
+
+    `ScenePresetId` is built from the catalogue, and `Literal[()]` is not a type — pydantic
+    raises on it at import. With no presets left it degrades to `str`, which is what stops
+    every scenario written while presets existed from 500-ing on read. Restoring a preset
+    restores the strict enum with no schema edit.
+    """
     scid = client.post(
         f"/api/storylines/{storyline_id}/scenarios", json={"title": "Preset"}
     ).json()["id"]
-    assert client.patch(f"/api/scenarios/{scid}", json={"scenePreset": "vibes"}).status_code == 422
+    resp = client.patch(f"/api/scenarios/{scid}", json={"scenePreset": "slow_burn"})
+    assert resp.status_code == 200
+    assert resp.json()["scenePreset"] == "slow_burn"
 
 
 def test_the_controls_stay_authoritative_after_a_preset_is_named(client, storyline_id):

@@ -59,7 +59,7 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
         whole-group — and, for a puppet, which cast member is directed; the same call
         also breaks a DIRECTING line into direction requirements
       scene direction: guidance (POV, its own direction_agent.parse call) else the
-        player's own line (narrator mode, from the intent call above) → an ordered list
+        player's own line (Playwright mode, from the intent call above) → an ordered list
         of requirements, each rebound to the narrator if its owner is absent/POV
       puppet beats (if any): the directed character performs it in-voice, up front,
         carrying their own requirements
@@ -147,7 +147,7 @@ character beat (without `pov` it stays a left-side player beat).
 
 **Scene direction.** The player directs the scene, and the turn is held to it. The **direction
 row is always rendered** (`components/feature/DirectionRow.tsx`); what changes between modes is
-its *role*, never whether it exists. In narrator mode it is a one-line labelled strip — the
+its *role*, never whether it exists. In Playwright mode it is a one-line labelled strip — the
 message box below already carries the direction, so there is still exactly one text input. Under
 Player POV the message box holds the character's line instead, so the same row expands into the
 direction textarea (`guidance`). Until the row was unconditional the whole direction concept was
@@ -157,7 +157,7 @@ it. `useScenePlay` clears the box on send (the direction applies to that turn on
 POV is dropped — the direction is a scene-level intent, not a POV artefact, and with the row in
 both modes clearing it would silently discard what was written. Server-side the direction becomes an ordered list of `direction_agent`
 requirements — parsed on its own call for POV guidance, or lifted off the intent call that
-already read the player's line in narrator mode — and the turn engine schedules them across the
+already read the player's line in Playwright mode — and the turn engine schedules them across the
 scene's `maxTurns` budget: the planner paces them while there is room, and once what is owed
 would fill every remaining beat the engine takes over (`direction_agent.schedule`), collapsing
 the last beat to narration when several characters are still owed. Each beat's prompt states
@@ -228,7 +228,7 @@ offered**: *Someone arrives* only when the storyline has cast outside the scene 
 into a submenu naming them, which raises a Phase 9 request rather than an arrival), *Move the
 scene* only when the storyline has more than one setting, *Wrap this up* / *End the scene* only
 once the player has taken `MID_SCENE_TURNS` (3) turns. The insertion target follows the row's
-own two modes: the direction box under POV, the **message box** in narrator mode. The inserted
+own two modes: the direction box under POV, the **message box** in Playwright mode. The inserted
 text is *selected*, so one keystroke replaces it, and it is added as a **new line** — each line
 of the direction box is one requirement (see `directives` above), so appending to the sentence in
 progress would merge two into one. A scene may add up to 8 of its own verbs

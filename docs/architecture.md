@@ -83,7 +83,7 @@ There is no "Orchestrator", "Rules Engine", "Memory System", or "KG Builder" mod
 ## Agent Roles (as built)
 
 1. **`intent_agent`** — is the player narrating, addressing someone, directing a character to act, or speaking to the group?
-2. **`direction_agent`** — the player's scene direction as a list of outcomes the turn owes, each optionally bound to a cast member, plus the deterministic packer that fits what is left into the beats that are left. In narrator mode the requirements ride on the `intent_agent` call that already read the line; POV-mode `guidance` is a separate string and gets its own parse.
+2. **`direction_agent`** — the player's scene direction as a list of outcomes the turn owes, each optionally bound to a cast member, plus the deterministic packer that fits what is left into the beats that are left. In Playwright mode the requirements ride on the `intent_agent` call that already read the line; POV-mode `guidance` is a separate string and gets its own parse.
 3. **`planner_agent`** — the ReAct loop. One beat at a time: `speak` / `narrate` / `exit` / `end`, chosen only from **present** cast members, with the POV character locked out. The same reply carries the beat's **`register`** (`light`/`neutral`/`tense`/`grave`) and **`stakes`** — the scene-appraisal signal every speaker conditions on, obtained without a second LLM call. It is also shown what the direction still owes and how many beats remain; once those numbers meet, the engine schedules the rest itself.
 4. **`character_turn_agent`** — one isolated LLM call per beat. Emits a visible in-voice `<thinking>` block, then speech, in a thin tagged format the backend parses.
 5. **`narrator_agent`** — scene-setting and interstitials.
