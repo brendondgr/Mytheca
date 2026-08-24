@@ -215,6 +215,166 @@ def names_the_player(text: str, *, window: int | None = None) -> bool:
     return bool(_NAMES_THE_PLAYER_RE.search(body))
 
 
+#: Spoken text, so a check can ask about the NARRATION alone. Straight and curly pairs both
+#: appear in live output; a lone opening quote at the end of a truncated stream is treated as
+#: running to the end of the passage, which is what a streaming gate needs it to do.
+_QUOTED_RE = re.compile(r"[\"\u201c][^\"\u201c\u201d]*(?:[\"\u201d]|$)")
+
+
+def narration_only(text: str) -> str:
+    """``text`` with every span of quoted speech removed.
+
+    The two checks below both need this. A character saying *"You are lying, Zoe"* is
+    ordinary, correct writing — the second person there is aimed at another character in the
+    room. The same pronoun in the NARRATION around it is aimed at the reader, and under
+    Playwright mode the reader is not in the scene. Stripping the quotes is what separates
+    the two, and it is why :func:`addresses_the_reader` can afford to be strict.
+    """
+    return _QUOTED_RE.sub(" ", text or "")
+
+
+#: Second-person pronouns, contractions included. Word-boundary matched so a name that opens
+#: on the same letters ("Yourke") is not a hit.
+_SECOND_PERSON_RE = re.compile(
+    r"\b(?:you|your|yours|yourself|yourselves|you['\u2019](?:re|ve|ll|d))\b",
+    re.IGNORECASE,
+)
+#: First person, for the narrator. The narrator is a voice, not a character: it has no "I".
+_NARRATOR_FIRST_PERSON_RE = re.compile(
+    r"\b(?:i|i['\u2019](?:m|ve|ll|d)|me|my|mine|myself|we|us|our|ours|ourselves)\b",
+    re.IGNORECASE,
+)
+
+
+def addresses_the_reader(text: str, *, window: int | None = None) -> bool:
+    """True when a passage speaks to somebody who is not in the scene.
+
+    **Only meaningful while the player is not embodied.** Under Player POV the player IS a
+    character in the room, every "you" aimed at them is correct, and this must never run.
+    Under Playwright mode the player is outside the fiction entirely — they write what
+    happens, they are not a person anyone can look at — so a second person in the narration
+    has no referent at all.
+
+    Judged on :func:`narration_only`, never the raw text, for the reason that function
+    documents: dialogue legitimately says "you" to another character.
+
+    The mechanism this backs up is the transcript label. `EXP-2026-08-009` showed the label
+    is what the model imitates and a rule alone changes nothing — the player's line reads
+    ``Direction:`` under Playwright precisely so there is no person there to address. This is
+    the backstop and the metric, exactly as :func:`names_the_player` is.
+
+    ``window`` limits the check to the opening, which is what the streaming gate wants; omit
+    it to measure a whole passage, which is what the smoke harness and the research runner do.
+    """
+    body = text or ""
+    if window is not None:
+        body = body[:window]
+    return bool(_SECOND_PERSON_RE.search(narration_only(body)))
+
+
+def narrator_speaks_in_first_person(text: str) -> bool:
+    """True when a narration beat says "I", "me" or "we".
+
+    The narrator describes the scene from outside it and names the people in it. A first
+    person there means it has started playing a character — either inventing one, or drifting
+    into the voice of whoever spoke last.
+
+    Quotes are stripped for symmetry with :func:`addresses_the_reader`, but the narrator
+    prompt forbids dialogue outright, so a quote in a narration beat is already a separate
+    defect and this is not the check that should report it.
+    """
+    return bool(_NARRATOR_FIRST_PERSON_RE.search(narration_only(text)))
+
+
+#: Verbs that turn a name beside a quotation into an attribution. Deliberately a closed list:
+#: an open "any verb" rule would call *"He read the note aloud"* dialogue.
+_SPEECH_VERBS = (
+    "say|says|said|ask|asks|asked|reply|replies|replied|answer|answers|answered|"
+    "mutter|mutters|muttered|murmur|murmurs|murmured|whisper|whispers|whispered|"
+    "shout|shouts|shouted|call|calls|called|add|adds|added|offer|offers|offered|"
+    "snap|snaps|snapped|growl|growls|growled|breathe|breathes|breathed|"
+    "laugh|laughs|laughed|tell|tells|told|demand|demands|demanded|"
+    "insist|insists|insisted|warn|warns|warned|admit|admits|admitted|"
+    "repeat|repeats|repeated|continue|continues|continued|declare|declares|declared|"
+    "cut in|cuts in|put in|puts in|breaks in|broke in"
+)
+
+
+def cross_speaker_speech_span(text: str, *, others: list[str]) -> tuple[str, int] | None:
+    """:func:`cross_speaker_speech`, plus WHERE the leak starts.
+
+    The offset is what lets the streaming gate cut a passage back to before the intrusion
+    instead of throwing the whole beat away. A leak arrives mid-passage — the opening is
+    usually fine — so "discard and re-roll" would spend a generation to rewrite three good
+    paragraphs for the sake of a fourth.
+    """
+    body = text or ""
+    if not body.strip():
+        return None
+    best: tuple[str, int] | None = None
+    for name in others:
+        bare = (name or "").strip()
+        if not bare:
+            continue
+        # First word only: the cast is addressed by first name in prose, and a full name
+        # would never match "Zoe says" for a character stored as "Zoe Marchetti".
+        first = re.escape(bare.split()[0])
+        verbs = _SPEECH_VERBS
+        patterns = (
+            rf"\b{first}\b[^.!?\n\"\u201c]{{0,40}}?\b(?:{verbs})\b[^\"\u201c\n]{{0,20}}[\"\u201c]",
+            rf"[\"\u201d][,.!?]?\s+\b{first}\b\s+(?:\w+\s+){{0,2}}?(?:{verbs})\b",
+            rf"(?:^|\n)\s*{first}\s*:\s*[\"\u201c]",
+        )
+        for pattern in patterns:
+            match = re.search(pattern, body, re.IGNORECASE)
+            if match and (best is None or match.start() < best[1]):
+                best = (bare, match.start())
+    return best
+
+
+def cut_before(text: str, offset: int) -> str:
+    """``text`` trimmed to a clean boundary at or before ``offset``.
+
+    Prefers the last paragraph break, then the last sentence end, then the offset itself —
+    so a cut beat still ends on something a reader can finish, rather than mid-clause.
+    """
+    head = (text or "")[:offset]
+    for boundary in ("\n\n", "\n"):
+        cut = head.rfind(boundary)
+        if cut > 0:
+            return head[:cut].rstrip()
+    cut = max(head.rfind(mark) for mark in (".", "!", "?", "\u201d", '"'))
+    return head[: cut + 1].rstrip() if cut > 0 else head.rstrip()
+
+
+def cross_speaker_speech(text: str, *, others: list[str]) -> str | None:
+    """The name of another character given a spoken line inside this beat, or ``None``.
+
+    The contract has said *"Only your character. Never write anyone else's words"* since
+    before any of the prose experiments, and nothing has ever checked it — `emission` guards
+    degeneration, repetition, scratchpad leakage, a mid-sentence opening and the phrase "the
+    player", and not this. The owner's report is the shape it takes in practice: Lily is
+    speaking, and Zoe starts talking inside Lily's beat.
+
+    **Deliberately narrow, in the safe direction.** Only three shapes count, all of them an
+    attribution rather than a mention:
+
+    * ``Zoe says, "..."`` — name, speech verb, quote.
+    * ``"...," Zoe says`` — quote, name, speech verb.
+    * ``Zoe: "..."`` — a script-style label the contract already forbids.
+
+    Reported speech (*"He told me the gate was shut"*), a character being described,
+    addressed, or answered, and the speaker quoting **themself** all survive untouched. A
+    missed leak costs a reader's eyebrow; a false positive silently discards good writing and
+    spends a regeneration, so the rule errs towards missing one.
+
+    Returns the offending name rather than a bool so the caller can say **who** leaked, which
+    is the difference between a trace a reader can act on and one that only says "something".
+    """
+    found = cross_speaker_speech_span(text, others=others)
+    return found[0] if found else None
+
+
 def starts_mid_sentence(text: str) -> bool:
     """True when a passage opens on a lowercase letter — a fragment, not an opening.
 

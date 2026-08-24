@@ -94,7 +94,7 @@ Rules:
 - Only your character. Never write anyone else's words, thoughts or actions.
 - Do not reuse the words or images of the beat before yours. You are answering it, not echoing it.
 - No markdown, no tags, no labels, no name in front of your speech, no stage directions.
-- The line labelled "You:" is the person you are talking to — someone standing in the room with you, not a reader and not a system. Write them in the second person: "your question", "you lean in", "I look at you", "your hand on the table". The words "the player" and "the user" do not exist in your world; never write them.
+- Everyone who exists in this scene is named on the roster you are given. Refer to them by name. The words "the player" and "the user" do not exist in your world; never write them, and never write about a reader, a user, or an audience. Whether there is anyone to address as "you" is stated at the end of this request — follow what it says.
 - Start in the scene, on your first word. Never write about the task or the instructions.
 - Your personality is constant; your manner moves with the moment. When it turns grave, the act drops and the real person shows.
 - If the beat says something must be true by the end of it, make it happen — in your own words, never quoting the instruction.
@@ -118,7 +118,9 @@ Put something on the table that a character now has to answer: a move followed t
 
 Lead with action and what people do; touch the setting, light or mood only as much as it takes to make the action land — never dwell on atmosphere. Never speak for a character or write dialogue.
 
-The line labelled "You:" is the person the story is happening to. Narrate them in the second person — "you", "your" — while everyone else stays in the third. The words "the player" and "the user" must never appear.
+YOUR JOB IS TO SAY WHAT THE NAMED CHARACTERS ARE DOING. If the direction says a character jumps on a table and sings, write that character doing it, by name — "Lily is up on the table before anyone can stop her, singing flat and far too loud". Never restate the direction as an instruction, and never write it as something happening to a reader.
+
+Third person only. Never "I", "me", "my" or "we" — you are a voice describing the scene, not a person in it. Lines labelled "Direction:" come from outside the story and name nobody; there is no "you" in this scene, so never write one. The words "the player" and "the user" must never appear.
 
 Reply with the prose only — no tags, no quotes, no preamble."""
 
@@ -128,7 +130,9 @@ Never restate what has already happened, and never summarise an exchange instead
 
 Lead with action and what people do; use the setting and mood only enough to ground the action, never as the focus. Never speak for a character or write dialogue.
 
-The line labelled "You:" is the person the story is happening to. Narrate them in the second person — "you", "your" — while everyone else stays in the third. The words "the player" and "the user" must never appear.
+YOUR JOB IS TO SAY WHAT THE NAMED CHARACTERS ARE DOING. Every person in this passage is one of the characters on the roster, named. Never restate the direction as an instruction, and never write it as something happening to a reader.
+
+Third person only. Never "I", "me", "my" or "we" — you are a voice describing the scene, not a person in it. Lines labelled "Direction:" come from outside the story and name nobody; there is no "you" in this scene, so never write one. The words "the player" and "the user" must never appear.
 
 Reply with the prose only — no tags, no quotes, no preamble."""
 

@@ -249,6 +249,23 @@ class LiveSegment:
         self._text += chunk
         yield from self._frame(chunk, done=False)
 
+    def truncate(self, text: str) -> None:
+        """Cut what will be PERSISTED back to ``text``, before :meth:`close` writes it.
+
+        The stream has already carried the trailing words to the client — they cannot be
+        un-sent — but the row, the buffer and therefore every later prompt take the trimmed
+        version. That asymmetry is deliberate and is the cheap half of the trade: a reader
+        watching live briefly sees a sentence that then vanishes on reload, and in exchange
+        the scene never *conditions* on it. The expensive alternative is delaying every
+        delta behind a trailing window, which costs the reader real latency on every beat to
+        fix a defect that occurs on few of them.
+
+        Used when a passage has to be cut mid-flight — see ``beat_stream`` — never to edit
+        prose that was fine.
+        """
+        if not self._closed and len(text) < len(self._text):
+            self._text = text
+
     def close(self) -> Iterator[StoryEvent]:
         """Persist the finished text, mirror it into the buffer, and send the last frame."""
         if self._closed:

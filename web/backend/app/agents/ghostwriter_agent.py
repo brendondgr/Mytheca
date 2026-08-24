@@ -45,8 +45,13 @@ def _recent(ctx: TurnContext, limit: int = 8) -> str:
             continue
         role = beat.get("role")
         cid = beat.get("characterId")
+        # NOT "The player". That is the exact string EXP-2026-08-008 measured leaking into
+        # 72 % of character beats, and which every other transcript renderer was changed to
+        # stop emitting. This one survived because the ghostwriter sits off the turn path, so
+        # no prose experiment ever scored it. A `player` beat is a Playwright direction (see
+        # `character_turn_agent._transcript`), so it is labelled as one.
         who = names.get(str(cid), "Someone") if role == "character" else (
-            "Narrator" if role == "narrator" else "The player"
+            "Narrator" if role == "narrator" else "Direction"
         )
         lines.append(f"{who}: {text}")
     return "\n".join(lines)

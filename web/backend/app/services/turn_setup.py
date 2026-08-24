@@ -109,7 +109,6 @@ def prepare_turn(
         req.directed_at,
         player_text=text,
         tagged_doc_ids=req.tagged_doc_ids,
-        beat_length_override=settings.beat_length,
     )
 
     # Player POV: the player is speaking AS this character. Resolve it to a *present* cast
@@ -121,6 +120,12 @@ def prepare_turn(
     if pov is not None and not pov.is_present:
         pov = None
     pov_id = pov.id if pov is not None else None
+    # Is the player a person in the scene this turn? Under POV, yes — their line is their
+    # character's own beat and the cast may address them. Under Playwright mode they write
+    # what happens from outside the fiction, so nobody in the room can see them. Set here,
+    # once, because it cannot be resolved before `pov` is (it needs the roster to confirm the
+    # character is actually present), and every downstream reader needs the same answer.
+    ctx.player_embodied = pov is not None
 
     events_store.record_user_turn(
         db,
@@ -405,6 +410,11 @@ def context_for_replay(
             continue
         if row.type == "user_turn":
             pov = data.get("pov")
+            # A re-roll has to rebuild the point of view the beat was originally written
+            # under, not the one in force now. The player may have switched modes since, and
+            # re-rolling a Playwright beat as though they were embodied would put a "you"
+            # into a scene they are not standing in.
+            ctx.player_embodied = bool(pov)
             turn_beats.append(
                 {
                     "role": "character" if pov else "player",

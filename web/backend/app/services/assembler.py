@@ -159,6 +159,21 @@ class TurnContext:
     # rather than at the prompt builder. A directly-constructed context (tests, puppet
     # beats) gets the default, which is what shipped before the control existed.
     beat_length: BeatLength = DEFAULT_BEAT_LENGTH
+    # Whether the player is a PERSON IN THE SCENE this turn.
+    #
+    # True under Player POV, where their line is their character's own beat and every "you"
+    # aimed at them is correct. False under **Playwright** mode, where they write what
+    # happens and are not in the room at all — nobody can look at them, touch them, or answer
+    # them, and their line is stage direction rather than speech.
+    #
+    # It has to be one flag read in several places rather than each site re-deriving "is pov
+    # set": the two transcript renderers, the character contract, both narrator prompts and
+    # the streaming guard all have to agree, and five independent derivations of one question
+    # is five chances for one of them to say no while the others say yes.
+    #
+    # Defaults True so a directly-constructed context (tests, puppet beats) keeps exactly the
+    # behaviour that shipped before Playwright mode had a name.
+    player_embodied: bool = True
     # Resolved writing-agent system prompts ({registry key -> text}), folded
     # default → global → storyline → scenario by ``prompt_registry.resolve_prompts``. Each
     # writing agent reads its prompt from here, falling back to its registry default when a

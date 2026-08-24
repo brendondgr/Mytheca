@@ -114,6 +114,12 @@ def stream_emission(
     open_segments: dict[int, LiveSegment] = {}
     buffered: dict[int, str] = {}
     impact = 0
+    # Everyone else in the scene, for the cross-speaker check below. Empty (a solo scene)
+    # skips the check entirely rather than scanning for nobody.
+    others_present = [m.name for m in ctx.cast if m.id != speaker.id and m.is_present]
+    # Which segment index holds the passage. `open_segments` is keyed by index and carries
+    # thoughts and JSON blocks too; only the prose may be cut.
+    acc_types: dict[int, str] = {}
 
     # A passage is never length-capped: a character may hold the floor for as long as the
     # moment needs, and it streams, so length costs the reader nothing. What IS bounded is a
@@ -170,6 +176,17 @@ def stream_emission(
             scratchpad = True
             held = []
             return 0
+        # Under Playwright mode nobody in the scene can address the player — they are not in
+        # the room. A baseline smoke run had 9 of 10 beats doing it anyway, with the narrator
+        # writing "he reaches out to grab your wrist". Judged in the same place and the same
+        # way as the check above: on the opening only, because that is all the gate holds,
+        # and never under POV, where a second person aimed at the player is correct.
+        if not ctx.player_embodied and emission.addresses_the_reader(
+            held_text, window=emission.SCRATCHPAD_WINDOW
+        ):
+            scratchpad = True
+            held = []
+            return 0
         # Release the moment the passage proves itself — a first-person pronoun is what a
         # leaked scratchpad never has, and most passages clear it inside their first
         # sentence. Without this early exit the hold would turn every short beat into a
@@ -204,10 +221,55 @@ def stream_emission(
                 continue
             written += len(delta.answer)
             for seg in acc.push(delta.answer):
+                acc_types[seg.index] = seg.type
                 impact += yield from _pass(seg)
             if scratchpad:
                 stream.close()
                 break
+            # One beat, one speaker. The contract has forbidden writing another character's
+            # words since before any of the prose experiments and nothing ever checked it —
+            # this is the owner's "Zoe starts talking during Lily's beat", and a live smoke
+            # run reproduced it in paragraph four of an otherwise clean passage.
+            #
+            # Checked on the WHOLE passage as it grows, not on the opening the scratchpad
+            # gate holds: a leak is what happens when a beat runs on past its own end, so the
+            # opening is precisely where it never is.
+            #
+            # Cut rather than discarded. Three good paragraphs should not be regenerated for
+            # the sake of a fourth, and the point of the guard is that the *scene* never
+            # conditions on the intrusion — which trimming what gets persisted achieves.
+            if others_present:
+                prose_seg = next(
+                    (
+                        live
+                        for idx, live in open_segments.items()
+                        if acc_types.get(idx) == emission.PROSE_TYPE
+                    ),
+                    None,
+                )
+                found = (
+                    emission.cross_speaker_speech_span(prose_seg.text, others=others_present)
+                    if prose_seg is not None
+                    else None
+                )
+                if found:
+                    leaked_name, at = found
+                    prose_seg.truncate(emission.cut_before(prose_seg.text, at))
+                    stream.close()
+                    yield from tracer.emit(
+                        "prose",
+                        f"{speaker.name}'s beat was cut where {leaked_name} started talking",
+                        detail=(
+                            f"The passage gave {leaked_name} a spoken line inside "
+                            f"{speaker.name}'s own beat. It was cut back to before that, so "
+                            "the scene does not carry it forward as something that was said."
+                        ),
+                        data={
+                            "characterId": speaker.id,
+                            "crossSpeaker": leaked_name,
+                        },
+                    )
+                    break
             # The hard stop comes first: it is the one that protects the endpoint, and it
             # must not depend on a quality judgement that a well-formed runaway passes.
             if written > runaway_limit:
