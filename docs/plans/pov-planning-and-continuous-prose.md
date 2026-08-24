@@ -181,6 +181,12 @@ The correctness fix for 2A and 2B. A **label** change, then a **prompt** change,
     (true under POV, false under Playwright), so both renderers and all three prompts read one
     flag rather than each re-deriving it.
   - `web/frontend/components/feature/Composer.tsx` → the Playwright placeholder.
+  - **`web/backend/app/agents/ghostwriter_agent.py` → `_recent`.** Found during Phase 1: it
+    still labels a player beat **`The player:`** — the exact string `EXP-2026-08-008` measured
+    leaking into 72 % of character beats, and which every other transcript renderer was fixed
+    to stop emitting. It was missed because the ghostwriter is not on the turn path, so no
+    prose experiment ever scored it. Same treatment as the others: `Direction:` under
+    Playwright, `You:` under POV.
 - **What changes:**
   - Under **Playwright**, a `player` beat renders as `Direction: …` — visibly not a speaker.
     `You:` is kept for **POV** only, where the player really is in the room. Neither mode ever

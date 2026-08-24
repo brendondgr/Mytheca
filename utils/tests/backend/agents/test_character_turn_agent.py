@@ -617,7 +617,7 @@ def test_registerless_beat_keeps_the_original_sampler(client, db_session, monkey
     assert _sampler(capture) == (0.92, 0.0, 0.0)
 
 
-# ---- The scene direction (Narrator-Guided Scenes) --------------------------
+# ---- The scene direction (Playwright-guided scenes) --------------------------
 
 
 def test_scene_direction_and_requirement_reach_the_prompt(client, db_session, monkeypatch):

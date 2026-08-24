@@ -248,7 +248,7 @@ def generate_speaker(
 
     ``direction`` is where the player is steering the whole scene (context every speaker
     plays toward) and ``requirements`` are the parts THIS beat owes — outcomes the character
-    reaches in their own words, never lines to recite (Narrator-Guided Scenes)."""
+    reaches in their own words, never lines to recite (Playwright-guided scenes)."""
     tr = tracer or Tracer(False)
     roster = {i + 1: m.id for i, m in enumerate(ctx.cast)}
     scene_direction = direction.text.strip() if direction is not None else ""

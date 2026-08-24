@@ -18,7 +18,11 @@ from pydantic import Field
 
 from app.schemas.base import BeatLength, CamelModel, PresenceStatus, Visibility
 
-# One engine, two render styles (D1): POV (interstitials off) or Narrator (on).
+# One engine, two render styles (D1): POV (interstitials off) or Playwright (on).
+#
+# The wire spelling is still ``"narrator"`` — a legacy value kept because the field is
+# deprecated and inert (below), and renaming a dead enum would break callers for nothing.
+# It names the PLAYER'S mode, not the Narrator agent.
 #
 # **Deprecated and inert.** It reaches exactly one place in the engine (the `turn` trace
 # payload) and changes nothing about how a turn runs. Kept on the request so no existing

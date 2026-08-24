@@ -142,7 +142,7 @@ describe("Composer", () => {
     });
 
     describe("scene-direction box", () => {
-      it("is hidden in narrator mode — the message box already carries the direction", () => {
+      it("is hidden in Playwright mode — the message box already carries the direction", () => {
         render(
           <Composer
             value=""
@@ -301,7 +301,7 @@ describe("Composer", () => {
       });
     });
 
-    it("keeps the default placeholder when POV is Narrator (null)", () => {
+    it("keeps the default placeholder when POV is Playwright (null)", () => {
       render(
         <Composer
           value=""
@@ -521,7 +521,7 @@ describe("Composer", () => {
 describe("Composer direction row", () => {
   const POV_OPTS = [{ id: "mei", name: "Mei", mono: "M", color: "#8E2B1C", portrait: null }];
 
-  it("shows the direction strip in narrator mode, with no second textarea", () => {
+  it("shows the direction strip in Playwright mode, with no second textarea", () => {
     // Until the row was unconditional, the whole direction concept was invisible to any
     // player who had not happened to pick a POV character — which is most of them.
     render(
@@ -597,8 +597,8 @@ describe("Composer direction row", () => {
     expect(onGuidanceChange).toHaveBeenCalledWith("make it worse");
   });
 
-  it("does not offer Send for a direction that narrator mode will drop", () => {
-    // A direction kept across a POV switch (or restored on resume) is inert in narrator
+  it("does not offer Send for a direction that Playwright mode will drop", () => {
+    // A direction kept across a POV switch (or restored on resume) is inert in Playwright
     // mode — the message box IS the direction there, so `send()` drops it. Counting it
     // would light up Send with nothing to post, and the turn would come back a 400.
     render(
@@ -662,7 +662,7 @@ describe("Composer direction verbs", () => {
     { id: "escalate", group: "tone" as const, label: "Escalate", text: "Make it worse." },
   ];
 
-  it("writes a verb into the MESSAGE box in narrator mode — the box that is the direction", () => {
+  it("writes a verb into the MESSAGE box in Playwright mode — the box that is the direction", () => {
     const onChange = vi.fn();
     render(
       <Composer

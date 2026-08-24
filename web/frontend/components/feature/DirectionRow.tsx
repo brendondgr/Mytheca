@@ -9,9 +9,10 @@ import type { ReactNode, RefObject } from "react";
  * row was unconditional, the entire direction concept was invisible to any player who had
  * not happened to pick a POV character — which is most of them.
  *
- * - **Narrator mode** — not a second textarea, but a one-line labelled strip saying that the
- *   message box below *is* the direction. There is still exactly one text input, so the two
- *   modes cannot read as duplicate fields.
+ * - **Playwright mode** — not a second textarea, but a one-line labelled strip saying that
+ *   the message box below *is* the direction. There is still exactly one text input, so the
+ *   two modes cannot read as duplicate fields. (The Playwright is the player steering the
+ *   scene from outside it — never the Narrator, which is the AI voice inside the scene.)
  * - **POV mode** — the same row expands into the direction textarea, because the message box
  *   is now the character's own line and has nowhere left to steer from.
  *
@@ -28,7 +29,7 @@ export function DirectionRow({
   textareaProps,
   children,
 }: {
-  mode: "narrator" | "pov";
+  mode: "playwright" | "pov";
   value: string;
   onChange: (next: string) => void;
   /** The character the player is voicing, named in the POV label so the split is concrete. */
@@ -36,7 +37,7 @@ export function DirectionRow({
   textareaRef?: RefObject<HTMLTextAreaElement | null>;
   /**
    * Mention plumbing (aria, key/caret handlers) owned by the composer. Only ever applied in
-   * POV mode — in narrator mode there is no textarea to attach it to. Its `onChange` runs
+   * POV mode — in Playwright mode there is no textarea to attach it to. Its `onChange` runs
    * *after* `onChange` above rather than instead of it, so there is exactly one writer of
    * the value and the composer's side-effects (resize, mention sync) compose onto it.
    */
@@ -54,7 +55,7 @@ export function DirectionRow({
           Direction
         </span>
         <span className="font-body text-[11px] text-mute2">
-          {mode === "narrator"
+          {mode === "playwright"
             ? "— this message steers the scene"
             : `— ${povName ? `${povName} speaks below` : "your character speaks below"}`}
         </span>

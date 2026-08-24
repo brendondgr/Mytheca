@@ -18,7 +18,7 @@ A requirement is a **guide, not a script**: it states what must be true, never t
 The character prompt keeps every one of its in-character constraints.
 
 Two callers produce requirements. POV-mode guidance (a string separate from the player's
-in-character line) is parsed here by :func:`parse`. In narrator mode the player's line *is*
+in-character line) is parsed here by :func:`parse`. In Playwright mode the player's line *is*
 the direction, and ``intent_agent`` already classifies that line — so it extracts the
 requirements on its own call using the shared prompt fragment below, and no second
 round-trip is spent.

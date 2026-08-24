@@ -3,10 +3,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { DirectionRow } from "./DirectionRow";
 
 describe("DirectionRow", () => {
-  it("is a labelled strip with no second textarea in narrator mode", () => {
+  it("is a labelled strip with no second textarea in Playwright mode", () => {
     // Two empty boxes would make a new player guess which one is "the scene". The strip
     // answers that in words instead: there is still exactly one text input on screen.
-    render(<DirectionRow mode="narrator" value="" onChange={() => {}} />);
+    render(<DirectionRow mode="playwright" value="" onChange={() => {}} />);
     expect(screen.getByText(/direction/i)).toBeInTheDocument();
     expect(screen.getByText(/this message steers the scene/i)).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
@@ -46,7 +46,7 @@ describe("DirectionRow", () => {
 
   it("renders the verb-bar slot in both modes", () => {
     const { rerender } = render(
-      <DirectionRow mode="narrator" value="" onChange={() => {}}>
+      <DirectionRow mode="playwright" value="" onChange={() => {}}>
         <span>verbs</span>
       </DirectionRow>,
     );

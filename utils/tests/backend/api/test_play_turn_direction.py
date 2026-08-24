@@ -1,6 +1,6 @@
-"""POST /api/play/{scenarioId}/turn — the scene direction (Narrator-Guided Scenes).
+"""POST /api/play/{scenarioId}/turn — the scene direction (Playwright-guided scenes).
 
-The player directs: in narrator mode with their own line, under Player POV with the
+The player directs: in Playwright mode with their own line, under Player POV with the
 separate ``guidance`` box. Either way the turn owes a list of requirements and must deliver
 every one of them inside the scene's ``maxTurns`` budget — the planner paces them while
 there is room, and the engine schedules the rest itself once there is not.
@@ -57,7 +57,7 @@ def _route(
     """Route the mock by system prompt.
 
     ``requirements`` answers the standalone direction parse (POV guidance); ``intent``
-    overrides the intent reply (which is where narrator-mode requirements ride).
+    overrides the intent reply (which is where Playwright-mode requirements ride).
     ``decisions`` scripts the planner; ``seen`` (a dict) collects the prompts each agent
     actually received so a test can assert on them.
 
@@ -281,7 +281,7 @@ def test_a_requirement_naming_the_pov_character_moves_to_the_narrator(
 def test_narrator_mode_reads_the_direction_off_the_players_own_line(
     client, storyline_id, monkeypatch
 ):
-    # No guidance box in narrator mode — the player's line IS the direction, and the intent
+    # No guidance box in Playwright mode — the player's line IS the direction, and the intent
     # call already carries its requirements, so no second parse is spent.
     _configure_llm(client)
     mei, kira, sid = _two(client, storyline_id)

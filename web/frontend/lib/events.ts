@@ -399,7 +399,7 @@ export interface SceneKnowledge {
 export interface StandingItem {
   id: string;
   text: string;
-  /** Who it is aimed at (`null` → the narrator's to place). */
+  /** Who it is aimed at (`null` → the narrator's to place — the AI voice, not the player). */
   actorId: string | null;
   /** The player named that character themselves, so it is never silently re-owned. */
   pinned: boolean;
@@ -472,11 +472,12 @@ export interface TurnRequestBody {
   /**
    * Player POV: the id of the *present* cast member the player is speaking AS. When set, the
    * line IS that character's line — persisted on the `user_turn` row (`data.pov`) and locked
-   * out of the AI roster server-side. `null`/omitted = the default guide/narrator behavior.
+   * out of the AI roster server-side. `null`/omitted = Playwright mode (the player steers
+   * the scene from outside it).
    */
   povCharacterId?: string | null;
   /**
-   * The narrator direction for this turn — what should happen next and how the cast should
+   * The Playwright's direction for this turn — what should happen next and how the cast should
    * react — from the composer's second box, which appears above the message box whenever
    * `povCharacterId` is set (under POV the `text` field is the character's own line and can
    * no longer double as direction). The backend breaks it into requirements and schedules

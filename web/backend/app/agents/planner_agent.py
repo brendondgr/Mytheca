@@ -328,7 +328,7 @@ def next_beat(
     selectable roster so the AI never voices the character the player is speaking as —
     the loop then ends on its own once the remaining cast is done reacting.
 
-    ``direction`` is the player's scene direction (Narrator-Guided Scenes) and
+    ``direction`` is the player's scene direction (Playwright-guided scenes) and
     ``remaining_beats`` how many beats of the scene's cap are left. The outstanding
     requirements are shown as work the turn still owes, so the planner paces them across
     the beats it has. It may still choose freely — the engine takes the schedule out of its

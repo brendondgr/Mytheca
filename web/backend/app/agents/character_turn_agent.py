@@ -372,7 +372,7 @@ def generate_line_with_usage(
 
     ``scene_direction`` is where the player is steering the whole scene — context, so even
     an unassigned speaker plays toward it — and ``requirements`` are the outcomes THIS beat
-    owes (Narrator-Guided Scenes). Both are guides, not scripts: they say what has to be
+    owes (Playwright-guided scenes). Both are guides, not scripts: they say what has to be
     true when the beat ends, and the character reaches it in their own words while every
     in-character constraint above still applies.
     """

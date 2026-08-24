@@ -46,8 +46,8 @@ const GUIDANCE_MAX_HEIGHT = 120;
  * only sending is blocked (`sendDisabled`).
  *
  * **The scene-direction box** appears only while the player is speaking AS a character
- * (`pov` set) and `onGuidanceChange` is wired. In narrator mode the message box already is
- * the narrator's box — its text *is* the direction — so a second one would duplicate it.
+ * (`pov` set) and `onGuidanceChange` is wired. In Playwright mode the message box already is
+ * the direction box — its text *is* the direction — so a second one would duplicate it.
  * Under POV the message box holds the character's own line, which leaves nowhere to steer
  * the scene from; this is that place. The panel grows upward as it fills, so opening it
  * lifts the transcript rather than covering it.
@@ -58,7 +58,7 @@ export function Composer({
   onSend,
   sendDisabled = false,
   inputRef,
-  // Scene direction (Player POV only) — the narrator's box, above the message box.
+  // Scene direction (Player POV only) — the direction box, above the message box.
   guidance = "",
   onGuidanceChange,
   // Scene config (rendered on the bottom-left when at least one handler is supplied).
@@ -114,9 +114,9 @@ export function Composer({
   /** Lets the parent move focus here after a suggestion is written into the box. */
   inputRef?: RefObject<HTMLTextAreaElement | null>;
   /**
-   * The narrator direction for this turn — what should happen next and how the cast should
-   * react. Rendered only under Player POV (see the component doc); as vague or as specific
-   * as the player likes.
+   * The Playwright's direction for this turn — what should happen next and how the cast
+   * should react. Rendered only under Player POV (see the component doc); as vague or as
+   * specific as the player likes.
    */
   guidance?: string;
   /** Omit to hide the scene-direction box entirely. */
@@ -147,7 +147,7 @@ export function Composer({
   presetState?: "none" | "clean" | "modified";
   onPresetChange?: (id: string | null) => void;
   /** Real transcript beats (one string each) — feeds the config's content-real readout. */
-  /** Player POV: the id of the character the player is speaking AS (`null` = Narrator). */
+  /** Player POV: the id of the character the player is speaking AS (`null` = Playwright). */
   pov?: string | null;
   onPovChange?: (id: string | null) => void;
   /** The present cast members the player may speak as (id + name). */
@@ -200,7 +200,7 @@ export function Composer({
   const showGuidance = hasDirection && Boolean(pov);
 
   // Placeholder reflects the active POV: "Speaking as Mei…" when the player has chosen a
-  // character to voice, else the default guide/narrator prompt.
+  // character to voice, else the default Playwright prompt.
   const povName = pov ? povOptions.find((o) => o.id === pov)?.name : undefined;
   const placeholder = sendDisabled
     ? "The scene responds…"
@@ -305,7 +305,7 @@ export function Composer({
   // speaking), so guarding on the message box alone would make the direction box a field
   // you can fill and cannot send.
   //
-  // `showGuidance`, not `hasDirection`: in narrator mode the direction value is inert — the
+  // `showGuidance`, not `hasDirection`: in Playwright mode the direction value is inert — the
   // message box IS the direction, so `send()` drops it. A direction kept across a POV switch
   // (or restored on resume) would otherwise light up Send with nothing to post, and the turn
   // would come back a 400.
@@ -314,7 +314,7 @@ export function Composer({
   /**
    * Write a verb's phrasing into whichever box carries the direction, and **select it**.
    *
-   * Under POV that is the direction textarea; in narrator mode the message box *is* the
+   * Under POV that is the direction textarea; in Playwright mode the message box *is* the
    * direction, so it goes there. One concept, two targets — the same split the direction
    * row states in words.
    *
@@ -436,12 +436,12 @@ export function Composer({
           />
         ) : null}
         {/* Scene direction — always present, above the message box and separated from it by
-            a hairline. A labelled strip in narrator mode (the message box IS the direction);
+            a hairline. A labelled strip in Playwright mode (the message box IS the direction);
             the direction textarea under POV, where the message box is the character's line.
             The mention plumbing only rides along when there is a textarea to attach it to. */}
         {hasDirection ? (
           <DirectionRow
-            mode={pov ? "pov" : "narrator"}
+            mode={pov ? "pov" : "playwright"}
             value={guidance}
             onChange={(next) => onGuidanceChange?.(next)}
             povName={povName}

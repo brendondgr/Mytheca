@@ -450,11 +450,11 @@ def build_direction(
     the setup module holding a copy of logic this module then grows. `turn_setup.prepare_turn`
     drives it with ``yield from``.
     """
-    # The scene direction (Narrator-Guided Scenes). Where it comes from depends on who the
+    # The scene direction (Playwright-guided scenes). Where it comes from depends on who the
     # player is speaking as:
     #  • POV mode — the ``text`` field is the CHARACTER'S line, so direction can only come
     #    from the separate guidance box; it is parsed on its own call.
-    #  • Narrator mode — the player's line IS the direction, and the intent call above
+    #  • Playwright mode — the player's line IS the direction, and the intent call above
     #    already broke it into requirements, so nothing extra is spent. An ordinary
     #    conversational line yields none, and the turn runs exactly as it did before.
     # Requirements naming an absent character (or the POV character, whom the AI never

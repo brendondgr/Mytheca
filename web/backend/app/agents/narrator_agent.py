@@ -1,7 +1,11 @@
-"""Narrator agent — the optional interstitial beat (Narrator Mode only).
+"""Narrator agent — the optional interstitial beat (Playwright mode only).
+
+This is **the** Narrator: the AI voice that writes third-person prose inside the scene. The
+player's own non-POV mode is the *Playwright*, which steers the scene from outside it and
+never speaks in it — two different things that shared one word until 2026-08-24.
 
 Narration is a *decoration* on the one POV loop, not a separate engine (D1): in
-Narrator Mode a short, third-person environmental/transition beat is inserted where a
+Playwright mode a short, third-person environmental/transition beat is inserted where a
 transition needs it; in POV Mode it is off (environment rides inside a character's
 perception instead). Best-effort: a missing/failed LLM yields ``None`` and the turn
 simply skips the interstitial.
@@ -88,7 +92,7 @@ def interstitial(
     story (used to OPEN a scene and to play out a selected branch — the player asked the
     story to move, so narration covers the next few moments rather than stopping short).
     ``lead`` folds an explicit cue into the prompt (the branch's narrative direction, a
-    scene-opening hint, or — under Narrator-Guided Scenes — the player's scene direction
+    scene-opening hint, or — under Playwright-guided scenes — the player's scene direction
     plus the specific outcomes THIS beat owes) so the beat leans into where the player is
     steering. The turn engine composes it; this agent just places it above the transcript,
     where it reads as the destination for the prose rather than as text to restate.

@@ -15,7 +15,7 @@ to interpret.
 
 The same call also breaks the line into ``direction_agent`` requirements — the outcomes
 the turn owes the player when they are directing rather than conversing. Riding on this
-existing call (one extra JSON field) is deliberate: in narrator mode the player's line
+existing call (one extra JSON field) is deliberate: in Playwright mode the player's line
 *is* the direction, and a second round-trip to re-read the same string would add a whole
 LLM call to every turn. POV-mode guidance is a different string and is parsed separately
 by :func:`app.agents.direction_agent.parse`.

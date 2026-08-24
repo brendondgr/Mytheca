@@ -21,11 +21,11 @@ describe("PovSelect", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("opens a menu of Narrator + each present cast member on click", () => {
+  it("opens a menu of Playwright + each present cast member on click", () => {
     render(<PovSelect pov={null} onPovChange={() => {}} options={OPTIONS} />);
     open();
     const menu = screen.getByRole("menu", { name: /speaking as/i });
-    expect(within(menu).getByRole("menuitemradio", { name: "Narrator" })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitemradio", { name: "Playwright" })).toBeInTheDocument();
     expect(within(menu).getByRole("menuitemradio", { name: "Mei" })).toBeInTheDocument();
     expect(within(menu).getByRole("menuitemradio", { name: "Kira" })).toBeInTheDocument();
   });
@@ -37,14 +37,14 @@ describe("PovSelect", () => {
     open();
     expect(screen.getByRole("menuitemradio", { name: "Kira" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("menuitemradio", { name: "Mei" })).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByRole("menuitemradio", { name: "Narrator" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("menuitemradio", { name: "Playwright" })).toHaveAttribute("aria-checked", "false");
   });
 
-  it("defaults to Narrator checked when pov is null", () => {
+  it("defaults to Playwright checked when pov is null", () => {
     render(<PovSelect pov={null} onPovChange={() => {}} options={OPTIONS} />);
-    expect(screen.getByRole("button", { name: /speaking as/i }).textContent).toContain("Narrator");
+    expect(screen.getByRole("button", { name: /speaking as/i }).textContent).toContain("Playwright");
     open();
-    expect(screen.getByRole("menuitemradio", { name: "Narrator" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("menuitemradio", { name: "Playwright" })).toHaveAttribute("aria-checked", "true");
   });
 
   it("calls onPovChange with the character id when a member is chosen", () => {
@@ -55,11 +55,11 @@ describe("PovSelect", () => {
     expect(onPovChange).toHaveBeenCalledWith("mei");
   });
 
-  it("calls onPovChange with null when Narrator is chosen", () => {
+  it("calls onPovChange with null when Playwright is chosen", () => {
     const onPovChange = vi.fn();
     render(<PovSelect pov="mei" onPovChange={onPovChange} options={OPTIONS} />);
     open();
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "Narrator" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Playwright" }));
     expect(onPovChange).toHaveBeenCalledWith(null);
   });
 

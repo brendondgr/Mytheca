@@ -22,8 +22,8 @@ runaway backstop of ``max(TURN_MAX_BEATS, 2 * len(cast) + 6)``. This replaced th
 one-shot director (``director_agent.who_is_up`` / ``rerank``), which is now dead code kept
 only for its unit tests.
 
-Over that loop sits the **scene direction** (Narrator-Guided Scenes): when the player is
-directing — their own line in narrator mode, the separate ``guidance`` box under Player POV
+Over that loop sits the **scene direction** (Playwright-guided scenes): when the player is
+directing — their own line in Playwright mode, the separate ``guidance`` box under Player POV
 — the turn owes a list of ``direction_agent`` requirements. The planner sees what is still
 owed and how many beats are left; once the budget is as tight as the direction is long the
 engine stops asking and runs ``direction_agent.schedule`` itself, so everything asked for

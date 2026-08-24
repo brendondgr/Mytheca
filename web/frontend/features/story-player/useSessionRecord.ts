@@ -128,7 +128,7 @@ export function useSessionRecord({
       const scene = rehydrateFromHistory(history.events, history.traces, base);
       rememberSession(history.session.id);
       // Restore the "Speaking as" selection from the most recent user_turn's pov, so the
-      // next line continues in that character's voice (null → the guide/narrator default).
+      // next line continues in that character's voice (null → the Playwright default).
       apply.setPov(latestPov(history.events));
       // What the player last asked the scene to do, back in the box they asked it from.
       apply.setGuidance(latestGuidance(history.events));

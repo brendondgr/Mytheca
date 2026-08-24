@@ -14,7 +14,7 @@ export interface PovOption {
   portrait?: string | null;
 }
 
-/** A small drama/identity glyph for the "Narrator" (no-POV) row (decorative). */
+/** A small drama/identity glyph for the "Playwright" (no-POV) row (decorative). */
 function MaskIcon({ size = 12 }: { size?: number }) {
   return (
     <svg
@@ -55,8 +55,8 @@ function Caret({ open }: { open: boolean }) {
   );
 }
 
-/** A parchment circle carrying the narrator mask, sized to sit beside the monograms. */
-function NarratorAvatar({ size = 22 }: { size?: number }) {
+/** A parchment circle carrying the drama mask, sized to sit beside the monograms. */
+function PlaywrightAvatar({ size = 22 }: { size?: number }) {
   return (
     <span
       aria-hidden
@@ -94,13 +94,15 @@ const AVATAR = 22;
  * The **Player POV** control — the "Speaking as" dropdown that lives in the composer's
  * bottom-left controls row, immediately to the right of the Config button. A **custom**
  * dropdown (not a native `<select>`) so each option can show the character's **portrait
- * avatar + name**; "Narrator" (→ `null`) is the default guide/narrator behavior.
+ * avatar + name**; "Playwright" (→ `null`) is the default — the player steering the scene
+ * from outside it rather than speaking inside it. **Not** the Narrator: that word names the
+ * AI voice that writes third-person prose in the scene, and nothing here is it.
  *
  * Accessible menu pattern: a disclosure `<button>` (`aria-haspopup="menu"` / `aria-expanded`)
  * opens a `role="menu"` popover of `role="menuitemradio"` rows. Keyboard: Enter/Space/↓ opens
  * and focuses the checked row; ↑/↓/Home/End roam; Enter/Space (or click) selects; Esc/Tab or
  * an outside click closes. Opens **upward** (the composer sits at the bottom). Hidden entirely
- * when there is no present cast member to speak as (only "Narrator" would remain).
+ * when there is no present cast member to speak as (only "Playwright" would remain).
  */
 export function PovSelect({
   pov,
@@ -184,7 +186,7 @@ export function PovSelect({
         aria-label="Speaking as"
         // The one control whose name genuinely does not explain itself: "Speaking as" reads
         // as a label, not as a choice about who your words belong to.
-        title="Choose whose voice your message is in — a character's, or the narrator's"
+        title="Choose whose voice your message is in — a character's, or your own as the Playwright"
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -208,10 +210,10 @@ export function PovSelect({
             ring={1.5}
           />
         ) : (
-          <NarratorAvatar size={18} />
+          <PlaywrightAvatar size={18} />
         )}
         <span className="min-w-0 max-w-[96px] truncate font-mono text-[9px] tracking-[0.1em] text-current uppercase">
-          {selected ? selected.name : "Narrator"}
+          {selected ? selected.name : "Playwright"}
         </span>
         <Caret open={open} />
       </button>
@@ -233,9 +235,9 @@ export function PovSelect({
             onClick={() => choose(null)}
             className={rowClass}
           >
-            <NarratorAvatar size={AVATAR} />
+            <PlaywrightAvatar size={AVATAR} />
             <span className="min-w-0 flex-1 truncate font-display text-[13px] font-semibold">
-              Narrator
+              Playwright
             </span>
             {selected === null ? <CheckIcon /> : null}
           </button>

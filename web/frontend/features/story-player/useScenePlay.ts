@@ -131,8 +131,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     [scenario.cast],
   );
   const [composer, setComposer] = useState("");
-  // The narrator direction for the next turn — the composer's second box, which only exists
-  // under Player POV (in narrator mode the message box already IS the direction). Cleared on
+  // The Playwright's direction for the next turn — the composer's second box, which only
+  // exists under Player POV (in Playwright mode the message box already IS the direction). Cleared on
   // send, and whenever POV is dropped, so stale steering never rides along with a later turn.
   const [guidance, setGuidance] = useState("");
   // Per-scene play controls (persisted on the scenario). Local state drives the composer
@@ -198,7 +198,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     [],
   );
   // Player POV: the id of the character the player is speaking AS (null = the default
-  // guide/narrator behavior). Drives the "Speaking as" composer select, the optimistic
+  // Playwright behavior). Drives the "Speaking as" composer select, the optimistic
   // bubble's identity, and the `povCharacterId` sent on the next turn.
   const [pov, setPov] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -611,12 +611,12 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   }, [sending]);
 
 
-  // Choosing who to speak as. Leaving POV (back to Narrator) also drops the direction box's
-  // text — in narrator mode the message box carries the direction, so keeping it would send
+  // Choosing who to speak as. Leaving POV (back to Playwright) also drops the direction box's
+  // text — in Playwright mode the message box carries the direction, so keeping it would send
   // the same steer twice.
   // Leaving POV used to clear the direction, on the assumption it was a POV artefact. It is
   // not: the direction is a scene-level intent, and the row exists in both modes now. The
-  // text is kept — narrator mode just explains that the message box carries it. (It is still
+  // text is kept — Playwright mode just explains that the message box carries it. (It is still
   // cleared on send: a direction applies to the turn it rode in on, not to every later one.)
   const choosePov = useCallback((id: string | null) => setPov(id), []);
 

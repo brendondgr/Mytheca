@@ -271,7 +271,7 @@ def test_fallback_beat_carries_no_register(db_session):
     assert d.actor_id == "kira" and d.register is None and d.stakes == ""
 
 
-# ---- The scene direction (Narrator-Guided Scenes) --------------------------
+# ---- The scene direction (Playwright-guided scenes) --------------------------
 
 
 def _direction(*specs):
