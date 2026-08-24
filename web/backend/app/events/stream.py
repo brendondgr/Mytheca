@@ -211,6 +211,53 @@ class TurnReasoningFrame(CamelModel):
     done: bool = False
 
 
+class PlannedBeat(CamelModel):
+    """One beat of a plan, as the player is shown it and as they may send it back."""
+
+    action: str  # "speak" | "narrate" | "exit" | "end"
+    actor_id: str | None = None
+    actor_name: str = ""
+    addressing_id: str | None = None
+    #: The planner's own short why. Shown as the beat's description, because it is already
+    #: written for a reader — "she is not going to let that stand" — rather than as a label.
+    reason: str = ""
+    #: The wire name is ``register``; the Python attribute is not, because ``register`` is
+    #: ``ABCMeta.register`` on the model's metaclass and pydantic warns about the shadow on
+    #: every import. Same alias, same reason, as ``TurnOverrides.beat_register``.
+    beat_register: str | None = Field(default=None, alias="register")
+    stakes: str = ""
+    status: str | None = None
+
+
+class TurnPlanFrame(CamelModel):
+    """The turn's plan, streamed before any prose is written.
+
+    A **transport** frame, not a story event: a plan is a statement of intent that may never
+    happen, and persisting one would put something in the transcript that no reader ever saw
+    and no rewind could account for.
+
+    Emitted on every planned turn so the Inspector can show what the scene decided. Under
+    ``PlannerMode`` ``"plan"`` it is also the point the turn **stops**: nothing is generated,
+    and the player either approves the plan — sending it back on ``TurnRequest.approvedPlan``,
+    which the engine executes without re-planning — or edits their direction and sends again.
+
+    ``awaitingApproval`` says which of those two this is, so the client does not have to infer
+    it from the scene's current mode: the mode can change between a turn being sent and its
+    frames arriving, and a plan panel that appeared over an already-running turn would offer
+    an approval that cannot apply to it.
+    """
+
+    type: Literal["plan"] = "plan"
+    #: The session this plan belongs to. **Load-bearing under ``"plan"``**: that turn stops
+    #: before any story event is emitted, and story events are the only other frames that
+    #: carry a session id — so without this a client starting a new session would have
+    #: nothing to send the approval back on, and every approved plan would open a second
+    #: session and replay the scene from nothing.
+    session_id: str = ""
+    beats: list[PlannedBeat] = Field(default_factory=list)
+    awaiting_approval: bool = False
+
+
 class TurnTraceFrame(CamelModel):
     """Diagnostic trace frame for the turn stream (opt-in via ``TurnRequest.trace``).
 

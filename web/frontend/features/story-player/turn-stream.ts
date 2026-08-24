@@ -151,6 +151,9 @@ export function dropPendingBeats(prev: SceneMessage[]): SceneMessage[] {
 export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneMessage[] {
   if (frame.type === "error") return prev; // surfaced separately by the hook
   if (frame.type === "reasoning") return prev; // live-only machinery, folded separately
+  // A plan states what a turn INTENDS. It is not a beat, it is not persisted, and it must
+  // never reach the transcript — the panel that renders it lives beside the composer.
+  if (frame.type === "plan") return prev;
   if (frame.type === "beat_reroll") {
     // A re-roll is about to stream a new take into an EXISTING beat. Clear it first: the
     // deltas re-emit the same event id, and the accumulator appends by id.
@@ -410,6 +413,12 @@ export const NARRATOR_REASONING = "__narrator__";
 export function sessionIdOf(frame: TurnStreamFrame): string | null {
   // Transport frames (error/trace/reasoning/beat_reroll) carry no envelope — only story
   // events do.
+  //
+  // `plan` is the exception, and it has to be: a turn that stops for approval emits NO story
+  // event, so this is the only frame carrying a session id. Without it a client that started
+  // a new session would have nothing to send the approval on, and every approved plan would
+  // open a second session and replay the scene from nothing.
+  if (frame.type === "plan") return frame.sessionId || null;
   if (
     frame.type === "error" ||
     frame.type === "trace" ||

@@ -40,8 +40,8 @@ class TurnSettings:
     """The resolved controls for one turn. Frozen: nothing downstream may edit them."""
 
     suggestions_count: int
-    #: ``"planner"`` (the default) or ``"off"`` — see ``services/beat_order``.
-    planner: PlannerMode = "planner"
+    #: ``"auto"`` (the default), ``"plan"`` or ``"off"`` — see :data:`PlannerMode`.
+    planner: PlannerMode = "auto"
     #: A register the player pinned for this turn, or ``None`` to let the scene decide.
     register: Register | None = None
     #: How much of a speaker's history reaches their beat.
@@ -63,9 +63,14 @@ def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnS
     )
     suggestions = max(0, min(int(suggestions or 0), MAX_SUGGESTIONS))
 
-    planner = ov.planner or getattr(scenario, "planner_mode", None) or "planner"
-    if planner not in ("planner", "off"):
-        planner = "planner"
+    planner = ov.planner or getattr(scenario, "planner_mode", None) or "auto"
+    # ``"planner"`` is the value this control shipped with and is still on scenario rows and
+    # in saved clients. It means exactly what ``"auto"`` means, so it is normalised here
+    # rather than carried through the engine as a second name for one thing.
+    if planner == "planner":
+        planner = "auto"
+    if planner not in ("auto", "plan", "off"):
+        planner = "auto"
 
     ties = ov.ties or getattr(scenario, "tie_scope", None) or "scene"
     if ties not in ("addressed", "scene", "world"):

@@ -1550,7 +1550,7 @@ describe("useScenePlay — pinned versus per-turn scene controls", () => {
     await waitFor(() => expect(result.current.turnOverrides).toEqual({}));
     // The pin itself does not spring back — only the value it scoped.
     expect(result.current.pinned.planner).toBe(false);
-    expect(result.current.effective.planner).toBe("planner");
+    expect(result.current.effective.planner).toBe("auto");
   });
 
   it("springs back on the error path too — a failed turn still spent the intent", async () => {
@@ -1616,10 +1616,30 @@ describe("useScenePlay — turn planning", () => {
     return result;
   }
 
-  it("defaults to the planner, so an existing scene is unchanged", async () => {
+  it("defaults to auto, and reads the legacy value as the same thing", async () => {
+    // `"planner"` is what this column shipped with and is still on older scenario rows. It
+    // means exactly what `"auto"` means, so it is folded on the way in rather than carried
+    // through the UI as a second name for one thing — and a scene written before plan mode
+    // must not suddenly start stopping for approval.
     const result = await ready();
-    expect(result.current.plannerMode).toBe("planner");
-    expect(result.current.effective.planner).toBe("planner");
+    expect(result.current.plannerMode).toBe("auto");
+    expect(result.current.effective.planner).toBe("auto");
+  });
+
+  it("carries plan mode as a per-turn override like any other control", async () => {
+    vi.mocked(postTurn).mockReturnValue(makeStream([]));
+    const result = await ready();
+
+    act(() => result.current.setPinned("planner", false));
+    act(() => result.current.setPlannerMode("plan"));
+    expect(result.current.effective.planner).toBe("plan");
+
+    act(() => result.current.setComposer("Show me first."));
+    act(() => result.current.send());
+    await waitFor(() => expect(vi.mocked(postTurn)).toHaveBeenCalled());
+    expect(vi.mocked(postTurn).mock.calls[0][1]).toMatchObject({
+      overrides: { planner: "plan" },
+    });
   });
 
   it("persists a pinned change to the scene", async () => {
@@ -1636,7 +1656,7 @@ describe("useScenePlay — turn planning", () => {
     act(() => result.current.setPinned("planner", false));
     act(() => result.current.setPlannerMode("off"));
     expect(vi.mocked(updateScenario)).not.toHaveBeenCalled();
-    expect(result.current.plannerMode).toBe("planner");
+    expect(result.current.plannerMode).toBe("auto");
     expect(result.current.effective.planner).toBe("off");
 
     act(() => result.current.setComposer("One fast turn."));
@@ -1645,7 +1665,7 @@ describe("useScenePlay — turn planning", () => {
     expect(vi.mocked(postTurn).mock.calls[0][1]).toMatchObject({
       overrides: { planner: "off" },
     });
-    await waitFor(() => expect(result.current.effective.planner).toBe("planner"));
+    await waitFor(() => expect(result.current.effective.planner).toBe("auto"));
   });
 });
 

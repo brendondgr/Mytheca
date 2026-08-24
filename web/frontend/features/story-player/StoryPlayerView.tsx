@@ -39,6 +39,7 @@ import { DirectorRail, DirectorRailContent, type DirectorRailProps } from "@/com
 import { SceneRailBar, type RailTrigger } from "@/components/feature/SceneRailBar";
 import { Drawer } from "@/components/ui/Drawer";
 import { Composer } from "@/components/feature/Composer";
+import { PlanApproval } from "@/components/feature/PlanApproval";
 import { SceneLoader } from "@/components/feature/SceneLoader";
 import { SceneIntro } from "@/components/feature/SceneIntro";
 import { TranscriptBeat } from "@/components/feature/TranscriptBeat";

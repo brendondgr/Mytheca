@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useState, type ReactNode, type RefObject } from "react";
+import { useId, type ReactNode, type RefObject } from "react";
+import { useRememberedFlag } from "@/hooks/use-remembered-flag";
 
 /**
  * Where the verb row's open/closed state lives. Per browser, not per scene: a player who
@@ -57,29 +58,9 @@ export function DirectionRow({
   // message box in every scene, permanently. Collapsing rather than deleting keeps the verbs,
   // their availability gating and any scenario-authored ones intact for the players who do
   // use them, at the cost of one click.
-  //
-  // Read from storage in an effect rather than during render: the server has no localStorage,
-  // so reading it inline would make the first client paint disagree with the markup React
-  // streamed and produce a hydration mismatch.
-  const [verbsOpen, setVerbsOpen] = useState(false);
+  const [verbsOpen, setVerbsOpen] = useRememberedFlag(VERBS_OPEN_KEY, false);
   const verbsId = useId();
-  useEffect(() => {
-    try {
-      if (window.localStorage.getItem(VERBS_OPEN_KEY) === "1") setVerbsOpen(true);
-    } catch {
-      // A browser with storage blocked keeps the default. Not worth reporting.
-    }
-  }, []);
-  const toggleVerbs = () => {
-    setVerbsOpen((open) => {
-      try {
-        window.localStorage.setItem(VERBS_OPEN_KEY, open ? "0" : "1");
-      } catch {
-        // Same: the toggle still works for this session.
-      }
-      return !open;
-    });
-  };
+  const toggleVerbs = () => setVerbsOpen(!verbsOpen);
   // `children` is the verb bar. It attaches to this row in BOTH modes, because the row is
   // the direction — what changes between modes is only which box the verb writes into, and
   // that is the parent's business (see `Composer.insertDirection`).

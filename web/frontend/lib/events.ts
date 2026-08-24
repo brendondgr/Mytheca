@@ -3,11 +3,6 @@
 // Mirrors the backend discriminated union in `web/backend/app/events/envelope.py`.
 // Kept distinct from the authoring `EventTag`/`Branch` types in `@/lib/types`.
 
-// `BeatLength` is the one shared value type: it is a scenario column AND a per-turn
-// override, so it is imported rather than re-declared. `types.ts` does not import from
-// here, so this stays acyclic.
-import type { BeatLength } from "@/lib/types";
-
 export type PlayVisibility =
   | "public"
   | "private_to_user"
@@ -253,11 +248,48 @@ export interface TurnReasoningFrame {
   done: boolean;
 }
 
+/** One beat of a turn's plan, as the scene proposes it. */
+export interface PlannedBeat {
+  action: string;
+  actorId: string | null;
+  /** Resolved server-side, so the panel never has to join against the cast to draw a row. */
+  actorName: string;
+  addressingId: string | null;
+  reason: string;
+  register: string | null;
+  stakes: string;
+  status: string | null;
+}
+
+/**
+ * The turn's plan, streamed before any prose is written.
+ *
+ * A **transport** frame, never a story event: it states what the turn *intends*, which may
+ * not happen, and persisting one would put something in the transcript no reader saw and no
+ * rewind could account for.
+ *
+ * Under plan mode (`awaitingApproval: true`) the turn **stops here** and nothing has been
+ * written — the player either approves it, sending `beats` straight back as
+ * `TurnBody.approvedPlan`, or edits their direction and sends again. Under `auto` the same
+ * frame rides along for the Inspector, and only when `trace: true` was requested.
+ *
+ * `sessionId` is load-bearing on an approval-stopping turn: it is the only frame that turn
+ * emits which carries one, so without it a client that started a new session would have
+ * nothing to send the approval on.
+ */
+export interface TurnPlanFrame {
+  type: "plan";
+  sessionId: string;
+  beats: PlannedBeat[];
+  awaitingApproval: boolean;
+}
+
 export type TurnStreamFrame =
   | PlayEvent
   | TurnErrorFrame
   | TurnTraceFrame
   | TurnReasoningFrame
+  | TurnPlanFrame
   | BeatRerollFrame;
 
 // ---- scene images (POST /play/{scenarioId}/moment/stream) ----
@@ -481,7 +513,7 @@ export interface TurnRequestBody {
    * react — from the composer's second box, which appears above the message box whenever
    * `povCharacterId` is set (under POV the `text` field is the character's own line and can
    * no longer double as direction). The backend breaks it into requirements and schedules
-   * them across the scene's `maxTurns` budget, so everything asked for lands in the turn.
+   * them across the beats the turn has, so everything asked for lands in it.
    * Omitted with POV off means the player's `text` is itself the direction.
    */
   guidance?: string | null;
@@ -506,6 +538,16 @@ export interface TurnRequestBody {
    * turn behaves exactly as it does today.
    */
   overrides?: TurnOverridesBody | null;
+  /**
+   * A plan the player approved, sent straight back from a `plan` frame. The engine
+   * **executes it without re-planning** — that is the whole point, since re-planning would
+   * produce a different turn from the one that was approved.
+   *
+   * It carries the decisions, never prose: approving a plan approves who acts and what they
+   * are trying to do, and the writing still happens fresh. A plan that carried text would
+   * quietly turn approval into dictation.
+   */
+  approvedPlan?: PlannedBeat[];
 }
 
 /**
@@ -520,23 +562,27 @@ export interface TurnRequestBody {
  * Out of scope for the intent, direction and planner agents in the same way `taggedDocIds`
  * is: an override changes how a turn is **run**, never what it is **about**.
  *
- * Bounds mirror the scenario's, with one difference — `maxTurns` is capped at 10 here while
- * the scenario has no upper bound, because a per-turn knob that can ask for an arbitrarily
- * long turn is a way to hang the stream by accident.
+ * Bounds mirror the scenario's. `maxTurns` and `beatLength` used to ride here and are gone —
+ * pacing is the scene's judgement now — and an old client still sending them is **ignored**,
+ * not rejected.
  */
 export interface TurnOverridesBody {
-  /** Beats this one message may produce, 1–10. */
-  maxTurns?: number | null;
   /** Follow-up suggestions offered after this turn, 0–4. `0` is a real request. */
   suggestionsCount?: number | null;
-  /** How much a character says in one beat, for this turn. */
-  beatLength?: BeatLength | null;
   /**
-   * `"off"` runs the turn on the model-free scripted beat order instead of the ReAct
-   * planner. Much faster — planning is over half of a turn — and it costs something real:
-   * no register, no stakes, no narrator beats between speakers, and no exits.
+   * How the turn's plan is used.
+   *
+   * - `"auto"` — plan and play straight through. (`"planner"` is the value this shipped with
+   *   and still means exactly this; the backend normalises it.)
+   * - `"plan"` — plan, stream the plan, and **stop**. Nothing is written until the player
+   *   sends it back on {@link TurnBody.approvedPlan}.
+   * - `"off"` — no planner call at all; the model-free scripted beat order decides. Much
+   *   faster — planning is over half a turn — and it costs something real: no register, no
+   *   stakes, no narrator beats between speakers, and no exits. A different kind of choice
+   *   from the first two, which is why the composer's Plan control offers only those and
+   *   this one lives in the Config popover.
    */
-  planner?: "planner" | "off" | null;
+  planner?: "auto" | "plan" | "planner" | "off" | null;
   /**
    * Pin how this moment is pitched. **Per-turn only** — there is no scenario column for it,
    * because "how tense this beat is" belongs to a moment, not to a scene. It outranks the

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { SceneControlSelect } from "@/components/ui/SceneControlSelect";
+import type { PlanMode } from "@/components/feature/PlanModeButton";
 import type { SceneMemory } from "@/features/story-player/turn-stream";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 
@@ -151,7 +152,7 @@ function PinToggle({
 export function SceneConfigMenu({
   suggestionsCount = 4,
   onSuggestionsCountChange,
-  plannerMode = "planner",
+  plannerMode = "auto",
   onPlannerModeChange,
   tieScope = "scene",
   onTieScopeChange,
@@ -168,9 +169,16 @@ export function SceneConfigMenu({
 }: {
   suggestionsCount?: number;
   onSuggestionsCountChange?: (value: number) => void;
-  /** Whether a director reads each moment, or the cast simply answers in order. */
-  plannerMode?: "planner" | "off";
-  onPlannerModeChange?: (value: "planner" | "off") => void;
+  /**
+   * Whether a director reads each moment, or the cast simply answers in order.
+   *
+   * The popover owns only the **off** end of this. Choosing between playing straight through
+   * and stopping for approval is a per-message decision and lives in the composer
+   * (`PlanModeButton`); turning planning off entirely changes what the app *is*, which is not
+   * a third position on that toggle.
+   */
+  plannerMode?: PlanMode;
+  onPlannerModeChange?: (value: PlanMode) => void;
   /** How much of a speaker's relationship history reaches their beat. */
   tieScope?: TieScope;
   onTieScopeChange?: (value: TieScope) => void;
@@ -315,10 +323,10 @@ export function SceneConfigMenu({
             label="Turn planning"
             value={plannerMode}
             options={[
-              { value: "planner", label: "On · a director reads each moment" },
+              { value: "auto", label: "On · a director reads each moment" },
               { value: "off", label: "Off · the cast answers in order" },
             ]}
-            onChange={(v) => onPlannerModeChange?.(v as "planner" | "off")}
+            onChange={(v) => onPlannerModeChange?.(v as PlanMode)}
             help={
               plannerMode === "off"
                 ? "Much faster — planning is over half of a turn. Nothing judges the moment: no scene-setting narration between beats, no read of how tense things are, and a character the story has written out stays in the rotation until you remove them from the cast rail."

@@ -6,6 +6,7 @@ import {
   type TieScope,
 } from "@/components/feature/SceneConfigMenu";
 import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
+import { PlanModeButton, type PlanMode } from "@/components/feature/PlanModeButton";
 import { GhostwriteButton } from "@/components/feature/GhostwriteButton";
 import { ContextUsageDial } from "@/components/feature/ContextUsageDial";
 import { Monogram } from "@/components/ui/Monogram";
@@ -118,8 +119,8 @@ export function Composer({
    * message only, which the Config button reports with a dot so the state is visible
    * without opening the popover.
    */
-  plannerMode?: "planner" | "off";
-  onPlannerModeChange?: (value: "planner" | "off") => void;
+  plannerMode?: PlanMode;
+  onPlannerModeChange?: (value: PlanMode) => void;
   register?: Register | null;
   onRegisterChange?: (value: Register | null) => void;
   tieScope?: TieScope;
@@ -166,6 +167,15 @@ export function Composer({
   summarised?: boolean;
   secondsPerBeat?: number;
 }) {
+  // Plan mode's disclosure. Owned here rather than inside the button so a streaming turn can
+  // collapse it: leaving it expanded over a turn already in flight offers a choice that
+  // cannot apply to that message.
+  //
+  // DERIVED, not an effect. `open={planOpen && !sendDisabled}` closes it for the duration of
+  // the turn and restores it afterwards with no setState in an effect and no cascading
+  // render — and, unlike clearing the state, it does not forget that the player had it open.
+  const [planOpen, setPlanOpen] = useState(false);
+
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const ref = (inputRef as RefObject<HTMLTextAreaElement>) ?? internalRef;
   const guidanceRef = useRef<HTMLTextAreaElement>(null);
@@ -554,6 +564,26 @@ export function Composer({
           {onPovChange ? (
             <PovSelect pov={pov} onPovChange={onPovChange} options={povOptions} />
           ) : null}
+          {/* Plan mode sits between who you are speaking as and the send cluster: both are
+              decisions about the message you are about to send, and this is the third. */}
+          {onPlannerModeChange ? (
+            <PlanModeButton
+              mode={plannerMode ?? "auto"}
+              onModeChange={onPlannerModeChange}
+              open={planOpen && !sendDisabled}
+              onOpenChange={setPlanOpen}
+              disabled={sendDisabled}
+            />
+          ) : null}
+          <div className="min-w-0 flex-1" />
+
+          {/* Right cluster: the context dial, the ghostwriter, then the Send pill. */}
+          <ContextUsageDial
+            usedTokens={usedTokens}
+            maxTokens={maxContextTokens ?? 0}
+            exact={usedTokensExact}
+            size={24}
+          />
           {onGhostwrite ? (
             <GhostwriteButton
               onGhostwrite={onGhostwrite}
@@ -563,15 +593,6 @@ export function Composer({
               canUndo={canUndoGhostwrite}
             />
           ) : null}
-          <div className="min-w-0 flex-1" />
-
-          {/* Right cluster: context dial, then the small Send pill. */}
-          <ContextUsageDial
-            usedTokens={usedTokens}
-            maxTokens={maxContextTokens ?? 0}
-            exact={usedTokensExact}
-            size={24}
-          />
           <button
             type="button"
             onClick={onSend}

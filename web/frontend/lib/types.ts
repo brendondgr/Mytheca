@@ -175,11 +175,14 @@ export interface Scenario {
    */
   scenePreset?: string | null;
   /**
-   * Whether this scene runs the ReAct planner (`"planner"`, and absent/`null` reads as
-   * that) or the model-free scripted beat order (`"off"`). The scene's default; a turn may
-   * still override it.
+   * How this scene uses its plan, as the scene's default; a turn may still override it.
+   *
+   * - `"auto"` — plan and play straight through. Absent/`null` reads as this, and so does
+   *   `"planner"`, which is the value this column shipped with and is still on older rows.
+   * - `"plan"` — plan, show the plan, and wait for the player to approve it.
+   * - `"off"` — no planner call at all; the model-free scripted beat order decides.
    */
-  plannerMode?: "planner" | "off" | null;
+  plannerMode?: "auto" | "plan" | "planner" | "off" | null;
   /**
    * The scene's default tie scope — how much of a speaker's relationship history reaches
    * their beat. Absent/`null` reads as `"scene"`.

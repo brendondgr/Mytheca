@@ -11,6 +11,13 @@ import { TypingDots } from "@/components/ui/TypingDots";
  * new affordance — it is just text in the box, and Undo puts back what was there before.
  *
  * Disabled until the box has something in it, because the box *is* the input.
+ *
+ * **Icon-only, and sitting between the context dial and Send.** It used to read "✒ Write it"
+ * beside the POV select, which put a labelled verb in the middle of the controls row for a
+ * feature most turns do not use, and pushed the two things a player looks at every turn —
+ * how full the context is, and Send — further apart. An icon-only control MUST carry its
+ * accessible name; that is the whole cost of the change and the thing most likely to be
+ * dropped by a later edit.
  */
 export function GhostwriteButton({
   onGhostwrite,
@@ -34,9 +41,11 @@ export function GhostwriteButton({
         onClick={onUndo}
         aria-label="Undo the drafted line and restore what you wrote"
         title="Undo — put your own note back"
-        className="flex flex-none items-center gap-[5px] rounded-[8px] border border-field-bd px-[9px] py-[5px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent"
+        // 28px square: comfortably past the WCAG 2.5.8 24px floor now that there is no label
+        // widening the hit area.
+        className="flex h-[28px] w-[28px] flex-none items-center justify-center rounded-[8px] border border-field-bd text-[13px] text-mute hover:border-accent hover:text-accent"
       >
-        <span aria-hidden>↶</span> Undo
+        <span aria-hidden>↶</span>
       </button>
     );
   }
@@ -48,7 +57,7 @@ export function GhostwriteButton({
       disabled={!canGhostwrite || running}
       aria-label="Write this line for me"
       title="Write it for me — turn your note into the line itself"
-      className="flex flex-none items-center gap-[5px] rounded-[8px] border border-field-bd px-[9px] py-[5px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
+      className="flex h-[28px] w-[28px] flex-none items-center justify-center rounded-[8px] border border-field-bd text-[13px] text-mute hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
     >
       {running ? (
         <>
@@ -58,9 +67,7 @@ export function GhostwriteButton({
           </span>
         </>
       ) : (
-        <>
-          <span aria-hidden>✒</span> Write it
-        </>
+        <span aria-hidden>✒</span>
       )}
     </button>
   );

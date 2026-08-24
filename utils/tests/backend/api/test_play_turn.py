@@ -58,11 +58,14 @@ def _stream(resp) -> list[dict]:
     return [json.loads(line) for line in resp.text.splitlines() if line.strip()]
 
 
-# `trace`, `error` and `reasoning` frames share the wire with story events but are NOT
-# story events — they carry no envelope id/seq and are absent from `story_event_adapter`.
-# Reasoning frames are on by default now (Reasoning visibility defaults to `full`), so a
-# test that means "every story event" has to say so.
-_TRANSPORT_ONLY = ("trace", "error", "reasoning")
+# `trace`, `error`, `reasoning` and `plan` frames share the wire with story events but are
+# NOT story events — they carry no envelope id/seq and are absent from `story_event_adapter`.
+# Reasoning frames are on by default now (Reasoning visibility defaults to `full`), and a
+# `plan` frame rides on every planned turn, so a test that means "every story event" has to
+# say so. A plan in particular must never become a story event: it states what the turn
+# INTENDS, which may not happen, and persisting one would put something in the transcript
+# that no reader saw and no rewind could account for.
+_TRANSPORT_ONLY = ("trace", "error", "reasoning", "plan")
 
 
 def _story(events: list[dict]) -> list[dict]:

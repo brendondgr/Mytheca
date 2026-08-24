@@ -54,12 +54,13 @@ from app.agents import (
 from app.core.config import get_settings
 from app.core.errors import APIError
 from app.events.envelope import StoryEvent
-from app.events.stream import TurnTraceFrame
+from app.events.stream import TurnPlanFrame, TurnTraceFrame
 from app.models import Scenario
 from app.schemas.play import TurnRequest
 from app.services import (
     crud,
     events_store,
+    turn_plan,
 )
 
 from app.services import beat_runner
@@ -108,7 +109,7 @@ def validate_turn_inputs(db: Session, scenario_id: str, req: TurnRequest) -> Sce
 
 def run_turn(
     db: Session, scenario: Scenario, req: TurnRequest
-) -> Iterator[StoryEvent | TurnTraceFrame]:
+) -> Iterator[StoryEvent | TurnTraceFrame | TurnPlanFrame]:
     """Run one turn, yielding the visible story events (and, when ``req.trace``, the
     interleaved diagnostic trace frames the Inspector renders) in order."""
     setup = yield from turn_setup.prepare_turn(db, scenario, req)
@@ -162,19 +163,15 @@ def run_turn(
         )
     # How many beats one player message may produce: **as many as the moment needs**.
     #
-    # This was a player setting (`maxTurns`, 1-10, default 5) and it bound hard — a live
-    # smoke turn produced exactly five beats and stopped, because five was the number, not
-    # because the scene was finished. Asking a player how many beats a message should make is
-    # asking them to decide the pacing of a scene they have not read yet.
+    # This was a player setting (`maxTurns`, 1-10, default 5) and it bound hard — a live smoke
+    # turn produced exactly five beats and stopped because five was the number, not because
+    # the scene had finished.
     #
     # What is left is the RUNAWAY BACKSTOP, a different thing with a different job:
-    # `turn_max_beats` (24) exists to stop a loop, not to pace a scene, and is not
-    # player-facing. The planner decides when the turn is done — `max_turns` merely overrode
-    # it. The backstop still counts EVERY emitted beat, so it cannot be walked past. Resolved
-    # here rather than beside the loop because the opening narration has to know how much of
-    # the direction it may absorb.
+    # `turn_max_beats` (24) stops a loop; it does not pace a scene, and is not player-facing.
+    # It counts EVERY emitted beat, so it cannot be walked past. Resolved here rather than
+    # beside the loop because the opening narration has to know how much direction to absorb.
     max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
-    max_turns = max_beats
     # How many beats may attempt one requirement before the turn stops re-owing it. Read
     # once: it bounds every `outstanding`/`for_actor` call below, and a requirement that
     # answered a different cap in two places would flicker in and out of the owed list.
@@ -184,7 +181,7 @@ def run_turn(
     # longer than the scene, otherwise exactly one — which is how the tail of a long
     # direction went missing in the middle band. `pace` spreads them against the real beat
     # budget instead: one per beat while there is room, more only when the budget forces it.
-    open_limit = direction_runtime.pace(direction.for_actor(None, attempt_cap), max_turns)
+    open_limit = direction_runtime.pace(direction.for_actor(None, attempt_cap), max_beats)
     if outcome:
         yield from tracer.emit(
             "plan", "The narrator plays out your choice", detail=outcome, data={"outcome": outcome}
@@ -289,17 +286,10 @@ def run_turn(
     # the last word of the turn: no holding narration, no follow-up suggestions stacked
     # under it, and the next turn may not ask again.
     asked_question = False
-    # When the planner is ALLOWED to ask. The conditions are the engine's, not the model's:
-    # nothing has happened yet this turn (a question after the scene has moved is answering
-    # nothing), the player's line is freeform rather than a direction the turn already owes,
-    # and the previous turn did not already stop to ask. A planner that may ask will ask too
-    # often, and a scene that stops moving is worse than a mediocre guess.
-    may_ask = (
-        not scene_opening
-        and not narrated_open
-        and not direction.active
-        and not puppet_members
-        and not events_store.ended_on_a_question(db, session.id, before_seq=seq0)
+    may_ask = turn_plan.may_ask(
+        db, session.id, before_seq=seq0, scene_opening=scene_opening,
+        narrated_open=narrated_open, direction_active=direction.active,
+        puppeted=bool(puppet_members),
     )
     beats = 0
     # Beats the planner has decided but the loop has not run yet. The planner was 41 % of
@@ -307,18 +297,28 @@ def run_turn(
     # for several at once and re-consulted only when this queue empties or is invalidated.
     planned: list[planner_agent.BeatDecision] = []
     lookahead = max(1, get_settings().turn_planner_lookahead)
+
+    verdict, planned = yield from turn_plan.preflight(
+        db, ctx, intent, turn_beats, acted, tracer,
+        approved=req.approved_plan, mode=settings.planner, lookahead=lookahead,
+        scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
+        direction=direction if direction.active else None, beat_budget=max_beats,
+        trace=bool(req.trace),
+    )
+    if verdict == "stop":
+        return
     while beats < max_beats:
         # Presence can change mid-turn (an exit beat, a vital stat bottoming out), so re-own
         # any requirement whose character just left before scheduling against it.
         direction.rebind({m.id for m in ctx.cast if m.is_present}, locked_id=pov_id)
         outstanding = direction.outstanding(attempt_cap)
-        remaining = max_turns - scene_beats
-        if scene_beats >= max_turns:
+        remaining = max_beats - scene_beats
+        if scene_beats >= max_beats:
             yield from tracer.emit(
                 "plan",
                 "Stopped at the runaway backstop",
                 detail=(
-                    f"Stopped after {scene_beats} beat(s), at the backstop of {max_turns}. "
+                    f"Stopped after {scene_beats} beat(s), at the backstop of {max_beats}. "
                     "This is not a pacing limit — the scene should have ended itself before "
                     "here, so reaching it means the planner never chose to stop."
                     + (
@@ -373,6 +373,7 @@ def run_turn(
                     direction=direction if direction.active else None, remaining_beats=remaining,
                     may_ask=may_ask and beats == 0,
                 )
+                yield from turn_plan.observe(ctx, planned, trace=bool(req.trace))
             # A planned beat is a prediction, and presence can change under it — a character
             # who was cut down two beats ago must not be picked because a stale plan said so.
             while planned and not direction_runtime.plan_still_valid(ctx, planned[0], locked_id=pov_id):

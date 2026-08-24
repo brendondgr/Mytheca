@@ -16,6 +16,8 @@ import {
   updateScenario,
 } from "@/lib/api";
 import type { ArtStyleId } from "@/lib/api";
+import type { PlanMode } from "@/components/feature/PlanModeButton";
+import type { PlannedBeat } from "@/lib/events";
 import { estimateUsedTokens } from "@/lib/contextBudget";
 import type {
   GhostwriteStreamFrame,
@@ -112,6 +114,20 @@ const PRESENCE_PHRASE: Record<PresenceStatus, string> = {
  *   `mentionOptions`), because who is present is its own state and the caller would have to
  *   read it back out to build the list.
  */
+/**
+ * A stored or wire planner value as the three the UI knows about.
+ *
+ * `"planner"` is the value this control shipped with and is still on scenario rows and in
+ * saved clients. It means exactly what `"auto"` means, so it is folded here — once, on the
+ * way in — rather than carried through the UI as a second name for one thing. `null` and
+ * anything unrecognised return `undefined` so the caller's own default applies.
+ */
+function asPlanMode(value: string | null | undefined): PlanMode | undefined {
+  if (value === "off" || value === "plan" || value === "auto") return value;
+  if (value === "planner") return "auto";
+  return undefined;
+}
+
 export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOption[] = []) {
   const [seed] = useState(() => buildScene(scenario));
   const [messages, setMessages] = useState<SceneMessage[]>(seed.messages);
@@ -134,6 +150,10 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // exists under Player POV (in Playwright mode the message box already IS the direction). Cleared on
   // send, and whenever POV is dropped, so stale steering never rides along with a later turn.
   const [guidance, setGuidance] = useState("");
+  // A plan the scene has stopped on and is waiting for the player to approve. `null` for
+  // every ordinary turn, which is why nothing about the default experience changes.
+  const [pendingPlan, setPendingPlan] = useState<PlannedBeat[] | null>(null);
+
   // Per-scene play controls (persisted on the scenario). Local state drives the composer
   // dropdowns; each change is written back so the backend reads it on the next turn.
   const [suggestionsCount, setSuggestionsCountState] = useState<number>(
@@ -149,8 +169,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   const [turnOverrides, setTurnOverrides] = useState<TurnOverridesBody>({});
   // Whether this scene runs the planner. Pinnable like the other three, because a player
   // may well want one fast turn without committing the whole scene to it.
-  const [plannerMode, setPlannerModeState] = useState<"planner" | "off">(
-    scenario.plannerMode === "off" ? "off" : "planner",
+  const [plannerMode, setPlannerModeState] = useState<PlanMode>(() =>
+    asPlanMode(scenario.plannerMode) ?? "auto",
   );
   const [tieScope, setTieScopeState] = useState<TieScope>(
     (scenario.tieScope as TieScope) ?? "scene",
@@ -565,6 +585,15 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       }
       return;
     }
+    if (frame.type === "plan") {
+      // Only a plan the turn STOPPED for goes on screen. Under `auto` the same frame rides
+      // along for the Inspector, and putting an approval panel over a turn that is already
+      // writing would offer a choice that cannot apply to it. The frame says which it is,
+      // rather than the client inferring it from the scene's current mode — the mode can
+      // change between a turn being sent and its frames arriving.
+      if (frame.awaitingApproval) setPendingPlan(frame.beats);
+      return;
+    }
     if (frame.type === "branch_choices") {
       setChoices(branchOptionsToChoices(frame.data.choices));
       // The planner's question (when it asked rather than guessed) rides on the beat, so it
@@ -577,6 +606,62 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   }, [rememberSession, notify, nameOf, setPresence]);
 
   const stream = useEventStream<TurnStreamFrame>(onFrame);
+
+  /**
+   * Approve the plan on screen: send it straight back, on the same session, and let the turn
+   * run it with no second planner call.
+   *
+   * The composer is deliberately NOT cleared and the player's line is NOT re-sent — the
+   * `user_turn` row was already written by the turn that produced this plan, and sending the
+   * text again would record the message twice and hand the cast a duplicated line.
+   */
+  const approvePlan = useCallback(() => {
+    const plan = pendingPlan;
+    if (!plan?.length || stream.status === "streaming") return;
+    setPendingPlan(null);
+    setStreamError(null);
+    void stream
+      .run((signal) =>
+        postTurn(
+          scenario.id,
+          {
+            text: "",
+            // A continuation, because the player's line was already recorded by the turn
+            // that produced this plan. Re-sending the text would write the `user_turn` row
+            // twice and hand the cast a duplicated line.
+            continuation: true,
+            sessionId: sessionRef.current,
+            trace: true,
+            povCharacterId: pov,
+            approvedPlan: plan,
+            // The turn's other overrides still apply, but WITHOUT `planner`: its value is
+            // what stopped this turn for approval in the first place, and sending it again
+            // would plan the approved plan and stop for approval a second time.
+            ...(turnOverrides.planner !== undefined
+              ? { overrides: { ...turnOverrides, planner: undefined } }
+              : (overridesBody as { overrides?: TurnOverridesBody })),
+          },
+          signal,
+        ),
+      )
+      .catch(() => setStreamError((e) => e ?? "The turn could not be completed."))
+      .finally(() => {
+        setActivityByChar({});
+        setTurnStatus(IDLE_TURN_STATUS);
+        setMessages(dropPendingBeats);
+        clearTurnOverrides();
+        void refreshSessions();
+      });
+    // `pendingPlan` is read from state and listed here rather than mirrored into a ref.
+    // Writing a ref during render is exactly the hazard the lint rule names, and the callback
+    // identity changing costs nothing: the only thing holding it re-renders with the plan.
+  }, [
+    scenario.id, stream, pov, pendingPlan, overridesBody, turnOverrides, clearTurnOverrides,
+    refreshSessions,
+  ]);
+
+  /** Dismiss the plan and go back to the composer. Nothing was written, so nothing is undone. */
+  const dismissPlan = useCallback(() => setPendingPlan(null), []);
   const sending = stream.status === "streaming";
   // Mirror into a ref so the record actions declared above can read it. Writing a ref in an
   // effect costs no extra render, unlike threading the value back up through state.
@@ -921,13 +1006,14 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   );
 
   const setPlannerMode = useCallback(
-    (value: "planner" | "off") => {
+    (value: PlanMode) => {
       if (!pinned.planner) {
         setTurnOverrides((o) => ({ ...o, planner: value }));
         return;
       }
       setPlannerModeState(value);
       clearOverride("planner");
+      // The wire still accepts `"planner"`; we only ever write the current three.
       void updateScenario(scenario.id, { plannerMode: value }).catch(() => {});
     },
     [scenario.id, pinned.planner, clearOverride],
@@ -951,7 +1037,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   const effective = useMemo(
     () => ({
       suggestionsCount: turnOverrides.suggestionsCount ?? suggestionsCount,
-      planner: turnOverrides.planner ?? plannerMode,
+      planner: asPlanMode(turnOverrides.planner) ?? plannerMode,
       ties: (turnOverrides.ties as TieScope | undefined) ?? tieScope,
     }),
     [turnOverrides, suggestionsCount, plannerMode, tieScope],
@@ -1100,6 +1186,10 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setSuggestionsCount,
     plannerMode,
     setPlannerMode,
+    // The plan on screen (Plan mode only), and the two things a player can do with it.
+    pendingPlan,
+    approvePlan,
+    dismissPlan,
     tieScope,
     setTieScope,
     graphAvailable,

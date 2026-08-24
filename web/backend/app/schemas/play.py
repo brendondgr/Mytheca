@@ -70,9 +70,20 @@ Register = Literal["light", "neutral", "tense", "grave"]
 #: ``None`` reads as ``"scene"``.
 TieScope = Literal["addressed", "scene", "world"]
 
-#: Whether the ReAct planner decides each beat, or the model-free scripted order does.
-#: ``None`` reads as ``"planner"`` — the behaviour that shipped.
-PlannerMode = Literal["planner", "off"]
+#: How the turn's plan is used.
+#:
+#: * ``"auto"`` — the planner decides each beat and the turn plays straight through. This is
+#:   the behaviour that shipped as ``"planner"``, which is still accepted and reads as this.
+#: * ``"plan"`` — the planner runs, the plan is streamed to the player as a ``plan`` frame,
+#:   and the turn **stops there**. Nothing is written until the player sends it back on
+#:   ``TurnRequest.approvedPlan``.
+#: * ``"off"`` — no planner call at all; ``services/beat_order`` decides who is next. A
+#:   different kind of choice from the two above (it changes what the app *is*, not whether
+#:   you approve its output), which is why the composer's Plan-mode control offers only the
+#:   first two and this one stays in the Config popover.
+#:
+#: ``None`` reads as ``"auto"``.
+PlannerMode = Literal["auto", "plan", "planner", "off"]
 
 
 class TurnOverrides(CamelModel):
@@ -112,6 +123,26 @@ class TurnOverrides(CamelModel):
     beat_register: Register | None = Field(default=None, alias="register")
     #: How wide a speaker's remembered history is for this turn — see ``TieScope``.
     ties: TieScope | None = None
+
+
+class ApprovedBeat(CamelModel):
+    """One beat of a plan the player has approved, as it comes back on the next request.
+
+    Deliberately the *decision*, not the prose: the player approves who acts and what they
+    are trying to do, and the writing still happens fresh. Approving a plan is not the same
+    as dictating lines, and an approved plan that carried text would quietly become the
+    second of those.
+    """
+
+    action: str
+    actor_id: str | None = None
+    addressing_id: str | None = None
+    reason: str = ""
+    #: Aliased for the same reason as ``TurnOverrides.beat_register`` — ``register`` shadows
+    #: ``ABCMeta.register`` on the metaclass and pydantic warns on every import.
+    beat_register: Register | None = Field(default=None, alias="register")
+    stakes: str = ""
+    status: str | None = None
 
 
 class TurnRequest(CamelModel):
@@ -188,6 +219,13 @@ class TurnRequest(CamelModel):
     #: the engine builds the requirements from them directly. Empty (the default) keeps
     #: today's behaviour exactly — free prose in the box is parsed by ``direction_agent``.
     directives: list[TurnDirective] = Field(default_factory=list)
+    #: A plan the player approved, sent straight back from the ``plan`` frame of a turn that
+    #: stopped for approval. When present the engine **executes it without re-planning** —
+    #: that is the whole point, since re-planning would produce a different turn from the one
+    #: that was approved. Roster-checked all the same: presence can change between the plan
+    #: being shown and it being sent, and a beat naming somebody who has since left is
+    #: dropped rather than run.
+    approved_plan: list[ApprovedBeat] = Field(default_factory=list)
     #: Scene settings for this turn only — see :class:`TurnOverrides`. Never written to the
     #: ``Scenario`` row, never shown to an agent, and persisted on the ``user_turn`` row only
     #: so the Inspector and the export can say what the turn actually ran with.
