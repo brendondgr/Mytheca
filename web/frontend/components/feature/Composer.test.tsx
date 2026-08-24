@@ -21,8 +21,6 @@ describe("Composer", () => {
         value=""
         onChange={() => {}}
         onSend={() => {}}
-        maxTurns={5}
-        onMaxTurnsChange={() => {}}
         suggestionsCount={4}
         onSuggestionsCountChange={() => {}}
       />,
@@ -102,7 +100,7 @@ describe("Composer", () => {
           value=""
           onChange={() => {}}
           onSend={() => {}}
-          onMaxTurnsChange={() => {}}
+          onSuggestionsCountChange={() => {}}
           onPovChange={() => {}}
           povOptions={POV_OPTS}
           pov={null}
@@ -677,6 +675,8 @@ describe("Composer direction verbs", () => {
         verbs={VERBS}
       />,
     );
+    // The verbs are collapsed by default now — open the disclosure before reaching for one.
+    fireEvent.click(screen.getByRole("button", { name: /^verbs$/i }));
     fireEvent.click(screen.getByRole("button", { name: "Escalate" }));
     expect(onChange).toHaveBeenCalledWith("Make it worse.");
   });
@@ -697,6 +697,8 @@ describe("Composer direction verbs", () => {
         verbs={VERBS}
       />,
     );
+    // The verbs are collapsed by default now — open the disclosure before reaching for one.
+    fireEvent.click(screen.getByRole("button", { name: /^verbs$/i }));
     fireEvent.click(screen.getByRole("button", { name: "Escalate" }));
     expect(onGuidanceChange).toHaveBeenCalledWith("Make it worse.");
     expect(onChange).not.toHaveBeenCalled();
@@ -719,6 +721,8 @@ describe("Composer direction verbs", () => {
         verbs={VERBS}
       />,
     );
+    // The verbs are collapsed by default now — open the disclosure before reaching for one.
+    fireEvent.click(screen.getByRole("button", { name: /^verbs$/i }));
     fireEvent.click(screen.getByRole("button", { name: "Escalate" }));
     expect(onChange).toHaveBeenCalledWith("Mei backs down\nMake it worse.");
   });
@@ -754,6 +758,7 @@ describe("Composer direction verbs", () => {
         verbs={VERBS}
       />,
     );
+    fireEvent.click(screen.getByRole("button", { name: /^verbs$/i }));
     expect(screen.getByRole("toolbar", { name: "Direction" })).toBeInTheDocument();
     rerender(
       <Composer
@@ -768,6 +773,9 @@ describe("Composer direction verbs", () => {
         verbs={VERBS}
       />,
     );
+    // No second click: this is the same component instance, so the disclosure is still open.
+    // That it survives a POV switch is itself the point — the row is the direction in both
+    // modes and only the box it writes into changes.
     expect(screen.getByRole("toolbar", { name: "Direction" })).toBeInTheDocument();
   });
 });

@@ -11,9 +11,13 @@ Two rules the resolver enforces, and they are not the same rule:
 * **The override wins when it is set at all.** ``suggestions_count = 0`` is a real request
   ("no follow-ups this turn"), so the test is ``is not None``, never truthiness.
 * **The row is re-clamped anyway.** The request schema guards the boundary; this guards the
-  data. ``Scenario.max_turns`` has no upper bound in the database and nothing stops a
-  hand-edited or imported row holding ``0``, and the assembler already takes the same
-  belt-and-braces line with ``context_beats``.
+  data — nothing stops a hand-edited or imported row holding a nonsense value, and the
+  assembler already takes the same belt-and-braces line with ``context_beats``.
+
+``max_turns`` and ``beat_length`` used to resolve here and no longer exist as controls: how
+many beats a message makes, and how long a beat is, are decided by the scene now. The
+``Scenario`` columns are left in place but unread — dropping them would break any other
+process still running against this database, and there is nothing to gain by rushing it.
 
 Nothing here is shown to an agent. These values decide how a turn is *run*, never what it is
 *about*, and that separation is what keeps a per-turn knob from becoming a back door into the
@@ -25,12 +29,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.models import Scenario
-from app.schemas.base import BEAT_LENGTHS, DEFAULT_BEAT_LENGTH, BeatLength
 from app.schemas.play import PlannerMode, Register, TieScope, TurnOverrides
 
-#: The per-turn ceiling on ``max_turns``, mirroring ``TurnOverrides``. A scene row may hold
-#: more; an override may not ask for more.
-MAX_TURNS_CEILING = 10
 #: Follow-up suggestions the director may be asked for. Mirrors ``ScenarioUpdate``.
 MAX_SUGGESTIONS = 4
 
@@ -39,9 +39,7 @@ MAX_SUGGESTIONS = 4
 class TurnSettings:
     """The resolved controls for one turn. Frozen: nothing downstream may edit them."""
 
-    max_turns: int
     suggestions_count: int
-    beat_length: BeatLength
     #: ``"planner"`` (the default) or ``"off"`` — see ``services/beat_order``.
     planner: PlannerMode = "planner"
     #: A register the player pinned for this turn, or ``None`` to let the scene decide.
@@ -58,19 +56,12 @@ def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnS
     """
     ov = overrides or TurnOverrides()
 
-    max_turns = ov.max_turns if ov.max_turns is not None else scenario.max_turns
-    max_turns = max(1, min(int(max_turns or 1), MAX_TURNS_CEILING))
-
     suggestions = (
         ov.suggestions_count
         if ov.suggestions_count is not None
         else scenario.suggestions_count
     )
     suggestions = max(0, min(int(suggestions or 0), MAX_SUGGESTIONS))
-
-    beat_length = ov.beat_length or scenario.beat_length
-    if beat_length not in BEAT_LENGTHS:
-        beat_length = DEFAULT_BEAT_LENGTH
 
     planner = ov.planner or getattr(scenario, "planner_mode", None) or "planner"
     if planner not in ("planner", "off"):
@@ -81,9 +72,7 @@ def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnS
         ties = "scene"
 
     return TurnSettings(
-        max_turns=max_turns,
         suggestions_count=suggestions,
-        beat_length=beat_length,
         planner=planner,
         register=ov.beat_register,
         ties=ties,

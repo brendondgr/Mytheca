@@ -191,7 +191,7 @@ describe("StoryPlayerView", () => {
     expect(await screen.findByText("+67")).toBeInTheDocument(); // clamped value from the stream
   });
 
-  it("persists scene-config controls (suggestions + beats) to the scenario when changed", async () => {
+  it("persists a scene-config control to the scenario when changed", async () => {
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
     // The controls live in the scene-config popover — open it first.
@@ -201,15 +201,8 @@ describe("StoryPlayerView", () => {
       embergate.id,
       expect.objectContaining({ suggestionsCount: 2 }),
     );
-    // ...and the beat-length tier, which is the whole point of the control: without the
-    // PATCH the dropdown moves and the next turn is written at the old length.
-    fireEvent.change(screen.getByRole("combobox", { name: /how much a character says/i }), {
-      target: { value: "short" },
-    });
-    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(
-      embergate.id,
-      expect.objectContaining({ beatLength: "short" }),
-    );
+    // The beat-length half of this test went with the control: how long a beat is is the
+    // scene's judgement now, not a tier the player sets and the next turn is written at.
   });
 
   it("lays four follow-up suggestions out in a 2×2 grid", async () => {

@@ -17,7 +17,7 @@ the next few beats (``speak`` / ``narrate`` / ``exit`` / ``end``) from the *pres
 in one call, with the POV character locked out, and the loop executes them until the plan
 runs out or reality diverges from it — a character exits, presence changes, the direction
 takes the schedule over — at which point it re-plans. ``TURN_PLANNER_LOOKAHEAD`` sets the
-depth (1 restores the original once-per-beat behaviour). The loop is bounded by the scene's ``max_turns`` and a
+depth (1 restores the original once-per-beat behaviour). The loop is bounded only by the runaway backstop ``turn_max_beats`` and a
 runaway backstop of ``max(TURN_MAX_BEATS, 2 * len(cast) + 6)``. This replaced the earlier
 one-shot director (``director_agent.who_is_up`` / ``rerank``), which is now dead code kept
 only for its unit tests.
@@ -27,7 +27,7 @@ directing — their own line in Playwright mode, the separate ``guidance`` box u
 — the turn owes a list of ``direction_agent`` requirements. The planner sees what is still
 owed and how many beats are left; once the budget is as tight as the direction is long the
 engine stops asking and runs ``direction_agent.schedule`` itself, so everything asked for
-lands inside ``scenario.max_turns``. Each beat carries only *its* requirements into the
+lands inside the beat budget. Each beat carries only *its* requirements into the
 prompt, as an outcome to reach — the speaker still chooses their own words and stays in
 character.
 
@@ -160,14 +160,21 @@ def run_turn(
         yield from emitter.emit(
             "cast_request", {"characterId": guest.id, "reason": reason}
         )
-    # Per-scene hard ceiling on the beats a single player message produces (Scene Dialogue
-    # Updates). The planner may still end the turn earlier; this only caps a drawn-out
-    # exchange. The ceiling counts EVERY emitted beat — character replies AND narrator beats
-    # (request #3) — so a hard cap of N is never exceeded: the scene-setting narrated open
-    # and any puppet performances count toward it, as does each mid-turn interstitial.
-    # Resolved here (rather than beside the loop) because the opening narration below has to
-    # know how much of the direction it must absorb.
-    max_turns = settings.max_turns
+    # How many beats one player message may produce: **as many as the moment needs**.
+    #
+    # This was a player setting (`maxTurns`, 1-10, default 5) and it bound hard — a live
+    # smoke turn produced exactly five beats and stopped, because five was the number, not
+    # because the scene was finished. Asking a player how many beats a message should make is
+    # asking them to decide the pacing of a scene they have not read yet.
+    #
+    # What is left is the RUNAWAY BACKSTOP, a different thing with a different job:
+    # `turn_max_beats` (24) exists to stop a loop, not to pace a scene, and is not
+    # player-facing. The planner decides when the turn is done — `max_turns` merely overrode
+    # it. The backstop still counts EVERY emitted beat, so it cannot be walked past. Resolved
+    # here rather than beside the loop because the opening narration has to know how much of
+    # the direction it may absorb.
+    max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
+    max_turns = max_beats
     # How many beats may attempt one requirement before the turn stops re-owing it. Read
     # once: it bounds every `outstanding`/`for_actor` call below, and a requirement that
     # answered a different cap in two places would flicker in and out of the owed list.
@@ -266,7 +273,6 @@ def run_turn(
     # interior stays current for when the AI takes them back over.
     if pov_id is not None:
         acted.append(pov_id)
-    max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
     scene_beats = len(puppet_members) + (1 if narrated_open else 0)
     # How many characters have actually spoken prose this turn (puppets included — the
     # player directed them, but they still took a beat). The exchange guard below reads it.
@@ -310,12 +316,13 @@ def run_turn(
         if scene_beats >= max_turns:
             yield from tracer.emit(
                 "plan",
-                "Reached the scene's turn limit",
+                "Stopped at the runaway backstop",
                 detail=(
-                    f"Stopped after {scene_beats} beat(s) (scene cap of {max_turns})."
+                    f"Stopped after {scene_beats} beat(s), at the backstop of {max_turns}. "
+                    "This is not a pacing limit — the scene should have ended itself before "
+                    "here, so reaching it means the planner never chose to stop."
                     + (
-                        f" {len(outstanding)} part(s) of your direction did not fit —"
-                        " raise the scene's turn limit to give it more room."
+                        f" {len(outstanding)} part(s) of your direction did not fit."
                         if outstanding
                         else ""
                     )

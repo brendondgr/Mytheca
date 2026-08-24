@@ -99,87 +99,38 @@ _FOUR_SPEAKERS = [
 ]
 
 
-def test_max_turns_override_caps_the_turn_and_leaves_the_scene_alone(
-    client, storyline_id, monkeypatch
-):
-    _configure_llm(client)
-    _route(monkeypatch, _FOUR_SPEAKERS)
-    scid, ids = _scene(client, storyline_id, maxTurns=5)
+def test_the_retired_overrides_are_ignored_rather_than_rejected(client, storyline_id, monkeypatch):
+    """`maxTurns` and `beatLength` are gone as controls, and an old client must still work.
 
-    events = _stream(
-        client.post(
-            f"/api/play/{scid}/turn",
-            json={
-                "text": "I address the room.",
-                "directedAt": ids[0],
-                "overrides": {"maxTurns": 2},
-            },
-        )
-    )
+    Three tests used to live here: one pinning that `maxTurns` capped a turn, one that the
+    cap sprang back afterwards, and one that `beatLength` reached the character prompt. All
+    three tested controls that have been removed — how many beats a message makes and how
+    long a beat is are the scene's judgement now, not a number set once in a popover.
 
-    assert _prose_count(events) == 2
-    # The whole point: the scene is what it was before the turn.
-    assert client.get(f"/api/scenarios/{scid}").json()["maxTurns"] == 5
-
-
-def test_a_later_turn_without_the_override_is_back_to_the_scene(
-    client, storyline_id, monkeypatch
-):
-    """The spring-back, proved from the server side: the override is spent, not sticky."""
-    _configure_llm(client)
-    _route(monkeypatch, _FOUR_SPEAKERS)
-    scid, ids = _scene(client, storyline_id, maxTurns=4)
-
-    first = _stream(
-        client.post(
-            f"/api/play/{scid}/turn",
-            json={"text": "One.", "directedAt": ids[0], "overrides": {"maxTurns": 1}},
-        )
-    )
-    session_id = next(e["sessionId"] for e in first if e.get("sessionId"))
-    # A fresh plan for the second turn. The scripted decisions are an iterator shared by
-    # every planner call, and a capped turn does not consume all of them — reusing it would
-    # make this assertion a test of how many the FIRST turn happened to take.
-    _route(monkeypatch, _FOUR_SPEAKERS)
-    second = _stream(
-        client.post(
-            f"/api/play/{scid}/turn",
-            json={"text": "Two.", "directedAt": ids[0], "sessionId": session_id},
-        )
-    )
-
-    assert _prose_count(first) == 1
-    assert _prose_count(second) == 4
-
-
-def test_beat_length_override_reaches_the_character_prompt(client, storyline_id, monkeypatch):
-    """`ctx.beat_length` has two readers; the prompt directive is the one that is visible.
-
-    Asserted against the tier's own directive text rather than "the prompts differ" — two
-    turns differ anyway, in their history and their player line, so a difference proves
-    nothing about the override.
+    What replaces them is the compatibility promise, which is the part that can still break
+    for somebody: a saved client or a bookmarked request sending the old fields gets a normal
+    turn, not a 422.
     """
     _configure_llm(client)
-    short_directive = character_turn_agent._BEAT_LENGTH_DIRECTIVES["short"]
-    long_directive = character_turn_agent._BEAT_LENGTH_DIRECTIVES["long"]
+    _route(monkeypatch, [{"action": "speak", "actor": 1}, {"action": "end"}])
+    scid, ids = _scene(client, storyline_id, names=("Ana",))
 
-    default_prompts: list[str] = []
-    _route(monkeypatch, [{"action": "speak", "actor": 1}, {"action": "end"}], prompts=default_prompts)
-    scid, ids = _scene(client, storyline_id, names=("Ana",), beatLength="short")
-
-    client.post(f"/api/play/{scid}/turn", json={"text": "Hi.", "directedAt": ids[0]})
-    assert any(short_directive in p for p in default_prompts)
-
-    overridden: list[str] = []
-    _route(monkeypatch, [{"action": "speak", "actor": 1}, {"action": "end"}], prompts=overridden)
-    client.post(
+    resp = client.post(
         f"/api/play/{scid}/turn",
-        json={"text": "Hi again.", "directedAt": ids[0], "overrides": {"beatLength": "long"}},
+        json={
+            "text": "Hi.",
+            "directedAt": ids[0],
+            "overrides": {"maxTurns": 2, "beatLength": "long", "suggestionsCount": 0},
+        },
     )
-
-    assert any(long_directive in p for p in overridden)
-    assert not any(short_directive in p for p in overridden)
-    assert client.get(f"/api/scenarios/{scid}").json()["beatLength"] == "short"
+    assert resp.status_code == 200
+    events = _stream(resp)
+    session_id = next(e["sessionId"] for e in events if e.get("sessionId"))
+    history = client.get(f"/api/play/{scid}/sessions/{session_id}").json()
+    row = next(e for e in history["events"] if e["type"] == "user_turn")
+    # Only the override that still exists is recorded. The dropped ones leave no trace,
+    # rather than being written to the row as settings the turn did not actually run with.
+    assert row["data"]["overrides"] == {"suggestionsCount": 0}
 
 
 def test_zero_suggestions_override_suppresses_the_branch_event(
@@ -216,7 +167,7 @@ def test_the_user_turn_row_records_what_the_turn_ran_with(client, storyline_id, 
             json={
                 "text": "I press her.",
                 "directedAt": ids[0],
-                "overrides": {"maxTurns": 1, "suggestionsCount": 0},
+                "overrides": {"suggestionsCount": 0},
             },
         )
     )
@@ -224,7 +175,7 @@ def test_the_user_turn_row_records_what_the_turn_ran_with(client, storyline_id, 
     history = client.get(f"/api/play/{scid}/sessions/{session_id}").json()
     row = next(e for e in history["events"] if e["type"] == "user_turn")
 
-    assert row["data"]["overrides"] == {"maxTurns": 1, "suggestionsCount": 0}
+    assert row["data"]["overrides"] == {"suggestionsCount": 0}
 
 
 def test_a_turn_with_no_overrides_writes_no_key(client, storyline_id, monkeypatch):
@@ -250,7 +201,7 @@ def test_an_out_of_range_override_is_rejected_at_the_boundary(client, storyline_
 
     resp = client.post(
         f"/api/play/{scid}/turn",
-        json={"text": "Hi.", "directedAt": ids[0], "overrides": {"maxTurns": 99}},
+        json={"text": "Hi.", "directedAt": ids[0], "overrides": {"suggestionsCount": 99}},
     )
 
     assert resp.status_code == 422

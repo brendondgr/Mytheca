@@ -5,15 +5,9 @@ import { SceneConfigMenu } from "./SceneConfigMenu";
 
 function setup(overrides: Record<string, unknown> = {}) {
   const props = {
-    maxTurns: 5,
-    onMaxTurnsChange: vi.fn(),
     suggestionsCount: 4,
     onSuggestionsCountChange: vi.fn(),
-    onContextBeatsChange: vi.fn(),
-    beatLength: "medium" as const,
-    onBeatLengthChange: vi.fn(),
     onPinnedChange: vi.fn(),
-    onPresetChange: vi.fn(),
     onPlannerModeChange: vi.fn(),
     onRegisterChange: vi.fn(),
     onTieScopeChange: vi.fn(),
@@ -29,13 +23,12 @@ describe("SceneConfigMenu", () => {
     setup();
     // Closed by default — no controls in the DOM.
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: /how many beats one message produces/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /follow-up ideas/i })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
     expect(screen.getByRole("dialog", { name: /scene configuration/i })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /how many beats one message produces/i })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /follow-up ideas/i })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /how much a character says/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /turn planning/i })).toBeInTheDocument();
   });
 
   it("fires the change handlers for turns and suggestions", async () => {
@@ -43,9 +36,7 @@ describe("SceneConfigMenu", () => {
     const props = setup();
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
 
-    await user.selectOptions(screen.getByRole("combobox", { name: /how many beats one message produces/i }), "3");
     await user.selectOptions(screen.getByRole("combobox", { name: /follow-up ideas/i }), "0");
-    expect(props.onMaxTurnsChange).toHaveBeenCalledWith(3);
     expect(props.onSuggestionsCountChange).toHaveBeenCalledWith(0);
   });
 
@@ -61,13 +52,19 @@ describe("SceneConfigMenu", () => {
     expect(screen.queryByText(/number of beats/i)).not.toBeInTheDocument();
   });
 
-  it("keeps the three controls that are genuinely the player's to choose", async () => {
+  it("keeps the controls that are genuinely the player's to choose", async () => {
+    // Pacing is no longer among them. How many beats a message makes and how long a beat is
+    // are the scene's judgement, so what is left here is what a player can answer better
+    // than the app can: how many follow-ups they want, whether a director reads each moment,
+    // and how much history a character carries.
     const user = userEvent.setup();
     setup();
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-    expect(screen.getByRole("combobox", { name: /how many beats one message produces/i })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /follow-up ideas/i })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /how much a character says/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /turn planning/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: /how much history a character carries/i }),
+    ).toBeInTheDocument();
   });
 
   it("closes on Escape", async () => {
@@ -80,45 +77,6 @@ describe("SceneConfigMenu", () => {
   });
 });
 
-describe("SceneConfigMenu / beat length", () => {
-  it("offers the three tiers, showing the paragraph counts that are the contract", async () => {
-    const user = userEvent.setup();
-    setup();
-    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-
-    const select = screen.getByRole("combobox", { name: /how much a character says/i });
-    expect(select).toHaveValue("medium");
-    // The counts are shown because they ARE the setting — "Short" alone tells the reader
-    // nothing about what they are choosing.
-    expect(screen.getByRole("option", { name: /short/i })).toHaveTextContent("1–2");
-    expect(screen.getByRole("option", { name: /medium/i })).toHaveTextContent("2–4");
-    expect(screen.getByRole("option", { name: /long/i })).toHaveTextContent("5–6");
-  });
-
-  it("fires the change handler with the tier, not with NaN", async () => {
-    const user = userEvent.setup();
-    const props = setup();
-    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-
-    await user.selectOptions(screen.getByRole("combobox", { name: /how much a character says/i }), "long");
-    expect(props.onBeatLengthChange).toHaveBeenCalledWith("long");
-  });
-
-  it("defaults to medium when the scenario has never set one", async () => {
-    const user = userEvent.setup();
-    render(<SceneConfigMenu onBeatLengthChange={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-    expect(screen.getByRole("combobox", { name: /how much a character says/i })).toHaveValue("medium");
-  });
-
-  it("is disabled when no handler is supplied, like its neighbours", async () => {
-    const user = userEvent.setup();
-    render(<SceneConfigMenu />);
-    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-    expect(screen.getByRole("combobox", { name: /how much a character says/i })).toBeDisabled();
-  });
-});
-
 describe("SceneConfigMenu says what each control does", () => {
   it("gives every control an accessible description of its effect", async () => {
     // The review's finding was that nothing tells a new player what any of this is. The
@@ -127,9 +85,8 @@ describe("SceneConfigMenu says what each control does", () => {
     setup();
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
     for (const name of [
-      /how many beats one message produces/i,
       /follow-up ideas offered after each turn/i,
-      /how much a character says at once/i,
+      /how much history a character carries/i,
     ]) {
       expect(screen.getByRole("combobox", { name })).toHaveAccessibleDescription(/\w/);
     }
@@ -140,17 +97,22 @@ describe("SceneConfigMenu says what each control does", () => {
     setup();
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
     // The old names described the machine ("Max turns", "Beat length"); these describe what
-    // the player gets.
+    // the player gets. Both of those controls have since been removed outright — pacing is
+    // the scene's judgement now — so this also pins that they did not come back.
     expect(screen.queryByRole("combobox", { name: "Max turns" })).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "Beat length" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: /how many beats one message produces/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: /how much a character says at once/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("reports what the scene remembers instead of asking for it", async () => {
     const user = userEvent.setup();
     render(
       <SceneConfigMenu
-        maxTurns={5}
-        onMaxTurnsChange={() => {}}
         sceneMemory={{
           windowBeats: 40,
           windowSource: "detected",
@@ -170,8 +132,6 @@ describe("SceneConfigMenu says what each control does", () => {
     const user = userEvent.setup();
     render(
       <SceneConfigMenu
-        maxTurns={5}
-        onMaxTurnsChange={() => {}}
         summarised
         sceneMemory={{
           windowBeats: 40,
@@ -202,18 +162,12 @@ describe("SceneConfigMenu says what each control does", () => {
     setup();
     await user.click(screen.getByRole("button", { name: /scene configuration/i }));
     expect(
-      screen.getByRole("combobox", { name: /how many beats one message produces/i }),
+      screen.getByRole("combobox", { name: /follow-up ideas/i }),
     ).not.toHaveAccessibleDescription(/per extra beat/i);
   });
 
   describe("pins — per-turn versus permanent", () => {
-    const ALL_PINNED = {
-      maxTurns: true,
-      suggestionsCount: true,
-      beatLength: true,
-      planner: true,
-      ties: true,
-    };
+    const ALL_PINNED = { suggestionsCount: true, planner: true, ties: true };
 
     async function open(overrides = {}) {
       const user = userEvent.setup();
@@ -224,7 +178,7 @@ describe("SceneConfigMenu says what each control does", () => {
 
     it("gives every control a pin whose accessible name states the scope", async () => {
       await open({ pinned: ALL_PINNED });
-      for (const name of ["Max turns", "Suggestions", "Beat length"]) {
+      for (const name of ["Suggestions", "Turn planning", "Ties"]) {
         const pin = screen.getByRole("button", { name: `${name} — pinned to this scene` });
         expect(pin).toHaveAttribute("aria-pressed", "true");
       }
@@ -233,23 +187,25 @@ describe("SceneConfigMenu says what each control does", () => {
     it("says 'this turn only' on an unpinned control, in the name and on the row", async () => {
       // Scope is never colour alone: the pin's accessible name carries it for a screen
       // reader, and the caption carries it visibly.
-      await open({ pinned: { ...ALL_PINNED, beatLength: false } });
-      const pin = screen.getByRole("button", { name: "Beat length — this turn only" });
+      await open({ pinned: { ...ALL_PINNED, suggestionsCount: false } });
+      const pin = screen.getByRole("button", { name: "Suggestions — this turn only" });
       expect(pin).toHaveAttribute("aria-pressed", "false");
       // Scoped to this row: the register row carries a PERMANENT "· this turn" tag, so a
       // bare text query would match two and prove nothing about the pin.
       const row = screen
-        .getByRole("combobox", { name: /how much a character says at once/i })
+        .getByRole("combobox", { name: /follow-up ideas/i })
         .closest("div");
       expect(row).toHaveTextContent(/· this turn/i);
     });
 
     it("reports the flip rather than changing the setting", async () => {
       const { user, props } = await open({ pinned: ALL_PINNED });
-      await user.click(screen.getByRole("button", { name: "Max turns — pinned to this scene" }));
-      expect(props.onPinnedChange).toHaveBeenCalledWith("maxTurns", false);
+      await user.click(
+        screen.getByRole("button", { name: "Suggestions — pinned to this scene" }),
+      );
+      expect(props.onPinnedChange).toHaveBeenCalledWith("suggestionsCount", false);
       // A pin says where a change goes; it is not itself a change.
-      expect(props.onMaxTurnsChange).not.toHaveBeenCalled();
+      expect(props.onSuggestionsCountChange).not.toHaveBeenCalled();
     });
 
     it("hides the spring-back footer while everything is pinned", async () => {
@@ -298,250 +254,11 @@ describe("SceneConfigMenu says what each control does", () => {
       await open();
       expect(screen.queryByText(/spring back/i)).not.toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Max turns — pinned to this scene" }),
+        screen.getByRole("button", { name: "Suggestions — pinned to this scene" }),
       ).toBeInTheDocument();
-    });
-  });
-
-  describe("scene presets", () => {
-    const PRESETS = [
-      {
-        id: "fast_banter",
-        label: "Fast banter",
-        blurb: "Short beats, quick exchanges, plenty of follow-ups.",
-        values: { maxTurns: 3, suggestionsCount: 4, beatLength: "short" as const },
-      },
-      {
-        id: "slow_burn",
-        label: "Slow burn",
-        blurb: "Long beats, fewer of them.",
-        values: { maxTurns: 6, suggestionsCount: 2, beatLength: "long" as const },
-      },
-    ];
-
-    async function openWith(overrides = {}) {
-      const user = userEvent.setup();
-      const props = setup({ presets: PRESETS, ...overrides });
-      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-      return { user, props };
-    }
-
-    it("offers Custom plus every preset, above the individual controls", async () => {
-      await openWith();
-      const picker = screen.getByRole("combobox", { name: /what kind of scene this is/i });
-      expect([...picker.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
-        "Custom",
-        "Fast banter",
-        "Slow burn",
-      ]);
-    });
-
-    it("renders the named preset's blurb", async () => {
-      await openWith({ scenePreset: "slow_burn", presetState: "clean" });
-      expect(
-        screen.getByRole("combobox", { name: /what kind of scene this is/i }),
-      ).toHaveAccessibleDescription(/long beats, fewer of them/i);
-    });
-
-    it("reports the pick rather than setting the controls itself", async () => {
-      const { user, props } = await openWith();
-      await user.selectOptions(
-        screen.getByRole("combobox", { name: /what kind of scene this is/i }),
-        "fast_banter",
-      );
-      expect(props.onPresetChange).toHaveBeenCalledWith("fast_banter");
-      expect(props.onMaxTurnsChange).not.toHaveBeenCalled();
-    });
-
-    it("clears the preset when Custom is chosen", async () => {
-      const { user, props } = await openWith({ scenePreset: "fast_banter", presetState: "clean" });
-      await user.selectOptions(
-        screen.getByRole("combobox", { name: /what kind of scene this is/i }),
-        "Custom",
-      );
-      expect(props.onPresetChange).toHaveBeenCalledWith(null);
-    });
-
-    it("marks a drifted scene and offers a reset", async () => {
-      const { user, props } = await openWith({
-        scenePreset: "slow_burn",
-        presetState: "modified",
-      });
-      expect(screen.getByText(/· modified/i)).toBeInTheDocument();
-
-      await user.click(screen.getByRole("button", { name: /reset to slow burn/i }));
-      expect(props.onPresetChange).toHaveBeenCalledWith("slow_burn");
-    });
-
-    it("offers no reset while the scene still matches its preset", async () => {
-      await openWith({ scenePreset: "slow_burn", presetState: "clean" });
-      expect(screen.queryByRole("button", { name: /reset to/i })).not.toBeInTheDocument();
-      expect(screen.queryByText(/· modified/i)).not.toBeInTheDocument();
-    });
-
-    it("hides the picker entirely when no catalogue arrived", async () => {
-      // A failed fetch must leave every underlying control exactly where it was.
-      const user = userEvent.setup();
-      setup();
-      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-      expect(
-        screen.queryByRole("combobox", { name: /what kind of scene this is/i }),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.getByRole("combobox", { name: /how many beats one message produces/i }),
-      ).toBeInTheDocument();
-    });
-  });
-
-  describe("turn planning", () => {
-    it("offers both modes with the director's job spelled out", async () => {
-      const user = userEvent.setup();
-      setup({ onPlannerModeChange: vi.fn() });
-      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-      const control = screen.getByRole("combobox", { name: /turn planning/i });
-      expect([...control.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
-        "On · a director reads each moment",
-        "Off · the cast answers in order",
-      ]);
-      expect(control).toHaveAccessibleDescription(/over half of a turn/i);
-    });
-
-    it("states the LOSS when planning is off, not only the speed", async () => {
-      // A control that advertised the saving without the cost would be lying.
-      const user = userEvent.setup();
-      setup({ plannerMode: "off", onPlannerModeChange: vi.fn() });
-      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-      const control = screen.getByRole("combobox", { name: /turn planning/i });
-      expect(control).toHaveAccessibleDescription(/nothing judges the moment/i);
-      expect(control).toHaveAccessibleDescription(/no scene-setting narration/i);
-      expect(control).toHaveAccessibleDescription(/stays in the rotation/i);
-    });
-
-    it("reports the change", async () => {
-      const user = userEvent.setup();
-      const props = setup({ onPlannerModeChange: vi.fn() });
-      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-      await user.selectOptions(screen.getByRole("combobox", { name: /turn planning/i }), "off");
-      expect(props.onPlannerModeChange).toHaveBeenCalledWith("off");
-    });
-
-    it("is pinnable like the other controls", async () => {
-      const user = userEvent.setup();
-      const props = setup({ onPlannerModeChange: vi.fn() });
-      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-      await user.click(
-        screen.getByRole("button", { name: "Turn planning — pinned to this scene" }),
-      );
-      expect(props.onPinnedChange).toHaveBeenCalledWith("planner", false);
-    });
-  });
-
-  describe("register", () => {
-    async function open(overrides = {}) {
-      const user = userEvent.setup();
-      const props = setup({ onRegisterChange: vi.fn(), ...overrides });
-      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-      return { user, props };
-    }
-
-    it("offers Auto plus the four registers", async () => {
-      await open();
-      const control = screen.getByRole("combobox", { name: /how this moment is pitched/i });
-      expect([...control.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
-        "Auto · the scene decides",
-        "Light",
-        "Neutral",
-        "Tense",
-        "Grave",
-      ]);
-    });
-
-    it("carries a permanent 'this turn' tag and no pin", async () => {
-      // It is per-turn by construction: how tense a beat is belongs to a moment, so there
-      // is nothing to pin it to.
-      await open();
-      expect(
-        screen.queryByRole("button", { name: /^Register — /i }),
-      ).not.toBeInTheDocument();
-      const row = screen
-        .getByRole("combobox", { name: /how this moment is pitched/i })
-        .closest("div");
-      expect(row).toHaveTextContent(/· this turn/i);
-    });
-
-    it("says what it does NOT do", async () => {
-      // A control called "register" sitting under "who speaks" invites that misreading.
-      await open();
-      expect(
-        screen.getByRole("combobox", { name: /how this moment is pitched/i }),
-      ).toHaveAccessibleDescription(/does not decide who speaks/i);
-    });
-
-    it("reports a pick, and clears back to Auto", async () => {
-      const { user, props } = await open({ register: "grave" });
-      const control = screen.getByRole("combobox", { name: /how this moment is pitched/i });
-      await user.selectOptions(control, "tense");
-      expect(props.onRegisterChange).toHaveBeenCalledWith("tense");
-
-      await user.selectOptions(control, "Auto · the scene decides");
-      expect(props.onRegisterChange).toHaveBeenCalledWith(null);
-    });
-  });
-
-  describe("ties — the story graph, under the player's control", () => {
-    async function open(overrides = {}) {
-      const user = userEvent.setup();
-      const props = setup(overrides);
-      await user.click(screen.getByRole("button", { name: /scene configuration/i }));
-      return { user, props };
-    }
-
-    it("offers the three scopes", async () => {
-      await open();
-      const control = screen.getByRole("combobox", { name: /how much history a character carries/i });
-      expect([...control.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
-        "Whoever they're talking to",
-        "Everyone in the room",
-        "…and people elsewhere",
-      ]);
-    });
-
-    it("defaults to the room, not the addressee", async () => {
-      // A speaker carrying only the addressee's history is why two characters could stand
-      // in the same room with a decade between them and neither mention it.
-      await open();
-      expect(
-        screen.getByRole("combobox", { name: /how much history a character carries/i }),
-      ).toHaveValue("scene");
-    });
-
-    it("warns that the world stop can introduce a stranger", async () => {
-      await open({ tieScope: "world" });
-      expect(
-        screen.getByRole("combobox", { name: /how much history a character carries/i }),
-      ).toHaveAccessibleDescription(/someone the scene has never introduced/i);
-    });
-
-    it("disables itself AND says why when there is no graph", async () => {
-      // A control that silently does nothing is worse than one that is honestly unavailable.
-      await open({ graphAvailable: false });
-      const control = screen.getByRole("combobox", { name: /how much history a character carries/i });
-      expect(control).toBeDisabled();
-      expect(control).toHaveAccessibleDescription(/the story graph is off for this install/i);
-    });
-
-    it("disables its pin too when there is no graph", async () => {
-      await open({ graphAvailable: false });
-      expect(screen.getByRole("button", { name: /^Ties — /i })).toBeDisabled();
-    });
-
-    it("reports a change", async () => {
-      const { user, props } = await open();
-      await user.selectOptions(
-        screen.getByRole("combobox", { name: /how much history a character carries/i }),
-        "world",
-      );
-      expect(props.onTieScopeChange).toHaveBeenCalledWith("world");
     });
   });
 });
+
+
+  

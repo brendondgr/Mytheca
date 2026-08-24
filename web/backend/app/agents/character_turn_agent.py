@@ -155,45 +155,39 @@ _REGISTER_DIRECTIVES = {
     ),
 }
 
-# How much this character says in one beat — the per-scene ``beat_length``, set from the
-# scene config menu. Stated as a PARAGRAPH count, deliberately, and never as a word count.
+# How long a beat is: **whatever the moment needs**, and nothing in the prompt says a number.
 #
-# A countable word target has already been tried on this codebase and failed: a "usually
-# 80–200 words" instruction moved the average passage *up* rather than down
-# (EXP-2026-08-007 § Secondary finding). A model cannot count words while writing, so a
+# This replaced a three-tier `beat_length` control ("one or two paragraphs" / "two to four" /
+# "five or six") that the player set once for a whole scene. It worked exactly as instructed,
+# which was the problem: a live smoke run over two turns produced beats of 4, 3, 5, 5, 3, 3,
+# 4, 3, 3 paragraphs — a tight band around the tier, never one paragraph and never ten, on
+# moments that plainly differed. A character who has one thing to say was padding to reach
+# the floor, and one with a lot to say was stopping at the ceiling.
+#
+# **A count is what a model can obey without judging.** That is why the old tiers bound so
+# well and why they had to go: the whole point is that the length should be a *consequence*
+# of the beat, and a number in the prompt makes it an input instead. So this states the
+# principle and the two failure modes, and gives no target to hit.
+#
+# The floor and ceiling are named as legitimate, not as limits — "one paragraph" and "as long
+# as it takes" both have to sound allowed, or the model will infer a safe middle and sit in
+# it, which is where it already was.
+#
+# NOT a word count. EXP-2026-08-007 § Secondary finding measured a "usually 80-200 words"
+# instruction moving the average passage *up*: a model cannot count words while writing, so a
 # numeric target reads to it as a description of the register — long, careful prose — and it
-# obliges. Paragraphs are different in kind: the model is already producing them
-# deliberately and reliably (3.89 ± 1.29 measured in EXP-2026-08-009), so a paragraph count
-# asks it to control an axis it already controls.
+# obliges. Whatever replaces this must not reintroduce one.
 #
-# Quoted dialogue is exempted from the per-paragraph sentence guidance in so many words. A
-# spoken line is not a sentence of description, and charging it as one would make the
-# instruction trade away the very thing the prose fix was for.
-#
-# The tiers are the owner's, verbatim. Note that ``long`` is LONGER than what shipped before
-# this control existed; ``medium`` is the default and the closest match to it.
-_BEAT_LENGTH_DIRECTIVES = {
-    "short": (
-        "LENGTH: keep this beat SHORT — one or two paragraphs, no more. Say the one thing "
-        "that matters and stop; leave the rest for your next turn."
-    ),
-    "medium": (
-        "LENGTH: two to four paragraphs for this beat."
-    ),
-    "long": (
-        "LENGTH: give this beat room — five or six paragraphs. Let it breathe: what you "
-        "notice, what you do, what you say, and what it costs you."
-    ),
-}
-#: Appended to whichever directive applies. Split out because it is the same rule at every
-#: tier and repeating it three times invites the three copies to drift.
-_BEAT_LENGTH_SHAPE = (
-    " Keep each paragraph to three or four sentences at most — lines of spoken dialogue do "
-    "not count toward that."
+# The token allowance below is untouched and stays a BACKSTOP. Nothing here bounds length;
+# `_VOICE_PROSE_TOKENS` bounds a runaway, which is a different job.
+_LENGTH_DIRECTIVE = (
+    "LENGTH: exactly as long as this beat needs and no longer. If one paragraph says it, "
+    "write one and stop — a short beat is a complete beat. If the moment genuinely earns "
+    "more, take it, and keep going as long as something is still happening. Never pad to "
+    "seem substantial, and never cut something off because the beat feels long. Let each "
+    "paragraph end where its thought ends."
 )
 
-# Default output contract text now lives in ``prompt_registry`` (single source of truth
-# for editable writing prompts); resolved per-turn text rides on ``ctx.prompts``.
 _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONTRACT)
 
 
@@ -219,26 +213,6 @@ _OUTPUT_CONTRACT = prompt_registry.default(prompt_registry.CHARACTER_OUTPUT_CONT
 #: endpoint.
 _VOICE_PROSE_TOKENS: int | None = 2048
 
-#: The same allowance, per ``beat_length`` tier — a BACKSTOP behind the prompt directive,
-#: not the mechanism. The directive in the recency TAIL is what shapes a beat; this is what
-#: stops a tier the directive fails to bind from producing its neighbour's output.
-#:
-#: Sized at roughly **three times** what each tier actually needs, on the same reasoning as
-#: the value above: a paragraph of four sentences runs about 400–500 characters ≈ 120
-#: tokens, so `short` needs ~240, `medium` ~480 and `long` ~720. Anything tighter would make
-#: the cap the thing shaping the prose, and a token cap shapes prose by cutting it off
-#: mid-sentence — a worse artifact than a beat that runs one paragraph over. `long` keeps the
-#: measured 2,048 exactly, so nothing about the longest tier changes from what shipped.
-#:
-#: Note this bounds the PROSE half only. ``_voice_params`` adds the thinking budget on top;
-#: shrinking the combined total is what starved a live beat into returning reasoning and no
-#: prose, and that structure is deliberately preserved here.
-_PROSE_TOKENS_BY_LENGTH: dict[str, int] = {
-    "short": 700,
-    "medium": 1400,
-    "long": 2048,
-}
-
 #: How much of the thinking budget to actually pay for. ``thinking_token_budget`` is a hint
 #: on this endpoint, not a hard stop, so a deliberation can run past it and eat the room the
 #: passage needs — which is how a beat in the live verification run came back as reasoning
@@ -247,15 +221,26 @@ _PROSE_TOKENS_BY_LENGTH: dict[str, int] = {
 _SCRATCHPAD_HEADROOM = 2
 
 
-def prose_tokens_for(beat_length: str | None) -> int | None:
-    """The prose allowance for a tier, or ``None`` when the bound is switched off entirely.
+def prose_tokens_for(beat_length: str | None = None) -> int | None:
+    """The prose allowance for one beat, or ``None`` when the bound is switched off.
 
-    Public because ``turn_engine`` derives its streaming runaway stop from the same number —
+    **One number, for every beat.** There used to be three, one per `beat_length` tier — a
+    backstop behind a directive that no longer exists. With length adaptive, a tier-shaped
+    ceiling would be the only thing left telling a beat how long to be, and it would do it in
+    the worst possible way: by cutting the prose off mid-sentence.
+
+    This is not an editorial limit and never was. It stops the OPERATOR'S global `maxTokens`
+    — 48,000 on this install, sized for world building — from being handed to a single spoken
+    beat, which is how one live generation ran to 48,000 completion tokens over 684 seconds,
+    timed out the relay's health probe three times and 400'd the next three turns.
+
+    ``beat_length`` is accepted and ignored, so a caller written against the old signature
+    keeps working rather than raising.
+
+    Public because ``beat_stream`` derives its streaming runaway stop from the same number —
     two independently-chosen limits for the same thing is how one of them ends up wrong.
     """
-    if not _VOICE_PROSE_TOKENS:
-        return None
-    return _PROSE_TOKENS_BY_LENGTH.get(beat_length or "", _VOICE_PROSE_TOKENS)
+    return _VOICE_PROSE_TOKENS
 
 
 def _voice_params(
@@ -619,17 +604,33 @@ def _build_user_prompt(
             "let it shape how you come across. Drop your usual manner if the moment calls for it "
             "(grief, fear, urgency, tenderness); don't answer on autopilot."
         )
-    # How much to say. In the TAIL, not the STABLE head: it is per-scenario, and a
-    # per-scenario value in the head would break the byte-stable prompt-cache prefix
-    # (`test_prompt_cache_prefix.py`). Placed after the register directive — which shapes
-    # *how* the beat sounds — because length is a property of the delivery, not of the
-    # moment, and before the owed-requirements block, which has to stay last.
-    tail.append(
-        _BEAT_LENGTH_DIRECTIVES.get(
-            getattr(ctx, "beat_length", DEFAULT_BEAT_LENGTH), _BEAT_LENGTH_DIRECTIVES["medium"]
+    # How much to say. In the TAIL, not the STABLE head, so it sits in the recency window
+    # beside the register — and after it, because the register shapes *how* a beat sounds and
+    # this is about its delivery. Before the owed-requirements block, which stays last.
+    tail.append(_LENGTH_DIRECTIVE)
+    # WHO, IF ANYONE, IS "YOU". This rides in the recency tail rather than in the output
+    # contract for a reason that matters: the contract is operator-overridable
+    # (`prompt_registry.CHARACTER_OUTPUT_CONTRACT`), and a customised one that dropped this
+    # clause would silently take the point of view with it. Point of view is not a style
+    # preference an operator should be able to lose by accident. Same argument as the
+    # planner's `ask` contract, which rides in the user message for the same reason.
+    if ctx.player_embodied:
+        # Under POV the player IS one of the characters on the roster and their line arrives
+        # as that character's own beat. Nothing special is needed: they are a person in the
+        # room like any other, addressed by name or in the second person when spoken to.
+        tail.append(
+            "Everyone in this scene is on the roster above. Refer to them by name, and speak "
+            "to whoever you are addressing directly — there is no reader and no audience."
         )
-        + _BEAT_LENGTH_SHAPE
-    )
+    else:
+        tail.append(
+            'The lines labelled "Direction:" are stage direction from outside the story. '
+            "Nobody in the scene said them, and there is NOBODY for you to address — no "
+            '"you", no "your", no second person anywhere outside your own quoted speech. '
+            "Everyone who exists is on the roster above; refer to them by name. Do what the "
+            "direction says without ever answering it, quoting it, or acknowledging that it "
+            "was said."
+        )
     if ctx.directed_at == speaker.id:
         tail.append("The player addressed you directly.")
     if speaker.disposition:
@@ -646,8 +647,8 @@ def _build_user_prompt(
     if directive:
         # Puppet performance (D1): the player directed you — perform it in your own voice.
         tail.append(
-            f"The player is directing you to: {directive}. Do it now in {speaker.name}'s own "
-            "voice and personality — make it yours, don't quote the player. "
+            f"The direction for this beat is: {directive}. Do it now in {speaker.name}'s own "
+            "voice and personality — make it yours, don't quote the direction. "
             "Emit only the tagged format."
         )
     else:
@@ -708,12 +709,31 @@ def _transcript(ctx: TurnContext, turn_beats: list[dict]) -> str:
             continue
         role = beat.get("role")
         if role == "player":
-            # NOT "Player". That label was the only name the model had for the person in
-            # the room with it, and it used it: 13 of 18 character beats in the
-            # EXP-2026-08-008 verification run wrote "the player" into the prose. Every
-            # other line here carries a character's name, including this speaker's own, so
-            # "You" is unambiguous — and it is already the form the passage should use.
-            who = "You"
+            # Two labels, because there are two different things a player line can BE.
+            #
+            # Under POV the player is a character in the room and "You" is exactly right —
+            # it is also what took "the player" out of the prose entirely (0 % from 72 %,
+            # EXP-2026-08-009). NOT "Player": that label was the only name the model had for
+            # the person in front of it, and it used it as one.
+            #
+            # Under Playwright mode the player is not in the room at all. They write what
+            # happens; there is nobody to look at. "You" there gave the cast an addressee
+            # who does not exist, and they duly addressed them — 9 of 10 beats in the
+            # baseline smoke run said "you" to a reader with no body in the scene, and the
+            # narrator wrote "he reaches out to grab your wrist". So the line is labelled as
+            # what it is: direction, from outside the story, addressed to nobody.
+            #
+            # Deliberately not a person's name of any kind. Going back to "Player:" would
+            # reopen the defect EXP-2026-08-009 closed; the fix is that there is no speaker
+            # here to name.
+            #
+            # Unconditional, NOT keyed on `ctx.player_embodied`, because a `player` beat is
+            # by construction a Playwright one: under POV the line is stored as the POV
+            # character's own beat (`turn_setup`), so it arrives here with role "character"
+            # and its own name. Keying the label on the CURRENT turn's mode would relabel
+            # directions already in the buffer the moment the player switched to POV — old
+            # stage directions would start reading as things a person in the room had said.
+            who = "Direction"
         elif role == "narrator":
             who = "Narrator"
         else:

@@ -5,7 +5,6 @@ import {
   type Register,
   type TieScope,
 } from "@/components/feature/SceneConfigMenu";
-import type { ScenePreset } from "@/lib/api";
 import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
 import { GhostwriteButton } from "@/components/feature/GhostwriteButton";
 import { ContextUsageDial } from "@/components/feature/ContextUsageDial";
@@ -24,7 +23,6 @@ import {
   stripMentions,
   type MentionOption,
 } from "@/features/story-player/mentions";
-import type { BeatLength } from "@/lib/types";
 
 /** Maximum visible height of the textarea before it becomes scrollable (~10 lines). */
 const MAX_HEIGHT = 240;
@@ -62,12 +60,8 @@ export function Composer({
   guidance = "",
   onGuidanceChange,
   // Scene config (rendered on the bottom-left when at least one handler is supplied).
-  maxTurns,
-  onMaxTurnsChange,
   suggestionsCount,
   onSuggestionsCountChange,
-  beatLength,
-  onBeatLengthChange,
   plannerMode,
   onPlannerModeChange,
   register,
@@ -77,10 +71,6 @@ export function Composer({
   graphAvailable,
   pinned,
   onPinnedChange,
-  presets,
-  scenePreset,
-  presetState,
-  onPresetChange,
   // Player POV (rendered to the right of Config when a handler is supplied).
   pov = null,
   onPovChange,
@@ -121,12 +111,8 @@ export function Composer({
   guidance?: string;
   /** Omit to hide the scene-direction box entirely. */
   onGuidanceChange?: (value: string) => void;
-  maxTurns?: number;
-  onMaxTurnsChange?: (value: number) => void;
   suggestionsCount?: number;
   onSuggestionsCountChange?: (value: number) => void;
-  beatLength?: BeatLength;
-  onBeatLengthChange?: (value: BeatLength) => void;
   /**
    * Which scene controls are pinned to the scene. Anything unpinned applies to the next
    * message only, which the Config button reports with a dot so the state is visible
@@ -141,11 +127,6 @@ export function Composer({
   graphAvailable?: boolean;
   pinned?: Record<SceneControlKey, boolean>;
   onPinnedChange?: (key: SceneControlKey, pinned: boolean) => void;
-  /** Named scene presets. Empty hides the picker; every control stays where it was. */
-  presets?: ScenePreset[];
-  scenePreset?: string | null;
-  presetState?: "none" | "clean" | "modified";
-  onPresetChange?: (id: string | null) => void;
   /** Real transcript beats (one string each) — feeds the config's content-real readout. */
   /** Player POV: the id of the character the player is speaking AS (`null` = Playwright). */
   pov?: string | null;
@@ -189,9 +170,7 @@ export function Composer({
   const ref = (inputRef as RefObject<HTMLTextAreaElement>) ?? internalRef;
   const guidanceRef = useRef<HTMLTextAreaElement>(null);
 
-  const hasConfig = Boolean(
-    onMaxTurnsChange ?? onSuggestionsCountChange ?? onBeatLengthChange,
-  );
+  const hasConfig = Boolean(onSuggestionsCountChange ?? onPlannerModeChange);
   // The direction ROW is always rendered when the parent owns a direction at all; what
   // changes between modes is its role. `showGuidance` remains the narrower question — is
   // there a direction *textarea* on screen — because the mention plumbing, the tagged-id
@@ -555,12 +534,8 @@ export function Composer({
           {/* Left: Config, then the Player POV "Speaking as" select to its right. */}
           {hasConfig ? (
             <SceneConfigMenu
-              maxTurns={maxTurns}
-              onMaxTurnsChange={onMaxTurnsChange}
               suggestionsCount={suggestionsCount}
               onSuggestionsCountChange={onSuggestionsCountChange}
-              beatLength={beatLength}
-              onBeatLengthChange={onBeatLengthChange}
               plannerMode={plannerMode}
               onPlannerModeChange={onPlannerModeChange}
               register={register}
@@ -570,10 +545,6 @@ export function Composer({
               graphAvailable={graphAvailable}
               pinned={pinned}
               onPinnedChange={onPinnedChange}
-              presets={presets}
-              scenePreset={scenePreset}
-              presetState={presetState}
-              onPresetChange={onPresetChange}
               sceneMemory={sceneMemory}
               summarised={summarised}
               secondsPerBeat={secondsPerBeat}

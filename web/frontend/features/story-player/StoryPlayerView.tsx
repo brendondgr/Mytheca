@@ -837,12 +837,8 @@ export function StoryPlayerView({
             inputRef={composerRef}
             // `effective`, not the scene's own values: an unpinned control shows what the
             // player picked for the next message, even though nothing was written anywhere.
-            maxTurns={scene.effective.maxTurns}
-            onMaxTurnsChange={scene.setMaxTurns}
             suggestionsCount={scene.effective.suggestionsCount}
             onSuggestionsCountChange={scene.setSuggestionsCount}
-            beatLength={scene.effective.beatLength}
-            onBeatLengthChange={scene.setBeatLength}
             plannerMode={scene.effective.planner}
             onPlannerModeChange={scene.setPlannerMode}
             register={scene.register}
@@ -852,10 +848,6 @@ export function StoryPlayerView({
             graphAvailable={scene.graphAvailable}
             pinned={scene.pinned}
             onPinnedChange={scene.setPinned}
-            presets={scene.presets}
-            scenePreset={scene.scenePreset}
-            presetState={scene.presetState}
-            onPresetChange={scene.applyPreset}
             sceneMemory={scene.sceneMemory}
             summarised={Boolean(scene.summaryThroughSeq)}
             guidance={scene.guidance}

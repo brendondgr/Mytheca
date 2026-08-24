@@ -339,10 +339,14 @@ def test_branch_outcome_opens_with_progression_narration(client, storyline_id, m
     assert plan["data"]["outcome"] == "escalate the confrontation"
 
 
-def test_scene_max_turns_counts_the_narrated_open(client, storyline_id, monkeypatch):
-    # The per-scene ceiling counts EVERY beat, narration included (request #3). A freeform
-    # opening turn narrates the scene first (beat 1), so with max_turns=2 exactly ONE
-    # character reply runs even though the planner would keep going.
+def test_a_turn_ends_when_the_planner_says_so_and_not_at_a_scene_cap(client, storyline_id, monkeypatch):
+    """There is no per-scene beat cap any more, so a plan runs to its own end.
+
+    `maxTurns` (1-10, default 5) used to stop a turn at a number the player picked. It bound
+    hard and it bound blind — a live smoke turn produced exactly five beats and stopped
+    because five was the setting, not because the scene had finished. Pacing is the planner's
+    judgement now; this pins that nothing else truncates it.
+    """
     _configure_llm(client)
     _plan_routed(
         monkeypatch,
@@ -361,39 +365,40 @@ def test_scene_max_turns_counts_the_narrated_open(client, storyline_id, monkeypa
     sid = client.post(f"/api/storylines/{storyline_id}/settings", json={"name": "Hall"}).json()["id"]
     scid = client.post(
         f"/api/storylines/{storyline_id}/scenarios",
-        json={"title": "Cap", "castIds": ids, "settingId": sid, "maxTurns": 2},
+        json={"title": "Cap", "castIds": ids, "settingId": sid},
     ).json()["id"]
     events = _stream(
         client.post(f"/api/play/{scid}/turn", json={"text": "I address the room.", "trace": True})
     )
-    # The narrated open consumed a beat, so only the FIRST planned speaker ran before the cap.
+    # All four planned speakers ran. Under the old cap of 2 this was exactly one.
+    assert [d["characterId"] for d in _reconstruct_dialogue(events)] == ids
     assert any(e.get("type") == "narration" for e in events)  # the scene-setting open
-    assert [d["characterId"] for d in _reconstruct_dialogue(events)] == ids[:1]
-    limit = next(
-        t for t in events if t["type"] == "trace" and t["step"] == "plan"
-        and "turn limit" in (t.get("title") or "").lower()
-    )
-    assert "scene cap of 2" in (limit.get("detail") or "")
+    # And no cap was reported, because there is none to report.
+    assert not [
+        t for t in events
+        if t.get("type") == "trace" and "backstop" in (t.get("title") or "").lower()
+    ]
 
 
-def test_scene_max_turns_counts_midturn_narration(client, storyline_id, monkeypatch):
-    # A narrator beat inserted BETWEEN speakers also counts toward the cap: addressing a
-    # character suppresses the cold open, so the only narration is the mid-turn one — with
-    # max_turns=2 that leaves room for a single reply before the cap.
+def test_the_runaway_backstop_counts_narration_too(client, storyline_id, monkeypatch):
+    """The one remaining ceiling counts EVERY beat, narrator interstitials included.
+
+    This is not a pacing limit — it is what stops a planner that never says "end" from
+    looping forever, and reaching it means something went wrong rather than that a scene ran
+    long. The floor is `max(turn_max_beats, 2 * cast + 6)`, so a single-character scene
+    cannot be squeezed below 8 however low the setting goes; the plan below is deliberately
+    longer than that.
+    """
     _configure_llm(client)
-    _plan_routed(
-        monkeypatch,
-        [
-            {"action": "speak", "actor": 1},
-            {"action": "narrate"},
-            {"action": "speak", "actor": 1},
-            {"action": "end"},
-        ],
+    monkeypatch.setattr(
+        "app.services.turn_engine.get_settings",
+        lambda: type("S", (), {"turn_max_beats": 1, "turn_planner_lookahead": 1})(),
     )
+    _plan_routed(monkeypatch, [{"action": "narrate"}] + [{"action": "speak", "actor": 1}] * 20)
     cid, sid = _refs(client, storyline_id)
     scid = client.post(
         f"/api/storylines/{storyline_id}/scenarios",
-        json={"title": "Mid", "castIds": [cid], "settingId": sid, "maxTurns": 2},
+        json={"title": "Mid", "castIds": [cid], "settingId": sid},
     ).json()["id"]
     events = _stream(
         client.post(
@@ -401,14 +406,18 @@ def test_scene_max_turns_counts_midturn_narration(client, storyline_id, monkeypa
             json={"text": "Speak to me.", "directedAt": cid, "trace": True},
         )
     )
-    # reply (beat 1) + mid-turn narration (beat 2) → cap; the second scripted reply is cut.
-    assert len(_reconstruct_dialogue(events)) == 1
-    assert any(e.get("type") == "narration" for e in events)  # the mid-turn interstitial
-    limit = next(
-        t for t in events if t["type"] == "trace" and t["step"] == "plan"
-        and "turn limit" in (t.get("title") or "").lower()
-    )
-    assert "scene cap of 2" in (limit.get("detail") or "")
+    prose = len(_reconstruct_dialogue(events))
+    narration = len([e for e in events if e.get("type") == "narration"])
+    # Bounded, and the narration is part of what bounded it — not free on top of the prose:
+    # 21 beats were planned and nothing like 21 ran.
+    #
+    # The bound is checked once per ITERATION, and one iteration can emit a narrator beat and
+    # then a character beat, so the ceiling can be overshot by exactly one. That is recorded
+    # here rather than smoothed over: the backstop exists to stop a loop and protect the
+    # endpoint, and one extra beat costs neither. If it ever needs to be exact, the check has
+    # to move to the emission sites rather than the top of the loop.
+    assert prose + narration <= 8 + 1
+    assert narration >= 1
 
 
 def test_broadcast_runs_the_whole_cast_uncapped(client, storyline_id, monkeypatch):

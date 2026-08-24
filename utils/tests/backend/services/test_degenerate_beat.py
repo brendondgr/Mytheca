@@ -87,11 +87,10 @@ def test_the_runaway_stop_is_far_beyond_any_honest_passage():
     relay's health probe then timed out against the busy upstream, marked the endpoint
     failed, and the next three turns came back 400. Only length sees that failure.
 
-    Each tier is judged against ITS OWN target, not against a global worst case. A `short`
-    beat asks for 1–2 paragraphs, so the 1,923-character worst case measured with no length
-    instruction at all is the wrong yardstick for it — the right one is "comfortably more
-    than this tier could honestly need", because the cost of getting it wrong is a passage
-    cut off mid-sentence.
+    There is ONE stop now, not one per beat-length tier, because there are no tiers: a beat
+    runs as long as the moment needs. That makes the yardstick a single question — is this
+    comfortably past the longest beat anyone would honestly write? — because the cost of
+    getting it wrong is a passage cut off mid-sentence.
 
     A paragraph runs about 340 characters in practice (EXP-2026-08-008: 780 chars over 2.28
     paragraphs; EXP-2026-08-009: 1,292 over 3.89 — both ≈ 340).
@@ -100,19 +99,14 @@ def test_the_runaway_stop_is_far_beyond_any_honest_passage():
     from app.services.beat_stream import _CHARS_PER_TOKEN, _DEGENERATE_AFTER_CHARS, runaway_chars
 
     chars_per_paragraph = 340
-    target_paragraphs = {"short": 2, "medium": 4, "long": 6}
-    for tier, paragraphs in target_paragraphs.items():
-        stop = runaway_chars(tier)
-        honest = paragraphs * chars_per_paragraph
-        assert stop >= 3 * honest, f"{tier}: {stop} would cut an honest beat short"
-        assert stop > _DEGENERATE_AFTER_CHARS, tier
-        # Derived from that tier's passage allowance rather than chosen independently, so a
-        # change to one cannot silently leave the other behind.
-        assert stop == character_turn_agent.prose_tokens_for(tier) * _CHARS_PER_TOKEN, tier
+    stop = runaway_chars(None)
+    # Ten paragraphs is a long beat by any measure, and the stop has to sit well past even
+    # that — an adaptive directive means nothing if a ceiling quietly enforces a shorter one.
+    assert stop >= 2 * 10 * chars_per_paragraph, f"{stop} would cut a long honest beat short"
+    assert stop > _DEGENERATE_AFTER_CHARS
+    # Derived from the passage allowance rather than chosen independently, so a change to one
+    # cannot silently leave the other behind.
+    assert stop == character_turn_agent.prose_tokens_for() * _CHARS_PER_TOKEN
+    # Every old tier name resolves to the same stop — no tier-shaped ceiling survives.
+    assert {runaway_chars(t) for t in ("short", "medium", "long", None, "")} == {stop}
 
-    # The tiers are ordered, and `long` keeps exactly the bound that shipped before the
-    # control existed — nothing about the longest tier changes.
-    assert runaway_chars("short") < runaway_chars("medium") < runaway_chars("long")
-    assert runaway_chars("long") == (character_turn_agent._VOICE_PROSE_TOKENS or 2048) * 4
-    # An unknown tier is not unbounded: it falls back to the module default.
-    assert runaway_chars(None) == runaway_chars("long")

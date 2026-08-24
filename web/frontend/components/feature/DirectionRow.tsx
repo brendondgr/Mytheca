@@ -1,6 +1,13 @@
 "use client";
 
-import type { ReactNode, RefObject } from "react";
+import { useEffect, useId, useState, type ReactNode, type RefObject } from "react";
+
+/**
+ * Where the verb row's open/closed state lives. Per browser, not per scene: a player who
+ * wants the verbs wants them everywhere, and one who does not should not have to close them
+ * again in every scenario they open.
+ */
+const VERBS_OPEN_KEY = "mytheca.directionVerbs.open";
 
 /**
  * The scene direction, always present above the message box.
@@ -45,6 +52,34 @@ export function DirectionRow({
   /** Slot for the direction verb bar, which attaches to this row in both modes. */
   children?: ReactNode;
 }) {
+  // Closed by default. The owner's report was that the verb row "gets in the way" and that
+  // they "don't even look at it half the time" — a fifteen-chip toolbar sitting above the
+  // message box in every scene, permanently. Collapsing rather than deleting keeps the verbs,
+  // their availability gating and any scenario-authored ones intact for the players who do
+  // use them, at the cost of one click.
+  //
+  // Read from storage in an effect rather than during render: the server has no localStorage,
+  // so reading it inline would make the first client paint disagree with the markup React
+  // streamed and produce a hydration mismatch.
+  const [verbsOpen, setVerbsOpen] = useState(false);
+  const verbsId = useId();
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(VERBS_OPEN_KEY) === "1") setVerbsOpen(true);
+    } catch {
+      // A browser with storage blocked keeps the default. Not worth reporting.
+    }
+  }, []);
+  const toggleVerbs = () => {
+    setVerbsOpen((open) => {
+      try {
+        window.localStorage.setItem(VERBS_OPEN_KEY, open ? "0" : "1");
+      } catch {
+        // Same: the toggle still works for this session.
+      }
+      return !open;
+    });
+  };
   // `children` is the verb bar. It attaches to this row in BOTH modes, because the row is
   // the direction — what changes between modes is only which box the verb writes into, and
   // that is the parent's business (see `Composer.insertDirection`).
@@ -59,7 +94,24 @@ export function DirectionRow({
             ? "— this message steers the scene"
             : `— ${povName ? `${povName} speaks below` : "your character speaks below"}`}
         </span>
-        {children}
+        {/* The verbs, behind a disclosure. When closed the bar is UNMOUNTED rather than
+            hidden, so its fifteen chips leave the tab order entirely — a visually-collapsed
+            toolbar that still swallows keyboard focus is worse than no disclosure at all. */}
+        {children ? (
+          <>
+            <button
+              type="button"
+              onClick={toggleVerbs}
+              aria-expanded={verbsOpen}
+              aria-controls={verbsOpen ? verbsId : undefined}
+              className="min-h-[24px] flex-none rounded-[6px] border border-field-bd px-[7px] py-[2px] font-mono text-[9px] tracking-[0.06em] text-mute2 uppercase hover:bg-hover hover:text-ink aria-expanded:border-accent aria-expanded:text-accent"
+            >
+              <span aria-hidden className="mr-[3px]">{verbsOpen ? "−" : "+"}</span>
+              Verbs
+            </button>
+            {verbsOpen ? <div id={verbsId} className="contents">{children}</div> : null}
+          </>
+        ) : null}
       </div>
       {mode === "pov" ? (
         <textarea

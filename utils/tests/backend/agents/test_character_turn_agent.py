@@ -293,12 +293,13 @@ def test_the_beat_bounds_both_the_scratchpad_and_the_passage(
     body = json.loads(capture["body"])
     system = body["messages"][0]["content"]
     assert body.get("thinking_token_budget") == 1024
-    # The PASSAGE gets its tier's allowance ON TOP of the thinking budget — additive, never
-    # shared. Setting the request to the passage allowance alone starved a live turn, which
-    # spent the whole budget deliberating and returned no prose. `_ctx()` builds a context
-    # straight from the dataclass, so this is the default tier.
-    medium = character_turn_agent.prose_tokens_for(character_turn_agent.DEFAULT_BEAT_LENGTH)
-    assert medium == 1400
+    # The PASSAGE gets its allowance ON TOP of the thinking budget — additive, never shared.
+    # Setting the request to the passage allowance alone starved a live turn, which spent the
+    # whole budget deliberating and returned no prose. One allowance now, not three: length is
+    # adaptive, so a tier-shaped token ceiling would be the last thing still telling a beat
+    # how long to be — and it would do it by cutting the prose off mid-sentence.
+    medium = character_turn_agent.prose_tokens_for()
+    assert medium == 2048
     assert body["max_tokens"] == 1024 * character_turn_agent._SCRATCHPAD_HEADROOM + medium
     # The longest tier keeps the measured bound that shipped before the control existed. It
     # is not an editorial limit; it stops the operator's GLOBAL maxTokens — shared with
@@ -696,8 +697,11 @@ def test_a_requirement_composes_with_a_puppet_directive(client, db_session, monk
         requirements=["Mei loses her temper"],
     )
     user = json.loads(capture["body"])["messages"][1]["content"]
-    assert "The player is directing you to: tell Beth she is late" in user
-    assert user.index("THIS BEAT MUST MAKE THIS TRUE") > user.index("directing you to")
+    # "The direction for this beat is", not "The player is directing you to": the cue
+    # itself must not say "the player", which is the one phrase the contract forbids the
+    # prose from using (EXP-2026-08-008).
+    assert "The direction for this beat is: tell Beth she is late" in user
+    assert user.index("THIS BEAT MUST MAKE THIS TRUE") > user.index("The direction for this beat is")
 
 
 def _user_message(capture: dict) -> str:

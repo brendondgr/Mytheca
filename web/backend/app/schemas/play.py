@@ -89,15 +89,14 @@ class TurnOverrides(CamelModel):
     — and never what the turn is **about**. No agent is shown it, so it cannot decide what
     happens, who acts, or where the scene goes.
 
-    Bounds mirror ``ScenarioUpdate`` with one deliberate difference: ``maxTurns`` is capped at
-    10 here while the scenario column has no upper bound. A per-turn knob that can ask for an
-    arbitrarily long turn is a way to hang the stream by accident, and a scene that genuinely
-    wants more than ten beats per message should say so on the row.
+    ``maxTurns`` and ``beatLength`` used to live here and are **gone**: how many beats a
+    message makes, and how long a beat is, are now decided by the scene rather than set. An
+    old client still sending them is not an error — pydantic ignores unknown fields, so the
+    envelope is accepted and the values have no effect, which is the right outcome for a
+    control that no longer exists.
     """
 
-    max_turns: int | None = Field(default=None, ge=1, le=10)
     suggestions_count: int | None = Field(default=None, ge=0, le=4)
-    beat_length: BeatLength | None = None
     #: ``"off"`` runs the turn on ``services/beat_order`` instead of the planner — no model
     #: call for beat selection, and no register, stakes, narrator interstitials or exits.
     planner: PlannerMode | None = None

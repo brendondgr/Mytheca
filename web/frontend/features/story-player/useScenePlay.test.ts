@@ -1494,9 +1494,7 @@ describe("useScenePlay — pinned versus per-turn scene controls", () => {
   it("starts with every control pinned, so nothing changes for a player who ignores this", async () => {
     const result = await ready();
     expect(result.current.pinned).toEqual({
-      maxTurns: true,
       suggestionsCount: true,
-      beatLength: true,
       planner: true,
       ties: true,
     });
@@ -1507,8 +1505,10 @@ describe("useScenePlay — pinned versus per-turn scene controls", () => {
     vi.mocked(postTurn).mockReturnValue(makeStream([]));
     const result = await ready();
 
-    act(() => result.current.setMaxTurns(3));
-    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(scenario.id, { maxTurns: 3 });
+    act(() => result.current.setSuggestionsCount(2));
+    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(scenario.id, {
+      suggestionsCount: 2,
+    });
     expect(result.current.turnOverrides).toEqual({});
 
     act(() => result.current.setComposer("Go on."));
@@ -1521,20 +1521,20 @@ describe("useScenePlay — pinned versus per-turn scene controls", () => {
     vi.mocked(postTurn).mockReturnValue(makeStream([]));
     const result = await ready();
 
-    act(() => result.current.setPinned("maxTurns", false));
-    act(() => result.current.setMaxTurns(1));
+    act(() => result.current.setPinned("suggestionsCount", false));
+    act(() => result.current.setSuggestionsCount(1));
 
     // Nothing was written. The value is still shown, because `effective` prefers the
     // override — that is what lets the menu display a choice that lives nowhere yet.
     expect(vi.mocked(updateScenario)).not.toHaveBeenCalled();
-    expect(result.current.effective.maxTurns).toBe(1);
-    expect(result.current.maxTurns).toBe(scenario.maxTurns ?? 5);
+    expect(result.current.effective.suggestionsCount).toBe(1);
+    expect(result.current.suggestionsCount).toBe(scenario.suggestionsCount ?? 4);
 
     act(() => result.current.setComposer("Just this once."));
     act(() => result.current.send());
     await waitFor(() => expect(vi.mocked(postTurn)).toHaveBeenCalled());
     expect(vi.mocked(postTurn).mock.calls[0][1]).toMatchObject({
-      overrides: { maxTurns: 1 },
+      overrides: { suggestionsCount: 1 },
     });
   });
 
@@ -1542,15 +1542,15 @@ describe("useScenePlay — pinned versus per-turn scene controls", () => {
     vi.mocked(postTurn).mockReturnValue(makeStream([]));
     const result = await ready();
 
-    act(() => result.current.setPinned("beatLength", false));
-    act(() => result.current.setBeatLength("long"));
-    act(() => result.current.setComposer("A long one."));
+    act(() => result.current.setPinned("planner", false));
+    act(() => result.current.setPlannerMode("off"));
+    act(() => result.current.setComposer("A fast one."));
     act(() => result.current.send());
 
     await waitFor(() => expect(result.current.turnOverrides).toEqual({}));
     // The pin itself does not spring back — only the value it scoped.
-    expect(result.current.pinned.beatLength).toBe(false);
-    expect(result.current.effective.beatLength).toBe(scenario.beatLength ?? "medium");
+    expect(result.current.pinned.planner).toBe(false);
+    expect(result.current.effective.planner).toBe("planner");
   });
 
   it("springs back on the error path too — a failed turn still spent the intent", async () => {
@@ -1590,103 +1590,15 @@ describe("useScenePlay — pinned versus per-turn scene controls", () => {
     vi.mocked(postTurn).mockReturnValue(makeStream([]));
     const result = await ready();
 
-    act(() => result.current.setPinned("maxTurns", false));
-    act(() => result.current.setMaxTurns(2));
+    act(() => result.current.setPinned("suggestionsCount", false));
+    act(() => result.current.setSuggestionsCount(2));
     act(() => result.current.continueTurn());
 
     await waitFor(() => expect(vi.mocked(postTurn)).toHaveBeenCalled());
     expect(vi.mocked(postTurn).mock.calls[0][1]).toMatchObject({
       continuation: true,
-      overrides: { maxTurns: 2 },
+      overrides: { suggestionsCount: 2 },
     });
-  });
-});
-
-describe("useScenePlay — scene presets", () => {
-  const PRESETS = [
-    {
-      id: "interrogation",
-      label: "Interrogation",
-      blurb: "Two beats a message.",
-      values: { maxTurns: 2, suggestionsCount: 3, beatLength: "medium" as const },
-    },
-  ];
-
-  beforeEach(() => {
-    vi.mocked(updateScenario).mockClear();
-    vi.mocked(getScenePresets).mockResolvedValue(PRESETS);
-    vi.mocked(listPlaySessions).mockResolvedValue({ sessions: [] });
-    vi.mocked(getCharacterStats).mockResolvedValue({});
-  });
-
-  async function ready() {
-    const { result } = renderHook(() => useScenePlay(scenario));
-    await waitFor(() => expect(result.current.presets.length).toBe(1));
-    return result;
-  }
-
-  it("applies every bundled value in ONE call, and records the id", async () => {
-    const result = await ready();
-    act(() => result.current.applyPreset("interrogation"));
-
-    expect(vi.mocked(updateScenario)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(scenario.id, {
-      scenePreset: "interrogation",
-      maxTurns: 2,
-      suggestionsCount: 3,
-      beatLength: "medium",
-    });
-    expect(result.current.presetState).toBe("clean");
-  });
-
-  it("reads as modified once a control is moved, and the reset restores it", async () => {
-    const result = await ready();
-    act(() => result.current.applyPreset("interrogation"));
-    act(() => result.current.setMaxTurns(9));
-
-    expect(result.current.presetState).toBe("modified");
-    // The id is deliberately NOT cleared on a manual change — clearing it would discard
-    // the very thing the reset returns to.
-    expect(result.current.scenePreset).toBe("interrogation");
-
-    act(() => result.current.applyPreset("interrogation"));
-    expect(result.current.presetState).toBe("clean");
-    expect(result.current.maxTurns).toBe(2);
-  });
-
-  it("Custom clears the id without touching a value", async () => {
-    const result = await ready();
-    act(() => result.current.applyPreset("interrogation"));
-    vi.mocked(updateScenario).mockClear();
-
-    act(() => result.current.applyPreset(null));
-
-    expect(result.current.scenePreset).toBeNull();
-    expect(result.current.presetState).toBe("none");
-    expect(result.current.maxTurns).toBe(2); // unchanged
-    expect(vi.mocked(updateScenario)).toHaveBeenCalledWith(scenario.id, { scenePreset: null });
-  });
-
-  it("drops a pending per-turn override when a preset is applied", async () => {
-    // Leaving one would have the next turn silently contradict the preset just chosen.
-    const result = await ready();
-    act(() => result.current.setPinned("maxTurns", false));
-    act(() => result.current.setMaxTurns(1));
-    expect(result.current.turnOverrides).toEqual({ maxTurns: 1 });
-
-    act(() => result.current.applyPreset("interrogation"));
-    expect(result.current.turnOverrides).toEqual({});
-  });
-
-  it("leaves the scene fully usable when the preset fetch fails", async () => {
-    vi.mocked(getScenePresets).mockRejectedValueOnce(new Error("offline"));
-    const { result } = renderHook(() => useScenePlay(scenario));
-    await waitFor(() => expect(result.current.reveal).toBe(true), { timeout: 4000 });
-
-    expect(result.current.presets).toEqual([]);
-    expect(result.current.presetState).toBe("none");
-    act(() => result.current.setMaxTurns(4));
-    expect(result.current.maxTurns).toBe(4);
   });
 });
 

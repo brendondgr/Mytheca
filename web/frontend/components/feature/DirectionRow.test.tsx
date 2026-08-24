@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { DirectionRow } from "./DirectionRow";
 
 describe("DirectionRow", () => {
@@ -44,12 +45,15 @@ describe("DirectionRow", () => {
     expect(sideEffect).toHaveBeenCalledTimes(1);
   });
 
-  it("renders the verb-bar slot in both modes", () => {
+  it("renders the verb-bar slot in both modes, once opened", () => {
     const { rerender } = render(
       <DirectionRow mode="playwright" value="" onChange={() => {}}>
         <span>verbs</span>
       </DirectionRow>,
     );
+    // The slot is behind the disclosure now; the property under test is that the ROW carries
+    // it in both modes, not that it is open.
+    fireEvent.click(screen.getByRole("button", { name: /verbs/i }));
     expect(screen.getByText("verbs")).toBeInTheDocument();
     rerender(
       <DirectionRow mode="pov" value="" onChange={() => {}}>
@@ -57,5 +61,62 @@ describe("DirectionRow", () => {
       </DirectionRow>,
     );
     expect(screen.getByText("verbs")).toBeInTheDocument();
+  });
+});
+
+describe("the verb disclosure", () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it("is closed by default — the verbs do not sit in every scene", () => {
+    render(
+      <DirectionRow mode="playwright" value="" onChange={() => {}}>
+        <button type="button">Push it forward</button>
+      </DirectionRow>,
+    );
+    expect(screen.getByRole("button", { name: /verbs/i })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByRole("button", { name: "Push it forward" })).toBeNull();
+  });
+
+  it("unmounts the bar when closed, so its chips leave the tab order", async () => {
+    const user = userEvent.setup();
+    render(
+      <DirectionRow mode="playwright" value="" onChange={() => {}}>
+        <button type="button">Push it forward</button>
+      </DirectionRow>,
+    );
+    const toggle = screen.getByRole("button", { name: /verbs/i });
+    await user.click(toggle);
+    expect(screen.getByRole("button", { name: "Push it forward" })).toBeInTheDocument();
+    await user.click(toggle);
+    // Not merely hidden: a collapsed toolbar that still takes focus is worse than none.
+    expect(screen.queryByRole("button", { name: "Push it forward" })).toBeNull();
+  });
+
+  it("remembers being opened, so a player who wants the verbs keeps them", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <DirectionRow mode="playwright" value="" onChange={() => {}}>
+        <button type="button">Push it forward</button>
+      </DirectionRow>,
+    );
+    await user.click(screen.getByRole("button", { name: /verbs/i }));
+    unmount();
+
+    render(
+      <DirectionRow mode="playwright" value="" onChange={() => {}}>
+        <button type="button">Push it forward</button>
+      </DirectionRow>,
+    );
+    expect(
+      await screen.findByRole("button", { name: "Push it forward" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no disclosure at all when there are no verbs to offer", () => {
+    render(<DirectionRow mode="playwright" value="" onChange={() => {}} />);
+    expect(screen.queryByRole("button", { name: /verbs/i })).toBeNull();
   });
 });

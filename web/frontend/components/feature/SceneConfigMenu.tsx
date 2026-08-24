@@ -4,11 +4,6 @@ import { useEffect, useId, useRef, useState } from "react";
 import { SceneControlSelect } from "@/components/ui/SceneControlSelect";
 import type { SceneMemory } from "@/features/story-player/turn-stream";
 import { Eyebrow } from "@/components/ui/Eyebrow";
-import { BEAT_LENGTHS, BEAT_LENGTH_LABELS, type BeatLength } from "@/lib/types";
-import type { ScenePreset } from "@/lib/api";
-
-/** The "no preset" option. A real, selectable value, not an absence the player has to infer. */
-const CUSTOM = "__custom__";
 
 /** How a beat is pitched. Mirrors the backend `Register`. */
 export type Register = "light" | "neutral" | "tense" | "grave";
@@ -25,14 +20,7 @@ const REGISTER_OPTIONS = [
   { value: "grave", label: "Grave" },
 ];
 
-const MAX_TURN_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const SUGGESTION_OPTIONS = [0, 1, 2, 3, 4];
-// Value + rendered text, built from the contract in lib/types so the tiers cannot drift
-// from the backend `Literal` they mirror.
-const BEAT_LENGTH_OPTIONS = BEAT_LENGTHS.map((value) => ({
-  value,
-  label: BEAT_LENGTH_LABELS[value],
-}));
 
 function GearIcon() {
   return (
@@ -66,18 +54,6 @@ function GearIcon() {
  * Anchored in the composer's bottom-left controls row (`openUp` flips the popover above the
  * button). Native controls + Esc/outside-click close.
  */
-/**
- * Roughly what one beat of each tier costs, for the cost line. Derived from the documented
- * paragraph ranges rather than measured — it is an order-of-magnitude signal, and the label
- * says "≈".
- */
-const BEAT_LENGTH_TOKENS: Record<BeatLength, number> = {
-  short: 120,
-  medium: 260,
-  long: 520,
-};
-
-
 /** Filled = pinned to the scene, outlined = this turn only. Shape, not colour. */
 function PinIcon({ filled }: { filled: boolean }) {
   return (
@@ -99,12 +75,7 @@ function PinIcon({ filled }: { filled: boolean }) {
 }
 
 /** The three controls a turn may override, keyed as the wire names them. */
-export type SceneControlKey =
-  | "maxTurns"
-  | "suggestionsCount"
-  | "beatLength"
-  | "planner"
-  | "ties";
+export type SceneControlKey = "suggestionsCount" | "planner" | "ties";
 
 /** How much of a speaker's relationship history reaches their beat. */
 export type TieScope = "addressed" | "scene" | "world";
@@ -128,9 +99,7 @@ const TIE_HELP: Record<TieScope, string> = {
  * read out as "«How many beats one message produces» — this turn only".
  */
 const PIN_NAMES: Record<SceneControlKey, string> = {
-  maxTurns: "Max turns",
   suggestionsCount: "Suggestions",
-  beatLength: "Beat length",
   planner: "Turn planning",
   ties: "Ties",
 };
@@ -180,12 +149,8 @@ function PinToggle({
 }
 
 export function SceneConfigMenu({
-  maxTurns = 5,
-  onMaxTurnsChange,
   suggestionsCount = 4,
   onSuggestionsCountChange,
-  beatLength = "medium",
-  onBeatLengthChange,
   plannerMode = "planner",
   onPlannerModeChange,
   tieScope = "scene",
@@ -196,28 +161,13 @@ export function SceneConfigMenu({
   sceneMemory = null,
   summarised = false,
   secondsPerBeat,
-  pinned = {
-    maxTurns: true,
-    suggestionsCount: true,
-    beatLength: true,
-    planner: true,
-    ties: true,
-  },
+  pinned = { suggestionsCount: true, planner: true, ties: true },
   onPinnedChange,
-  presets = [],
-  scenePreset = null,
-  presetState = "none",
-  onPresetChange,
   openUp = false,
   disabled = false,
 }: {
-  maxTurns?: number;
-  onMaxTurnsChange?: (value: number) => void;
   suggestionsCount?: number;
   onSuggestionsCountChange?: (value: number) => void;
-  /** How much a character says in one beat — short 1–2 ¶, medium 2–4 ¶, long 5–6 ¶. */
-  beatLength?: BeatLength;
-  onBeatLengthChange?: (value: BeatLength) => void;
   /** Whether a director reads each moment, or the cast simply answers in order. */
   plannerMode?: "planner" | "off";
   onPlannerModeChange?: (value: "planner" | "off") => void;
@@ -253,23 +203,12 @@ export function SceneConfigMenu({
    */
   pinned?: Record<SceneControlKey, boolean>;
   onPinnedChange?: (key: SceneControlKey, pinned: boolean) => void;
-  /**
-   * The named scene presets. Empty (the default, and what a failed fetch leaves) hides the
-   * picker entirely — every underlying control stays exactly where it was.
-   */
-  presets?: ScenePreset[];
-  /** The preset the controls were last set from, or `null` for Custom. */
-  scenePreset?: string | null;
-  /** Whether the live values still match the named preset. */
-  presetState?: "none" | "clean" | "modified";
-  onPresetChange?: (id: string | null) => void;
   /** Open the popover upward (for the bottom-of-screen composer). */
   openUp?: boolean;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const unpinnedCount = Object.values(pinned).filter((p) => !p).length;
-  const active = presets.find((p) => p.id === scenePreset) ?? null;
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
@@ -339,66 +278,6 @@ export function SceneConfigMenu({
             Scene configuration
           </Eyebrow>
 
-          {/* The preset picker sits ABOVE the individual controls, because it answers the
-              question a player actually has ("what kind of scene do I want") while the
-              controls answer the one they have to be taught to ask. It renders only when a
-              catalogue arrived — a failed fetch leaves everything below untouched. */}
-          {presets.length > 0 ? (
-            <section
-              aria-label="Scene preset"
-              className="flex flex-col gap-[5px] border-b border-field-bd pb-[11px]"
-            >
-              <SceneControlSelect
-                label="What kind of scene this is"
-                value={scenePreset ?? CUSTOM}
-                options={[
-                  { value: CUSTOM, label: "Custom" },
-                  ...presets.map((p) => ({ value: p.id, label: p.label })),
-                ]}
-                onChange={(v) => onPresetChange?.(v === CUSTOM ? null : v)}
-                help={active?.blurb ?? "Set each control below yourself."}
-                scopeNote={presetState === "modified" ? "· modified" : undefined}
-                disabled={disabled || !onPresetChange}
-                className="w-full [&_select]:w-full"
-              />
-              {/* Reversibility. Offered only once the scene has actually drifted, because a
-                  reset with nothing to undo is a button that does nothing. */}
-              {presetState === "modified" && scenePreset ? (
-                <button
-                  type="button"
-                  onClick={() => onPresetChange?.(scenePreset)}
-                  disabled={disabled}
-                  className="self-start rounded-[6px] border border-field-bd px-[8px] py-[4px] font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase hover:border-accent hover:text-accent disabled:opacity-50"
-                >
-                  Reset to {active?.label ?? "preset"}
-                </button>
-              ) : null}
-            </section>
-          ) : null}
-
-          {/* Each row states its EFFECT, and its cost where there is an honest number. A
-              label alone tells a player what a setting is called; it never tells them what
-              happens if they change it, which is most of why nobody touched these. */}
-          <SceneControlSelect
-            label="How many beats one message produces"
-            value={maxTurns}
-            options={MAX_TURN_OPTIONS}
-            onChange={(v) => onMaxTurnsChange?.(v)}
-            help="The cap on replies — narrator beats count too. The scene can still end sooner."
-            cost={secondsPerBeat ? `≈ ${secondsPerBeat}s per extra beat` : undefined}
-            action={
-              <PinToggle
-                controlKey="maxTurns"
-                pinned={pinned.maxTurns}
-                onChange={onPinnedChange}
-                disabled={disabled}
-              />
-            }
-            scopeNote={pinned.maxTurns ? undefined : "· this turn"}
-            disabled={disabled || !onMaxTurnsChange}
-            className="w-full [&_select]:w-full"
-          />
-
           <SceneControlSelect
             label="Follow-up ideas offered after each turn"
             value={suggestionsCount}
@@ -415,26 +294,6 @@ export function SceneConfigMenu({
             }
             scopeNote={pinned.suggestionsCount ? undefined : "· this turn"}
             disabled={disabled || !onSuggestionsCountChange}
-            className="w-full [&_select]:w-full"
-          />
-
-          <SceneControlSelect
-            label="How much a character says at once"
-            value={beatLength}
-            options={BEAT_LENGTH_OPTIONS}
-            onChange={(v) => onBeatLengthChange?.(v)}
-            help="Paragraphs per beat. Narration is unaffected — it has its own length."
-            cost={`≈ ${BEAT_LENGTH_TOKENS[beatLength].toLocaleString()} tokens a beat`}
-            action={
-              <PinToggle
-                controlKey="beatLength"
-                pinned={pinned.beatLength}
-                onChange={onPinnedChange}
-                disabled={disabled}
-              />
-            }
-            scopeNote={pinned.beatLength ? undefined : "· this turn"}
-            disabled={disabled || !onBeatLengthChange}
             className="w-full [&_select]:w-full"
           />
 
