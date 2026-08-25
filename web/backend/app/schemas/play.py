@@ -78,8 +78,9 @@ TieScope = Literal["addressed", "scene", "world"]
 #:   with ``<speaker:N>``. Flows better and attributes from a token the writer emitted rather
 #:   than from the engine guessing; the cost is that every voice sample shares one prompt.
 #:
-#: ``None`` reads as ``"voiced"``. See ``agents/scene_script_agent`` for the trade in full and
-#: ``docs/checklist.md`` for the experiment that would settle which is better.
+#: ``None`` reads as ``"continuous"`` (owner decision, 2026-08-24). See
+#: ``agents/scene_script_agent`` for the trade in full and ``EXP-2026-08-016`` for the
+#: measurement.
 SceneFlow = Literal["voiced", "continuous"]
 
 #: How the turn's plan is used.

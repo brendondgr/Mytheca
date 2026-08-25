@@ -194,8 +194,15 @@ def continuous_turn(
     show_reasoning: bool,
     lookahead: int,
     scene_opening: bool,
-) -> Generator[StoryEvent | TurnReasoningFrame | TurnTraceFrame, None, bool]:
-    """Write the whole turn as ONE continuous script. Returns whether it played.
+) -> Generator[StoryEvent | TurnReasoningFrame | TurnTraceFrame, None, tuple[bool, list]]:
+    """Write the whole turn as ONE continuous script.
+
+    Returns ``(played, plan)``. **The plan comes back even when it did not play**, and that
+    is not a convenience: this function may have spent a planner call producing it, and on a
+    fallback the per-speaker loop would otherwise plan the turn a SECOND time — costing an
+    extra call and, worse, running a different plan from the one the script just attempted.
+    A test caught exactly that (a scripted planner mock handed its first decision here and
+    its second to the loop, and the beat came out with the wrong register).
 
     ``sceneFlow: "continuous"``. The plan is produced once (or taken from an approved one),
     then a single generation writes every beat of it, marking each change of speaker with
@@ -219,10 +226,10 @@ def continuous_turn(
     # The mode check lives here rather than at the call site so the engine reads as one line
     # and `run_turn` stays under the module's line ceiling — which is what the ceiling is for.
     if not enabled:
-        return False
+        return False, planned
     present = [m for m in ctx.cast if m.is_present and m.id != pov_id]
     if not present:
-        return False
+        return False, planned
     roster = {i + 1: m.id for i, m in enumerate(present)}
     if not planned:
         planned = planner_agent.plan_beats(
@@ -232,7 +239,7 @@ def continuous_turn(
         )
     writable = [d for d in planned if d.action in ("speak", "narrate")]
     if not writable:
-        return False
+        return False, planned
 
     speakers = len({d.actor_id for d in writable if d.actor_id})
     yield from tracer.emit(
@@ -267,8 +274,8 @@ def continuous_turn(
         # Anything the script did emit is dropped from the turn's own transcript so the
         # per-speaker path does not react to a beat the reader is about to see re-written.
         del turn_beats[mark:]
-        return False
-    return len(turn_beats) > mark
+        return False, planned
+    return len(turn_beats) > mark, planned
 
 
 def beat_or_skip(

@@ -16,6 +16,12 @@ import pytest
 from app.agents import planner_agent
 from app.services import llm
 
+# This module asserts on the PER-SPEAKER writer — the register directive, voice samples,
+# relationship note, carried disposition and owed-requirements tail all live in the character
+# prompt, and a continuous script never builds one. Continuous is the default since
+# 2026-08-24, so the mode under test is pinned rather than inherited.
+pytestmark = pytest.mark.usefixtures("per_speaker_scenes")
+
 _EMISSION = '<speaker:1>\n"Someone speaks."'
 
 

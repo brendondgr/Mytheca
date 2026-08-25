@@ -1,8 +1,10 @@
 """`sceneFlow` — one call per speaker, or one call for the whole turn.
 
-`"voiced"` is what has always shipped and is the default: every scene written before this
-column, and every request that does not mention it, runs exactly as it did. `"continuous"`
-writes the planned turn in one generation and marks each change of speaker.
+`"continuous"` is the **default** (owner decision, 2026-08-24), so a scene that never set the
+column gets it. `"voiced"` — one call per speaker — is what shipped before and stays as an
+explicit choice, because it carries a great deal the continuous path does not: the register
+directive, voice samples, the relationship note, carried disposition and the
+owed-requirements tail all live in the per-speaker prompt.
 
 The tests that matter here are the ones about **degrading**. Continuous prose is a bet — it
 trades per-character prompt isolation for flow, and the owner asked for it to be foolproof on
@@ -26,23 +28,32 @@ from app.services import llm, turn_settings
 # ---- the setting resolves conservatively ------------------------------------
 
 
-def test_a_scene_that_never_set_it_is_voiced():
-    """NULL reads as `voiced`, so no existing scene changes behaviour."""
-    assert turn_settings.resolve(Scenario(suggestions_count=4)).scene_flow == "voiced"
+def test_a_scene_that_never_set_it_gets_the_default():
+    """NULL reads as the default rather than pinning a scene to the old path by its silence."""
+    assert (
+        turn_settings.resolve(Scenario(suggestions_count=4)).scene_flow
+        == turn_settings.DEFAULT_SCENE_FLOW
+        == "continuous"
+    )
+
+
+def test_a_scene_may_still_ask_for_the_per_speaker_writer():
+    assert turn_settings.resolve(Scenario(scene_flow="voiced")).scene_flow == "voiced"
 
 
 def test_an_unrecognised_value_falls_back_rather_than_raising():
     """The schema guards the request boundary; this guards a hand-edited or imported row."""
-    assert turn_settings.resolve(Scenario(scene_flow="interpretive-dance")).scene_flow == "voiced"
+    resolved = turn_settings.resolve(Scenario(scene_flow="interpretive-dance"))
+    assert resolved.scene_flow == turn_settings.DEFAULT_SCENE_FLOW
 
 
 def test_a_turn_may_override_the_scene():
     from app.schemas.play import TurnOverrides
 
     resolved = turn_settings.resolve(
-        Scenario(scene_flow="voiced"), TurnOverrides(sceneFlow="continuous")
+        Scenario(scene_flow="continuous"), TurnOverrides(sceneFlow="voiced")
     )
-    assert resolved.scene_flow == "continuous"
+    assert resolved.scene_flow == "voiced"
 
 
 # ---- the fallback -----------------------------------------------------------
@@ -203,13 +214,38 @@ def test_a_script_with_no_hand_offs_falls_back_to_the_per_speaker_path(
     assert fallback, "a silent fallback is a mode that looks broken rather than degraded"
 
 
-def test_voiced_is_untouched_by_any_of_this(client, storyline_id, monkeypatch):
-    """The default path must not call the script agent at all."""
+def test_asking_for_voiced_does_not_call_the_script_agent_at_all(
+    client, storyline_id, monkeypatch
+):
+    """The per-speaker path is still a real mode, and choosing it must be complete."""
     _configure_llm(client)
     counter: dict = {}
     _route(monkeypatch, "unused", counter)
     scid, _ids = _scene(client, storyline_id)
 
-    _stream(client.post(f"/api/play/{scid}/turn", json={"text": "Go."}))
+    _stream(
+        client.post(
+            f"/api/play/{scid}/turn",
+            json={"text": "Go.", "overrides": {"sceneFlow": "voiced"}},
+        )
+    )
     assert counter["script"] == 0
     assert counter["character"] > 0
+
+
+def test_a_scene_that_says_nothing_now_gets_the_continuous_writer(
+    client, storyline_id, monkeypatch
+):
+    """The default, end to end — the property the owner asked for."""
+    _configure_llm(client)
+    counter: dict = {}
+    _route(
+        monkeypatch,
+        "I am up on the table.\n<speaker:2>\nI catch her by the hem.",
+        counter,
+    )
+    scid, _ids = _scene(client, storyline_id)
+
+    _stream(client.post(f"/api/play/{scid}/turn", json={"text": "Go."}))
+    assert counter["script"] == 1
+    assert counter["character"] == 0

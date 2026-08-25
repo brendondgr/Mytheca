@@ -34,6 +34,16 @@ from app.schemas.play import PlannerMode, Register, SceneFlow, TieScope, TurnOve
 #: Follow-up suggestions the director may be asked for. Mirrors ``ScenarioUpdate``.
 MAX_SUGGESTIONS = 4
 
+#: How prose is produced when nothing says otherwise (owner decision, 2026-08-24).
+#:
+#: A named constant rather than a literal in :func:`resolve`, for one reason: the per-speaker
+#: writer is still a supported mode with a great deal of machinery of its own — register
+#: directives, voice samples, relationship notes, disposition, the owed-requirements tail —
+#: none of which exists on the continuous path. The tests for that machinery have to pin the
+#: mode they are testing, and pinning it by patching one visible constant is honest, where
+#: forty scenario fixtures quietly carrying `sceneFlow: "voiced"` would not be.
+DEFAULT_SCENE_FLOW = "continuous"
+
 
 @dataclass(frozen=True)
 class TurnSettings:
@@ -47,7 +57,7 @@ class TurnSettings:
     #: How much of a speaker's history reaches their beat.
     ties: TieScope = "scene"
     #: How the turn's prose is produced — see ``schemas.play.SceneFlow``.
-    scene_flow: SceneFlow = "voiced"
+    scene_flow: SceneFlow = "continuous"
 
 
 def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnSettings:
@@ -78,9 +88,16 @@ def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnS
     if ties not in ("addressed", "scene", "world"):
         ties = "scene"
 
-    scene_flow = ov.scene_flow or getattr(scenario, "scene_flow", None) or "voiced"
+    # `continuous` is the DEFAULT (owner decision, 2026-08-24), so `NULL` — every scene
+    # written before the column — reads as continuous rather than keeping the old path. A
+    # scene that wants per-speaker calls sets `"voiced"` explicitly.
+    scene_flow = ov.scene_flow or getattr(scenario, "scene_flow", None) or DEFAULT_SCENE_FLOW
     if scene_flow not in ("voiced", "continuous"):
-        scene_flow = "voiced"
+        # The DEFAULT, not a hardcoded mode. These two drifted apart once already: the default
+        # moved to continuous and this line kept sending a nonsense row to the old path, so a
+        # hand-edited value silently opted a scene out of the default rather than being
+        # ignored. One name for one answer.
+        scene_flow = DEFAULT_SCENE_FLOW
 
     return TurnSettings(
         suggestions_count=suggestions,

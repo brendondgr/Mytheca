@@ -8,6 +8,8 @@ fewer, and a plan is never executed against a roster it no longer describes.
 
 from __future__ import annotations
 
+import pytest
+
 import json
 import re
 
@@ -16,6 +18,12 @@ import httpx
 from app.agents import planner_agent
 from app.agents.planner_agent import BeatDecision
 from app.services import llm
+
+# This module asserts on the PER-SPEAKER writer — the register directive, voice samples,
+# relationship note, carried disposition and owed-requirements tail all live in the character
+# prompt, and a continuous script never builds one. Continuous is the default since
+# 2026-08-24, so the mode under test is pinned rather than inherited.
+pytestmark = pytest.mark.usefixtures("per_speaker_scenes")
 
 
 def _configure_llm(client):

@@ -21,6 +21,12 @@ import pytest
 
 from app.services import llm, llm_backend
 
+# This module asserts on the PER-SPEAKER writer — the register directive, voice samples,
+# relationship note, carried disposition and owed-requirements tail all live in the character
+# prompt, and a continuous script never builds one. Continuous is the default since
+# 2026-08-24, so the mode under test is pinned rather than inherited.
+pytestmark = pytest.mark.usefixtures("per_speaker_scenes")
+
 
 @pytest.fixture(autouse=True)
 def _clear_detection_cache():

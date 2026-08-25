@@ -174,7 +174,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     asPlanMode(scenario.plannerMode) ?? "auto",
   );
   const [sceneFlow, setSceneFlowState] = useState<SceneFlow>(
-    scenario.sceneFlow === "continuous" ? "continuous" : "voiced",
+    scenario.sceneFlow === "voiced" ? "voiced" : "continuous",
   );
   const [tieScope, setTieScopeState] = useState<TieScope>(
     (scenario.tieScope as TieScope) ?? "scene",

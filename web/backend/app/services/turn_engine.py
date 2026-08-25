@@ -303,7 +303,7 @@ def run_turn(
         return
     # Continuous flow writes the planned turn in one generation, and everything after the
     # loop runs unchanged. See `beat_runner.continuous_turn`.
-    scripted = yield from beat_runner.continuous_turn(
+    scripted, planned = yield from beat_runner.continuous_turn(
         db, ctx, planned, emitter, turn_beats, consequences, intent, direction,
         enabled=settings.scene_flow == "continuous", tracer=tracer, pov_id=pov_id,
         show_reasoning=show_reasoning, lookahead=lookahead,

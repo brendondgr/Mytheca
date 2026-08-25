@@ -166,7 +166,7 @@ export function SceneConfigMenu({
   sceneMemory = null,
   summarised = false,
   secondsPerBeat,
-  sceneFlow = "voiced",
+  sceneFlow = "continuous",
   onSceneFlowChange,
   pinned = { suggestionsCount: true, planner: true, ties: true, sceneFlow: true },
   onPinnedChange,

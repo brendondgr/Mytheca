@@ -85,8 +85,9 @@ class Scenario(Base):
     tie_scope: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     #: How this scene's prose is produced — ``"voiced"`` (one call per speaker) or
     #: ``"continuous"`` (one call for the whole turn, speaker-tagged). ``NULL`` reads as
-    #: ``"voiced"``, so every scene written before this column keeps exactly the behaviour it
-    #: had. See ``agents/scene_script_agent``.
+    #: ``"continuous"`` — the default since 2026-08-24 — so a scene written before this column
+    #: gets the new path rather than being pinned to the old one by its own silence.
+    #: See ``agents/scene_script_agent``.
     scene_flow: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     # The scene's OWN one-tap direction verbs, appended to the built-in bar's groups.
     # ``[{"label", "group", "text"}]``. Nullable (older rows read as none), so

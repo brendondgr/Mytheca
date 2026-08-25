@@ -9,11 +9,17 @@ tail can be inspected.
 
 from __future__ import annotations
 
+import pytest
+
 import json
 
 import httpx
 
 from app.services import llm
+
+# Register threading is a property of the per-speaker character prompt; a continuous script
+# carries the register in its plan block instead and builds no such prompt.
+pytestmark = pytest.mark.usefixtures("per_speaker_scenes")
 
 _EMISSION = '<speaker:1>\n<type:character_dialogue>\n"I have you. Stay with me."'
 

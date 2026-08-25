@@ -124,3 +124,25 @@ def storyline_id(client: TestClient) -> str:
     return client.post(
         "/api/storylines", json={"id": "embergate", "title": "Embergate", "genre": "Maritime"}
     ).json()["id"]
+
+
+@pytest.fixture
+def per_speaker_scenes(monkeypatch):
+    """Pin `sceneFlow` to `"voiced"` for a module that tests the per-speaker writer.
+
+    Continuous prose became the default on 2026-08-24, and it does not merely produce the
+    same beats through one call: it bypasses the per-speaker prompt entirely — the register
+    directive, the voice samples, the relationship note, the carried disposition and the
+    owed-requirements tail all live in `character_turn_agent._build_user_prompt`, and a
+    continuous script never builds one.
+
+    So a module asserting on any of that is a **voiced-path** module, and this makes it say
+    so. The alternative — quietly adding `sceneFlow: "voiced"` to forty scenario fixtures —
+    would leave a reader unable to tell which tests were deliberately pinned and which had
+    simply never been revisited.
+
+    Used as `pytestmark = pytest.mark.usefixtures("per_speaker_scenes")` at module level.
+    """
+    from app.services import turn_settings
+
+    monkeypatch.setattr(turn_settings, "DEFAULT_SCENE_FLOW", "voiced")
