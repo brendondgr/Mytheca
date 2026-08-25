@@ -14,6 +14,7 @@ from app.agents import (
 
 EXPECTED_KEYS = {
     "character.output_contract",
+    "scene_script.system",
     "narrator.system",
     "narrator.system_long",
     "director.who_is_up",
@@ -112,6 +113,10 @@ def test_every_visible_key_is_one_an_agent_reads():
     rather than as a count that drifts."""
     consumed = {
         "character.output_contract",
+        # Read by `scene_script_agent.build_prompt` — the whole-turn writer used when a scene
+        # runs on continuous flow. Visible because an operator who has customised the
+        # per-speaker contract will expect to customise this one too.
+        "scene_script.system",
         "narrator.system",
         "narrator.system_long",
         "director.branch",

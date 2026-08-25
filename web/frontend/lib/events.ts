@@ -570,6 +570,16 @@ export interface TurnOverridesBody {
   /** Follow-up suggestions offered after this turn, 0–4. `0` is a real request. */
   suggestionsCount?: number | null;
   /**
+   * How this turn's prose is produced.
+   *
+   * - `"voiced"` — one model call per speaker, each carrying that character's voice samples.
+   *   What has always shipped, and what keeps voices apart. `null` reads as this.
+   * - `"continuous"` — ONE call writes the whole planned turn, marking each change of speaker.
+   *   Reads continuously and attributes from a token the writer emitted rather than from the
+   *   engine guessing; the cost is that every voice sample shares one prompt.
+   */
+  sceneFlow?: "voiced" | "continuous" | null;
+  /**
    * How the turn's plan is used.
    *
    * - `"auto"` — plan and play straight through. (`"planner"` is the value this shipped with

@@ -76,7 +76,10 @@ function PinIcon({ filled }: { filled: boolean }) {
 }
 
 /** The three controls a turn may override, keyed as the wire names them. */
-export type SceneControlKey = "suggestionsCount" | "planner" | "ties";
+export type SceneControlKey = "suggestionsCount" | "planner" | "ties" | "sceneFlow";
+
+/** How a turn's prose is produced. Mirrors the backend `SceneFlow`. */
+export type SceneFlow = "voiced" | "continuous";
 
 /** How much of a speaker's relationship history reaches their beat. */
 export type TieScope = "addressed" | "scene" | "world";
@@ -103,6 +106,7 @@ const PIN_NAMES: Record<SceneControlKey, string> = {
   suggestionsCount: "Suggestions",
   planner: "Turn planning",
   ties: "Ties",
+  sceneFlow: "How the scene is written",
 };
 
 /**
@@ -162,7 +166,9 @@ export function SceneConfigMenu({
   sceneMemory = null,
   summarised = false,
   secondsPerBeat,
-  pinned = { suggestionsCount: true, planner: true, ties: true },
+  sceneFlow = "voiced",
+  onSceneFlowChange,
+  pinned = { suggestionsCount: true, planner: true, ties: true, sceneFlow: true },
   onPinnedChange,
   openUp = false,
   disabled = false,
@@ -179,6 +185,12 @@ export function SceneConfigMenu({
    */
   plannerMode?: PlanMode;
   onPlannerModeChange?: (value: PlanMode) => void;
+  /**
+   * How this turn's prose is produced. `"voiced"` is one call per speaker (what has always
+   * shipped); `"continuous"` writes the whole turn in one pass and marks each hand-off.
+   */
+  sceneFlow?: SceneFlow;
+  onSceneFlowChange?: (value: SceneFlow) => void;
   /** How much of a speaker's relationship history reaches their beat. */
   tieScope?: TieScope;
   onTieScopeChange?: (value: TieScope) => void;
@@ -342,6 +354,36 @@ export function SceneConfigMenu({
             }
             scopeNote={pinned.planner ? undefined : "· this turn"}
             disabled={disabled || !onPlannerModeChange}
+            className="w-full [&_select]:w-full"
+          />
+
+          {/* How the prose is produced. Beside Turn planning because it is the same KIND of
+              choice — what the machinery does, rather than what the scene is about — and the
+              copy states the trade rather than naming the modes, because "voiced" and
+              "continuous" mean nothing to somebody who has not read the code. */}
+          <SceneControlSelect
+            label="How the scene is written"
+            value={sceneFlow}
+            options={[
+              { value: "voiced", label: "Character by character" },
+              { value: "continuous", label: "All at once" },
+            ]}
+            onChange={(v) => onSceneFlowChange?.(v as SceneFlow)}
+            help={
+              sceneFlow === "continuous"
+                ? "One pass writes the whole turn, so it reads continuously and each speaker is marked as the writing hands over. Every character's voice shares one prompt, so they can start to sound alike."
+                : "Each character is written on their own, with their own voice samples in front of them. Keeps voices distinct; the seams between beats are more visible."
+            }
+            action={
+              <PinToggle
+                controlKey="sceneFlow"
+                pinned={pinned.sceneFlow}
+                onChange={onPinnedChange}
+                disabled={disabled}
+              />
+            }
+            scopeNote={pinned.sceneFlow ? undefined : "· this turn"}
+            disabled={disabled || !onSceneFlowChange}
             className="w-full [&_select]:w-full"
           />
 

@@ -21,7 +21,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.agents import character_turn_agent
+from app.agents import character_turn_agent, scene_script_agent
 from app.events.envelope import StoryEvent
 from app.events.stream import TurnReasoningFrame, TurnTraceFrame
 from app.services import emission
@@ -71,6 +71,99 @@ def runaway_chars(beat_length: str | None) -> int:
     tokens = character_turn_agent.prose_tokens_for(beat_length) or 2048
     return tokens * _CHARS_PER_TOKEN
 
+
+
+def stream_script(
+    db: Session,
+    ctx: TurnContext,
+    decisions,
+    emitter: Emitter,
+    turn_beats: list[dict],
+    consequences: list[Consequence],
+    *,
+    roster: dict[int, str],
+    transcript: str,
+    scene_direction: str,
+    owed: list[str],
+    tracer: Tracer,
+    show_reasoning: bool = False,
+    usage_out: dict | None = None,
+):
+    """Drive ONE continuous multi-speaker script; return ``(raw, prompt_tokens, impact, blocked)``.
+
+    The sibling of :func:`stream_emission` for ``sceneFlow: "continuous"``. It reuses the same
+    accumulator and the same :func:`emit_segment_delta` — which already opens an event per
+    segment keyed on ``seg.character_id``, so a hand-off in the prose becomes a hand-off on
+    the wire with no new client contract. That is the whole reason this fits: the "tokenized
+    signal that the speaker changed" the owner asked for is the **existing event boundary**.
+
+    What it deliberately does NOT do is hold and judge each speaker's opening the way
+    :func:`stream_emission` does. That gate exists to catch a leaked scratchpad at the very
+    start of a generation, and there is exactly one start here. Judging every hand-off would
+    mean holding several hundred characters back at each one — turning a continuous scene into
+    a stutter, which is the one property this mode exists to provide. The whole-passage guards
+    (degeneration, repetition, cross-speaker leakage) still run, and the fallback in
+    ``beat_runner`` catches the case that matters most: a model that never emitted a tag.
+    """
+    first_id = next((d.actor_id for d in decisions if d.actor_id), None)
+    first = ctx.cast_by_id(first_id) if first_id else None
+    fallback_id = first.id if first else (ctx.cast[0].id if ctx.cast else "")
+    stream = scene_script_agent.stream_script(
+        db, ctx, decisions, roster,
+        transcript=transcript, scene_direction=scene_direction, requirements=owed,
+        speaker_for_params=first, usage_out=usage_out,
+    )
+    acc = emission.EmissionAccumulator(roster=roster, fallback_speaker_id=fallback_id)
+    open_segments: dict[int, LiveSegment] = {}
+    buffered: dict[int, str] = {}
+    impact = 0
+    written = 0
+    degenerate = False
+    # Sized to the PLAN, not to one beat: a script writes several, and a single beat's ceiling
+    # would cut the last one off mid-sentence.
+    runaway_limit = runaway_chars(None) * max(1, len(decisions))
+
+    try:
+        while True:
+            delta = next(stream)
+            if delta.reasoning and show_reasoning:
+                yield TurnReasoningFrame(character_id=fallback_id, text=delta.reasoning)
+            if not delta.answer:
+                continue
+            written += len(delta.answer)
+            for seg in acc.push(delta.answer):
+                impact += yield from emit_segment_delta(
+                    db, ctx, ctx.cast_by_id(seg.character_id) or first or ctx.cast[0],
+                    emitter, turn_beats, consequences, seg, open_segments, buffered, tracer,
+                    None,
+                )
+            if written > runaway_limit:
+                degenerate = True
+                stream.close()
+                break
+    except StopIteration as stop:
+        raw, prompt_tokens = stop.value
+    if degenerate:
+        yield from tracer.emit(
+            "prose",
+            "The scene script was cut short",
+            detail=(
+                "The generation ran past the point where the whole planned turn should have "
+                "ended, and was cut rather than streamed further. The turn keeps what it had."
+            ),
+            data={"degenerate": True, "sceneFlow": "continuous"},
+        )
+    for seg in acc.finish():
+        impact += yield from emit_segment_delta(
+            db, ctx, ctx.cast_by_id(seg.character_id) or first or ctx.cast[0],
+            emitter, turn_beats, consequences, seg, open_segments, buffered, tracer, None,
+        )
+    if show_reasoning:
+        yield TurnReasoningFrame(character_id=fallback_id, done=True)
+    for live_seg in open_segments.values():
+        yield from live_seg.close()
+    open_segments.clear()
+    return raw, prompt_tokens, impact, False
 
 
 def stream_emission(

@@ -161,16 +161,11 @@ def run_turn(
         yield from emitter.emit(
             "cast_request", {"characterId": guest.id, "reason": reason}
         )
-    # How many beats one player message may produce: **as many as the moment needs**.
-    #
-    # This was a player setting (`maxTurns`, 1-10, default 5) and it bound hard — a live smoke
-    # turn produced exactly five beats and stopped because five was the number, not because
-    # the scene had finished.
-    #
-    # What is left is the RUNAWAY BACKSTOP, a different thing with a different job:
-    # `turn_max_beats` (24) stops a loop; it does not pace a scene, and is not player-facing.
-    # It counts EVERY emitted beat, so it cannot be walked past. Resolved here rather than
-    # beside the loop because the opening narration has to know how much direction to absorb.
+    # As many beats as the moment needs. The player's `maxTurns` cap is gone; what is left is
+    # the RUNAWAY BACKSTOP, which stops a loop rather than pacing a scene, is not
+    # player-facing, and counts EVERY emitted beat. Resolved here rather than beside the loop
+    # because the opening narration has to know how much direction to absorb. Why the cap
+    # went, and what that left open: `docs/checklist.md`.
     max_beats = max(get_settings().turn_max_beats, 2 * len(ctx.cast) + 6)
     # How many beats may attempt one requirement before the turn stops re-owing it. Read
     # once: it bounds every `outstanding`/`for_actor` call below, and a requirement that
@@ -303,11 +298,17 @@ def run_turn(
         approved=req.approved_plan, mode=settings.planner, lookahead=lookahead,
         scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
         direction=direction if direction.active else None, beat_budget=max_beats,
-        trace=bool(req.trace),
-    )
+        trace=bool(req.trace))
     if verdict == "stop":
         return
-    while beats < max_beats:
+    # Continuous flow writes the planned turn in one generation, and everything after the
+    # loop runs unchanged. See `beat_runner.continuous_turn`.
+    scripted = yield from beat_runner.continuous_turn(
+        db, ctx, planned, emitter, turn_beats, consequences, intent, direction,
+        enabled=settings.scene_flow == "continuous", tracer=tracer, pov_id=pov_id,
+        show_reasoning=show_reasoning, lookahead=lookahead,
+        scene_opening=scene_opening and not narrated_open)
+    while not scripted and beats < max_beats:
         # Presence can change mid-turn (an exit beat, a vital stat bottoming out), so re-own
         # any requirement whose character just left before scheduling against it.
         direction.rebind({m.id for m in ctx.cast if m.is_present}, locked_id=pov_id)

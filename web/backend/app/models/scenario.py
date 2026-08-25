@@ -83,6 +83,11 @@ class Scenario(Base):
     # addressee only — what shipped before the control), ``"scene"`` (everyone present; the
     # default, and what NULL reads as) or ``"world"`` (plus their off-scene ties). Nullable.
     tie_scope: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    #: How this scene's prose is produced — ``"voiced"`` (one call per speaker) or
+    #: ``"continuous"`` (one call for the whole turn, speaker-tagged). ``NULL`` reads as
+    #: ``"voiced"``, so every scene written before this column keeps exactly the behaviour it
+    #: had. See ``agents/scene_script_agent``.
+    scene_flow: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     # The scene's OWN one-tap direction verbs, appended to the built-in bar's groups.
     # ``[{"label", "group", "text"}]``. Nullable (older rows read as none), so
     # ``core/bootstrap._reconcile_additive_columns`` adds it with a plain ADD COLUMN and no

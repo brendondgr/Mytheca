@@ -844,6 +844,8 @@ export function StoryPlayerView({
             onPlannerModeChange={scene.setPlannerMode}
             register={scene.register}
             onRegisterChange={scene.setRegister}
+            sceneFlow={scene.effective.sceneFlow}
+            onSceneFlowChange={scene.setSceneFlow}
             tieScope={scene.effective.ties}
             onTieScopeChange={scene.setTieScope}
             graphAvailable={scene.graphAvailable}

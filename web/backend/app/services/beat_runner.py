@@ -178,6 +178,99 @@ def relationship_step(
     )
 
 
+def continuous_turn(
+    db: Session,
+    ctx: TurnContext,
+    planned: list,
+    emitter: Emitter,
+    turn_beats: list[dict],
+    consequences: list[Consequence],
+    intent,
+    direction,
+    *,
+    enabled: bool,
+    tracer: Tracer,
+    pov_id: str | None,
+    show_reasoning: bool,
+    lookahead: int,
+    scene_opening: bool,
+) -> Generator[StoryEvent | TurnReasoningFrame | TurnTraceFrame, None, bool]:
+    """Write the whole turn as ONE continuous script. Returns whether it played.
+
+    ``sceneFlow: "continuous"``. The plan is produced once (or taken from an approved one),
+    then a single generation writes every beat of it, marking each change of speaker with
+    ``<speaker:N>``. Each hand-off opens its own event with its own ``characterId``, so the
+    client's speaker-change signal is the ordinary event boundary and no new contract exists.
+
+    **Returns False rather than raising when it cannot do the job**, and the caller then runs
+    the ordinary per-speaker loop for that turn. Two ways that happens, and both matter:
+
+    * The plan has nothing in it to write. Nothing was generated, so nothing is wasted.
+    * The model ignored the token format and returned one long passage
+      (``scene_script_agent.looks_unscripted``). That parses as a single beat attributed to
+      whoever was first — a mis-attributed monologue, which is worse than what the voiced
+      path would have produced. This is the case the owner's "foolproof on less intelligent
+      models" asks for, and the degradation has to be to today's behaviour, never to
+      something worse.
+    """
+    from app.agents import character_turn_agent, planner_agent, scene_script_agent
+    from app.services.beat_stream import stream_script
+
+    # The mode check lives here rather than at the call site so the engine reads as one line
+    # and `run_turn` stays under the module's line ceiling — which is what the ceiling is for.
+    if not enabled:
+        return False
+    present = [m for m in ctx.cast if m.is_present and m.id != pov_id]
+    if not present:
+        return False
+    roster = {i + 1: m.id for i, m in enumerate(present)}
+    if not planned:
+        planned = planner_agent.plan_beats(
+            db, ctx, intent, turn_beats, [], lookahead=max(lookahead, 4),
+            scene_opening=scene_opening, locked_id=pov_id,
+            direction=direction if direction and direction.active else None,
+        )
+    writable = [d for d in planned if d.action in ("speak", "narrate")]
+    if not writable:
+        return False
+
+    speakers = len({d.actor_id for d in writable if d.actor_id})
+    yield from tracer.emit(
+        "prose",
+        f"Writing the scene in one pass ({len(writable)} beat(s))",
+        detail=(
+            "Continuous scene flow: one generation writes every beat of the plan and marks "
+            "each change of speaker, instead of one call per speaker."
+        ),
+        data={"sceneFlow": "continuous", "beats": len(writable), "speakers": speakers},
+    )
+    owed = [r.text for r in (direction.outstanding() if direction else [])]
+    mark = len(turn_beats)
+    raw, _tokens, _impact, _blocked = yield from stream_script(
+        db, ctx, writable, emitter, turn_beats, consequences,
+        roster=roster,
+        transcript=character_turn_agent._transcript(ctx, turn_beats),
+        scene_direction=getattr(direction, "text", "") or "",
+        owed=owed, tracer=tracer, show_reasoning=show_reasoning,
+    )
+    if scene_script_agent.looks_unscripted(raw, expected_speakers=speakers):
+        yield from tracer.emit(
+            "prose",
+            "The scene came back unscripted — writing it per speaker instead",
+            detail=(
+                "The model produced one passage with no speaker hand-offs at all, which would "
+                "have been attributed to a single character. This turn falls back to one call "
+                "per speaker."
+            ),
+            data={"sceneFlow": "fallback"},
+        )
+        # Anything the script did emit is dropped from the turn's own transcript so the
+        # per-speaker path does not react to a beat the reader is about to see re-written.
+        del turn_beats[mark:]
+        return False
+    return len(turn_beats) > mark
+
+
 def beat_or_skip(
     tracer: "Tracer",
     speaker: CastMember,

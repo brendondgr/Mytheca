@@ -184,6 +184,12 @@ export interface Scenario {
    */
   plannerMode?: "auto" | "plan" | "planner" | "off" | null;
   /**
+   * How this scene's prose is produced — `"voiced"` (one call per speaker) or `"continuous"`
+   * (one call for the whole turn, speaker-tagged). Absent/`null` reads as `"voiced"`, so
+   * every scene written before this column keeps the behaviour it had.
+   */
+  sceneFlow?: "voiced" | "continuous" | null;
+  /**
    * The scene's default tie scope — how much of a speaker's relationship history reaches
    * their beat. Absent/`null` reads as `"scene"`.
    */

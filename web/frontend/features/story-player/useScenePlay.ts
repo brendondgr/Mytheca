@@ -29,6 +29,7 @@ import type {
 } from "@/lib/events";
 import type {
   SceneControlKey,
+  SceneFlow,
   TieScope,
 } from "@/components/feature/SceneConfigMenu";
 import type { ResolvedScenario } from "@/lib/types";
@@ -163,7 +164,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // today's behaviour: a change is written to the scenario and stays. Unpinned, a change
   // rides on the next turn's `overrides` envelope and is then discarded — which is why a
   // player who never touches a pin sees no difference at all.
-  const [pinned, setPinnedState] = useState<Record<SceneControlKey, boolean>>({ suggestionsCount: true, planner: true, ties: true });
+  const [pinned, setPinnedState] = useState<Record<SceneControlKey, boolean>>({ suggestionsCount: true, planner: true, ties: true, sceneFlow: true });
   // The pending per-turn overrides. Cleared when the turn settles, on the error path too —
   // the clear lives in `.finally`, because a turn that failed still consumed the intent.
   const [turnOverrides, setTurnOverrides] = useState<TurnOverridesBody>({});
@@ -171,6 +172,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // may well want one fast turn without committing the whole scene to it.
   const [plannerMode, setPlannerModeState] = useState<PlanMode>(() =>
     asPlanMode(scenario.plannerMode) ?? "auto",
+  );
+  const [sceneFlow, setSceneFlowState] = useState<SceneFlow>(
+    scenario.sceneFlow === "continuous" ? "continuous" : "voiced",
   );
   const [tieScope, setTieScopeState] = useState<TieScope>(
     (scenario.tieScope as TieScope) ?? "scene",
@@ -1005,6 +1009,18 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     [scenario.id, pinned.ties, clearOverride],
   );
 
+  const setSceneFlow = useCallback(
+    (value: SceneFlow) => {
+      if (!pinned.sceneFlow) {
+        setTurnOverrides((o) => ({ ...o, sceneFlow: value }));
+        return;
+      }
+      setSceneFlowState(value);
+      clearOverride("sceneFlow");
+      void updateScenario(scenario.id, { sceneFlow: value }).catch(() => {});
+    },
+    [scenario.id, pinned.sceneFlow, clearOverride],
+  );
   const setPlannerMode = useCallback(
     (value: PlanMode) => {
       if (!pinned.planner) {
@@ -1039,8 +1055,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       suggestionsCount: turnOverrides.suggestionsCount ?? suggestionsCount,
       planner: asPlanMode(turnOverrides.planner) ?? plannerMode,
       ties: (turnOverrides.ties as TieScope | undefined) ?? tieScope,
+      sceneFlow: (turnOverrides.sceneFlow as SceneFlow | undefined) ?? sceneFlow,
     }),
-    [turnOverrides, suggestionsCount, plannerMode, tieScope],
+    [turnOverrides, suggestionsCount, plannerMode, tieScope, sceneFlow],
   );
 
   /**
@@ -1186,6 +1203,8 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setSuggestionsCount,
     plannerMode,
     setPlannerMode,
+    sceneFlow,
+    setSceneFlow,
     // The plan on screen (Plan mode only), and the two things a player can do with it.
     pendingPlan,
     approvePlan,

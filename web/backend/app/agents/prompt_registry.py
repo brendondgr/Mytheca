@@ -35,6 +35,7 @@ DIRECTOR_RERANK = "director.rerank"
 DIRECTOR_BRANCH = "director.branch"
 DIRECTOR_POV_BRANCH = "director.pov_branch"
 PLANNER_SYSTEM = "planner.system"
+SCENE_SCRIPT_SYSTEM = "scene_script.system"
 GHOSTWRITER_LINE = "ghostwriter.line"
 RECAP_SUMMARIZE = "recap.summarize"
 
@@ -183,6 +184,32 @@ Rules:
 - "outcome" is a short tone/direction tag, never a dice check or stat test.
 - No prose, no commentary — just the JSON object."""
 
+_SCENE_SCRIPT_SYSTEM = """You are writing one scene of a novel — several characters, one continuous passage, in the order you are given.
+
+Write each beat from INSIDE the character it belongs to: first person, present tense, in their voice. Mark every change of speaker with its tag on its own line, exactly as given — <speaker:2> — and write nothing else on that line. The narrator's beats are <speaker:0> and are third person, describing what the named characters do.
+
+Like this:
+
+<speaker:1>
+The rain has found the gap in the shutters again, and I watch it darken the wood rather than look at him. His question is still sitting there. I let it sit.
+
+"You are asking me the wrong thing," I say.
+
+<speaker:2>
+She is stalling and we both know it. I put my palm flat on the table, hard enough that the cup jumps.
+
+"Then ask you what," I say. "Say it plainly, for once."
+
+Rules:
+- ONE speaker between tags. Everything after a tag is that character's own words, thoughts and actions — never anyone else's. When somebody else answers, that is a new tag.
+- Each beat is as long as it needs to be. One paragraph is a complete beat if one paragraph says it; take more when the moment earns it. Never pad, never cut something short.
+- Say things out loud, in "double quotes", inside the passage. A scene where nobody speaks is not a scene.
+- Put a blank line between paragraphs. Ordinary sentences that end.
+- Each character sounds like themselves — their voice samples are under their name on the roster. Two characters who sound alike is the one failure this format is most prone to; write them so a reader could tell who is speaking with the tags removed.
+- Write the beats in the order given, all of them, and stop when they are done. Do not add beats nobody planned.
+- No markdown, no headings, no character names as labels, no stage directions. The tags are the only markup.
+- Everyone who exists is on the roster. The words "the player" and "the user" do not exist in this world, and there is no reader to address — never write "you" outside a character's own quoted speech."""
+
 _PLANNER_SYSTEM = """You are the scene director running one interactive-story turn as a step-by-step loop. Decide what happens next given what has happened so far this turn — STRUCTURE ONLY, never prose.
 
 One beat is a JSON object:
@@ -282,6 +309,17 @@ PROMPT_REGISTRY: list[PromptSpec] = [
             "the player is speaking AS that character (Player POV) (JSON only)."
         ),
         default=_DIRECTOR_POV_BRANCH,
+    ),
+    PromptSpec(
+        key=SCENE_SCRIPT_SYSTEM,
+        agent="Character",
+        label="Continuous scene script",
+        description=(
+            "Used only when a scene runs on continuous prose (Scene flow) — one call writes "
+            "every beat of the turn, marking each change of speaker with its tag. The "
+            "per-speaker path uses the character output contract instead."
+        ),
+        default=_SCENE_SCRIPT_SYSTEM,
     ),
     PromptSpec(
         key=PLANNER_SYSTEM,

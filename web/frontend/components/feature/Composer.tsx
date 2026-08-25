@@ -3,6 +3,7 @@ import {
   SceneConfigMenu,
   type SceneControlKey,
   type Register,
+  type SceneFlow,
   type TieScope,
 } from "@/components/feature/SceneConfigMenu";
 import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
@@ -67,6 +68,8 @@ export function Composer({
   onPlannerModeChange,
   register,
   onRegisterChange,
+  sceneFlow,
+  onSceneFlowChange,
   tieScope,
   onTieScopeChange,
   graphAvailable,
@@ -123,6 +126,8 @@ export function Composer({
   onPlannerModeChange?: (value: PlanMode) => void;
   register?: Register | null;
   onRegisterChange?: (value: Register | null) => void;
+  sceneFlow?: SceneFlow;
+  onSceneFlowChange?: (value: SceneFlow) => void;
   tieScope?: TieScope;
   onTieScopeChange?: (value: TieScope) => void;
   graphAvailable?: boolean;
@@ -550,6 +555,8 @@ export function Composer({
               onPlannerModeChange={onPlannerModeChange}
               register={register}
               onRegisterChange={onRegisterChange}
+              sceneFlow={sceneFlow}
+              onSceneFlowChange={onSceneFlowChange}
               tieScope={tieScope}
               onTieScopeChange={onTieScopeChange}
               graphAvailable={graphAvailable}

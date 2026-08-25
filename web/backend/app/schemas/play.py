@@ -70,6 +70,18 @@ Register = Literal["light", "neutral", "tense", "grave"]
 #: ``None`` reads as ``"scene"``.
 TieScope = Literal["addressed", "scene", "world"]
 
+#: How a turn's prose is produced.
+#:
+#: * ``"voiced"`` — one model call per speaker, each carrying that character's voice samples,
+#:   register and relationship note. What has always shipped, and what keeps voices apart.
+#: * ``"continuous"`` — ONE call writes the whole planned turn, marking each change of speaker
+#:   with ``<speaker:N>``. Flows better and attributes from a token the writer emitted rather
+#:   than from the engine guessing; the cost is that every voice sample shares one prompt.
+#:
+#: ``None`` reads as ``"voiced"``. See ``agents/scene_script_agent`` for the trade in full and
+#: ``docs/checklist.md`` for the experiment that would settle which is better.
+SceneFlow = Literal["voiced", "continuous"]
+
 #: How the turn's plan is used.
 #:
 #: * ``"auto"`` — the planner decides each beat and the turn plays straight through. This is
@@ -123,6 +135,8 @@ class TurnOverrides(CamelModel):
     beat_register: Register | None = Field(default=None, alias="register")
     #: How wide a speaker's remembered history is for this turn — see ``TieScope``.
     ties: TieScope | None = None
+    #: How this turn's prose is produced — see :data:`SceneFlow`.
+    scene_flow: SceneFlow | None = None
 
 
 class ApprovedBeat(CamelModel):

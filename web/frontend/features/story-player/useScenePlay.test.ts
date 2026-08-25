@@ -1497,6 +1497,7 @@ describe("useScenePlay — pinned versus per-turn scene controls", () => {
       suggestionsCount: true,
       planner: true,
       ties: true,
+      sceneFlow: true,
     });
     expect(result.current.turnOverrides).toEqual({});
   });

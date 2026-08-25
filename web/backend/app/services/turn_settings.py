@@ -29,7 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.models import Scenario
-from app.schemas.play import PlannerMode, Register, TieScope, TurnOverrides
+from app.schemas.play import PlannerMode, Register, SceneFlow, TieScope, TurnOverrides
 
 #: Follow-up suggestions the director may be asked for. Mirrors ``ScenarioUpdate``.
 MAX_SUGGESTIONS = 4
@@ -46,6 +46,8 @@ class TurnSettings:
     register: Register | None = None
     #: How much of a speaker's history reaches their beat.
     ties: TieScope = "scene"
+    #: How the turn's prose is produced — see ``schemas.play.SceneFlow``.
+    scene_flow: SceneFlow = "voiced"
 
 
 def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnSettings:
@@ -76,11 +78,16 @@ def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnS
     if ties not in ("addressed", "scene", "world"):
         ties = "scene"
 
+    scene_flow = ov.scene_flow or getattr(scenario, "scene_flow", None) or "voiced"
+    if scene_flow not in ("voiced", "continuous"):
+        scene_flow = "voiced"
+
     return TurnSettings(
         suggestions_count=suggestions,
         planner=planner,
         register=ov.beat_register,
         ties=ties,
+        scene_flow=scene_flow,
     )
 
 

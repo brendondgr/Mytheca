@@ -183,6 +183,8 @@ def test_get_returns_prompt_catalog_and_empty_overrides(client):
     keys = {spec["key"] for spec in prompts["catalog"]}
     assert keys == {
         "character.output_contract",
+        # The whole-turn writer, used when a scene runs on continuous flow.
+        "scene_script.system",
         "narrator.system",
         "narrator.system_long",
         "director.branch",
