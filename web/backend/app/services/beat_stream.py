@@ -179,6 +179,7 @@ def stream_emission(
     relationship_note: str | None,
     register: str | None,
     stakes: str,
+    purpose: str,
     scene_direction: str,
     owed: list[str],
     tracer: Tracer,
@@ -201,6 +202,7 @@ def stream_emission(
     stream = character_turn_agent.stream_line(
         db, ctx, speaker, turn_beats=turn_beats, directive=directive,
         relationship_note=relationship_note, register=register, stakes=stakes,
+        purpose=purpose,
         scene_direction=scene_direction, requirements=owed, usage_out=usage_out,
     )
     acc = emission.EmissionAccumulator(roster=roster, fallback_speaker_id=speaker.id)

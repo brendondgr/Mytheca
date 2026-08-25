@@ -42,15 +42,22 @@ from app.services.stat_render import render_character_stats
 
 logger = logging.getLogger("mytheca.turn")
 
-# The beat needs a place to think that is NOT the prose. Running with the channel off
-# entirely (and no <thinking> block either) left deliberation nowhere to go, and a live run
-# caught the model writing its own scratchpad into the passage — "need to produce Mei's
-# beat. User is player? The cast: [1] Mei…" — before degenerating into a repetition loop at
-# 29,660 characters. HIGH caps that channel at 1024 tokens: enough to work the moment out,
-# bounded enough that the player is not waiting on an essay nobody reads. The character's
-# in-POV deliberation still appears in the passage itself; this is the scratchpad, not the
-# interiority.
-TURN_EFFORT = ReasoningEffort.HIGH
+# The beat does NOT need a place to think, because the thinking already happened: the turn is
+# planned in one call at a full budget (`planner_agent.PLANNER_EFFORT`) and this beat arrives
+# with its actor, its register, what is at stake and — since this change — the plan's own
+# reason for it. Executing a decision is not the same job as making one.
+#
+# The history matters, because HIGH was not careless. Running the channel off *and* with no
+# <thinking> block once left deliberation nowhere to go, and a live run caught the model
+# writing its scratchpad into the passage — "need to produce Mei's beat. User is player? The
+# cast: [1] Mei…" — before degenerating into a repetition loop at 29,660 characters. What has
+# changed is that both failures are now caught in code rather than prevented by budget:
+# `prose_guards.looks_like_scratchpad` and the degeneration guard did not exist then.
+#
+# Measured on the live endpoint at HIGH: 2646 reasoning characters for 247 characters of
+# prose — 91 % of the beat spent on an essay nobody reads. At a 0 budget the same prompt
+# returned 778 characters of prose in 169 tokens.
+TURN_EFFORT = ReasoningEffort.NONE
 
 # Sampler tuning for in-character voice on small models (the turn-loop plan §7): a lower
 # top_p reins in drift more reliably than raising temperature. Applied per turn-call (a
@@ -309,6 +316,7 @@ def generate_line(
     relationship_note: str | None = None,
     register: str | None = None,
     stakes: str = "",
+    purpose: str = "",
     scene_direction: str = "",
     requirements: list[str] | None = None,
 ) -> str:
@@ -319,7 +327,7 @@ def generate_line(
     raw, _ = generate_line_with_usage(
         db, ctx, speaker, turn_beats=turn_beats, reasoning=reasoning,
         directive=directive, relationship_note=relationship_note,
-        register=register, stakes=stakes,
+        register=register, stakes=stakes, purpose=purpose,
         scene_direction=scene_direction, requirements=requirements,
     )
     return raw
@@ -336,6 +344,7 @@ def generate_line_with_usage(
     relationship_note: str | None = None,
     register: str | None = None,
     stakes: str = "",
+    purpose: str = "",
     scene_direction: str = "",
     requirements: list[str] | None = None,
 ) -> tuple[str, int | None]:
@@ -369,7 +378,7 @@ def generate_line_with_usage(
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(
         ctx, speaker, turn_beats, directive=directive,
-        relationship_note=relationship_note, register=register, stakes=stakes,
+        relationship_note=relationship_note, register=register, stakes=stakes, purpose=purpose,
         scene_direction=scene_direction, requirements=requirements,
     )
     return llm.chat_complete_usage(
@@ -396,6 +405,7 @@ def stream_line(
     relationship_note: str | None = None,
     register: str | None = None,
     stakes: str = "",
+    purpose: str = "",
     scene_direction: str = "",
     requirements: list[str] | None = None,
     usage_out: dict | None = None,
@@ -416,7 +426,7 @@ def stream_line(
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(
         ctx, speaker, turn_beats, directive=directive,
-        relationship_note=relationship_note, register=register, stakes=stakes,
+        relationship_note=relationship_note, register=register, stakes=stakes, purpose=purpose,
         scene_direction=scene_direction, requirements=requirements,
     )
     if usage_out is not None:
@@ -459,6 +469,7 @@ def _build_user_prompt(
     relationship_note: str | None = None,
     register: str | None = None,
     stakes: str = "",
+    purpose: str = "",
     scene_direction: str = "",
     requirements: list[str] | None = None,
 ) -> str:
@@ -595,6 +606,13 @@ def _build_user_prompt(
         moment = directive_text
         if stakes:
             moment += f" What is at stake right now: {stakes}."
+        if purpose:
+            # The plan's OWN reason for this beat. It was decided at a full thinking budget
+            # and then, before this, thrown away — the writer received what was at risk but
+            # never what the beat was for, and had to re-derive an intent that already
+            # existed. Handing it over is what makes writing without a private scratchpad a
+            # matter of executing a decision rather than guessing at one.
+            moment += f" This beat is here to: {purpose}."
         moment += " Let that reach your voice — don't answer on autopilot."
         tail.append(moment)
     else:

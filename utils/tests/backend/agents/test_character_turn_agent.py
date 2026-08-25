@@ -269,18 +269,27 @@ def test_no_disposition_omits_inner_stance(client, db_session, monkeypatch):
 def test_the_beat_bounds_both_the_scratchpad_and_the_passage(
     client, db_session, monkeypatch
 ):
-    """Thinking is capped at 1024 tokens; the passage at a generous ~900 words.
+    """The beat does not deliberate in private; the passage runs as long as it needs.
 
-    Running with the reasoning channel OFF left deliberation nowhere to go, and a live run
-    caught the model writing its scratchpad into the passage and degenerating into a
-    repetition loop at 29,660 characters. The channel is what keeps that out of the prose —
-    so it is bounded rather than removed, and the passage itself is left free to run for as
-    long as the moment needs, because it delta-streams to the player as it is written.
+    This inverted on 2026-08-25. The reasoning channel was held at HIGH (1024) because a run
+    with it OFF *and* no <thinking> block left deliberation nowhere to go: a live run caught
+    the model writing its scratchpad into the passage and degenerating at 29,660 characters.
+
+    Two things changed. The turn is now planned in ONE call at a full budget and the beat
+    arrives with its register, its stakes and the plan's reason — so the deliberation has
+    already happened somewhere. And both failure modes are now caught in code
+    (`prose_guards.looks_like_scratchpad`, the degeneration guard) rather than prevented by
+    paying for a private essay: measured at HIGH, a beat spent 2646 reasoning characters to
+    produce 247 of prose.
+
+    What this test still protects is the property that mattered all along — the passage
+    allowance is never shared with a thinking budget, so a beat cannot come back as
+    deliberation with no prose in it.
     """
     from app.schemas.reasoning import ReasoningEffort, budget_for
 
-    assert character_turn_agent.TURN_EFFORT == ReasoningEffort.HIGH
-    assert budget_for(character_turn_agent.TURN_EFFORT) == 1024
+    assert character_turn_agent.TURN_EFFORT == ReasoningEffort.NONE
+    assert budget_for(character_turn_agent.TURN_EFFORT) == 0
 
     _configure_llm(client)
     capture: dict = {}
@@ -292,7 +301,7 @@ def test_the_beat_bounds_both_the_scratchpad_and_the_passage(
     )
     body = json.loads(capture["body"])
     system = body["messages"][0]["content"]
-    assert body.get("thinking_token_budget") == 1024
+    assert body.get("thinking_token_budget") == 0, "the beat executes; it does not think"
     # The PASSAGE gets its allowance ON TOP of the thinking budget — additive, never shared.
     # Setting the request to the passage allowance alone starved a live turn, which spent the
     # whole budget deliberating and returned no prose. One allowance now, not three: length is
@@ -300,7 +309,11 @@ def test_the_beat_bounds_both_the_scratchpad_and_the_passage(
     # how long to be — and it would do it by cutting the prose off mid-sentence.
     medium = character_turn_agent.prose_tokens_for()
     assert medium == 2048
-    assert body["max_tokens"] == 1024 * character_turn_agent._SCRATCHPAD_HEADROOM + medium
+    # Additive, never shared. With a 0 thinking budget the sum is the passage allowance
+    # itself, and the arithmetic still has to hold so that restoring a budget cannot silently
+    # start eating the prose.
+    budget = budget_for(character_turn_agent.TURN_EFFORT)
+    assert body["max_tokens"] == budget * character_turn_agent._SCRATCHPAD_HEADROOM + medium
     # The longest tier keeps the measured bound that shipped before the control existed. It
     # is not an editorial limit; it stops the operator's GLOBAL maxTokens — shared with
     # authoring flows and set to 48,000 on the install where this was found — from being
@@ -792,12 +805,16 @@ def test_the_operators_global_max_tokens_is_not_spent_on_one_beat():
     beat it produced a single 48,000-token generation over 684 seconds, which timed out the
     relay's health probe, left the upstream marked failed, and 400'd the next three turns.
     """
+    from app.schemas.reasoning import budget_for
     from app.schemas.settings import LlmParams
 
+    budget = budget_for(character_turn_agent.TURN_EFFORT)
     out = character_turn_agent._voice_params(LlmParams(max_tokens=48_000))
-    assert out.max_tokens == 1024 * character_turn_agent._SCRATCHPAD_HEADROOM + 2048
+    assert out.max_tokens == budget * character_turn_agent._SCRATCHPAD_HEADROOM + 2048
+    # The operator's global figure is what must not survive, whatever the thinking budget is.
+    assert out.max_tokens < 48_000
     # ...and the stock 512 default never reaches the request either: it is a default rather
-    # than a decision and cannot even cover 1,024 tokens of thinking.
+    # than a decision, and a passage allowance of 2048 is the point of having one.
     assert character_turn_agent._voice_params(LlmParams()).max_tokens > 512
 
 

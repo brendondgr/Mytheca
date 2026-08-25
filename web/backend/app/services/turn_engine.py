@@ -504,7 +504,7 @@ def run_turn(
                     db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
                     consequences=consequences,
                     show_reasoning=show_reasoning, relationship_note=note,
-                    register=exchange_register, stakes=decision.stakes,
+                    register=exchange_register, stakes=decision.stakes, purpose=decision.reason,
                     direction=direction,
                 )
                 acted.append(responder.id)
@@ -643,7 +643,7 @@ def run_turn(
             db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
             consequences=consequences,
             show_reasoning=show_reasoning, relationship_note=note,
-            register=beat_register, stakes=decision.stakes,
+            register=beat_register, stakes=decision.stakes, purpose=decision.reason,
             direction=direction, requirements=owed,
         )
         yield from direction_runtime.confirm(

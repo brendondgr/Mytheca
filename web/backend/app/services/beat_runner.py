@@ -326,6 +326,9 @@ def generate_speaker(
     relationship_note: str | None = None,
     register: str | None = None,
     stakes: str = "",
+    #: The plan's own reason for scheduling this beat. Handed to the writer so it executes a
+    #: decision instead of re-deriving one — see `character_turn_agent.TURN_EFFORT`.
+    purpose: str = "",
     direction: SceneDirection | None = None,
     requirements: list[DirectionRequirement] | None = None,
     tracer: Tracer | None = None,
@@ -361,7 +364,7 @@ def generate_speaker(
     _raw, prompt_tokens, streamed_impact, blocked = yield from stream_emission(
         db, ctx, speaker, emitter, turn_beats, consequences,
         roster=roster, directive=directive, relationship_note=relationship_note,
-        register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
+        register=register, stakes=stakes, purpose=purpose, scene_direction=scene_direction, owed=owed,
         tracer=tr, show_reasoning=show_reasoning, usage_out=usage, replace=replace,
     )
     if blocked:
@@ -383,7 +386,7 @@ def generate_speaker(
         _raw, prompt_tokens, streamed_impact, blocked = yield from stream_emission(
             db, ctx, speaker, emitter, turn_beats, consequences,
             roster=roster, directive=directive, relationship_note=relationship_note,
-            register=register, stakes=stakes, scene_direction=scene_direction, owed=owed,
+            register=register, stakes=stakes, purpose=purpose, scene_direction=scene_direction, owed=owed,
             tracer=tr, show_reasoning=show_reasoning, usage_out=usage, replace=replace,
         )
         if blocked:
