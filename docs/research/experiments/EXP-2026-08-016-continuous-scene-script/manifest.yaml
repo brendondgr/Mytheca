@@ -1,0 +1,82 @@
+# Experiment manifest — the machine-readable record.
+#
+# Every field below is required unless marked OPTIONAL. `make new-experiment`
+# pre-fills id, slug, dates, and the whole `code:` block from git.
+#
+# Do not delete a field you cannot fill. Write `unknown` and explain in ISSUES.md.
+# A back-filled experiment with three honest fields beats one with ten invented ones.
+
+id: EXP-2026-08-016
+slug: continuous-scene-script
+title: <one line, specific enough to read in a table>
+status: planned            # planned | running | complete | failed | superseded
+date_started: 2026-08-24
+date_completed: null       # null until status is complete or failed
+authors: [<name>]
+
+purpose: >
+  One paragraph. What question does this answer, and which paper claim
+  does it support or refute?
+
+hypothesis: >
+  Stated before the run. If exploratory, write "exploratory — no prior hypothesis".
+
+# --- Reproducibility block (all fields mandatory) ---
+code:
+  commit: d241074872a598ce4ab6d2960b0d958cf2ede2fd
+  branch: claude/coding-session-process-4cf348
+  entrypoint: "<the exact command that runs this>"
+  dirty: true             # uncommitted changes at run time? if true, explain in ISSUES.md
+config:
+  path: <path to the config, or null if the entrypoint is fully self-describing>
+  hash: sha256:...
+data:
+  name: <dataset or world>
+  version: <version>
+  split: <split>
+  n_examples: 0
+  dvc_path: null           # OPTIONAL — null if not DVC-tracked
+  hash: md5:...
+seeds: []
+n_runs: 0
+environment:
+  python: "3.13"
+  lockfile: env/requirements.lock
+  container: null          # OPTIONAL
+compute:
+  hardware: "<GPU/CPU, RAM>"
+  wall_clock_hours: 0.0
+  estimated_cost_usd: 0.0
+
+# --- LLM / agentic block ---
+# Mytheca is an LLM system. Do not omit this block; if a run genuinely made no LLM
+# call, write `llm: null` and say why in PROTOCOL.md.
+llm:
+  model: "<provider>/<model>@<version-or-date>"
+  temperature: 0.0
+  top_p: 1.0
+  max_tokens: 8000         # the local reasoning model 502s below ~8000
+  prompt_files: []
+  prompt_hash: sha256:...
+  tool_schema_hash: null   # OPTIONAL — null if no tool schema is involved
+  total_input_tokens: 0
+  total_output_tokens: 0
+  nondeterminism_note: >
+    Provider-side nondeterminism remains even at temperature 0; results
+    are reported as mean ± std over n_runs.
+
+# --- Results block ---
+# `status: complete` with an empty `values` map fails validation. That is intentional.
+metrics:
+  primary: <metric name, matching a key in values>
+  values: {}
+    # <metric>: {mean: 0.0, std: 0.0, n: 0}
+baselines_compared: []
+statistical_test: null     # OPTIONAL — null if none was run, but then say so in RESULTS.md
+
+# --- Linkage ---
+supports_claims: []        # every ID must exist in ../../CLAIMS.md
+figures: []                # every entry must have a file in figures/, and vice versa
+supersedes: null
+superseded_by: null
+related: []
