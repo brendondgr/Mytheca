@@ -372,7 +372,7 @@ def run_turn(
                     db, ctx, intent, turn_beats, acted, lookahead=depth,
                     scene_opening=scene_opening and not narrated_open, locked_id=pov_id,
                     direction=direction if direction.active else None, remaining_beats=remaining,
-                    may_ask=may_ask and beats == 0,
+                    may_ask=may_ask and beats == 0, beats_so_far=scene_beats,
                 )
                 yield from turn_plan.observe(ctx, planned, trace=bool(req.trace))
             # A planned beat is a prediction, and presence can change under it — a character

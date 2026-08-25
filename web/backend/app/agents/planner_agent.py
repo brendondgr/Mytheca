@@ -98,6 +98,7 @@ def plan_beats(
     locked_id: str | None = None,
     direction: SceneDirection | None = None,
     remaining_beats: int | None = None,
+    beats_so_far: int = 0,
     may_ask: bool = False,
 ) -> list[BeatDecision]:
     """Decide the next ``lookahead`` beats in ONE call (best-effort; never raises).
@@ -141,7 +142,7 @@ def plan_beats(
     user = _plan_prompt(
         ctx, intent, turn_beats, acted, roster_ids,
         scene_opening=scene_opening, direction=direction, remaining_beats=remaining_beats,
-        want=want, may_ask=may_ask,
+        want=want, may_ask=may_ask, beats_so_far=beats_so_far,
     )
     try:
         raw = llm.chat_complete(
@@ -256,6 +257,7 @@ def _plan_prompt(
     remaining_beats: int | None,
     want: int,
     may_ask: bool = False,
+    beats_so_far: int = 0,
 ) -> str:
     """The planner's user message. Byte-identical to the pre-lookahead one when ``want`` is 1.
 
@@ -297,12 +299,49 @@ def _plan_prompt(
     )
     return (
         f"Roster:\n{roster}\n\n"
+        f"{_pressure(beats_so_far)}"
         f"Player's direction: {intent.directive or '(freeform)'}.{scope_note}{opening_note}\n"
         f"{_owed(direction, roster_ids, remaining_beats)}"
         f"Characters who have ALREADY taken a beat this turn (roster numbers): "
         f"{', '.join(acted_nums) or 'none'}\n\n"
         f"This turn so far:\n{_recent(ctx, turn_beats)}\n\n"
         f"{ask}{ask_note}"
+    )
+
+
+#: How many beats a turn may produce before the planner is told, in the prompt, how long it
+#: has been going — and how many before that is put strongly.
+#:
+#: **Not a cap.** The player's cap was removed on purpose: how many beats a message is worth
+#: is a judgement about the moment, not a number set in advance. But removing it revealed that
+#: the planner almost never chose ``end`` on its own — it had never had to, because
+#: ``max_turns`` had always ended turns for it. Two live runs on the same scene and the same
+#: direction produced **4 beats and 24**, the second stopping only at the runaway backstop.
+#:
+#: So this is pressure rather than a limit: the planner is told what it has already spent and
+#: reminded that somebody is waiting through it. It may still keep going when the scene
+#: genuinely is not finished, which is the whole point.
+#:
+#: The thresholds are **chosen, not measured** — 4 is roughly a full exchange for a three-hander
+#: and 8 is twice that. What would settle them is in ``docs/checklist.md``.
+_PRESSURE_AFTER = 4
+_PRESSURE_HARD = 8
+
+
+def _pressure(beats_so_far: int) -> str:
+    """What to tell the planner about how long this turn has already run."""
+    if beats_so_far < _PRESSURE_AFTER:
+        return ""
+    if beats_so_far < _PRESSURE_HARD:
+        return (
+            f"This turn has already produced {beats_so_far} beats and the player has been "
+            "waiting through all of them. End it unless something they asked for is genuinely "
+            "unfinished — they can always send another message.\n\n"
+        )
+    return (
+        f"This turn has produced {beats_so_far} beats. That is a long time to leave somebody "
+        "watching a scene they cannot answer. END IT NOW: choose \"end\" unless a requirement "
+        "is still outstanding, and if one is, deliver it in this beat and end.\n\n"
     )
 
 

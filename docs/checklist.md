@@ -264,6 +264,38 @@ leaves genuinely open:
   but it is a safety net that will rarely fire, and its test now has to force the backstop
   down to exercise it at all.
 
+## Plan mode and continuous prose — shipped, and what is not yet known
+
+- **Continuous scene flow has never been run against a real model.** `sceneFlow:
+  "continuous"` is complete, unit-tested and behind a per-scene toggle defaulting to
+  `"voiced"` — the path that has always shipped. The plan called for continuous to be the
+  default; it is not, because the LLM endpoint was under test when it landed and defaulting an
+  unverified generation path on would be reckless. Flipping it is one word once it has been
+  read. **Nobody has yet read a single continuous turn.**
+- **The bet it makes is still unmeasured.** `character_turn_agent` splits per speaker
+  *because* per-character isolation keeps voices distinct; continuous prose puts every voice
+  sample in one prompt. The owner's grounds for overriding that is that the isolation is not
+  delivering, and `beat_stream.echoes_a_beat` exists because two characters once returned
+  byte-identical passages — but that is one anecdote. `EXP-2026-08-016` is what decides it,
+  and the metric that matters is voice distinctness against the voiced path.
+- **The sampler is a genuine compromise in continuous mode.** A script spans several
+  registers and there is one call to set `top_p` on, so it takes the first speaker's
+  looseness and the plan's opening register. The voiced path does this properly, per beat.
+- **Each hand-off is not gated the way a beat opening is.** `stream_emission` holds a
+  passage's opening back and judges it (scratchpad, echo, second person, cross-speaker);
+  `stream_script` cannot, because holding several hundred characters at every hand-off would
+  turn a continuous scene into a stutter — the one property the mode exists to provide. The
+  whole-passage guards still run, and the unscripted fallback catches the case that matters
+  most, but a leaked scratchpad *mid-script* would reach the page.
+- **Plan mode has never been used on a real turn either**, for the same reason. Its
+  behaviour is pinned by tests including the two defects they caught (a plan frame with no
+  session id; an approved plan whose cast has all left silently re-planning), but nobody has
+  approved a plan and watched it play.
+- **An approved plan is not re-validated against the direction.** If a player approves a
+  plan and their direction still owes something the plan does not cover, the turn runs the
+  plan and the requirement goes to the ordinary outstanding-direction machinery on a later
+  turn. That is probably right — they approved it — but it is untested and unstated in the UI.
+
 ## Point of view — what the smoke test measures and what it does not
 
 - **The narrator has no gate.** Character beats are held and judged before a word is shown
