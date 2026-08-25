@@ -301,6 +301,13 @@ def run_turn(
         trace=bool(req.trace))
     if verdict == "stop":
         return
+    # A plan the player approved is a CONTRACT, not a head start. `bound` turns off the
+    # re-plan branch below: when the queue empties the turn is over, because the beats the
+    # player agreed to are the beats that run. Its own length sets the ceiling, so an
+    # approved 15-beat plan is not clipped by a backstop sized for open-ended turns.
+    bound = verdict == "run"
+    if bound:
+        max_beats = max(max_beats, len(planned))
     # Continuous flow writes the planned turn in one generation, and everything after the
     # loop runs unchanged. See `beat_runner.continuous_turn`.
     scripted, planned = yield from beat_runner.continuous_turn(
@@ -315,21 +322,8 @@ def run_turn(
         outstanding = direction.outstanding(attempt_cap)
         remaining = max_beats - scene_beats
         if scene_beats >= max_beats:
-            yield from tracer.emit(
-                "plan",
-                "Stopped at the runaway backstop",
-                detail=(
-                    f"Stopped after {scene_beats} beat(s), at the backstop of {max_beats}. "
-                    "This is not a pacing limit — the scene should have ended itself before "
-                    "here, so reaching it means the planner never chose to stop."
-                    + (
-                        f" {len(outstanding)} part(s) of your direction did not fit."
-                        if outstanding
-                        else ""
-                    )
-                ),
-                data={"end": True, "undelivered": [r.text for r in outstanding]},
-            )
+            yield from tracer.emit(**turn_plan.backstop_trace(
+                scene_beats, max_beats, [r.text for r in outstanding]))
             break
         # The direction is a contract, and the scene cap is hard — so once what is still owed
         # would fill every beat that is left, the planner's judgement can no longer be
@@ -361,6 +355,12 @@ def run_turn(
                         beats_left=remaining,
                     )
                 ]
+            elif not planned and bound:
+                # The contract is discharged. Re-planning here is exactly what made an
+                # approved plan advisory: EXP-2026-08-016 measured turns of 18, 22 and 24
+                # beats because an emptied queue silently asked for more.
+                yield from tracer.emit(**turn_plan.complete_trace(scene_beats))
+                break
             elif not planned:
                 depth = min(lookahead, max(1, remaining))
                 yield from tracer.emit(

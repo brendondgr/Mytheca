@@ -242,3 +242,38 @@ def awaiting_trace(proposal: list[planner_agent.BeatDecision]) -> dict:
         ),
         "data": {"planner": "plan", "beats": len(proposal)},
     }
+
+
+def complete_trace(beats: int) -> dict:
+    """The turn ran every beat of a bound plan and stopped there.
+
+    Separate from the runaway backstop below because they mean opposite things: this is the
+    plan being honoured, that is the plan having failed to end itself.
+    """
+    return {
+        "step": "plan",
+        "title": "The approved plan is complete",
+        "detail": f"Ran all {beats} beat(s) the player approved.",
+        "data": {"end": True, "bound": True},
+    }
+
+
+def backstop_trace(beats: int, cap: int, undelivered: list[str]) -> dict:
+    """The runaway stop — reached only when nothing else ended the turn.
+
+    Worded as the failure it is: the scene should have ended itself, so arriving here means
+    the planner never chose to stop. EXP-2026-08-016 measured this firing at 24 beats.
+    """
+    detail = (
+        f"Stopped after {beats} beat(s), at the backstop of {cap}. This is not a pacing "
+        "limit — the scene should have ended itself before here, so reaching it means the "
+        "planner never chose to stop."
+    )
+    if undelivered:
+        detail += f" {len(undelivered)} part(s) of your direction did not fit."
+    return {
+        "step": "plan",
+        "title": "Stopped at the runaway backstop",
+        "detail": detail,
+        "data": {"end": True, "undelivered": undelivered},
+    }
