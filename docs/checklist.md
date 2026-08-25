@@ -264,6 +264,32 @@ leaves genuinely open:
   but it is a safety net that will rarely fire, and its test now has to force the backstop
   down to exercise it at all.
 
+## The two experiments are written and blocked, not missing
+
+`EXP-2026-08-015` (point of view, pre vs post) and `EXP-2026-08-016` (continuous vs voiced)
+are **pre-registered and unrun**. Protocols, runners, metrics and — for 015 — a pre-fix
+worktree for the baseline arm all exist and were verified up to the point of generation. Each
+folder's `ISSUES.md` records the blocked attempt.
+
+What blocks them: the relay's `local` → `gemma-4-26B-it` reported `failed` for a four-hour
+watch and there was no `llama-server` process at all. The relay registers endpoints; it does
+not own the upstream, so nothing on that side can restart it. ComfyUI's 18 GB was freed and
+did not help, which is what established the model was **absent** rather than starved.
+`skynet` was not substituted: it is healthy but unsuited to this generation, and a
+prose-quality number measured on it would be a fact about `skynet` that somebody would later
+quote as a fact about the change.
+
+To run them, with the model healthy:
+
+```bash
+uv run python -m utils.scripts.research.run_scene_script \
+  --experiment docs/research/experiments/EXP-2026-08-016-continuous-scene-script --turns 6
+```
+
+**Until `EXP-2026-08-016` runs, the continuous default rests on judgement, not evidence.** It
+is the owner's call and it shipped on their instruction — but nobody has yet read a single
+continuous turn, and the experiment is capable of saying the default is wrong.
+
 ## Plan mode and continuous prose — shipped, and what is not yet known
 
 - **Continuous scene flow has never been run against a real model.** `sceneFlow:
