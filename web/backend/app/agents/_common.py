@@ -50,6 +50,18 @@ def decision_timeout() -> float:
     return float(get_settings().llm_decision_timeout_seconds)
 
 
+def plan_timeout() -> float:
+    """Read window for the whole-turn plan.
+
+    Its own setting rather than :func:`decision_timeout` because the two calls are no longer
+    the same shape: the plan runs once per turn at a full thinking budget, where a decision
+    call is a snap judgement made many times.
+    """
+    from app.core.config import get_settings
+
+    return float(get_settings().llm_plan_timeout_seconds)
+
+
 def gen_params(params: LlmParams) -> LlmParams:
     """Return params with ``max_tokens`` floored for authoring generations."""
     if params.max_tokens >= GEN_MIN_TOKENS:

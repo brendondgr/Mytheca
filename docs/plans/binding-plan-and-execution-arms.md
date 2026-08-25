@@ -167,7 +167,7 @@ that same fixed plan — one continuous generation versus a stop-at-each-beat pa
 | Phase | State |
 | --- | --- |
 | 1 — A plan is a contract | **done** |
-| 2 — Plan once, thinking hard | not started |
+| 2 — Plan once, thinking hard | **done** |
 | 3 — Execution executes | not started |
 | 4 — Stop tokens + constrained decoding | not started |
 | 5 — Make the cache visible | not started |

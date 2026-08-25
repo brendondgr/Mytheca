@@ -174,13 +174,36 @@ def preflight(
             return "continue", []
         yield from tracer.emit(**approved_trace(planned))
         return "run", planned
-    if mode != "plan":
+    if mode == "off":
         return "continue", []
-    proposal = planner_agent.plan_beats(
-        db, ctx, intent, turn_beats, acted, lookahead=max(lookahead, 4),
-        scene_opening=scene_opening, locked_id=locked_id,
-        direction=direction, remaining_beats=beat_budget,
+    # ONE planning call for the whole turn, in both `auto` and `plan`. Planning per beat is
+    # what made a plan advisory and what thrashed the prefix cache; see
+    # `config.turn_planner_lookahead`.
+    # 0 (the default) means the whole turn. A positive value is an operator restoring the old
+    # per-N loop and is honoured as written under `auto`; plan mode keeps its floor of 4,
+    # because a plan shown to a player for approval needs enough in it to be worth approving.
+    if lookahead <= 0:
+        want = beat_budget
+    elif mode == "plan":
+        want = max(lookahead, 4)
+    else:
+        want = lookahead
+    proposal, complete = planner_agent.plan_turn(
+        db, ctx, intent, turn_beats, acted, budget=want, whole_turn=lookahead <= 0,
+        scene_opening=scene_opening, locked_id=locked_id, direction=direction,
     )
+    if mode != "plan":
+        # `auto` — nobody approves it, but it is still the turn's plan and still binding, so
+        # long as the planner actually produced one. An incomplete plan (endpoint down, reply
+        # malformed) falls back to the adaptive loop rather than binding the scene to a
+        # single fallback beat.
+        if not complete:
+            # Hand the beats over anyway. They were paid for, and the loop can run them and
+            # re-plan only once they are spent — throwing them away here would buy a second
+            # planning call for the same turn, which is the cost this whole change removes.
+            return "continue", proposal
+        yield from tracer.emit(**upfront_trace(proposal))
+        return "run", proposal
     yield from tracer.emit(**awaiting_trace(proposal))
     # Sent regardless of `trace`: under this mode the frame is not diagnostics, it is the
     # mechanism — without it the player has nothing to approve and the turn simply stops dead.
@@ -277,3 +300,31 @@ def backstop_trace(beats: int, cap: int, undelivered: list[str]) -> dict:
         "detail": detail,
         "data": {"end": True, "undelivered": undelivered},
     }
+
+
+def upfront_trace(planned) -> dict:
+    """The Inspector row for an `auto` turn's single upfront plan."""
+    return {
+        "step": "planning",
+        "title": f"Planned the whole turn: {len(planned)} beat(s)",
+        "detail": (
+            "One planning call decided the turn. The beats below are what will run — the "
+            "loop does not re-plan between them."
+        ),
+        "data": {"planner": "upfront", "beats": len(planned)},
+    }
+
+
+def after_exit(planned: list, *, bound: bool) -> list:
+    """What is left of the beat queue once a character has walked out.
+
+    An UNBOUND queue is discarded: the roster changed shape, so anything planned against the
+    old one is answering the wrong question, and the loop will simply plan again.
+
+    A BOUND queue is kept and pruned instead. There is no re-plan on a bound turn, so
+    discarding here would end the turn early over a departure the plan may well have
+    scheduled itself — and the per-beat `plan_still_valid` check already drops the
+    individual beats naming whoever just left. The beats that survive are the ones the
+    player approved.
+    """
+    return planned if bound else []

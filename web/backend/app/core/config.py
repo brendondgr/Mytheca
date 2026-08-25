@@ -82,7 +82,13 @@ class Settings(BaseSettings):
     # median turn is 2 beats and there is nothing to look ahead over. So the loop goes back
     # and forth: run a beat, look at what it did, decide the next one. The planner runs at
     # ``ReasoningEffort.QUICK`` (128 tokens) to keep that per-beat cost small.
-    turn_planner_lookahead: int = 1
+    # 0 means PLAN THE WHOLE TURN IN ONE CALL, which is the default. Planning per beat made
+    # the plan advisory (the loop re-planned whenever the queue emptied) and thrashed the
+    # server's single KV cache: interleaving [planner][Lily][planner][Zoe] overwrites the
+    # character prefix on every planner call, so each beat re-processed the whole stable
+    # region that `_build_user_prompt` is ordered to keep warm. A positive value restores the
+    # old per-N behaviour.
+    turn_planner_lookahead: int = 0
 
     # --- How much of the scene fits in the model's context ---
     # The transcript depth used to be a per-scene slider the player had to guess at. These
@@ -177,6 +183,11 @@ class Settings(BaseSettings):
     # agents already falls back to a heuristic, so a timeout degrades the turn instead of
     # ending it.
     llm_decision_timeout_seconds: int = 25
+    # The whole-turn plan is a generation-sized call, not a snap judgement: it runs at
+    # ReasoningEffort.HIGH (1024 thinking tokens), which at the measured 30-78 tok/s of a
+    # local model is 13-34 s of thinking before a single character of the answer. Sharing the
+    # 25 s decision window with it would time out a plan that was working.
+    llm_plan_timeout_seconds: int = 180
 
     # ComfyUI image generation — a local Comfy server (HTTP + WebSocket protocol).
     comfyui_base_url: str = "http://localhost:8199"

@@ -74,14 +74,25 @@ def _capture(monkeypatch) -> dict:
     return seen
 
 
+#: The planner is the one structural agent that does NOT use the decision window. It runs
+#: once per turn at a full thinking budget rather than many times as a snap judgement, so it
+#: carries its own bounded window (`plan_timeout`, 180 s). The invariant this file protects is
+#: unchanged — a prose-free agent must never silently inherit the 300 s *prose* window — so
+#: the assertion is on "opted into a bounded window of its own", not on one constant.
+_WINDOW = {
+    "app.agents.planner_agent": "timeout_s=plan_timeout()",
+}
+
+
 @pytest.mark.parametrize(
     "module", [intent_agent, planner_agent, direction_agent, triage_agent]
 )
 def test_structural_agents_pass_a_decision_timeout(module):
-    """Every prose-free agent must opt into the short window, not inherit the long one."""
+    """Every prose-free agent must opt into a short window, not inherit the long one."""
     source = module.__file__
     with open(source, encoding="utf-8") as fh:
         text = fh.read()
-    assert "timeout_s=decision_timeout()" in text, f"{module.__name__} still uses the prose window"
+    expected = _WINDOW.get(module.__name__, "timeout_s=decision_timeout()")
+    assert expected in text, f"{module.__name__} still uses the prose window"
     # Guard against a future call site being added without the override.
-    assert text.count("llm.chat_complete(") == text.count("timeout_s=decision_timeout()")
+    assert text.count("llm.chat_complete(") == text.count(expected)

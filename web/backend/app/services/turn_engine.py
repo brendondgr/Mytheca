@@ -291,7 +291,7 @@ def run_turn(
     # all turn time purely because it ran once per beat (EXP-2026-08-005), so it is asked
     # for several at once and re-consulted only when this queue empties or is invalidated.
     planned: list[planner_agent.BeatDecision] = []
-    lookahead = max(1, get_settings().turn_planner_lookahead)
+    lookahead = get_settings().turn_planner_lookahead  # 0 = plan the whole turn
 
     verdict, planned = yield from turn_plan.preflight(
         db, ctx, intent, turn_beats, acted, tracer,
@@ -301,10 +301,9 @@ def run_turn(
         trace=bool(req.trace))
     if verdict == "stop":
         return
-    # A plan the player approved is a CONTRACT, not a head start. `bound` turns off the
-    # re-plan branch below: when the queue empties the turn is over, because the beats the
-    # player agreed to are the beats that run. Its own length sets the ceiling, so an
-    # approved 15-beat plan is not clipped by a backstop sized for open-ended turns.
+    # A plan is a CONTRACT, not a head start: `bound` turns off the re-plan branch below, and
+    # the plan's own length raises the ceiling so a long plan is not clipped by a backstop
+    # sized for open-ended turns.
     bound = verdict == "run"
     if bound:
         max_beats = max(max_beats, len(planned))
@@ -355,14 +354,15 @@ def run_turn(
                         beats_left=remaining,
                     )
                 ]
-            elif not planned and bound:
-                # The contract is discharged. Re-planning here is exactly what made an
-                # approved plan advisory: EXP-2026-08-016 measured turns of 18, 22 and 24
-                # beats because an emptied queue silently asked for more.
+            elif not planned and bound and not outstanding:
+                # The contract is discharged. Re-planning here is what made a plan
+                # advisory: EXP-2026-08-016 measured 18-, 22- and 24-beat turns because an
+                # emptied queue silently asked for more. Guarded on `not outstanding`
+                # because the player's DIRECTION outranks the plan's length.
                 yield from tracer.emit(**turn_plan.complete_trace(scene_beats))
                 break
             elif not planned:
-                depth = min(lookahead, max(1, remaining))
+                depth = max(1, remaining) if lookahead <= 0 else min(lookahead, max(1, remaining))
                 yield from tracer.emit(
                     "planning",
                     "Deciding who speaks next" if depth == 1 else f"Planning the next {depth} beats",
@@ -586,9 +586,7 @@ def run_turn(
             yield from turn_effects.apply_presence_change(
                 emitter, leaver, decision.status, decision.reason, auto=True, tracer=tracer
             )
-            # The roster just changed shape, so anything planned against the old one is
-            # answering the wrong question — re-plan rather than execute a stale queue.
-            planned.clear()
+            planned[:] = turn_plan.after_exit(planned, bound=bound)
             beats += 1
             continue
         actor = ctx.cast_by_id(decision.actor_id) if decision.actor_id else None

@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from sqlalchemy.orm import Session
 
 from app.agents import prompt_registry
-from app.agents._common import decision_timeout, extract_json, resolve_llm
+from app.agents._common import extract_json, plan_timeout, resolve_llm
 from app.agents.direction_agent import SceneDirection
 from app.agents.intent_agent import TurnIntent
 from app.core.errors import APIError
@@ -41,7 +41,13 @@ from app.services.assembler import TurnContext
 # player feels it directly. It wants a quick read of the room, not deliberation — the
 # judgement is "who has something to say about what just happened", which a person makes
 # instinctually. QUICK (128 tokens) is deliberately below LOW.
-PLANNER_EFFORT = ReasoningEffort.QUICK
+# The planner is where deliberation belongs: it is the one call that has to stay consistent
+# from one beat to the next, and it now runs ONCE per turn rather than once per beat, so the
+# budget is paid once instead of N times. Measured against the live endpoint before this
+# change: the prose call spent 91 % of its output on hidden reasoning (2646 reasoning
+# characters for 247 of prose) while the planner was capped at 128 tokens — deliberation was
+# happening at the doing stage and nowhere else.
+PLANNER_EFFORT = ReasoningEffort.HIGH
 
 _ACTIONS = {"speak", "narrate", "exit", "end", "ask"}
 # How many options may ride with a clarifying question. The player can always ignore
@@ -155,7 +161,7 @@ def plan_beats(
             ],
             params,
             reasoning=PLANNER_EFFORT,
-            timeout_s=decision_timeout(),
+            timeout_s=plan_timeout(),
         )
         data = extract_json(raw)
     except APIError:
@@ -185,6 +191,47 @@ def plan_beats(
             direction=direction,
         )]
     return decisions
+
+
+def plan_turn(
+    db: Session,
+    ctx: TurnContext,
+    intent: TurnIntent,
+    turn_beats: list[dict],
+    acted: list[str],
+    *,
+    budget: int,
+    whole_turn: bool = True,
+    scene_opening: bool = False,
+    locked_id: str | None = None,
+    direction: SceneDirection | None = None,
+    may_ask: bool = False,
+) -> tuple[list[BeatDecision], bool]:
+    """Plan the WHOLE turn in one call. Returns ``(decisions, complete)``.
+
+    ``complete`` is what the caller uses to decide whether the plan may be treated as a
+    contract, and it is deliberately conservative: a plan is complete when the planner ended
+    it **itself** (a final ``end`` or ``ask``), or when it was planning the whole turn and
+    filled the entire beat ceiling.
+
+    ``whole_turn`` is what separates those two. Filling the budget only means "finished" when
+    the budget WAS the turn; an operator who set ``turn_planner_lookahead`` to 3 asked for a
+    three-beat window with a re-plan after it, and treating a full window as a finished turn
+    would silently take that setting away from them.
+
+    Every other outcome — the endpoint unreachable, a malformed reply — falls back to a
+    single scripted beat, and binding a turn to *that* would end the scene after one beat
+    because the model was down. A degraded plan runs the adaptive loop instead.
+    """
+    decisions = plan_beats(
+        db, ctx, intent, turn_beats, acted, lookahead=budget,
+        scene_opening=scene_opening, locked_id=locked_id, direction=direction,
+        remaining_beats=budget, may_ask=may_ask,
+    )
+    complete = bool(decisions) and (
+        decisions[-1].action in ("end", "ask") or (whole_turn and len(decisions) >= budget)
+    )
+    return decisions, complete
 
 
 def _decision_from(data: dict, roster_ids: dict[int, str]) -> BeatDecision | None:
