@@ -1,7 +1,24 @@
 # Playwright Mode, Adaptive Pacing, and Continuous Prose
 
-**Status:** proposed — not started. Written 2026-08-24, revised the same day against the
-owner's decisions. Code state: `main` @ `0b134ac`.
+**Status: phases 1–9 shipped and merged; 10–11 outstanding.** Written 2026-08-24, revised the
+same day against the owner's decisions, and updated here against what actually landed.
+
+| Phase | State |
+| --- | --- |
+| 1 Playwright rename | **Done.** |
+| 2 Verb bar collapsed | **Done.** |
+| 3 Playwright POV fix | **Done** — measured 9/10 beats addressing the reader → 0, and holding at 1 problem in a later 24-beat run. |
+| 4 Cross-speaker guard | **Done** — whole-passage, cuts rather than discards. |
+| 5 EXP-2026-08-015 | **Not done.** The before/after came from `utils/scripts/scene_smoke.py` (n=1, no arms, recorded nowhere), which is a smoke test and explicitly not a measurement. The experiment folder, the voice-distinctness baseline and the recorded claim do not exist. |
+| 6 Adaptive pacing | **Done**, plus a fix the plan did not anticipate: removing `maxTurns` revealed the planner almost never chose to end (4 beats on one run, **24** on another). It is now told what the turn has spent. Measured after: 7 beats, 0 problems. |
+| 7 Plan mode in the composer | **Done.** |
+| 8 Plan approval loop | **Done** — never exercised against a live model. |
+| 9 Continuous scene script | **Done, defaulting OFF** (`sceneFlow: "voiced"`). Never run against a live model. |
+| 10 EXP-2026-08-016 | **Not done**, and phase 9's default cannot honestly be flipped until it is. |
+| 11 Docs + merge | Docs done in each phase's own commit; the branch is merged. |
+
+Everything still open is in `docs/checklist.md`, which is the file to read rather than this
+one — a plan describes an intention and the checklist describes the state.
 
 ---
 
