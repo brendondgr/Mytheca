@@ -118,13 +118,42 @@ rows with no aggregate**. Survivors of a partial run are not a random subsample 
 
 ## 8. Entry point
 
+The `pre` arm needs a checkout of its own commit. Recorded here as commands rather than left
+as a directory somebody has to still have:
+
 ```bash
+# 1. The baseline arm's build, and a backend for it.
+git worktree add /tmp/exp015-pre 0d6a60e --detach
+cp .env /tmp/exp015-pre/.env 2>/dev/null || true
+(cd /tmp/exp015-pre/web/backend && uv run python -m uvicorn --factory app.main:create_app \
+   --host 127.0.0.1 --port 3356 &)
+
+# 2. The current build, on its own port.
+(cd web/backend && uv run python -m uvicorn --factory app.main:create_app \
+   --host 127.0.0.1 --port 3355 &)
+
+# 3. Interleaved, both arms, one wall-clock window.
 uv run python -m utils.scripts.research.run_pov_mode \
   --experiment docs/research/experiments/EXP-2026-08-015-pov-and-voice-baseline \
   --pre-api http://localhost:3356/api --post-api http://localhost:3355/api --turns 6
+
+# 4. Afterwards.
+git worktree remove /tmp/exp015-pre
 ```
 
-Both backends must be running, one per commit, and the LLM endpoint must be healthy.
+The LLM endpoint must be healthy. Verify the arms actually differ before trusting a result —
+`pre` must still render a player beat as `You:` (`character_turn_agent._transcript`) and carry
+*"Narrate them in the second person"* in both narrator prompts; `post` must have neither:
+
+```bash
+grep -c 'who = "You"' /tmp/exp015-pre/web/backend/app/agents/character_turn_agent.py   # 1
+grep -c "Narrate them in the second person" web/backend/app/agents/prompt_registry.py  # 0
+```
+
+Uvicorn is invoked directly rather than through `app.py`, which frees ports 3345/3346 and
+would kill a dev server the owner is using. Running it that way also **skips the preflight**,
+so the additive schema reconciler does not run — a build whose models carry a column the dev
+database lacks will 500 on the first scenario write until it is added.
 
 ## 9. Provenance note
 
