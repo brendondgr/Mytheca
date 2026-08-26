@@ -1,0 +1,5 @@
+addresses_the_reader,arm,beats,bound,cached_token_rate,character_beats,cross_speaker_rate,discards,fallback,forced_beats,has_speech,misattribution_rate,names_the_player,paragraph_breaks,plan_adherence,plan_beats_run,planned_beats,planner_calls,player_line,seconds,seconds_per_beat,turn,voice_distinctness
+0.25,voiced,5,1,0.558508,4,0.0,0,0,1,1.0,0.333333,0.0,3.5,1.333333,4,3,1,Lily jumps up on the table and starts singing to drown out the argument.,164.084,32.817,1,0.908784
+0.0,continuous,4,1,0.557789,4,0.0,0,0,1,0.75,0.666667,0.0,2.25,1.0,3,3,1,Lily jumps up on the table and starts singing to drown out the argument.,174.908,43.727,1,0.94627
+0.0,voiced,6,1,0.250777,5,0.0,1,0,1,1.0,0.0,0.0,4.4,0.5,1,2,3,Zoe tries to get her down before anyone outside hears.,334.224,55.704,2,0.890915
+0.0,continuous,2,1,0.0,2,0.0,0,0,1,1.0,0.333333,0.0,4.0,0.333333,1,3,1,Zoe tries to get her down before anyone outside hears.,199.602,99.801,2,0.911969

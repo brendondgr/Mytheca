@@ -158,6 +158,7 @@ def plan_beats(
     remaining_beats: int | None = None,
     beats_so_far: int = 0,
     may_ask: bool = False,
+    source_out: dict | None = None,
 ) -> list[BeatDecision]:
     """Decide the next ``lookahead`` beats in ONE call (best-effort; never raises).
 
@@ -182,6 +183,8 @@ def plan_beats(
     moment that has not happened yet, so its ``register`` is a prediction. That is why the
     engine re-plans on divergence instead of executing a whole turn blind.
     """
+    if source_out is not None:
+        source_out["source"] = "fallback"
     if not ctx.cast:
         return [BeatDecision("end", reason="no cast")]
     present = [m for m in ctx.cast if m.is_present and m.id != locked_id]
@@ -256,6 +259,8 @@ def plan_beats(
             ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
             direction=direction,
         )]
+    if source_out is not None:
+        source_out["source"] = "model"
     return decisions
 
 
@@ -289,13 +294,20 @@ def plan_turn(
     single scripted beat, and binding a turn to *that* would end the scene after one beat
     because the model was down. A degraded plan runs the adaptive loop instead.
     """
+    source: dict = {}
     decisions = plan_beats(
         db, ctx, intent, turn_beats, acted, lookahead=budget,
         scene_opening=scene_opening, locked_id=locked_id, direction=direction,
-        remaining_beats=budget, may_ask=may_ask,
+        remaining_beats=budget, may_ask=may_ask, source_out=source,
     )
-    complete = bool(decisions) and (
-        decisions[-1].action in ("end", "ask") or (whole_turn and len(decisions) >= budget)
+    # A plan the MODEL wrote is the turn, whether or not it bothered to append an explicit
+    # `end`. Requiring one was measured (EXP-2026-08-017, first run) to leave the door open on
+    # exactly the failure this design closes: the planner omitted `end`, the plan was judged
+    # incomplete, the turn reverted to the adaptive loop and ran 9 beats against 3 planned.
+    # Only the FALLBACK path — endpoint unreachable, reply unparseable — must not bind, since
+    # binding a single scripted beat would turn a model outage into a one-beat scene.
+    complete = bool(decisions) and source.get("source") == "model" and (
+        whole_turn or decisions[-1].action in ("end", "ask")
     )
     return decisions, complete
 

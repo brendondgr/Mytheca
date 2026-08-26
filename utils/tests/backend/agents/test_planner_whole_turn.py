@@ -99,23 +99,50 @@ def test_a_self_terminating_plan_is_planned_once_and_run(client, storyline_id, m
     assert beats == 3, "the three planned beats run, and nothing more"
 
 
-def test_an_incomplete_plan_is_not_binding():
-    """A fallback plan must not become a contract.
+def test_a_plan_without_a_trailing_end_still_binds(client, storyline_id, monkeypatch):
+    """The regression EXP-2026-08-017's first run found.
 
-    `plan_beats` returns a single scripted beat when the endpoint is unreachable. Binding
-    that would turn a model outage into a one-beat scene, so `complete` stays False and the
-    caller keeps the adaptive loop.
+    Binding used to require the planner to append an explicit `end`. It frequently does not,
+    and a plan judged "incomplete" reverted to the adaptive loop: measured at **9 beats run
+    against 3 planned**, with two planner calls. A plan the model wrote IS the turn.
     """
-    decisions = [planner_agent.BeatDecision("speak", actor_id="c1")]
-    assert decisions[-1].action not in ("end", "ask")
-    assert len(decisions) < 12  # below any real budget
+    _configure_llm(client)
+    counter: dict = {}
+    plan = {"beats": [{"action": "speak", "actor": 1}, {"action": "speak", "actor": 2}]}
+    _route(monkeypatch, plan, counter)
+    scid = _scene(client, storyline_id)
 
-
-@pytest.mark.parametrize("last,expected", [("end", True), ("ask", True), ("speak", False)])
-def test_completeness_is_decided_by_how_the_plan_ends(last, expected):
-    """`complete` means the planner finished a thought, not that a list came back."""
-    decisions = [planner_agent.BeatDecision(last)]
-    complete = bool(decisions) and (
-        decisions[-1].action in ("end", "ask") or len(decisions) >= 12
+    resp = client.post(
+        f"/api/play/{scid}/turn",
+        json={"text": "Go.", "trace": True, "overrides": {"sceneFlow": "voiced"}},
     )
-    assert complete is expected
+    events = [json.loads(line) for line in resp.text.splitlines() if line.strip()]
+    kinds = {"character_prose", "character_dialogue", "character_action"}
+    beats = len({e["id"] for e in events if e.get("type") in kinds})
+
+    assert counter["planner"] == 1, "no re-plan, even with no trailing end"
+    assert beats == 2, "the two planned beats ran, and nothing more"
+
+
+def test_a_fallback_plan_still_does_not_bind(db_session, monkeypatch):
+    """The one case that must stay unbound.
+
+    When the endpoint is unreachable `plan_beats` returns a single scripted beat. Binding
+    THAT would turn a model outage into a one-beat scene, so the distinction is where the
+    answer came from — not whether it happened to end with `end`.
+    """
+    from app.agents import planner_agent as pa
+
+    source: dict = {}
+
+    def fake_plan_beats(*_a, source_out=None, **_kw):
+        if source_out is not None:
+            source_out["source"] = "fallback"
+        return [pa.BeatDecision("speak", actor_id="c1")]
+
+    monkeypatch.setattr(pa, "plan_beats", fake_plan_beats)
+    _decisions, complete = pa.plan_turn(
+        db_session, object(), object(), [], [], budget=12,
+    )
+    assert complete is False
+    assert source == {}

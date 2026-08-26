@@ -1,0 +1,117 @@
+id: EXP-2026-08-017
+slug: bound-plan-execution
+title: Bound upfront plan — two execution arms (continuous vs per-beat) over one plan
+status: complete
+date_started: 2026-08-26
+date_completed: 2026-08-26
+authors:
+- brendondgr
+purpose: 'The turn loop now plans once per turn and executes that plan instead of re-planning
+  after every beat. This asks two things: whether a plan is actually binding (beats run ==
+  beats planned, one planning call), and which of two execution strategies over that plan is
+  better — one continuous generation with speaker hand-offs, or one generation per planned
+  beat. The binding property was NOT met, so per PROTOCOL section 6 no arm comparison is
+  reported and the execution question stays open.
+
+  '
+hypothesis: 'Plan adherence is 1.0 in both arms with exactly one planner call per turn;
+  continuous is faster per beat; voiced reuses more prefix cache; voice distinctness does not
+  differ materially. Adherence and speed were refuted; cache reuse was supported.
+
+  '
+code:
+  commit: 2db460c07c20fe7fccfac569cb027d5661e65a62
+  branch: claude/coding-session-process-4cf348
+  entrypoint: uv run python -m utils.scripts.research.run_bound_plan --experiment docs/research/experiments/EXP-2026-08-017-bound-plan-execution --turns 2
+  dirty: true
+config:
+  path: null
+  hash: null
+data:
+  name: throwaway three-character scene (Lily / Zoe / Aldous, The Smoldering Hearth)
+  version: built by the runner at run time
+  split: n/a
+  n_examples: 4
+  dvc_path: null
+  hash: null
+seeds: []
+n_runs: 1
+environment:
+  python: '3.13'
+  lockfile: env/requirements.lock
+  container: null
+compute:
+  hardware: <GPU/CPU, RAM>
+  wall_clock_hours: 0.0
+  estimated_cost_usd: 0.0
+llm:
+  model: <provider>/<model>@<version-or-date>
+  temperature: 0.0
+  top_p: 1.0
+  max_tokens: 8000
+  prompt_files: []
+  prompt_hash: sha256:...
+  tool_schema_hash: null
+  total_input_tokens: 0
+  total_output_tokens: 0
+  nondeterminism_note: 'Provider-side nondeterminism remains even at temperature 0; results are reported
+    as mean ± std over n_runs.
+
+    '
+metrics:
+  primary: voiced_plan_adherence
+  # Means over n = 2 turns per arm, carried from data/metrics.json. RESULTS.md reports the
+  # PER-TURN rows as the finding: with the primary property unmet, PROTOCOL section 6 says no
+  # arm comparison is reported, so these means are recorded for completeness and are not the
+  # result.
+  values:
+    voiced_plan_adherence:
+      mean: 0.916667
+      std: 0.589255
+      n: 2
+    voiced_planner_calls:
+      mean: 2.0
+      std: 1.414214
+      n: 2
+    voiced_cached_token_rate:
+      mean: 0.404643
+      std: 0.217599
+      n: 2
+    voiced_seconds_per_beat:
+      mean: 44.2605
+      std: 16.183553
+      n: 2
+    voiced_voice_distinctness:
+      mean: 0.899849
+      std: 0.012635
+      n: 2
+    continuous_plan_adherence:
+      mean: 0.666667
+      std: 0.471405
+      n: 2
+    continuous_planner_calls:
+      mean: 1.0
+      std: 0.0
+      n: 2
+    continuous_cached_token_rate:
+      mean: 0.278894
+      std: 0.394416
+      n: 2
+    continuous_seconds_per_beat:
+      mean: 71.764
+      std: 39.650306
+      n: 2
+    continuous_voice_distinctness:
+      mean: 0.929119
+      std: 0.024254
+      n: 2
+baselines_compared: []
+statistical_test: null
+supports_claims: []
+figures:
+- bound_plan_execution
+supersedes: null
+superseded_by: null
+related:
+- EXP-2026-08-016
+- EXP-2026-08-009
