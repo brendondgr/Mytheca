@@ -112,9 +112,13 @@ that same fixed plan — one continuous generation versus a stop-at-each-beat pa
 - **Locations:** `web/backend/app/services/llm.py` (capture
   `usage.prompt_tokens_details.cached_tokens`), `web/backend/app/services/turn_emit.py`
   (`Tracer` carries it), `web/backend/app/schemas/play.py` if the trace frame needs the field.
-- **Rationale:** The KV claim in §1 must be measured, not asserted. The endpoint already
-  reports cached tokens; nothing reads them. Without this, Phase 6 cannot tell a real cache
-  win from a story.
+- **Rationale:** The KV claim in §1 must be measured, not asserted.
+- **Found already built.** `llm._cached_tokens` reads
+  `usage.prompt_tokens_details.cached_tokens`, `_record_usage` fills it, `beat_runner` traces
+  it as `cachedTokens`, and `test_llm_streaming.py` covers all three. This phase wrote **no
+  new plumbing**; it verified the existing path and added the one thing missing for Phase 6 —
+  a bound `auto` turn emitted its beat *count* but no `plan` frame, so the planned speaker
+  order was invisible to anything measuring the turn.
 - **Tests:** `utils/tests/backend/services/test_cached_tokens_trace.py` — a payload reporting
   cached tokens surfaces them; a payload omitting the field does not crash the turn.
 - *Action: `uv run pytest utils/tests/backend/services`. Commit:
@@ -170,6 +174,6 @@ that same fixed plan — one continuous generation versus a stop-at-each-beat pa
 | 2 — Plan once, thinking hard | **done** |
 | 3 — Execution executes | **done** |
 | 4 — Stop tokens + constrained decoding | **done** |
-| 5 — Make the cache visible | not started |
+| 5 — Make the cache visible | **already in place** (verified, plus the plan frame) |
 | 6 — EXP-2026-08-017 | not started |
 | 7 — Docs, checklist, merge | not started |

@@ -203,6 +203,10 @@ def preflight(
             # planning call for the same turn, which is the cost this whole change removes.
             return "continue", proposal
         yield from tracer.emit(**upfront_trace(proposal))
+        # The same `plan` frame an adaptive turn emits, so the Inspector shows a bound turn's
+        # beats rather than only their count — and so anything measuring the turn can compare
+        # the speakers that were planned against the ones that ran.
+        yield from observe(ctx, proposal, trace=trace)
         return "run", proposal
     yield from tracer.emit(**awaiting_trace(proposal))
     # Sent regardless of `trace`: under this mode the frame is not diagnostics, it is the
