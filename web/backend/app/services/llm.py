@@ -403,6 +403,14 @@ class StreamDelta:
 
     answer: str = ""
     reasoning: str = ""
+    #: Everything already streamed as ``answer`` was actually reasoning — discard it.
+    #:
+    #: Set when a generation closes a thinking block it never opened. Some serving stacks
+    #: have the chat template consume the opening ``<think>`` and hand back only the closing
+    #: tag, so the deliberation arrives looking exactly like prose until the moment it ends.
+    #: Measured live: a narrator beat streamed the model's own checklist ("Never speak for a
+    #: character: no dialogue. Good.") into the scene before the tag arrived.
+    restart: bool = False
 
 
 def chat_complete_stream(
@@ -501,7 +509,15 @@ def chat_complete_stream(
                         answer_text, inline_reasoning = splitter.push(str(raw_content))
                         out.answer += answer_text
                         out.reasoning += inline_reasoning
-                    if out.answer or out.reasoning:
+                        if splitter.took_over():
+                            # Everything streamed as prose so far was deliberation. Say so,
+                            # and drop it from the accumulated text as well as telling the
+                            # consumer — otherwise the finished string still carries it even
+                            # though the live view was corrected.
+                            out.restart = True
+                            reasoning_parts.extend(answer_parts)
+                            answer_parts.clear()
+                    if out.answer or out.reasoning or out.restart:
                         answer_parts.append(out.answer)
                         reasoning_parts.append(out.reasoning)
                         yield out

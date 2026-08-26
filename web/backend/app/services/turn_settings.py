@@ -34,7 +34,22 @@ from app.schemas.play import PlannerMode, Register, SceneFlow, TieScope, TurnOve
 #: Follow-up suggestions the director may be asked for. Mirrors ``ScenarioUpdate``.
 MAX_SUGGESTIONS = 4
 
-#: How prose is produced when nothing says otherwise (owner decision, 2026-08-24).
+#: How prose is produced when nothing says otherwise.
+#:
+#: **Changed to `voiced` on 2026-08-26, on measurement.** It shipped as `continuous` on the
+#: owner's judgement before any existed; `EXP-2026-08-016` and `EXP-2026-08-017` then measured
+#: three things against it, all pointing the same way:
+#:
+#: * it **under-renders its own plan** — given three planned beats it wrote one, without ever
+#:   re-planning, so the turn simply lost beats the planner had scheduled;
+#: * it produced the run's **only cross-speaker leak** (0.079), which per-speaker calls avoid
+#:   structurally, since a call that only knows one character cannot voice another;
+#: * it **cannot reuse the prefix cache** — one long generation has no earlier call to reuse,
+#:   measured at 0.000 against 0.40 for the per-speaker path.
+#:
+#: `continuous` remains a supported mode and is not deprecated. The comparison that would
+#: settle it properly is still open (EXP-2026-08-017 withheld it, because plan adherence was
+#: not met), so this is the better-evidenced default rather than a verdict.
 #:
 #: A named constant rather than a literal in :func:`resolve`, for one reason: the per-speaker
 #: writer is still a supported mode with a great deal of machinery of its own — register
@@ -42,7 +57,7 @@ MAX_SUGGESTIONS = 4
 #: none of which exists on the continuous path. The tests for that machinery have to pin the
 #: mode they are testing, and pinning it by patching one visible constant is honest, where
 #: forty scenario fixtures quietly carrying `sceneFlow: "voiced"` would not be.
-DEFAULT_SCENE_FLOW = "continuous"
+DEFAULT_SCENE_FLOW = "voiced"
 
 
 @dataclass(frozen=True)

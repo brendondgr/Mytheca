@@ -481,6 +481,8 @@ from app.services.prose_guards import (  # noqa: E402,F401  (re-export)
     addresses_the_reader,
     cross_speaker_speech,
     cross_speaker_speech_span,
+    narrates_another_mind,
+    narrates_another_mind_span,
     cut_before,
     in_the_scene,
     looks_degenerate,
