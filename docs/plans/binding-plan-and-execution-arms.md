@@ -176,4 +176,4 @@ that same fixed plan — one continuous generation versus a stop-at-each-beat pa
 | 4 — Stop tokens + constrained decoding | **done** |
 | 5 — Make the cache visible | **already in place** (verified, plus the plan frame) |
 | 6 — EXP-2026-08-017 | **done** — binding property refuted; arm comparison withheld per the decision rule |
-| 7 — Docs, checklist, merge | not started |
+| 7 — Docs, checklist, merge | **done** |

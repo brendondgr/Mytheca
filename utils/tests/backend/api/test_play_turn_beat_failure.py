@@ -104,12 +104,14 @@ def _patch_llm(monkeypatch, *, fail_first: bool = False, fail_all: bool = False)
                 ]})
             return httpx.Response(200, json={"choices": [{"message": {"content": PASSAGE}}]})
         if "scene director running one interactive-story turn" in system:
+            # One reply, whole turn: the planner is asked once (2026-08-26) and the turn
+            # executes what it said. A SECOND call would mean the turn re-planned, which a
+            # bound turn never does — so `plans` staying at 1 is part of what is under test.
             state["plans"] += 1
-            reply = (
-                json.dumps({"action": "speak", "actor": 1, "reason": "responds"})
-                if state["plans"] == 1
-                else json.dumps({"action": "end", "reason": "done"})
-            )
+            reply = json.dumps({"beats": [
+                {"action": "speak", "actor": 1, "reason": "responds"},
+                {"action": "end", "reason": "done"},
+            ]})
             return httpx.Response(200, json={"choices": [{"message": {"content": reply}}]})
         return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
 

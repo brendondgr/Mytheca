@@ -301,9 +301,8 @@ def run_turn(
         trace=bool(req.trace))
     if verdict == "stop":
         return
-    # A plan is a CONTRACT, not a head start: `bound` turns off the re-plan branch below, and
-    # the plan's own length raises the ceiling so a long plan is not clipped by a backstop
-    # sized for open-ended turns.
+    # A plan is a CONTRACT: `bound` turns off the re-plan branch below, and the plan's own
+    # length raises the ceiling. See `turn_plan.PLAN_DOES_NOT_REPEAL_FLOORS`.
     bound = verdict == "run"
     if bound:
         max_beats = max(max_beats, len(planned))
@@ -329,6 +328,8 @@ def run_turn(
         # afforded and the engine schedules the rest itself. Below that line the planner
         # decides freely, with the outstanding list and the budget in its prompt.
         decision: planner_agent.BeatDecision | None = None
+        # Set when the plan runs out; see `turn_plan.PLAN_DOES_NOT_REPEAL_FLOORS`.
+        plan_complete = False
         forced_reason = "the rest of your direction has to fit the beats that are left"
         if not outstanding or len(outstanding) < remaining:
             if settings.planner == "off":
@@ -355,12 +356,12 @@ def run_turn(
                     )
                 ]
             elif not planned and bound and not outstanding:
-                # The contract is discharged. Re-planning here is what made a plan
-                # advisory: EXP-2026-08-016 measured 18-, 22- and 24-beat turns because an
-                # emptied queue silently asked for more. Guarded on `not outstanding`
-                # because the player's DIRECTION outranks the plan's length.
-                yield from tracer.emit(**turn_plan.complete_trace(scene_beats))
-                break
+                # Contract discharged. Re-planning here is what made a plan advisory:
+                # EXP-2026-08-016 measured 18-, 22- and 24-beat turns from an emptied queue.
+                #
+                trace_row, decision = turn_plan.completion_end(scene_beats)
+                yield from tracer.emit(**trace_row)
+                plan_complete = True
             elif not planned:
                 depth = max(1, remaining) if lookahead <= 0 else min(lookahead, max(1, remaining))
                 yield from tracer.emit(
@@ -379,7 +380,8 @@ def run_turn(
             # who was cut down two beats ago must not be picked because a stale plan said so.
             while planned and not direction_runtime.plan_still_valid(ctx, planned[0], locked_id=pov_id):
                 planned.pop(0)
-            decision = planned.pop(0) if planned else None
+            # `else decision` keeps a synthesised end; None everywhere else, as before.
+            decision = planned.pop(0) if planned else decision
             # An "end" while the player is still owed something is not the planner's call.
             if decision is not None and decision.action == "end" and outstanding:
                 decision = None

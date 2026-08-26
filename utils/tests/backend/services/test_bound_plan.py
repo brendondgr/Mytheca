@@ -100,9 +100,15 @@ def _prose_beats(events) -> int:
     return len({e["id"] for e in events if e.get("type") in _CHARACTER})
 
 
-@pytest.mark.parametrize("n", [1, 3, 8])
+@pytest.mark.parametrize("n", [2, 3, 8])
 def test_a_plan_of_n_beats_runs_exactly_n_beats(client, storyline_id, monkeypatch, n):
-    """3 means 3 and 8 means 8 — the owner's requirement, stated as a count."""
+    """3 means 3 and 8 means 8 — the owner's requirement, stated as a count.
+
+    ``n = 1`` is excluded and covered separately below: a single-beat plan on a two-character
+    scene trips the EXCHANGE FLOOR, which adds a beat so a room with two people in it does not
+    answer the player with one line. That floor predates this work and guards a reported
+    failure, so it is asserted rather than suppressed.
+    """
     _configure_llm(client)
     counter: dict = {}
     _route(monkeypatch, counter)
@@ -127,14 +133,38 @@ def test_the_turn_ends_at_the_plan_rather_than_re_planning(client, storyline_id,
     _route(monkeypatch, counter)
     scid, ids = _scene(client, storyline_id)
 
-    events = _run(client, scid, [{"action": "speak", "actorId": ids[0]}])
+    events = _run(client, scid, [{"action": "speak", "actorId": ids[0]},
+                                 {"action": "speak", "actorId": ids[1]}])
 
-    assert _prose_beats(events) == 1
+    assert _prose_beats(events) == 2
+    assert counter["planner"] == 0
     done = [
         e for e in events
         if e.get("type") == "trace" and (e.get("data") or {}).get("bound") is True
     ]
     assert done, "the turn must say it stopped because the plan was complete"
+
+
+def test_the_exchange_floor_still_outranks_a_one_beat_plan(client, storyline_id, monkeypatch):
+    """A bound plan does NOT repeal the engine's floors, and that is deliberate.
+
+    A one-beat plan on a two-character scene would leave somebody in the room answering the
+    player with silence — the reported failure that put the exchange floor there
+    (`test_play_turn_exchange.py`). Binding is about stopping the loop from inventing beats
+    the planner never asked for; it is not licence to drop a guarantee that predates it.
+
+    Whether the plan SHOULD outrank that floor is an open product question recorded in
+    `docs/checklist.md`. This test pins today's answer so a change to it has to be a decision.
+    """
+    _configure_llm(client)
+    counter: dict = {}
+    _route(monkeypatch, counter)
+    scid, ids = _scene(client, storyline_id)
+
+    events = _run(client, scid, [{"action": "speak", "actorId": ids[0]}])
+
+    assert _prose_beats(events) == 2, "the floor added the second character's answer"
+    assert counter["planner"] == 0, "and it did so WITHOUT re-planning"
 
 
 def test_an_unbound_turn_is_untouched(client, storyline_id, monkeypatch):

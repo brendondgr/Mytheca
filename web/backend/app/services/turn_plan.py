@@ -271,6 +271,21 @@ def awaiting_trace(proposal: list[planner_agent.BeatDecision]) -> dict:
     }
 
 
+def completion_end(beats: int):
+    """``(trace, decision)`` for a bound plan that has run out.
+
+    An `end` DECISION rather than a `break` in the caller, so the turn leaves by the same door
+    a planner-chosen end does. Breaking out skipped every guard hanging off an end — the
+    exchange floor, the direction check — and silently repealed them for bound turns, which
+    is most turns. See :data:`PLAN_DOES_NOT_REPEAL_FLOORS`.
+    """
+    from app.agents import planner_agent
+
+    return complete_trace(beats), planner_agent.BeatDecision(
+        "end", reason="the plan is complete"
+    )
+
+
 def complete_trace(beats: int) -> dict:
     """The turn ran every beat of a bound plan and stopped there.
 
@@ -332,3 +347,19 @@ def after_exit(planned: list, *, bound: bool) -> list:
     player approved.
     """
     return planned if bound else []
+
+
+#: Why a bound plan does not repeal the engine's floors.
+#:
+#: Binding stops the LOOP from inventing beats the planner never asked for — the defect
+#: EXP-2026-08-016 measured at 18, 22 and 24 beats. It is not licence to drop guarantees that
+#: predate it. Two contracts may still add a beat past the plan:
+#:
+#: * the player's **direction** — an instruction they typed, which outranks a plan's length;
+#: * the **exchange floor** — a room with two people in it does not answer with one line
+#:   (reported failure ``ps_c015c506b1``).
+#:
+#: Whether the plan SHOULD outrank either is an open product question in `docs/checklist.md`.
+#: It is recorded here because subordinating them is a one-line change that would look like a
+#: tidy-up and would silently reintroduce a bug somebody reported.
+PLAN_DOES_NOT_REPEAL_FLOORS = True

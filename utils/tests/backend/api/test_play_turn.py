@@ -246,10 +246,17 @@ def test_internal_thought_streams_as_private_to_user(client, db_session, storyli
 
 
 def _plan_routed(monkeypatch, decisions, *, narration="A hush falls over the room.", branches=None):
-    """Route the mock by system prompt: intent → freeform, planner → scripted decisions
-    (consumed in order; ``end`` once exhausted), branch → options, narrator → prose,
-    character → an emission echoing the prompt's speaker number/name."""
-    plan = iter(decisions)
+    """Route the mock by system prompt: intent → freeform, planner → scripted decisions,
+    branch → options, narrator → prose, character → an emission echoing the prompt's speaker
+    number/name.
+
+    The planner is asked ONCE for the whole turn (2026-08-26), so the scripted decisions come
+    back as a single ``{"beats": [...]}`` reply rather than one per call. Each test still
+    states the sequence it wants; only the transport changed. A second planner call would mean
+    the turn re-planned, which a bound turn must never do — so it answers ``end``, and a test
+    that ends up shorter than its script is telling the truth about a leak.
+    """
+    plan = iter([{"beats": list(decisions)}])
 
     def handler(request: httpx.Request) -> httpx.Response:
         if not request.url.path.endswith("/chat/completions"):
@@ -672,7 +679,10 @@ def test_later_speakers_are_no_longer_held_for_a_continuity_check(client, storyl
     mei, kira, _jax, sid = _three(client, storyline_id)
     scid = _scenario(client, storyline_id, [mei, kira], sid)
 
-    plan = iter([{"action": "speak", "actor": 1}, {"action": "speak", "actor": 2}, {"action": "end"}])
+    # One reply, whole turn: the planner is asked once and the turn executes what it said.
+    plan = iter([{"beats": [
+        {"action": "speak", "actor": 1}, {"action": "speak", "actor": 2}, {"action": "end"},
+    ]}])
     auditor_calls: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:

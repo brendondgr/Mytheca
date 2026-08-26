@@ -236,18 +236,50 @@ that were defined entirely in terms of them. What replaced them is a prompt dire
 number in it and the planner's own judgement about when a turn is done. Four things that
 leaves genuinely open:
 
-- **Turn length is now the planner's problem, and it was not good at it.** With the cap gone,
-  the first live run produced **16 beats on one player message** and was still going — the
-  planner almost never chose `end`, because `maxTurns` had always ended turns for it and its
-  own prompt told it not to ("do not end a turn that has been one character talking while
-  another is standing right there"). That rule is now scoped to ORDER rather than length, and
-  `end` is stated as the default once the direction is delivered. **The fix is unmeasured.**
-  A turn against the local model costs roughly a minute a beat, so this is the difference
-  between a two-minute wait and a sixteen-minute one, and it should be the first thing any
-  pacing experiment looks at.
-- **`TURN_MAX_BEATS` (24) is now the only ceiling, and it was chosen as a runaway guard.** It
-  was never meant to pace anything, and 24 beats is not a turn anybody wants. Expect to
-  re-tune it, and record the tuning rather than quietly editing the default.
+- **Turn length was the planner's problem, and prompt wording did not fix it — MEASURED, then
+  closed structurally (2026-08-26).** With `maxTurns` gone the planner almost never chose
+  `end`. The prompt fix (scoping the hand-the-floor rule to ORDER, stating `end` as the
+  default) was shipped unmeasured; `EXP-2026-08-016` measured it and it **did not work**:
+  turns of 18, 22 and 24 beats, with `_pressure()` escalating to a literal "END IT NOW" from
+  the eighth beat and being ignored roughly sixteen times in a row. One player message cost
+  **4524 s**.
+
+  The cause was structural, not lexical: the loop re-planned whenever its beat queue emptied
+  (`turn_engine`'s `elif not planned:`), so no instruction to stop could bind. The turn is now
+  planned **once** and that plan is executed — see `docs/plans/binding-plan-and-execution-arms.md`.
+  A live scene that produced 18-24 beat turns now runs 3.
+
+- **OPEN, and a product decision: what may add a beat past the plan?** Two contracts still
+  can, and both predate the binding work, so neither was repealed by it:
+
+  1. **The player's direction.** An instruction they typed outranks a plan's length. When a
+     plan ends with one undelivered, the plan is discarded and the engine reschedules — which
+     re-plans. `EXP-2026-08-017` measured **3 planner calls** on such a turn where every other
+     turn used 1.
+  2. **The exchange floor.** A room with two people does not answer the player with one line
+     (reported failure `ps_c015c506b1`; the owner's word was "back and forth"). A one-beat
+     plan on a two-character scene therefore runs two beats — **without re-planning**, pinned
+     by `test_bound_plan.py::test_the_exchange_floor_still_outranks_a_one_beat_plan`.
+
+  Subordinating either to the plan is a one-line change that would read as a tidy-up and would
+  reintroduce a bug somebody reported, which is why it is written down instead of done. The
+  principled alternative is to move both guarantees **into the planner** — tell it every
+  present character and every outstanding requirement, and let the plan satisfy them — so the
+  floors become fallbacks rather than overrides. That is unmeasured and is the next thing to
+  try. `turn_plan.PLAN_DOES_NOT_REPEAL_FLOORS` carries the same note in code.
+
+- **OPEN: `continuous` under-renders a plan it was given.** Same experiment: with one planning
+  call and a correct plan, the continuous writer produced **1 beat against 3 planned**, having
+  never re-planned. It does not reliably emit a hand-off token per planned beat. Deliberately
+  not patched during the run — tuning an arm mid-experiment produces the author's preferred
+  answer — so it is carried here as the next thing to look at. Note the default is
+  `continuous`, so this affects ordinary play, not just the experiment.
+- **`TURN_MAX_BEATS` (24) is a runaway guard, and no longer paces anything.** Turn length is
+  the plan's, and a bound plan raises the ceiling to its own length so a long plan is not
+  clipped. Re-tune it if a runaway is ever seen again, and record the tuning rather than
+  quietly editing the default. Note it guards the **per-speaker loop only**: a scripted
+  continuous turn is emitted with no ceiling at all (`EXP-2026-08-016` measured 38 beats from
+  one script), which matters more now that `continuous` is the default.
 - **The backstop can overshoot by one.** It is checked once per loop iteration and one
   iteration may emit both a narrator beat and a character beat. Harmless — it exists to stop a
   loop and protect the endpoint, and one extra beat costs neither — but if it ever has to be
