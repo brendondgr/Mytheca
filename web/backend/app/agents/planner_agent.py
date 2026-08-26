@@ -23,6 +23,8 @@ contract for callers that genuinely want a single decision.
 
 from __future__ import annotations
 
+import logging
+
 import re
 from dataclasses import dataclass, field
 
@@ -32,6 +34,7 @@ from app.agents import prompt_registry
 from app.agents._common import extract_json, plan_timeout, resolve_llm
 from app.agents.direction_agent import SceneDirection
 from app.agents.intent_agent import TurnIntent
+from app.core.config import get_settings
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.services import llm
@@ -47,6 +50,8 @@ from app.services.assembler import TurnContext
 # change: the prose call spent 91 % of its output on hidden reasoning (2646 reasoning
 # characters for 247 of prose) while the planner was capped at 128 tokens — deliberation was
 # happening at the doing stage and nowhere else.
+logger = logging.getLogger("mytheca.turn")
+
 PLANNER_EFFORT = ReasoningEffort.HIGH
 
 _ACTIONS = {"speak", "narrate", "exit", "end", "ask"}
@@ -90,6 +95,53 @@ class BeatDecision:
     # required — an "ask" without one is malformed, not a beat with a blank question.
     question: str = ""
     options: list[str] = field(default_factory=list)
+
+
+#: JSON schema the planner's reply is decoded against when the endpoint supports it.
+#: Verified enforceable on the deployed llama.cpp route: asked "should the scene continue?
+#: say continue" under a schema permitting only ``{"action": "end"}``, it returned exactly
+#: that. Grammar-constrained decoding is a hard guarantee where a prompt instruction is a
+#: request — which is the whole difference the owner asked for on less capable models.
+#:
+#: Only the fields the loop DISPATCHES on are constrained (`action`, `actor`). Register,
+#: stakes and reason are left free: they are prose the planner writes, and pinning them to an
+#: enum would trade a parse guarantee for a worse plan.
+_PLAN_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "beats": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": sorted(_ACTIONS)},
+                    "actor": {"type": ["integer", "null"]},
+                    "addressing": {"type": ["integer", "null"]},
+                    "status": {"type": ["string", "null"]},
+                    "register": {"type": ["string", "null"]},
+                    "stakes": {"type": "string"},
+                    "reason": {"type": "string"},
+                    "needsBranch": {"type": "boolean"},
+                    "question": {"type": "string"},
+                    "options": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["action"],
+            },
+        }
+    },
+    "required": ["beats"],
+}
+
+
+def plan_schema_body() -> dict:
+    """The ``response_format`` fragment for a constrained plan, as an ``extra_body``."""
+    return {
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "beat_plan", "schema": _PLAN_SCHEMA},
+        }
+    }
 
 
 def plan_beats(
@@ -150,25 +202,39 @@ def plan_beats(
         scene_opening=scene_opening, direction=direction, remaining_beats=remaining_beats,
         want=want, may_ask=may_ask, beats_so_far=beats_so_far,
     )
-    try:
+    messages = [
+        {"role": "system", "content": ctx.prompts.get(prompt_registry.PLANNER_SYSTEM, _SYSTEM)},
+        {"role": "user", "content": user},
+    ]
+
+    def ask(schema: dict | None) -> dict:
         raw = llm.chat_complete(
-            base_url,
-            api_key,
-            model,
-            [
-                {"role": "system", "content": ctx.prompts.get(prompt_registry.PLANNER_SYSTEM, _SYSTEM)},
-                {"role": "user", "content": user},
-            ],
-            params,
-            reasoning=PLANNER_EFFORT,
-            timeout_s=plan_timeout(),
+            base_url, api_key, model, messages, params,
+            reasoning=PLANNER_EFFORT, extra_body=schema, timeout_s=plan_timeout(),
         )
-        data = extract_json(raw)
+        return extract_json(raw)
+
+    schema = plan_schema_body() if get_settings().llm_constrained_planning else None
+    try:
+        data = ask(schema)
     except APIError:
-        return [scripted_beat(
-            ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
-            direction=direction,
-        )]
+        # An endpoint that does not implement `response_format` rejects the request outright,
+        # and falling straight to the scripted beat would turn "this server has no grammar
+        # support" into "the scene has no planner". Try once more unconstrained; only a
+        # failure WITHOUT the schema is a real outage.
+        if schema is None:
+            return [scripted_beat(
+                ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
+                direction=direction,
+            )]
+        logger.debug("constrained planning rejected by the endpoint; retrying unconstrained")
+        try:
+            data = ask(None)
+        except APIError:
+            return [scripted_beat(
+                ctx, intent, acted, scene_opening=scene_opening, locked_id=locked_id,
+                direction=direction,
+            )]
 
     rows = data.get("beats")
     if not isinstance(rows, list) or not rows:

@@ -188,6 +188,12 @@ class Settings(BaseSettings):
     # local model is 13-34 s of thinking before a single character of the answer. Sharing the
     # 25 s decision window with it would time out a plan that was working.
     llm_plan_timeout_seconds: int = 180
+    # Decode the beat plan against a JSON schema where the endpoint supports it. A prompt
+    # asking for JSON is a request; a grammar is a guarantee, which is what makes the turn
+    # loop survive a less capable model. Verified enforceable on the deployed llama.cpp
+    # route. An endpoint that rejects `response_format` is retried unconstrained, so this
+    # being on costs nothing where it is unsupported.
+    llm_constrained_planning: bool = True
 
     # ComfyUI image generation — a local Comfy server (HTTP + WebSocket protocol).
     comfyui_base_url: str = "http://localhost:8199"

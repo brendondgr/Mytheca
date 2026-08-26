@@ -169,7 +169,7 @@ that same fixed plan — one continuous generation versus a stop-at-each-beat pa
 | 1 — A plan is a contract | **done** |
 | 2 — Plan once, thinking hard | **done** |
 | 3 — Execution executes | **done** |
-| 4 — Stop tokens + constrained decoding | not started |
+| 4 — Stop tokens + constrained decoding | **done** |
 | 5 — Make the cache visible | not started |
 | 6 — EXP-2026-08-017 | not started |
 | 7 — Docs, checklist, merge | not started |

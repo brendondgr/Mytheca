@@ -202,6 +202,26 @@ def _ensure_ok(res: httpx.Response) -> None:
     )
 
 
+def stop_is_safe(reasoning: ReasoningEffort | None) -> bool:
+    """Whether a ``stop`` sequence may be sent for a call at this reasoning effort.
+
+    **A stop sequence matches the model's REASONING channel, not just its answer.** Measured
+    on the deployed llama.cpp route: asked to write ``AAA <END_SCENARIO> BBB`` with
+    ``stop: ["<END_SCENARIO>"]``, generation died mid-thought — the reasoning ended at
+    ``the token "`` and ``content`` came back **empty**. The same prompt with no ``stop``
+    returned ``AAA<END_SCENARIO>BBB`` intact. A model that merely *thinks about* the tag
+    kills its own generation before writing a word.
+
+    So a stop sequence is only safe when the thinking channel is off, which on this stack
+    means an explicit ``ReasoningEffort.NONE`` — ``None`` sends no budget key at all and the
+    server's own default applies (``--reasoning-budget -1`` on the local endpoint: unlimited).
+
+    A tag that has to survive the reasoning channel is parsed out of the finished text
+    instead, the way ``<speaker:N>`` already is.
+    """
+    return reasoning is ReasoningEffort.NONE
+
+
 def _completion_request(
     base_url: str,
     api_key: str,
@@ -211,6 +231,7 @@ def _completion_request(
     *,
     reasoning: ReasoningEffort | None,
     extra_body: dict | None,
+    stop: list[str] | None = None,
 ) -> tuple[str, dict, tuple[str, str]]:
     """Build the ``(url, body, limit_key)`` a chat completion needs.
 
@@ -232,6 +253,14 @@ def _completion_request(
     }
     if extra_body:
         body.update(extra_body)
+    # Dropped rather than raised when the channel is on: a caller asking for a stop sequence
+    # wants a bounded generation, and refusing the whole call would be a worse answer than
+    # generating without it. The reason is logged so it is not invisible.
+    if stop:
+        if stop_is_safe(reasoning):
+            body["stop"] = list(stop)
+        else:
+            logger.debug("stop sequence dropped: reasoning channel is on (%s)", reasoning)
     if reasoning is not None:
         # Local import avoids a circular import (llm_backend imports this module).
         from app.services import llm_backend
@@ -254,6 +283,7 @@ def chat_complete(
     *,
     reasoning: ReasoningEffort | None = None,
     extra_body: dict | None = None,
+    stop: list[str] | None = None,
     timeout_s: float | None = None,
 ) -> str:
     """Run one chat completion and return the assistant's (scrubbed) text.
@@ -263,7 +293,7 @@ def chat_complete(
     """
     text, _ = chat_complete_usage(
         base_url, api_key, model, messages, params, reasoning=reasoning,
-        extra_body=extra_body, timeout_s=timeout_s,
+        extra_body=extra_body, stop=stop, timeout_s=timeout_s,
     )
     return text
 
@@ -277,6 +307,7 @@ def chat_complete_usage(
     *,
     reasoning: ReasoningEffort | None = None,
     extra_body: dict | None = None,
+    stop: list[str] | None = None,
     usage_out: dict | None = None,
     timeout_s: float | None = None,
 ) -> tuple[str, int | None]:
@@ -304,7 +335,8 @@ def chat_complete_usage(
     turn loop's constrained control fields. Ignored by providers that don't support it.
     """
     url, body, limit_key = _completion_request(
-        base_url, api_key, model, messages, params, reasoning=reasoning, extra_body=extra_body
+        base_url, api_key, model, messages, params, reasoning=reasoning,
+        extra_body=extra_body, stop=stop,
     )
     window = _gen_timeout(timeout_s)
     res = _send("POST", url, headers=_headers(api_key), json=body, timeout=window)
@@ -382,6 +414,7 @@ def chat_complete_stream(
     *,
     reasoning: ReasoningEffort | None = None,
     extra_body: dict | None = None,
+    stop: list[str] | None = None,
     usage_out: dict | None = None,
     timeout_s: float | None = None,
 ) -> Generator[StreamDelta, None, tuple[str, int | None]]:
@@ -406,11 +439,12 @@ def chat_complete_stream(
     if stream_key in _NO_STREAM:
         return (yield from _blocking_as_stream(
             base_url, api_key, model, messages, params, reasoning=reasoning,
-            extra_body=extra_body, usage_out=usage_out, timeout_s=timeout_s,
+            extra_body=extra_body, stop=stop, usage_out=usage_out, timeout_s=timeout_s,
         ))
 
     url, body, limit_key = _completion_request(
-        base_url, api_key, model, messages, params, reasoning=reasoning, extra_body=extra_body
+        base_url, api_key, model, messages, params, reasoning=reasoning,
+        extra_body=extra_body, stop=stop,
     )
     body["stream"] = True
     body["stream_options"] = {"include_usage": True}
@@ -530,6 +564,7 @@ def _blocking_as_stream(
     *,
     reasoning: ReasoningEffort | None,
     extra_body: dict | None,
+    stop: list[str] | None = None,
     usage_out: dict | None = None,
     timeout_s: float | None = None,
 ) -> Generator[StreamDelta, None, tuple[str, int | None]]:
@@ -541,7 +576,7 @@ def _blocking_as_stream(
     """
     text, prompt_tokens = chat_complete_usage(
         base_url, api_key, model, messages, params, reasoning=reasoning,
-        extra_body=extra_body, usage_out=usage_out, timeout_s=timeout_s,
+        extra_body=extra_body, stop=stop, usage_out=usage_out, timeout_s=timeout_s,
     )
     yield StreamDelta(answer=text)
     return text, prompt_tokens
