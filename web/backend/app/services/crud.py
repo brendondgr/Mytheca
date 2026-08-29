@@ -24,7 +24,7 @@ from app.models import (
     Storyline,
 )
 from app.rag import indexer as rag_index
-from app.services import graph_writer, settings_store
+from app.services import graph_writer, settings_store, style_guide
 from app.schemas.character import CharacterCreate, CharacterUpdate
 from app.schemas.context_document import (
     ContextDocumentCreate,
@@ -157,6 +157,7 @@ def create_storyline(db: Session, data: StorylineCreate) -> Storyline:
         symbol=data.symbol,
         symbol_color=data.symbol_color,
         prompt_overrides=dict(data.prompt_overrides or {}),
+        style_blocks=style_guide.normalize_blocks(data.style_blocks) or None,
         position=int(db.scalar(select(func.count()).select_from(Storyline)) or 0),
     )
     db.add(sl)
@@ -168,7 +169,14 @@ def create_storyline(db: Session, data: StorylineCreate) -> Storyline:
 
 def update_storyline(db: Session, storyline_id: str, data: StorylineUpdate) -> Storyline:
     sl = get_storyline(db, storyline_id)
-    for key, value in data.model_dump(exclude_unset=True).items():
+    patch = data.model_dump(exclude_unset=True)
+    if "style_blocks" in patch:
+        # Canonicalised on the way IN, not on the way out: the stored bytes are what the
+        # cached system prefix is built from, so normalising here is what makes two saves of
+        # visually identical text produce the same prompt. Unknown block ids are dropped
+        # rather than 422'd, the way an unknown prompt-override key already is.
+        patch["style_blocks"] = style_guide.normalize_blocks(patch["style_blocks"]) or None
+    for key, value in patch.items():
         setattr(sl, key, value)
     db.commit()
     db.refresh(sl)
@@ -583,6 +591,7 @@ def create_scenario(db: Session, storyline_id: str, data: ScenarioCreate) -> Sce
         scene_flow=data.scene_flow,
         direction_verbs=[v.model_dump() for v in data.direction_verbs] or None,
         prompt_overrides=dict(data.prompt_overrides or {}),
+        style_blocks=style_guide.normalize_blocks(data.style_blocks) or None,
         position=_next_position(db, Scenario, storyline_id),
         image=data.image,
         scene_art_positive=data.scene_art_positive,
@@ -605,6 +614,8 @@ def update_scenario(db: Session, scenario_id: str, data: ScenarioUpdate) -> Scen
             patch.get("cast_ids", scenario.cast_ids),
             patch.get("setting_id", scenario.setting_id),
         )
+    if "style_blocks" in patch:
+        patch["style_blocks"] = style_guide.normalize_blocks(patch["style_blocks"]) or None
     for key, value in patch.items():
         setattr(scenario, key, value)
     db.commit()

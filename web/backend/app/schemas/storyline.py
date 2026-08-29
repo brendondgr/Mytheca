@@ -23,6 +23,9 @@ class StorylineBase(CamelModel):
     symbol_color: str = "#C8862A"
     # Per-storyline writing-prompt overrides ({registry key -> prompt text}).
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
+    # The world's narrative style guide ({block id -> text}, ``content/style_blocks``):
+    # how this story is written, as opposed to what is true in it. Optional everywhere.
+    style_blocks: dict[str, str] = Field(default_factory=dict)
 
 
 class StorylineCreate(StorylineBase):
@@ -38,6 +41,7 @@ class StorylineUpdate(CamelModel):
     symbol: str | None = None
     symbol_color: str | None = None
     prompt_overrides: dict[str, str] | None = None
+    style_blocks: dict[str, str] | None = None
 
 
 class StorylineRead(CamelModel):
@@ -56,10 +60,12 @@ class StorylineRead(CamelModel):
     character_count: int = 0
     setting_count: int = 0
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
+    style_blocks: dict[str, str] = Field(default_factory=dict)
 
-    @field_validator("prompt_overrides", mode="before")
+    @field_validator("prompt_overrides", "style_blocks", mode="before")
     @classmethod
     def _coerce_overrides(cls, v: object) -> object:
+        """``NULL`` reads as ``{}`` — a row written before either column existed."""
         return v or {}
 
 

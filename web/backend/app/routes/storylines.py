@@ -173,6 +173,7 @@ def get_storyline(storyline_id: str, db: Session = Depends(get_db)):
         symbol=sl.symbol,
         symbol_color=sl.symbol_color,
         prompt_overrides=sl.prompt_overrides or {},
+        style_blocks=sl.style_blocks or {},
         character_count=char_count,
         setting_count=setting_count,
         scenario_count=scenario_count,

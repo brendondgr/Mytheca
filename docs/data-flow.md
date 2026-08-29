@@ -45,7 +45,8 @@ Story player (useScenePlay) → lib/api.postTurn → POST /play/{scenarioId}/tur
         Scenario row; withheld from every agent; recorded on the user_turn row for audit
       assembler.assemble_context (Band-1, read-only): ordered cast + clamped stats + loaded
         stat guidance + recent buffer (Redis, best-effort) + scenario subgraph (Neo4j,
-        best-effort) + cacheable stable prefix + GATED RAG (retrieval_gate: a cheap
+        best-effort) + cacheable stable prefix (style guide → World Primer → stat
+        guidance, widest sharing scope first) + GATED RAG (retrieval_gate: a cheap
         model-free skip-or-fetch — off-roster entity / world-history question; on fetch,
         _common.rag_block retrieves + injects a fenced RETRIEVED LORE block, best-effort)
         + @-TAGGED FILES (taggedDocIds → assembler._tagged_notes: storyline-checked,

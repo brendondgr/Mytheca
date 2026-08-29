@@ -87,6 +87,9 @@ class ScenarioBase(CamelModel):
     # Per-scenario writing-prompt overrides ({registry key -> prompt text}) — override the
     # storyline's prompts for this scene only.
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
+    # Per-scene NARRATIVE STYLE overrides ({block id -> text}). Composed as an appended delta
+    # on the world's guide, never substituted into it — ``services/style_guide``.
+    style_blocks: dict[str, str] = Field(default_factory=dict)
     # The scene's own one-tap direction verbs, appended to the built-in bar's groups. Capped
     # because the bar is a glance-and-tap surface: past a handful it becomes the wall of
     # buttons the grouping exists to avoid.
@@ -121,6 +124,7 @@ class ScenarioUpdate(CamelModel):
     scene_flow: SceneFlow | None = None
     direction_verbs: list[SceneVerb] | None = Field(default=None, max_length=8)
     prompt_overrides: dict[str, str] | None = None
+    style_blocks: dict[str, str] | None = None
     image: str | None = None
     scene_art_positive: str | None = None
     scene_art_negative: str | None = None
@@ -147,13 +151,15 @@ class ScenarioRead(CamelModel):
     scene_flow: SceneFlow | None = None
     direction_verbs: list[SceneVerb] = Field(default_factory=list)
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
+    style_blocks: dict[str, str] = Field(default_factory=dict)
     image: str | None = None
     scene_art_positive: str | None = None
     scene_art_negative: str | None = None
 
-    @field_validator("prompt_overrides", mode="before")
+    @field_validator("prompt_overrides", "style_blocks", mode="before")
     @classmethod
     def _coerce_overrides(cls, v: object) -> object:
+        """``NULL`` reads as ``{}`` — a row written before either column existed."""
         return v or {}
 
     @field_validator("direction_verbs", mode="before")

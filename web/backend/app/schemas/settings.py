@@ -11,6 +11,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
+from pydantic import Field
+
 from app.schemas.base import BeatLength, CamelModel
 
 
@@ -351,3 +353,51 @@ class ScenePresetRead(CamelModel):
     label: str
     blurb: str
     values: ScenePresetValues
+
+
+# ---- Narrative style guide ---------------------------------------------------------
+
+
+class StyleBlockRead(CamelModel):
+    """One field of a style guide, for the editor to render.
+
+    ``reader`` and ``placement`` are shown to nobody, but they are what lets the editor say
+    *where* a block lands without hardcoding the answer — and they are the reason
+    ``signature`` gets a "kept short" hint the other fields do not.
+    """
+
+    id: str
+    label: str
+    helper: str
+    placeholder: str
+    reader: str
+    placement: str
+
+
+class StylePresetRead(CamelModel):
+    """One applicable preset: the three built-ins, then the author's own.
+
+    ``builtin`` presets cannot be edited or deleted; applying either kind COPIES its blocks
+    into the storyline's own fields, so nothing here is a live reference.
+    """
+
+    id: str
+    name: str
+    blurb: str = ""
+    blocks: dict[str, str] = Field(default_factory=dict)
+    builtin: bool = False
+
+
+class StyleCatalogRead(CamelModel):
+    """``GET /options/style-guide`` — everything the editor needs to render itself."""
+
+    blocks: list[StyleBlockRead] = Field(default_factory=list)
+    presets: list[StylePresetRead] = Field(default_factory=list)
+
+
+class StylePresetSave(CamelModel):
+    """``POST /options/style-presets`` — save one of the author's own guides."""
+
+    id: str
+    name: str
+    blocks: dict[str, str] = Field(default_factory=dict)

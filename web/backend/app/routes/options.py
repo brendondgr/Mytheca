@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.schemas.reasoning import THINKING_BUDGET
+from app.content import style_blocks as style_block_catalog
 from app.content.scene_presets import BUILTIN_SCENE_PRESETS
 from app.schemas.settings import (
     ScenePresetRead,
@@ -41,6 +42,10 @@ from app.schemas.settings import (
     PromptsConfigRead,
     PromptsConfigUpdate,
     SettingsRead,
+    StyleBlockRead,
+    StyleCatalogRead,
+    StylePresetRead,
+    StylePresetSave,
 )
 from app.services import (
     comfyui,
@@ -273,3 +278,48 @@ def cleanup_media_orphans(
         freed_bytes=result.freed_bytes,
         skipped_recent_count=result.skipped_recent_count,
     )
+
+
+# ---- Narrative style guide ---------------------------------------------------------
+#
+# The block catalog is static; the preset list is the three built-ins plus whatever the
+# author has saved. Both are read by every editor surface (world, scene, Options), which is
+# why they come back from ONE call rather than two.
+
+
+def _style_catalog(db: Session) -> StyleCatalogRead:
+    return StyleCatalogRead(
+        blocks=[
+            StyleBlockRead(
+                id=b.id, label=b.label, helper=b.helper,
+                placeholder=b.placeholder, reader=b.reader, placement=b.placement,
+            )
+            for b in style_block_catalog.STYLE_BLOCKS
+        ],
+        presets=[StylePresetRead(**p) for p in settings_store.list_style_presets(db)],
+    )
+
+
+@router.get("/style-guide", response_model=StyleCatalogRead)
+def get_style_guide(db: Session = Depends(get_db)):
+    """The style-block catalog + every applicable preset (built-in, then the author's)."""
+    return _style_catalog(db)
+
+
+@router.post("/style-presets", response_model=StyleCatalogRead)
+def save_style_preset(data: StylePresetSave, db: Session = Depends(get_db)):
+    """Save one of the author's own presets, then return the refreshed catalog.
+
+    A built-in id, a blank id, or an empty guide is ignored rather than rejected — the
+    caller gets the unchanged catalog back, matching how an unknown prompt-override key is
+    dropped rather than 422'd. Overwriting "Romance" by accident would leave no way back.
+    """
+    settings_store.save_style_preset(db, data.id, data.name, data.blocks)
+    return _style_catalog(db)
+
+
+@router.delete("/style-presets/{preset_id}", response_model=StyleCatalogRead)
+def delete_style_preset(preset_id: str, db: Session = Depends(get_db)):
+    """Delete one saved preset (built-ins are not deletable), then return the catalog."""
+    settings_store.delete_style_preset(db, preset_id)
+    return _style_catalog(db)
