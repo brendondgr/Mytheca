@@ -40,6 +40,8 @@ export type SceneData =
        * see for itself.
        */
       storylinePromptOverrides: Record<string, string>;
+      /** The world's narrative style guide — the layer a scene override sits on top of. */
+      storylineStyleBlocks: Record<string, string>;
       /** The storyline's context documents, taggable with `@` in the composer. */
       contextDocs: ContextDocumentIndexEntry[];
       /**
@@ -65,6 +67,7 @@ function seedScene(storylineId: string, scenarioId: string): SceneData | null {
     statDefs: SEED_STAT_DEFS,
     storylineName: storyline?.title ?? "",
     storylinePromptOverrides: {},
+    storylineStyleBlocks: {},
     // The seed demo has no persisted corpus, so `@` tagging is simply unavailable there.
     contextDocs: [],
     storylineCast: SEED_CHARACTERS,
@@ -120,6 +123,7 @@ export function useSceneData(
           statDefs,
           storylineName: storyline?.title ?? "",
           storylinePromptOverrides: storyline?.promptOverrides ?? {},
+          storylineStyleBlocks: storyline?.styleBlocks ?? {},
           contextDocs,
           storylineCast: characters,
           settingCount: settings.length,

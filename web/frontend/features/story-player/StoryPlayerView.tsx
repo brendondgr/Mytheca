@@ -25,6 +25,7 @@ import { COACH_MARKS, type CoachMarkId } from "@/lib/coachMarks";
 import type { SceneImage, SceneMessage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
 import { PromptOverridesModal } from "@/components/feature/PromptOverridesModal";
+import { StyleGuideModal } from "@/components/feature/StyleGuideModal";
 import { CastRail, CastRailContent, type CastRailProps } from "@/components/feature/CastRail";
 import {
   PlaythroughTray,
@@ -127,6 +128,7 @@ export function StoryPlayerView({
   statDefs = [],
   storylineName,
   storylinePromptOverrides,
+  storylineStyleBlocks,
   contextDocs = [],
   storylineCast = [],
   settingCount = 1,
@@ -140,6 +142,7 @@ export function StoryPlayerView({
    * for itself. Without it the modal renders no origin badges at all, which is honest.
    */
   storylinePromptOverrides?: Record<string, string>;
+  storylineStyleBlocks?: Record<string, string>;
   /** Every character in the storyline — the rail's "Elsewhere in the world" offers the
    *  ones this scene never cast. */
   storylineCast?: Character[];
@@ -185,6 +188,13 @@ export function StoryPlayerView({
   // reload — `scenario` is a prop and the turn request reads the resolved text server-side.
   const [scenePrompts, setScenePrompts] = useState<Record<string, string>>(
     scenario.promptOverrides ?? {},
+  );
+  // "Style…" — how THIS scene is written, where it differs from the world's guide. Held
+  // locally for the same reason as the prompts above: a save has to reach the next turn
+  // without a reload.
+  const [styleOpen, setStyleOpen] = useState(false);
+  const [sceneStyle, setSceneStyle] = useState<Record<string, string>>(
+    scenario.styleBlocks ?? {},
   );
   /** The player-facing "what the scene knows" rail. Mutually exclusive with the Inspector —
    *  two 340px columns cannot both dock, and they answer different questions anyway. */
@@ -493,6 +503,7 @@ export function StoryPlayerView({
         onExport={onExport}
         canExport={Boolean(scene.sessionId)}
         onOpenWriting={() => setWritingOpen(true)}
+        onOpenStyle={() => setStyleOpen(true)}
         onToggleInspector={
           viewMode === "graph"
             ? undefined
@@ -949,6 +960,22 @@ export function StoryPlayerView({
           await updateScenario(scenario.id, { promptOverrides: map });
           // Local, so the next turn resolves the new text without a reload.
           setScenePrompts(map);
+        }}
+      />
+      <StyleGuideModal
+        open={styleOpen}
+        onClose={() => setStyleOpen(false)}
+        heading="How this scene is written"
+        subtitle="The world's style guide, overridden for this scene only. Leave a field empty to keep the world's."
+        blocks={sceneStyle}
+        // The layer below, so an empty field shows what it would inherit rather than
+        // reading as "nothing is said about this".
+        inherited={storylineStyleBlocks}
+        layer="scenario"
+        saveLabel="Save for this scene"
+        onSave={async (next) => {
+          await updateScenario(scenario.id, { styleBlocks: next });
+          setSceneStyle(next);
         }}
       />
     </div>

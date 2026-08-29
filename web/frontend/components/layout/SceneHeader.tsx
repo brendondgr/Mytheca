@@ -71,6 +71,7 @@ export function SceneHeader({
   onToggleInspector,
   inspectorOpen = false,
   onOpenWriting,
+  onOpenStyle,
   onToggleMemory,
   memoryOpen = false,
   health = null,
@@ -98,6 +99,7 @@ export function SceneHeader({
   inspectorOpen?: boolean;
   /** Open the writing-prompt modal (omit to hide the item). */
   onOpenWriting?: () => void;
+  onOpenStyle?: () => void;
   /** Opens the player-facing "what the scene knows" rail. */
   onToggleMemory?: () => void;
   memoryOpen?: boolean;
@@ -139,6 +141,17 @@ export function SceneHeader({
             hint: "the instructions the narrator and cast are given",
             icon: "✎",
             onSelect: onOpenWriting,
+          },
+        ]
+      : []),
+    ...(onOpenStyle
+      ? [
+          {
+            key: "style",
+            label: "Style…",
+            hint: "how this scene is written, where it differs from the world",
+            icon: "❧",
+            onSelect: onOpenStyle,
           },
         ]
       : []),

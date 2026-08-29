@@ -46,6 +46,12 @@ export interface CreatorFields {
   worldPrimer: string;
   symbol: string;
   symbolColor: string;
+  /**
+   * The world's narrative style guide ({block id → text}) — how this story is written,
+   * where `worldPrimer` is what is true in it. A map rather than a string because it is
+   * six independently-clearable blocks, edited in a modal rather than a form field.
+   */
+  styleBlocks: Record<string, string>;
 }
 
 export const BLANK_FIELDS: CreatorFields = {
@@ -56,11 +62,19 @@ export const BLANK_FIELDS: CreatorFields = {
   worldPrimer: "",
   symbol: DEFAULT_SEAL_SYMBOL,
   symbolColor: DEFAULT_SEAL_COLOR,
+  styleBlocks: {},
 };
 
 type StorylineLike = Pick<
   Storyline,
-  "title" | "genre" | "tagline" | "premise" | "worldPrimer" | "symbol" | "symbolColor"
+  | "title"
+  | "genre"
+  | "tagline"
+  | "premise"
+  | "worldPrimer"
+  | "symbol"
+  | "symbolColor"
+  | "styleBlocks"
 >;
 
 export function fieldsFromStoryline(sl: StorylineLike): CreatorFields {
@@ -72,6 +86,7 @@ export function fieldsFromStoryline(sl: StorylineLike): CreatorFields {
     worldPrimer: sl.worldPrimer ?? "",
     symbol: sl.symbol || DEFAULT_SEAL_SYMBOL,
     symbolColor: sl.symbolColor || DEFAULT_SEAL_COLOR,
+    styleBlocks: sl.styleBlocks ?? {},
   };
 }
 
@@ -297,6 +312,10 @@ function coreInput(f: CreatorFields, clearable: boolean): api.StorylineInput {
     worldPrimer: opt(f.worldPrimer),
     symbol: f.symbol || DEFAULT_SEAL_SYMBOL,
     symbolColor: f.symbolColor || DEFAULT_SEAL_COLOR,
+    // Always sent, on create as well as edit: an empty guide is a real, saveable state
+    // (a world opting out), and `opt()`'s create-mode "omit if blank" would make clearing
+    // every block indistinguishable from never having set one.
+    styleBlocks: f.styleBlocks,
   };
 }
 

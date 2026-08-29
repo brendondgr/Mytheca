@@ -9,6 +9,7 @@ import { TextArea } from "@/components/ui/TextArea";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { StatsEditor } from "@/components/feature/StatsEditor";
 import { SealModal } from "@/components/feature/SealModal";
+import { StyleGuideModal } from "@/components/feature/StyleGuideModal";
 import { TriagePanel } from "@/components/feature/TriagePanel";
 import { StorylineAgentPanel } from "@/components/feature/StorylineAgentPanel";
 import { BuildWorldModal } from "@/components/feature/BuildWorldModal";
@@ -31,6 +32,8 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
   const c = useStorylineCreator(editId);
   const router = useRouter();
   const [sealOpen, setSealOpen] = useState(false);
+  const [styleOpen, setStyleOpen] = useState(false);
+  const styleCount = Object.values(c.fields.styleBlocks).filter((v) => v.trim()).length;
   const [buildOpen, setBuildOpen] = useState(false);
 
   const canGeneratePrimer = Boolean(c.fields.premise.trim());
@@ -195,6 +198,23 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
               />
             </div>
 
+            {/* Narrative style — how this story is WRITTEN, where the primer above is
+                what is true in it. A summary row plus a modal, like the seal below: six
+                blocks of prose do not belong inline in a column of form fields. */}
+            <div className="mt-[18px] flex items-center justify-between gap-[12px] border-t border-hair-strong pt-[16px]">
+              <div className="min-w-0">
+                <FieldLabel>Narrative style</FieldLabel>
+                <p className="font-body text-[12.5px] text-ink-soft">
+                  {styleCount
+                    ? `${styleCount} of 6 set — how the cast writes, not what they know.`
+                    : "Optional. How the prose sounds, paces and describes — nothing is said about it until you write one."}
+                </p>
+              </div>
+              <Button variant="secondary" onClick={() => setStyleOpen(true)}>
+                {styleCount ? "✎ Edit style" : "❧ Add style"}
+              </Button>
+            </div>
+
             {/* Seal */}
             <div className="mt-[18px] flex items-center justify-between gap-[12px] border-t border-hair-strong pt-[16px]">
               <div className="flex items-center gap-[10px]">
@@ -311,6 +331,19 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
         color={c.fields.symbolColor}
         onSymbolChange={(sym) => c.setField("symbol", sym)}
         onColorChange={(col) => c.setField("symbolColor", col)}
+      />
+
+      <StyleGuideModal
+        open={styleOpen}
+        onClose={() => setStyleOpen(false)}
+        heading={`${c.fields.title || "This world"} — narrative style`}
+        subtitle="How this story is written, not what happens in it. Every field is optional, and a scene can override any of them."
+        blocks={c.fields.styleBlocks}
+        saveLabel="Keep style"
+        // Local only: the guide is saved with the rest of the world when the author
+        // commits, so an abandoned edit leaves nothing behind — the same contract every
+        // other field on this page has.
+        onSave={(next) => c.setField("styleBlocks", next)}
       />
     </main>
   );

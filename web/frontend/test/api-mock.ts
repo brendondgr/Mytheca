@@ -526,6 +526,32 @@ export function makeApiMock() {
     // The scene-config preset catalogue. One entry rather than the real four: the shape is
     // what the story player needs from this mock, and the real table is covered where it
     // lives (utils/tests/backend/api/test_options.py).
+    // The narrative style guide: the block catalog + every applicable preset. Mocked with
+    // ONE block and ONE built-in rather than the real six-and-three, so a test asserting on
+    // this surface reads as a fixture and not as a copy of `content/style_presets`.
+    getStyleGuide: vi.fn(async () => ({
+      blocks: [
+        {
+          id: "voice",
+          label: "Voice",
+          helper: "How people in this world sound.",
+          placeholder: "People talk around it…",
+          reader: "prose",
+          placement: "prefix",
+        },
+      ],
+      presets: [
+        {
+          id: "romance",
+          name: "Romance",
+          blurb: "Close and unsaid.",
+          blocks: { voice: "Less than they mean." },
+          builtin: true,
+        },
+      ],
+    })),
+    saveStylePreset: vi.fn(async () => ({ blocks: [], presets: [] })),
+    deleteStylePreset: vi.fn(async () => ({ blocks: [], presets: [] })),
     getScenePresets: vi.fn(async () => [
       {
         id: "interrogation",

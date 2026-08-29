@@ -8,16 +8,18 @@ import { useOptionsSettings } from "@/features/options/useOptionsSettings";
 import { LanguageModelsTab } from "@/features/options/tabs/LanguageModelsTab";
 import { ImageModelsTab } from "@/features/options/tabs/ImageModelsTab";
 import { PromptsTab } from "@/features/options/tabs/PromptsTab";
+import { StyleTab } from "@/features/options/tabs/StyleTab";
 import { AppearanceTab } from "@/features/options/tabs/AppearanceTab";
 import { LibraryDefaultsTab } from "@/features/options/tabs/LibraryDefaultsTab";
 import { AboutTab } from "@/features/options/tabs/AboutTab";
 
-type TabKey = "models" | "images" | "prompts" | "appearance" | "library" | "about";
+type TabKey = "models" | "images" | "prompts" | "style" | "appearance" | "library" | "about";
 
 const TABS: { key: TabKey; label: string; sub: string }[] = [
   { key: "models", label: "Language Models", sub: "endpoints & params" },
   { key: "images", label: "Image Generation", sub: "ComfyUI" },
   { key: "prompts", label: "Prompts", sub: "writing agents" },
+  { key: "style", label: "Narrative style", sub: "saved presets" },
   { key: "appearance", label: "Appearance", sub: "theme" },
   { key: "library", label: "Library defaults", sub: "startup" },
   { key: "about", label: "About", sub: "diagnostics" },
@@ -152,6 +154,7 @@ export function OptionsView() {
                 {tab.key === "prompts" ? (
                   <PromptsTab key={opts.settings ? "ready" : "loading"} opts={opts} />
                 ) : null}
+                {tab.key === "style" ? <StyleTab key={active} /> : null}
                 {tab.key === "appearance" ? <AppearanceTab /> : null}
                 {tab.key === "library" ? <LibraryDefaultsTab opts={opts} /> : null}
                 {tab.key === "about" ? <AboutTab opts={opts} /> : null}
