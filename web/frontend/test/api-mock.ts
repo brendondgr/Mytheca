@@ -532,6 +532,9 @@ export function makeApiMock() {
     generateStyleGuide: vi.fn(async () => ({
       styleBlocks: { voice: "Plain and short." },
     })),
+    reviseStyleGuide: vi.fn(async () => ({
+      styleBlocks: { voice: "Clipped and cold." },
+    })),
     getStyleGuide: vi.fn(async () => ({
       blocks: [
         {

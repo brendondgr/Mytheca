@@ -576,6 +576,8 @@ export interface StorylineFieldsSnapshot {
   premise?: string;
   worldPrimer?: string;
   stats?: StatDefinition[];
+  /** The narrative style guide as it stands in the editor ({block id → text}). */
+  styleBlocks?: Record<string, string>;
 }
 
 export interface StorylineAgentBody {
@@ -652,6 +654,19 @@ export const generateStyleGuide = (body: {
   seed?: string;
   docsOverview?: string;
 }) => generation<StyleGuideDraftResult>("/storylines/style", body);
+
+/**
+ * Revise the guide the author is looking at, on their instruction.
+ *
+ * Returns the COMPLETE revised guide, so a block the agent left out is one it removed. An
+ * empty `styleBlocks` means **leave it alone** — never "clear the guide", which is the one
+ * outcome an author cannot undo.
+ */
+export const reviseStyleGuide = (body: {
+  instruction: string;
+  current: Record<string, string>;
+  premise?: string;
+}) => generation<StyleGuideDraftResult>("/storylines/style/revise", body);
 
 // ---- triage (the New Storyline page) ----
 // Triage classifies dropped docs into Characters/Settings/Other + Draft/RAG. It does

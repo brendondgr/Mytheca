@@ -371,10 +371,24 @@ export interface StatChange {
   rationale: string;
 }
 
+/**
+ * A proposed change to ONE block of the narrative style guide.
+ *
+ * `after: null` means *remove this block* — a real edit an author may ask for, and distinct
+ * from leaving it alone, which the agent expresses by proposing nothing for that block.
+ */
+export interface StyleChange {
+  block: string;
+  before?: string | null;
+  after?: string | null;
+  rationale: string;
+}
+
 /** The reviewable plan for one agent turn — nothing is written until approval. */
 export interface StoryPlan {
   changes: FieldChange[];
   statChanges: StatChange[];
+  styleChanges: StyleChange[];
   notes: string;
 }
 

@@ -27,16 +27,19 @@ const CATALOG = {
 
 const getStyleGuide = vi.fn();
 const saveStylePreset = vi.fn();
+const reviseStyleGuide = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   getStyleGuide: (...args: unknown[]) => getStyleGuide(...args),
   saveStylePreset: (...args: unknown[]) => saveStylePreset(...args),
+  reviseStyleGuide: (...args: unknown[]) => reviseStyleGuide(...args),
 }));
 
 describe("StyleGuideModal", () => {
   beforeEach(() => {
     getStyleGuide.mockReset().mockResolvedValue(CATALOG);
     saveStylePreset.mockReset().mockResolvedValue(CATALOG);
+    reviseStyleGuide.mockReset().mockResolvedValue({ styleBlocks: { voice: "Clipped and cold." } });
   });
 
   it("fetches the catalog on open and renders the editor", async () => {
@@ -119,7 +122,9 @@ describe("StyleGuideModal", () => {
     expect(screen.queryByRole("button", { name: /save as preset/i })).not.toBeInTheDocument();
   });
 
-  it("saves a preset under a slug derived from the heading", async () => {
+  it("saves a preset under the name the AUTHOR types, slugged", async () => {
+    // Slugged from the name, not the heading: two worlds saving "Slow Burn" should land on
+    // one entry rather than silently creating two things called the same.
     const user = userEvent.setup();
     render(
       <StyleGuideModal
@@ -132,12 +137,37 @@ describe("StyleGuideModal", () => {
     );
     await screen.findByRole("textbox", { name: /voice — style/i });
     await user.click(screen.getByRole("button", { name: /save as preset/i }));
+    await user.type(screen.getByRole("textbox", { name: /preset name/i }), "Slow Burn");
+    await user.click(screen.getByRole("button", { name: /^save preset$/i }));
     await waitFor(() =>
       expect(saveStylePreset).toHaveBeenCalledWith({
-        id: "harrow-lane-narrative-style",
-        name: "Harrow Lane — narrative style",
+        id: "slow-burn",
+        name: "Slow Burn",
         blocks: { voice: "Plain." },
       }),
     );
+  });
+
+  it("asks the model to revise and shows the result in the fields", async () => {
+    const user = userEvent.setup();
+    render(
+      <StyleGuideModal
+        open
+        onClose={vi.fn()}
+        heading="Harrow Lane"
+        blocks={{ voice: "Plain." }}
+        onSave={vi.fn()}
+      />,
+    );
+    await screen.findByRole("textbox", { name: /voice — style/i });
+    await user.type(screen.getByRole("textbox", { name: /ask the model/i }), "colder");
+    await user.click(screen.getByRole("button", { name: /ask/i }));
+    await waitFor(() =>
+      expect(reviseStyleGuide).toHaveBeenCalledWith({
+        instruction: "colder",
+        current: { voice: "Plain." },
+      }),
+    );
+    expect(await screen.findByDisplayValue("Clipped and cold.")).toBeInTheDocument();
   });
 });

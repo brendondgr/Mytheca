@@ -7,7 +7,7 @@ import { Eyebrow } from "@/components/ui/Eyebrow";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import { AGENT_FIELDS } from "@/features/library/storylineAgent";
 import type { useStorylineAgent } from "@/features/library/useStorylineAgent";
-import type { StatChange, StoryPlan } from "@/lib/types";
+import type { StatChange, StoryPlan, StyleChange } from "@/lib/types";
 
 /**
  * The **Assistant** — a conversational, scope-aware storyline agent that lives in
@@ -204,6 +204,9 @@ function PlanReview({
         {plan.statChanges.map((s) => (
           <StatChangeRow key={`${s.changeType}-${s.key}`} change={s} />
         ))}
+        {(plan.styleChanges ?? []).map((s) => (
+          <StyleChangeRow key={s.block} change={s} />
+        ))}
       </div>
       <div className="mt-[12px] flex items-center gap-[10px]">
         <Button onClick={onApprove} disabled={applying}>
@@ -219,6 +222,28 @@ function PlanReview({
         </button>
       </div>
     </section>
+  );
+}
+
+/** One proposed style-block change. A missing `after` is a removal, and says so. */
+function StyleChangeRow({ change }: { change: StyleChange }) {
+  const removing = !change.after;
+  return (
+    <div className="rounded-[4px] border border-hair bg-field px-[10px] py-[8px]">
+      <p className="font-mono text-[10px] tracking-[0.08em] text-mute2 uppercase">
+        Narrative style · {change.block}
+        {removing ? <span className="ml-[6px] text-danger">remove</span> : null}
+      </p>
+      {change.before ? (
+        <p className="mt-[3px] font-body text-[12.5px] text-mute line-through">{change.before}</p>
+      ) : null}
+      {change.after ? (
+        <p className="mt-[2px] font-body text-[13.5px] text-ink">{change.after}</p>
+      ) : null}
+      {change.rationale ? (
+        <p className="mt-[4px] font-body text-[11.5px] text-ink-soft italic">{change.rationale}</p>
+      ) : null}
+    </div>
   );
 }
 

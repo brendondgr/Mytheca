@@ -41,8 +41,10 @@ from app.schemas.storyline_edit import (
     StatDefinitionDraft,
     StorylineFieldsSnapshot,
     StoryPlan,
+    StyleChange,
 )
-from app.services import crud, llm, storyline_apply
+from app.content import style_blocks as style_blocks_catalog
+from app.services import crud, llm, storyline_apply, style_guide
 
 # camelCase field key → the snapshot attribute holding its current value.
 _SNAPSHOT_ATTR = {
@@ -192,6 +194,15 @@ def _current_values(scope: ScopeState, fields: StorylineFieldsSnapshot) -> str:
     for spec in FIELD_CATALOG:
         if spec.key not in readable:
             continue
+        if spec.kind == "style":
+            # The guide block by block, so the agent can change one and leave the rest —
+            # a single blob would invite it to rewrite the author's untouched wording.
+            if fields.style_blocks:
+                for block_id, text in fields.style_blocks.items():
+                    lines.append(f"- Narrative style / {block_id}: {text}")
+            else:
+                lines.append("- Narrative style: (no guide yet)")
+            continue
         if spec.kind == "stats":
             if fields.stats:
                 stat_line = "; ".join(
@@ -245,7 +256,7 @@ def _plan_from_raw(
     writable = sc.writable_keys(scope)
     changes: list[FieldChange] = []
     for spec in FIELD_CATALOG:
-        if spec.kind == "stats" or spec.key not in writable:
+        if spec.kind in ("stats", "style") or spec.key not in writable:
             continue
         entry = raw.get(spec.key)
         if not isinstance(entry, dict) or entry.get("after") is None:
@@ -260,6 +271,31 @@ def _plan_from_raw(
             )
         )
 
+    style_changes: list[StyleChange] = []
+    raw_style = raw.get(sc.STYLE_CHANGES_KEY)
+    if "styleBlocks" in writable and isinstance(raw_style, list):
+        for item in raw_style:
+            if not isinstance(item, dict):
+                continue
+            block = style_blocks_catalog.get(str(item.get("block") or ""))
+            if block is None:
+                continue  # unknown id from a stale/creative model — dropped, not fatal
+            after = item.get("after")
+            after_text = style_guide.normalize(after) if isinstance(after, str) else None
+            before = (fields.style_blocks or {}).get(block.id, "")
+            # "Set it to what it already is" is not a change; dropping it keeps the plan
+            # honest about what the author is approving.
+            if (after_text or "") == (before or ""):
+                continue
+            style_changes.append(
+                StyleChange(
+                    block=block.id,
+                    before=before or None,
+                    after=after_text or None,
+                    rationale=str(item.get("rationale") or ""),
+                )
+            )
+
     stat_changes: list[StatChange] = []
     raw_stats = _raw_stat_list(raw)
     if "statistics" in writable and raw_stats is not None:
@@ -269,7 +305,12 @@ def _plan_from_raw(
             if change is not None:
                 stat_changes.append(change)
 
-    plan = StoryPlan(changes=changes, stat_changes=stat_changes, notes=str(raw.get("notes") or ""))
+    plan = StoryPlan(
+        changes=changes,
+        stat_changes=stat_changes,
+        style_changes=style_changes,
+        notes=str(raw.get("notes") or ""),
+    )
     return None if plan.is_empty() else plan
 
 

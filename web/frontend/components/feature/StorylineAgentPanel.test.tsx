@@ -75,6 +75,7 @@ describe("StorylineAgentPanel", () => {
       statChanges: [
         { key: "resolve", changeType: "add", after: statDef, schemaAltering: true, rationale: "grit" },
       ],
+      styleChanges: [],
       notes: "",
     };
     const agent = mkAgent({
@@ -92,6 +93,7 @@ describe("StorylineAgentPanel", () => {
     const plan: StoryPlan = {
       changes: [{ field: "title", after: "Embergate", rationale: "" }],
       statChanges: [],
+      styleChanges: [],
       notes: "",
     };
     const agent = mkAgent({

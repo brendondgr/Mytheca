@@ -25,8 +25,9 @@ from app.schemas.storyline_edit import (
     StoryPlan,
 )
 
-# The plan property key statistics changes travel under (not a raw field key).
+# The plan property keys statistics / style changes travel under (not raw field keys).
 STAT_CHANGES_KEY = "statChanges"
+STYLE_CHANGES_KEY = "styleChanges"
 
 
 def writable_keys(scope: ScopeState) -> set[str]:
@@ -44,6 +45,8 @@ def changed_fields(plan: StoryPlan) -> set[str]:
     changed = {c.field for c in plan.changes if c.field in FIELD_KEYS}
     if plan.stat_changes:
         changed.add("statistics")
+    if plan.style_changes:
+        changed.add("styleBlocks")
     return changed
 
 
@@ -74,6 +77,25 @@ def _text_change_schema() -> dict:
         },
         "required": ["after"],
         "additionalProperties": False,
+    }
+
+
+def _style_changes_schema() -> dict:
+    """One entry per block the agent wants to change. ``after: null`` removes it."""
+    from app.content import style_blocks
+
+    return {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "block": {"type": "string", "enum": list(style_blocks.ids())},
+                "after": {"type": ["string", "null"]},
+                "rationale": {"type": "string"},
+            },
+            "required": ["block"],
+            "additionalProperties": False,
+        },
     }
 
 
@@ -148,6 +170,8 @@ def response_schema_for(scope: ScopeState) -> dict:
             plan_props[spec.key] = _text_change_schema()
         elif spec.kind == "stats":
             plan_props[STAT_CHANGES_KEY] = _stat_changes_schema()
+        elif spec.kind == "style":
+            plan_props[STYLE_CHANGES_KEY] = _style_changes_schema()
 
     plan_schema = {
         "type": "object",
@@ -173,5 +197,10 @@ def plan_property_keys(scope: ScopeState) -> set[str]:
     keys: set[str] = set()
     for key in writable_keys(scope):
         spec = SPEC_BY_KEY[key]
-        keys.add(STAT_CHANGES_KEY if spec.kind == "stats" else key)
+        if spec.kind == "stats":
+            keys.add(STAT_CHANGES_KEY)
+        elif spec.kind == "style":
+            keys.add(STYLE_CHANGES_KEY)
+        else:
+            keys.add(key)
     return keys

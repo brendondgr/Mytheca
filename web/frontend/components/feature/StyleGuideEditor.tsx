@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { StyleBlockSpec, StylePreset } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
+import { TextField } from "@/components/ui/TextField";
 import { cn } from "@/lib/cn";
 import {
   STYLE_LAYER_LABELS,
@@ -30,8 +31,13 @@ export interface StyleGuideEditorProps {
   layer?: "storyline" | "scenario";
   /** Persist this layer's complete block map. */
   onSave: (blocks: Record<string, string>) => Promise<void> | void;
-  /** Offered only where saving makes sense (the world level). */
-  onSavePreset?: (blocks: Record<string, string>) => Promise<void> | void;
+  /** Offered only where saving makes sense (the world level). Named by the author. */
+  onSavePreset?: (name: string, blocks: Record<string, string>) => Promise<void> | void;
+  /**
+   * Ask the model to revise the draft. Returns the COMPLETE revised guide; an empty object
+   * means "leave it alone", which is how a failure arrives — never a silent wipe.
+   */
+  onRevise?: (instruction: string, blocks: Record<string, string>) => Promise<Record<string, string>>;
   saveLabel?: string;
 }
 
@@ -62,11 +68,16 @@ export function StyleGuideEditor({
   layer = "storyline",
   onSave,
   onSavePreset,
+  onRevise,
   saveLabel = "Save style",
 }: StyleGuideEditorProps) {
   const [draft, setDraft] = useState<Record<string, string>>(() => ({ ...blocks }));
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ kind: "saved" | "error"; msg: string } | null>(null);
+  const [instruction, setInstruction] = useState("");
+  const [revising, setRevising] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const [namingPreset, setNamingPreset] = useState(false);
 
   const sources = useMemo(
     () =>
@@ -90,6 +101,29 @@ export function StyleGuideEditor({
     // Copied, not referenced — see the component doc. Every field stays editable after.
     setDraft({ ...preset.blocks });
     setStatus(null);
+  }
+
+  async function revise() {
+    const ask = instruction.trim();
+    if (!ask || !onRevise) return;
+    setRevising(true);
+    setStatus(null);
+    try {
+      const next = await onRevise(ask, packBlocks(draft));
+      if (Object.keys(next).length) {
+        setDraft(next);
+        setInstruction("");
+        setStatus({ kind: "saved", msg: "Revised — review it, then save." });
+      } else {
+        // Empty means the model could not be reached or answered with nothing usable.
+        // Say so rather than blanking the fields, which is the one thing that cannot be undone.
+        setStatus({ kind: "error", msg: "No revision came back — your guide is unchanged." });
+      }
+    } catch (err) {
+      setStatus({ kind: "error", msg: err instanceof Error ? err.message : "Could not revise." });
+    } finally {
+      setRevising(false);
+    }
   }
 
   async function run(action: () => Promise<void> | void, done: string) {
@@ -129,6 +163,33 @@ export function StyleGuideEditor({
                 {preset.name}
               </button>
             ))}
+          </div>
+        ) : null}
+        {onRevise ? (
+          <div className="flex flex-wrap items-end gap-[8px]">
+            <label className="min-w-[220px] flex-1">
+              <span className="mb-[4px] block font-mono text-tag tracking-[0.06em] text-mute uppercase">
+                Ask for a change
+              </span>
+              <TextArea
+                aria-label="Ask the model to revise this style guide"
+                rows={2}
+                value={instruction}
+                placeholder="e.g. make the voice colder, and drop the Never block"
+                onChange={(event) => setInstruction(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter sends; Shift+Enter is a newline. A two-row box invites one
+                  // sentence, and reaching for the mouse to send it is friction.
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void revise();
+                  }
+                }}
+              />
+            </label>
+            <Button variant="secondary" onClick={revise} disabled={revising || !instruction.trim()}>
+              {revising ? "Asking…" : "❖ Ask"}
+            </Button>
           </div>
         ) : null}
       </div>
@@ -190,14 +251,54 @@ export function StyleGuideEditor({
         <Button onClick={() => run(() => onSave(packBlocks(draft)), "Saved.")} disabled={saving || !dirty}>
           {saving ? "Saving…" : saveLabel}
         </Button>
-        {onSavePreset ? (
-          <Button
-            variant="secondary"
-            onClick={() => run(() => onSavePreset(packBlocks(draft)), "Saved as a preset.")}
-            disabled={saving || !anySet}
-          >
-            Save as preset
+        {onSavePreset && !namingPreset ? (
+          <Button variant="secondary" onClick={() => setNamingPreset(true)} disabled={!anySet}>
+            Save as preset…
           </Button>
+        ) : null}
+        {onSavePreset && namingPreset ? (
+          <div className="flex flex-wrap items-center gap-[8px]">
+            <TextField
+              aria-label="Preset name"
+              value={presetName}
+              placeholder="Name this preset — e.g. Slow Burn"
+              onChange={(event) => setPresetName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && presetName.trim()) {
+                  event.preventDefault();
+                  void run(
+                    () => onSavePreset(presetName.trim(), packBlocks(draft)),
+                    `Saved “${presetName.trim()}”.`,
+                  ).then(() => {
+                    setNamingPreset(false);
+                    setPresetName("");
+                  });
+                }
+              }}
+            />
+            <Button
+              variant="secondary"
+              disabled={saving || !presetName.trim()}
+              onClick={async () => {
+                const name = presetName.trim();
+                await run(() => onSavePreset(name, packBlocks(draft)), `Saved “${name}”.`);
+                setNamingPreset(false);
+                setPresetName("");
+              }}
+            >
+              {saving ? "Saving…" : "Save preset"}
+            </Button>
+            <button
+              type="button"
+              onClick={() => {
+                setNamingPreset(false);
+                setPresetName("");
+              }}
+              className="cursor-pointer font-mono text-[10.5px] tracking-[0.08em] text-mute uppercase hover:text-accent"
+            >
+              Cancel
+            </button>
+          </div>
         ) : null}
         {status ? (
           <span

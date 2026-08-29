@@ -26,6 +26,7 @@ from app.schemas.storyline_edit import (
 
 TEXT_PRIMER_KEYS = {s.key for s in FIELD_CATALOG if s.kind in ("text", "primer")}
 STAT_KEY = next(s.key for s in FIELD_CATALOG if s.kind == "stats")
+STYLE_KEY = next(s.key for s in FIELD_CATALOG if s.kind == "style")
 
 
 def _scope(writable: set[str], readable: set[str] | None = None) -> ScopeState:
@@ -114,6 +115,8 @@ def test_schema_omits_non_scoped_keys_for_every_subset(writable):
     expected = {k for k in writable & TEXT_PRIMER_KEYS}
     if STAT_KEY in writable:
         expected.add(sc.STAT_CHANGES_KEY)
+    if STYLE_KEY in writable:
+        expected.add(sc.STYLE_CHANGES_KEY)
     assert plan_props == expected
     # A non-writable field key is unrepresentable in the plan.
     for spec in FIELD_CATALOG:

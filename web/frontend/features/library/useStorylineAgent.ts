@@ -114,7 +114,9 @@ export function useStorylineAgent(opts: Options) {
     if (!plan || applyingRef.current) return;
     applyingRef.current = true;
     setApplying(true);
-    const currentStats = opts.getFields().stats ?? [];
+    const snapshot = opts.getFields();
+    const currentStats = snapshot.stats ?? [];
+    const currentStyle = snapshot.styleBlocks ?? {};
     try {
       if (opts.mode === "edit" && opts.storylineId) {
         const res = await api.applyStorylineAgentPlan(opts.storylineId, {
@@ -122,7 +124,7 @@ export function useStorylineAgent(opts: Options) {
           plan,
           baseVersion: panelRef.current.baseVersion,
         });
-        opts.onApplied(planToFieldPatch(plan, currentStats));
+        opts.onApplied(planToFieldPatch(plan, currentStats, currentStyle));
         const note = res.applied.length ? res.applied.join(", ") : "no changes";
         update((p) => ({
           ...p,
@@ -130,7 +132,7 @@ export function useStorylineAgent(opts: Options) {
           messages: [...p.messages, { role: "assistant", content: `Applied — ${note}.` }],
         }));
       } else {
-        opts.onApplied(planToFieldPatch(plan, currentStats));
+        opts.onApplied(planToFieldPatch(plan, currentStats, currentStyle));
         update((p) => ({
           ...p,
           pendingPlan: null,

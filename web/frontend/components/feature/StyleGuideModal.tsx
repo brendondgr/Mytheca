@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { StyleGuideEditor } from "@/components/feature/StyleGuideEditor";
-import { getStyleGuide, saveStylePreset, type StyleCatalog } from "@/lib/api";
+import {
+  getStyleGuide,
+  reviseStyleGuide,
+  saveStylePreset,
+  type StyleCatalog,
+} from "@/lib/api";
 
 export interface StyleGuideModalProps {
   open: boolean;
@@ -121,18 +126,26 @@ export function StyleGuideModal({
               await onSave(next);
               onClose();
             }}
+            // The author names the preset; the id is a slug of THAT name, not of the
+            // modal heading — two worlds saving "Slow Burn" should collide on one entry
+            // rather than silently making two called the same thing.
             onSavePreset={
               layer === "storyline"
-                ? async (next) => {
-                    const id = heading
-                      .toLowerCase()
-                      .replace(/[^a-z0-9]+/g, "-")
-                      .replace(/^-+|-+$/g, "")
-                      .slice(0, 40);
-                    await saveStylePreset({ id: id || "saved-style", name: heading, blocks: next });
+                ? async (name, next) => {
+                    const id =
+                      name
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/^-+|-+$/g, "")
+                        .slice(0, 40) || "saved-style";
+                    await saveStylePreset({ id, name, blocks: next });
                   }
                 : undefined
             }
+            onRevise={async (instruction, current) => {
+              const { styleBlocks } = await reviseStyleGuide({ instruction, current });
+              return styleBlocks ?? {};
+            }}
           />
         ) : null}
       </div>

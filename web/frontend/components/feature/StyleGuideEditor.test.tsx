@@ -184,7 +184,26 @@ describe("StyleGuideEditor", () => {
       />,
     );
     await user.click(screen.getByRole("button", { name: /save as preset/i }));
-    expect(onSavePreset).toHaveBeenCalledWith({ voice: "Plain." });
+    await user.type(screen.getByRole("textbox", { name: /preset name/i }), "Slow Burn");
+    await user.click(screen.getByRole("button", { name: /^save preset$/i }));
+    expect(onSavePreset).toHaveBeenCalledWith("Slow Burn", { voice: "Plain." });
+  });
+
+  it("will not save a preset without a name", async () => {
+    const user = userEvent.setup();
+    const onSavePreset = vi.fn();
+    render(
+      <StyleGuideEditor
+        catalog={CATALOG}
+        presets={[]}
+        blocks={{ voice: "Plain." }}
+        onSave={vi.fn()}
+        onSavePreset={onSavePreset}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /save as preset/i }));
+    expect(screen.getByRole("button", { name: /^save preset$/i })).toBeDisabled();
+    expect(onSavePreset).not.toHaveBeenCalled();
   });
 
   it("surfaces a save failure instead of closing over it", async () => {
@@ -200,5 +219,65 @@ describe("StyleGuideEditor", () => {
     await user.type(field("Voice"), "Plain.");
     await user.click(screen.getByRole("button", { name: /save style/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent("nope");
+  });
+});
+
+describe("StyleGuideEditor — asking the model", () => {
+  it("replaces the draft with the revision it gets back", async () => {
+    const user = userEvent.setup();
+    const onRevise = vi.fn().mockResolvedValue({ voice: "Clipped and cold." });
+    render(
+      <StyleGuideEditor
+        catalog={CATALOG}
+        presets={[]}
+        blocks={{ voice: "Plain." }}
+        onSave={vi.fn()}
+        onRevise={onRevise}
+      />,
+    );
+    await user.type(screen.getByRole("textbox", { name: /ask the model/i }), "colder");
+    await user.click(screen.getByRole("button", { name: /ask/i }));
+    expect(onRevise).toHaveBeenCalledWith("colder", { voice: "Plain." });
+    expect(await screen.findByDisplayValue("Clipped and cold.")).toBeInTheDocument();
+  });
+
+  it("keeps the author's text when nothing comes back", async () => {
+    // The one outcome an author cannot undo is a silent wipe, so an empty answer says so.
+    const user = userEvent.setup();
+    render(
+      <StyleGuideEditor
+        catalog={CATALOG}
+        presets={[]}
+        blocks={{ voice: "Plain." }}
+        onSave={vi.fn()}
+        onRevise={vi.fn().mockResolvedValue({})}
+      />,
+    );
+    await user.type(screen.getByRole("textbox", { name: /ask the model/i }), "colder");
+    await user.click(screen.getByRole("button", { name: /ask/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/unchanged/i);
+    expect(field("Voice").value).toBe("Plain.");
+  });
+
+  it("surfaces a failure rather than blanking the guide", async () => {
+    const user = userEvent.setup();
+    render(
+      <StyleGuideEditor
+        catalog={CATALOG}
+        presets={[]}
+        blocks={{ voice: "Plain." }}
+        onSave={vi.fn()}
+        onRevise={() => Promise.reject(new Error("offline"))}
+      />,
+    );
+    await user.type(screen.getByRole("textbox", { name: /ask the model/i }), "colder");
+    await user.click(screen.getByRole("button", { name: /ask/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("offline");
+    expect(field("Voice").value).toBe("Plain.");
+  });
+
+  it("hides the ask row entirely when no handler is given", () => {
+    render(<StyleGuideEditor catalog={CATALOG} presets={[]} blocks={{}} onSave={vi.fn()} />);
+    expect(screen.queryByRole("textbox", { name: /ask the model/i })).not.toBeInTheDocument();
   });
 });

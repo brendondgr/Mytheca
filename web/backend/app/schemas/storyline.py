@@ -99,6 +99,18 @@ class WorldPrimerResponse(CamelModel):
     world_primer: str
 
 
+class StyleGuideReviseRequest(CamelModel):
+    """``POST /storylines/style/revise`` — change an existing guide by instruction.
+
+    ``current`` is what the author has in the editor right now (not necessarily what is
+    saved), so the agent revises what they are looking at. ``premise`` is optional context.
+    """
+
+    instruction: str = ""
+    current: dict[str, str] = Field(default_factory=dict)
+    premise: str | None = None
+
+
 class StyleGuideDraftResponse(CamelModel):
     """The drafted style guide, as block TEXT.
 

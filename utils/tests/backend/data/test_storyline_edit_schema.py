@@ -16,7 +16,7 @@ from app.schemas.storyline_edit import (
 )
 
 
-def test_catalogue_covers_the_six_storyline_fields():
+def test_catalogue_covers_the_scoped_storyline_fields():
     assert {s.key for s in FIELD_CATALOG} == {
         "title",
         "genre",
@@ -24,18 +24,21 @@ def test_catalogue_covers_the_six_storyline_fields():
         "premise",
         "worldPrimer",
         "statistics",
+        "styleBlocks",
     }
     assert FIELD_KEYS == {s.key for s in FIELD_CATALOG}
-    # Exactly one stats field; the rest are text/primer.
+    # Exactly one stats field and one style field; the rest are text/primer. Both of those
+    # kinds stand for a whole sub-structure the author scopes as ONE decision.
     assert sum(1 for s in FIELD_CATALOG if s.kind == "stats") == 1
+    assert sum(1 for s in FIELD_CATALOG if s.kind == "style") == 1
     for spec in FIELD_CATALOG:
-        assert spec.label and spec.kind in ("text", "primer", "stats")
+        assert spec.label and spec.kind in ("text", "primer", "stats", "style")
 
 
 def test_story_plan_defaults_empty():
     plan = StoryPlan()
     assert plan.is_empty()
-    assert plan.changes == [] and plan.stat_changes == []
+    assert plan.changes == [] and plan.stat_changes == [] and plan.style_changes == []
 
 
 def test_story_plan_not_empty_with_a_change():

@@ -59,7 +59,12 @@ describe("foldAgentFrame", () => {
   });
 
   it("stores a plan and its base version", () => {
-    const plan: StoryPlan = { changes: [{ field: "title", after: "X", rationale: "" }], statChanges: [], notes: "" };
+    const plan: StoryPlan = {
+      changes: [{ field: "title", after: "X", rationale: "" }],
+      statChanges: [],
+      styleChanges: [],
+      notes: "",
+    };
     const s = foldAgentFrame(emptyPanel(), { type: "plan", plan, baseVersion: "v1" });
     expect(s.pendingPlan).toBe(plan);
     expect(s.baseVersion).toBe("v1");
@@ -92,6 +97,7 @@ describe("planToFieldPatch", () => {
         { field: "worldPrimer", after: "New primer", rationale: "" },
       ],
       statChanges: [{ key: "grit", changeType: "add", after: statDef("grit"), schemaAltering: true, rationale: "" }],
+      styleChanges: [],
       notes: "",
     };
     const patch = planToFieldPatch(plan, []);

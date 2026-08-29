@@ -10,9 +10,10 @@ import type {
   StatDefinition,
   StoryPlan,
   StorylineScope,
+  StyleChange,
 } from "@/lib/types";
 
-/** The six scoped storyline fields — order + labels for the scope selector. */
+/** The scoped storyline fields — order + labels for the scope selector. */
 export const AGENT_FIELDS = [
   { key: "title", label: "Title" },
   { key: "genre", label: "Genre" },
@@ -20,6 +21,7 @@ export const AGENT_FIELDS = [
   { key: "premise", label: "Premise" },
   { key: "worldPrimer", label: "World Primer" },
   { key: "statistics", label: "Statistics" },
+  { key: "styleBlocks", label: "Narrative style" },
 ] as const;
 
 export const AGENT_FIELD_KEYS: readonly string[] = AGENT_FIELDS.map((f) => f.key);
@@ -93,6 +95,25 @@ export interface AppliedFields {
   premise?: string;
   worldPrimer?: string;
   stats?: StatDefinition[];
+  styleBlocks?: Record<string, string>;
+}
+
+/**
+ * Apply a plan's style changes onto the current guide, block by block.
+ *
+ * Block by block, not wholesale: an approved change to one block must never take the five
+ * the agent did not mention with it. `after` of null/empty removes that block.
+ */
+export function applyStyleChanges(
+  blocks: Record<string, string>,
+  changes: StyleChange[],
+): Record<string, string> {
+  const next = { ...blocks };
+  for (const ch of changes) {
+    if (ch.after && ch.after.trim()) next[ch.block] = ch.after.trim();
+    else delete next[ch.block];
+  }
+  return next;
 }
 
 /** Apply a plan's stat changes onto the current stat list (add/update/remove). */
@@ -114,7 +135,11 @@ export function applyStatChanges(
 }
 
 /** Translate an approved plan into a set of form-field values to apply. */
-export function planToFieldPatch(plan: StoryPlan, currentStats: StatDefinition[]): AppliedFields {
+export function planToFieldPatch(
+  plan: StoryPlan,
+  currentStats: StatDefinition[],
+  currentStyle: Record<string, string> = {},
+): AppliedFields {
   const patch: AppliedFields = {};
   for (const change of plan.changes) {
     if (TEXT_FIELD_KEYS.includes(change.field)) {
@@ -123,6 +148,9 @@ export function planToFieldPatch(plan: StoryPlan, currentStats: StatDefinition[]
   }
   if (plan.statChanges.length) {
     patch.stats = applyStatChanges(currentStats, plan.statChanges);
+  }
+  if (plan.styleChanges?.length) {
+    patch.styleBlocks = applyStyleChanges(currentStyle, plan.styleChanges);
   }
   return patch;
 }

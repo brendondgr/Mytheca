@@ -25,6 +25,7 @@ from app.schemas.storyline import (
     StorylineRead,
     StorylineUpdate,
     StyleGuideDraftResponse,
+    StyleGuideReviseRequest,
     WorldPrimerRequest,
     WorldPrimerResponse,
 )
@@ -84,6 +85,22 @@ def draft_style_guide(data: WorldPrimerRequest, db: Session = Depends(get_db)):
     return StyleGuideDraftResponse(
         style_blocks=style_agent.draft_style_guide(
             db, data.premise, data.seed, data.docs_overview
+        )
+    )
+
+
+@router.post("/style/revise", response_model=StyleGuideDraftResponse)
+def revise_style_guide(data: StyleGuideReviseRequest, db: Session = Depends(get_db)):
+    """Revise the guide the author is looking at, on their instruction.
+
+    Returns the COMPLETE revised guide, so a block the agent left out is one it removed.
+    An empty response means **leave it alone** — the agent could not be reached or answered
+    with nothing usable — never "clear the guide", which is the one outcome an author
+    cannot undo.
+    """
+    return StyleGuideDraftResponse(
+        style_blocks=style_agent.revise_style_guide(
+            db, data.current, data.instruction, data.premise
         )
     )
 

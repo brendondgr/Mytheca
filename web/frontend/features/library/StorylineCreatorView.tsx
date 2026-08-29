@@ -46,6 +46,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
     if (patch.premise !== undefined) c.setField("premise", patch.premise);
     if (patch.worldPrimer !== undefined) c.setField("worldPrimer", patch.worldPrimer);
     if (patch.stats) c.setStats(patch.stats);
+    if (patch.styleBlocks) c.setField("styleBlocks", patch.styleBlocks);
   };
   const agent = useStorylineAgent({
     mode: c.isEdit ? "edit" : "create",
@@ -57,6 +58,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
       premise: c.fields.premise,
       worldPrimer: c.fields.worldPrimer,
       stats: c.stats,
+      styleBlocks: c.fields.styleBlocks,
     }),
     // The context files the author kept selected for Draft ground every assistant
     // turn, so a generated title/genre/tagline/premise/primer/stat set is built on

@@ -23,7 +23,7 @@ from app.models import Storyline
 from app.rag import indexer as rag_index
 from app.schemas.stat import StatDefinitionCreate, StatDefinitionUpdate
 from app.schemas.storyline_edit import ScopeState, StatChange, StoryPlan
-from app.services import crud, stats
+from app.services import crud, stats, style_guide
 
 # plan field key (camel) → the storyline attribute it writes.
 _FIELD_ATTR = {
@@ -43,6 +43,11 @@ def storyline_version(db: Session, sl: Storyline, writable: set[str]) -> str:
     unrelated change to an out-of-scope field never blocks an in-scope apply.
     """
     parts: dict[str, object] = {}
+    if "styleBlocks" in writable:
+        # In the concurrency token too: without it, two assistants editing the guide would
+        # both pass the staleness check and the second would overwrite the first. Sorted,
+        # because a dict's order is not a fact about its content.
+        parts["styleBlocks"] = sorted((sl.style_blocks or {}).items())
     for key, attr in _FIELD_ATTR.items():
         if key in writable:
             parts[key] = getattr(sl, attr)
@@ -99,6 +104,19 @@ def apply_plan(
             applied.append(f"Updated {change.field}")
         for attr, value in text_patch.items():
             setattr(sl, attr, value)
+
+        if plan.style_changes:
+            # Applied block by block onto whatever the row holds, so an approved change to
+            # one block never silently drops the five the agent did not mention.
+            blocks = dict(style_guide.normalize_blocks(sl.style_blocks))
+            for change in plan.style_changes:
+                if change.after:
+                    blocks[change.block] = change.after
+                    applied.append(f"Updated narrative style / {change.block}")
+                else:
+                    blocks.pop(change.block, None)
+                    applied.append(f"Removed narrative style / {change.block}")
+            sl.style_blocks = style_guide.normalize_blocks(blocks) or None
 
         for stat_change in plan.stat_changes:
             applied.append(_apply_stat_change(db, storyline_id, stat_change))

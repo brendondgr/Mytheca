@@ -112,6 +112,83 @@ def clean_blocks(raw: object) -> dict[str, str]:
     return out
 
 
+_REVISE_SYSTEM = """You are Mytheca's style editor, revising a world's style guide on the author's instruction.
+
+A style guide is six short blocks of prose, each optional:
+- "attention": what the prose dwells on, and what it passes over quickly.
+- "voice": how people in this world sound — the shape of their sentences.
+- "pacing": what a turn is for; when to narrate, when to let someone speak, what to withhold.
+- "texture": the recurring specifics that make the world feel lived-in.
+- "never": this world's failure modes — the moves that break the spell.
+- "signature": the whole guide compressed into ONE short clause.
+
+Reply with ONLY a JSON object whose keys are block names and whose values are strings. No prose outside it, no markdown, no code fences.
+
+Return the COMPLETE guide you want to end up with — every block you are keeping, including the ones you did not touch. **A block you leave out is deleted.** If the author asks you to remove something, leave that block out.
+
+Rules for what you write:
+- Do what the author asked, and change nothing they did not ask about. Their existing wording is theirs; keep it unless the instruction reaches it.
+- Say HOW, never WHAT. "Report violence flatly" is style; "the duke dies in act two" is plot, and does not belong here.
+- NEVER give a count of any kind — no number of words, sentences, paragraphs, beats or turns. Length is decided by the moment, and a count is the one instruction that reliably makes the writing worse.
+- Write instructions to a writer, in the imperative. Concrete beats abstract.
+- Keep "signature" to a single clause. It is the only part re-read on every beat.
+- Never write a placeholder like {character} or {name}. The text is used exactly as written."""
+
+
+def revise_style_guide(
+    db: Session,
+    current: dict[str, str] | None,
+    instruction: str,
+    premise: str | None = None,
+    *,
+    reasoning: ReasoningEffort = DEFAULT_AUTHORING_EFFORT,
+) -> dict[str, str]:
+    """Revise an existing guide on the author's instruction. ``{}`` means "no change".
+
+    The empty return is deliberately **ambiguous-free at the call site**: the route and the
+    editor both treat it as "leave what you have alone", never as "clear the guide". An
+    author who wants a block gone says so and the model omits it, which comes back as a
+    non-empty dict missing that key — a real answer. A failure comes back as ``{}`` and
+    changes nothing, which is the only safe reading when the model could not be reached.
+    """
+    instruction = (instruction or "").strip()
+    if not instruction:
+        return {}
+
+    blocks = style_guide.normalize_blocks(current)
+    parts = [
+        "The guide as it stands:\n"
+        + (
+            "\n\n".join(f"{k}: {v}" for k, v in blocks.items())
+            if blocks
+            else "(empty — there is no guide yet)"
+        ),
+        f"The author asks:\n{instruction}",
+    ]
+    if (premise or "").strip():
+        parts.append(f"The world, for context:\n{premise.strip()}")
+
+    try:
+        base_url, api_key, model, params = resolve_llm(db)
+        raw = llm.chat_complete(
+            base_url,
+            api_key,
+            model,
+            [
+                {"role": "system", "content": _REVISE_SYSTEM},
+                {"role": "user", "content": "\n\n".join(parts)},
+            ],
+            gen_params(params),
+            reasoning=reasoning,
+        )
+        data = extract_json(raw)
+    except Exception as exc:  # noqa: BLE001 - a failed revision must not lose the author's text
+        logger.warning("style agent: revise failed (%s); leaving the guide untouched", exc)
+        return {}
+
+    return clean_blocks(data if isinstance(data, dict) else {})
+
+
 def draft_style_guide(
     db: Session,
     premise: str | None,

@@ -26,8 +26,13 @@ from app.schemas.stat import StatBand
 # ---- Field catalogue --------------------------------------------------------
 
 # ``text`` = a short free-text field, ``primer`` = the long agent-facing World
-# Primer (surfaced with extra scrutiny in the plan), ``stats`` = the stat schema.
-FieldKind = Literal["text", "primer", "stats"]
+# Primer (surfaced with extra scrutiny in the plan), ``stats`` = the stat schema,
+# ``style`` = the narrative style guide's six blocks.
+#
+# ``style`` is its own kind rather than six ``text`` fields for the same reason ``stats``
+# is: it is ONE thing the author scopes on or off, and six checkboxes would make the scope
+# panel a list of implementation details instead of a list of decisions.
+FieldKind = Literal["text", "primer", "stats", "style"]
 
 
 @dataclass(frozen=True)
@@ -48,6 +53,7 @@ FIELD_CATALOG: tuple[ScopedFieldSpec, ...] = (
     ScopedFieldSpec("premise", "Premise", "text"),
     ScopedFieldSpec("worldPrimer", "World Primer", "primer"),
     ScopedFieldSpec("statistics", "Statistics", "stats"),
+    ScopedFieldSpec("styleBlocks", "Narrative style", "style"),
 )
 
 FIELD_KEYS: frozenset[str] = frozenset(spec.key for spec in FIELD_CATALOG)
@@ -119,15 +125,30 @@ class StatChange(CamelModel):
     rationale: str = ""
 
 
+class StyleChange(CamelModel):
+    """A proposed change to ONE block of the narrative style guide.
+
+    ``after`` of ``None`` means *remove this block* — a real and reversible edit an author
+    may well ask for ("drop the never block"), and distinct from leaving it untouched,
+    which the agent expresses by not proposing a change for it at all.
+    """
+
+    block: str
+    before: str | None = None
+    after: str | None = None
+    rationale: str = ""
+
+
 class StoryPlan(CamelModel):
     """The reviewable plan for one agent turn — nothing is written until approval."""
 
     changes: list[FieldChange] = Field(default_factory=list)
     stat_changes: list[StatChange] = Field(default_factory=list)
+    style_changes: list[StyleChange] = Field(default_factory=list)
     notes: str = ""
 
     def is_empty(self) -> bool:
-        return not self.changes and not self.stat_changes
+        return not self.changes and not self.stat_changes and not self.style_changes
 
 
 # ---- Conversation -----------------------------------------------------------
@@ -153,6 +174,8 @@ class StorylineFieldsSnapshot(CamelModel):
     premise: str = ""
     world_primer: str = ""
     stats: list[StatDefinitionDraft] = Field(default_factory=list)
+    #: The narrative style guide as it stands in the editor ({block id -> text}).
+    style_blocks: dict[str, str] = Field(default_factory=dict)
 
 
 class StorylineAgentRequest(CamelModel):

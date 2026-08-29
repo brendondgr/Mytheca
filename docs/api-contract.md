@@ -1333,13 +1333,39 @@ Write tolerance, all deliberate for an optional retrofitted feature:
 - A world or scene with no guide produces a system message **byte-identical** to what it
   produced before the feature existed.
 
+### Authoring endpoints
+
+- `POST /storylines/style` `{premise?, seed?, docsOverview?}` → `{styleBlocks}`. Drafts a
+  guide from the world. The agent is shown the current preset shelf and may answer with a
+  preset id instead of writing one; the route resolves that to the preset's **text**, so the
+  client never learns which path ran.
+- `POST /storylines/style/revise` `{instruction, current, premise?}` → `{styleBlocks}`.
+  Revises the guide the author is looking at (`current` is the editor's live value, not
+  necessarily what is saved). Returns the **complete** guide, so a block the agent left out
+  is one it removed. An **empty `styleBlocks` means "leave it alone"** — that is how a
+  failure arrives, and it must never be read as "clear the guide".
+
+Both drop any block containing a **length count** before returning it.
+
+### The storyline assistant
+
+`styleBlocks` is a scoped field on the storyline agent (`docs/data-flow.md`), so the
+Assistant can propose style edits like any other field. Its changes travel as
+**`styleChanges`** on the plan — `[{block, before?, after?, rationale}]`, mirroring how stat
+edits travel as `statChanges`. `after: null` is a **removal**. Changes apply block by block
+onto whatever the row holds, so approving one never drops the blocks the agent did not
+mention, and `styleBlocks` is folded into the concurrency token so two assistants editing
+the guide cannot both pass the staleness check.
+
 ### Catalog + presets
 
 - `GET /options/style-guide` → `{blocks, presets}`. `blocks` is the static six-field catalog
   (`id`, `label`, `helper`, `placeholder`, `reader` ∈ `prose|planner|both`, `placement` ∈
   `prefix|tail`); `presets` is the three built-ins (`mystery`, `romance`, `action`, each
   `builtin: true`) followed by the author's own saved guides.
-- `POST /options/style-presets` `{id, name, blocks}` → the refreshed catalog. A built-in id,
+- `POST /options/style-presets` `{id, name, blocks}` → the refreshed catalog. The author
+  supplies the **name**, and the id is a slug of that name — so two worlds saving "Slow Burn"
+  land on one entry rather than silently creating two things called the same. A built-in id,
   a blank id, or an empty guide is **ignored rather than rejected**; overwriting a built-in
   by accident would leave no way back.
 - `DELETE /options/style-presets/{id}` → the refreshed catalog. Built-ins are not deletable.

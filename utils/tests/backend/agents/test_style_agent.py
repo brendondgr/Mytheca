@@ -198,3 +198,66 @@ def test_the_route_answers_empty_rather_than_failing(client, configured, monkeyp
     res = client.post("/api/storylines/style", json={"premise": "A siege."})
     assert res.status_code == 200
     assert res.json()["styleBlocks"] == {}
+
+
+# ---- revise ------------------------------------------------------------------------
+
+
+def test_revise_applies_the_instruction_and_returns_the_whole_guide(
+    configured, db_session, monkeypatch
+):
+    _reply(monkeypatch, json.dumps({"voice": "Clipped and cold.", "never": "No recaps."}))
+    blocks = style_agent.revise_style_guide(
+        db_session, {"voice": "Plain.", "never": "No recaps."}, "make the voice colder"
+    )
+    assert blocks == {"voice": "Clipped and cold.", "never": "No recaps."}
+
+
+def test_revise_can_remove_a_block_by_omitting_it(configured, db_session, monkeypatch):
+    """The contract is "return the complete guide", so an omission is a deletion."""
+    _reply(monkeypatch, json.dumps({"voice": "Plain."}))
+    blocks = style_agent.revise_style_guide(
+        db_session, {"voice": "Plain.", "never": "No recaps."}, "drop the never block"
+    )
+    assert blocks == {"voice": "Plain."}
+
+
+def test_revise_with_no_instruction_makes_no_call(db_session, monkeypatch):
+    def explode(*_a, **_k):
+        raise AssertionError("the agent called the model with nothing to do")
+
+    monkeypatch.setattr(style_agent.llm, "chat_complete", explode)
+    assert style_agent.revise_style_guide(db_session, {"voice": "Plain."}, "   ") == {}
+
+
+def test_revise_returns_empty_on_failure_so_the_author_keeps_their_text(
+    configured, db_session, monkeypatch
+):
+    """`{}` must read as "leave it alone" — losing an author's guide is unrecoverable."""
+    _fail(monkeypatch)
+    assert style_agent.revise_style_guide(db_session, {"voice": "Plain."}, "colder") == {}
+
+
+def test_revise_drops_a_length_count(configured, db_session, monkeypatch):
+    _reply(monkeypatch, json.dumps({"voice": "Plain.", "pacing": "Two beats a turn."}))
+    blocks = style_agent.revise_style_guide(db_session, {"voice": "Plain."}, "add pacing")
+    assert blocks == {"voice": "Plain."}
+
+
+def test_revise_route_round_trip(client, configured, monkeypatch):
+    _reply(monkeypatch, json.dumps({"voice": "Clipped."}))
+    res = client.post(
+        "/api/storylines/style/revise",
+        json={"instruction": "colder", "current": {"voice": "Plain."}},
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["styleBlocks"] == {"voice": "Clipped."}
+
+
+def test_revise_route_answers_empty_rather_than_failing(client, configured, monkeypatch):
+    _fail(monkeypatch)
+    res = client.post(
+        "/api/storylines/style/revise",
+        json={"instruction": "colder", "current": {"voice": "Plain."}},
+    )
+    assert res.status_code == 200 and res.json()["styleBlocks"] == {}
