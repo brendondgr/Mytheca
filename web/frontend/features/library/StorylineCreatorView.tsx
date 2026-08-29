@@ -203,7 +203,17 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
                 blocks of prose do not belong inline in a column of form fields. */}
             <div className="mt-[18px] flex items-center justify-between gap-[12px] border-t border-hair-strong pt-[16px]">
               <div className="min-w-0">
-                <FieldLabel>Narrative style</FieldLabel>
+                <div className="flex items-end gap-[10px]">
+                  <FieldLabel>Narrative style</FieldLabel>
+                  <button
+                    type="button"
+                    onClick={c.generateStyle}
+                    disabled={!c.fields.premise.trim() || c.generatingStyle}
+                    className="mb-[6px] cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40"
+                  >
+                    {c.generatingStyle ? "Drafting…" : "❖ Draft style"}
+                  </button>
+                </div>
                 <p className="font-body text-[12.5px] text-ink-soft">
                   {styleCount
                     ? `${styleCount} of 6 set — how the cast writes, not what they know.`

@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.agents import storyline_agent, triage_agent
+from app.agents import storyline_agent, style_agent, triage_agent
 from app.agents._common import resolve_llm
 from app.agents.storyline_edit import core as storyline_edit_core
 from app.agents.storyline_edit import creation as creation_agent
@@ -24,6 +24,7 @@ from app.schemas.storyline import (
     StorylineDraftResponse,
     StorylineRead,
     StorylineUpdate,
+    StyleGuideDraftResponse,
     WorldPrimerRequest,
     WorldPrimerResponse,
 )
@@ -69,6 +70,22 @@ def generate_world_primer(data: WorldPrimerRequest, db: Session = Depends(get_db
     """Generate the agent-facing World Primer from the seed + premise."""
     primer = storyline_agent.generate_world_primer(db, data.premise, data.seed, data.docs_overview)
     return WorldPrimerResponse(world_primer=primer)
+
+
+@router.post("/style", response_model=StyleGuideDraftResponse)
+def draft_style_guide(data: WorldPrimerRequest, db: Session = Depends(get_db)):
+    """Draft the world's narrative style guide from the seed + premise.
+
+    Takes the same request shape as ``/primer`` because it answers the same question about
+    the same material — what is true there, then how it gets written. Best-effort by design:
+    an unreachable model or an unusable reply comes back as ``{}`` rather than an error,
+    because a style guide is optional and world creation must not fail over one.
+    """
+    return StyleGuideDraftResponse(
+        style_blocks=style_agent.draft_style_guide(
+            db, data.premise, data.seed, data.docs_overview
+        )
+    )
 
 
 @router.post("/triage", response_model=TriageResponse)

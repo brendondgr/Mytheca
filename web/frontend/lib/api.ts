@@ -636,6 +636,23 @@ export const generateWorldPrimer = (body: {
   docsOverview?: string;
 }) => generation<WorldPrimerResult>("/storylines/primer", body);
 
+/**
+ * The drafted narrative style guide, as block TEXT.
+ *
+ * The agent may answer with a preset id instead of writing one; the backend resolves that
+ * to the preset's text, so the client never has to know which path ran and the author edits
+ * their own copy either way. `{}` means "no style" — an ordinary outcome, not a failure.
+ */
+export interface StyleGuideDraftResult {
+  styleBlocks: Record<string, string>;
+}
+
+export const generateStyleGuide = (body: {
+  premise?: string;
+  seed?: string;
+  docsOverview?: string;
+}) => generation<StyleGuideDraftResult>("/storylines/style", body);
+
 // ---- triage (the New Storyline page) ----
 // Triage classifies dropped docs into Characters/Settings/Other + Draft/RAG. It does
 // not persist — the page commits the triaged corpus via CRUD.

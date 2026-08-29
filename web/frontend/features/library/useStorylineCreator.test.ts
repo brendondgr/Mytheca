@@ -14,6 +14,37 @@ function file(name: string, text: string): File {
 }
 
 describe("useStorylineCreator", () => {
+  it("drafts the style guide from the premise into the fields", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    act(() => result.current.setField("premise", "Four tenants in a terrace house."));
+    await act(async () => {
+      await result.current.generateStyle();
+    });
+    expect(vi.mocked(api.generateStyleGuide)).toHaveBeenCalled();
+    expect(result.current.fields.styleBlocks).toEqual({ voice: "Plain and short." });
+  });
+
+  it("does not draft a style guide before there is a premise to read", async () => {
+    const { result } = renderHook(() => useStorylineCreator());
+    await act(async () => {
+      await result.current.generateStyle();
+    });
+    expect(vi.mocked(api.generateStyleGuide)).not.toHaveBeenCalled();
+  });
+
+  it("leaves an existing style guide alone when the draft comes back empty", async () => {
+    // The agent answers `{}` for an unreachable model or an unusable reply. Overwriting the
+    // author's own blocks with nothing is the one outcome they cannot undo.
+    vi.mocked(api.generateStyleGuide).mockResolvedValueOnce({ styleBlocks: {} });
+    const { result } = renderHook(() => useStorylineCreator());
+    act(() => result.current.setField("premise", "A city."));
+    act(() => result.current.setField("styleBlocks", { voice: "Mine." }));
+    await act(async () => {
+      await result.current.generateStyle();
+    });
+    expect(result.current.fields.styleBlocks).toEqual({ voice: "Mine." });
+  });
+
   it("triages dropped docs into categories + Draft/RAG flags", async () => {
     const { result } = renderHook(() => useStorylineCreator());
     await act(async () => {

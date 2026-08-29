@@ -97,3 +97,14 @@ class WorldPrimerRequest(CamelModel):
 
 class WorldPrimerResponse(CamelModel):
     world_primer: str
+
+
+class StyleGuideDraftResponse(CamelModel):
+    """The drafted style guide, as block TEXT.
+
+    Always text, never a preset id: the agent may answer either way, and the route resolves
+    a chosen preset here so the author edits their own copy and the client never has to know
+    which path ran. ``{}`` means "no style" — an ordinary outcome, not a failure.
+    """
+
+    style_blocks: dict[str, str] = Field(default_factory=dict)

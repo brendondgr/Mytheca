@@ -529,6 +529,9 @@ export function makeApiMock() {
     // The narrative style guide: the block catalog + every applicable preset. Mocked with
     // ONE block and ONE built-in rather than the real six-and-three, so a test asserting on
     // this surface reads as a fixture and not as a copy of `content/style_presets`.
+    generateStyleGuide: vi.fn(async () => ({
+      styleBlocks: { voice: "Plain and short." },
+    })),
     getStyleGuide: vi.fn(async () => ({
       blocks: [
         {

@@ -64,6 +64,7 @@ export function useStorylineCreator(editId?: string) {
 
   const [loading, setLoading] = useState(Boolean(editId));
   const [generatingPrimer, setGeneratingPrimer] = useState(false);
+  const [generatingStyle, setGeneratingStyle] = useState(false);
   const [triaging, setTriaging] = useState(false);
   const [triageActive, setTriageActive] = useState<TriageActive | null>(null);
   const [committing, setCommitting] = useState(false);
@@ -239,6 +240,34 @@ export function useStorylineCreator(editId?: string) {
     }
   }, [fields.premise, docs]);
 
+  /**
+   * Draft the world's style guide from the premise — the sibling of `generatePrimer`.
+   *
+   * An empty answer is left alone rather than written in: the agent returns `{}` for an
+   * unreachable model, an unusable reply, or a world it could not read, and overwriting the
+   * author's existing blocks with nothing in any of those cases would be the one outcome
+   * they cannot undo.
+   */
+  const generateStyle = useCallback(async () => {
+    const premise = fields.premise.trim();
+    if (!premise) return;
+    setGeneratingStyle(true);
+    setError(null);
+    try {
+      const { styleBlocks } = await api.generateStyleGuide({
+        premise,
+        docsOverview: draftGrounding(docs),
+      });
+      if (Object.keys(styleBlocks ?? {}).length) {
+        setFields((prev) => ({ ...prev, styleBlocks }));
+      }
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setGeneratingStyle(false);
+    }
+  }, [fields.premise, docs]);
+
   // ---- commit ----
   const commit = useCallback(async (): Promise<string | null> => {
     if (!isCreatorValid(fields)) {
@@ -386,6 +415,8 @@ export function useStorylineCreator(editId?: string) {
     isValid: isCreatorValid(fields),
     loading,
     generatingPrimer,
+    generateStyle,
+    generatingStyle,
     triaging,
     triageActive,
     committing,

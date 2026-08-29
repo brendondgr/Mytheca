@@ -1475,3 +1475,31 @@ See `docs/rag.md` for the full pipeline, component reference, and configuration.
 - Live/ephemeral state: Redis (active scenario).
 - UI/interaction state: frontend only (panel toggles, theme, draft input).
 - Never trust client-sent state as authoritative; always re-validate on the backend.
+
+
+## Narrative style guide — where it comes from and where it goes
+
+**Authoring.** `POST /storylines/style` (`agents/style_agent.draft_style_guide`) reads the
+same seed + premise + dropped-doc overview `/primer` reads, and answers one of two ways: the
+id of an existing preset that fits, or a freshly written six-block guide. A chosen preset is
+resolved to its **text** in the route, so the client never learns which path ran and the
+author edits their own copy — nothing stores a preset reference, and editing a preset later
+cannot rewrite a world that already shipped with it. Every failure (unreachable model,
+unparseable reply, hallucinated preset id, no premise yet) resolves to `{}`, because an
+optional feature must not be able to fail world creation. A drafted block containing a
+**length count** is dropped before it is stored.
+
+**Runtime.** `services/style_guide.resolve_for(storyline, scenario)` runs once per turn in
+`assembler.assemble_context` and rides on `TurnContext.style`. From there:
+
+| block | reaches the model via |
+| --- | --- |
+| attention · voice · texture · never | the head of `ctx.stable_prefix` → every prose agent's system message, between the output contract and `WORLD:` |
+| pacing (+ never) | `planner_agent._planner_system`, appended after the operator-overridable planner prompt |
+| signature | `character_turn_agent._build_user_prompt`, fused into the act-now cue in the volatile tail |
+
+The split is a cache decision. The four prose blocks are constant for a whole scene, so they
+sit where the system message is byte-identical across every speaker and beat and are paid for
+once; only the one-clause signature is re-read per beat, buying the recency position the
+cached prefix cannot reach. `EXP-2026-08-018` measured that a guide in the cached prefix does
+reach the prose.
