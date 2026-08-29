@@ -39,6 +39,7 @@ from app.services import (
     settings_store,
     stat_guidance,
     stats,
+    style_guide,
 )
 
 logger = logging.getLogger("mytheca.turn")
@@ -179,6 +180,13 @@ class TurnContext:
     # writing agent reads its prompt from here, falling back to its registry default when a
     # key is absent (e.g. a directly-constructed context in tests).
     prompts: dict[str, str] = field(default_factory=dict)
+    #: The world's NARRATIVE STYLE GUIDE, resolved ``storyline → scenario``
+    #: (``services.style_guide``). Carried on the context rather than re-resolved per beat
+    #: because its whole value is being byte-identical across a scene: four of its blocks are
+    #: already baked into ``stable_prefix`` below, and the other two are read from here by
+    #: the character tail (``signature``) and the planner (``pacing``). Empty for a world
+    #: with no guide, which is every world written before the feature existed.
+    style: style_guide.ResolvedStyle = field(default_factory=style_guide.ResolvedStyle)
 
     def cast_by_id(self, character_id: str) -> CastMember | None:
         return next((c for c in self.cast if c.id == character_id), None)
@@ -282,7 +290,8 @@ def assemble_context(
     cast = _build_cast(db, scenario, session_id, stat_defs, recent_beats, presence_map)
     setting = db.get(Setting, scenario.setting_id) if scenario.setting_id else None
     subgraph = _safe_subgraph(db, scenario.id)
-    stable_prefix = _build_stable_prefix(storyline, stat_defs, guidance)
+    style = style_guide.resolve_for(storyline, scenario)
+    stable_prefix = _build_stable_prefix(storyline, stat_defs, guidance, style)
     retrieved_lore, gate_reason = _gated_lore(db, storyline, cast, setting, player_text)
     tagged_notes, tagged_names = _tagged_notes(db, storyline_id, tagged_doc_ids)
     # Fold the writing-agent prompt overrides: global (settings) → storyline → scenario.
@@ -305,6 +314,7 @@ def assemble_context(
         subgraph=subgraph,
         world_primer=storyline.world_primer,
         stable_prefix=stable_prefix,
+        style=style,
         retrieved_lore=retrieved_lore,
         gate_reason=gate_reason,
         tagged_notes=tagged_notes,
@@ -515,14 +525,31 @@ def _build_stable_prefix(
     storyline,
     stat_defs: list[StatDefinition],
     guidance: dict[str, str],
+    style: style_guide.ResolvedStyle | None = None,
 ) -> str:
-    """The cacheable stable region: World Primer + stat guidance.
+    """The cacheable stable region: style guide + World Primer + stat guidance.
 
     Ordered stable → volatile so the provider's prompt cache / precomputed KV keeps
     it warm across characters and turns (the volatile per-character block is built
     per call by the character agent). Falls back to the premise when no primer.
+
+    **The style guide leads, and the ordering is a decision.** Every prose agent composes
+    its system message as ``contract + "\n\n" + stable_prefix``, so putting the guide first
+    here lands it exactly between the operator-overridable output contract and ``WORLD:`` —
+    ordered by how many calls share the bytes, widest scope first. Two different worlds
+    running the same saved preset then share that block byte-for-byte, and scenes within one
+    world share everything up to the scenario delta either way, so the position costs
+    nothing and occasionally buys something.
+
+    A world with no guide emits nothing here at all, and its prefix is byte-identical to
+    what it was before the feature existed.
     """
-    parts: list[str] = [f"WORLD: {storyline.title} ({storyline.genre})."]
+    parts: list[str] = []
+    if style is not None:
+        prefix = style.render_prefix()
+        if prefix:
+            parts.append(prefix)
+    parts.append(f"WORLD: {storyline.title} ({storyline.genre}).")
     primer = storyline.world_primer or storyline.premise
     if primer:
         parts.append(f"WORLD PRIMER\n{primer}")

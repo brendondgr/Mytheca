@@ -73,6 +73,26 @@ _EXIT_STATUSES = {"unconscious", "departed", "left", "dead"}
 _SYSTEM = prompt_registry.default(prompt_registry.PLANNER_SYSTEM)
 
 
+def _planner_system(ctx: TurnContext) -> str:
+    """The planner's system message: its prompt, plus the world's PACING style if any.
+
+    ``pacing`` is the one style block the planner reads, and it is the planner's alone: how
+    a turn is shaped — when to narrate, when to let someone speak, what to withhold, where
+    to end — is a decision about which beats exist, which is this agent's job and not the
+    prose agents'. ``never`` rides along because a world's failure modes are as much about
+    what gets planned as about how it gets written.
+
+    Appended AFTER the operator-overridable prompt rather than woven into it, for the same
+    reason the character agent keeps its point-of-view rule out of the output contract: a
+    customised planner prompt must not be able to silently take the world's pacing with it.
+    It is also byte-identical for every turn of a scene, so it costs the prefix cache
+    nothing.
+    """
+    base = ctx.prompts.get(prompt_registry.PLANNER_SYSTEM, _SYSTEM)
+    pacing = ctx.style.render_planner()
+    return f"{base}\n\n{pacing}" if pacing else base
+
+
 @dataclass
 class BeatDecision:
     """The next beat to run this turn (or ``end``)."""
@@ -206,7 +226,7 @@ def plan_beats(
         want=want, may_ask=may_ask, beats_so_far=beats_so_far,
     )
     messages = [
-        {"role": "system", "content": ctx.prompts.get(prompt_registry.PLANNER_SYSTEM, _SYSTEM)},
+        {"role": "system", "content": _planner_system(ctx)},
         {"role": "user", "content": user},
     ]
 

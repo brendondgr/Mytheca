@@ -614,14 +614,25 @@ def _build_user_prompt(
             # matter of executing a decision rather than guessing at one.
             moment += f" This beat is here to: {purpose}."
         moment += " Let that reach your voice — don't answer on autopilot."
-        tail.append(moment)
     else:
-        tail.append(
+        moment = (
             "Before you respond, read the moment as the beats above actually show it — what has "
             "just changed, how much danger or feeling is in the air, and your own condition — and "
             "let it shape how you come across. Drop your usual manner if the moment calls for it "
             "(grief, fear, urgency, tenderness); don't answer on autopilot."
         )
+    # The style guide's SIGNATURE — the one clause of it that rides in the volatile tail.
+    #
+    # Four of the guide's blocks are already in the system prefix, byte-identical for every
+    # beat of the scene and therefore free after the first. This one is not free: it is
+    # re-read on every beat, which is exactly why it is a clause and not a paragraph. It buys
+    # the recency position that the cached prefix cannot reach, and it is fused into the
+    # act-now cue rather than appended as its own line so it arrives as part of the
+    # instruction to write, not as another piece of context to weigh.
+    signature = ctx.style.render_signature()
+    if signature:
+        moment = f"{moment} {signature}"
+    tail.append(moment)
     # How much to say. In the TAIL, not the STABLE head, so it sits in the recency window
     # beside the register — and after it, because the register shapes *how* a beat sounds and
     # this is about its delivery. Before the owed-requirements block, which stays last.
