@@ -1,0 +1,216 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import type { StyleBlockSpec, StylePreset } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+import { TextArea } from "@/components/ui/TextArea";
+import { cn } from "@/lib/cn";
+import {
+  STYLE_LAYER_LABELS,
+  packBlocks,
+  resolveStyleLayers,
+  sameBlocks,
+  type StyleLayer,
+} from "@/lib/styleBlocks";
+
+export interface StyleGuideEditorProps {
+  /** The six blocks and their metadata (from `/options/style-guide`). */
+  catalog: StyleBlockSpec[];
+  /** Presets the author can apply — built-ins first, then their own. */
+  presets: StylePreset[];
+  /** This layer's own blocks ({id → text}); an absent or blank block inherits. */
+  blocks: Record<string, string>;
+  /**
+   * The layer BELOW this one — the storyline's guide when editing a scenario. Shown as the
+   * inherited text behind an empty field, so "empty" reads as *inherit* rather than as
+   * *nothing*, which is the one thing an override editor has to make obvious.
+   */
+  inherited?: Record<string, string>;
+  /** Which layer this editor edits. Decides the wording, not the behaviour. */
+  layer?: "storyline" | "scenario";
+  /** Persist this layer's complete block map. */
+  onSave: (blocks: Record<string, string>) => Promise<void> | void;
+  /** Offered only where saving makes sense (the world level). */
+  onSavePreset?: (blocks: Record<string, string>) => Promise<void> | void;
+  saveLabel?: string;
+}
+
+/**
+ * The narrative style guide editor: one field per block, with its inheritance visible.
+ *
+ * Deliberately NOT built like {@link PromptOverridesEditor}, which prefills every field
+ * with the inherited text. That is right for prompts, where a field always has a live
+ * value and "reset" means "put the default back". It is wrong here: a style guide is
+ * *optional*, and most blocks of most worlds are genuinely unset. Prefilling would make
+ * every world look styled and turn "clear this block" into an act of deleting text that
+ * reappears. So a field holds only THIS layer's own text, and what it would inherit sits
+ * behind it as placeholder and preview.
+ *
+ * Applying a preset fills the fields and leaves them editable — it never stores a
+ * reference, so a preset edited later cannot rewrite a world that already shipped.
+ *
+ * `blocks` seeds the draft on mount and is not re-read afterwards, so a caller that can
+ * swap the incoming guide under a mounted editor must remount it — {@link StyleGuideModal}
+ * keys on the guide for exactly that reason. Re-syncing from props instead would mean a
+ * background refresh could silently discard whatever the author was part-way through typing.
+ */
+export function StyleGuideEditor({
+  catalog,
+  presets,
+  blocks,
+  inherited,
+  layer = "storyline",
+  onSave,
+  onSavePreset,
+  saveLabel = "Save style",
+}: StyleGuideEditorProps) {
+  const [draft, setDraft] = useState<Record<string, string>>(() => ({ ...blocks }));
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<{ kind: "saved" | "error"; msg: string } | null>(null);
+
+  const sources = useMemo(
+    () =>
+      resolveStyleLayers(
+        catalog.map((b) => b.id),
+        layer === "scenario"
+          ? { storyline: inherited, scenario: draft }
+          : { storyline: draft },
+      ),
+    [catalog, draft, inherited, layer],
+  );
+
+  const dirty = !sameBlocks(draft, blocks);
+  const anySet = Object.keys(packBlocks(draft)).length > 0;
+
+  function setBlock(id: string, text: string) {
+    setDraft((prev) => ({ ...prev, [id]: text }));
+  }
+
+  function applyPreset(preset: StylePreset) {
+    // Copied, not referenced — see the component doc. Every field stays editable after.
+    setDraft({ ...preset.blocks });
+    setStatus(null);
+  }
+
+  async function run(action: () => Promise<void> | void, done: string) {
+    setSaving(true);
+    setStatus(null);
+    try {
+      await action();
+      setStatus({ kind: "saved", msg: done });
+    } catch (err) {
+      setStatus({ kind: "error", msg: err instanceof Error ? err.message : "Could not save." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-[16px]">
+      <div className="flex flex-col gap-[8px] border-b border-hair pb-[12px]">
+        <p className="font-body text-[13px] text-ink-soft">
+          {layer === "scenario"
+            ? "How this scene is written, where it differs from the world. Leave a field empty to keep the world's."
+            : "How this story is written — not what happens in it. Every field is optional; leave one empty and nothing is said about it."}
+        </p>
+        {presets.length ? (
+          <div className="flex flex-wrap items-center gap-[8px]">
+            <span className="font-mono text-tag tracking-[0.06em] text-mute uppercase">
+              Start from
+            </span>
+            {presets.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                title={preset.blurb || preset.name}
+                onClick={() => applyPreset(preset)}
+                className="cursor-pointer rounded-[3px] border border-cardbd bg-card px-[10px] py-[5px] font-mono text-[11px] tracking-[0.06em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink"
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      {catalog.map((block) => {
+        const own = draft[block.id] ?? "";
+        const below = (inherited?.[block.id] ?? "").trim();
+        const source: StyleLayer = sources[block.id] ?? "none";
+        const showingInherited = !own.trim() && Boolean(below);
+        return (
+          <div key={block.id} className="flex flex-col gap-[6px]">
+            <div className="flex items-center justify-between gap-[10px]">
+              <span className="font-display text-[14.5px] font-semibold text-ink">
+                {block.label}
+                <span
+                  className={cn(
+                    "ml-[8px] font-mono text-tag tracking-[0.06em] uppercase",
+                    source === "none" ? "text-mute2" : "text-accent",
+                  )}
+                >
+                  {STYLE_LAYER_LABELS[source]}
+                </span>
+              </span>
+              <button
+                type="button"
+                // Named per block, not just labelled by its visible text: six buttons all
+                // reading "Clear" is a list of identical controls to anyone navigating by
+                // button, with nothing to say which block each one empties.
+                aria-label={
+                  layer === "scenario"
+                    ? `Use the world's ${block.label}`
+                    : `Clear ${block.label}`
+                }
+                onClick={() => setBlock(block.id, "")}
+                disabled={!own.trim()}
+                className="cursor-pointer font-mono text-[10.5px] tracking-[0.08em] text-mute uppercase hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {layer === "scenario" ? "Use the world's" : "Clear"}
+              </button>
+            </div>
+            <p className="font-body text-[13px] text-ink-soft">{block.helper}</p>
+            <TextArea
+              aria-label={`${block.label} — style`}
+              rows={block.placement === "tail" ? 2 : 5}
+              value={own}
+              placeholder={below || block.placeholder}
+              onChange={(event) => setBlock(block.id, event.target.value)}
+            />
+            {showingInherited ? (
+              <p className="font-body text-[12.5px] text-mute2">
+                Inheriting from the world. Type here to change it for this scene only.
+              </p>
+            ) : null}
+          </div>
+        );
+      })}
+
+      <div className="flex flex-wrap items-center gap-[12px]">
+        <Button onClick={() => run(() => onSave(packBlocks(draft)), "Saved.")} disabled={saving || !dirty}>
+          {saving ? "Saving…" : saveLabel}
+        </Button>
+        {onSavePreset ? (
+          <Button
+            variant="secondary"
+            onClick={() => run(() => onSavePreset(packBlocks(draft)), "Saved as a preset.")}
+            disabled={saving || !anySet}
+          >
+            Save as preset
+          </Button>
+        ) : null}
+        {status ? (
+          <span
+            role={status.kind === "error" ? "alert" : "status"}
+            className={cn(
+              "font-body text-[13px]",
+              status.kind === "error" ? "text-danger" : "text-ink-soft",
+            )}
+          >
+            {status.msg}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}

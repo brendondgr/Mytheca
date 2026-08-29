@@ -1243,6 +1243,51 @@ export interface ScenePreset {
 
 export const getScenePresets = () =>
   request<ScenePreset[]>("/options/scene-presets");
+
+// ---- narrative style guide ----
+
+/** One field of a style guide, as the editor renders it. */
+export interface StyleBlockSpec {
+  id: string;
+  label: string;
+  helper: string;
+  placeholder: string;
+  /** Which agent reads it: `prose` | `planner` | `both`. */
+  reader: string;
+  /** `prefix` (the cached system message) | `tail` (re-read every beat). */
+  placement: string;
+}
+
+/**
+ * One applicable preset. `builtin` presets cannot be renamed or deleted; applying either
+ * kind COPIES its blocks into the storyline's own fields, so nothing here is a live
+ * reference and every block stays editable afterwards.
+ */
+export interface StylePreset {
+  id: string;
+  name: string;
+  blurb: string;
+  blocks: Record<string, string>;
+  builtin: boolean;
+}
+
+export interface StyleCatalog {
+  blocks: StyleBlockSpec[];
+  presets: StylePreset[];
+}
+
+/** The block catalog + every applicable preset. One call: both editor surfaces need both. */
+export const getStyleGuide = () => request<StyleCatalog>("/options/style-guide");
+
+export const saveStylePreset = (body: { id: string; name: string; blocks: Record<string, string> }) =>
+  post<StyleCatalog>("/options/style-presets", body);
+
+export const deleteStylePreset = (id: string) =>
+  // `request` directly rather than the shared `del`, which is typed to void: this endpoint
+  // answers with the refreshed catalog so the caller never needs a follow-up read.
+  request<StyleCatalog>(`/options/style-presets/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 export const updatePromptsConfig = (body: PromptsConfigUpdate) =>
   patch<PromptsConfig>("/options/prompts", body);
 

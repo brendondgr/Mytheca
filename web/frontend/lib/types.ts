@@ -206,6 +206,12 @@ export interface Scenario {
    * storyline's prompts for this scene only. Empty/absent inherits storyline/global/default.
    */
   promptOverrides?: Record<string, string>;
+  /**
+   * Per-scene NARRATIVE STYLE overrides ({block id → text}) — how THIS scene is written,
+   * where it differs from the world's guide. Composed as an appended delta on top of the
+   * storyline's blocks, never substituted into them; an absent or blank block inherits.
+   */
+  styleBlocks?: Record<string, string>;
   /** Relative `/media/...` URL of an optional scene-art image; plate fallback. */
   image?: string | null;
   /** Persisted positive ComfyUI prompt for the scene-art image. */
@@ -263,6 +269,12 @@ export interface Storyline {
    * tone/phrasing + how the bot progresses the story. A scenario may override again.
    */
   promptOverrides?: Record<string, string>;
+  /**
+   * The world's NARRATIVE STYLE GUIDE ({block id → text}) — how this story is written, as
+   * opposed to what is true in it (that is `worldPrimer`). Optional at every level; a
+   * scenario may override any block for one scene.
+   */
+  styleBlocks?: Record<string, string>;
   characters: Character[];
   settings: Setting[];
   scenarios: Scenario[];
