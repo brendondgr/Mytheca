@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.app_setting import AppSetting
-from app.content import art_styles
+from app.content import art_styles, style_presets
 from app.content.art_styles import ArtStyle
 from app.schemas.settings import (
     ArtStyleRead,
@@ -38,6 +38,9 @@ LLM_KEY = "llm"
 LIBRARY_KEY = "library"
 COMFY_KEY = "comfy"
 PROMPTS_KEY = "prompts"
+#: The author's own saved style guides. Built-ins live in ``content/style_presets`` and are
+#: never written here — this row holds only what the author saved.
+STYLE_PRESETS_KEY = "style_presets"
 
 
 def _get_row(db: Session, key: str) -> dict:
@@ -352,3 +355,99 @@ def set_prompts_overrides(db: Session, overrides: dict[str, str]) -> dict[str, s
             doc.pop(key, None)
     _set_row(db, PROMPTS_KEY, doc)
     return get_prompts_overrides(db)
+
+
+# ---- Style presets — the author's saved narrative style guides ----------------------
+#
+# A **library, not a layer**: applying a preset copies its text into a storyline's own
+# fields (``services.style_guide`` resolves ``storyline → scenario`` and nothing above).
+# Nothing stores a preset reference, so editing a preset can never silently rewrite a world
+# that already shipped with its text.
+
+
+def _preset_payload(preset_id: str, name: str, blocks: dict, builtin: bool, blurb: str = "") -> dict:
+    return {
+        "id": preset_id,
+        "name": name,
+        "blurb": blurb,
+        "blocks": blocks,
+        "builtin": builtin,
+    }
+
+
+def get_saved_style_presets(db: Session) -> dict[str, dict]:
+    """The author's saved presets, raw ({id -> {name, blocks}}); {} when unset."""
+    row = _get_row(db, STYLE_PRESETS_KEY)
+    out: dict[str, dict] = {}
+    for key, value in row.items():
+        if not isinstance(value, dict):
+            continue
+        blocks = value.get("blocks")
+        if not isinstance(blocks, dict):
+            continue
+        out[str(key)] = {"name": str(value.get("name") or key), "blocks": blocks}
+    return out
+
+
+def list_style_presets(db: Session) -> list[dict]:
+    """Every preset the author can apply: the three built-ins, then their own.
+
+    Built-ins are listed first and cannot be shadowed — a saved preset that reuses a
+    built-in id is skipped rather than overriding it, because an author who overwrote
+    "Romance" by accident would have no way to get it back.
+    """
+    from app.services import style_guide
+
+    out = [
+        _preset_payload(p.id, p.name, dict(p.blocks), True, p.blurb)
+        for p in style_presets.STYLE_PRESETS
+    ]
+    builtin_ids = {p.id for p in style_presets.STYLE_PRESETS}
+    for preset_id, saved in sorted(get_saved_style_presets(db).items()):
+        if preset_id in builtin_ids:
+            continue
+        blocks = style_guide.normalize_blocks(saved["blocks"])
+        if blocks:
+            out.append(_preset_payload(preset_id, saved["name"], blocks, False))
+    return out
+
+
+def get_style_preset_blocks(db: Session, preset_id: str | None) -> dict[str, str]:
+    """One preset's blocks by id (built-in or saved), or ``{}`` for an unknown id.
+
+    Falls back rather than raising: the drafting agent may name a preset that does not
+    exist, and the right answer there is "write one instead", not a 500.
+    """
+    from app.services import style_guide
+
+    builtin = style_presets.get(preset_id)
+    if builtin is not None:
+        return style_guide.normalize_blocks(builtin.blocks)
+    saved = get_saved_style_presets(db).get((preset_id or "").strip())
+    return style_guide.normalize_blocks(saved["blocks"]) if saved else {}
+
+
+def save_style_preset(db: Session, preset_id: str, name: str, blocks: dict) -> list[dict]:
+    """Save (or replace) one of the author's presets; returns the full list.
+
+    A built-in id is refused silently — the caller gets the unchanged list rather than an
+    error, matching how an unknown prompt-override key is ignored rather than 422'd.
+    """
+    from app.services import style_guide
+
+    preset_id = (preset_id or "").strip()
+    cleaned = style_guide.normalize_blocks(blocks)
+    if not preset_id or style_presets.get(preset_id) is not None or not cleaned:
+        return list_style_presets(db)
+    doc = _get_row(db, STYLE_PRESETS_KEY)
+    doc[preset_id] = {"name": (name or preset_id).strip(), "blocks": cleaned}
+    _set_row(db, STYLE_PRESETS_KEY, doc)
+    return list_style_presets(db)
+
+
+def delete_style_preset(db: Session, preset_id: str) -> list[dict]:
+    """Delete one saved preset; returns the full list. Built-ins are not deletable."""
+    doc = _get_row(db, STYLE_PRESETS_KEY)
+    if doc.pop((preset_id or "").strip(), None) is not None:
+        _set_row(db, STYLE_PRESETS_KEY, doc)
+    return list_style_presets(db)

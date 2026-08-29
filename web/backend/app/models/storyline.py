@@ -49,6 +49,13 @@ class Storyline(Base):
     # story. Empty {} means "use the global/default prompt"; a scenario may override again.
     # Nullable (older rows read as {}); resolved by ``prompt_registry.resolve_prompts``.
     prompt_overrides: Mapped[dict | None] = mapped_column(JSONColumn, nullable=True, default=dict)
+    # The world's NARRATIVE STYLE GUIDE ({block id -> text}, see ``content/style_blocks``):
+    # how this story is written, as opposed to what is true in it. Optional at every level —
+    # a world with no guide behaves exactly as it did before the feature existed. Overridable
+    # per scenario; resolved by ``services.style_guide.resolve``. Nullable with no server
+    # default, so ``core/bootstrap._reconcile_additive_columns`` adds it with a plain
+    # ADD COLUMN and no Alembic migration is required.
+    style_blocks: Mapped[dict | None] = mapped_column(JSONColumn, nullable=True, default=None)
 
     characters: Mapped[list[Character]] = relationship(
         back_populates="storyline",

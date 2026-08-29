@@ -63,6 +63,12 @@ class Scenario(Base):
     # storyline's prompts for THIS scene only. Empty {} inherits storyline/global/default.
     # Nullable (older rows read as {}); resolved by ``prompt_registry.resolve_prompts``.
     prompt_overrides: Mapped[dict | None] = mapped_column(JSONColumn, nullable=True, default=dict)
+    # Per-scenario NARRATIVE STYLE overrides ({block id -> text}). Composed as an appended
+    # DELTA on top of the storyline's guide rather than substituted into it — see
+    # ``services/style_guide`` for why that placement is load-bearing for the prompt cache.
+    # A blank value at this layer means inherit, not "override with nothing". Nullable, so
+    # the additive reconciler adds it with a plain ADD COLUMN.
+    style_blocks: Mapped[dict | None] = mapped_column(JSONColumn, nullable=True, default=None)
     # How the transcript window is chosen. ``"auto"`` (the default; ``NULL`` reads as auto)
     # fits it to the model's real context budget each turn; ``"fixed"`` honours
     # ``context_beats`` below, which is otherwise ignored. Nullable, so the additive

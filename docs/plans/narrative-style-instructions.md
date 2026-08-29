@@ -66,9 +66,12 @@ here because two of them diverge from the pattern this feature otherwise copies.
 - **Style is never authored through `prompt_overrides`.** Overriding
   `CHARACTER_OUTPUT_CONTRACT` changes the first bytes of the system message and kills the
   prefix for every call.
-- **Columns are nullable with no server default**, so `core/bootstrap._reconcile_additive_columns`
-  adds them with a plain `ADD COLUMN` and no Alembic migration is required. A world written
-  before this feature reads as "no style", which is the correct behaviour.
+- **Columns are nullable with no server default**, and ship **with an Alembic migration**.
+  *(Corrected during Phase 1 — the original plan said no migration was required. It is:
+  `utils/tests/backend/data/test_alembic.py::test_baseline_columns_match_create_all` enforces
+  that `alembic upgrade head` and `create_all` produce identical columns, so the additive
+  reconciler alone fails the suite.)* A world written before this feature reads as "no style",
+  which is the correct behaviour for an optional feature.
 
 ---
 
