@@ -1,0 +1,13 @@
+arm,cached_tokens,chars,dialogue_share,elapsed_s,has_speech,interiority_per_1k,is_scratchpad,named_emotion_per_1k,paragraph_breaks,prompt_tokens,proximity_per_1k,sample,scene,sentences_per_100_words,words
+baseline,1124,731,0.249,3.268,1,4.104,0,0.0,3,1125,6.84,1,kitchen,8.029,137
+romance,0,409,0.1883,4.262,1,0.0,0,0.0,1,1417,12.225,1,kitchen,6.849,73
+baseline,692,171,0.3626,2.267,1,0.0,0,0.0,1,1113,5.848,1,doorway,14.286,35
+romance,0,140,0.4,3.16,1,7.143,0,0.0,0,1405,14.286,1,doorway,11.111,27
+baseline,0,400,0.1475,4.807,1,0.0,0,0.0,2,1125,5.0,2,kitchen,9.459,74
+romance,0,848,0.1686,6.841,1,2.358,0,0.0,3,1417,5.896,2,kitchen,5.625,160
+baseline,0,262,0.2939,4.209,1,0.0,0,0.0,1,1113,3.817,2,doorway,9.615,52
+romance,0,269,0.1896,4.229,1,3.717,0,0.0,2,1405,11.152,2,doorway,7.547,53
+baseline,0,393,0.3817,4.73,1,0.0,0,0.0,1,1125,12.723,3,kitchen,9.589,73
+romance,0,523,0.2486,5.071,1,0.0,0,0.0,3,1417,9.56,3,kitchen,13.684,95
+baseline,0,319,0.0502,4.132,1,6.27,0,0.0,1,1113,0.0,3,doorway,7.937,63
+romance,0,433,0.2379,4.648,1,0.0,0,0.0,2,1405,4.619,3,doorway,7.317,82

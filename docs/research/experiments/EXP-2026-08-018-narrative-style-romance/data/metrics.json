@@ -1,0 +1,298 @@
+{
+  "aggregate": {
+    "baseline.chars": {
+      "mean": 379.333333,
+      "n": 6,
+      "std": 175.638518
+    },
+    "baseline.dialogue_share": {
+      "mean": 0.247483,
+      "n": 6,
+      "std": 0.117147
+    },
+    "baseline.has_speech": {
+      "mean": 1.0,
+      "n": 6,
+      "std": 0.0
+    },
+    "baseline.interiority_per_1k": {
+      "mean": 1.729,
+      "n": 6,
+      "std": 2.523855
+    },
+    "baseline.named_emotion_per_1k": {
+      "mean": 0.0,
+      "n": 6,
+      "std": 0.0
+    },
+    "baseline.paragraph_breaks": {
+      "mean": 1.5,
+      "n": 6,
+      "std": 0.763763
+    },
+    "baseline.proximity_per_1k": {
+      "mean": 5.704667,
+      "n": 6,
+      "std": 3.811596
+    },
+    "romance.chars": {
+      "mean": 437.0,
+      "n": 6,
+      "std": 221.189964
+    },
+    "romance.dialogue_share": {
+      "mean": 0.238833,
+      "n": 6,
+      "std": 0.077439
+    },
+    "romance.has_speech": {
+      "mean": 1.0,
+      "n": 6,
+      "std": 0.0
+    },
+    "romance.interiority_per_1k": {
+      "mean": 2.203,
+      "n": 6,
+      "std": 2.622958
+    },
+    "romance.named_emotion_per_1k": {
+      "mean": 0.0,
+      "n": 6,
+      "std": 0.0
+    },
+    "romance.paragraph_breaks": {
+      "mean": 1.833333,
+      "n": 6,
+      "std": 1.067187
+    },
+    "romance.proximity_per_1k": {
+      "mean": 9.623,
+      "n": 6,
+      "std": 3.410433
+    }
+  },
+  "per_run": [
+    {
+      "arm": "baseline",
+      "cached_tokens": 1124,
+      "chars": 731,
+      "dialogue_share": 0.249,
+      "elapsed_s": 3.268,
+      "has_speech": 1,
+      "interiority_per_1k": 4.104,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 3,
+      "prompt_tokens": 1125,
+      "proximity_per_1k": 6.84,
+      "sample": 1,
+      "scene": "kitchen",
+      "sentences_per_100_words": 8.029,
+      "words": 137
+    },
+    {
+      "arm": "romance",
+      "cached_tokens": 0,
+      "chars": 409,
+      "dialogue_share": 0.1883,
+      "elapsed_s": 4.262,
+      "has_speech": 1,
+      "interiority_per_1k": 0.0,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 1,
+      "prompt_tokens": 1417,
+      "proximity_per_1k": 12.225,
+      "sample": 1,
+      "scene": "kitchen",
+      "sentences_per_100_words": 6.849,
+      "words": 73
+    },
+    {
+      "arm": "baseline",
+      "cached_tokens": 692,
+      "chars": 171,
+      "dialogue_share": 0.3626,
+      "elapsed_s": 2.267,
+      "has_speech": 1,
+      "interiority_per_1k": 0.0,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 1,
+      "prompt_tokens": 1113,
+      "proximity_per_1k": 5.848,
+      "sample": 1,
+      "scene": "doorway",
+      "sentences_per_100_words": 14.286,
+      "words": 35
+    },
+    {
+      "arm": "romance",
+      "cached_tokens": 0,
+      "chars": 140,
+      "dialogue_share": 0.4,
+      "elapsed_s": 3.16,
+      "has_speech": 1,
+      "interiority_per_1k": 7.143,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 0,
+      "prompt_tokens": 1405,
+      "proximity_per_1k": 14.286,
+      "sample": 1,
+      "scene": "doorway",
+      "sentences_per_100_words": 11.111,
+      "words": 27
+    },
+    {
+      "arm": "baseline",
+      "cached_tokens": 0,
+      "chars": 400,
+      "dialogue_share": 0.1475,
+      "elapsed_s": 4.807,
+      "has_speech": 1,
+      "interiority_per_1k": 0.0,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 2,
+      "prompt_tokens": 1125,
+      "proximity_per_1k": 5.0,
+      "sample": 2,
+      "scene": "kitchen",
+      "sentences_per_100_words": 9.459,
+      "words": 74
+    },
+    {
+      "arm": "romance",
+      "cached_tokens": 0,
+      "chars": 848,
+      "dialogue_share": 0.1686,
+      "elapsed_s": 6.841,
+      "has_speech": 1,
+      "interiority_per_1k": 2.358,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 3,
+      "prompt_tokens": 1417,
+      "proximity_per_1k": 5.896,
+      "sample": 2,
+      "scene": "kitchen",
+      "sentences_per_100_words": 5.625,
+      "words": 160
+    },
+    {
+      "arm": "baseline",
+      "cached_tokens": 0,
+      "chars": 262,
+      "dialogue_share": 0.2939,
+      "elapsed_s": 4.209,
+      "has_speech": 1,
+      "interiority_per_1k": 0.0,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 1,
+      "prompt_tokens": 1113,
+      "proximity_per_1k": 3.817,
+      "sample": 2,
+      "scene": "doorway",
+      "sentences_per_100_words": 9.615,
+      "words": 52
+    },
+    {
+      "arm": "romance",
+      "cached_tokens": 0,
+      "chars": 269,
+      "dialogue_share": 0.1896,
+      "elapsed_s": 4.229,
+      "has_speech": 1,
+      "interiority_per_1k": 3.717,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 2,
+      "prompt_tokens": 1405,
+      "proximity_per_1k": 11.152,
+      "sample": 2,
+      "scene": "doorway",
+      "sentences_per_100_words": 7.547,
+      "words": 53
+    },
+    {
+      "arm": "baseline",
+      "cached_tokens": 0,
+      "chars": 393,
+      "dialogue_share": 0.3817,
+      "elapsed_s": 4.73,
+      "has_speech": 1,
+      "interiority_per_1k": 0.0,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 1,
+      "prompt_tokens": 1125,
+      "proximity_per_1k": 12.723,
+      "sample": 3,
+      "scene": "kitchen",
+      "sentences_per_100_words": 9.589,
+      "words": 73
+    },
+    {
+      "arm": "romance",
+      "cached_tokens": 0,
+      "chars": 523,
+      "dialogue_share": 0.2486,
+      "elapsed_s": 5.071,
+      "has_speech": 1,
+      "interiority_per_1k": 0.0,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 3,
+      "prompt_tokens": 1417,
+      "proximity_per_1k": 9.56,
+      "sample": 3,
+      "scene": "kitchen",
+      "sentences_per_100_words": 13.684,
+      "words": 95
+    },
+    {
+      "arm": "baseline",
+      "cached_tokens": 0,
+      "chars": 319,
+      "dialogue_share": 0.0502,
+      "elapsed_s": 4.132,
+      "has_speech": 1,
+      "interiority_per_1k": 6.27,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 1,
+      "prompt_tokens": 1113,
+      "proximity_per_1k": 0.0,
+      "sample": 3,
+      "scene": "doorway",
+      "sentences_per_100_words": 7.937,
+      "words": 63
+    },
+    {
+      "arm": "romance",
+      "cached_tokens": 0,
+      "chars": 433,
+      "dialogue_share": 0.2379,
+      "elapsed_s": 4.648,
+      "has_speech": 1,
+      "interiority_per_1k": 0.0,
+      "is_scratchpad": 0,
+      "named_emotion_per_1k": 0.0,
+      "paragraph_breaks": 2,
+      "prompt_tokens": 1405,
+      "proximity_per_1k": 4.619,
+      "sample": 3,
+      "scene": "doorway",
+      "sentences_per_100_words": 7.317,
+      "words": 82
+    }
+  ],
+  "totals": {
+    "input_tokens": 15180,
+    "llm_calls": 12,
+    "output_tokens": 0,
+    "wall_clock_seconds": 51.636
+  }
+}

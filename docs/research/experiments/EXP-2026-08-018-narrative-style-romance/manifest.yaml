@@ -1,0 +1,129 @@
+id: EXP-2026-08-018
+slug: narrative-style-romance
+title: Narrative style instructions (romance) in the cached prefix — before/after on the local model
+status: complete
+date_started: 2026-08-29
+date_completed: 2026-08-29
+authors:
+- brendondgr
+- claude
+purpose: 'Feasibility check for the narrative-style-instructions feature. Does attaching a storyline-level
+  style guide to the CACHED SYSTEM PREFIX (between the character output contract and the world primer
+  — the placement chosen for prefix-cache reuse) actually change the prose a character beat comes back
+  with, in the direction the guide asks for, on the local model? If it does not, the guide has to ride
+  in the volatile recency tail instead, which is the design''s main open trade-off.
+
+  '
+hypothesis: 'Pre-registered. The romance guide asks for proximity and physical specifics, for interiority,
+  and forbids naming a feeling that could be shown. So proximity_per_1k (primary) and interiority_per_1k
+  are HIGHER in the romance arm, named_emotion_per_1k is LOWER, and dialogue_share is roughly unchanged.
+  n is 12 calls: a feasibility check, not a powered comparison. No significance test is run and none is
+  claimed.
+
+  '
+code:
+  commit: ff50810f8e61fd5d751ba3080938f7e8f245acba
+  branch: claude/narrative-style-instructions-3a89e3
+  entrypoint: uv run python -m utils.scripts.research.run_style_guide --experiment docs/research/experiments/EXP-2026-08-018-narrative-style-romance
+    --model local --samples 3
+  dirty: true
+config:
+  path: null
+  hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+data:
+  name: Harrow Lane — two invented two-hander scenes, defined in the entrypoint script
+  version: '1'
+  split: none (ships in-repo; contaminated for any held-out use)
+  n_examples: 2
+  dvc_path: null
+  hash: md5:00000000000000000000000000000000
+seeds: []
+n_runs: 12
+environment:
+  python: '3.13'
+  lockfile: env/requirements.lock
+  container: null
+compute:
+  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
+  wall_clock_hours: 0.0143
+  estimated_cost_usd: 0.0
+llm:
+  model: relay/local
+  temperature: 0.8
+  top_p: 0.92
+  max_tokens: 2048
+  prompt_files: []
+  prompt_hash: sha256:dc8d59f3734b86e62164ac64f5d1895fb8b7aa474dc09bbe5ffa781785c7908b
+  tool_schema_hash: null
+  total_input_tokens: 15180
+  total_output_tokens: 0
+  nondeterminism_note: 'Provider-side nondeterminism remains even at temperature 0; results are reported
+    as mean ± std over n_runs.
+
+    '
+metrics:
+  primary: romance.proximity_per_1k
+  values:
+    baseline.proximity_per_1k:
+      mean: 5.704667
+      n: 6
+      std: 3.811596
+    baseline.interiority_per_1k:
+      mean: 1.729
+      n: 6
+      std: 2.523855
+    baseline.named_emotion_per_1k:
+      mean: 0.0
+      n: 6
+      std: 0.0
+    baseline.dialogue_share:
+      mean: 0.247483
+      n: 6
+      std: 0.117147
+    baseline.chars:
+      mean: 379.333333
+      n: 6
+      std: 175.638518
+    baseline.paragraph_breaks:
+      mean: 1.5
+      n: 6
+      std: 0.763763
+    baseline.has_speech:
+      mean: 1.0
+      n: 6
+      std: 0.0
+    romance.proximity_per_1k:
+      mean: 9.623
+      n: 6
+      std: 3.410433
+    romance.interiority_per_1k:
+      mean: 2.203
+      n: 6
+      std: 2.622958
+    romance.named_emotion_per_1k:
+      mean: 0.0
+      n: 6
+      std: 0.0
+    romance.dialogue_share:
+      mean: 0.238833
+      n: 6
+      std: 0.077439
+    romance.chars:
+      mean: 437.0
+      n: 6
+      std: 221.189964
+    romance.paragraph_breaks:
+      mean: 1.833333
+      n: 6
+      std: 1.067187
+    romance.has_speech:
+      mean: 1.0
+      n: 6
+      std: 0.0
+baselines_compared: []
+statistical_test: null
+supports_claims: []
+figures: []
+supersedes: null
+superseded_by: null
+related: []
