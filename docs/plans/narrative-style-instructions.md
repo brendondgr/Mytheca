@@ -16,9 +16,13 @@ frontend precedence mirror (`lib/promptLayers.ts`), and one editor component sur
 world level (`LibraryView`) and the scene level (`StoryPlayerView`). What is genuinely new is
 the **placement discipline**: the guide rides in the *cached system prefix*, between the
 character output contract and the world primer, so it costs the model nothing per beat.
-`EXP-2026-08-018` measured that the model reads it from there (`proximity_per_1k` 5.70 ± 3.81
-→ 9.62 ± 3.41, higher in 5 of 6 matched pairs, arms overlapping) — so the design does not need
-to spend the recency tail on it. Only one short **Signature** line does.
+`EXP-2026-08-018` reported that the model reads it from there (`proximity_per_1k` 5.70 ± 3.81
+→ 9.62 ± 3.41, arms overlapping) — **and Phase 7's `EXP-2026-08-019` did not replicate it**:
+re-running that experiment's *unchanged* baseline on the same prompts moved it to 8.01 ± 2.11,
+more than the effect it had reported. The prefix placement is kept, but the justification is
+now **cost** — four of the six blocks are free after a scene's first beat — not measured
+quality. The one-clause **Signature** in the recency tail is the block that is *not* free, and
+it is the one the null result bears on hardest; it ships as a recorded deletion candidate.
 
 ## 2. Decisions & Assumptions
 
@@ -90,7 +94,7 @@ on them.
     docstring and its fall-back-rather-than-raise behaviour for unknown ids.
   - `web/backend/app/content/style_presets.py` (new) — the three built-ins (`mystery` ·
     `romance` · `action`), verbatim from the approved drafts. The `romance` preset is the exact
-    text measured in `EXP-2026-08-018`; its provenance comment names that experiment.
+    text used in `EXP-2026-08-018`; its provenance comment names that experiment.
   - `web/backend/app/models/storyline.py` · `models/scenario.py` — `style_blocks`
     (`JSONColumn`, nullable, default `None`).
   - `web/backend/app/services/style_guide.py` (new) — the single owner of resolution and
@@ -128,7 +132,10 @@ on them.
     (Pacing + Never) to its system message at the call site near line 209.
   - `narrator_agent.py` and `scene_script_agent.py` need **no change** — they already inherit
     `ctx.stable_prefix`.
-- **Rationale:** this is the placement the design and `EXP-2026-08-018` exist to justify. The
+- **Rationale:** the placement is what makes four of the six blocks free after the first beat
+  of a scene. (`EXP-2026-08-018` was originally cited here as measuring that it also *improves*
+  the prose; `EXP-2026-08-019` failed to replicate that, so the cost argument is the only one
+  standing.) The
   prose blocks are constant for a whole scene, so paying for them per beat in the volatile tail
   would be waste; only the one-clause Signature earns a place in recency.
 - **Tests:** `utils/tests/backend/agents/test_style_in_prompts.py` (new) — the composed system
@@ -271,3 +278,20 @@ on them.
 | Frontend tests | Editor, modal, surfaces — co-located | beside each component |
 | Experiment | Three-arm separation + turn-loop cache check | `docs/research/experiments/EXP-2026-08-019-…` |
 | Docs | Same-change updates | `CLAUDE.md`, `docs/*.md` |
+
+
+---
+
+## Outcome
+
+All seven phases shipped. Two corrections to this plan were made while executing it, and both
+are recorded above rather than quietly fixed: the Alembic migration was required after all
+(Phase 1), and the world-level entry point moved from the storyline switcher to the storyline
+editor because the switcher row already carried four icon buttons (Phase 5).
+
+The substantive outcome is Phase 7's, and it went against the plan's premise. `EXP-2026-08-019`
+separated the tail Signature from the cached-prefix guide and found **nothing**: all three arms
+overlap, and its `baseline` arm did not reproduce `EXP-2026-08-018`'s baseline on identical
+prompts. The feature ships as authored control — which is what was asked for — but no claim
+that it improves the prose is supported, and every such claim has been removed from `CLAUDE.md`,
+`docs/`, and the source. `docs/checklist.md` carries what a successor experiment would need.

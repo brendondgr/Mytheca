@@ -1,0 +1,147 @@
+id: EXP-2026-08-019
+slug: style-signature-separation
+title: Separating the tail Signature from the cached-prefix style guide (three arms, local model)
+status: complete
+date_started: 2026-08-29
+date_completed: 2026-08-29
+authors:
+- brendondgr
+- claude
+purpose: 'EXP-2026-08-018''s style arm carried the four prose blocks in the cached system prefix AND the
+  one-clause signature in the volatile recency tail, so it could not say which changed the prose. It recorded
+  the separation as owed; this is it. The decision it feeds: the signature is the only block re-read on
+  every beat, so if the cached prefix carries the effect the field is a per-beat cost buying nothing and
+  should leave the contract.
+
+  '
+hypothesis: 'Pre-registered, three outcomes. (a) The prefix carries it: prefix ~= prefix_signature, both
+  above baseline, and the field comes out. (b) The signature carries it: prefix ~= baseline and prefix_signature
+  above both, which would mean the cached-prefix placement is insufficient and the design''s central trade-off
+  was called wrong. (c) Both contribute: baseline < prefix < prefix_signature, and the field stays. Primary
+  metric is proximity_per_1k, unchanged from EXP-2026-08-018 so the two are comparable. n is 18 calls;
+  no significance test is run and none is claimed.
+
+  '
+code:
+  commit: a81112281c1fe44f752bb36b8f1130945c9593a7
+  branch: claude/narrative-style-instructions-3a89e3
+  entrypoint: uv run python -m utils.scripts.research.run_style_signature --experiment docs/research/experiments/EXP-2026-08-019-style-signature-separation
+    --model local --samples 3
+  dirty: true
+config:
+  path: null
+  hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+data:
+  name: Harrow Lane — the same two two-hander scenes as EXP-2026-08-018
+  version: '1'
+  split: none (ships in-repo; contaminated for any held-out use)
+  n_examples: 2
+  dvc_path: null
+  hash: md5:00000000000000000000000000000000
+seeds: []
+n_runs: 18
+environment:
+  python: '3.13'
+  lockfile: env/requirements.lock
+  container: null
+compute:
+  hardware: x86_64 · Linux · AMD RYZEN AI MAX+ 395 w/ Radeon 8060S · 32 cores
+  wall_clock_hours: 0.021
+  estimated_cost_usd: 0.0
+llm:
+  model: relay/local
+  temperature: 0.8
+  top_p: 0.92
+  max_tokens: 2048
+  prompt_files: []
+  prompt_hash: sha256:05f9dad514557978422361759150a1899cf295a51f1ddf726174d2a6b78a23c1
+  tool_schema_hash: null
+  total_input_tokens: 23466
+  total_output_tokens: 0
+  nondeterminism_note: 'Provider-side nondeterminism remains even at temperature 0; results are reported
+    as mean ± std over n_runs.
+
+    '
+metrics:
+  primary: prefix_signature.proximity_per_1k
+  values:
+    baseline.proximity_per_1k:
+      mean: 8.009167
+      n: 6
+      std: 2.105723
+    baseline.interiority_per_1k:
+      mean: 1.384167
+      n: 6
+      std: 1.293398
+    baseline.dialogue_share:
+      mean: 0.181017
+      n: 6
+      std: 0.059201
+    baseline.chars:
+      mean: 502.833333
+      n: 6
+      std: 252.638356
+    baseline.paragraph_breaks:
+      mean: 2.166667
+      n: 6
+      std: 0.687184
+    baseline.has_speech:
+      mean: 1.0
+      n: 6
+      std: 0.0
+    prefix.proximity_per_1k:
+      mean: 7.288167
+      n: 6
+      std: 1.809032
+    prefix.interiority_per_1k:
+      mean: 0.8815
+      n: 6
+      std: 0.965601
+    prefix.dialogue_share:
+      mean: 0.1941
+      n: 6
+      std: 0.045654
+    prefix.chars:
+      mean: 469.833333
+      n: 6
+      std: 186.137419
+    prefix.paragraph_breaks:
+      mean: 2.0
+      n: 6
+      std: 0.816497
+    prefix.has_speech:
+      mean: 1.0
+      n: 6
+      std: 0.0
+    prefix_signature.proximity_per_1k:
+      mean: 8.183833
+      n: 6
+      std: 3.080854
+    prefix_signature.interiority_per_1k:
+      mean: 1.619833
+      n: 6
+      std: 1.742923
+    prefix_signature.dialogue_share:
+      mean: 0.185217
+      n: 6
+      std: 0.033038
+    prefix_signature.chars:
+      mean: 511.5
+      n: 6
+      std: 210.795912
+    prefix_signature.paragraph_breaks:
+      mean: 2.666667
+      n: 6
+      std: 0.471405
+    prefix_signature.has_speech:
+      mean: 1.0
+      n: 6
+      std: 0.0
+baselines_compared: []
+statistical_test: null
+supports_claims: []
+figures: []
+supersedes: null
+superseded_by: null
+related:
+- EXP-2026-08-018

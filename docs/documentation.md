@@ -113,3 +113,34 @@ Not built: authentication (no user model, no auth routes), a standalone `GET /st
 **Validation baseline:** 948 backend pytest cases and 637 Vitest cases across 90 co-located frontend test files, all passing.
 
 **Research status:** Mytheca has **no evaluation results that support a claim** — no benchmark, baseline, ablation or human study. That is recorded, not glossed: `docs/research/` is the single research record, all seven claims in `research/CLAIMS.md` remain `unsupported`, and `research/mytheca-research-audit.md` is the external audit that established it. Two experiment folders exist: `EXP-2026-08-001` (failed — no LLM endpoint was reachable) and `EXP-2026-08-002` (complete — a 3-run, single-arm *functional* verification of the in-narrative image prompts, with no baseline and no claim attached).
+
+
+## Narrative style guides
+
+A storyline may carry a **narrative style guide**: six optional blocks of prose saying how
+its stories are *written*, where the World Primer says what is *true* in them. `attention`
+(what the prose dwells on) · `voice` (how people sound) · `pacing` (what a turn is for) ·
+`texture` (the world's recurring specifics) · `never` (its failure modes) · `signature` (the
+whole guide in one clause).
+
+The feature is optional at every level. A world with no guide produces prompts byte-identical
+to what it produced before the feature existed, and any block can be cleared back to nothing
+at any time. A scenario may override any block for one scene.
+
+Three built-in presets ship (Mystery · Romance · Action) and an author can save their own,
+app-wide, to reuse across worlds. A preset is a **starting point, not a setting**: applying
+one copies its text into the world's own editable fields, so editing a preset later never
+rewrites a world that already uses it. An agent drafts a guide from the premise at creation,
+and may answer by naming an existing preset that fits rather than writing a new one.
+
+Two rules are enforced in code rather than left to discipline. Block text is **literal** — no
+interpolation — because a templated token would make the block change per beat and destroy
+the prompt-cache placement the design rests on. And **no block may contain a count** of
+paragraphs, beats, sentences or words: counts are why the `beatLength` tiers and `maxTurns`
+were removed, and `EXP-2026-08-007` measured a word count moving prose the wrong way.
+
+See `docs/api-contract.md` for the shape and `docs/data-flow.md` for where each block reaches
+the model. On whether it *works*: `EXP-2026-08-018` reported an effect on the prose and
+`EXP-2026-08-019` failed to replicate its baseline, so no measurement in this repository
+supports that claim. The feature is authored control the writer asked for; it is not a
+demonstrated quality improvement, and nothing should describe it as one.

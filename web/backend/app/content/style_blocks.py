@@ -17,10 +17,17 @@ each independently editable and clearable at the storyline and the scenario leve
 system message that is byte-identical for every speaker and every beat of a scene, so an
 inference server's prefix cache keeps them warm and they are paid for **once per scene**.
 Only ``signature`` sits in the recency tail, where every beat re-reads it — which is why it
-is one clause and not a paragraph. ``EXP-2026-08-018`` measured that the model does read a
-guide out of the cached prefix (``proximity_per_1k`` 5.70 ± 3.81 → 9.62 ± 3.41, higher in 5
-of 6 matched pairs), which is what makes the cheap placement the correct one rather than
-merely the frugal one.
+is one clause and not a paragraph.
+
+**The placement is justified by cost, not by measured quality, and that distinction is
+load-bearing.** ``EXP-2026-08-018`` reported that a guide in the cached prefix changes the
+prose; ``EXP-2026-08-019`` re-ran that experiment's *unchanged* baseline on the same prompts
+and it moved by more than the reported effect. So no number here supports "the guide improves
+the writing" — what the prefix placement buys is that four of the six blocks cost nothing
+after the first beat of a scene, which is worth having whether or not the guide is doing
+anything. ``signature`` is the one block that is NOT free per beat and is therefore the one
+that needs a result it does not have; it is recorded as a deletion candidate in
+``docs/checklist.md``.
 
 **Block ids are a persisted contract.** They are stored on ``storylines.style_blocks`` and
 ``scenarios.style_blocks`` and sent on request bodies. Never rename one without migrating

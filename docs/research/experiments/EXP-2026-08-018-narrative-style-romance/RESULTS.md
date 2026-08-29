@@ -87,3 +87,35 @@ Proceed with the design as specified: five blocks, style guide in the cached pre
 the contract and the world primer, Signature in the tail. Drop `named_emotion_per_1k` from
 any future measurement. Run the three-arm separation before claiming the tail Signature is
 either necessary or redundant.
+
+
+---
+
+## AMENDMENTS
+
+**2026-08-29 — the primary number does not replicate.** `EXP-2026-08-019` re-ran this
+experiment's `baseline` arm on the **same two prompts**, same model, same sampler, same
+reasoning-off path, and got a mean of 8.01 where this run got 5.70:
+
+```
+baseline proximity_per_1k, per run
+  this experiment:   0.00  3.82  5.00  5.85  6.84  12.72    mean 5.70
+  EXP-2026-08-019:   5.92  6.41  6.54  7.49  10.11  11.59   mean 8.01
+```
+
+The between-run spread of one unchanged condition is as large as the 5.70 → 9.62 difference
+reported above. **The headline number should be read as uninformative, not as weak support.**
+The write-up already declined to claim separation and ran no significance test, so nothing
+above is retracted — but "higher in 5 of 6 matched pairs" is a statement about one run, and
+it did not survive a second.
+
+The qualitative claims fare worse than the numbers in one specific place. The
+"every baseline doorway beat announces presence, every style beat offers a physical act"
+observation **does not hold**: `EXP-2026-08-019`'s baseline produced "I'll leave the light on
+in the hall", "I'll have the tea ready when you get back" and "I'll make coffee" with no
+style guide attached. The cross-scene texture carry-over did reproduce, in the `prefix` arm,
+without a signature.
+
+Nothing here is edited; this section is appended per the append-only rule for completed
+experiments. See `EXP-2026-08-019` for the full analysis and for what a useful successor
+would need.

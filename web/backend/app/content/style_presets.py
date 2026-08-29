@@ -9,11 +9,11 @@ The three genres were chosen because they pull in visibly different directions �
 withholds, a romance closes distance, an action beat changes the geometry — which is the
 whole claim the feature rests on.
 
-``romance`` is the exact text measured in ``EXP-2026-08-018``
-(``docs/research/experiments/EXP-2026-08-018-narrative-style-romance/``). Do not edit it
-without either re-running that experiment or recording that the measured text and the
-shipped text have diverged. Its ``pacing`` block is present but was **not** exercised by
-that run — the planner was never called.
+``romance`` is the exact text used in ``EXP-2026-08-018`` and ``EXP-2026-08-019``. Do not
+edit it without recording that the tested text and the shipped text have diverged — those
+experiments are the only place this wording has been put in front of a model, and neither
+found an effect that survived replication. Its ``pacing`` block was **not** exercised by
+either run: the planner was never called.
 
 Every block here obeys the two rules from ``content.style_blocks``: **no counts of any
 kind**, and **no interpolation**. A test pins the first.

@@ -1344,5 +1344,7 @@ Write tolerance, all deliberate for an optional retrofitted feature:
   by accident would leave no way back.
 - `DELETE /options/style-presets/{id}` → the refreshed catalog. Built-ins are not deletable.
 
-`EXP-2026-08-018` measured that a guide placed in the cached prefix does reach the prose, and
-is why the four prose blocks are not in the recency tail.
+The four prose blocks sit in the cached prefix because that makes them **free after the
+first beat of a scene**, not because it was shown to write better prose: `EXP-2026-08-018`
+reported an effect and `EXP-2026-08-019` failed to replicate its baseline. `signature` is the
+only block paid for per beat and is a recorded deletion candidate.

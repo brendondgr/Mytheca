@@ -697,3 +697,41 @@ are **decisions, not oversights**, recorded here so they are not mistaken for dr
 ## Housekeeping
 
 - **11 stale git worktrees** under `.claude/worktrees/`, all registered in `git worktree list`, each 25+ days idle with a merged-looking final commit. Prune them along with the ~45 leftover local branches.
+
+
+## Narrative style guides — open follow-ups
+
+- **The `signature` block is a deletion candidate.** It is the only block paid for on EVERY
+  beat, and `EXP-2026-08-019` could not show it does anything: `baseline` 8.01 ± 2.11,
+  `prefix` 7.29 ± 1.81, `prefix_signature` 8.18 ± 3.08, all overlapping. The only qualitative
+  straw in the wind — the cross-scene texture carry-over — reproduced in the `prefix` arm
+  *without* a signature. Keeping an unproven field is not the same as keeping a broken one,
+  so it ships; but it should either earn a result or come out.
+- **No measurement supports "the style guide improves the prose."** `EXP-2026-08-018` reported
+  one; `EXP-2026-08-019` re-ran its *unchanged* baseline on the same prompts and moved it by
+  more than the reported effect (5.70 → 8.01). Both experiments are recorded, the second
+  amends the first, and every claim in `CLAUDE.md` / `docs/` / the source has been corrected
+  to say the placement is justified by **cost**, not by quality. **A useful successor needs a
+  different design, not more runs of this one**: many more scenes (the fixed opening anchors
+  too much of the passage), a metric that is not a hand-rolled word list, and enough runs to
+  state an interval that means something.
+- **The Pacing block is unmeasured.** It targets the planner's system message, and neither
+  `EXP-2026-08-018` nor `EXP-2026-08-019` makes a planner call. Whether a style guide changes
+  *turn shape* — how often the narrator carries a beat, where a turn ends — is untested. It is
+  also the block most likely to fight the planner's own "end as soon as the direction is
+  delivered" rule, which is a real conflict and not just an unknown.
+- **The cache claim is asserted, not measured across a turn loop.** Tests pin that the system
+  message is byte-identical across speakers and beats, and that a scenario delta breaks the
+  prefix only in its last quarter. Nobody has yet watched `usage_out["reusable_prefix_chars"]`
+  over a real multi-turn scene with a guide attached.
+- **Scenario-delta conflict is untested on the model.** The override is appended rather than
+  substituted, so the model sees the world's block *and* the scene's, with one sentence
+  resolving the precedence. That is a deliberate trade for the prompt cache, and whether a
+  small model actually honours the precedence line is unmeasured.
+- **The no-counts regex is broad.** `agents/style_agent._COUNT` drops any block matching a
+  quantity + unit, which will occasionally drop an innocent sentence ("she waits three beats
+  before answering" is prose about a character, not an instruction). Dropping one block is
+  cheap and the author can rewrite it, but a false positive is silent apart from a log line.
+- **Presets are not versioned.** Editing a saved preset does not touch worlds already using
+  it — by design — but there is no way to see which worlds were seeded from which preset, or
+  to re-apply an updated one.

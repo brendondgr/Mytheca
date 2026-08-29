@@ -1501,5 +1501,5 @@ optional feature must not be able to fail world creation. A drafted block contai
 The split is a cache decision. The four prose blocks are constant for a whole scene, so they
 sit where the system message is byte-identical across every speaker and beat and are paid for
 once; only the one-clause signature is re-read per beat, buying the recency position the
-cached prefix cannot reach. `EXP-2026-08-018` measured that a guide in the cached prefix does
-reach the prose.
+cached prefix cannot reach — a position `EXP-2026-08-019` could not show is worth its
+per-beat cost.
