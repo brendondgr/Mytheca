@@ -225,3 +225,23 @@ def test_re_authoring_moves_the_baseline_with_the_value(client, storyline_id, db
 
     row = db_session.query(CharacterStat).filter_by(character_id=cid, key="trust").one()
     assert (row.value, row.baseline) == (35, 35)
+
+
+def test_null_carry_over_and_bands_read_as_off(client, storyline_id, db_session):
+    """A row predating the nullable columns has NULL there — it must still list.
+
+    The additive-column reconciler adds ``carry_over``/``bands`` with no backfill, so old
+    rows hold NULL. The read schema normalises that to False / [] instead of a 500.
+    """
+    from sqlalchemy import text
+
+    _define_health(client, storyline_id)
+    db_session.execute(
+        text("UPDATE stat_definitions SET carry_over = NULL, bands = NULL WHERE key = 'health'")
+    )
+    db_session.commit()
+
+    r = client.get(f"/api/storylines/{storyline_id}/stats")
+    assert r.status_code == 200
+    row = r.json()[0]
+    assert row["carryOver"] is False and row["bands"] == []

@@ -7,7 +7,7 @@ no aliasing) — clamped to the definition's range by the service.
 
 from __future__ import annotations
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from app.schemas.base import CamelModel, Visibility
 
@@ -94,7 +94,23 @@ class StatDefinitionUpdate(CamelModel):
 
 
 class StatDefinitionRead(StatDefinitionBase):
-    pass
+    """A definition on its way out to the client.
+
+    ``carry_over`` and ``bands`` are nullable in the DB (added by the additive-column
+    reconciler, which backfills NULL rather than the column default), so a row written
+    before those columns existed reads as ``None``. The model documents ``None`` as "off"
+    / "no bands"; normalise it here so an old row is readable instead of a 500.
+    """
+
+    @field_validator("carry_over", mode="before")
+    @classmethod
+    def _carry_over_none_is_false(cls, value):
+        return False if value is None else value
+
+    @field_validator("bands", mode="before")
+    @classmethod
+    def _bands_none_is_empty(cls, value):
+        return [] if value is None else value
 
 
 # Character stat values: a plain map, e.g. {"health": 80, "strength": 14}.
