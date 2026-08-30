@@ -24,6 +24,12 @@ EXPECTED_KEYS = {
     "planner.system",
     "ghostwriter.line",
     "recap.summarize",
+    # The four free-text prompts. All visible: the mode is chosen deliberately, and an
+    # author who has picked it has every reason to shape how it writes.
+    "freetext.output_contract",
+    "freetext.tasks",
+    "freetext.review",
+    "freetext.lookup",
 }
 
 
@@ -124,6 +130,16 @@ def test_every_visible_key_is_one_an_agent_reads():
         "planner.system",
         "ghostwriter.line",
         "recap.summarize",
+        # Read by `services/freetext_context.system_message` — the contract every free-text
+        # body is written to.
+        "freetext.output_contract",
+        # Read by `agents/task_agent`: the checklist a free-text turn writes for itself, and
+        # the review that grades the finished passage against it. Both are editable because
+        # the review is what decides when a turn stops, which is a matter of taste.
+        "freetext.tasks",
+        "freetext.review",
+        # Read by `agents/lookup_agent` — what the turn goes and reads before it writes.
+        "freetext.lookup",
     }
     assert {spec.key for spec in prompt_registry.visible_specs()} == consumed
 
