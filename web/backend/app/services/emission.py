@@ -484,6 +484,7 @@ from app.services.prose_guards import (  # noqa: E402,F401  (re-export)
     cut_before,
     in_the_scene,
     looks_degenerate,
+    looks_like_briefing,
     looks_like_scratchpad,
     names_the_player,
     narration_only,

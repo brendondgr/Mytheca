@@ -67,6 +67,11 @@ EventType = Literal[
     "state_update",
     "branch_choices",
     "character_status_change",
+    # ONE unbroken passage holding the whole room, written by free-text mode. Deliberately
+    # not `narration` (which means the AI narrator specifically, and renders as one) and not
+    # `character_prose` (which carries a characterId this beat does not have): a body that
+    # contains everybody is neither of those things. See `docs/plans/free-text-mode.md`.
+    "scene_prose",
     # The scene ASKING for an absent character — never an arrival. Presence moves only when
     # the player accepts, through the ordinary manual `character_status_change` path.
     "cast_request",

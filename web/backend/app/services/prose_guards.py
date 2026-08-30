@@ -134,6 +134,40 @@ def looks_like_scratchpad(text: str) -> bool:
     return len(hits) >= _SCRATCHPAD_MIN_TERMS
 
 
+#: The half of :data:`_SCRATCHPAD_TERMS` that is never ordinary prose. "beat", "block",
+#: "response", "output" and "format" all have perfectly good English senses — a heart beats,
+#: a doorway is blocked, there is no response — and they are only safe in
+#: :func:`looks_like_scratchpad` because the first-person test carries most of that rule.
+_BRIEFING_TERMS = (
+    "the player", "the user", "roster", "cast list", "json", "instruction", "type:",
+    "final answer", "voice sample", "checklist", "the passage", "the prompt", "system message",
+)
+#: Three rather than two, because there is no second signal here. See
+#: :func:`looks_like_briefing`.
+_BRIEFING_MIN_TERMS = 3
+
+
+def looks_like_briefing(text: str) -> bool:
+    """True when a THIRD-PERSON passage is the model briefing itself rather than writing.
+
+    :func:`looks_like_scratchpad` cannot be reused for free-text prose, and the reason is
+    exact: that rule is a conjunction of production vocabulary AND *no first-person pronoun*,
+    which works because a character beat is written in the first person, so a real passage
+    always has one and exempts itself. A free-text body is third person by contract — it
+    never has one — so half the conjunction is always true and the rule collapses to its
+    vocabulary test alone, which is too eager to run on prose.
+
+    So this is the stricter standalone rule: only vocabulary that is never ordinary English,
+    and three distinct terms rather than two.
+    """
+    opening = (text or "")[:_SCRATCHPAD_WINDOW].lower()
+    if not opening.strip():
+        return False
+    padded = f" {opening} "
+    hits = {term for term in _BRIEFING_TERMS if term in padded}
+    return len(hits) >= _BRIEFING_MIN_TERMS
+
+
 def in_the_scene(text: str) -> bool:
     """True once a passage has proved itself to be a character speaking.
 

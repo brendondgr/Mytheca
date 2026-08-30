@@ -439,3 +439,90 @@ def generate_speaker(
     return streamed_impact
 
 
+
+
+def silent_backstop(
+    db: Session,
+    ctx: TurnContext,
+    intent,
+    emitter: Emitter,
+    turn_beats: list[dict],
+    consequences: list[Consequence],
+    tally: dict,
+    tracer: Tracer,
+    *,
+    scene_beats: int,
+    asked_question: bool,
+    pov_id: str | None,
+    show_reasoning: bool,
+    ties: str,
+    register: str | None,
+    register_source: str,
+    direction,
+) -> Generator[StoryEvent | TurnTraceFrame, None, int]:
+    """A player who typed a line always gets a scene back. Returns beats produced (0, 1).
+
+    The beat loop can reach ``end`` having produced nothing at all — a planner that misreads
+    the moment, a fallback with nobody selectable, an intent aimed at a character who cannot
+    be chosen. Turns 8 and 9 of the ps_0bf9ddc13b session were exactly that: intent →
+    planning → "the turn ends", no prose, no explanation. The upstream causes are fixed in
+    the loop; this is the defence that does not depend on having diagnosed all of them.
+
+    ``scene_beats`` counts only prose the ENGINE produced this turn — puppet beats plus a
+    narrated open, rising per beat. Deliberately not a scan of ``turn_beats``: under Player
+    POV the player's own line is seeded there as a character beat, so that would read the
+    player's own words back as "the scene answered".
+
+    A turn that stopped to ask the player a question is not silent — it is waiting, and
+    answering it with a beat would bury the question under the prose it was asked instead of.
+
+    Lives here rather than in ``turn_engine`` because it *produces a beat*, which is this
+    module's job and not the orchestrator's; the move also put that module back under the
+    800-line ceiling when free-text mode's dispatch pushed it over.
+    """
+    if scene_beats or asked_question:
+        return 0
+    responder = next(
+        (m for m in ctx.cast if m.is_present and m.id != pov_id and m.id in intent.addressed),
+        next((m for m in ctx.cast if m.is_present and m.id != pov_id), None),
+    )
+    if responder is not None:
+        yield from tracer.emit(
+            "speaker",
+            f"{responder.name} responds",
+            detail=(
+                "Nothing had been played yet this turn — the scene answers rather than "
+                "ending in silence."
+            ),
+            data={
+                "characterId": responder.id,
+                "name": responder.name,
+                "backstop": True,
+                "register": register or "",
+                "registerSource": register_source,
+                "stakes": "",
+            },
+        )
+        note = relationship_note(
+            ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id], scope=ties
+        )
+        yield from beat_or_skip(
+            tracer, responder, tally,
+            db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
+            consequences=consequences,
+            show_reasoning=show_reasoning, relationship_note=note,
+            register=register, direction=direction,
+        )
+        return 1
+    if ctx.cast:
+        yield from tracer.emit(
+            "plan",
+            "The narrator carries the moment",
+            detail="Nobody was selectable, so the scene is narrated rather than left blank.",
+            data={"backstop": True},
+        )
+        yield from narrator_interstitial(
+            db, ctx, turn_beats, emitter, show_reasoning=show_reasoning
+        )
+        return 1
+    return 0

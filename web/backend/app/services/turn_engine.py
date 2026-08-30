@@ -54,7 +54,7 @@ from app.agents import (
 from app.core.config import get_settings
 from app.core.errors import APIError
 from app.events.envelope import StoryEvent
-from app.events.stream import TurnPlanFrame, TurnTraceFrame
+from app.events.stream import TurnPlanFrame, TurnTasksFrame, TurnTraceFrame
 from app.models import Scenario
 from app.schemas.play import TurnRequest
 from app.services import (
@@ -69,6 +69,7 @@ from app.services import direction_runtime
 from app.services import turn_effects
 from app.services import turn_finalize
 from app.services import beat_order
+from app.services import freetext_turn
 from app.services import turn_settings
 
 
@@ -109,9 +110,17 @@ def validate_turn_inputs(db: Session, scenario_id: str, req: TurnRequest) -> Sce
 
 def run_turn(
     db: Session, scenario: Scenario, req: TurnRequest
-) -> Iterator[StoryEvent | TurnTraceFrame | TurnPlanFrame]:
+) -> Iterator[StoryEvent | TurnTraceFrame | TurnPlanFrame | TurnTasksFrame]:
     """Run one turn, yielding the visible story events (and, when ``req.trace``, the
     interleaved diagnostic trace frames the Inspector renders) in order."""
+    # Free-text mode runs a different engine, not a different setting on this one — no
+    # plan, no beats, no attribution. The branch is here, before any of this module's work,
+    # because everything below it assumes a turn is a sequence of decided beats. See
+    # `services/freetext_turn` and `docs/plans/free-text-mode.md`.
+    if turn_settings.resolve(scenario, req.overrides).scene_mode == "freetext":
+        yield from freetext_turn.run_turn(db, scenario, req)
+        return
+
     setup = yield from turn_setup.prepare_turn(db, scenario, req)
     # Unpacked into locals so the beat loop below reads exactly as it did before the split.
     session = setup.session
@@ -656,61 +665,14 @@ def run_turn(
         beats += 1
         scene_beats += 1 if played else 0
         spoke += 1 if played else 0
-    # A player who typed a line always gets a scene back. The beat loop can reach `end`
-    # having produced nothing at all — a planner that misreads the moment, a fallback with
-    # nobody selectable, an intent aimed at a character who cannot be chosen. Turns 8 and 9
-    # of the ps_0bf9ddc13b session were exactly that: intent → planning → "the turn ends",
-    # no prose, no explanation. The upstream causes are fixed above; this is the defence
-    # that does not depend on having diagnosed all of them.
-    # ``scene_beats`` counts only prose the ENGINE produced this turn — it starts at the
-    # puppet beats plus a narrated open, and rises per beat. Deliberately not a scan of
-    # ``turn_beats``: under Player POV the player's own line is seeded there as a character
-    # beat, so that would read the player's own words back as "the scene answered".
-    # A turn that stopped to ask the player a question is not silent — it is waiting, and
-    # answering it with a beat would bury the question under the prose it was asked instead of.
-    if scene_beats == 0 and not asked_question:
-        responder = next(
-            (m for m in ctx.cast if m.is_present and m.id != pov_id and m.id in intent.addressed),
-            next((m for m in ctx.cast if m.is_present and m.id != pov_id), None),
-        )
-        if responder is not None:
-            yield from tracer.emit(
-                "speaker",
-                f"{responder.name} responds",
-                detail="Nothing had been played yet this turn — the scene answers rather than ending in silence.",
-                data={
-                    "characterId": responder.id,
-                    "name": responder.name,
-                    "backstop": True,
-                    "register": unplanned_register or "",
-                    "registerSource": unplanned_source,
-                    "stakes": "",
-                },
-            )
-            note = beat_runner.relationship_note(
-                ctx, responder.id, [m.id for m in ctx.cast if m.id != responder.id],
-                scope=settings.ties,
-            )
-            yield from beat_runner.beat_or_skip(
-                tracer, responder, tally,
-                db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
-                consequences=consequences,
-                show_reasoning=show_reasoning, relationship_note=note,
-                register=unplanned_register,
-                direction=direction,
-            )
-            beats += 1
-        elif ctx.cast:
-            yield from tracer.emit(
-                "plan",
-                "The narrator carries the moment",
-                detail="Nobody was selectable, so the scene is narrated rather than left blank.",
-                data={"backstop": True},
-            )
-            yield from beat_runner.narrator_interstitial(
-                db, ctx, turn_beats, emitter, show_reasoning=show_reasoning
-            )
-            beats += 1
+    # A player who typed a line always gets a scene back — see `beat_runner.silent_backstop`
+    # for the failure it defends against and why the condition is what it is.
+    beats += yield from beat_runner.silent_backstop(
+        db, ctx, intent, emitter, turn_beats, consequences, tally, tracer,
+        scene_beats=scene_beats, asked_question=asked_question, pov_id=pov_id,
+        show_reasoning=show_reasoning, ties=settings.ties, register=unplanned_register,
+        register_source=unplanned_source, direction=direction,
+    )
 
     # An endpoint that is genuinely down fails EVERY attempt and leaves the turn with nothing
     # to show. That is when the player needs an error rather than a scene which quietly says

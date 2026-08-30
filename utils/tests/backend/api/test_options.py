@@ -192,6 +192,12 @@ def test_get_returns_prompt_catalog_and_empty_overrides(client):
         "planner.system",
         "ghostwriter.line",
         "recap.summarize",
+        # Free-text mode: the contract a passage is written to, the checklist a turn writes
+        # for itself, the review that grades it, and what the turn goes and reads first.
+        "freetext.output_contract",
+        "freetext.tasks",
+        "freetext.review",
+        "freetext.lookup",
     }
     assert "director.who_is_up" not in keys
     assert "director.rerank" not in keys
