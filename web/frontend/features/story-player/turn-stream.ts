@@ -154,6 +154,9 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
   // A plan states what a turn INTENDS. It is not a beat, it is not persisted, and it must
   // never reach the transcript — the panel that renders it lives beside the composer.
   if (frame.type === "plan") return prev;
+  // A checklist states what a turn INTENDS, exactly as a plan does. It belongs to the rail,
+  // never to the transcript.
+  if (frame.type === "tasks") return prev;
   if (frame.type === "beat_reroll") {
     // A re-roll is about to stream a new take into an EXISTING beat. Clear it first: the
     // deltas re-emit the same event id, and the accumulator appends by id.
@@ -176,6 +179,14 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
   switch (event.type) {
     case "narration":
       return mergeDelta(prev, event.id, { kind: "narrator" }, event.data.text);
+
+    case "scene_prose":
+      // A whole free-text turn, delta-streamed into ONE entry. A continuation pass re-emits
+      // the same id with more text, so the passage on screen grows rather than a second
+      // block appearing beneath it — which is the whole reason the engine writes every pass
+      // into one event, and it costs nothing here because the accumulator already works
+      // this way.
+      return mergeDelta(prev, event.id, { kind: "scene" }, event.data.text);
 
     case "internal_thought": {
       // A character's private thinking — folded into the SAME beat as their speech, so it
@@ -418,7 +429,11 @@ export function sessionIdOf(frame: TurnStreamFrame): string | null {
   // event, so this is the only frame carrying a session id. Without it a client that started
   // a new session would have nothing to send the approval on, and every approved plan would
   // open a second session and replay the scene from nothing.
-  if (frame.type === "plan") return frame.sessionId || null;
+  //
+  // `tasks` is the same exception for the same reason: a free-text turn puts its checklist
+  // on the wire before any prose exists, and on a brand-new session that frame can arrive
+  // first.
+  if (frame.type === "plan" || frame.type === "tasks") return frame.sessionId || null;
   if (
     frame.type === "error" ||
     frame.type === "trace" ||

@@ -59,6 +59,19 @@ export interface NarrationEvent extends PlayEnvelope {
 }
 
 /**
+ * One whole free-text turn: the room in a single unbroken passage.
+ *
+ * No `characterId`, and that absence is the type — the passage belongs to the scene rather
+ * than to anyone in it. Delta-streamed like every other prose payload, and a continuation
+ * pass re-emits the SAME id with more text, so accumulating by id makes the passage on
+ * screen grow rather than a second block appearing beneath it.
+ */
+export interface SceneProseEvent extends PlayEnvelope {
+  type: "scene_prose";
+  data: { text: string; done: boolean } & Takes;
+}
+
+/**
  * A character's whole beat as one first-person passage — what they notice, do and say,
  * woven together, with spoken words in double quotes inline. Delta-streamed (same id,
  * incremental `text`, `done`). This is the form a character beat takes now;
@@ -185,6 +198,7 @@ export interface SceneImageEvent extends PlayEnvelope {
 /** Any story event on the turn stream. */
 export type PlayEvent =
   | NarrationEvent
+  | SceneProseEvent
   | CharacterProseEvent
   | CharacterDialogueEvent
   | CharacterActionEvent
@@ -284,12 +298,48 @@ export interface TurnPlanFrame {
   awaitingApproval: boolean;
 }
 
+/**
+ * One thing a free-text turn owes the player.
+ *
+ * `who` is a note about who the checklist expects to carry it, resolved to names
+ * server-side. It is **not** a schedule — nothing in the engine dispatches on it, and the
+ * rail must not present it as an order of speaking.
+ */
+export interface TurnTask {
+  /** 1-based, and stable across passes — the rail keys rows on it. */
+  n: number;
+  must: string;
+  who: string[];
+  /** `""` until the review has run, then one of the three grades. */
+  state: "" | "yes" | "partial" | "no";
+  note: string;
+}
+
+/**
+ * A free-text turn's checklist. A transport frame, like `TurnPlanFrame` — a statement of
+ * what a turn intends, which is not a thing that happened and is never persisted.
+ *
+ * Arrives at least twice: once when the list is written (every `state` empty) and once
+ * after each review pass (states filled). Key rows on `n` so the later frames update the
+ * rail in place rather than stacking another copy of the list underneath.
+ */
+export interface TurnTasksFrame {
+  type: "tasks";
+  sessionId: string;
+  tasks: TurnTask[];
+  /** `0` when the list is first written, then the review pass number. */
+  pass: number;
+  /** True once nothing is outstanding — the turn is finishing rather than continuing. */
+  complete: boolean;
+}
+
 export type TurnStreamFrame =
   | PlayEvent
   | TurnErrorFrame
   | TurnTraceFrame
   | TurnReasoningFrame
   | TurnPlanFrame
+  | TurnTasksFrame
   | BeatRerollFrame;
 
 // ---- scene images (POST /play/{scenarioId}/moment/stream) ----
@@ -605,4 +655,23 @@ export interface TurnOverridesBody {
    * (plus their ties to people elsewhere, who the scene may then mention).
    */
   ties?: "addressed" | "scene" | "world" | null;
+  /**
+   * Which ENGINE runs this turn — the top-level choice, above {@link sceneFlow}.
+   *
+   * - `"structured"` — everything that shipped before free-text mode: the plan, registers,
+   *   and prose decomposed into attributed beats by whichever `sceneFlow` is set. `null`
+   *   reads as this, so no scene moves engines by its own silence.
+   * - `"freetext"` — one unbroken passage per turn. Nobody is scheduled, nothing is
+   *   attributed, and `sceneFlow` is not read at all.
+   */
+  sceneMode?: "structured" | "freetext" | null;
+  /**
+   * How much the prose call may think before it writes, for this turn.
+   *
+   * The six budgets are 128 / 256 / 512 / 1024 / 2048 / 4096 thinking tokens. `null` — the
+   * default — means "leave every call-site's own budget alone", which is not the same as
+   * asking for the lowest: the structured engine's prose call runs with thinking OFF for a
+   * measured reason, and a turn that asked for nothing must not raise it.
+   */
+  thinking?: "quick" | "low" | "medium" | "high" | "very_high" | "max" | null;
 }

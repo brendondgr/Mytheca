@@ -99,6 +99,35 @@ SceneFlow = Literal["voiced", "continuous"]
 PlannerMode = Literal["auto", "plan", "planner", "off"]
 
 
+#: Which ENGINE runs the turn — the top-level choice, above ``SceneFlow``.
+#:
+#: * ``"structured"`` — everything that shipped before free-text mode: the intent read, the
+#:   whole-turn plan, registers and stakes, and prose decomposed into attributed beats by
+#:   either ``SceneFlow``. ``None`` reads as this, so no scene written before the mode
+#:   existed moves.
+#: * ``"freetext"`` — one unbroken body of prose per turn. Nobody is scheduled, nothing is
+#:   attributed, and the quality mechanism is a checklist the model writes and then grades
+#:   itself against. ``SceneFlow`` is not read at all in this mode.
+#:
+#: The two are alternatives, not layers: picking ``"freetext"`` does not turn parts of the
+#: structured engine off one at a time, it runs a different loop
+#: (``services/freetext_turn``). See ``docs/plans/free-text-mode.md``.
+SceneMode = Literal["structured", "freetext"]
+
+#: The thinking budget for THIS turn's prose call, as a player-facing control.
+#:
+#: The six levels are ``schemas.reasoning.ReasoningEffort`` minus ``none`` — the same enum
+#: the backend has always used per call-site (128 · 256 · 512 · 1024 · 2048 · 4096 thinking
+#: tokens). What is new is that a turn may carry one, rather than every call-site fixing its
+#: own forever.
+#:
+#: ``None`` means "leave the call-site's own default alone", which is what every turn did
+#: before this control existed. That matters most in the structured mode, where the prose
+#: call's budget is deliberately ``none``: raising it there is a choice the player can now
+#: make per message, and must never become the default by accident.
+ThinkingLevel = Literal["quick", "low", "medium", "high", "very_high", "max"]
+
+
 class TurnOverrides(CamelModel):
     """Scene settings applied to **this turn only**.
 
@@ -138,6 +167,16 @@ class TurnOverrides(CamelModel):
     ties: TieScope | None = None
     #: How this turn's prose is produced — see :data:`SceneFlow`.
     scene_flow: SceneFlow | None = None
+    #: Which engine runs this turn — see :data:`SceneMode`. Overridable per turn for the
+    #: same reason the flow is: trying the other engine on one message must not mean editing
+    #: the scene you will keep playing.
+    scene_mode: SceneMode | None = None
+    #: How much the prose call may think before it writes — see :data:`ThinkingLevel`.
+    #:
+    #: **Per-turn only, and there is no ``Scenario`` column for it**, by the same argument as
+    #: ``beat_register``: how hard a particular message is worth thinking about is a property
+    #: of the message, not of the scene. A persisted one would be wrong by the second turn.
+    thinking: ThinkingLevel | None = None
 
 
 class ApprovedBeat(CamelModel):

@@ -51,7 +51,21 @@ _MIN_BEATS = 2
 _MAX_BEATS = 40
 
 # Event types that carry visible prose worth showing the prompt writer.
-_BEAT_TYPES = ("narration", "character_dialogue", "character_action", "user_turn")
+#: Event types the picture reads the scene from.
+#:
+#: ``character_prose`` is the form a character beat takes today, and it was missing — so a
+#: scene image was being composed from the narrator's lines and the player's own, with every
+#: character beat invisible to it. ``scene_prose`` is free-text mode's whole turn and would
+#: have arrived with the same gap. The two legacy fragment types stay for sessions recorded
+#: in the older shape.
+_BEAT_TYPES = (
+    "narration",
+    "scene_prose",
+    "character_prose",
+    "character_dialogue",
+    "character_action",
+    "user_turn",
+)
 
 
 def _moments_dir() -> Path:
@@ -67,6 +81,11 @@ def _render_beat(event: Event, names: dict[str, str]) -> str:
     who = names.get(str((event.data or {}).get("characterId") or ""), "")
     if event.type == "narration":
         return f"Narrator: {text}"
+    if event.type == "scene_prose":
+        # A whole free-text turn. No speaker label, because there is no speaker — the passage
+        # holds the room, and prefixing it with a name would tell the prompt writer that one
+        # character said all of it.
+        return text
     if event.type == "user_turn":
         pov = names.get(str((event.data or {}).get("pov") or ""), "")
         return f"{pov or 'The player'}: {text}"

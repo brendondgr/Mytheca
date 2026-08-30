@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import { ENTER_TRANSITION } from "@/lib/motion";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { DirectionChecklist } from "@/components/feature/DirectionChecklist";
-import type { StandingItem } from "@/lib/events";
+import { TurnChecklist } from "@/components/feature/TurnChecklist";
+import type { StandingItem, TurnTask } from "@/lib/events";
 import { NO_DIRECTION, type DirectionProgress } from "@/features/story-player/turn-stream";
 import type { StatDefinition } from "@/lib/types";
 import type { Relationship, StatChip } from "@/features/story-player/scene-data";
@@ -344,6 +345,11 @@ export interface DirectorRailProps {
   /** Stop asking for one carried-over item (`null` → all). Omit to hide the control. */
   onDismissStanding?: (itemId: string | null) => void;
   /**
+   * A free-text turn's checklist, with its verdicts once the review has run. Empty in the
+   * structured engine, which has no such thing.
+   */
+  tasks?: TurnTask[];
+  /**
    * Whether the two live regions in here announce. The always-mounted desktop rail leaves it
    * `true`; a bottom sheet that exists only while it is open passes `false` — see
    * {@link ScenePulse}.
@@ -362,6 +368,7 @@ export function DirectorRailContent({
   direction = NO_DIRECTION,
   standing = [],
   onDismissStanding,
+  tasks = [],
   live = true,
 }: DirectorRailProps) {
   return (
@@ -382,6 +389,11 @@ export function DirectorRailContent({
         onDismiss={onDismissStanding}
         live={live}
       />
+
+      {/* Free-text mode's answer to the direction checklist: what the turn said it owed,
+          graded by its own review. Only one of the two ever has rows — a scene runs on one
+          engine or the other — so they sit side by side rather than switching on a mode. */}
+      <TurnChecklist tasks={tasks} live={live} />
     </>
   );
 }

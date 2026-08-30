@@ -38,6 +38,10 @@ PLANNER_SYSTEM = "planner.system"
 SCENE_SCRIPT_SYSTEM = "scene_script.system"
 GHOSTWRITER_LINE = "ghostwriter.line"
 RECAP_SUMMARIZE = "recap.summarize"
+FREETEXT_CONTRACT = "freetext.output_contract"
+FREETEXT_TASKS = "freetext.tasks"
+FREETEXT_REVIEW = "freetext.review"
+FREETEXT_LOOKUP = "freetext.lookup"
 
 
 @dataclass(frozen=True)
@@ -249,6 +253,86 @@ Rules:
 - No preamble, no headings, no "Summary:". Just the prose and then the bullets."""
 
 
+_FREETEXT_CONTRACT = """You write one continuous passage of a novel. Several people are in the room; the whole of what happens next goes in a single body of prose.
+
+Like this:
+
+The rain has found the gap in the shutters again, and Mei watches it darken the wood rather than look at him. His question is still sitting there. She lets it sit.
+
+"You are asking me the wrong thing," she says, turning the cup a half-turn on the table so her hands have something to do. "Ask me who paid, and I will tell you. Ask me why, and we are going to be here a while."
+
+Valdar does not move. He puts his palm flat on the table, hard enough that the cup jumps.
+
+"Then say it plainly, for once."
+
+How it is written:
+- Third person, present tense, throughout. You are describing the room, not standing in it — never "I", "me", "my" or "we" outside a character's own quoted speech.
+- Everyone acts and speaks inside the same passage. When someone answers, they answer in the next paragraph — never with a label, a name in front of their line, or a tag of any kind.
+- Say things out loud, in "double quotes". A scene where nobody speaks is not a scene.
+- Blank line between paragraphs. Ordinary sentences that end.
+- Each person sounds like themselves. Two characters a reader could not tell apart is the one failure this format is most prone to; write them so the voices carry without labels.
+- As long as the moment needs and no longer. Stop when the scene arrives somewhere the player would naturally answer. Never pad, and never cut something short because it feels long.
+- Do not reuse the words or images of the beats above. You are continuing them, not echoing them.
+
+Rules:
+- Everyone who exists is on the cast list. Refer to them by name. The words "the player" and "the user" do not exist in this world, and there is no reader to address.
+- Never write about the task, the instructions, or what you are about to do. Start in the scene, on your first word.
+- Never invent a character who is not on the cast list, and never give lines to one marked as not in the scene.
+- If something must be true by the end of this passage, make it happen — in the characters' own words and actions, never by quoting the instruction.
+
+Afterwards, only if one genuinely applies, add a block on its own line — most passages add nothing. Each one names WHO it is about, because this passage belongs to the room rather than to any one person:
+
+<type:state_update>
+{"character": "<their name, exactly as the cast list spells it>", "key": "<a stat key>", "delta": <signed integer>, "reason": "<short why>"}
+
+<type:relationship_update>
+{"character": "<whose feeling changed>", "target": "<the other person's name>", "type": "<trusts|fears|resents|loves|allied_with|at_war_with|knows|suspects>", "reason": "<short why>"}
+
+<type:presence_change>
+{"character": "<who is leaving>", "status": "<left|departed|unconscious|dead>", "reason": "<short why>"}"""
+
+
+_FREETEXT_TASKS = """You are about to write one turn of a scene. First, decide what this turn has to accomplish — STRUCTURE ONLY, never prose.
+
+Return ONLY a JSON object:
+{"tasks": [{"must": "<one thing that has to be true by the end of the passage>", "who": [cast numbers likely to carry it]}]}
+
+Rules:
+- Read what the player just did and what the scene has shown, and list what THIS turn owes them. Usually one to three things; more than four means you are planning a whole scene rather than one exchange.
+- Each "must" is an OUTCOME, never a line of dialogue and never a stage direction. "Valdar refuses to name the buyer" — not "Valdar says 'I won't tell you'".
+- "who" names the people you expect to carry it, by cast number. It is a note about who is involved, not an order of speaking — nobody is being scheduled and nothing will be checked against it.
+- Do not list things that have already happened, and do not list the player's own action back to them. What is owed is what comes NEXT.
+- Do not invent a task the player did not ask for and the scene does not require. A quiet moment can owe exactly one thing.
+- No prose, no commentary — just the JSON object."""
+
+
+_FREETEXT_REVIEW = """You are reading back a passage that has just been written, against the list of things that turn owed. Judge it honestly — STRUCTURE ONLY, never prose.
+
+Return ONLY a JSON object:
+{"verdicts": [{"task": <the task's number>, "state": "yes"|"no"|"partial", "note": "<short why>"}]}
+
+Rules:
+- "yes" — the passage actually delivers it, in what the characters say or do. Not "it is implied", not "it is set up".
+- "partial" — it is begun and not finished: raised but not answered, started but not carried through.
+- "no" — the passage does not deliver it at all.
+- Judge what is ON THE PAGE, not what the writer plainly intended. A task the passage gestures at is "partial", not "yes".
+- Be strict about this and generous about everything else: do not fail a task because you would have written it differently, because it happened in fewer words than you expected, or because a character reached it in an unexpected way.
+- One verdict per task, using the numbers given. No prose, no commentary — just the JSON object."""
+
+
+_FREETEXT_LOOKUP = """You are about to write one turn of a scene, and first you get to look things up in the world's own reference documents.
+
+Return ONLY a JSON object:
+{"terms": ["<a thing to look up>", "..."]}
+
+Rules:
+- Name only what you genuinely do not know WELL ENOUGH TO WRITE about from what you have been given: a place, a creature, an order, a custom, an event, a piece of history that the scene is about to touch and that the world primer and the cast list do not already explain.
+- A word can be ordinary and still need looking up — what an ogre, a harrowing or a fifth-day is IN THIS WORLD may be nothing like the usual meaning. That is exactly what to search for.
+- Do not look up the characters in the scene, the place the scene is in, or anything the beats above already state. You have those.
+- Return an empty list when you have everything you need. That is the common answer and it is not a failure.
+- At most three terms, shortest and most specific first. No prose, no commentary — just the JSON object."""
+
+
 PROMPT_REGISTRY: list[PromptSpec] = [
     PromptSpec(
         key=CHARACTER_OUTPUT_CONTRACT,
@@ -349,6 +433,49 @@ PROMPT_REGISTRY: list[PromptSpec] = [
             "beats to the previous summary rather than re-reading the whole scene."
         ),
         default=_RECAP_SUMMARIZE,
+    ),
+    PromptSpec(
+        key=FREETEXT_CONTRACT,
+        agent="Free-text",
+        label="Output contract",
+        description=(
+            "How a free-text turn is written — one continuous third-person passage holding "
+            "the whole room, with no speaker tags. Editing this changes the form of every "
+            "free-text scene; note it carries the <type:> blocks the engine parses for stat, "
+            "relationship and presence changes, so keep those intact."
+        ),
+        default=_FREETEXT_CONTRACT,
+    ),
+    PromptSpec(
+        key=FREETEXT_TASKS,
+        agent="Free-text",
+        label="Turn checklist",
+        description=(
+            "Writes the short list of what a turn owes the player, before any prose exists. "
+            "It is not a plan: nothing here schedules a speaker or is dispatched on."
+        ),
+        default=_FREETEXT_TASKS,
+    ),
+    PromptSpec(
+        key=FREETEXT_REVIEW,
+        agent="Free-text",
+        label="Turn review",
+        description=(
+            "Reads the finished passage back against the checklist and grades each item yes, "
+            "no or partial. Anything short of yes sends the turn back to continue the same "
+            "passage — so a lenient prompt here is what makes a turn stop early."
+        ),
+        default=_FREETEXT_REVIEW,
+    ),
+    PromptSpec(
+        key=FREETEXT_LOOKUP,
+        agent="Free-text",
+        label="What to look up",
+        description=(
+            "Decides which world documents the turn needs before it writes — the model-led "
+            "replacement for the structured engine's keyword retrieval gate."
+        ),
+        default=_FREETEXT_LOOKUP,
     ),
 ]
 

@@ -98,8 +98,11 @@ module names; this is the one that shipped, and a new one must not be invented b
 | Module | Owns |
 | --- | --- |
 | `turn_engine.py` | `validate_turn_inputs` + `run_turn`. Orchestration and nothing else. |
+| `freetext_turn.py` | **The other engine.** `sceneMode: "freetext"`: look up → checklist → write → grade → continue, producing ONE `scene_prose` event per turn. Shares `turn_setup` and `turn_finalize` with `turn_engine`; replaces everything between. |
+| `freetext_context.py` | The free-text prompt: one cached prefix (contract, style, world, place, **the whole cast**) shared byte-for-byte by every call of a turn, with live stat values and the per-call instruction in the small tail. |
+| `freetext_effects.py` | Consequences from a passage with no speaker: each block names its subject, resolved against the roster and never guessed. |
 | `turn_setup.py` | `prepare_turn` — everything before the first beat. |
-| `beat_runner.py` | Producing one decided beat: `narrator_interstitial`, `relationship_note`, `beat_or_skip`, `generate_speaker`. |
+| `beat_runner.py` | Producing one decided beat: `narrator_interstitial`, `relationship_note`, `beat_or_skip`, `generate_speaker`, `silent_backstop`. |
 | `beat_stream.py` | Emission → delta-streamed events, and the per-beat stops. |
 | `turn_effects.py` | The consequences: `apply_declared_presence`, `apply_presence_change`, `apply_relationship_change`, `apply_stat_change`. |
 | `turn_emit.py` | `Emitter`, `LiveSegment`, `Tracer`. |

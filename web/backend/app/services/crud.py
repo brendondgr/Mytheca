@@ -589,6 +589,7 @@ def create_scenario(db: Session, storyline_id: str, data: ScenarioCreate) -> Sce
         planner_mode=data.planner_mode,
         tie_scope=data.tie_scope,
         scene_flow=data.scene_flow,
+        scene_mode=data.scene_mode,
         direction_verbs=[v.model_dump() for v in data.direction_verbs] or None,
         prompt_overrides=dict(data.prompt_overrides or {}),
         style_blocks=style_guide.normalize_blocks(data.style_blocks) or None,

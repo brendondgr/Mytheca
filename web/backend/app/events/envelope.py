@@ -89,6 +89,25 @@ class CharacterProseData(TakesMixin):
     done: bool = True
 
 
+class SceneProseData(TakesMixin):
+    """One free-text turn: the whole room, in one continuous passage.
+
+    No ``characterId``, and that absence is the type. The structured engine always knows
+    whose beat it is emitting — free-text does not, because the passage belongs to the scene
+    rather than to any one person in it. A body where Mei moves, the narrator carries the
+    room and Valdar answers has no single owner, and inventing one is what
+    ``scene_script_agent.looks_unscripted`` exists to prevent on the other path.
+
+    Delta-streams exactly like every other prose payload: the same id and seq re-emitted
+    with incremental ``text`` until ``done``. A continuation pass keeps writing into the
+    same event, so a turn that goes back for more extends the passage already on screen
+    instead of appending a second block underneath it.
+    """
+
+    text: str
+    done: bool = True
+
+
 class CharacterDialogueData(TakesMixin):
     character_id: str
     text: str
@@ -259,6 +278,11 @@ class CharacterStatusChangeEvent(EventEnvelope):
     data: CharacterStatusChangeData
 
 
+class SceneProseEvent(EventEnvelope):
+    type: Literal["scene_prose"] = "scene_prose"
+    data: SceneProseData
+
+
 class CastRequestEvent(EventEnvelope):
     type: Literal["cast_request"] = "cast_request"
     data: CastRequestData
@@ -272,6 +296,7 @@ class SceneImageEvent(EventEnvelope):
 StoryEvent = Annotated[
     Union[
         NarrationEvent,
+        SceneProseEvent,
         CharacterProseEvent,
         CharacterDialogueEvent,
         CharacterActionEvent,
@@ -292,6 +317,7 @@ __all__ = [
     "EventType",
     "StatPatch",
     "NarrationData",
+    "SceneProseData",
     "CharacterDialogueData",
     "CharacterActionData",
     "InternalThoughtData",
@@ -303,6 +329,7 @@ __all__ = [
     "SceneImageData",
     "EventEnvelope",
     "NarrationEvent",
+    "SceneProseEvent",
     "CharacterDialogueEvent",
     "CharacterActionEvent",
     "InternalThoughtEvent",

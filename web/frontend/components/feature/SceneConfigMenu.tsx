@@ -76,7 +76,19 @@ function PinIcon({ filled }: { filled: boolean }) {
 }
 
 /** The three controls a turn may override, keyed as the wire names them. */
-export type SceneControlKey = "suggestionsCount" | "planner" | "ties" | "sceneFlow";
+export type SceneControlKey =
+  | "suggestionsCount"
+  | "planner"
+  | "ties"
+  | "sceneFlow"
+  | "sceneMode";
+
+/**
+ * Which engine runs the scene. Mirrors the backend `SceneMode`, and sits ABOVE
+ * {@link SceneFlow}: `"freetext"` does not read a flow at all, because there are no speakers
+ * to flow between.
+ */
+export type SceneMode = "structured" | "freetext";
 
 /** How a turn's prose is produced. Mirrors the backend `SceneFlow`. */
 export type SceneFlow = "voiced" | "continuous";
@@ -107,6 +119,7 @@ const PIN_NAMES: Record<SceneControlKey, string> = {
   planner: "Turn planning",
   ties: "Ties",
   sceneFlow: "How the scene is written",
+  sceneMode: "How a turn is built",
 };
 
 /**
@@ -168,7 +181,15 @@ export function SceneConfigMenu({
   secondsPerBeat,
   sceneFlow = "continuous",
   onSceneFlowChange,
-  pinned = { suggestionsCount: true, planner: true, ties: true, sceneFlow: true },
+  sceneMode = "structured",
+  onSceneModeChange,
+  pinned = {
+    suggestionsCount: true,
+    planner: true,
+    ties: true,
+    sceneFlow: true,
+    sceneMode: true,
+  },
   onPinnedChange,
   openUp = false,
   disabled = false,
@@ -191,6 +212,16 @@ export function SceneConfigMenu({
    */
   sceneFlow?: SceneFlow;
   onSceneFlowChange?: (value: SceneFlow) => void;
+  /**
+   * Which engine runs the turn. `"structured"` plans the beats and attributes each one;
+   * `"freetext"` writes the whole turn as one passage and attributes nothing.
+   *
+   * It sits above every other control here, because it decides which of them still apply:
+   * under `"freetext"` the planner never runs and there are no beats for a flow to shape,
+   * so both of those controls are disabled rather than left to look operative.
+   */
+  sceneMode?: SceneMode;
+  onSceneModeChange?: (value: SceneMode) => void;
   /** How much of a speaker's relationship history reaches their beat. */
   tieScope?: TieScope;
   onTieScopeChange?: (value: TieScope) => void;
@@ -298,6 +329,36 @@ export function SceneConfigMenu({
             Scene configuration
           </Eyebrow>
 
+          {/* FIRST, because it decides which of the controls below still apply. A free-text
+              turn never calls the planner and has no beats for a flow to shape, so both of
+              those are disabled under it rather than left looking operative — a control that
+              silently does nothing teaches the player that none of them work. */}
+          <SceneControlSelect
+            label="How a turn is built"
+            value={sceneMode}
+            options={[
+              { value: "structured", label: "Beat by beat" },
+              { value: "freetext", label: "One long passage" },
+            ]}
+            onChange={(v) => onSceneModeChange?.(v as SceneMode)}
+            help={
+              sceneMode === "freetext"
+                ? "The whole turn arrives as one piece of writing — everyone acting and answering in the same passage, as long as the moment needs. Nobody is scheduled, so there are no speaker cards and no portraits inside it."
+                : "The turn is planned first, then played out as separate beats, each one attributed to whoever it belongs to."
+            }
+            action={
+              <PinToggle
+                controlKey="sceneMode"
+                pinned={pinned.sceneMode}
+                onChange={onPinnedChange}
+                disabled={disabled}
+              />
+            }
+            scopeNote={pinned.sceneMode ? undefined : "· this turn"}
+            disabled={disabled || !onSceneModeChange}
+            className="w-full [&_select]:w-full"
+          />
+
           <SceneControlSelect
             label="Follow-up ideas offered after each turn"
             value={suggestionsCount}
@@ -340,7 +401,9 @@ export function SceneConfigMenu({
             ]}
             onChange={(v) => onPlannerModeChange?.(v as PlanMode)}
             help={
-              plannerMode === "off"
+              sceneMode === "freetext"
+                ? "Not used while a turn is one long passage — nobody is being scheduled, so there is nothing for a director to decide."
+                : plannerMode === "off"
                 ? "Much faster — planning is over half of a turn. Nothing judges the moment: no scene-setting narration between beats, no read of how tense things are, and a character the story has written out stays in the rotation until you remove them from the cast rail."
                 : "A director reads each moment, decides who speaks, sets the scene between beats, and pitches how tense the beat is. It is over half of a turn's time."
             }
@@ -353,7 +416,7 @@ export function SceneConfigMenu({
               />
             }
             scopeNote={pinned.planner ? undefined : "· this turn"}
-            disabled={disabled || !onPlannerModeChange}
+            disabled={disabled || !onPlannerModeChange || sceneMode === "freetext"}
             className="w-full [&_select]:w-full"
           />
 
@@ -370,7 +433,9 @@ export function SceneConfigMenu({
             ]}
             onChange={(v) => onSceneFlowChange?.(v as SceneFlow)}
             help={
-              sceneFlow === "continuous"
+              sceneMode === "freetext"
+                ? "Not used while a turn is one long passage — there are no separate beats for the writing to be split across."
+                : sceneFlow === "continuous"
                 ? "One pass writes the whole turn, so it reads continuously and each speaker is marked as the writing hands over. Every character's voice shares one prompt, so they can start to sound alike."
                 : "Each character is written on their own, with their own voice samples in front of them. Keeps voices distinct; the seams between beats are more visible."
             }
@@ -383,7 +448,7 @@ export function SceneConfigMenu({
               />
             }
             scopeNote={pinned.sceneFlow ? undefined : "· this turn"}
-            disabled={disabled || !onSceneFlowChange}
+            disabled={disabled || !onSceneFlowChange || sceneMode === "freetext"}
             className="w-full [&_select]:w-full"
           />
 

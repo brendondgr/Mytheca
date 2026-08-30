@@ -307,7 +307,18 @@ def prepare_turn(
     # Announce the step BEFORE the call, not after it. The trace steps were all emitted
     # once their work was already done, so the status strip could only ever name the step
     # the turn had just finished — leaving the actual waits unlabelled.
-    if silent:
+    if settings.scene_mode == "freetext":
+        # Free-text schedules nobody, so there is nothing for a classification to decide.
+        # `intent.kind` picks puppets and addressees, and `intent.requirements` become the
+        # direction the planner paces — and that engine is not running. Making the call
+        # anyway would spend a round trip per turn on an answer nothing reads.
+        #
+        # The player's line still steers the turn; it does it by being in the prompt, which
+        # is where the checklist call and the writer both read it from.
+        intent = TurnIntent(
+            directive=text or guidance or "The scene continues without the player speaking."
+        )
+    elif silent:
         # Nothing was said, so there is nothing to interpret. Skipping the call is not just a
         # saved LLM round-trip (though on the turn path that matters): asking the intent agent
         # to classify an empty string invites it to invent an ask the player never made.
@@ -352,10 +363,19 @@ def prepare_turn(
         },
     )
 
-    direction = yield from direction_runtime.build_direction(
-        db, ctx, req, intent=intent, pov_id=pov_id, text=text, tracer=tracer,
-        session=session, turn=seq0,
-    )
+    if settings.scene_mode == "freetext":
+        # Same argument as the intent call above, and one step further: a direction is a
+        # SCHEDULE — an ordered list of requirements paced across a beat budget, re-owed
+        # across turns, and delivered by the beat the engine assigns them to. Free-text has
+        # no beats to pace them across. The checklist is what stands in its place, and
+        # parsing the same instruction twice into two competing contracts is how they end up
+        # disagreeing about what the turn owes.
+        direction = SceneDirection()
+    else:
+        direction = yield from direction_runtime.build_direction(
+            db, ctx, req, intent=intent, pov_id=pov_id, text=text, tracer=tracer,
+            session=session, turn=seq0,
+        )
 
     return TurnSetup(
         session=session,

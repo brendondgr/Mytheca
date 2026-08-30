@@ -26,6 +26,11 @@ How data originates and moves through Mytheca. The streaming/event path is first
 
 ## Write + Streaming Path (submit a turn — the response *is* the stream)
 
+**Two engines share this route.** `turn_settings.resolve` reads `sceneMode` first, and a
+`"freetext"` scene is handed straight to `services/freetext_turn.run_turn` — a different loop,
+described at the end of this section. Everything below the branch describes the **structured**
+engine, which is the default and what every scene written before free-text mode runs on.
+
 The turn engine (`web/backend/app/services/turn_engine.py`) runs the turn and streams
 the resulting story events directly in the `POST /play/{scenarioId}/turn` response body
 (NDJSON, reusing the `postNdjson` / `StreamingResponse` pattern) — there is no separate
@@ -326,6 +331,45 @@ N-token context window" instead of a raw upstream 400, and non-context 400s are 
 
 The hot path is **read-only** — all mutation (durable consequences, edges) defers to the
 cold-path turn-writer (a later phase); stat changes are clamped during validation.
+
+### The free-text path (`sceneMode: "freetext"`)
+
+A different loop, not a setting on the one above. It shares the structured engine's *setup*
+(`turn_setup.prepare_turn` — session, context, the player's line recorded) and its *tail*
+(`turn_finalize` — suggestions, the graph write, reflection), and replaces everything between.
+
+```
+turn_engine.run_turn → sceneMode == "freetext" → freetext_turn.run_turn:
+    turn_setup.prepare_turn(...)          # shared. Skips the intent call AND the direction
+                                          # parse: both feed machinery that is not running,
+                                          # so free-text spends two fewer calls per turn.
+    lookup_agent.terms_for(...)           # "what in here do I not know?" → search terms
+      → lookup_agent.lore_block(...)      # hybrid retrieval, folded into the volatile tail
+    task_agent.write_checklist(...)       # what this turn owes → `tasks` frame (pass 0)
+                                          # skipped entirely on a plain POV turn with no
+                                          # guidance: one call, one passage, no deliberation
+    loop, at most 1 + MAX_CONTINUATIONS times:
+      freetext_agent.stream_body(...)     # ONE passage, streamed into ONE `scene_prose` event
+        → _ProseGate                      # holds a 16-char tail so a `<type:` tag is never
+                                          # shown, and the opening until it can be judged
+      task_agent.review(...)              # yes / partial / no per item → `tasks` frame (pass N)
+      anything short of "yes" → continue the SAME event, from where it stopped
+    freetext_effects.apply(...)           # `<type:…>` blocks, each naming its own subject
+    turn_finalize.finalize_turn(...)      # shared
+```
+
+**Every call in the turn shares one prompt prefix.** `services/freetext_context.messages` is
+the single composer: the system message (contract · style · world · place · **the whole cast**)
+is byte-identical for all four to six calls of a turn and for every turn of the scene, the
+transcript is append-only beneath it, and only the small tail — live stat readings, whatever
+was looked up, the tagged files, and **the one instruction for this call** — differs. Character
+*identity* is cached; stat *values* live in the tail, because putting them in the cached block
+would invalidate the largest region of the prompt the first time anyone was hurt.
+
+**The turn is one event.** Every continuation pass re-emits the same `scene_prose` id, so a
+turn that goes back for more extends the passage already on the reader's screen. The engine
+inserts the paragraph break between passes itself — the transport strips leading whitespace off
+a completion, so whatever spacing the model wrote never survives the wire.
 
 ### @-tagged context files (the `@` command)
 

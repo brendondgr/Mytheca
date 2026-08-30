@@ -33,8 +33,41 @@ FastAPI, Python 3.13, `uv`.
 | Concern | Where it actually lives |
 | --- | --- |
 | Turn loop / coordination | `app/services/turn_engine.py` — **orchestrator only**, split 2026-08-21 into `turn_setup.py` · `beat_runner.py` · `beat_stream.py` · `turn_effects.py` · `turn_emit.py` · `direction_runtime.py` · `turn_finalize.py` |
+| **The other turn loop** | `app/services/freetext_turn.py` — selected by `sceneMode: "freetext"`, and a different engine rather than a setting on the one above: no plan, no beats, no attribution. Shares `turn_setup` and `turn_finalize` with it and replaces everything in between. See *Two engines* below. |
 | Who acts next | `app/agents/planner_agent.py` (`plan_beats`) — up to `TURN_PLANNER_LOOKAHEAD` beats per ReAct call; `next_beat` is the one-beat wrapper |
 
+
+### Two engines, chosen per scene
+
+`sceneMode` picks which loop runs a turn, and the two are alternatives rather than layers.
+
+| | `structured` (the default) | `freetext` |
+| --- | --- | --- |
+| Reads the player's line | `intent_agent` classifies it (puppet / addressed / broadcast) | nothing — the checklist call reads it directly |
+| What the turn owes | `direction_agent` requirements, paced across a beat budget | a checklist `task_agent` writes for itself |
+| Who speaks, and when | `planner_agent`, once per turn, binding | **nobody is scheduled** |
+| Retrieval | `retrieval_gate`, a regex, skips on doubt | `lookup_agent` asks the model what it needs to read |
+| Prose | one call per beat, or one call split back into beats | ONE call, one passage, never split |
+| Output | attributed `character_prose` / `narration` events | one `scene_prose` event with no `characterId` |
+| Quality mechanism | the plan, plus a lexical delivery check | the review call, which reads for meaning, and up to two continuations |
+| Thinking | planner HIGH, prose `NONE` | prose `MEDIUM` by default, player-adjustable per message |
+
+**A `NULL` column reads as `structured`**, deliberately unlike `sceneFlow`, whose `NULL` reads
+as the newer path. A flow decides how prose is produced and both of its answers are a scene of
+attributed beats; a mode decides what a turn *is*, so a silent column must never move an
+existing scene onto a different engine.
+
+**What free-text sells**, stated where it is paid: per-character prompt isolation. Every voice
+sample sits in one prompt, which will pull the cast together and will pull hardest on the
+weakest models. What it buys is continuity — the whole turn is written knowing what the rest
+of it is — and a passage as long as the moment needs. **Which reads better is unmeasured**, and
+the mode ships on the owner's judgement behind a switch.
+
+**The checklist is withheld from the writer under Playwright and sent under POV.** A model
+handed a checklist writes to the checklist, and prose that visibly works through a list reads
+like the minutes of a meeting; in Playwright mode the list is therefore a rubric applied
+afterwards, by the review call, rather than a script followed during. Under POV the player
+wrote those instructions as direction to their own scene partners, so they go in.
 
 ### The turn loop's module layout
 

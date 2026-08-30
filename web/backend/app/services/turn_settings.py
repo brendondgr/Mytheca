@@ -29,7 +29,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.models import Scenario
-from app.schemas.play import PlannerMode, Register, SceneFlow, TieScope, TurnOverrides
+from app.schemas.play import (
+    PlannerMode,
+    Register,
+    SceneFlow,
+    SceneMode,
+    ThinkingLevel,
+    TieScope,
+    TurnOverrides,
+)
 
 #: Follow-up suggestions the director may be asked for. Mirrors ``ScenarioUpdate``.
 MAX_SUGGESTIONS = 4
@@ -44,6 +52,17 @@ MAX_SUGGESTIONS = 4
 #: forty scenario fixtures quietly carrying `sceneFlow: "voiced"` would not be.
 DEFAULT_SCENE_FLOW = "continuous"
 
+#: Which engine a scene runs on when nothing says otherwise.
+#:
+#: Named for the same reason :data:`DEFAULT_SCENE_FLOW` is, and answering the opposite way.
+#: A `NULL` column must keep every existing scene on the engine it was written for.
+DEFAULT_SCENE_MODE = "structured"
+
+#: The thinking levels a turn may ask for. Mirrors ``schemas.play.ThinkingLevel``, which is
+#: ``ReasoningEffort`` minus ``none`` — a player asking for "no thinking at all" is asking
+#: for a call-site default, which is what `None` already means.
+THINKING_LEVELS = ("quick", "low", "medium", "high", "very_high", "max")
+
 
 @dataclass(frozen=True)
 class TurnSettings:
@@ -56,8 +75,17 @@ class TurnSettings:
     register: Register | None = None
     #: How much of a speaker's history reaches their beat.
     ties: TieScope = "scene"
-    #: How the turn's prose is produced — see ``schemas.play.SceneFlow``.
+    #: How the turn's prose is produced — see ``schemas.play.SceneFlow``. Read only when
+    #: :attr:`scene_mode` is ``"structured"``; free-text has no speakers to flow between.
     scene_flow: SceneFlow = "continuous"
+    #: Which engine runs the turn — see ``schemas.play.SceneMode``. ``"structured"`` unless a
+    #: scene or a turn asks otherwise, so nothing written before the mode existed moves.
+    scene_mode: SceneMode = "structured"
+    #: The thinking budget the player asked for on this turn, or ``None`` to leave every
+    #: call-site's own default alone. Deliberately NOT defaulted to a level here: "the player
+    #: said nothing" and "the player chose medium" are different requests, and only one of
+    #: them may override a call-site that has a measured reason for its budget.
+    thinking: ThinkingLevel | None = None
 
 
 def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnSettings:
@@ -99,12 +127,29 @@ def resolve(scenario: Scenario, overrides: TurnOverrides | None = None) -> TurnS
         # ignored. One name for one answer.
         scene_flow = DEFAULT_SCENE_FLOW
 
+    # `structured` is the DEFAULT, and `NULL` reads as it. The opposite call from
+    # `scene_flow` above, and for a reason: a flow decides how prose is *produced* and both
+    # answers are a scene of attributed beats, where a mode decides what a turn *is*. Moving
+    # an existing scene into a different engine because its column was silent would change
+    # the thing the author had already played.
+    scene_mode = ov.scene_mode or getattr(scenario, "scene_mode", None) or DEFAULT_SCENE_MODE
+    if scene_mode not in ("structured", "freetext"):
+        scene_mode = DEFAULT_SCENE_MODE
+
+    thinking = ov.thinking
+    if thinking not in THINKING_LEVELS:
+        # Covers `None` (nothing asked for) and a hand-edited nonsense value alike, and both
+        # mean the same thing downstream: leave every call-site's own budget alone.
+        thinking = None
+
     return TurnSettings(
         suggestions_count=suggestions,
         planner=planner,
         register=ov.beat_register,
         ties=ties,
         scene_flow=scene_flow,
+        scene_mode=scene_mode,
+        thinking=thinking,
     )
 
 

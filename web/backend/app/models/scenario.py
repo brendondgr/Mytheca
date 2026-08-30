@@ -95,6 +95,13 @@ class Scenario(Base):
     #: gets the new path rather than being pinned to the old one by its own silence.
     #: See ``agents/scene_script_agent``.
     scene_flow: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    #: Which ENGINE runs this scene's turns — ``"structured"`` (everything that shipped
+    #: before free-text mode) or ``"freetext"`` (one unbroken body per turn, no beats).
+    #: ``NULL`` reads as ``"structured"``, deliberately the opposite of how ``scene_flow``
+    #: defaulted: this changes what a turn *is*, so no scene written before the column may be
+    #: moved into it by its own silence. Nullable, so the additive reconciler adds it with a
+    #: plain ADD COLUMN and no Alembic migration is required. See ``schemas.play.SceneMode``.
+    scene_mode: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     # The scene's OWN one-tap direction verbs, appended to the built-in bar's groups.
     # ``[{"label", "group", "text"}]``. Nullable (older rows read as none), so
     # ``core/bootstrap._reconcile_additive_columns`` adds it with a plain ADD COLUMN and no
