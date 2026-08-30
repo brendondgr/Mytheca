@@ -8,7 +8,7 @@ from pydantic import Field, field_validator
 
 from app.content.scene_presets import SCENE_PRESET_IDS
 from app.schemas.base import BeatLength, BranchTag, CamelModel
-from app.schemas.play import PlannerMode, SceneFlow, TieScope
+from app.schemas.play import PlannerMode, SceneFlow, SceneMode, TieScope
 
 
 class Branch(CamelModel):
@@ -84,6 +84,9 @@ class ScenarioBase(CamelModel):
     # How much of a speaker's history reaches their beat. ``None`` reads as ``"scene"``.
     tie_scope: TieScope | None = None
     scene_flow: SceneFlow | None = None
+    # Which engine runs this scene's turns. ``None`` reads as ``"structured"`` — the engine
+    # every scene written before free-text mode was played on. See ``schemas/play``.
+    scene_mode: SceneMode | None = None
     # Per-scenario writing-prompt overrides ({registry key -> prompt text}) — override the
     # storyline's prompts for this scene only.
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
@@ -122,6 +125,7 @@ class ScenarioUpdate(CamelModel):
     planner_mode: PlannerMode | None = None
     tie_scope: TieScope | None = None
     scene_flow: SceneFlow | None = None
+    scene_mode: SceneMode | None = None
     direction_verbs: list[SceneVerb] | None = Field(default=None, max_length=8)
     prompt_overrides: dict[str, str] | None = None
     style_blocks: dict[str, str] | None = None
@@ -149,6 +153,7 @@ class ScenarioRead(CamelModel):
     planner_mode: PlannerMode | None = None
     tie_scope: TieScope | None = None
     scene_flow: SceneFlow | None = None
+    scene_mode: SceneMode | None = None
     direction_verbs: list[SceneVerb] = Field(default_factory=list)
     prompt_overrides: dict[str, str] = Field(default_factory=dict)
     style_blocks: dict[str, str] = Field(default_factory=dict)

@@ -134,3 +134,68 @@ def test_the_register_is_per_turn_only():
     """There is no scenario column, deliberately: how tense a beat is belongs to a moment."""
     assert turn_settings.resolve(scene()).register is None
     assert not hasattr(scene(), "register")
+
+
+# ---- scene mode + the thinking ladder --------------------------------------
+#
+# Both landed with free-text mode (``docs/plans/free-text-mode.md``). The pair is pinned
+# here rather than in the engine tests because the whole risk in adding a second engine is
+# that an existing scene quietly moves onto it.
+
+
+def test_a_silent_scene_stays_on_the_structured_engine():
+    """A NULL column must never move a scene into a different engine.
+
+    Deliberately the opposite answer from ``scene_flow``, whose NULL reads as the *new*
+    path. A flow decides how prose is produced and both answers are a scene of attributed
+    beats; a mode decides what a turn is.
+    """
+    assert turn_settings.resolve(scene()).scene_mode == "structured"
+    assert turn_settings.resolve(scene(scene_mode=None)).scene_mode == "structured"
+
+
+def test_the_scene_can_pick_the_free_text_engine():
+    assert turn_settings.resolve(scene(scene_mode="freetext")).scene_mode == "freetext"
+
+
+def test_a_turn_can_try_the_other_engine_without_editing_the_scene():
+    scenario = scene(scene_mode="structured")
+    resolved = turn_settings.resolve(scenario, TurnOverrides(scene_mode="freetext"))
+    assert resolved.scene_mode == "freetext"
+    assert scenario.scene_mode == "structured"  # the row is never written
+
+
+def test_a_nonsense_mode_falls_back_rather_than_raising():
+    """A hand-edited or imported row must degrade, not 500 a turn."""
+    assert turn_settings.resolve(scene(scene_mode="sideways")).scene_mode == "structured"
+
+
+def test_thinking_is_unset_by_default():
+    """`None` is not a level. It means 'leave every call-site's own budget alone'.
+
+    That distinction is the whole safety of the control: the structured mode's prose call
+    runs at ``NONE`` for a measured reason, and a turn that asked for nothing must not
+    quietly raise it.
+    """
+    assert turn_settings.resolve(scene()).thinking is None
+
+
+@pytest.mark.parametrize("level", ["quick", "low", "medium", "high", "very_high", "max"])
+def test_every_level_on_the_ladder_resolves(level: str):
+    assert turn_settings.resolve(scene(), TurnOverrides(thinking=level)).thinking == level
+
+
+def test_a_nonsense_thinking_level_reads_as_unset():
+    """The schema rejects a bad level at the boundary; this guards the data behind it.
+
+    Built with ``model_construct`` precisely because that is the shape validation cannot
+    reach — a hand-assembled envelope, or one rebuilt from a stored row.
+    """
+    envelope = TurnOverrides.model_construct(thinking="enormous")
+    assert turn_settings.resolve(scene(), envelope).thinking is None
+
+
+def test_both_new_controls_appear_in_the_applied_map():
+    """What the Inspector row and the ``user_turn`` row record for this turn."""
+    applied = turn_settings.applied(TurnOverrides(scene_mode="freetext", thinking="high"))
+    assert applied == {"sceneMode": "freetext", "thinking": "high"}

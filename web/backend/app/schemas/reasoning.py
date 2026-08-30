@@ -50,3 +50,25 @@ THINKING_BUDGET: dict[ReasoningEffort, int] = {
 def budget_for(effort: ReasoningEffort) -> int:
     """Return the thinking-token budget for an effort (defaults to Medium if unknown)."""
     return THINKING_BUDGET.get(effort, THINKING_BUDGET[ReasoningEffort.MEDIUM])
+
+
+def effort_for_level(level: str | None) -> ReasoningEffort | None:
+    """Map a player-facing ``ThinkingLevel`` onto an effort, or ``None`` when unset.
+
+    ``None`` in, ``None`` out, and that round-trip is the point: the turn-level thinking
+    control is *optional*, and "the player did not choose" must stay distinguishable from
+    "the player chose the lowest level" all the way down to the call site. A call site that
+    receives ``None`` keeps its own budget — which for the structured mode's prose call is
+    ``NONE``, set after that call was measured spending 91 % of its output on hidden
+    reasoning nobody reads.
+
+    An unrecognised string reads as ``None`` for the same reason: a nonsense value is not a
+    request, so it must not silently become one.
+    """
+    if not level:
+        return None
+    try:
+        effort = ReasoningEffort(str(level).strip().lower())
+    except ValueError:
+        return None
+    return None if effort is ReasoningEffort.NONE else effort
