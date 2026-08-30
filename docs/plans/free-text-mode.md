@@ -1,11 +1,44 @@
 # Free-Text Mode
 
-**Status: planned, nothing built.** Written 2026-08-30 from the owner's specification.
+**Status: built and merged to the branch.** Written 2026-08-30 from the owner's
+specification; this header records what actually landed, which is the part worth reading.
 
-This mode does not exist in any form today. `sceneFlow: "continuous"` is **not** it — that
-path still asks the planner for a beat list, still decides who speaks when, and still splits
-the returned text back into one attributed event per speaker. What is described here removes
-all three.
+| Phase | State |
+| --- | --- |
+| 1 Scene mode + thinking ladder | **Done.** No Alembic migration was needed for the *thinking* level (per-turn only, no column); `scene_mode` did get one, because `test_alembic.py` requires `upgrade head` and `create_all` to agree. |
+| 2 Cached prompt | **Done.** A test pins that a stat change leaves the system message byte-identical. |
+| 3 Lookup agent | **Done.** |
+| 4 Checklist | **Done**, plus `TurnTasksFrame` on the wire and its frontend mirror. |
+| 5–6 Write, grade, continue | **Done, in one commit.** The write and the review are one loop; splitting them would have meant writing it twice. |
+| 7 Consequences + guards | **Done.** The consequence path landed with the loop; this phase pinned the guard *selection*, which is the half that fails silently. |
+| 8 Frontend | **Done**, and verified against the running app with a real turn on the live endpoint. |
+| 9 Kept features + docs | **Done** — and it caught a real defect, see below. |
+
+**Three things the work turned up that the plan did not anticipate:**
+
+1. `turn_setup.prepare_turn` was spending an **intent call and a direction parse on every
+   free-text turn**, both feeding machinery that is not running. Both are now skipped: two
+   fewer model calls per turn, and no risk of two competing contracts disagreeing about what
+   the turn owes.
+2. `looks_like_scratchpad` **cannot be reused** for free-text prose. It is a conjunction of
+   production vocabulary AND *no first-person pronoun*, which works because a character beat is
+   first person and exempts itself; free-text prose is third person by contract, so half the
+   conjunction is always true and the rule collapses to a vocabulary test too eager to run on
+   prose. `prose_guards.looks_like_briefing` is the stricter standalone rule.
+3. **Phase 9 found a pre-existing bug.** `scene_moment._BEAT_TYPES` — the event types a scene
+   image reads the moment from — did not include `character_prose`, which is the form a
+   character beat has taken since the three-fragment shape was retired. Scene images were being
+   composed from the narrator's lines and the player's own with **every character beat invisible
+   to them**. Fixed alongside adding `scene_prose`.
+
+Gap 1 below (the passage allowance) was answered at **6,000 tokens per pass**; gap 2 (what
+re-roll means for a one-body turn) is recorded in `docs/checklist.md` rather than decided.
+Everything still open is in that file, which is the one to read — a plan describes an
+intention and the checklist describes the state.
+
+`sceneFlow: "continuous"` is **not** this mode and never was — that path still asks the
+planner for a beat list, still decides who speaks when, and still splits the returned text
+back into one attributed event per speaker. Free-text removes all three.
 
 ---
 

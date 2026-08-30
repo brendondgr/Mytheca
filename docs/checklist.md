@@ -14,6 +14,27 @@ Verified against the code on 2026-08-04.
 
 ## Unbuilt capabilities
 
+- **Nothing measures free-text mode against the structured one.** `sceneMode: "freetext"`
+  (`docs/plans/free-text-mode.md`) ships on the owner's judgement — preference-driven and
+  deliberately so — and the honest statement of its trade is that it **sells per-character
+  prompt isolation**: every voice sample sits in one prompt, which will pull the cast together
+  and will pull hardest on the weakest models. Nothing in the repo says whether that shows up
+  in the writing, or whether the continuity it buys outweighs it. This is recorded because a
+  future reader will otherwise assume a default was measured; it is not a request to run one.
+- **The free-text passage allowance is chosen, not measured.** `freetext_agent.PROSE_TOKENS`
+  is 6,000 (~24,000 characters, about eight times the longest honest beat ever measured here).
+  It is an endpoint-protection stop, not an editorial one — the 48,000-token generation that
+  timed out the relay's health probe three times is why any ceiling exists — but where exactly
+  it sits was a judgement call, and the owner set it.
+- **A free-text turn is one beat, so the record controls apply to the whole passage.**
+  Re-roll and re-roll-the-turn collapse into the same action, and beat-level editing has
+  nothing smaller than the turn to edit. `beat_rerun` has not been exercised against a
+  `scene_prose` row. The alternative — exempting free-text turns from beat-level controls
+  entirely — was left open rather than decided.
+- **`cast_request` does not exist in free-text mode.** It is produced by `intent_agent`, which
+  that engine deliberately does not call, so naming an absent character has no effect there.
+
+
 - **Re-running world population on an existing world.** `POST /storylines/{id}/populate/stream` is only wired to the create flow (`BuildWorldModal` → `commitWorld`). A world created before the feature, or one whose population partly failed, has no in-app way to top up its cast — the author adds the rest by hand. The endpoint itself is id-scoped and would work; it needs a Library-side entry point (and a decision about whether it appends to, or dedupes against, the existing roster).
 - **Population never proposes scenarios.** It writes characters and settings only (each character whole — draft, voice profile, starting stats, portrait); the first scenario is still authored by hand.
 - **World-build runs are in-process and non-durable.** `services/world_populate_runs.py` keeps a run's frame log in memory, keyed by storyline. A backend restart ends the run (the client is told, and never silently rebuilds), and a multi-process deployment would not share the registry. Durable runs (a table + a worker) are unbuilt.
