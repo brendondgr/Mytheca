@@ -1,7 +1,8 @@
 # Free-Text Mode
 
-**Status: built and merged to the branch.** Written 2026-08-30 from the owner's
-specification; this header records what actually landed, which is the part worth reading.
+**Status: built on the `free-text-mode` branch. NOT merged to `main`, not pushed.**
+Written 2026-08-30 from the owner's specification; this header records what actually landed,
+which is the part worth reading.
 
 | Phase | State |
 | --- | --- |
