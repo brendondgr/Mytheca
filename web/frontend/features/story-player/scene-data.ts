@@ -16,6 +16,14 @@ import type { ArtStyleId } from "@/lib/api";
  */
 export type SceneMessageKind =
   | "narrator"
+  /**
+   * A whole free-text turn: one unbroken passage holding the room, with no speaker and no
+   * beat boundaries. Separate from `narrator` because it is not the narrator — the narrator
+   * is a voice inside the scene that never writes dialogue, and this passage is everybody:
+   * it carries the characters' speech, their actions, and the room around them at once.
+   * Rendered as a page of prose rather than as an attributed card.
+   */
+  | "scene"
   | "char"
   | "player"
   | "direction"

@@ -190,6 +190,13 @@ export interface Scenario {
    */
   sceneFlow?: "voiced" | "continuous" | null;
   /**
+   * Which engine this scene's turns run on — `"structured"` (the plan, registers, attributed
+   * beats) or `"freetext"` (one unbroken passage per turn, nobody scheduled). Absent/`null`
+   * reads as `"structured"`: unlike `sceneFlow`, a silent column must never move an existing
+   * scene onto a different engine.
+   */
+  sceneMode?: "structured" | "freetext" | null;
+  /**
    * The scene's default tie scope — how much of a speaker's relationship history reaches
    * their beat. Absent/`null` reads as `"scene"`.
    */

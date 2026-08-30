@@ -1391,3 +1391,58 @@ describe("rehydrateFromHistory — hidden events", () => {
     expect(stats.length).toBe(1);
   });
 });
+
+describe("free-text turns", () => {
+  const proseEvent = (id: string, text: string, done = false) =>
+    ({
+      type: "scene_prose",
+      id,
+      seq: 1,
+      scenarioId: "sc",
+      sessionId: "s1",
+      ts: "",
+      visibility: "public",
+      data: { text, done, takes: [], activeTake: 0 },
+    }) as unknown as TurnStreamFrame;
+
+  it("folds a whole turn into ONE unattributed message", () => {
+    const merged = mergeFrame([], proseEvent("ev1", "The rain has found the gap."));
+    expect(merged).toHaveLength(1);
+    expect(merged[0].kind).toBe("scene");
+    expect(merged[0].who).toBeUndefined();
+  });
+
+  it("grows the same message on a continuation instead of adding a second block", () => {
+    // The engine writes every pass into one event id precisely so this holds — a
+    // continuation must extend the passage already on screen.
+    let messages = mergeFrame([], proseEvent("ev1", "First part."));
+    messages = mergeFrame(messages, proseEvent("ev1", "\n\nSecond part."));
+    expect(messages).toHaveLength(1);
+    expect(messages[0].text).toBe("First part.\n\nSecond part.");
+  });
+
+  it("keeps the checklist out of the transcript", () => {
+    // A checklist states what a turn INTENDS, exactly as a plan does. It belongs to the rail.
+    const frame = {
+      type: "tasks",
+      sessionId: "s1",
+      tasks: [{ n: 1, must: "x", who: [], state: "", note: "" }],
+      pass: 0,
+      complete: false,
+    } as unknown as TurnStreamFrame;
+    expect(mergeFrame([], frame)).toEqual([]);
+  });
+
+  it("takes the session id off a checklist frame", () => {
+    // On a brand-new session the checklist can be the FIRST frame to arrive, before any
+    // story event exists to carry the id.
+    const frame = {
+      type: "tasks",
+      sessionId: "s-new",
+      tasks: [],
+      pass: 0,
+      complete: false,
+    } as unknown as TurnStreamFrame;
+    expect(sessionIdOf(frame)).toBe("s-new");
+  });
+});

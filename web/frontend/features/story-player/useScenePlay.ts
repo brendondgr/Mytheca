@@ -17,7 +17,7 @@ import {
 } from "@/lib/api";
 import type { ArtStyleId } from "@/lib/api";
 import type { PlanMode } from "@/components/feature/PlanModeButton";
-import type { PlannedBeat } from "@/lib/events";
+import type { PlannedBeat, TurnTask } from "@/lib/events";
 import { estimateUsedTokens } from "@/lib/contextBudget";
 import type {
   GhostwriteStreamFrame,
@@ -30,8 +30,10 @@ import type {
 import type {
   SceneControlKey,
   SceneFlow,
+  SceneMode,
   TieScope,
 } from "@/components/feature/SceneConfigMenu";
+import type { ThinkingLevel } from "@/components/feature/ThinkingButton";
 import type { ResolvedScenario } from "@/lib/types";
 import { useEventStream } from "@/hooks/use-event-stream";
 import {
@@ -154,6 +156,10 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // A plan the scene has stopped on and is waiting for the player to approve. `null` for
   // every ordinary turn, which is why nothing about the default experience changes.
   const [pendingPlan, setPendingPlan] = useState<PlannedBeat[] | null>(null);
+  // What a free-text turn said it owed, and how its own review graded it. Empty in the
+  // structured engine, and cleared when the next turn is sent so the rail never shows the
+  // previous turn's checklist beside a scene that has moved on.
+  const [tasks, setTasks] = useState<TurnTask[]>([]);
 
   // Per-scene play controls (persisted on the scenario). Local state drives the composer
   // dropdowns; each change is written back so the backend reads it on the next turn.
@@ -164,7 +170,13 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   // today's behaviour: a change is written to the scenario and stays. Unpinned, a change
   // rides on the next turn's `overrides` envelope and is then discarded — which is why a
   // player who never touches a pin sees no difference at all.
-  const [pinned, setPinnedState] = useState<Record<SceneControlKey, boolean>>({ suggestionsCount: true, planner: true, ties: true, sceneFlow: true });
+  const [pinned, setPinnedState] = useState<Record<SceneControlKey, boolean>>({
+    suggestionsCount: true,
+    planner: true,
+    ties: true,
+    sceneFlow: true,
+    sceneMode: true,
+  });
   // The pending per-turn overrides. Cleared when the turn settles, on the error path too —
   // the clear lives in `.finally`, because a turn that failed still consumed the intent.
   const [turnOverrides, setTurnOverrides] = useState<TurnOverridesBody>({});
@@ -176,9 +188,20 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   const [sceneFlow, setSceneFlowState] = useState<SceneFlow>(
     scenario.sceneFlow === "voiced" ? "voiced" : "continuous",
   );
+  // Which engine the scene runs on. `null` reads as `"structured"`, deliberately unlike
+  // `sceneFlow` above: a silent column must never move an existing scene onto a different
+  // engine, because that changes what a turn IS rather than how its prose is produced.
+  const [sceneMode, setSceneModeState] = useState<SceneMode>(
+    scenario.sceneMode === "freetext" ? "freetext" : "structured",
+  );
   const [tieScope, setTieScopeState] = useState<TieScope>(
     (scenario.tieScope as TieScope) ?? "scene",
   );
+  // How hard the model may think before it writes this turn's prose, or `null` to leave every
+  // call-site's own budget alone. Deliberately NOT persisted on the scenario and NOT pinnable:
+  // how much thought a particular message is worth belongs to the message, the same argument
+  // the pinned register makes.
+  const [thinking, setThinkingState] = useState<ThinkingLevel | null>(null);
   // Whether the story graph exists at all on this install. `false` is not "no relationships
   // yet" — it is "nobody can carry any history into a beat", which is why the Ties control
   // disables itself and says so rather than silently doing nothing.
@@ -598,6 +621,14 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       if (frame.awaitingApproval) setPendingPlan(frame.beats);
       return;
     }
+    if (frame.type === "tasks") {
+      // The checklist, and later the same list with its verdicts filled in. Keyed by `n` on
+      // the wire so the second frame REPLACES the first rather than stacking a second copy —
+      // the rail shows one list that fills in, which is the whole point of streaming it
+      // before any prose exists.
+      setTasks(frame.tasks);
+      return;
+    }
     if (frame.type === "branch_choices") {
       setChoices(branchOptionsToChoices(frame.data.choices));
       // The planner's question (when it asked rather than guessed) rides on the beat, so it
@@ -624,6 +655,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     if (!plan?.length || stream.status === "streaming") return;
     setPendingPlan(null);
     setStreamError(null);
+    setTasks([]);
     void stream
       .run((signal) =>
         postTurn(
@@ -743,6 +775,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
   const continueTurn = useCallback(() => {
     if (sending) return; // in-flight guard
     setStreamError(null);
+    setTasks([]);
     setMessages((m) => m.filter((x) => x.kind !== "choices"));
     void stream
       .run((signal) =>
@@ -783,6 +816,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       const sid = sessionRef.current;
       if (!sid || sending) return;
       setStreamError(null);
+      setTasks([]);
       void stream
         .run((signal) =>
           apiRerollBeat(scenario.id, sid, eventId, { scope }, signal),
@@ -852,6 +886,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setCanUndoGhostwrite(true);
     setComposer("");
     setStreamError(null);
+    setTasks([]);
     void ghostStream
       .run((signal) =>
         postGhostwrite(
@@ -886,6 +921,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       // without your character having to speak in order to do it.
       if ((!t && !d) || sending) return; // in-flight guard
       setStreamError(null);
+      setTasks([]);
       // Optimistic bubble; clear any open branch choices. Under Player POV the player's line
       // is the character's own line — a right-side player-authored character beat (the engine
       // withholds the visible event, so this optimistic beat is the only render of it).
@@ -1021,6 +1057,30 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     },
     [scenario.id, pinned.sceneFlow, clearOverride],
   );
+  const setSceneMode = useCallback(
+    (value: SceneMode) => {
+      if (!pinned.sceneMode) {
+        setTurnOverrides((o) => ({ ...o, sceneMode: value }));
+        return;
+      }
+      setSceneModeState(value);
+      clearOverride("sceneMode");
+      void updateScenario(scenario.id, { sceneMode: value }).catch(() => {});
+    },
+    [scenario.id, pinned.sceneMode, clearOverride],
+  );
+  // Per-turn only, so it goes straight into the envelope and is never written back. `null`
+  // clears it rather than sending a level — "the player did not choose" has to stay
+  // distinguishable from "the player chose the lowest", all the way to the call site.
+  const setThinking = useCallback((value: ThinkingLevel | null) => {
+    setThinkingState(value);
+    setTurnOverrides((o) => {
+      const next = { ...o };
+      if (value === null) delete next.thinking;
+      else next.thinking = value;
+      return next;
+    });
+  }, []);
   const setPlannerMode = useCallback(
     (value: PlanMode) => {
       if (!pinned.planner) {
@@ -1056,8 +1116,9 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       planner: asPlanMode(turnOverrides.planner) ?? plannerMode,
       ties: (turnOverrides.ties as TieScope | undefined) ?? tieScope,
       sceneFlow: (turnOverrides.sceneFlow as SceneFlow | undefined) ?? sceneFlow,
+      sceneMode: (turnOverrides.sceneMode as SceneMode | undefined) ?? sceneMode,
     }),
-    [turnOverrides, suggestionsCount, plannerMode, tieScope, sceneFlow],
+    [turnOverrides, suggestionsCount, plannerMode, tieScope, sceneFlow, sceneMode],
   );
 
   /**
@@ -1135,6 +1196,7 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
       if (sending) return;
       const text = c.player || c.label;
       setStreamError(null);
+      setTasks([]);
       setMessages((m) => [
         ...m.filter((x) => x.kind !== "choices"),
         { kind: "direction", text },
@@ -1205,6 +1267,15 @@ export function useScenePlay(scenario: ResolvedScenario, contextDocs: MentionOpt
     setPlannerMode,
     sceneFlow,
     setSceneFlow,
+    sceneMode,
+    setSceneMode,
+    // Always per-turn, like `register`: how much thought one message is worth is a property
+    // of the message, so there is no scene column and no pin.
+    thinking,
+    setThinking,
+    // The checklist a free-text turn wrote for itself, with the review's verdicts filled in
+    // once it has run. Empty in the structured engine, which has no such thing.
+    tasks,
     // The plan on screen (Plan mode only), and the two things a player can do with it.
     pendingPlan,
     approvePlan,

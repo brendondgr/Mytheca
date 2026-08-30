@@ -4,10 +4,12 @@ import {
   type SceneControlKey,
   type Register,
   type SceneFlow,
+  type SceneMode,
   type TieScope,
 } from "@/components/feature/SceneConfigMenu";
 import { PovSelect, type PovOption } from "@/components/feature/PovSelect";
 import { PlanModeButton, type PlanMode } from "@/components/feature/PlanModeButton";
+import { ThinkingButton, type ThinkingLevel } from "@/components/feature/ThinkingButton";
 import { GhostwriteButton } from "@/components/feature/GhostwriteButton";
 import { ContextUsageDial } from "@/components/feature/ContextUsageDial";
 import { Monogram } from "@/components/ui/Monogram";
@@ -66,6 +68,10 @@ export function Composer({
   onSuggestionsCountChange,
   plannerMode,
   onPlannerModeChange,
+  thinking = null,
+  onThinkingChange,
+  sceneMode,
+  onSceneModeChange,
   register,
   onRegisterChange,
   sceneFlow,
@@ -124,6 +130,15 @@ export function Composer({
    */
   plannerMode?: PlanMode;
   onPlannerModeChange?: (value: PlanMode) => void;
+  /**
+   * How hard the model may think before writing this message, or `null` for each call site's
+   * own budget. Per message by design — there is no scene setting for it.
+   */
+  thinking?: ThinkingLevel | null;
+  onThinkingChange?: (value: ThinkingLevel | null) => void;
+  /** Which engine runs the turn — beat by beat, or one long passage. */
+  sceneMode?: SceneMode;
+  onSceneModeChange?: (value: SceneMode) => void;
   register?: Register | null;
   onRegisterChange?: (value: Register | null) => void;
   sceneFlow?: SceneFlow;
@@ -180,6 +195,7 @@ export function Composer({
   // the turn and restores it afterwards with no setState in an effect and no cascading
   // render — and, unlike clearing the state, it does not forget that the player had it open.
   const [planOpen, setPlanOpen] = useState(false);
+  const [thinkOpen, setThinkOpen] = useState(false);
 
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const ref = (inputRef as RefObject<HTMLTextAreaElement>) ?? internalRef;
@@ -553,6 +569,8 @@ export function Composer({
               onSuggestionsCountChange={onSuggestionsCountChange}
               plannerMode={plannerMode}
               onPlannerModeChange={onPlannerModeChange}
+              sceneMode={sceneMode}
+              onSceneModeChange={onSceneModeChange}
               register={register}
               onRegisterChange={onRegisterChange}
               sceneFlow={sceneFlow}
@@ -579,6 +597,17 @@ export function Composer({
               onModeChange={onPlannerModeChange}
               open={planOpen && !sendDisabled}
               onOpenChange={setPlanOpen}
+              disabled={sendDisabled}
+            />
+          ) : null}
+          {/* And the fourth: how hard it thinks before it writes this one. Beside Plan mode
+              because both are decisions about the message in the box, not about the scene. */}
+          {onThinkingChange ? (
+            <ThinkingButton
+              level={thinking}
+              onLevelChange={onThinkingChange}
+              open={thinkOpen && !sendDisabled}
+              onOpenChange={setThinkOpen}
               disabled={sendDisabled}
             />
           ) : null}

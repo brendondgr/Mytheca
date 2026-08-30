@@ -51,6 +51,29 @@ export function NarratorCard({ text, streaming }: { text: string; streaming?: bo
 }
 
 /**
+ * One whole free-text turn: the room in a single passage.
+ *
+ * Deliberately **not** a card. `NarratorCard` wears a rule and a label because a narration
+ * beat is one voice among several and the reader has to know which — a free-text passage is
+ * the entire turn, there is nobody else it could be, and an attribution would be a claim
+ * about a speaker the engine does not have.
+ *
+ * So it reads as a page: the prose measure, generous leading, paragraphs from the blank
+ * lines the model wrote. Dialogue inside it is styled by `QuotedText`, the same treatment
+ * speech gets everywhere else, which is what keeps a passage legible without labels.
+ */
+export function SceneProseCard({ text, streaming }: { text: string; streaming?: boolean }) {
+  return (
+    <div className="py-[2px]">
+      <p className="max-w-[66ch] font-body text-[15.5px] leading-[1.72] whitespace-pre-line text-ink">
+        <QuotedText text={text} />
+        {streaming ? <StreamCaret /> : null}
+      </p>
+    </div>
+  );
+}
+
+/**
  * The context files a player turn carried, shown under the bubble on a resumed scene.
  *
  * The composer shows these as chips before sending and the Inspector lists them after, but
@@ -420,6 +443,7 @@ export function TranscriptBeat({
 }) {
   const m = message;
   if (m.kind === "narrator") return <NarratorCard text={m.text ?? ""} streaming={streaming} />;
+  if (m.kind === "scene") return <SceneProseCard text={m.text ?? ""} streaming={streaming} />;
   if (m.kind === "player")
     return (
       <PlayerMessage

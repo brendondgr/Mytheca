@@ -359,6 +359,7 @@ export function StoryPlayerView({
     direction: scene.direction,
     standing: scene.standing,
     onDismissStanding: scene.dismissStanding,
+    tasks: scene.tasks,
   };
 
   const dossierProps: CharacterDossierProps | null = profileChar
@@ -857,6 +858,10 @@ export function StoryPlayerView({
             onRegisterChange={scene.setRegister}
             sceneFlow={scene.effective.sceneFlow}
             onSceneFlowChange={scene.setSceneFlow}
+            sceneMode={scene.effective.sceneMode}
+            onSceneModeChange={scene.setSceneMode}
+            thinking={scene.thinking}
+            onThinkingChange={scene.setThinking}
             tieScope={scene.effective.ties}
             onTieScopeChange={scene.setTieScope}
             graphAvailable={scene.graphAvailable}
