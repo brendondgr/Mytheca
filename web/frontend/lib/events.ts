@@ -284,12 +284,48 @@ export interface TurnPlanFrame {
   awaitingApproval: boolean;
 }
 
+/**
+ * One thing a free-text turn owes the player.
+ *
+ * `who` is a note about who the checklist expects to carry it, resolved to names
+ * server-side. It is **not** a schedule — nothing in the engine dispatches on it, and the
+ * rail must not present it as an order of speaking.
+ */
+export interface TurnTask {
+  /** 1-based, and stable across passes — the rail keys rows on it. */
+  n: number;
+  must: string;
+  who: string[];
+  /** `""` until the review has run, then one of the three grades. */
+  state: "" | "yes" | "partial" | "no";
+  note: string;
+}
+
+/**
+ * A free-text turn's checklist. A transport frame, like `TurnPlanFrame` — a statement of
+ * what a turn intends, which is not a thing that happened and is never persisted.
+ *
+ * Arrives at least twice: once when the list is written (every `state` empty) and once
+ * after each review pass (states filled). Key rows on `n` so the later frames update the
+ * rail in place rather than stacking another copy of the list underneath.
+ */
+export interface TurnTasksFrame {
+  type: "tasks";
+  sessionId: string;
+  tasks: TurnTask[];
+  /** `0` when the list is first written, then the review pass number. */
+  pass: number;
+  /** True once nothing is outstanding — the turn is finishing rather than continuing. */
+  complete: boolean;
+}
+
 export type TurnStreamFrame =
   | PlayEvent
   | TurnErrorFrame
   | TurnTraceFrame
   | TurnReasoningFrame
   | TurnPlanFrame
+  | TurnTasksFrame
   | BeatRerollFrame;
 
 // ---- scene images (POST /play/{scenarioId}/moment/stream) ----

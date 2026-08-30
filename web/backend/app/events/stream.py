@@ -258,6 +258,47 @@ class TurnPlanFrame(CamelModel):
     awaiting_approval: bool = False
 
 
+class TurnTask(CamelModel):
+    """One thing a free-text turn owes the player, as the rail shows it."""
+
+    #: Position in the checklist, 1-based. The review references tasks by this rather than by
+    #: text, so a model that paraphrases an item while grading cannot silently re-target it.
+    n: int
+    must: str
+    #: Names of the characters the checklist expects to carry it. A note, never a schedule —
+    #: nothing in the engine dispatches on it, and no beat is assigned from it.
+    who: list[str] = Field(default_factory=list)
+    #: ``""`` until the review has run, then ``"yes"``, ``"partial"`` or ``"no"``.
+    state: str = ""
+    note: str = ""
+
+
+class TurnTasksFrame(CamelModel):
+    """A free-text turn's checklist, streamed as it is written and again once graded.
+
+    A **transport** frame for the same reason :class:`TurnPlanFrame` is: a checklist states
+    what a turn intends, which is not a thing that happened, and persisting one would put
+    something in the transcript that no rewind could account for.
+
+    Emitted twice per turn — once when the list is written (every ``state`` empty) and once
+    after the review (every ``state`` filled) — and once more per continuation pass. The
+    client keys on ``n``, so the second frame updates the rail in place rather than stacking
+    a second list under the first.
+    """
+
+    type: Literal["tasks"] = "tasks"
+    session_id: str = ""
+    tasks: list[TurnTask] = Field(default_factory=list)
+    #: Which review pass this is: ``0`` when the list is first written, then ``1`` and ``2``.
+    #: The rail uses it to say "still working" rather than re-announcing the same list.
+    #:
+    #: The wire name is ``pass``, which is a Python keyword — hence the explicit alias, the
+    #: same accommodation ``TurnOverrides.beat_register`` makes for ``register``.
+    review_pass: int = Field(default=0, alias="pass")
+    #: True once nothing is outstanding — the turn is finishing rather than continuing.
+    complete: bool = False
+
+
 class TurnTraceFrame(CamelModel):
     """Diagnostic trace frame for the turn stream (opt-in via ``TurnRequest.trace``).
 
