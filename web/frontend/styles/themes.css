@@ -44,6 +44,12 @@
   --hover-bg: #ecdfbc;
   --surface: #ede2c6;
   --tab-ink: #59492f;
+  /* Ink for text sitting ON an accent fill (buttons, the player's bubble, hover
+   * states). Identical in all three themes today, and a token anyway: it was
+   * hardcoded as #F6ECDA at 31 call sites, which put it outside the contrast
+   * gate and made "what colour is text on accent" unanswerable from the token
+   * set. A theme that ever wants a different one now has somewhere to say so. */
+  --on-accent: #f6ecda;
   --shadow-tint: rgba(64, 44, 16, 0.22);
   /* Parchment is a light theme; say so, so native selects, date pickers,
    * autofill grounds and Firefox scrollbars match rather than guess. */
@@ -77,6 +83,12 @@
   --hover-bg: #382c1a;
   --surface: #1b1509;
   --tab-ink: #b09a6f;
+  /* Ink for text sitting ON an accent fill (buttons, the player's bubble, hover
+   * states). Identical in all three themes today, and a token anyway: it was
+   * hardcoded as #F6ECDA at 31 call sites, which put it outside the contrast
+   * gate and made "what colour is text on accent" unanswerable from the token
+   * set. A theme that ever wants a different one now has somewhere to say so. */
+  --on-accent: #f6ecda;
   --shadow-tint: rgba(6, 3, 0, 0.55);
   /* Without this the two dark themes were dark only in the parts we paint:
    * native controls, date/select popups, autofill backgrounds and Firefox
@@ -111,6 +123,12 @@
   --hover-bg: #2e3945;
   --surface: #141b22;
   --tab-ink: #b7c7d4;
+  /* Ink for text sitting ON an accent fill (buttons, the player's bubble, hover
+   * states). Identical in all three themes today, and a token anyway: it was
+   * hardcoded as #F6ECDA at 31 call sites, which put it outside the contrast
+   * gate and made "what colour is text on accent" unanswerable from the token
+   * set. A theme that ever wants a different one now has somewhere to say so. */
+  --on-accent: #f6ecda;
   --shadow-tint: rgba(2, 5, 9, 0.55);
   color-scheme: dark;
 }

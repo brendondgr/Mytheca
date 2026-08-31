@@ -1,5 +1,6 @@
 "use client";
 
+import { HeaderBar } from "@/components/layout/HeaderBar";
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
@@ -49,7 +50,7 @@ export function OptionsView() {
 
   return (
     <AppShell>
-      <header className="mytheca-header relative z-[15] flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] shadow-[0_3px_14px_rgba(10,6,2,0.22)] sm:px-[26px]">
+      <HeaderBar elevated>
         <div className="flex items-center gap-[13px]">
           <span aria-hidden className="text-[16px] text-accent">
             ❖
@@ -68,9 +69,9 @@ export function OptionsView() {
         >
           ← Library
         </Link>
-      </header>
+      </HeaderBar>
 
-      <main className="mx-auto w-full max-w-[1120px] flex-1 px-[16px] py-[24px] sm:px-[24px] lg:w-[66%]">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1120px] flex-1 px-[16px] py-[24px] sm:px-[24px] lg:w-[66%]">
         <h1 className="mb-[4px] font-display text-[26px] font-semibold text-ink">Options</h1>
         <p className="mb-[20px] font-body text-[14px] text-ink-soft">
           Everything customizable lives here — language models, appearance, and library defaults.

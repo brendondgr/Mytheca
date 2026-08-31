@@ -38,7 +38,6 @@ THEMES_CSS = (
 )
 
 # Theme-agnostic values referenced by the checks (from app/globals.css).
-ACCENT_INK = "#F6ECDA"  # text on accent-filled buttons/bubbles
 GOLD = "#C8862A"
 
 # (name, foreground token, background token, minimum ratio, hard?)
@@ -76,8 +75,8 @@ PAIRS: list[tuple[str, str, str, float, bool]] = [
     ("accent(nontext) / menu", "--accent", "--menu-bg", 3.0, True),
     # Light text on accent-filled controls (mono-uppercase UI text; the locked
     # design system treats it as large/UI text → 3:1; documented trade-off).
-    ("accent-ink / accent", ACCENT_INK, "--accent", 3.0, True),
-    ("accent-ink / accent-hover", ACCENT_INK, "--accent-hover", 3.0, True),
+    ("on-accent / accent", "--on-accent", "--accent", 3.0, True),
+    ("on-accent / accent-hover", "--on-accent", "--accent-hover", 3.0, True),
     # Focus outline + selected borders (non-text) against the grounds.
     ("accent(nontext) / page", "--accent", "--page-bg", 3.0, True),
     ("card-bd(nontext) / card", "--card-bd", "--card-bg", 1.35, True),

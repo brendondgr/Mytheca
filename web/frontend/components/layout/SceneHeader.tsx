@@ -1,5 +1,6 @@
 "use client";
 
+import { HeaderBar, HeaderLead, HeaderTrail } from "@/components/layout/HeaderBar";
 import type { LlmHealth } from "@/lib/types";
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -242,25 +243,25 @@ export function SceneHeader({
   ];
 
   return (
-    <header className="mytheca-header flex h-[50px] flex-none items-center justify-between gap-2 border-b border-hair-strong px-[12px] sm:gap-3 sm:px-[24px]">
-      <div className="flex min-w-0 items-center gap-[8px] sm:gap-[14px]">
+    <HeaderBar>
+      <HeaderLead>
         <Link
           href={backHref}
           aria-label="Back to Library"
-          className="flex flex-none items-center gap-[7px] rounded-[2px] border border-field-bd px-[9px] py-[6px] font-mono text-[10px] tracking-[0.1em] text-accent uppercase hover:bg-accent hover:text-[#F6ECDA] sm:px-[11px]"
+          className="flex flex-none items-center gap-2xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.1em] text-accent uppercase hover:bg-accent hover:text-on-accent sm:px-md"
         >
           ‹<span className="hidden sm:inline">&nbsp;Library</span>
         </Link>
         <span className="h-[22px] w-px flex-none bg-hair-strong" aria-hidden />
         <div className="min-w-0">
-          <div className="truncate font-display text-[16px] font-bold leading-none text-ink">
+          <div className="truncate font-display text-step-0 leading-none font-bold text-ink">
             {title}
           </div>
           <div className="mt-1 truncate font-mono text-tag tracking-[0.14em] text-mute uppercase">
             {meta} · live scene
           </div>
         </div>
-      </div>
+      </HeaderLead>
       {/* Deliberately `flex-none`. Letting this cluster shrink was tried and is
         * worse: its children have intrinsic widths, so a squeezed container
         * pushes them 50–150px past the edge instead of 7px. The real fix was never a
@@ -270,7 +271,7 @@ export function SceneHeader({
         * Rendered ONCE in one of two forms, never twice with one copy `aria-hidden`: a
         * duplicated cluster produces duplicate accessible names and a tab order that
         * visits invisible buttons. */}
-      <div className="flex flex-none items-center gap-[8px] sm:gap-[14px]">
+      <HeaderTrail className="gap-sm sm:gap-md">
         {/* Inline at every width: the scene's primary mode toggle, and whether the model
             behind it is actually there. Both are compact, and both answer a question the
             player should not have to open a menu to ask. */}
@@ -293,7 +294,7 @@ export function SceneHeader({
             aria-pressed={memoryOpen}
             aria-label="What the scene knows"
             title="How far back the cast remembers, and what it is reading"
-            className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[9px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-pressed:border-accent aria-pressed:text-accent sm:px-[10px]"
+            className="flex flex-none items-center gap-xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-pressed:border-accent aria-pressed:text-accent"
           >
             <span aria-hidden>◍</span>
             <span className="hidden sm:inline">Memory</span>
@@ -305,8 +306,8 @@ export function SceneHeader({
         {sceneMenuItems.length > 0 || extraSlot ? (
           <SceneMenu items={sceneMenuItems} extraSlot={extraSlot} />
         ) : null}
-      </div>
-    </header>
+      </HeaderTrail>
+    </HeaderBar>
   );
 }
 

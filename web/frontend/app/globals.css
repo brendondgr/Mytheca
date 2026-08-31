@@ -36,6 +36,7 @@
   --color-hover: var(--hover-bg);
   --color-surface: var(--surface);
   --color-tab-ink: var(--tab-ink);
+  --color-on-accent: var(--on-accent);
 
   /* Theme-agnostic semantic colors (same across all three themes). */
   --color-gold: #c8862a;

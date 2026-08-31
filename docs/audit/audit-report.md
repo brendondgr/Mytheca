@@ -99,16 +99,24 @@ These are raw hexes and decorative per-entity palettes, which live outside it.
 at 768×1024. Audit thresholds: fail < 14px, warn 14–15px, pass ≥ 16px. A further 48 advisory findings
 sit in the 14–15px warn band.
 
-**M-4 · No `<main>` landmark and no skip link, app-wide**
-`app/layout.tsx` → `<body>` → `AppShell`'s bare `<div>` → providers → children. Keyboard users tab the
-full header on every route with no way past it. No individual route can fix this.
+**M-4 · No skip link on any route, and no shared page frame**
+*Corrected 2026-08-31 after checking the rendered DOM:* an earlier source-only reading of
+`AppShell`/`layout.tsx` concluded there was no `<main>` landmark. That is wrong — every one of the
+seven sampled routes renders **exactly one `<main>` and exactly one `<h1>`**. The landmark is fine.
+
+What is actually missing is twofold. **No route has a skip link** (0 of 7 measured), so a keyboard user
+tabs the full header on every navigation with no way past it. And each route hand-rolls its own `<main>`
+with its own geometry — `px-[16px] py-[22px]` (documents), `px-[16px] py-[24px]` + `max-w-[1120px]`
+(options), `px-[18px] py-[40px]` + `max-w-[1180px]` (creator), `mt-[16px]` and no max-width (library) —
+because `AppShell` supplies no measure, gutter or rhythm for them to inherit.
 
 **M-5 · 7 personal-data fields carry no `autocomplete` token** — WCAG 1.3.5 (AA), on `/…/edit`.
 
-**M-6 · Client-side route changes do not move focus**
-No `loading.tsx`, `error.tsx` or `not-found.tsx` exists anywhere in `app/` (verified by `find`), and no
-route moves focus on navigation. After an in-app navigation focus falls to `<body>` and a screen-reader
-user is never told the page changed.
+**M-6 · No route-level loading, error or not-found states**
+No `loading.tsx`, `error.tsx` or `not-found.tsx` exists anywhere in `app/` (verified by `find`), so
+every page renders its own loader and its own error state from scratch and a failure anywhere in a
+route subtree escalates to the root. Focus movement on navigation is checked in Phase 7 rather than
+asserted here — Next.js ships its own route announcer, so the claim needs measuring, not assuming.
 
 ### MINOR
 

@@ -572,7 +572,7 @@ export function StoryPlayerView({
         {/* The reading column IS the page's main region. It had no landmark at all: a
             screen-reader user could reach both rails by name and had no way to jump to the
             transcript between them. */}
-        <main className="relative flex min-w-0 flex-1 flex-col">
+        <main id="main" tabIndex={-1} className="relative flex min-w-0 flex-1 flex-col">
           <div
             ref={transcriptRef}
             // `.stream-viewport` sets overflow-anchor: none so the browser's own

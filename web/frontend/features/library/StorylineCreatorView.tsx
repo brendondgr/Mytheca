@@ -98,7 +98,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
 
   if (c.isEdit && c.loading) {
     return (
-      <main className="mx-auto w-full max-w-[1180px] px-[18px] py-[40px]">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1180px] px-[18px] py-[40px]">
         <p aria-live="polite" className="font-body text-[15px] text-mute">
           Loading the storyline…
         </p>
@@ -115,7 +115,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
     // descendants. It used to be what stopped `sr-only` labels escaping `overflow-hidden`
     // and inflating the root scroller; `app/globals.css` now closes that repo-wide by
     // redefining the utility as `position: fixed`, and this stays as a cheap backstop.
-    <main className="relative flex h-dvh min-h-0 flex-col overflow-hidden lg:flex-row">
+    <main id="main" tabIndex={-1} className="relative flex h-dvh min-h-0 flex-col overflow-hidden lg:flex-row">
       {/* ── Left sidebar — the Assistant (own scroll; StorylineAgentPanel is the landmark) ── */}
       <div className="mytheca-rail order-2 flex max-h-[50dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong lg:order-1 lg:max-h-none lg:w-[380px] lg:border-t-0 lg:border-r lg:self-stretch">
         <StorylineAgentPanel agent={agent} mode={c.isEdit ? "edit" : "create"} />

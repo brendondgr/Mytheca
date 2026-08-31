@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { LibraryView } from "@/features/library/LibraryView";
 
 export const metadata: Metadata = {
-  title: "Library · Mytheca",
+  title: "Library",
 };
 
 // `/{storylineId}` — the Library scoped to one storyline. The id selects the

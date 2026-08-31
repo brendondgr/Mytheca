@@ -1,3 +1,5 @@
+import { HeaderBar, HeaderLead, HeaderTrail } from "@/components/layout/HeaderBar";
+
 function SearchIcon() {
   return (
     <svg
@@ -9,7 +11,7 @@ function SearchIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       aria-hidden
-      className="pointer-events-none absolute left-[10px] top-1/2 -translate-y-1/2 text-[#A8762A]"
+      className="pointer-events-none absolute top-1/2 left-md -translate-y-1/2 text-gold-soft"
     >
       <circle cx="11" cy="11" r="7" />
       <line x1="21" y1="21" x2="16.5" y2="16.5" />
@@ -36,13 +38,13 @@ export function AppHeader({
   optionsSlot?: React.ReactNode;
 }) {
   return (
-    <header className="mytheca-header relative z-[15] flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] shadow-[0_3px_14px_rgba(10,6,2,0.22)] sm:px-[26px]">
-      <div className="flex items-center gap-[13px]">
+    <HeaderBar elevated>
+      <HeaderLead className="gap-md">
         <span
           aria-hidden
           className="mytheca-brandmark h-[30px] w-[27px] flex-none"
         />
-        <span className="font-display text-[20px] font-bold leading-none tracking-[0.2em] text-ink">
+        <span className="font-display text-step-1 leading-none font-bold tracking-[0.2em] text-ink">
           MYTHECA
         </span>
         {storylineSlot ? (
@@ -57,8 +59,8 @@ export function AppHeader({
             {storylineSlot}
           </>
         ) : null}
-      </div>
-      <div className="flex items-center gap-3">
+      </HeaderLead>
+      <HeaderTrail>
         <div className="relative hidden items-center sm:flex">
           <SearchIcon />
           <input
@@ -67,12 +69,12 @@ export function AppHeader({
             value={query}
             onChange={(event) => onQuery(event.target.value)}
             placeholder="Search the library…"
-            className="w-[210px] rounded-[2px] border border-field-bd bg-field py-[6px] pr-[11px] pl-[28px] font-body text-[13.5px] text-ink focus:border-accent focus:outline-none"
+            className="w-[210px] rounded-xs border border-field-bd bg-field py-xs pr-md pl-2xl font-body text-field text-ink focus:border-accent focus:outline-none"
           />
         </div>
         {createSlot}
         {optionsSlot}
-      </div>
-    </header>
+      </HeaderTrail>
+    </HeaderBar>
   );
 }

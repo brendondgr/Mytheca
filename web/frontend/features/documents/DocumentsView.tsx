@@ -1,5 +1,6 @@
 "use client";
 
+import { HeaderBar, HeaderLead, HeaderTrail } from "@/components/layout/HeaderBar";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
@@ -47,28 +48,30 @@ export function DocumentsView({ storylineId }: { storylineId: string }) {
 
   return (
     <AppShell>
-      <header className="mytheca-header relative z-[15] flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] shadow-[0_3px_14px_rgba(10,6,2,0.22)] sm:px-[26px]">
-        <div className="flex min-w-0 items-center gap-[13px]">
-          <span aria-hidden className="text-[16px] text-accent">
+      <HeaderBar elevated>
+        <HeaderLead>
+          <span aria-hidden className="text-step-0 text-accent">
             ❖
           </span>
-          <span className="font-display text-[20px] font-bold tracking-[0.2em] text-ink">
+          <span className="font-display text-step-1 font-bold tracking-[0.2em] text-ink">
             MYTHECA
           </span>
           <span className="hidden h-5 w-px bg-hair-strong md:block" aria-hidden />
-          <span className="hidden truncate font-mono text-[10.5px] tracking-[0.18em] text-mute uppercase md:block">
+          <span className="hidden truncate font-mono text-eyebrow tracking-[0.18em] text-mute uppercase md:block">
             {dm.title ? `${dm.title} · Documents` : "Documents"}
           </span>
-        </div>
-        <Link
-          href={`/${storylineId}`}
-          className="rounded-[3px] border border-cardbd px-[11px] py-[5px] font-mono text-[11px] tracking-[0.1em] text-mute uppercase hover:border-accent hover:text-accent focus-visible:border-accent"
-        >
-          ‹ Library
-        </Link>
-      </header>
+        </HeaderLead>
+        <HeaderTrail>
+          <Link
+            href={`/${storylineId}`}
+            className="rounded-xs border border-cardbd px-md py-xs font-mono text-ui tracking-[0.1em] text-mute uppercase hover:border-accent hover:text-accent focus-visible:border-accent"
+          >
+            ‹ Library
+          </Link>
+        </HeaderTrail>
+      </HeaderBar>
 
-      <main className="min-h-0 flex-1 overflow-y-auto px-[16px] py-[22px] sm:px-[26px]">
+      <main id="main" tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto px-[16px] py-[22px] sm:px-[26px]">
         <div className="mx-auto flex max-w-[900px] flex-col gap-[16px]">
           <div>
             <h1 className="font-display text-step-2 font-bold tracking-[0.04em] text-ink">

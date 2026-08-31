@@ -14,6 +14,26 @@ Verified against the code on 2026-08-04.
 
 ## Unbuilt capabilities
 
+- **`ToastProvider.test.tsx` is flaky under full-suite load.** "holds the auto-dismiss
+  timer while the pointer is over the toast" uses real timers and intermittently fails when
+  149 test files are running concurrently; it passes 3/3 in isolation. Observed 2026-08-31
+  during the website overhaul. It is a test defect, not a product one — the fix is fake
+  timers — but it will occasionally red the validation gate until someone does that.
+- **`viewport-fit=cover` and safe-area insets are not adopted.** `app/layout.tsx` declares
+  the viewport but deliberately omits `viewportFit: "cover"`, because that and
+  `env(safe-area-inset-*)` are all-or-nothing: opting in makes every fixed/sticky element —
+  both header bars, the composer, every `Drawer`, `SceneRailBar` — responsible for insetting
+  itself, and landscape moves the insets to left/right. Without it the browser letterboxes
+  into the safe area automatically (safe, with visible bars). Adopt both together or neither.
+- **`/storylines/new` and `/storylines/[id]/edit` render no header bar at all**, so there is
+  no in-app way back except browser back. Every other route now shares the `HeaderBar`
+  chassis at one height. Deliberate for a full-screen editor, but it means the skip link on
+  those routes skips nothing.
+- **`app/not-found.tsx` is reachable only for genuinely unmatched paths.** `/<anything>`
+  matches the `[storylineId]` dynamic segment first, so an unknown storyline renders the
+  storyline route rather than the 404. Pre-existing routing behaviour, recorded because the
+  new not-found page makes it look like it should have caught that case.
+
 - **Nothing measures free-text mode against the structured one.** `sceneMode: "freetext"`
   (`docs/plans/free-text-mode.md`) ships on the owner's judgement — preference-driven and
   deliberately so — and the honest statement of its trade is that it **sells per-character
