@@ -125,6 +125,7 @@ describe("SceneHeader scene menu", () => {
 
 describe("SceneHeader view switch (chat ⇄ graph)", () => {
   it("renders the Chat/Graph switch to the left of Export and fires the handler", async () => {
+    atWidth(WIDE);
     const onViewModeChange = vi.fn();
     render(
       <SceneHeader
@@ -150,8 +151,35 @@ describe("SceneHeader view switch (chat ⇄ graph)", () => {
   });
 
   it("omits the switch when no handler is given", () => {
+    atWidth(WIDE);
     render(<SceneHeader title="Standoff" settingName="Hearth" onExport={vi.fn()} canExport />);
     expect(screen.queryByRole("group", { name: /scene view/i })).not.toBeInTheDocument();
+  });
+
+  it("folds into the scene menu below sm, as one control rather than two commands", async () => {
+    // Flattened into "Chat" and "Graph" menu items it would read as two unrelated
+    // actions, and the current position would have nowhere to show. It arrives as a
+    // `render` row instead, carrying its own group label and pressed states.
+    atWidth(NARROW);
+    const onViewModeChange = vi.fn();
+    render(
+      <SceneHeader
+        title="Standoff"
+        settingName="Hearth"
+        viewMode="chat"
+        onViewModeChange={onViewModeChange}
+      />,
+    );
+    expect(screen.queryByRole("group", { name: /scene view/i })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
+    const group = screen.getByRole("group", { name: /scene view/i });
+    expect(within(group).getByRole("button", { name: /chat/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await userEvent.click(within(group).getByRole("button", { name: /graph/i }));
+    expect(onViewModeChange).toHaveBeenCalledWith("graph");
   });
 });
 
@@ -187,22 +215,19 @@ describe("SceneHeader model status", () => {
     expect(status).toHaveAccessibleName(/model ready/i);
   });
 
-  it("keeps the words in its NAME when it shrinks to a glyph below sm", () => {
-    // It used to be `hidden sm:flex` — absent at exactly the width where a broken endpoint
-    // is hardest to diagnose. It is now always rendered; only the drawing shrinks.
+  it("still says it in words below sm, one tap further in", async () => {
+    // It used to shrink to a bare glyph so it could stay in a bar that had no room for
+    // the words. The bar no longer holds it at all, so the compromise is gone with it:
+    // in the menu there is room, and the state is still carried by the LABEL and not
+    // only by the dot's colour.
     atWidth(NARROW);
-    const { rerender } = render(
-      <SceneHeader title="Salt" settingName="Hearth" health={health()} />,
-    );
-    const status = screen.getByRole("status");
-    expect(status).toBeVisible();
-    expect(status).toHaveAccessibleName(/model ready/i);
+    render(<SceneHeader title="Salt" settingName="Hearth" health={health()} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
-    // The glyph is the second channel: a bare coloured dot at 320px would be colour alone.
-    const ready = status.textContent;
-    rerender(<SceneHeader title="Salt" settingName="Hearth" health={health({ state: "unreachable" })} />);
-    expect(screen.getByRole("status").textContent).not.toBe(ready);
-    expect(screen.getByRole("status")).toHaveAccessibleName(/model unreachable/i);
+    await userEvent.click(screen.getByRole("button", { name: /scene menu/i }));
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent(/model ready/i);
+    expect(status).toHaveAccessibleName(/model ready/i);
   });
 
   it("distinguishes a missing model from a dead endpoint", () => {
@@ -225,6 +250,7 @@ describe("SceneHeader model status", () => {
   });
 
   it("carries the endpoint's own explanation in the accessible name", () => {
+    atWidth(WIDE);
     render(
       <SceneHeader
         title="Salt"
@@ -266,16 +292,36 @@ describe("SceneHeader below sm — the overflow menu", () => {
     );
   }
 
-  it("keeps only the mode switch and the health light inline", () => {
+  it("keeps NOTHING inline but back, title and the menu", () => {
+    // The switch and the health light used to stay inline "because they are compact".
+    // They are, and the cluster holding them is `flex-none`, so both were paid for out
+    // of the title's width. Everything is one tap further in — and, crucially, rendered
+    // ONCE: a duplicated cluster produces two "What the scene knows" and a tab order
+    // that visits invisible buttons.
     atWidth(NARROW);
     render(full());
-    expect(screen.getByRole("group", { name: /scene view/i })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toBeInTheDocument();
-    // Everything else is one tap further in — and, crucially, rendered ONCE. A duplicated
-    // cluster would produce two "What the scene knows" and a tab order visiting invisible
-    // buttons.
+
+    expect(screen.getByRole("link", { name: /back to library/i })).toBeInTheDocument();
+    expect(screen.getByText("Salt")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /scene menu/i })).toBeInTheDocument();
+
+    expect(screen.queryByRole("group", { name: /scene view/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "What the scene knows" })).not.toBeInTheDocument();
     expect(screen.queryByRole("radiogroup", { name: /theme/i })).not.toBeInTheDocument();
+  });
+
+  it("shows the title alone, without its setting and tone subline", () => {
+    // Two lines of chrome in a 56px bar, on the narrowest screen in the app, for
+    // information the scene itself opens with (`SceneIntro` names the setting, the
+    // genre and the tone before the first beat).
+    atWidth(NARROW);
+    render(full());
+    // Present in the DOM, hidden by CSS — jsdom applies no stylesheet, so the class is
+    // the only observable. The assertion is deliberately about the CLASS.
+    const meta = screen.getByText(/◆ Hearth/);
+    expect(meta.className).toContain("hidden");
+    expect(meta.className).toContain("sm:block");
   });
 
   it("reaches every remaining control through the ⋯ menu", async () => {
@@ -291,8 +337,12 @@ describe("SceneHeader below sm — the overflow menu", () => {
     expect(menu.getByRole("menuitem", { name: "Export as Markdown" })).toBeInTheDocument();
     expect(menu.getByRole("menuitem", { name: "Export as JSON" })).toBeInTheDocument();
     expect(menu.getByRole("menuitem", { name: "Keyboard shortcuts" })).toBeInTheDocument();
-    // The theme switcher rides in as a labelled row rather than three flattened commands.
+    // Three `render` rows rather than flattened commands: a control with more than two
+    // positions becomes that many unrelated menu items, and its current position has
+    // nowhere left to show.
     expect(menu.getByText("Theme")).toBeInTheDocument();
+    expect(menu.getByRole("group", { name: /scene view/i })).toBeInTheDocument();
+    expect(menu.getByRole("status")).toHaveTextContent(/model ready/i);
   });
 
   it("drills a panel-owning item down in place, and ‹ Back returns", async () => {

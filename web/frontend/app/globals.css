@@ -79,6 +79,7 @@
   --spacing-2xl: var(--sp-2xl);
   --spacing-3xl: var(--sp-3xl);
   --spacing-header: var(--header-h);
+  --spacing-control: var(--control);
 
   /* Radius — `rounded-xs` .. `rounded-lg`. Tailwind ships its own
    * `rounded-sm/md/lg`; these entries REPLACE those values with Mytheca's,

@@ -139,7 +139,7 @@ export function PovSelect({
         // composer row, but the control cannot collapse below the WCAG 2.5.8 floor doing it.
         // It measured 18px wide at 320 — and the global coarse-pointer floor could not save
         // it, because that rule is zero-specificity by design and `min-w-0` outranks it.
-        className="flex min-w-[24px] items-center gap-2xs rounded-md border border-field-bd px-sm py-3xs text-mute hover:border-accent hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink"
+        className="flex h-control w-control touch-target-overlay min-w-[24px] items-center justify-center gap-2xs rounded-md border border-field-bd text-mute hover:border-accent hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink sm:w-auto sm:px-sm sm:py-3xs"
       >
         {selected ? (
           <Monogram
@@ -153,14 +153,18 @@ export function PovSelect({
         ) : (
           <PlaywrightAvatar size={18} />
         )}
-        <span className="min-w-0 max-w-[96px] truncate font-mono text-eyebrow tracking-[0.1em] text-current uppercase">
+        {/* The avatar above is the icon here, and it is a better one than any glyph:
+            it is the actual face of whoever is speaking. The NAME folds below `sm`,
+            where the row has no room for it — the `aria-label` on the trigger says
+            "Speaking as" at every width, and the open menu shows the name with a tick. */}
+        <span className="hidden min-w-0 max-w-[96px] truncate font-mono text-eyebrow tracking-[0.1em] text-current uppercase sm:inline">
           {selected ? selected.name : "Playwright"}
         </span>
         <Icon
           name="down"
           size={9}
           strokeWidth={2.2}
-          className={cn("transition-transform", open && "rotate-180")}
+          className={cn("hidden transition-transform sm:block", open && "rotate-180")}
         />
       </button>
 

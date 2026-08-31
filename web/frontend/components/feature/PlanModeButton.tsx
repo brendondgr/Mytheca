@@ -70,10 +70,10 @@ export function PlanModeButton({
         // tells a screen-reader user what it is called, never what it will do.
         aria-label={`Plan mode: ${LABELS[mode]}. ${HELP[mode]}`}
         title={HELP[mode]}
-        className="flex flex-none items-center gap-2xs rounded-md border border-field-bd px-sm py-2xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
+        className="flex h-control w-control touch-target-overlay flex-none items-center justify-center gap-2xs rounded-md border border-field-bd font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute sm:w-auto sm:px-sm sm:py-2xs"
       >
-        <Icon name="plan" size={12} />
-        {LABELS[mode]}
+        <Icon name="plan" size={14} />
+        <span className="hidden sm:inline">{LABELS[mode]}</span>
       </button>
     );
   }

@@ -71,7 +71,7 @@ Verified against the code on 2026-08-04.
 - **`viewport-fit=cover` and safe-area insets are not adopted.** `app/layout.tsx` declares
   the viewport but deliberately omits `viewportFit: "cover"`, because that and
   `env(safe-area-inset-*)` are all-or-nothing: opting in makes every fixed/sticky element —
-  both header bars, the composer, every `Drawer`, `SceneRailBar` — responsible for insetting
+  both header bars, the composer, every `Drawer` — responsible for insetting
   itself, and landscape moves the insets to left/right. Without it the browser letterboxes
   into the safe area automatically (safe, with visible bars). Adopt both together or neither.
 - **`/storylines/new` and `/storylines/[id]/edit` render no header bar at all**, so there is
@@ -677,7 +677,7 @@ continuous turn, and the experiment is capable of saying the default is wrong.
 ## Known UI limitations
 
 - ~~Rails are hidden below `lg`; mobile drawers are unbuilt.~~ **Built 2026-08-22.** Below
-  `lg` both rails open as bottom sheets from `SceneRailBar`, directly above the composer, and
+  `lg` both rails open as bottom sheets from rows in the scene menu, and
   they mount the *same* `…Content` components as the desktop asides with the *same* prop
   objects — so per-character stats, presence controls, the turn order, the scene pulse, the
   scene state and the direction checklist are all reachable at every width. `TurnStatusStrip`

@@ -117,11 +117,22 @@
    * defaults row) that no per-component sweep was going to catch reliably.
    *
    * `:where()` gives this ZERO specificity, so it is a floor and not a
-   * mandate: any component that sets its own height — the 24px IconButton in
-   * a dense rail, a 40px monogram — still wins, and those keep their projected
-   * hit area via `.touch-target-overlay` instead. Only controls that never
-   * expressed an opinion about their height are grown. */
-  :where(button, a[href], [role="button"], select, summary) {
+   * mandate. That was only ever half true, and the half that was false is the
+   * `:not()` below.
+   *
+   * **`min-height` beats `height` regardless of specificity.** It is not a
+   * cascade question — the box model resolves the minimum last — so a control
+   * that DID express an opinion about its height was grown anyway. Measured:
+   * the 24px `IconButton` this comment cited as the example of a control that
+   * "still wins" rendered 24 wide by 44 tall on a coarse pointer, and so did
+   * every square chrome button in the scene header.
+   *
+   * `.touch-target-overlay` is the exemption because it is the promise the
+   * floor is asking for: the element already projects a 44x44 hit area from
+   * its centre without affecting layout, so growing the box adds nothing and
+   * costs the dense chrome its shape. Only controls that never expressed an
+   * opinion about their height, and never projected a hit area, are grown. */
+  :where(button, a[href], [role="button"], select, summary):not(.touch-target-overlay) {
     min-height: 44px;
     /* WCAG 2.5.8 (AA) is 24x24, and the floor above only ever covered HEIGHT — so a control
        could be 44 tall and 18 wide and pass it silently. That is not hypothetical: the

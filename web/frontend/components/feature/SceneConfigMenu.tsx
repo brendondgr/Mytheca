@@ -257,10 +257,14 @@ export function SceneConfigMenu({
             ? "Scene configuration — settings apply to this turn only"
             : "Scene configuration"
         }
-        className="flex flex-none items-center gap-2xs rounded-md border border-field-bd px-sm py-2xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink"
+        // Icon-only below `sm`. The stated problem was width — "the text doesn't fit" —
+        // so the label folds rather than being deleted: it is back at `sm`, and the
+        // `aria-label` and `title` above carry it at every width, which is what keeps this
+        // from being a pictogram nobody can identify.
+        className="flex h-control w-control touch-target-overlay flex-none items-center justify-center gap-2xs rounded-md border border-field-bd font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink sm:w-auto sm:px-sm sm:py-2xs"
       >
-        <Icon name="gear" size={13} />
-        Config
+        <Icon name="gear" size={14} />
+        <span className="hidden sm:inline">Config</span>
         {/* Visible without opening the popover: something above is about to spring back.
             The dot is decoration — the button's own accessible name carries the meaning,
             because a coloured dot says nothing to a screen reader and nothing to a reader

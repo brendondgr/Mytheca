@@ -48,7 +48,7 @@ mytheca/
 │   │   ├── app/            # 8 routes (see docs/routes.md) + root layout + fonts/ (self-hosted woff2 + OFL)
 │   │   ├── components/{ui,layout,feature}/   # 24 / 6 / 74 components
 │   │   ├── features/       # Route-level modules: story-player, library, options, documents
-│   │   ├── hooks/          # 12: use-event-stream, use-focus-trap (shared by Modal + Drawer), use-media-query, use-coach-marks, use-model-health, use-scene-shortcuts, …
+│   │   ├── hooks/          # 12: use-event-stream, use-focus-trap (shared by Modal + Drawer), use-media-query, use-model-health, use-scene-shortcuts, …
 │   │   ├── lib/            # API client, types, events, theme, helpers (18 files)
 │   │   ├── styles/         # themes.css — the only stylesheet besides app/globals.css
 │   │   ├── public/         # Static assets

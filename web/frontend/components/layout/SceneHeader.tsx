@@ -11,6 +11,7 @@ import {
   type ExportFormat,
   type SceneMenuItem,
 } from "@/components/feature/SceneMenu";
+import { Icon } from "@/components/ui/Icon";
 
 /** Which face of the story player is showing: the running chat, or the graph. */
 export type SceneViewMode = "chat" | "graph";
@@ -20,7 +21,13 @@ const VIEW_MODES: { key: SceneViewMode; label: string }[] = [
   { key: "graph", label: "Graph" },
 ];
 
-/** A compact segmented Chat ⇄ Graph switch (mirrors the ThemeSwitcher idiom). */
+/** A compact segmented Chat ⇄ Graph switch (mirrors the ThemeSwitcher idiom).
+ *
+ * Rendered inline at `sm`+ and inside the scene menu below it — as a `render` row, not as
+ * two menu items. Flattened into "Chat" and "Graph" commands it would read as two
+ * unrelated actions rather than as one control with two positions, and the current
+ * position would have nowhere to show.
+ */
 function ViewModeSwitch({
   viewMode,
   onChange,
@@ -75,6 +82,7 @@ export function SceneHeader({
   onOpenStyle,
   onToggleMemory,
   memoryOpen = false,
+  railTriggers = [],
   health = null,
   tray,
   trayPanel,
@@ -104,6 +112,13 @@ export function SceneHeader({
   /** Opens the player-facing "what the scene knows" rail. */
   onToggleMemory?: () => void;
   memoryOpen?: boolean;
+  /**
+   * The rails the player reaches below `lg` — the cast, the scene state, what the scene
+   * knows. They used to be a third bar of their own (`SceneRailBar`) between the transcript
+   * and the composer, which is one horizontal band of chrome on the smallest screen in the
+   * app; they are menu rows now. Empty at `lg`+, where every rail is docked and visible.
+   */
+  railTriggers?: SceneMenuItem[];
   /** Whether the configured model endpoint is usable. `null` before the first check. */
   health?: LlmHealth | null;
   /**
@@ -140,7 +155,7 @@ export function SceneHeader({
             key: "writing",
             label: "Writing…",
             hint: "the instructions the narrator and cast are given",
-            icon: "✎",
+            icon: <Icon name="pencil" size={14} />,
             onSelect: onOpenWriting,
           },
         ]
@@ -151,7 +166,7 @@ export function SceneHeader({
             key: "style",
             label: "Style…",
             hint: "how this scene is written, where it differs from the world",
-            icon: "❧",
+            icon: <Icon name="book" size={14} />,
             onSelect: onOpenStyle,
           },
         ]
@@ -162,7 +177,7 @@ export function SceneHeader({
             key: "inspector",
             label: "Turn Inspector",
             hint: "what the scene read, who it chose, and why",
-            icon: "⚙",
+            icon: <Icon name="gear" size={14} />,
             pressed: inspectorOpen,
             onSelect: onToggleInspector,
           },
@@ -178,7 +193,7 @@ export function SceneHeader({
             hint: canExport
               ? "readable transcript + diagnostics"
               : "nothing to export until the scene has a turn",
-            icon: "⭳",
+            icon: <Icon name="down" size={14} />,
             disabled: !canExport,
             onSelect: () => onExport("md"),
           },
@@ -188,7 +203,7 @@ export function SceneHeader({
             hint: canExport
               ? "structured record for debugging"
               : "nothing to export until the scene has a turn",
-            icon: "⭳",
+            icon: <Icon name="down" size={14} />,
             disabled: !canExport,
             onSelect: () => onExport("json"),
           },
@@ -200,7 +215,7 @@ export function SceneHeader({
             key: "shortcuts",
             label: "Keyboard shortcuts",
             hint: "the keys this scene answers to",
-            icon: "⌨",
+            icon: <Icon name="chat" size={14} />,
             onSelect: onOpenShortcuts,
           },
         ]
@@ -218,8 +233,17 @@ export function SceneHeader({
   const foldedIn: SceneMenuItem[] = wide
     ? []
     : [
+        // The rails come FIRST. Below `sm` they are the only way to the cast, the scene
+        // state and the direction checklist, so they outrank the housekeeping below them.
+        ...railTriggers,
         ...(trayPanel
-          ? [{ key: "playthroughs", label: "Play-throughs", hint: "switch stories, or start another", icon: "❑", panel: trayPanel }]
+          ? [{
+              key: "playthroughs",
+              label: "Play-throughs",
+              hint: "switch stories, or start another",
+              icon: <Icon name="book" size={14} />,
+              panel: trayPanel,
+            }]
           : []),
         ...(onToggleMemory
           ? [
@@ -227,8 +251,11 @@ export function SceneHeader({
                 key: "memory",
                 label: "What the scene knows",
                 hint: "how far back the cast remembers, and what it is reading",
-                icon: "◍",
+                icon: <Icon name="knows" size={14} />,
                 pressed: memoryOpen,
+                // The rail takes the full width below `sm`, so leaving the menu open
+                // would park it on top of the thing it just revealed.
+                closesMenu: true,
                 onSelect: onToggleMemory,
               },
             ]
@@ -239,25 +266,51 @@ export function SceneHeader({
     ...foldedIn,
     ...alwaysInMenu,
     ...extraControls,
-    ...(wide ? [] : [{ key: "theme", label: "Theme", render: <ThemeSwitcher /> }]),
+    // Two `render` rows, both for the same reason: a control with more than two positions
+    // flattened into that many menu items reads as that many unrelated commands, and the
+    // current position has nowhere to show.
+    ...(wide
+      ? []
+      : [
+          ...(onViewModeChange
+            ? [{
+                key: "view",
+                label: "View",
+                render: (
+                  <ViewModeSwitch viewMode={viewMode ?? "chat"} onChange={onViewModeChange} />
+                ),
+              }]
+            : []),
+          ...(health
+            ? [{ key: "model", label: "Model", render: <ModelStatus health={health} /> }]
+            : []),
+          { key: "theme", label: "Theme", render: <ThemeSwitcher /> },
+        ]),
   ];
 
   return (
     <HeaderBar>
       <HeaderLead>
+        {/* A SQUARE below `sm`, and it has to be said in both dimensions: `px-sm py-xs`
+            gave a control 10px taller than it was wide, which is what made the old bar
+            read as a row of mismatched shapes rather than a set of buttons. */}
         <Link
           href={backHref}
           aria-label="Back to Library"
-          className="flex flex-none items-center gap-2xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.1em] text-accent-ink uppercase hover:bg-accent hover:text-on-accent sm:px-md"
+          className="flex h-control w-control touch-target-overlay flex-none items-center justify-center gap-2xs rounded-xs border border-field-bd font-mono text-eyebrow tracking-[0.1em] text-accent-ink uppercase hover:bg-accent hover:text-on-accent sm:w-auto sm:px-md"
         >
-          ‹<span className="hidden sm:inline">&nbsp;Library</span>
+          <Icon name="back" size={14} />
+          <span className="hidden sm:inline">Library</span>
         </Link>
-        <span className="h-[22px] w-px flex-none bg-hair-strong" aria-hidden />
+        <span className="hidden h-[22px] w-px flex-none bg-hair-strong sm:block" aria-hidden />
         <div className="min-w-0">
           <div className="truncate font-display text-step-0 leading-none font-bold text-ink">
             {title}
           </div>
-          <div className="mt-1 truncate font-mono text-tag tracking-[0.14em] text-mute uppercase">
+          {/* The title stands alone on a phone. The setting, genre and tone are all
+              visible in the scene itself — `SceneIntro` opens with them — so a second
+              line of chrome buys nothing and costs the bar its calm. */}
+          <div className="mt-1 hidden truncate font-mono text-tag tracking-[0.14em] text-mute uppercase sm:block">
             {meta} · live scene
           </div>
         </div>
@@ -271,38 +324,43 @@ export function SceneHeader({
         * Rendered ONCE in one of two forms, never twice with one copy `aria-hidden`: a
         * duplicated cluster produces duplicate accessible names and a tab order that
         * visits invisible buttons. */}
+      {/* **Below `sm` this bar is back, title, menu — and nothing else.** Every control
+          that used to sit here inline is in the menu instead, which is where the narrow
+          header already sent most of them. The rule is not "fewer controls": it is that a
+          `flex-none` cluster spends width a 320px screen does not have, so a control kept
+          inline for convenience is paid for by the title being squeezed. */}
       <HeaderTrail className="gap-sm sm:gap-md">
-        {/* Inline at every width: the scene's primary mode toggle, and whether the model
-            behind it is actually there. Both are compact, and both answer a question the
-            player should not have to open a menu to ask. */}
-        {onViewModeChange ? (
-          <ViewModeSwitch viewMode={viewMode ?? "chat"} onChange={onViewModeChange} />
+        {wide ? (
+          <>
+            {onViewModeChange ? (
+              <ViewModeSwitch viewMode={viewMode ?? "chat"} onChange={onViewModeChange} />
+            ) : null}
+            {wide ? tray : null}
+            {wide ? <ThemeSwitcher /> : null}
+            {/* The real model-health indicator, in the slot where a hardcoded green dot and
+                "Narrator active" used to sit — a literal `<span>` reflecting no state at
+                all. A status light that is always on teaches players to ignore every
+                status light. */}
+            <ModelStatus health={health} />
+            {/* Two rails, and they are for two different questions: this one is the
+                player's ("what does the scene know"), the Inspector is the developer's
+                ("what did the loop do"). Mutually exclusive, because two 340px columns
+                cannot both dock. */}
+            {wide && onToggleMemory ? (
+              <button
+                type="button"
+                onClick={onToggleMemory}
+                aria-pressed={memoryOpen}
+                aria-label="What the scene knows"
+                title="How far back the cast remembers, and what it is reading"
+                className="flex flex-none items-center gap-xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink aria-pressed:border-accent aria-pressed:text-accent-ink"
+              >
+                <Icon name="knows" size={14} />
+                <span className="hidden sm:inline">Memory</span>
+              </button>
+            ) : null}
+          </>
         ) : null}
-        {wide ? tray : null}
-        {wide ? <ThemeSwitcher /> : null}
-        {/* The real model-health indicator, in the slot where a hardcoded green dot and
-            "Narrator active" used to sit — a literal `<span>` reflecting no state at all. A
-            status light that is always on teaches players to ignore every status light. */}
-        <ModelStatus health={health} wide={wide} />
-        {/* Two rails, and they are for two different questions: this one is the player's
-            ("what does the scene know"), the Inspector is the developer's ("what did the loop
-            do"). Mutually exclusive, because two 340px columns cannot both dock. */}
-        {wide && onToggleMemory ? (
-          <button
-            type="button"
-            onClick={onToggleMemory}
-            aria-pressed={memoryOpen}
-            aria-label="What the scene knows"
-            title="How far back the cast remembers, and what it is reading"
-            className="flex flex-none items-center gap-xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink aria-pressed:border-accent aria-pressed:text-accent-ink"
-          >
-            <span aria-hidden>◍</span>
-            <span className="hidden sm:inline">Memory</span>
-          </button>
-        ) : null}
-        {/* One popover holding everything that does not fit. Below `sm` that is most of the
-            header; the cluster is `flex-none`, so every control left inline costs width a
-            320px screen does not have. */}
         {sceneMenuItems.length > 0 || extraSlot ? (
           <SceneMenu items={sceneMenuItems} extraSlot={extraSlot} />
         ) : null}
@@ -314,15 +372,12 @@ export function SceneHeader({
 /** How each health state reads to a player, in words — never by colour alone. */
 const HEALTH_COPY: Record<
   LlmHealth["state"],
-  { label: string; dot: string; text: string; glyph: string }
+  { label: string; dot: string; text: string }
 > = {
-  // `glyph` is the narrow form's second channel. A bare coloured dot at 320px would be
-  // colour alone, which is exactly what the labelled form exists to avoid — so the shape
-  // changes with the state too.
-  reachable: { label: "Model ready", dot: "bg-success", text: "text-mute", glyph: "●" },
-  model_missing: { label: "Model not found", dot: "bg-gold", text: "text-gold-ink", glyph: "!" },
-  unreachable: { label: "Model unreachable", dot: "bg-danger", text: "text-danger-ink", glyph: "✕" },
-  unconfigured: { label: "No model set", dot: "bg-mute2", text: "text-mute2", glyph: "○" },
+  reachable: { label: "Model ready", dot: "bg-success", text: "text-mute" },
+  model_missing: { label: "Model not found", dot: "bg-gold", text: "text-gold-ink" },
+  unreachable: { label: "Model unreachable", dot: "bg-danger", text: "text-danger-ink" },
+  unconfigured: { label: "No model set", dot: "bg-mute2", text: "text-mute2" },
 };
 
 /**
@@ -332,30 +387,24 @@ const HEALTH_COPY: Record<
  * carries the endpoint's own explanation, and `role="status"` announces a change rather than
  * leaving it to be noticed. Renders nothing until the first check has answered — a light that
  * guesses is worse than one that waits.
+ *
+ * There used to be a second, glyph-only form for below `sm`, where the labelled one did not
+ * fit the bar. It is gone with the bar: below `sm` this renders as a scene-menu row, where
+ * there is room for the words. The state is still carried by shape as well as colour — the
+ * label changes, not just the dot.
  */
-function ModelStatus({ health, wide }: { health: LlmHealth | null; wide: boolean }) {
+function ModelStatus({ health }: { health: LlmHealth | null }) {
   if (!health) return null;
   const copy = HEALTH_COPY[health.state];
   return (
     <span
       role="status"
       aria-label={`${copy.label}. ${health.detail}`}
-      title={
-        health.backend ? `${health.detail} (${health.backend})` : health.detail
-      }
+      title={health.backend ? `${health.detail} (${health.backend})` : health.detail}
       className="flex flex-none items-center gap-xs font-mono text-eyebrow tracking-[0.12em] uppercase"
     >
-      {wide ? (
-        <>
-          <span aria-hidden className={`h-[6px] w-[6px] flex-none rounded-full ${copy.dot}`} />
-          <span className={copy.text}>{copy.label}</span>
-        </>
-      ) : (
-        // The name still says it in words; only the drawing shrinks. It used to be
-        // `hidden sm:flex` — invisible at exactly the width where a broken endpoint is
-        // hardest to diagnose.
-        <span aria-hidden className={`text-eyebrow leading-none ${copy.text}`}>{copy.glyph}</span>
-      )}
+      <span aria-hidden className={`h-[6px] w-[6px] flex-none rounded-full ${copy.dot}`} />
+      <span className={copy.text}>{copy.label}</span>
     </span>
   );
 }

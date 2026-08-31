@@ -657,10 +657,12 @@ export function Composer({
             onClick={onSend}
             disabled={sendDisabled || !hasContent}
             aria-label="Send"
-            className="flex flex-none items-center gap-2xs rounded-md bg-accent px-md py-2xs font-mono text-eyebrow tracking-[0.08em] text-on-accent uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
+            // Square below `sm` like every other control in this row; the word returns
+            // beside the arrow at `sm`. The accessible name is "Send" either way.
+            className="flex h-control w-control touch-target-overlay flex-none items-center justify-center gap-2xs rounded-md bg-accent font-mono text-eyebrow tracking-[0.08em] text-on-accent uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent sm:w-auto sm:px-md sm:py-2xs"
           >
-            Send
-            <Icon name="send" size={12} />
+            <span className="hidden sm:inline">Send</span>
+            <Icon name="send" size={14} />
           </button>
           </div>
         </div>

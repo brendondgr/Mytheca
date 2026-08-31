@@ -269,6 +269,20 @@ Elevation tokens are named `--elev-*`, **not** `--shadow-*`, because Tailwind v4
 `--shadow-*` theme namespace: a token of the same name mapped through `@theme inline` compiles to
 `--shadow-sm: var(--shadow-sm)`, a self-referential custom property.
 
+`--control` is the one square-chrome edge — **44px below `sm`, 34px above it**. The header's
+back link and menu trigger were sized by padding (`px-sm py-xs`), which made them ~10px taller
+than wide; a bar whose controls are each a slightly different rectangle reads as sloppiness. The
+breakpoint split is deliberate: on a phone the square **is** the WCAG 2.5.8 target rather than a
+projected one, and above `sm` the chrome returns to the dense size the design system asks for.
+
+Note what forced that split. The coarse-pointer floor in `styles/motion.css` sets
+`min-height: 44px`, and **`min-height` beats `height` regardless of specificity** — it is the box
+model, not the cascade — so a control that set its own height was grown anyway. The floor's own
+comment claimed the opposite, citing the 24px `IconButton` as an example of a control that "still
+wins"; measured, that button rendered 24 wide by 44 tall on a coarse pointer. The floor now
+exempts `.touch-target-overlay`, which is exactly the promise it wants: an element already
+projecting a 44x44 hit area from its centre gains nothing by growing its box.
+
 `--header-h` (56px) is also declared here. It was previously referenced by the `scroll-margin` rule in
 `globals.css` and **declared nowhere**, so the 4.5rem fallback always applied while the real bars were
 52px and 50px — deep links landed ~20px off. It now also drives `scroll-padding-top`, which is what
@@ -333,7 +347,7 @@ and the offline PostCSS pipeline and Turbopack order that merge differently — 
 
 **Below `sm` the scene header collapses into one overflow menu.** The control cluster is `flex-none` on purpose — letting it shrink pushes its children 50–150px past the viewport edge rather than 7px — so the fix is the *item model*, not the width. `SceneHeader` renders its cluster once, in one of two forms, chosen by `useMediaQuery("(min-width: 640px)")`: at `sm`+ the inline row; below `sm` only the **Chat ⇄ Graph** switch and the **model-health** glyph stay inline, and the play-through tray, theme, the memory toggle, the Inspector, Export, Writing… and the keyboard-shortcut sheet all live in `SceneMenu`. An item that owns a panel (the tray) is **drilled into in place** — its rows replace the menu's, with a `‹ Back` row — because a popover inside a popover has two Escape targets and a focus order nobody can follow. At 320×720 this took the header from **17px of clipped overflow to zero**, while *adding* two controls that width never had: the health indicator (previously `hidden sm:flex`) and the shortcut sheet (previously `?`-only).
 
-**Below `lg` the two rails become bottom sheets.** They are not reduced copies: `CastRail`, `DirectorRail` and `CharacterDossier` are each split into a `…Content` component and a thin `lg`-only `<aside>` shell, and the sheet mounts the *same* content component with the *same* prop object — so a capability added to a rail reaches the phone in the same edit. `SceneRailBar` (`lg:hidden`, directly above the composer, where a thumb already is) carries the triggers: **Cast** with the present-cast count, **Scene** with an amber badge counting what the direction still owes, and **Knows** for the scene-knowledge panel. The desktop rule that the dossier takes over the Director rail holds in the sheet too — selecting a character below `lg` raises the Scene sheet showing their dossier, since setting a profile that nothing renders reads as the app ignoring the tap. The sheets use the `Drawer` primitive (portal, shared focus trap, scroll lock, `@starting-style` entrance with a reduced-motion path); a sheet that is animating out is `aria-hidden`, so exactly one dialog is ever in the accessibility tree. The scene pulse and the direction checklist take `live={false}` inside a sheet — a log that mounts on open would otherwise announce the whole turn at once, after the fact.
+**Below `lg` the two rails become bottom sheets.** They are not reduced copies: `CastRail`, `DirectorRail` and `CharacterDossier` are each split into a `…Content` component and a thin `lg`-only `<aside>` shell, and the sheet mounts the *same* content component with the *same* prop object — so a capability added to a rail reaches the phone in the same edit. The triggers are **rows in the scene menu**: **Cast** with the present-cast count, **Scene** with an amber badge counting what the direction still owes, and **What the scene knows**. They were a `SceneRailBar` directly above the composer until 2026-08-31 — one tap rather than two, and one more horizontal band of chrome on the narrowest screen in the app, which is what it cost. A row that opens a sheet carries `closesMenu`, because a sheet raised under a still-open menu is a surface hidden by the thing that revealed it. The desktop rule that the dossier takes over the Director rail holds in the sheet too — selecting a character below `lg` raises the Scene sheet showing their dossier, since setting a profile that nothing renders reads as the app ignoring the tap. The sheets use the `Drawer` primitive (portal, shared focus trap, scroll lock, `@starting-style` entrance with a reduced-motion path); a sheet that is animating out is `aria-hidden`, so exactly one dialog is ever in the accessibility tree. The scene pulse and the direction checklist take `live={false}` inside a sheet — a log that mounts on open would otherwise announce the whole turn at once, after the fact.
 
 **The scene menu, and writing prompts at play time.** The scene header's right-hand cluster
 is `flex-none` on purpose — letting it shrink pushes its children 50–150px past the viewport

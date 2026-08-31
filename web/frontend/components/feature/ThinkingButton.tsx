@@ -86,10 +86,10 @@ export function ThinkingButton({
         // it is called, never what it will change.
         aria-label={`Thinking: ${label}. ${HELP}`}
         title={HELP}
-        className="flex flex-none items-center gap-2xs rounded-md border border-field-bd px-sm py-2xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
+        className="flex h-control w-control touch-target-overlay flex-none items-center justify-center gap-2xs rounded-md border border-field-bd font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute sm:w-auto sm:px-sm sm:py-2xs"
       >
-        <Icon name="think" size={12} />
-        {label}
+        <Icon name="think" size={14} />
+        <span className="hidden sm:inline">{label}</span>
       </button>
 
       {open ? (

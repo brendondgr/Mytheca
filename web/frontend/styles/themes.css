@@ -260,6 +260,25 @@
    * bars were 52px and 50px — deep links landed ~20px off. One value now, and
    * both bars consume it. */
   --header-h: 56px;
+
+  /* One square-chrome edge. The header's back link and menu trigger were sized
+   * by padding — `px-sm py-xs` — which made them ~10px taller than they were
+   * wide, and a bar of controls that are each a slightly different rectangle
+   * reads as sloppiness rather than as a set.
+   *
+   * 44px below `sm` and 34px above it, and the split is the point: on a phone
+   * the square IS the touch target, so it is the real WCAG 2.5.8 size rather
+   * than a projected one; above `sm` the chrome goes back to the dense size
+   * the design system specifies ("small and quiet"), and
+   * `.touch-target-overlay` projects the 44x44 hit area for a tablet, where a
+   * coarse pointer and a wide viewport arrive together. */
+  --control: 44px;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --control: 34px;
+  }
 }
 
 /* ------------------------------------------------------------------ *

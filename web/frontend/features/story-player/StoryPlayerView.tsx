@@ -18,12 +18,11 @@ import { useSceneShortcuts } from "@/hooks/use-scene-shortcuts";
 import { TranscriptSearch } from "@/components/feature/TranscriptSearch";
 import { matchBeats, stepMatch } from "./transcript-search";
 import { ShortcutSheet } from "@/components/feature/ShortcutSheet";
-import { CoachMark } from "@/components/feature/CoachMark";
-import { useCoachMarks } from "@/hooks/use-coach-marks";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { COACH_MARKS, type CoachMarkId } from "@/lib/coachMarks";
 import type { SceneImage, SceneMessage } from "./scene-data";
 import { SceneHeader, type SceneViewMode } from "@/components/layout/SceneHeader";
+import type { SceneMenuItem } from "@/components/feature/SceneMenu";
+import { Icon } from "@/components/ui/Icon";
 import { PromptOverridesModal } from "@/components/feature/PromptOverridesModal";
 import { StyleGuideModal } from "@/components/feature/StyleGuideModal";
 import { CastRail, CastRailContent, type CastRailProps } from "@/components/feature/CastRail";
@@ -37,7 +36,6 @@ import { BeatTakePager } from "@/components/feature/BeatTakePager";
 import { RewindNotice } from "@/components/feature/RewindNotice";
 import { GraphView } from "@/components/feature/GraphView";
 import { DirectorRail, DirectorRailContent, type DirectorRailProps } from "@/components/feature/DirectorRail";
-import { SceneRailBar, type RailTrigger } from "@/components/feature/SceneRailBar";
 import { Drawer } from "@/components/ui/Drawer";
 import { Composer } from "@/components/feature/Composer";
 import { PlanApproval } from "@/components/feature/PlanApproval";
@@ -285,15 +283,7 @@ export function StoryPlayerView({
   const activeMatch = matchTotal ? Math.min(matchIndex, matchTotal - 1) : 0;
   const highlighted = matchTotal ? matches[activeMatch].index : -1;
 
-  // Every hint can now be shown at every width. The cast-rail one used to be suppressed below
-  // `lg` because it pointed at a rail that did not exist there; it now points at the Cast
-  // trigger in the rail bar, which does.
   const wide = useMediaQuery("(min-width: 1024px)");
-  const availableMarks = useMemo<CoachMarkId[]>(
-    () => ["composer", "pov", "cast-rail"],
-    [],
-  );
-  const { mark, dismiss } = useCoachMarks(availableMarks);
 
   // Destructured before the memo so its dependencies are plain values rather than the whole
   // `scene` object, which is rebuilt every render and would defeat the memo entirely.
@@ -339,10 +329,7 @@ export function StoryPlayerView({
     speakingId: scene.speakingId,
     turnOrder: scene.turnOrder,
     charById: byId,
-    onProfile: (id) => {
-      if (mark === "cast-rail") dismiss("cast-rail");
-      showProfile(id);
-    },
+    onProfile: showProfile,
     presenceByChar: scene.presenceByChar,
     setPresence: scene.setPresence,
     statDefs,
@@ -378,38 +365,44 @@ export function StoryPlayerView({
   const sceneOwed =
     scene.direction.items.filter((i) => i.state !== "delivered").length + scene.standing.length;
 
-  const railTriggers: RailTrigger[] = [
-    {
-      key: "cast",
-      label: "Cast",
-      count: castRailProps.cast.filter(
-        (c) => (scene.presenceByChar[c.id] ?? "present") === "present",
-      ).length,
-      countLabel: (n) => `${n} in the scene`,
-      open: openSheet === "cast",
-      onSelect: () => setRailDrawer((open) => (open === "cast" ? null : "cast")),
-    },
-    {
-      key: "scene",
-      label: "Scene",
-      count: sceneOwed,
-      countLabel: (n) => `${n} still owed`,
-      urgent: true,
-      open: openSheet === "scene",
-      onSelect: () => setRailDrawer((open) => (open === "scene" ? null : "scene")),
-    },
-    {
-      // The memory panel is NOT wrapped in a sheet: it already takes the full width below
-      // `sm` and brings its own `<aside>` and close button, so a dialog around it would nest
-      // a landmark inside a dialog and give it two ways out. What it lacked was a reachable
-      // trigger below `lg`, which is this.
-      key: "knows",
-      label: "Knows",
-      dialog: false,
-      open: memoryOpen,
-      onSelect: () => setMemoryOpen((open) => !open),
-    },
-  ];
+  /**
+   * The rails, as scene-menu rows.
+   *
+   * They were a bar of their own — `SceneRailBar`, a third horizontal band between the
+   * transcript and the composer, below `lg` only. Three bands of chrome on the smallest
+   * screen in the app is what "the layout looks goofy" was pointing at, and the row cost
+   * the transcript ~44px of the little height a phone has. The rails themselves are
+   * unchanged: the same `Drawer` sheets open from the same state, one level further in.
+   */
+  const railTriggers: SceneMenuItem[] = wide
+    ? []
+    : [
+        {
+          key: "cast",
+          label: "Cast",
+          hint: "who is here, how they feel, what their stats say",
+          icon: <Icon name="cast" size={14} />,
+          count: castRailProps.cast.filter(
+            (c) => (scene.presenceByChar[c.id] ?? "present") === "present",
+          ).length,
+          countLabel: (n) => `${n} in the scene`,
+          pressed: openSheet === "cast",
+          closesMenu: true,
+          onSelect: () => setRailDrawer((open) => (open === "cast" ? null : "cast")),
+        },
+        {
+          key: "scene",
+          label: "Scene",
+          hint: "the pulse, the state, and what your direction still owes",
+          icon: <Icon name="scene" size={14} />,
+          count: sceneOwed,
+          countLabel: (n) => `${n} still owed`,
+          urgent: true,
+          pressed: openSheet === "scene",
+          closesMenu: true,
+          onSelect: () => setRailDrawer((open) => (open === "scene" ? null : "scene")),
+        },
+      ];
 
   // WCAG 2.1.4: `/` and `?` are single-character shortcuts, so there has to be a way to turn
   // them off. Standing down inside text fields — which this hook already did — is necessary
@@ -523,6 +516,7 @@ export function StoryPlayerView({
               }
         }
         memoryOpen={memoryOpen}
+        railTriggers={railTriggers}
         health={health}
         tray={
           <PlaythroughTray
@@ -554,15 +548,6 @@ export function StoryPlayerView({
       />
 
       <div className="relative flex min-h-0 flex-1">
-        {/* In graph mode below `lg` there is no rail bar and no rail — the one case where
-            this hint still has nothing to point at. */}
-        {mark === "cast-rail" && (wide || viewMode === "chat") ? (
-          <CoachMark
-            text={COACH_MARKS["cast-rail"]}
-            onDismiss={() => dismiss("cast-rail")}
-            className="absolute bottom-3xl left-[16px] lg:top-3xl lg:bottom-auto"
-          />
-        ) : null}
         <CastRail {...castRailProps} />
 
         {viewMode === "graph" ? (
@@ -786,22 +771,6 @@ export function StoryPlayerView({
             <JumpToLatest onClick={jumpToLatest} className="bottom-3xl lg:bottom-3xl" />
           ) : null}
 
-          {/* Anchored above the composer band, one at a time. No overlay and no backdrop:
-              the scene stays fully usable, and a player who ignores these is never blocked. */}
-          {mark === "composer" || mark === "pov" ? (
-            <CoachMark
-              text={COACH_MARKS[mark]}
-              onDismiss={() => dismiss(mark)}
-              className="absolute right-[16px] bottom-3xl left-auto sm:right-[30px] lg:bottom-3xl"
-            />
-          ) : null}
-
-          {/* Below `lg` this row is the ONLY way to the rails — the cast list with its
-              presence controls and stat values, the scene pulse, the scene state, the
-              direction checklist. It sits above the composer rather than in the header
-              because that is where a thumb already is. */}
-          <SceneRailBar triggers={railTriggers} />
-
           <Composer
             // Cast + context files in one `@` namespace, built by the hook because who is
             // present is its own state.
@@ -839,12 +808,7 @@ export function StoryPlayerView({
               ) : null
             }
             value={scene.composer}
-            onChange={(v) => {
-              // Acting on the thing a hint points at IS dismissing it. Anything that can only
-              // be dismissed by its × eventually traps someone.
-              if (mark === "composer") dismiss("composer");
-              scene.setComposer(v);
-            }}
+            onChange={scene.setComposer}
             onSend={scene.send}
             sendDisabled={scene.sending}
             inputRef={composerRef}
@@ -872,10 +836,7 @@ export function StoryPlayerView({
             guidance={scene.guidance}
             onGuidanceChange={scene.setGuidance}
             pov={scene.pov}
-            onPovChange={(id) => {
-              if (mark === "pov") dismiss("pov");
-              scene.setPov(id);
-            }}
+            onPovChange={scene.setPov}
             povOptions={povOptions}
             usedTokens={scene.usedTokens}
             maxContextTokens={scene.maxContextTokens}
