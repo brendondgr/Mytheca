@@ -44,7 +44,22 @@ export function AppHeader({
           aria-hidden
           className="mytheca-brandmark h-[30px] w-[27px] flex-none"
         />
-        <span className="font-display text-step-1 leading-none font-bold tracking-[0.2em] text-ink">
+        {/* The wordmark folds below `sm`, the brandmark does not.
+         *
+         * At 390px it rendered 51->176px inside a 116px-wide lead: it overflowed
+         * its OWN container by 44px and sat under the Create button. Nothing
+         * extended past the viewport edge, so no overflow check saw it — an
+         * overlap is invisible to a `scrollWidth` gate and obvious to a person.
+         *
+         * Truncating it was the other option and reads worse than hiding it:
+         * "MYTH…" is not a brand. The name is not lost — the brandmark carries
+         * it, `sr-only` keeps it in the accessibility tree, and the document
+         * title says it too. */}
+        <span className="sr-only">Mytheca</span>
+        <span
+          aria-hidden
+          className="hidden truncate font-display text-step-1 leading-none font-bold tracking-[0.2em] text-ink sm:block"
+        >
           MYTHECA
         </span>
         {storylineSlot ? (

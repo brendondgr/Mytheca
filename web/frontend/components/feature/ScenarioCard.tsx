@@ -83,12 +83,25 @@ export function ScenarioCard({
       ) : null}
 
       <div className={cn("pointer-events-none relative z-[1]", featured ? "p-lg" : "p-lg")}>
+        {/* The reserve has to clear the ACTUAL top-right cluster, and `pr-3xl`
+            (48px) did not: with the Recent badge present the cluster measures
+            91px at 390px, so the title ran underneath it. Nothing overflowed the
+            viewport, so no responsive check caught it — an overlap is invisible
+            to a `scrollWidth` gate and the first thing a person notices.
+
+            Composed from scale steps rather than a measured pixel literal, so it
+            stays on the system: 48 + 32 + 12 = 92px, just past the cluster. */}
         <h3
           className={cn(
-            "pr-3xl font-display text-step-1 font-bold leading-[1.08]",
+            "font-display text-step-1 font-bold leading-[1.08]",
             !hasImage && "text-ink",
           )}
-          style={hasImage ? { color: OVER_ART.title } : undefined}
+          style={{
+            paddingInlineEnd: featured
+              ? "calc(var(--sp-3xl) + var(--sp-2xl) + var(--sp-md))"
+              : "var(--sp-3xl)",
+            ...(hasImage ? { color: OVER_ART.title } : {}),
+          }}
         >
           {s.title}
         </h3>

@@ -131,7 +131,16 @@ export function ScenarioCarousel({
 
               {/* Text content above the overlay — capped width for readable
                   line length even on the wide 16:9 panel. */}
-              <div className="relative z-[1] flex w-full max-w-[340px] flex-1 flex-col overflow-hidden p-[42px_16px_16px] sm:p-[46px_20px_18px]">
+              {/* The top reserve has to clear the absolutely-positioned overlay
+                  row above (the "Recent Scenario" label and the ‹ 1/3 › pager),
+                  which spans 44px from `top-lg`. 42px did not: the title's first
+                  line began 20px inside that band and ran under the pager at
+                  390px. Nothing overflowed the viewport, so the responsive
+                  checks were silent — an overlap is invisible to a `scrollWidth`
+                  gate and the first thing a person sees.
+                  48 + 16 = 64px, composed from scale steps rather than a
+                  measured literal, so it stays on the system. */}
+              <div className="relative z-[1] flex w-full max-w-[340px] flex-1 flex-col overflow-hidden px-lg pt-[calc(var(--sp-3xl)+var(--sp-lg))] pb-lg sm:px-xl">
                 <h2
                   className="font-display text-step-2 font-bold leading-[1.08] sm:text-step-2"
                   style={{ color: LIGHT.title }}
