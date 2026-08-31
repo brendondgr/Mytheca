@@ -1,0 +1,101 @@
+# Repository audit profile — the scoping gate for docs/audit/repo-audit-report.md.
+#
+# This is the REPOSITORY audit (layout, README, hygiene, showcase, publishability).
+# It is a different pass from docs/audit/audit-profile.yaml, which scopes the
+# *website* audit (accessibility, responsiveness, motion, SEO of the running app).
+#
+# Written 2026-08-31. Re-validate with:
+#   python3 <skill>/scripts/audit_structure.py . --detect --compare docs/audit/repo-profile.yaml
+
+repo:
+  name: Mytheca
+  archetype: mixed
+  secondary: ml-research
+  # Detection scored web-app 6 / service 2 / ml-research 1 at 0.6 confidence, which
+  # under-reads the repo: the 19-experiment research record under docs/research/ is a
+  # first-class part of what this project is, not an appendix. Audited as mixed.
+  one_liner: >-
+    Author a world, cast its characters, and play scenes that a multi-agent engine writes
+    live — every beat a typed, server-validated event, so the model decides what happens
+    and never how it looks.
+  status: active
+  status_honest_note: >-
+    Active and solo. Started 2026-06-21; 846 commits, 332 of them in the last 30 days.
+    Single-player and self-host only — there is no authentication, no deployment target
+    chosen, and no hosted instance.
+  visibility: public
+
+purpose: portfolio          # and, per the owner, a public product others can self-host
+reader: hiring-manager      # secondary: a stranger who wants to run it
+role_family: swe            # full-stack + applied-LLM systems
+
+ecosystem:
+  primary: mixed            # python 437 files / ts 349 files
+  package_manager: uv       # npm for the frontend
+  lockfile: uv.lock         # and web/frontend/package-lock.json
+  layout: flat              # root launcher + web/{backend,frontend} split
+  min_version: "3.13"
+
+entrypoints:
+  setup: "cp .env.example .env"
+  run: "uv run python app.py"
+  test: "uv run pytest && cd web/frontend && npm test"
+  verified: false
+  # Verified running on THIS machine 2026-08-31 (both servers healthy, a seeded scene
+  # played through). NOT verified from a clean clone in a container, so `verified`
+  # stays false — see audit finding R-1.
+
+showcase:
+  has_ui: true
+  showable:
+    - "story player mid-scene (the product)"
+    - "library / authoring shell"
+    - "story graph inspector"
+    - "19 experiment figures under docs/research/experiments/*/figures/"
+  assets_dir: docs/assets
+  demo_url: null
+  pages_url: null
+  personal_site_url: null
+  personal_site_has_page: false
+  video_url: null
+  # Rung 4 of the scoping.md fallback ladder: in-repo assets only. A hosted demo is
+  # not possible — the app needs an LLM endpoint plus four data stores.
+
+docs:
+  surface: docs-dir
+  file_count: 246
+  governing_rules:
+    - CLAUDE.md
+    - CONTRIBUTING.md
+    - docs/skills/global-project-rules/SKILL.md
+  historical_dirs:
+    - docs/research/experiments
+    - docs/plans/archive
+
+experiments:
+  dir: docs/research/experiments
+  count: 19
+  index: docs/research/INDEX.md
+  all_have_status: true
+  known_supersessions:
+    - "EXP-2026-08-019 refutes the effect EXP-2026-08-018 reported (re-ran the unchanged
+       baseline and moved it by more than the effect); recorded in CLAUDE.md and checklist."
+  traces_complete: true
+  provenance_lost: []
+
+ml:
+  reports_metrics: true
+  has_baseline: true        # EXP-2026-08-001 is planner-vs-one-shot; arms are baselined
+  weights_available: false  # no models trained; this evaluates prompting + orchestration
+  dataset_public: false     # scenes are generated in-repo by scene_smoke / experiment harnesses
+  dataset_redistributable: true
+  seeds_set: true
+  runs_per_result: varies   # recorded per experiment in manifest.yaml
+
+constraints:
+  do_not_publish: []
+  do_not_move:
+    - app.py                        # README, CLAUDE.md, CONTRIBUTING and every doc name it
+    - docs/research/                # the research contract pins these paths
+    - docs/skills/                  # .claude/ .agents/ .cursor/ all point at these
+  history_rewrite_allowed: false
