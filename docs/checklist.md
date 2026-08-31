@@ -58,11 +58,18 @@ Verified against the code on 2026-08-04.
 
 - **The library shell's 2026-08-31 rebuild was verified by tests and a production build, not
   by eye.** Everything else in that change set was checked live at 320 / 390 / 1280 in a real
-  browser; the library half was not, because the agent's browser pane stopped revealing Next's
-  streamed content partway through the session — every route shows the `app/loading.tsx`
-  fallback while the real tree sits in a `hidden` container, meaning React's reveal script
-  never runs there. **This is the tooling, not the app**, and there is a control: checking out
-  the pre-session commit `af6a9f0` reproduces it exactly, as does `next build` + `next start`.
+  browser; the library half was not, because the agent's browser pane stopped rendering the app
+  partway through the session — every route shows the `app/loading.tsx` fallback while the real
+  tree sits in a `hidden` container.
+
+  **The mechanism, measured, so nobody re-debugs the app for it.** The pane loads external
+  `<script src>` bundles but does not execute inline `<script>` elements. Next streams the RSC
+  payload as inline `self.__next_f.push(...)` calls: in that pane the seven such scripts are
+  present in the DOM and `self.__next_f` is **0 chunks, 0 bytes**. So React hydrates the shell
+  from the external chunks (`__reactFiber$` is on the tree) and then waits forever for a route
+  segment payload that will never arrive. **This is the tooling, not the app.** Two controls
+  confirm it: the pre-session commit `af6a9f0` reproduces it exactly, and so does
+  `next build` + `next start`, since both stream RSC the same way. A real browser is unaffected.
   What was still verified: 1510 co-located tests including new ones pinning each structural
   change, `tsc`, ESLint, the contrast and CSS gates, a clean production build, and real
   measured geometry at 390px taken by un-hiding the SSR tree (header controls 44x44, the
