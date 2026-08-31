@@ -3,6 +3,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Monogram } from "@/components/ui/Monogram";
 import { mediaUrl } from "@/lib/api";
+import { Icon } from "@/components/ui/Icon";
+import { cn } from "@/lib/cn";
 
 /** One selectable Player-POV target: a present cast member the player can speak AS. */
 export interface PovOption {
@@ -14,47 +16,6 @@ export interface PovOption {
   portrait?: string | null;
 }
 
-/** A small drama/identity glyph for the "Playwright" (no-POV) row (decorative). */
-function MaskIcon({ size = 12 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21c0-4 3.5-6 8-6s8 2 8 6" />
-    </svg>
-  );
-}
-
-/** Down/up caret on the trigger, signalling the control opens a menu. */
-function Caret({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="9"
-      height="9"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className="flex-none"
-      style={{ transform: open ? "rotate(180deg)" : undefined }}
-    >
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
-}
-
 /** A parchment circle carrying the drama mask, sized to sit beside the monograms. */
 function PlaywrightAvatar({ size = 22 }: { size?: number }) {
   return (
@@ -63,28 +24,8 @@ function PlaywrightAvatar({ size = 22 }: { size?: number }) {
       className="inline-flex flex-none items-center justify-center rounded-full border border-cardbd text-mute2"
       style={{ width: size, height: size, background: "#EDE3CD" }}
     >
-      <MaskIcon size={Math.round(size * 0.5)} />
+      <Icon name="person" size={Math.round(size * 0.5)} />
     </span>
-  );
-}
-
-/** A small check on the currently-selected row. */
-function CheckIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className="flex-none"
-    >
-      <path d="M20 6L9 17l-5-5" />
-    </svg>
   );
 }
 
@@ -215,7 +156,12 @@ export function PovSelect({
         <span className="min-w-0 max-w-[96px] truncate font-mono text-eyebrow tracking-[0.1em] text-current uppercase">
           {selected ? selected.name : "Playwright"}
         </span>
-        <Caret open={open} />
+        <Icon
+          name="down"
+          size={9}
+          strokeWidth={2.2}
+          className={cn("transition-transform", open && "rotate-180")}
+        />
       </button>
 
       {open ? (
@@ -239,7 +185,7 @@ export function PovSelect({
             <span className="min-w-0 flex-1 truncate font-display text-label font-semibold">
               Playwright
             </span>
-            {selected === null ? <CheckIcon /> : null}
+            {selected === null ? <Icon name="check" size={12} strokeWidth={2.2} /> : null}
           </button>
           {options.map((o) => {
             const isSel = o.id === pov;
@@ -264,7 +210,7 @@ export function PovSelect({
                 <span className="min-w-0 flex-1 truncate font-display text-label font-semibold">
                   {o.name}
                 </span>
-                {isSel ? <CheckIcon /> : null}
+                {isSel ? <Icon name="check" size={12} strokeWidth={2.2} /> : null}
               </button>
             );
           })}

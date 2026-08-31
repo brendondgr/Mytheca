@@ -278,13 +278,40 @@ Each theme declares `color-scheme` (`light` on Parchment, `dark` on Ember and Sl
 dark themes were dark only in the parts Mytheca paints — native selects, date pickers, autofill
 grounds and Firefox scrollbars all rendered in light chrome.
 
+### The icon set
+
+`components/ui/Icon.tsx` is the only place an `<svg>` may be written. Eight components drew
+their own — fifteen drawings on their own grids at their own stroke weights — which is the
+scale problem one layer down: an icon tuned to look right beside one label cannot line up
+with an icon tuned beside another, because there is nothing to line up to.
+
+Three rules make it a set:
+
+- **One 24 viewBox and one stroke weight** (`1.7`), so two icons at the same `size` carry the
+  same visual mass. A path drawn on a 16 grid and scaled up arrives ~1.5x heavier.
+- **`currentColor`, never a literal.** Each of these sits inside a control that already
+  changes colour on hover, focus and `aria-pressed`. `filled` (fill from `none` to
+  `currentColor`) exists for `pin` alone, whose on/off state *is* the fill.
+- **`aria-hidden` by default.** Nearly every icon sits beside a visible label or inside a
+  control carrying its own `aria-label`, where announcing itself is a duplicate reading.
+  `label` promotes it to `role="img"` for the rare standalone case.
+
+Icons replace text glyphs (`✎ ⚙ ◍ ‹ ›`) in **chrome**, and that is not cosmetics: a glyph
+inherits the font stack, so it renders differently per platform, shifts the line box, and
+lands at whatever size the type scale gives it rather than at the size the control needs.
+The `❖` seal and `◆` diamond stay — they are brand marks in *content*, not controls.
+
+`Icon.test.tsx` enforces zero inline `<svg>` outside the set. Two files are exempt on a
+principle rather than a backlog: `ContextUsageDial` and `GraphCanvas` compute their geometry
+from live values, which is drawing, not iconography.
+
 ### Legacy geometry notes
 
 - **Radius:** cards/inputs/buttons `2–3px` (manuscript-flat); chat bubbles use asymmetric `3px 11px 11px 11px` (character) and `11px 3px 11px 11px` (player); pills/chips `11–20px`; modals/hero `4–6px`; avatars are circles.
 - **Borders:** hairline `1px` in `--card-bd`/`--hair`; selected state is a `2px` accent border on `--card-bg2`. Section headers use a thin double rule (`border-top:1px solid ink; border-bottom:1px solid hair-strong`).
 - **Elevation:** subtle, warm shadows — cards `0 1px 2px rgba(20,14,6,.06)`, hover `0 6px 16px rgba(40,30,16,.12)`, frames `0 6px 22px rgba(40,30,16,.16)`, modals `0 24px 60px rgba(14,9,4,.55)`. No glassmorphism, no neon glow.
 - **Avatars:** monogram circles — character initials in **Cinzel 700**, background `#EDE3CD` (light), `2px` ring in the character's color, text in the character's color. Sizes ~24–62px by context.
-- **Icons:** the ❖ seal and ◆ diamond are the brand glyphs; otherwise a single coherent line-icon family. Avoid generic AI brain / sparkle / network-node iconography.
+- **Icons:** the ❖ seal and ◆ diamond are the brand glyphs; otherwise the single line-icon family above. Avoid generic AI brain / sparkle / network-node iconography — the deliberation icon is a spark rather than a brain because a brain at 14px is a grey blob, not because a brain is on-brand.
 - **Spacing:** consistent rhythm — rails ~16–18px padding, cards ~11–14px, transcript column max-width **720px** centered with 16px gaps between beats.
 
 ## Story-Player Layout (the signature surface)

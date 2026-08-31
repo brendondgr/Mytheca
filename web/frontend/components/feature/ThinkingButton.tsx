@@ -23,34 +23,10 @@
  */
 
 import { useEffect, useRef } from "react";
+import { Icon } from "@/components/ui/Icon";
 
 /** The six budgets, as the wire names them. Mirrors the backend `ThinkingLevel`. */
 export type ThinkingLevel = "quick" | "low" | "medium" | "high" | "very_high" | "max";
-
-/** A spark: a moment of working something out. */
-function ThinkIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M12 3v3" />
-      <path d="M12 18v3" />
-      <path d="M5.6 5.6 7.8 7.8" />
-      <path d="M16.2 16.2l2.2 2.2" />
-      <path d="M3 12h3" />
-      <path d="M18 12h3" />
-      <circle cx="12" cy="12" r="3.2" />
-    </svg>
-  );
-}
 
 /** Short names, and the token budget each one actually buys. */
 const LEVELS: { value: ThinkingLevel; label: string; tokens: number }[] = [
@@ -112,7 +88,7 @@ export function ThinkingButton({
         title={HELP}
         className="flex flex-none items-center gap-2xs rounded-md border border-field-bd px-sm py-2xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
       >
-        <ThinkIcon />
+        <Icon name="think" size={12} />
         {label}
       </button>
 

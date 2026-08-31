@@ -12,9 +12,10 @@ import { cn } from "@/lib/cn";
  *
  * - **One 24 viewBox and one stroke weight**, so two icons at the same `size` have the
  *   same visual mass. A path drawn on a 16 grid and scaled up arrives 1.5x heavier.
- * - **`currentColor`, never a fill.** Every one of these sits inside a button that
+ * - **`currentColor`, never a literal.** Every one of these sits inside a button that
  *   already changes colour on hover, focus and `aria-pressed`; a hardcoded stroke turns
- *   those states off for the glyph and leaves it stranded on the hover ground.
+ *   those states off for the glyph and leaves it stranded on the hover ground. `filled`
+ *   flips fill from `none` to `currentColor` and is the one exception, for `pin`.
  * - **`aria-hidden` by default.** These are almost always beside a label or inside a
  *   button that carries an `aria-label`, and an icon that announces itself there is a
  *   duplicate reading. Passing `label` promotes it to `role="img"` for the rare case
@@ -48,6 +49,11 @@ const PATHS = {
   // for by the scene's per-turn Config.
   sliders: "M5 7h9M18 7h1M5 12h3M12 12h7M5 17h9M18 17h1M16 5v4M10 10v4M16 15v4",
   trash: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12",
+  // A page with lines — the storyline's source documents.
+  docs: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h6",
+  // Whether a scene setting sticks past this turn. The only icon with two
+  // states, which is why `filled` exists on the component at all.
+  pin: "M12 17v5M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.8l-1.8-.9a2 2 0 0 1-1.1-1.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z",
 
   // ---- the scene ----
   gear: "M12 9.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6zM12 2.8l1 2.4 2.6-.5 1.1 2.4 2.4 1-.5 2.6 1.7 2-1.7 2 .5 2.6-2.4 1-1.1 2.4-2.6-.5-1 2.4-1-2.4-2.6.5-1.1-2.4-2.4-1 .5-2.6-1.7-2 1.7-2-.5-2.6 2.4-1L8.4 4.7 11 5.2z",
@@ -82,6 +88,7 @@ export function Icon({
   size = 16,
   label,
   className,
+  filled = false,
   strokeWidth = 1.7,
 }: {
   name: IconName;
@@ -93,6 +100,13 @@ export function Icon({
    */
   label?: string;
   className?: string;
+  /**
+   * Fill the shape with the current colour as well as stroking it. Exists for
+   * `pin`, whose on/off state is the fill — the alternative was a second path,
+   * and two glyphs for one control is how "pinned" and "not pinned" stop
+   * reading as the same object in two states.
+   */
+  filled?: boolean;
   /**
    * Kept constant across sizes ON PURPOSE. `vectorEffect` is not used and the viewBox
    * scales, so a 24px icon and a 12px icon drawn at the same nominal weight arrive at
@@ -106,7 +120,7 @@ export function Icon({
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth={strokeWidth}
       strokeLinecap="round"

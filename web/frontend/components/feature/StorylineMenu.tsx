@@ -4,85 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { DEFAULT_SEAL_COLOR, DEFAULT_SEAL_SYMBOL } from "@/lib/seals";
 import type { Storyline } from "@/lib/types";
-
-function PencilIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  );
-}
-
-function GearIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
-    </svg>
-  );
-}
-
-function DocsIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M8 13h8" />
-      <path d="M8 17h8" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M3 6h18" />
-      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-    </svg>
-  );
-}
+import { Icon } from "@/components/ui/Icon";
 
 /**
  * Shows scenario / cast / setting totals — each count on its own line.
@@ -179,23 +101,15 @@ export function StorylineMenu({
         <span className="hidden font-display text-step-1 font-bold uppercase leading-none tracking-[0.12em] text-ink md:inline">
           {active?.title ?? "Storyline"}
         </span>
-        <svg
-          aria-hidden
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+        <Icon
+          name="down"
+          size={15}
+          strokeWidth={2.2}
           className={cn(
             "-mr-3xs text-mute transition-transform group-hover:text-accent-ink",
             open && "rotate-180",
           )}
-        >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+        />
       </button>
       {open ? (
         <div
@@ -266,7 +180,7 @@ export function StorylineMenu({
                       }}
                       className="rounded-xs p-xs text-mute hover:bg-hover hover:text-accent-ink focus-visible:text-accent-ink"
                     >
-                      <GearIcon />
+                      <Icon name="gear" size={14} />
                     </button>
                     <button
                       type="button"
@@ -278,7 +192,7 @@ export function StorylineMenu({
                       }}
                       className="rounded-xs p-xs text-mute hover:bg-hover hover:text-accent-ink focus-visible:text-accent-ink"
                     >
-                      <DocsIcon />
+                      <Icon name="docs" size={14} />
                     </button>
                     <button
                       type="button"
@@ -290,7 +204,7 @@ export function StorylineMenu({
                       }}
                       className="rounded-xs p-xs text-mute hover:bg-hover hover:text-accent-ink focus-visible:text-accent-ink"
                     >
-                      <PencilIcon />
+                      <Icon name="pencil" size={14} />
                     </button>
                     <button
                       type="button"
@@ -302,7 +216,7 @@ export function StorylineMenu({
                       }}
                       className="rounded-xs p-xs text-mute hover:bg-hover hover:text-danger-ink focus-visible:text-danger-ink"
                     >
-                      <TrashIcon />
+                      <Icon name="trash" size={14} />
                     </button>
                   </div>
                 </div>
