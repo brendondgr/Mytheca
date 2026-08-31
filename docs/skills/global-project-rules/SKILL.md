@@ -92,7 +92,7 @@ If a check is skipped, say so explicitly and record why in `docs/checklist.md`.
 - Branch off `main`; don't commit feature work directly to `main` unless asked.
 - **Commit per phase.** No push or PR unless the user requests it.
 - Messages: `Mytheca — <area>: <what changed>`, or `[Plan Name] (n/total) Complete: <summary>`.
-- Delete worktrees and branches when their work merges. Eleven stale worktrees are currently outstanding — don't add a twelfth.
+- Delete worktrees and branches when their work merges. **Zero worktrees are outstanding** as of 2026-08-31 (`git worktree list` shows only the main checkout); the "eleven stale worktrees" this line used to warn about are gone. Keep it that way. Stale *branches* are a separate and much longer list — `git branch` shows ~60 — and are not covered by this rule.
 
 ## Cleanup & Sources of Truth
 
