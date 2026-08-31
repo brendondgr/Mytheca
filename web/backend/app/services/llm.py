@@ -436,7 +436,6 @@ class StreamDelta:
     answer: str = ""
     reasoning: str = ""
     #: Everything already streamed as ``answer`` was actually reasoning — discard it.
-    #:
     #: Set when a generation closes a thinking block it never opened. Some serving stacks
     #: have the chat template consume the opening ``<think>`` and hand back only the closing
     #: tag, so the deliberation arrives looking exactly like prose until the moment it ends.
