@@ -3,7 +3,6 @@
 import { HeaderBar } from "@/components/layout/HeaderBar";
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { AppShell } from "@/components/layout/AppShell";
 import { cn } from "@/lib/cn";
 import { useOptionsSettings } from "@/features/options/useOptionsSettings";
 import { LanguageModelsTab } from "@/features/options/tabs/LanguageModelsTab";
@@ -49,7 +48,13 @@ export function OptionsView() {
   }
 
   return (
-    <AppShell>
+    <>
+    {/* No <AppShell> here. The root layout already wraps every route in one;
+        rendering a second nested it — two `.mytheca-themed` grounds, two
+        MotionProviders, two ToastProviders, and (once the frame gained one) TWO
+        skip links, so the first Tab and the second Tab both said "Skip to
+        content". A fragment is all this needs: the shell supplies the ground
+        and the flex column. */}
       <HeaderBar elevated>
         <div className="flex items-center gap-md">
           <span aria-hidden className="text-body text-accent-ink">
@@ -164,6 +169,6 @@ export function OptionsView() {
           </div>
         </div>
       </main>
-    </AppShell>
+    </>
   );
 }

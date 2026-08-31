@@ -3,7 +3,6 @@
 import { HeaderBar, HeaderLead, HeaderTrail } from "@/components/layout/HeaderBar";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AppShell } from "@/components/layout/AppShell";
 import { DocumentsTable } from "@/components/feature/DocumentsTable";
 import { SkeletonLine } from "@/components/ui/Skeleton";
 import { useDelayedFlag } from "@/hooks/use-delayed-flag";
@@ -47,7 +46,13 @@ export function DocumentsView({ storylineId }: { storylineId: string }) {
   const groups = useMemo(() => groupByCategory(filtered), [filtered]);
 
   return (
-    <AppShell>
+    <>
+    {/* No <AppShell> here. The root layout already wraps every route in one;
+        rendering a second nested it — two `.mytheca-themed` grounds, two
+        MotionProviders, two ToastProviders, and (once the frame gained one) TWO
+        skip links, so the first Tab and the second Tab both said "Skip to
+        content". A fragment is all this needs: the shell supplies the ground
+        and the flex column. */}
       <HeaderBar elevated>
         <HeaderLead>
           <span aria-hidden className="text-step-0 text-accent-ink">
@@ -216,6 +221,6 @@ export function DocumentsView({ storylineId }: { storylineId: string }) {
           )}
         </div>
       </main>
-    </AppShell>
+    </>
   );
 }
