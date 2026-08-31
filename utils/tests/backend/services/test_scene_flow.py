@@ -29,11 +29,16 @@ from app.services import llm, turn_settings
 
 
 def test_a_scene_that_never_set_it_gets_the_default():
-    """NULL reads as the default rather than pinning a scene to the old path by its silence."""
+    """NULL reads as the default rather than pinning a scene by its silence.
+
+    The default moved to `voiced` on 2026-08-26 on measurement — continuous under-rendered its
+    own plan, produced the only cross-speaker leak measured, and cannot reuse the prefix cache.
+    See `turn_settings.DEFAULT_SCENE_FLOW`.
+    """
     assert (
         turn_settings.resolve(Scenario(suggestions_count=4)).scene_flow
         == turn_settings.DEFAULT_SCENE_FLOW
-        == "continuous"
+        == "voiced"
     )
 
 
@@ -233,10 +238,15 @@ def test_asking_for_voiced_does_not_call_the_script_agent_at_all(
     assert counter["character"] > 0
 
 
-def test_a_scene_that_says_nothing_now_gets_the_continuous_writer(
+def test_a_scene_that_says_nothing_now_gets_the_per_speaker_writer(
     client, storyline_id, monkeypatch
 ):
-    """The default, end to end — the property the owner asked for."""
+    """The default, end to end.
+
+    One call per speaker is what makes "only one person speaks per beat" structural rather
+    than a rule the prose is asked to follow: a call that knows one character cannot voice
+    another. The continuous writer must not be reached without an explicit request.
+    """
     _configure_llm(client)
     counter: dict = {}
     _route(
@@ -247,5 +257,5 @@ def test_a_scene_that_says_nothing_now_gets_the_continuous_writer(
     scid, _ids = _scene(client, storyline_id)
 
     _stream(client.post(f"/api/play/{scid}/turn", json={"text": "Go."}))
-    assert counter["script"] == 1
-    assert counter["character"] == 0
+    assert counter["script"] == 0, "the scene-script agent is not called by default"
+    assert counter["character"] > 0

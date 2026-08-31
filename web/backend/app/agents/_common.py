@@ -243,6 +243,8 @@ class InlineReasoningSplitter:
     def __init__(self) -> None:
         self._buf = ""
         self._in_think = False
+        self._restarted = False
+        self._restart_signal = False
 
     #: Harmony control tokens are dropped from the answer channel as they stream. The
     #: full :func:`strip_reasoning` pass cannot run incrementally — it keeps the text
@@ -250,8 +252,17 @@ class InlineReasoningSplitter:
     #: but suppressing the tokens themselves stops raw control glyphs rendering as prose.
     _HARMONY = _HARMONY_TOKEN_RE
 
+    #: True once an unmatched close tag has been seen, so it only fires once per generation:
+    #: a model that emits several would otherwise discard its own prose repeatedly.
+    _restarted = False
+
+    def took_over(self) -> bool:
+        """Whether the last :meth:`push` discovered that earlier output was reasoning."""
+        return self._restart_signal
+
     def push(self, delta: str) -> tuple[str, str]:
         """Consume one delta; return the ``(answer, reasoning)`` text it contributed."""
+        self._restart_signal = False
         if not delta:
             return "", ""
         self._buf += delta
@@ -271,6 +282,17 @@ class InlineReasoningSplitter:
                 self._in_think = False
                 continue
             start = self._buf.lower().find(self._OPEN)
+            close = self._buf.lower().find(self._CLOSE)
+            if close != -1 and (start == -1 or close < start) and not self._restarted:
+                # A thinking block closing that never opened: the chat template ate the
+                # opening tag, so everything up to here was deliberation wearing prose's
+                # clothes. Say so, drop it, and carry on with what follows.
+                self._restarted = True
+                self._restart_signal = True
+                reasoning.append(self._buf[:close])
+                self._buf = self._buf[close + len(self._CLOSE) :]
+                answer.clear()
+                continue
             if start == -1:
                 safe = self._safe_len()
                 if safe:

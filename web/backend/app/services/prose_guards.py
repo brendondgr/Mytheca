@@ -396,3 +396,100 @@ def starts_mid_sentence(text: str) -> bool:
 #: research runners both size their window from it — two independently chosen windows for
 #: one question is how the guard and the metric come to disagree.
 SCRATCHPAD_WINDOW = _SCRATCHPAD_WINDOW
+
+
+#: Verbs that put the reader INSIDE another person's head. Distinct from ``_SPEECH_VERBS``:
+#: those catch a character being given words, these catch a character being given thoughts.
+#:
+#: Deliberately narrow. "Zoe frowned" is fine — a speaker can see a frown. "Zoe realised" is
+#: not, because nobody can see a realisation. The line drawn here is **observable from the
+#: outside**, which is the same line a novelist works to in close third person.
+_INTERIOR_VERBS = (
+    "realis|realiz|understood|understands|understand|knew|knows|remembers|remembered"
+    "|decides|decided|wonders|wondered|hopes|hoped|fears|feared|wants|wanted"
+    "|feels|felt|thinks|thought|regrets|regretted|resolves|resolved|means|meant"
+)
+
+#: Possessive interiority: "her decision", "his shame". Same test, different grammar.
+_INTERIOR_NOUNS = (
+    "thought|thoughts|decision|realisation|realization|memory|memories|shame|guilt"
+    "|regret|intention|intentions|resolve|fear|hope|understanding"
+)
+
+
+def narrates_another_mind_span(text: str, *, others: list[str]) -> tuple[str, int] | None:
+    """:func:`narrates_another_mind`, plus WHERE the intrusion starts.
+
+    Same reason as :func:`cross_speaker_speech_span`: the opening of a beat is usually the
+    speaker's own, and the drift arrives later, so the passage is cut back rather than thrown
+    away. Offsets are measured on the ORIGINAL text, not the quote-stripped copy, or the cut
+    would land in the wrong place in any beat containing dialogue.
+    """
+    body = text or ""
+    if not body.strip():
+        return None
+    stripped = narration_only(body)
+    best: tuple[str, int] | None = None
+    for name in others:
+        bare = (name or "").strip()
+        if not bare:
+            continue
+        first = re.escape(bare.split()[0])
+        for pattern in (
+            rf"\b{first}\b(?:\s+\w+){{0,3}}?\s+\b(?:{_INTERIOR_VERBS})\w*\b",
+            rf"\b{first}\b['’]s\s+(?:\w+\s+){{0,2}}?\b(?:{_INTERIOR_NOUNS})\b",
+        ):
+            match = re.search(pattern, stripped, re.IGNORECASE)
+            if not match:
+                continue
+            # Re-find the matched text in the ORIGINAL so the offset is usable for a cut.
+            at = body.find(match.group(0))
+            if at < 0:
+                at = match.start()
+            if best is None or at < best[1]:
+                best = (bare, at)
+    return best
+
+
+def narrates_another_mind(text: str, *, others: list[str]) -> str | None:
+    """The name of another present character whose INTERIOR this beat narrates, or ``None``.
+
+    A beat belongs to one person. Giving another character quoted dialogue is caught by
+    :func:`cross_speaker_speech`; this catches the quieter version, where the passage never
+    puts words in anyone's mouth but roams through their head anyway — *"he understands that
+    he has a sentence in his throat"*, *"the blink is the sound of a decision reaching the
+    back of her skull"*. Both were produced by a live beat that the speech guard passed
+    clean, which is why this exists.
+
+    It matters more than it sounds. Once one character can narrate another's interior, the
+    scene stops being a room with several people in it and becomes one omniscient voice
+    wearing their names — which is exactly what the per-speaker architecture is paying N
+    model calls to avoid.
+
+    **Quoted speech is stripped first**, because a character may say *"You knew"* to somebody
+    and that is dialogue, not narration.
+
+    **Known limitation, deliberate:** only interiority attached to a NAME is caught. The same
+    sentence written with a pronoun — *"he understands that he has a sentence in his throat"* —
+    passes, because deciding who "he" is needs coreference resolution, and guessing wrong cuts
+    a good passage mid-beat. A narrow guard that never lies is worth more here than a broad one
+    that sometimes eats correct prose; the prompt carries the rest.
+    """
+    body = narration_only(text or "")
+    if not body.strip():
+        return None
+    for name in others:
+        bare = (name or "").strip()
+        if not bare:
+            continue
+        first = re.escape(bare.split()[0])
+        patterns = (
+            # "Zoe realised", "Zoe had never understood"
+            rf"\b{first}\b(?:\s+\w+){{0,3}}?\s+\b(?:{_INTERIOR_VERBS})\w*\b",
+            # "Zoe's decision", "Zoe's shame"
+            rf"\b{first}\b['’]s\s+(?:\w+\s+){{0,2}}?\b(?:{_INTERIOR_NOUNS})\b",
+        )
+        for pattern in patterns:
+            if re.search(pattern, body, re.IGNORECASE):
+                return bare
+    return None

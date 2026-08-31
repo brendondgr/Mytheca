@@ -123,11 +123,37 @@ def stream_script(
     # would cut the last one off mid-sentence.
     runaway_limit = runaway_chars(None) * max(1, len(decisions))
 
+    # Every exit path must leave these defined. `raw` used to be assigned ONLY in the
+    # StopIteration handler, so any path that broke out of the loop early — the
+    # cross-speaker cut, the interiority cut — raised UnboundLocalError instead of
+    # returning a cut beat. Empty matches what `degenerate` already does deliberately: the
+    # streamed text is persisted through the open segment, and `raw` is the un-cut string
+    # that a cut beat by definition should not hand back.
+    raw, prompt_tokens = "", None
+
     try:
         while True:
             delta = next(stream)
             if delta.reasoning and show_reasoning:
                 yield TurnReasoningFrame(character_id=fallback_id, text=delta.reasoning)
+            if delta.restart:
+                # The model closed a thinking block it never opened: what has been streamed
+                # as prose was its scratchpad. Truncate every open segment back to nothing
+                # and keep going with the real passage, rather than showing the reader a
+                # briefing and then a beat.
+                for live in open_segments.values():
+                    live.truncate("")
+                written = 0
+                yield from tracer.emit(
+                    "prose",
+                    "Discarded a leaked scratchpad and kept the passage that followed",
+                    detail=(
+                        "The endpoint streamed the model's deliberation as ordinary content "
+                        "and only marked its end, so it arrived looking like prose until the "
+                        "closing tag."
+                    ),
+                    data={"scratchpad": True},
+                )
             if not delta.answer:
                 continue
             written += len(delta.answer)
@@ -305,6 +331,14 @@ def stream_emission(
             )
         return total
 
+    # Every exit path must leave these defined. `raw` used to be assigned ONLY in the
+    # StopIteration handler, so any path that broke out of the loop early — the
+    # cross-speaker cut, the interiority cut — raised UnboundLocalError instead of
+    # returning a cut beat. Empty matches what `degenerate` already does deliberately: the
+    # streamed text is persisted through the open segment, and `raw` is the un-cut string
+    # that a cut beat by definition should not hand back.
+    raw, prompt_tokens = "", None
+
     try:
         while True:
             delta = next(stream)
@@ -312,6 +346,24 @@ def stream_emission(
                 # Ephemeral: the model's scratchpad, streamed live and never persisted.
                 # Kept out of the story record deliberately — it is machinery, not prose.
                 yield TurnReasoningFrame(character_id=speaker.id, text=delta.reasoning)
+            if delta.restart:
+                # The model closed a thinking block it never opened: what has been streamed
+                # as prose was its scratchpad. Truncate every open segment back to nothing
+                # and keep going with the real passage, rather than showing the reader a
+                # briefing and then a beat.
+                for live in open_segments.values():
+                    live.truncate("")
+                written = 0
+                yield from tracer.emit(
+                    "prose",
+                    "Discarded a leaked scratchpad and kept the passage that followed",
+                    detail=(
+                        "The endpoint streamed the model's deliberation as ordinary content "
+                        "and only marked its end, so it arrived looking like prose until the "
+                        "closing tag."
+                    ),
+                    data={"scratchpad": True},
+                )
             if not delta.answer:
                 continue
             written += len(delta.answer)
@@ -347,6 +399,34 @@ def stream_emission(
                     if prose_seg is not None
                     else None
                 )
+                # A beat may leak another character two ways: by giving them WORDS, or by
+                # giving them THOUGHTS. The second passes the speech check clean — a live
+                # beat narrated two other characters' interiors without quoting anybody —
+                # so both are checked and whichever starts EARLIER decides the cut.
+                interior = (
+                    emission.narrates_another_mind_span(prose_seg.text, others=others_present)
+                    if prose_seg is not None
+                    else None
+                )
+                if interior and (found is None or interior[1] < found[1]):
+                    leaked_name, at = interior
+                    prose_seg.truncate(emission.cut_before(prose_seg.text, at))
+                    stream.close()
+                    yield from tracer.emit(
+                        "prose",
+                        f"{speaker.name}'s beat was cut where it entered {leaked_name}'s head",
+                        detail=(
+                            f"The passage narrated what {leaked_name} realised or decided, "
+                            f"inside {speaker.name}'s own beat. A speaker can describe what "
+                            "another person does, not what they privately think."
+                        ),
+                        data={
+                            "characterId": speaker.id,
+                            "crossSpeaker": leaked_name,
+                            "interior": True,
+                        },
+                    )
+                    break
                 if found:
                     leaked_name, at = found
                     prose_seg.truncate(emission.cut_before(prose_seg.text, at))
