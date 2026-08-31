@@ -281,12 +281,48 @@
   /* base = final state. Always visible without support, without JS. */
 }
 
+/* Path 1 — scroll-driven, no JavaScript at all. Chromium today; Safari and
+ * Firefox do not ship `view()` yet, which is why path 2 exists. */
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     .reveal {
       animation: mythecaRevealIn linear both;
       animation-timeline: view();
       animation-range: entry 4% cover 22%;
+    }
+  }
+}
+
+/* Path 2 — IntersectionObserver, for the engines without `view()`.
+ *
+ * Reveals used to exist in Chromium only: everywhere else `.reveal` was inert
+ * and content simply appeared. That is the CORRECT failure (visible beats
+ * animated), but it meant most of the entrance choreography was invisible to
+ * most browsers.
+ *
+ * FOUR gates, and dropping ANY ONE of them leaves content visible rather than
+ * hidden. That is the whole design:
+ *
+ *   1. `@supports not (animation-timeline: view())` — never fight path 1.
+ *   2. `@media (prefers-reduced-motion: no-preference)`.
+ *   3. `.js-reveal` on <html>, added by `useReveal` only once it has a working
+ *      IntersectionObserver. No JS, no observer, no class, no hidden state.
+ *   4. `[data-reveal="pending"]`, set by the observer per element and removed
+ *      when it intersects. An element the observer never reaches never gets it.
+ *
+ * The hidden state therefore requires JS to have run AND the observer to have
+ * been constructed AND this specific element to have been registered. Every
+ * failure mode — script 404, CSP block, observer throw, bfcache restore,
+ * element already on screen — resolves to visible.
+ */
+@supports not (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .js-reveal .reveal[data-reveal="pending"] {
+      opacity: 0;
+      transform: translateY(var(--lift-md));
+    }
+    .js-reveal .reveal[data-reveal="shown"] {
+      animation: mythecaRevealIn var(--dur-slow) var(--ease-out) both;
     }
   }
 }

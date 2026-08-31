@@ -553,6 +553,40 @@ in the app picks up the Mytheca curve automatically. The `--ease-*` names delibe
 compiles to a self-referential `--ease-out: var(--ease-out)`. `check_frontend_css.mjs` fails
 the build on that pattern.
 
+### Scroll reveals — two paths, four gates, one guarantee
+
+`.reveal` runs an entrance as an element scrolls into view. It has **two implementations** and the
+choice between them is made by the browser, not by the call site:
+
+| Path | When | Cost |
+| --- | --- | --- |
+| `animation-timeline: view()` | the engine supports it (Chromium today) | zero JS, runs on the compositor |
+| `IntersectionObserver` (`hooks/use-reveal.ts`) | it does not (Firefox, Safari) | one observer, mounted once in `MotionProvider` |
+
+Before the second path existed, reveals ran **in Chromium only** — everywhere else `.reveal` was inert
+and content simply appeared. That was the *correct* failure, but it meant most of the entrance
+choreography was invisible to most browsers.
+
+**The guarantee is that nothing can ever be left hidden.** The hidden state requires all four of:
+
+1. `@supports not (animation-timeline: view())` — the JS path never fights the CSS one;
+2. `@media (prefers-reduced-motion: no-preference)`;
+3. `.js-reveal` on `<html>`, which `useReveal` adds **only after** constructing a working observer;
+4. `data-reveal="pending"`, set per element by that observer.
+
+Drop any one — script 404, CSP block, observer throw, reduced motion, an engine with `view()` — and
+no rule matches, so the element is simply visible. `useReveal` additionally marks anything already on
+screen `shown` immediately (no flash, and deep links landing mid-page are safe), `unobserve`s in the
+callback (a 500-item transcript must not recompute geometry forever), uses `threshold: 0` with a px
+`rootMargin` (a section taller than the viewport can never reach a fractional threshold; `em`/`vh` in
+`rootMargin` throw `SyntaxError`), and re-sweeps on `pageshow` after a bfcache restore.
+
+Use `<Reveal>` for a single element and `<Reveal.Group>` + `<Reveal.Item index={i}>` for a
+choreographed sequence, rather than writing the classes and the `--i` property by hand.
+
+Verified 2026-08-31 in Firefox 153 (`view()` unsupported): `.js-reveal` applied, on-screen items
+`shown` at opacity 1, the below-fold item `pending` at opacity 0, and revealed on scroll.
+
 ### Shared motion utilities (`styles/motion.css`)
 
 Pure CSS, no runtime cost. Framer Motion keeps only the jobs it alone can do —

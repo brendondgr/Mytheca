@@ -218,11 +218,23 @@ export function Composer({
       ? `Speaking as ${povName}…`
       : "Speak, or describe what you do…";
 
-  /** Resize a textarea to fit its content, capped at `max`. */
+  /**
+   * Resize a textarea to fit its content, capped at `max`.
+   *
+   * `scrollHeight` is read ONCE, into a variable. Reading it a second time
+   * after the `height` write forces a second synchronous layout for a number
+   * that cannot have changed — and this runs on every keystroke, in a
+   * `useLayoutEffect`, while a turn may be streaming. The audit measured 232ms
+   * and 241ms long frames carrying 30-52ms of forced style-and-layout.
+   *
+   * The one remaining forced read is inherent: `height: auto` must be applied
+   * before `scrollHeight` reports the content height, or the box can never shrink.
+   */
   function resize(el: HTMLTextAreaElement, max = MAX_HEIGHT) {
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, max)}px`;
-    el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
+    const content = el.scrollHeight;
+    el.style.height = `${Math.min(content, max)}px`;
+    el.style.overflowY = content > max ? "auto" : "hidden";
   }
 
   // Re-run resize whenever `value` changes externally (e.g. suggestion select).

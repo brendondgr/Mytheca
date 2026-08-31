@@ -136,12 +136,58 @@ height changes by 2px when you navigate from the library into a scene.
 **N-4 · `<ul>` contains non-`<li>` children** on `/…/edit`; **`aria-allowed-attr`** violation on the
 composer `<textarea>` on the player route.
 
-**N-5 · Motion:** 2 long animation frames on `/` under 4× CPU throttle — 162ms (99ms blocking) and
-64ms — both with non-zero `forcedStyleAndLayoutDuration` (30.5ms, 51.9ms), i.e. forced synchronous
-reflow from unbatched DOM reads. Not a blocker; worth fixing before adding more motion.
+**M-7 · Long frames during scroll, from forced synchronous layout**
+*Corrected 2026-08-31: an earlier pass read only the tail of the run log and reported 2 minor frames.
+The retained JSON carries more.* Under 4× CPU throttle:
+
+| Route | Worst frame | Long frames | Dropped |
+| --- | --- | --- | --- |
+| `/` | **232ms** (180ms blocking) | 7 over 1.5× the 16.7ms median | — |
+| `/embergate/salt` | **241ms** (188ms blocking) | 12 over the median | **8.82 %** |
+
+Every one carries a non-zero `forcedStyleAndLayoutDuration` (30.5ms, 51.9ms measured), i.e. a DOM
+read interleaved with writes forcing synchronous reflow. All occur at `scrollY 0`.
+
+**Phase 3 attempted this and the attempt did not work.** Two genuine redundant forced layouts were
+removed — `Composer.resize` and `BeatEditor` each read `scrollHeight` a second time *after* writing
+`height`, forcing a whole extra synchronous layout for a number that cannot have changed. The fix is
+correct and was kept. It moved nothing:
+
+| | worst LoAF | long frames | dropped |
+| --- | --- | --- | --- |
+| before | 241ms | 12 | 8.82 % |
+| after | 247ms | 11 | **11.76 %** |
+
+n = 1 per arm, headless, so those deltas are noise in both directions — the honest reading is **no
+measured change**, not a regression. The conclusion is that the fix targeted the wrong path: the
+textarea autosize runs on keystrokes, and nothing is typing during a scroll pass. `scrollY 0` means
+these frames are **mount and hydration work**, which is a different investigation and is not attempted
+here. Recorded in `docs/checklist.md` rather than left looking solved.
 
 **N-6 · Headers:** no `Permissions-Policy`; `X-Powered-By: Next.js` discloses the stack. Low
 consequence for a local single-user app; recorded for whenever a deployment target is chosen.
+
+### Recorded, but not a finding under this profile
+
+**Mytheca is client-rendered for all domain data.** With JavaScript disabled, `/embergate` serves
+35,376 bytes of HTML containing **none** of the storyline, cast or scenario content — verified
+directly: zero elements in the markup carry `.reveal`, and zero carry an `opacity: 0` inline style.
+
+`audit_motion.py` reports this as a **blocker** `fail-open-reveal` ("58 blocks of text are visible
+only when JavaScript runs"), and its diagnosis is wrong for this case: it diffs visible text between
+a JS and a no-JS render and attributes the difference to hiding. Nothing is hidden — the content is
+never rendered, because it is fetched client-side. This was checked rather than accepted.
+
+Severity comes from consequence, and every consequence the rule exists to prevent is nil here: the
+profile sets `seo.priority: none`, there is no public origin, and no-JS is not a supported mode for a
+local single-user AI chat application. It is recorded so a future reader does not rediscover the
+blocker and act on it — and so that if Mytheca ever gains a public, indexable surface, this is the
+first thing to revisit.
+
+**The scroll-reveal system itself is correct.** `.reveal` in `styles/motion.css` carries no base
+hidden state, is gated by both `@supports (animation-timeline: view())` and
+`@media (prefers-reduced-motion: no-preference)`, declares `animation-timeline` after the shorthand,
+and animates only `transform`/`opacity`. It is exactly the shape `dynamic-loading.md` prescribes.
 
 ### Not findings
 

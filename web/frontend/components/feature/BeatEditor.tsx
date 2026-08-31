@@ -45,9 +45,12 @@ export function BeatEditor({
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // One read, not two: the second `scrollHeight` after the height write costs
+    // a whole extra synchronous layout for an unchanged number. See Composer.
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
-    el.style.overflowY = el.scrollHeight > MAX_HEIGHT ? "auto" : "hidden";
+    const content = el.scrollHeight;
+    el.style.height = `${Math.min(content, MAX_HEIGHT)}px`;
+    el.style.overflowY = content > MAX_HEIGHT ? "auto" : "hidden";
   }, [text]);
 
   const dirty = text.trim() !== initialText.trim();

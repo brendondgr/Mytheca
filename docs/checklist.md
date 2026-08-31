@@ -14,11 +14,18 @@ Verified against the code on 2026-08-04.
 
 ## Unbuilt capabilities
 
-- **`ToastProvider.test.tsx` is flaky under full-suite load.** "holds the auto-dismiss
-  timer while the pointer is over the toast" uses real timers and intermittently fails when
-  149 test files are running concurrently; it passes 3/3 in isolation. Observed 2026-08-31
-  during the website overhaul. It is a test defect, not a product one — the fix is fake
-  timers — but it will occasionally red the validation gate until someone does that.
+- **The story player's mount-time long frames are unexplained.** Under 4x CPU throttle the player
+  produces a ~240ms long animation frame (~190ms blocking) at `scrollY 0`, plus 11-12 frames over
+  1.5x the 16.7ms median and 9-12% dropped frames. Phase 3 of the website overhaul removed two real
+  redundant forced layouts (`Composer.resize` and `BeatEditor` each read `scrollHeight` again after
+  writing `height`) and **measured no change** — 241ms -> 247ms, dropped 8.82% -> 11.76%, n=1 per arm
+  headless, i.e. noise. Those are keystroke paths and nothing types during a scroll pass, so the cost
+  is mount/hydration work instead. Needs a profile, not a guess; `--headful` first, since headless
+  under-reports jank.
+- **Two frontend tests are flaky under full-suite load**, both timing-sensitive with real timers:
+  `ToastProvider.test.tsx` "holds the auto-dismiss timer while the pointer is over the toast", and
+  `CharacterModal.test.tsx` "drafts a full character from a seed into the form" (observed timing out
+  at 4091ms). Both pass in isolation and on re-run. Observed 2026-08-31. The fix is fake timers.
 - **`viewport-fit=cover` and safe-area insets are not adopted.** `app/layout.tsx` declares
   the viewport but deliberately omits `viewportFit: "cover"`, because that and
   `env(safe-area-inset-*)` are all-or-nothing: opting in makes every fixed/sticky element —
