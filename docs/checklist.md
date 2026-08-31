@@ -56,6 +56,20 @@ Verified against the code on 2026-08-04.
   question — how the engine should spend money and latency — that is the owner's, not an
   implementation detail. **Human decision needed.**
 
+- **The library shell's 2026-08-31 rebuild was verified by tests and a production build, not
+  by eye.** Everything else in that change set was checked live at 320 / 390 / 1280 in a real
+  browser; the library half was not, because the agent's browser pane stopped revealing Next's
+  streamed content partway through the session — every route shows the `app/loading.tsx`
+  fallback while the real tree sits in a `hidden` container, meaning React's reveal script
+  never runs there. **This is the tooling, not the app**, and there is a control: checking out
+  the pre-session commit `af6a9f0` reproduces it exactly, as does `next build` + `next start`.
+  What was still verified: 1510 co-located tests including new ones pinning each structural
+  change, `tsc`, ESLint, the contrast and CSS gates, a clean production build, and real
+  measured geometry at 390px taken by un-hiding the SSR tree (header controls 44x44, the
+  wordmark folded, the duplicate column heading `display: none`, the tab bar's three tabs plus
+  its add button inside 390px, zero horizontal overflow). What was NOT: the scroll-snap hero
+  under an actual finger, and the vertical rhythm of the page as a whole. **Swipe the hero and
+  scroll the library on a real phone before trusting either.**
 - **The story player's mount-time long frames are unexplained.** Under 4x CPU throttle the player
   produces a ~240ms long animation frame (~190ms blocking) at `scrollY 0`, plus 11-12 frames over
   1.5x the 16.7ms median and 9-12% dropped frames. Phase 3 of the website overhaul removed two real

@@ -89,8 +89,14 @@ export function StorylineMenu({
         // repaint the Library's LCP element on hydration.
         aria-label={active?.title ? `Switch storyline — ${active.title}` : "Switch storyline"}
         title="Switch storyline"
-        className="group flex items-center gap-sm rounded-xs border border-cardbd bg-card px-md py-2xs hover:border-accent hover:bg-hover focus-visible:border-accent"
+        className="group flex h-control items-center gap-xs rounded-xs border border-cardbd bg-card px-md py-2xs hover:border-accent hover:bg-hover focus-visible:border-accent"
       >
+        {/* The book says what this control PICKS; the seal says which one is picked.
+            Below `md` the title is hidden, and without the book the trigger was a
+            coloured diamond and a caret — a control whose category you had to already
+            know. The seal is not a substitute: it is per-storyline identity, and the
+            whole point is that it changes. */}
+        <Icon name="book" size={15} className="text-mute group-hover:text-accent-ink" />
         <span
           aria-hidden
           className="text-label text-entity leading-none"

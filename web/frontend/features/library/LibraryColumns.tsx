@@ -3,6 +3,8 @@
 import type { useLibraryState } from "@/features/library/useLibraryState";
 import type { LibraryTabKey } from "@/features/library/useLibraryState";
 import { LibraryTabs, type TabItem } from "@/components/feature/LibraryTabs";
+import { IconButton } from "@/components/ui/IconButton";
+import { Icon } from "@/components/ui/Icon";
 import { ScenarioColumn } from "@/components/feature/ScenarioColumn";
 import { CharacterColumn } from "@/components/feature/CharacterColumn";
 import { SettingColumn } from "@/components/feature/SettingColumn";
@@ -63,6 +65,20 @@ export function LibraryColumns({
   // column, so the empty state offers it.
   const clearQuery = () => lib.setQuery("");
 
+  // The create action for whichever column is showing. It rides in the tab bar below
+  // `lg` because the column header that used to carry it is hidden there.
+  // Keyed on the three tabs this component renders. `LibraryTabKey` also carries
+  // "storylines", which belongs to a different surface and has no column here — hence
+  // `Partial`, and hence `add` being possibly undefined rather than a lie about it.
+  const ADD: Partial<
+    Record<LibraryTabKey, { label: string; type: "scenario" | "character" | "setting" }>
+  > = {
+    scenarios: { label: "Add scenario", type: "scenario" },
+    characters: { label: "Add character", type: "character" },
+    settings: { label: "Add setting", type: "setting" },
+  };
+  const add = ADD[lib.tab];
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Mobile-only section switcher; desktop shows all three columns. */}
@@ -71,6 +87,18 @@ export function LibraryColumns({
           tabs={tabs}
           active={lib.tab}
           onChange={(key) => lib.setTab(key as LibraryTabKey)}
+          action={
+            add ? (
+              <IconButton
+                label={add.label}
+                onClick={() => lib.openCreate(add.type)}
+                size={32}
+                variant="field"
+              >
+                <Icon name="plus" size={16} />
+              </IconButton>
+            ) : null
+          }
         />
       </div>
 
@@ -79,7 +107,11 @@ export function LibraryColumns({
           so the page itself never scrolls past the screen. A solid bg-page
           (full width) sits behind the columns so the page's radial glow never
           shows through behind the scrolling cards. */}
-      <div className="min-h-0 flex-1 overflow-y-auto bg-page px-lg pt-lg pb-2xl sm:px-xl lg:grid lg:grid-cols-3 lg:grid-rows-[minmax(0,1fr)] lg:gap-0 lg:overflow-hidden lg:px-xl lg:pt-lg lg:pb-0">
+      {/* Below `lg` this is NOT a scroller — the page is. A viewport-locked shell with an
+          inner scrolling pane is a desktop layout: on a phone it fights the browser's own
+          scroll, hides the address bar's collapse, and makes the hero and the list feel
+          like two separate surfaces that each move on their own. */}
+      <div className="bg-page px-lg pt-lg pb-2xl sm:px-xl lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:grid-rows-[minmax(0,1fr)] lg:gap-0 lg:overflow-hidden lg:px-xl lg:pt-lg lg:pb-0">
         <Column tabKey="scenarios" active={lib.tab}>
           <ScenarioColumn
             scenarios={lib.filteredScenarios}

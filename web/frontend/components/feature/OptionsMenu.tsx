@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Icon } from "@/components/ui/Icon";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useTheme } from "@/hooks/use-theme";
 import { THEMES } from "@/lib/theme";
 
@@ -15,6 +17,9 @@ export function OptionsMenu() {
   const [open, setOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
+  // `false` during SSR and wherever `matchMedia` is absent, so the server renders the
+  // NARROW form — the plain link, which works everywhere and cannot strand anyone.
+  const wide = useMediaQuery("(min-width: 640px)");
 
   useEffect(() => {
     if (!open) return;
@@ -32,6 +37,25 @@ export function OptionsMenu() {
     };
   }, [open]);
 
+  // Below `sm` this is a LINK, not a dropdown.
+  //
+  // The dropdown holds two things: a link to `/options` and the theme swatches. On a phone
+  // the first is the whole reason anyone opens it, and the second is on the page it leads
+  // to (Appearance). A popover whose only real content is a link to a page is a tap that
+  // buys a second tap.
+  if (!wide) {
+    return (
+      <Link
+        href="/options"
+        aria-label="Options"
+        title="Options — models, appearance, defaults"
+        className="flex h-control w-control touch-target-overlay items-center justify-center rounded-xs border border-field-bd bg-field text-ink hover:border-accent hover:bg-hover hover:text-accent-ink"
+      >
+        <Icon name="sliders" size={16} />
+      </Link>
+    );
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -40,9 +64,10 @@ export function OptionsMenu() {
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls="options-menu"
-        className="rounded-xs border border-field-bd bg-field px-lg py-sm font-mono text-eyebrow tracking-[0.1em] text-ink uppercase hover:border-accent hover:bg-hover hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink"
+        className="flex h-control items-center gap-xs rounded-xs border border-field-bd bg-field px-lg font-mono text-eyebrow tracking-[0.1em] text-ink uppercase hover:border-accent hover:bg-hover hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink"
       >
-        Options ▾
+        <Icon name="sliders" size={15} />
+        Options
       </button>
       {open ? (
         <div
@@ -55,8 +80,8 @@ export function OptionsMenu() {
             onClick={() => setOpen(false)}
             className="flex w-full items-center gap-md rounded-xs px-md py-sm text-left hover:bg-hover"
           >
-            <span className="w-4 text-center text-body-sm text-gold-ink" aria-hidden>
-              ❖
+            <span className="flex w-4 justify-center text-gold-ink" aria-hidden>
+              <Icon name="sliders" size={14} />
             </span>
             <span className="flex flex-col gap-3xs">
               <span className="font-display text-body-sm font-semibold text-ink">

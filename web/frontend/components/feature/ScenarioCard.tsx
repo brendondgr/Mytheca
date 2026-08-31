@@ -5,6 +5,7 @@ import { Monogram } from "@/components/ui/Monogram";
 import { SmartImage } from "@/components/ui/SmartImage";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
+import { Icon } from "@/components/ui/Icon";
 import type { ResolvedScenario } from "@/lib/types";
 
 /**
@@ -65,41 +66,40 @@ export function ScenarioCard({
         className="absolute inset-0 z-0 cursor-pointer rounded-sm"
       />
 
-      {/* Top-right cluster: Recent badge + edit pencil, grouped so they never
-          overlap when both are present. */}
-      {featured || onEdit ? (
-        <div className="pointer-events-none absolute right-[10px] top-sm z-[2] flex items-center gap-xs">
-          {featured ? (
-            <span className="rounded-full bg-accent px-xs py-3xs font-mono text-eyebrow uppercase tracking-[0.1em] whitespace-nowrap text-[#F6ECDA]">
-              Recent
-            </span>
-          ) : null}
-          {onEdit ? (
-            <IconButton label={`Edit ${s.title}`} onClick={onEdit} className="pointer-events-auto">
-              ✎
-            </IconButton>
-          ) : null}
+      {/* One square, in the card's corner.
+       *
+       * The "Recent" badge that used to sit beside it is gone. It measured 91px with the
+       * pencil, which is why the title needed a 92px reserve to clear it — a badge that
+       * cost the title a fifth of its width to say something the card ALREADY says: it is
+       * the featured card, drawn with a 2px accent border and an accent shadow. The
+       * accessible answer is in `aria-pressed` on the select button below, which is where
+       * a screen reader looks for it anyway. */}
+      {onEdit ? (
+        <div className="pointer-events-none absolute right-sm top-sm z-[2]">
+          <IconButton
+            label={`Edit ${s.title}`}
+            onClick={onEdit}
+            size={28}
+            className="pointer-events-auto"
+          >
+            <Icon name="pencil" size={14} />
+          </IconButton>
         </div>
       ) : null}
 
       <div className={cn("pointer-events-none relative z-[1]", featured ? "p-lg" : "p-lg")}>
-        {/* The reserve has to clear the ACTUAL top-right cluster, and `pr-3xl`
-            (48px) did not: with the Recent badge present the cluster measures
-            91px at 390px, so the title ran underneath it. Nothing overflowed the
-            viewport, so no responsive check caught it — an overlap is invisible
-            to a `scrollWidth` gate and the first thing a person notices.
-
-            Composed from scale steps rather than a measured pixel literal, so it
-            stays on the system: 48 + 32 + 12 = 92px, just past the cluster. */}
+        {/* The reserve clears the ACTUAL corner cluster, which is now one 28px square at
+            `right-sm`: 28 + 8 + 8 = 44px, composed from scale steps rather than a measured
+            literal so it stays on the system. It used to need 92px, because the cluster
+            also held a "Recent" badge — an overlap is invisible to a `scrollWidth` gate and
+            the first thing a person notices, so this number is not decorative. */}
         <h3
           className={cn(
             "font-display text-step-1 font-bold leading-[1.08]",
             !hasImage && "text-ink",
           )}
           style={{
-            paddingInlineEnd: featured
-              ? "calc(var(--sp-3xl) + var(--sp-2xl) + var(--sp-md))"
-              : "var(--sp-3xl)",
+            paddingInlineEnd: "calc(var(--sp-2xl) + var(--sp-sm) + var(--sp-sm))",
             ...(hasImage ? { color: OVER_ART.title } : {}),
           }}
         >

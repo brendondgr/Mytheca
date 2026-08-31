@@ -474,6 +474,20 @@ Read-only — the panel never changes the scene.
 
 ## Library Layout (the front page)
 
+**Below `lg` the Library is a normal document scroll; at `lg` it is a viewport-locked shell.**
+That inversion is deliberate. At `lg` three columns each scroll inside `h-dvh` + `overflow-hidden`
+so the page itself never moves. Below it there is one column at a time, so a locked shell buys
+nothing and costs something real: it fights the browser's own scroll on a phone, the address bar
+never collapses, and the hero and the list read as two surfaces moving separately. The header is
+`sticky` there (and `static` at `lg`), since the storyline switcher and Create are what you reach
+for after scrolling.
+
+The per-column `ColumnHeader` is `lg`-only for the same reason the "Recent" badge is gone: it
+restated the tab directly above it — "SCENARIOS 3" under a tab reading "Scenarios 3" — and pushed
+the first card down a screenful. Its `+` moved into the tab bar's `action` slot rather than
+disappearing with it.
+
+
 The Library makes the **Storyline** the organizing object. The header wordmark is followed
 by a prominent **storyline switcher** — an outlined button rendering the active storyline in
 large Cinzel small-caps (echoing the `MYTHECA` wordmark) with a ◆ seal and a rotating chevron,

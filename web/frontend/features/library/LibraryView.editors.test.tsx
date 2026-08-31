@@ -13,7 +13,7 @@ describe("LibraryView — editors & modals", () => {
     // Wait for the initial load so the active storyline is set before creating.
     await screen.findAllByText("The Embergate Conspiracy");
 
-    await user.click(screen.getByRole("button", { name: /\+ create/i }));
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
     await user.click(screen.getByRole("button", { name: /forge a character/i }));
 
     const dialog = screen.getByRole("dialog");

@@ -21,8 +21,13 @@ export function ColumnHeader({
   // The outer wrapper has no horizontal padding so bg-page covers the full
   // column width (edge-to-edge). Horizontal padding lives on the inner div
   // via the className prop so content aligns with the cards below.
+  //
+  // `lg`-only. Below that there is one column at a time, chosen by a tab bar that
+  // already says its name and its count — so this header restated both, three words
+  // under three identical words, and pushed the first card down a screenful. Its `+`
+  // is not lost: `LibraryColumns` passes it to the tab bar's `action` slot.
   return (
-    <div className="sticky top-0 z-[10] bg-page pb-md">
+    <div className="sticky top-0 z-[10] hidden bg-page pb-md lg:block">
       <div className={cn("border-b border-hair-strong pb-sm", className)}>
         <div className="flex items-center justify-between gap-sm">
           <div className="flex items-baseline gap-sm">
