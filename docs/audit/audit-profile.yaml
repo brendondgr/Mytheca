@@ -1,0 +1,130 @@
+# =============================================================================
+# audit-profile.yaml — Mytheca
+# =============================================================================
+# The scoping record for the Mytheca web surface, written at intake for the
+# 2026-08-31 UI overhaul. Every routing decision in the `website-audit` skill
+# keys off this file.
+#
+# Mytheca is NOT a public marketing site. It is a locally-hosted, single-user
+# web application for authoring roleplay worlds and playing scenes in them.
+# There is no authentication, no deployment target chosen, and no public URL
+# (docs/checklist.md records both as open decisions). That is why several
+# fields below take values that would look wrong on a normal website.
+# =============================================================================
+
+site:
+  url:              http://localhost:3346    # dev server; there is no public origin yet
+  staging_url:      null
+  type:             web
+  primary_job:      demonstrate-craft        # placed via site-categories.md §3 (novel type):
+                                             # the site's real job is "let one person author a
+                                             # world and then read/play a scene in it" — a
+                                             # creative tool wrapped around a reading surface.
+                                             # Nearest declared job is demonstrate-craft: the
+                                             # experience IS the product, so presentation
+                                             # quality is functional, not decorative.
+  category:         other                    # single-user local creative application
+  url_count:        8                        # 8 real routes (docs/routes.md), 1 a legacy redirect
+  multilingual:     false                    # VERIFIED — no hreflang, no switcher, lang="en"
+  expected_life:    indefinite
+  maintainer:       brendondgr                # sole author and operator
+
+audience:
+  intent:           mixed                    # goal-directed while authoring, exploratory while playing
+  success_metric:   "The owner would rather play a scene in Mytheca than in a plain chat window."
+
+# -----------------------------------------------------------------------------
+# COMPLIANCE
+# The owner has stated explicitly that full ADA compliance is NOT required, and
+# that keyboard operability is a welcome bonus rather than a gate. regime: none
+# therefore does NOT escalate WCAG failures to blocker — but the seven-item
+# minimum pass in ada/00-map.md is still run, and keyboard operability is
+# treated as an explicit, requested objective in its own right.
+# -----------------------------------------------------------------------------
+compliance:
+  regime:           none
+  target:           wcag22-aa                # the yardstick used for findings; not a claim
+  deliverable:      none
+  known_complaint:  false
+
+# -----------------------------------------------------------------------------
+# CONTENT — detected against the running app, not assumed.
+# -----------------------------------------------------------------------------
+content:
+  has_forms:              true               # composer, every editor, options, creator
+  has_auth:               false              # VERIFIED — no User model, no auth routes at all
+  has_search:             false
+  has_video:              false
+  has_audio:              false
+  has_animation:          true               # Framer Motion 12 throughout
+  has_carousel:           true               # ScenarioCarousel
+  has_images_of_text:     false
+  has_data_tables:        true               # DocumentsTable, StatsEditor
+  has_custom_widgets:     true               # Modal, Drawer, popovers, MentionMenu, rails,
+                                             # BeatTakePager, PlaythroughTray — hand-rolled ARIA
+  has_multistep_process:  true               # storyline creation + world build
+  has_visualizations:     true               # GraphCanvas (react-force-graph-2d), ContextUsageDial
+  has_animation_layer:    true
+  has_pdfs:               false
+  has_office_docs:        false
+  has_latex_pdfs:         false
+  has_epub:               false
+  has_html_email:         false
+  volume:                 dense              # long streamed transcripts, dense authoring surfaces
+
+# -----------------------------------------------------------------------------
+# STACK
+# -----------------------------------------------------------------------------
+stack:
+  rendering:        unknown                  # ← VERIFY via raw-HTML vs rendered-DOM diff
+  cms:              null
+  hosting:          local                    # `python app.py`; deployment target undecided
+  licence_policy:   any
+  third_parties:    []                       # VERIFY — fonts are self-hosted (app/fonts/),
+                                             # so the expectation is genuinely zero
+
+mobile:
+  required:         true                     # ★ the owner's #1 stated priority
+  known_problem_sections:
+    - story-player rails and drawers
+    - scene config popover (measured 1004px tall at 320x720 before Phase 12)
+    - GraphCanvas (fixed-size canvas)
+    - DocumentsTable / StatsEditor (data tables)
+    - Composer + DirectionRow
+
+motion:
+  budget:           expressive               # the owner asked for "pizazz" — content that
+                                             # loads in visually appealing ways
+  scroll_reveals:   false                    # today. WILL become true → dynamic-loading.md
+                                             # fail-open checks become BLOCKER severity
+  reduced_motion_handled: false              # VERIFY — globals.css claims a blanket rule
+
+perf:
+  device_floor:     mid-android-4g
+  budget_file:      null
+  hard_requirement: null
+
+# -----------------------------------------------------------------------------
+# SEO — explicitly out of scope per the owner. seo/00-map.md nine-check minimum
+# pass only; no SEO layer files load, no SEO findings in the report.
+# -----------------------------------------------------------------------------
+seo:
+  priority:         none
+  local_business:   false
+  ecommerce:        false
+  ai_visibility:    false
+  data_access:      []                       # no CrUX, no RUM, no Search Console.
+                                             # ⇒ every performance finding is LAB-ONLY. Say so.
+
+engagement:
+  mode:             mid-build                # a rebuild, audited before and after
+  out_of_scope:
+    - SEO beyond the nine-check minimum pass
+    - backend turn-engine behaviour (prose quality, planner, registers)
+  fix_budget:       full-backlog
+  report_path:      ./docs/audit/audit-report.md
+
+meta:
+  created:          2026-08-31
+  last_verified:    2026-08-31
+  verified_by:      "Claude Code — website-overhaul session"
