@@ -572,8 +572,15 @@ export function Composer({
           </ul>
         ) : null}
 
-        {/* Controls bar — sits a gap below the textarea, no dividing line. */}
-        <div className="flex items-center gap-xs">
+        {/* Controls bar — sits a gap below the textarea, no dividing line.
+         *
+         * `flex-wrap` is load-bearing, not tidiness. This row holds up to seven
+         * controls and Send is `flex-none`; without wrapping, at 390px the Send
+         * button rendered 47px PAST the viewport edge, hidden by the shell's
+         * `overflow-hidden` so no page-level overflow check could see it. That
+         * is the characteristic mobile failure: the page passes while a section
+         * is broken. */}
+        <div className="flex flex-wrap items-center gap-xs">
           {/* Left: Config, then the Player POV "Speaking as" select to its right. */}
           {hasConfig ? (
             <SceneConfigMenu
@@ -623,8 +630,11 @@ export function Composer({
               disabled={sendDisabled}
             />
           ) : null}
-          <div className="min-w-0 flex-1" />
-
+          {/* The right cluster is its own flex box with `ml-auto` rather than
+           * being pushed by a spacer div. A spacer cannot survive wrapping — it
+           * takes a whole line to itself — while `ml-auto` keeps the cluster
+           * together and right-aligned on whichever line it lands on. */}
+          <div className="ml-auto flex items-center gap-xs">
           {/* Right cluster: the context dial, the ghostwriter, then the Send pill. */}
           <ContextUsageDial
             usedTokens={usedTokens}
@@ -646,7 +656,7 @@ export function Composer({
             onClick={onSend}
             disabled={sendDisabled || !hasContent}
             aria-label="Send"
-            className="flex flex-none items-center gap-2xs rounded-md bg-accent px-md py-2xs font-mono text-eyebrow tracking-[0.08em] text-[#F6ECDA] uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
+            className="flex flex-none items-center gap-2xs rounded-md bg-accent px-md py-2xs font-mono text-eyebrow tracking-[0.08em] text-on-accent uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
           >
             Send
             {/* Right-arrow — matches the reference "Send →". */}
@@ -665,6 +675,7 @@ export function Composer({
               <path d="M2.5 7h9M8 3.5 11.5 7 8 10.5" />
             </svg>
           </button>
+          </div>
         </div>
       </div>
     </div>

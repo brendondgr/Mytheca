@@ -88,7 +88,12 @@ export function ContextUsageDial({
       {/* Hover / focus tooltip — the usage readout, above the dial (composer sits low). */}
       <span
         role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 mb-xs -translate-x-1/2 whitespace-nowrap rounded-sm border border-cardbd bg-card px-sm py-2xs font-mono text-eyebrow tracking-[0.02em] text-ink opacity-0 shadow-[0_6px_18px_rgba(20,14,6,.20)] transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+        // `whitespace-nowrap` around a full sentence made this tooltip 670px
+        // wide — nearly twice a 390px viewport, and 2x a 320px one. It was
+        // invisible as a bug because the shell clips with `overflow-hidden`, so
+        // no page-level overflow check saw it; the tooltip simply ran off the
+        // screen when shown. It now wraps and is bounded by the viewport.
+        className="pointer-events-none absolute bottom-full left-1/2 mb-xs w-max max-w-[min(18rem,calc(100vw-2rem))] -translate-x-1/2 rounded-sm border border-cardbd bg-card px-sm py-2xs font-mono text-eyebrow tracking-[0.02em] text-ink opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
       >
         {detail}
       </span>
