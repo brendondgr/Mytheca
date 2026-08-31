@@ -75,7 +75,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
   const [saving, setSaving] = useState(false);
 
   if (!llm) {
-    return <p className="font-body text-[14px] text-mute">Loading language-model settings…</p>;
+    return <p className="font-body text-body-sm text-mute">Loading language-model settings…</p>;
   }
 
   // Pass apiKey only when the user typed one; the backend falls back to the stored key.
@@ -141,15 +141,15 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
 
   return (
     <section aria-labelledby="models-heading">
-      <h2 id="models-heading" className="font-display text-[19px] font-semibold text-ink">
+      <h2 id="models-heading" className="font-display text-step-1 font-semibold text-ink">
         Language models
       </h2>
-      <p className="mt-[4px] mb-[18px] font-body text-[14px] text-ink-soft">
+      <p className="mt-2xs mb-lg font-body text-body-sm text-ink-soft">
         Point Mytheca at any OpenAI-compatible endpoint — a local server or a hosted API.
       </p>
 
-      <div className="grid gap-[16px]">
-        <div className="flex items-end gap-[10px]">
+      <div className="grid gap-lg">
+        <div className="flex items-end gap-sm">
           <TextField
             label="Base URL"
             className="flex-1"
@@ -164,7 +164,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
           </Button>
         </div>
         {fetchError ? (
-          <p role="alert" className="-mt-[8px] font-mono text-[11px] tracking-[0.04em] text-danger">
+          <p role="alert" className="-mt-sm font-mono text-eyebrow tracking-[0.04em] text-danger-ink">
             {fetchError}
           </p>
         ) : null}
@@ -177,7 +177,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
             onChange={(e) => setApiKey(e.target.value)}
             placeholder={llm.hasApiKey ? "•••• leave blank to keep" : "sk-…"}
             autoComplete="off"
-            className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
+            className="w-full rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field text-ink focus:border-accent focus:outline-none"
           />
         </label>
 
@@ -189,7 +189,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
+              className="w-full rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field text-ink focus:border-accent focus:outline-none"
             >
               <option value="">Select a model…</option>
               {modelOptions.map((m) => (
@@ -203,16 +203,16 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
               value={model}
               onChange={(e) => setModel(e.target.value)}
               placeholder="Fetch models to choose, or type an id"
-              className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
+              className="w-full rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field text-ink focus:border-accent focus:outline-none"
             />
           )}
         </label>
 
-        <fieldset className="rounded-[4px] border border-cardbd p-[14px]">
-          <legend className="px-[6px] font-mono text-[9px] tracking-[0.14em] text-gold uppercase">
+        <fieldset className="rounded-sm border border-cardbd p-lg">
+          <legend className="px-xs font-mono text-eyebrow tracking-[0.14em] text-gold-ink uppercase">
             Generation parameters
           </legend>
-          <div className="grid gap-[12px] sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-md sm:grid-cols-2 lg:grid-cols-3">
             {PARAM_FIELDS.map((f) => (
               <TextField
                 key={f.key}
@@ -228,11 +228,11 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
           </div>
         </fieldset>
 
-        <fieldset className="rounded-[4px] border border-cardbd p-[14px]">
-          <legend className="px-[6px] font-mono text-[9px] tracking-[0.14em] text-gold uppercase">
+        <fieldset className="rounded-sm border border-cardbd p-lg">
+          <legend className="px-xs font-mono text-eyebrow tracking-[0.14em] text-gold-ink uppercase">
             Authoring
           </legend>
-          <div className="grid gap-[12px] sm:grid-cols-2 sm:max-w-[460px]">
+          <div className="grid gap-md sm:grid-cols-2 sm:max-w-[460px]">
             <TextField
               label="Max parallel authoring requests"
               type="number"
@@ -253,49 +253,49 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
               }
             />
           </div>
-          <p className="mt-[8px] font-body text-[12.5px] text-ink-soft">
+          <p className="mt-sm font-body text-eyebrow text-ink-soft">
             How many characters/settings the world build drafts at once (and how many
             entries a RAG re-index embeds at once). A single-slot server (llama.cpp)
             should stay at <span className="font-mono">1</span>; a batching server
             (vLLM) can go higher. Image generation always runs one at a time.
           </p>
-          <p className="mt-[4px] font-body text-[12.5px] text-ink-soft">
+          <p className="mt-2xs font-body text-eyebrow text-ink-soft">
             Max context is the fallback used when the engine does not report a context
             window — set it to match your model&apos;s actual context length.
           </p>
         </fieldset>
 
-        <fieldset className="rounded-[4px] border border-cardbd p-[14px]">
-          <legend className="px-[6px] font-mono text-[9px] tracking-[0.14em] text-gold uppercase">
+        <fieldset className="rounded-sm border border-cardbd p-lg">
+          <legend className="px-xs font-mono text-eyebrow tracking-[0.14em] text-gold-ink uppercase">
             Reasoning visibility
           </legend>
-          <div className="grid gap-[8px]">
+          <div className="grid gap-sm">
             {REASONING_CHOICES.map((choice) => (
-              <label key={choice.value} className="flex items-start gap-[9px]">
+              <label key={choice.value} className="flex items-start gap-sm">
                 <input
                   type="radio"
                   name="reasoning-visibility"
                   value={choice.value}
                   checked={reasoningVisibility === choice.value}
                   onChange={() => setReasoningVisibility(choice.value)}
-                  className="mt-[4px] flex-none accent-[var(--color-accent)]"
+                  className="mt-2xs flex-none accent-[var(--color-accent)]"
                 />
                 <span className="min-w-0">
-                  <span className="font-body text-[14px] text-ink">{choice.label}</span>
-                  <span className="block font-body text-[12.5px] text-ink-soft">
+                  <span className="font-body text-body-sm text-ink">{choice.label}</span>
+                  <span className="block font-body text-eyebrow text-ink-soft">
                     {choice.hint}
                   </span>
                 </span>
               </label>
             ))}
           </div>
-          <p className="mt-[8px] font-body text-[12.5px] text-ink-soft">
+          <p className="mt-sm font-body text-eyebrow text-ink-soft">
             How much of a turn&apos;s thinking you see while it is being written. Raw
             reasoning is never written to the scene record — it is live only.
           </p>
         </fieldset>
 
-        <div className="flex flex-wrap items-center gap-[12px]">
+        <div className="flex flex-wrap items-center gap-md">
           <Button onClick={save} disabled={saving}>
             {saving ? "Saving…" : "Save"}
           </Button>
@@ -303,14 +303,14 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
             {testing ? "Testing…" : "Test connection"}
           </Button>
           {status ? (
-            <span aria-live="polite" className="font-mono text-[11px] tracking-[0.06em] text-ink-soft">
+            <span aria-live="polite" className="font-mono text-eyebrow tracking-[0.06em] text-ink-soft">
               {status}
             </span>
           ) : null}
           {testResult ? (
             <span
               aria-live="polite"
-              className={`font-mono text-[11px] tracking-[0.04em] ${testOk ? "text-success" : "text-danger"}`}
+              className={`font-mono text-eyebrow tracking-[0.04em] ${testOk ? "text-success-ink" : "text-danger-ink"}`}
             >
               {testResult}
             </span>

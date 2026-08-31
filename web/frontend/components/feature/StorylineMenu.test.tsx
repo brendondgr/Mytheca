@@ -58,7 +58,12 @@ describe("StorylineMenu", () => {
     setup();
     const seal = screen.getByText("★");
     expect(seal).toBeInTheDocument();
-    expect(seal).toHaveStyle({ color: "#2F7D6B" });
+    // The seal's colour is an ENTITY colour: theme-independent and chosen for
+    // identity, so it is carried as `--entity` and rendered through
+    // `text-entity`, which mixes it toward the active theme's ink. Applied raw
+    // it measured as low as 1.71:1 in the baseline audit.
+    expect(seal.style.getPropertyValue("--entity")).toBe("#2F7D6B");
+    expect(seal.className).toContain("text-entity");
   });
 
   it("falls back to the default diamond seal when none is set", async () => {

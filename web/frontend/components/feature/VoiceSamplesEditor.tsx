@@ -18,7 +18,7 @@ export const LOOSENESS_LABELS = [
 ];
 
 const TXT =
-  "w-full rounded-[2px] border border-field-bd bg-card px-[9px] py-[5px] font-body text-[13.5px] text-ink focus:border-accent focus:outline-none";
+  "w-full rounded-xs border border-field-bd bg-card px-sm py-2xs font-body text-field text-ink focus:border-accent focus:outline-none";
 
 /** Author-facing labels for each moment tag (the values match the backend registers). */
 const MOMENT_LABELS: Record<string, string> = {
@@ -76,10 +76,10 @@ export function VoiceSamplesEditor({
           operation free, and the readout is TEXT: a slider position alone does not tell a
           reader which of five settings they landed on. */}
       {onLoosenessChange ? (
-        <div className="mb-[12px] flex flex-col gap-[4px]">
+        <div className="mb-md flex flex-col gap-2xs">
           <label
             htmlFor={loosenessId}
-            className="font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase"
+            className="font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase"
           >
             Word choice{" "}
             <span className="text-ink normal-case">
@@ -100,7 +100,7 @@ export function VoiceSamplesEditor({
           />
           <p
             id={`${loosenessId}-help`}
-            className="font-body text-[11.5px] leading-[1.45] text-mute2"
+            className="font-body text-eyebrow leading-[1.45] text-mute2"
           >
             How far this character&apos;s word choice may wander. The moment&apos;s register
             still leads; this only leans against it.
@@ -108,20 +108,20 @@ export function VoiceSamplesEditor({
         </div>
       ) : null}
       {samples.length === 0 ? (
-        <p className="font-body text-[12.5px] text-mute">
+        <p className="font-body text-eyebrow text-mute">
           No samples yet — add one (or Propose) to show a past situation and how
           THIS character responded to it, in their own voice.
         </p>
       ) : (
-        <ul className="flex flex-col gap-[10px]">
+        <ul className="flex flex-col gap-sm">
           {samples.map((s, i) => (
             <li
               key={i}
               role="group"
               aria-label={s.situation || `Voice sample ${i + 1}`}
-              className="rounded-[5px] border border-cardbd bg-field p-[12px]"
+              className="rounded-sm border border-cardbd bg-field p-md"
             >
-              <div className="flex items-start gap-[10px]">
+              <div className="flex items-start gap-sm">
                 <div className="min-w-0 flex-1">
                   <input
                     aria-label={`Sample ${i + 1} situation`}
@@ -137,7 +137,7 @@ export function VoiceSamplesEditor({
                   type="button"
                   onClick={() => remove(i)}
                   aria-label={`Remove sample ${i + 1}`}
-                  className="cursor-pointer px-[6px] py-[4px] font-mono text-[10px] tracking-[0.06em] text-accent uppercase hover:underline"
+                  className="cursor-pointer px-xs py-2xs font-mono text-eyebrow tracking-[0.06em] text-accent-ink uppercase hover:underline"
                 >
                   Remove
                 </button>
@@ -148,12 +148,12 @@ export function VoiceSamplesEditor({
                 value={s.sample}
                 onChange={(e) => patch(i, { sample: e.target.value })}
                 rows={4}
-                className={`${TXT} mt-[8px] resize-y`}
+                className={`${TXT} mt-sm resize-y`}
               />
               {/* Wraps at the 320px floor rather than pushing the row wide; the select
                   itself is capped so a long option label cannot overflow the card. */}
-              <label className="mt-[8px] flex flex-wrap items-center gap-x-[8px] gap-y-[4px]">
-                <span className="font-mono text-[10px] tracking-[0.08em] text-mute uppercase">
+              <label className="mt-sm flex flex-wrap items-center gap-x-sm gap-y-2xs">
+                <span className="font-mono text-eyebrow tracking-[0.08em] text-mute uppercase">
                   Moment
                 </span>
                 <select
@@ -179,7 +179,7 @@ export function VoiceSamplesEditor({
       <button
         type="button"
         onClick={add}
-        className="mt-[8px] cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:underline"
+        className="mt-sm cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase hover:underline"
       >
         + Add sample
       </button>

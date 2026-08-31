@@ -66,8 +66,8 @@ export function DirectionChecklist({
    * by colour alone.
    */
   const mark = (item: (typeof items)[number], undeliverable: boolean) => {
-    if (item.state === "delivered") return { glyph: "✓", tone: "text-success", note: "" };
-    if (undeliverable) return { glyph: "✕", tone: "text-danger", note: "did not fit this scene" };
+    if (item.state === "delivered") return { glyph: "✓", tone: "text-success-ink", note: "" };
+    if (undeliverable) return { glyph: "✕", tone: "text-danger-ink", note: "did not fit this scene" };
     if (item.state === "attempted")
       return { glyph: "◐", tone: "text-ink-soft", note: "the scene may not have reached this" };
     return { glyph: "○", tone: "text-mute2", note: "" };
@@ -75,7 +75,7 @@ export function DirectionChecklist({
 
   return (
     <section className={cn("mt-5", className)} aria-labelledby="direction-heading">
-      <Eyebrow tracking="0.16em" className="mb-[9px] block" id="direction-heading">
+      <Eyebrow tracking="0.16em" className="mb-sm block" id="direction-heading">
         Your direction
       </Eyebrow>
 
@@ -87,7 +87,7 @@ export function DirectionChecklist({
         {standing.length ? `, ${standing.length} carried over` : ""}
       </p>
 
-      <ul className="grid gap-[6px]">
+      <ul className="grid gap-xs">
         <AnimatePresence initial={false}>
           {items.map((item) => {
             const undeliverable = missed.has(item.text) && item.state !== "attempted";
@@ -98,21 +98,21 @@ export function DirectionChecklist({
                 layout
                 initial={{ opacity: 0, x: -4 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="flex items-start gap-[7px]"
+                className="flex items-start gap-xs"
               >
                 <span
                   aria-hidden
-                  className={cn("mt-[3px] flex-none font-mono text-[10px] leading-none", tone)}
+                  className={cn("mt-3xs flex-none font-mono text-eyebrow leading-none", tone)}
                 >
                   {glyph}
                 </span>
                 <span
                   className={cn(
-                    "min-w-0 font-body text-[12.5px] leading-[1.4]",
+                    "min-w-0 font-body text-eyebrow leading-[1.4]",
                     item.state === "delivered"
                       ? "text-ink-soft"
                       : undeliverable
-                        ? "text-danger"
+                        ? "text-danger-ink"
                         : item.state === "attempted"
                           ? "text-ink-soft"
                           : "text-mute2",
@@ -120,14 +120,14 @@ export function DirectionChecklist({
                 >
                   {item.text}
                   {carriedText.has(item.text) ? (
-                    <span className="ml-[5px] rounded-[4px] border border-field-bd px-[4px] py-[1px] align-middle font-mono text-[8px] tracking-[0.1em] text-mute2 uppercase">
+                    <span className="ml-2xs rounded-sm border border-field-bd px-2xs py-3xs align-middle font-mono text-eyebrow tracking-[0.1em] text-mute2 uppercase">
                       carried over
                     </span>
                   ) : null}
                   {note ? (
                     <span
                       className={cn(
-                        "block font-mono text-[9px] tracking-[0.1em] uppercase",
+                        "block font-mono text-eyebrow tracking-[0.1em] uppercase",
                         undeliverable ? "" : "text-mute2",
                       )}
                     >
@@ -144,16 +144,16 @@ export function DirectionChecklist({
       {waiting.length ? (
         <ul
           aria-label="Still owed from an earlier turn"
-          className="mt-[8px] grid gap-[6px] border-t border-field-bd pt-[8px]"
+          className="mt-sm grid gap-xs border-t border-field-bd pt-sm"
         >
           {waiting.map((s) => (
-            <li key={s.id} className="flex items-start gap-[7px]">
-              <span aria-hidden className="mt-[3px] flex-none font-mono text-[10px] leading-none text-mute2">
+            <li key={s.id} className="flex items-start gap-xs">
+              <span aria-hidden className="mt-3xs flex-none font-mono text-eyebrow leading-none text-mute2">
                 ○
               </span>
-              <span className="min-w-0 flex-1 font-body text-[12.5px] leading-[1.4] text-mute2">
+              <span className="min-w-0 flex-1 font-body text-eyebrow leading-[1.4] text-mute2">
                 {s.text}
-                <span className="ml-[5px] rounded-[4px] border border-field-bd px-[4px] py-[1px] align-middle font-mono text-[8px] tracking-[0.1em] uppercase">
+                <span className="ml-2xs rounded-sm border border-field-bd px-2xs py-3xs align-middle font-mono text-eyebrow tracking-[0.1em] uppercase">
                   carried over
                 </span>
               </span>
@@ -164,7 +164,7 @@ export function DirectionChecklist({
                   type="button"
                   onClick={() => onDismiss(s.id)}
                   aria-label={`Stop asking for ${s.text}`}
-                  className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[4px] text-[12px] text-mute2 hover:bg-hover hover:text-ink"
+                  className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-sm text-eyebrow text-mute2 hover:bg-hover hover:text-ink"
                 >
                   ×
                 </button>
@@ -174,12 +174,12 @@ export function DirectionChecklist({
         </ul>
       ) : null}
 
-      <p className="mt-[8px] font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase">
+      <p className="mt-sm font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase">
         {done}/{items.length} delivered
       </p>
 
       {undelivered.length ? (
-        <p className="mt-[6px] font-body text-[12px] leading-[1.4] text-ink-soft">
+        <p className="mt-xs font-body text-eyebrow leading-[1.4] text-ink-soft">
           Raise the scene&apos;s turn limit to give a longer direction room.
         </p>
       ) : null}

@@ -47,7 +47,7 @@ export function CreateMenu({
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls="create-menu"
-        className="rounded-[2px] bg-accent px-[15px] py-[8px] font-mono text-[10.5px] uppercase tracking-[0.1em] text-[#F6ECDA] hover-lift press hover:bg-accent-hover hover:shadow-[0_5px_14px_rgba(10,6,3,.3)] active:translate-y-0"
+        className="rounded-xs bg-accent px-lg py-sm font-mono text-eyebrow uppercase tracking-[0.1em] text-[#F6ECDA] hover-lift press hover:bg-accent-hover hover:shadow-[0_5px_14px_rgba(10,6,3,.3)] active:translate-y-0"
       >
         + Create ▾
       </button>
@@ -55,9 +55,9 @@ export function CreateMenu({
         <div
           id="create-menu"
           aria-label="Create new"
-          className="absolute top-[42px] right-0 z-40 w-[236px] mytheca-menu p-[7px]"
+          className="absolute top-3xl right-0 z-40 w-[236px] mytheca-menu p-xs"
         >
-          <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-tag uppercase tracking-[0.18em] text-mute">
+          <div className="px-md pt-2xs pb-sm font-mono text-tag uppercase tracking-[0.18em] text-mute">
             New in Embergate
           </div>
           {ITEMS.map((item) => (
@@ -65,13 +65,13 @@ export function CreateMenu({
               key={item.type}
               type="button"
               onClick={() => onCreate(item.type)}
-              className="flex w-full items-center gap-[11px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-hover"
+              className="flex w-full items-center gap-md rounded-xs px-md py-sm text-left hover:bg-hover"
             >
-              <span className="w-4 text-center text-[14px] text-gold" aria-hidden>
+              <span className="w-4 text-center text-body-sm text-gold-ink" aria-hidden>
                 {item.icon}
               </span>
-              <span className="flex flex-col gap-[2px]">
-                <span className="font-display text-[14px] font-semibold text-ink">
+              <span className="flex flex-col gap-3xs">
+                <span className="font-display text-body-sm font-semibold text-ink">
                   {item.label}
                 </span>
                 <span className="font-mono text-tag tracking-[0.04em] text-mute">

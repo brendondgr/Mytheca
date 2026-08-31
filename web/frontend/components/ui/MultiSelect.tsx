@@ -155,13 +155,13 @@ export function MultiSelect({
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         className={cn(
-          "flex w-full cursor-pointer items-center justify-between gap-2 rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] text-left text-body",
+          "flex w-full cursor-pointer items-center justify-between gap-2 rounded-xs border border-field-bd bg-field px-md py-sm text-left text-body",
           "touch-target press transition-[border-color] duration-fast ease-soft",
           "enabled:hover:border-accent focus-visible:border-accent",
           (disabled || isEmpty) && "cursor-not-allowed opacity-60",
         )}
       >
-        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-[6px]">
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-xs">
           {isEmpty ? (
             <span className="text-mute">{emptyText}</span>
           ) : selectedOptions.length === 0 ? (
@@ -170,7 +170,7 @@ export function MultiSelect({
             selectedOptions.map((o) => (
               <span
                 key={o.id}
-                className="inline-flex items-center gap-[5px] rounded-full border border-cardbd bg-card px-[8px] py-[2px] text-[12px] text-ink"
+                className="inline-flex items-center gap-2xs rounded-full border border-cardbd bg-card px-sm py-3xs text-eyebrow text-ink"
               >
                 <Monogram
                   mono={o.mono ?? ""}
@@ -184,8 +184,8 @@ export function MultiSelect({
               </span>
             ))
           ) : (
-            <span className="inline-flex items-center gap-[6px] text-ink">
-              <span aria-hidden className="text-gold">
+            <span className="inline-flex items-center gap-xs text-ink">
+              <span aria-hidden className="text-gold-ink">
                 ◆
               </span>
               {selectedOptions[0].label}
@@ -202,7 +202,7 @@ export function MultiSelect({
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={cn("-mr-[2px] flex-none text-mute transition-transform", open && "rotate-180")}
+          className={cn("-mr-3xs flex-none text-mute transition-transform", open && "rotate-180")}
         >
           <path d="M6 9l6 6 6-6" />
         </svg>
@@ -216,7 +216,7 @@ export function MultiSelect({
           onKeyDown={onListKeyDown}
           data-closing={listClosing || undefined}
           className={cn(
-            "absolute z-40 mt-[4px] max-h-[240px] w-full overflow-auto mytheca-menu p-[5px]",
+            "absolute z-40 mt-2xs max-h-[240px] w-full overflow-auto mytheca-menu p-2xs",
             listClosing && "pointer-events-none",
           )}
         >
@@ -234,21 +234,21 @@ export function MultiSelect({
                 onClick={() => toggle(o.id)}
                 onFocus={() => setActive(i)}
                 className={cn(
-                  "flex cursor-pointer items-center gap-[9px] rounded-[3px] px-[9px] py-[7px] text-[14px] outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-1 focus-visible:ring-accent",
+                  "flex cursor-pointer items-center gap-sm rounded-xs px-sm py-xs text-body-sm outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-1 focus-visible:ring-accent",
                   isSelected && "bg-card2",
                 )}
               >
                 <span
                   aria-hidden
                   className={cn(
-                    "w-3 flex-none text-center text-[11px]",
-                    isSelected ? "text-accent" : "text-transparent",
+                    "w-3 flex-none text-center text-eyebrow",
+                    isSelected ? "text-accent-ink" : "text-transparent",
                   )}
                 >
                   ✓
                 </span>
                 {o.seal ? (
-                  <span aria-hidden className="w-4 flex-none text-center text-[13px] text-gold">
+                  <span aria-hidden className="w-4 flex-none text-center text-label text-gold-ink">
                     ◆
                   </span>
                 ) : (
@@ -264,7 +264,7 @@ export function MultiSelect({
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-ink">{o.label}</span>
                   {o.sublabel ? (
-                    <span className="block font-mono text-[8.5px] tracking-[0.06em] uppercase text-mute">
+                    <span className="block font-mono text-eyebrow tracking-[0.06em] uppercase text-mute">
                       {o.sublabel}
                     </span>
                   ) : null}

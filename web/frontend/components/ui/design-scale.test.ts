@@ -78,26 +78,70 @@ describe("the form-control floor", () => {
    * Disabling zoom is NOT the alternative fix; that is a WCAG 1.4.4 failure.
    */
   const CONTROL = /<(input|textarea|select)\b/g;
-  const UNDER_FLOOR_TOKEN =
-    /\btext-(ui|label|tag|eyebrow|body-sm)\b/;
+  const UNDER_FLOOR_TOKEN = /\btext-(ui|label|tag|eyebrow|body-sm)\b/;
+
+  /**
+   * The end of the control's OWN opening tag.
+   *
+   * A fixed-size window around `<input` is not good enough and was tried first:
+   * it reads a `text-label` on the *sibling* `<span>` that labels the field, or
+   * on the pill wrapping a visually-hidden radio, and reports 30 offenders
+   * against a rendered page that has none. Braces and string literals are
+   * tracked so a `className={cn(...)}` containing `>` does not end the tag early.
+   */
+  function tagEnd(src: string, start: number): number | null {
+    let depth = 0;
+    let quote: string | null = null;
+    for (let i = start; i < src.length; i++) {
+      const ch = src[i];
+      if (quote) {
+        if (ch === quote && src[i - 1] !== "\\") quote = null;
+      } else if (ch === '"' || ch === "'" || ch === "`") quote = ch;
+      else if (ch === "{") depth++;
+      else if (ch === "}") depth--;
+      else if (ch === ">" && depth === 0 && i > start) return i;
+    }
+    return null;
+  }
+
+  /**
+   * Resolve `className={SOME_CONST}` against module-level string constants, so a
+   * shared control class (StatsEditor's `TXT`, VoiceSamplesEditor's input class)
+   * is checked rather than skipped.
+   */
+  function constants(text: string): Map<string, string> {
+    const out = new Map<string, string>();
+    for (const m of text.matchAll(
+      /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*(?::\s*string\s*)?=\s*("(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g,
+    )) {
+      out.set(m[1], m[2]);
+    }
+    return out;
+  }
 
   function controlOffenders(): string[] {
     const offenders: string[] = [];
     for (const { path, text } of sourceFiles()) {
+      const consts = constants(text);
       for (const match of text.matchAll(CONTROL)) {
-        // The element's own attributes: from the tag to its first `>` that is
-        // not inside braces. A generous slice is fine — a false positive here
-        // would be a nearby control, which is equally a finding.
-        const segment = text.slice(match.index, match.index + 900);
-        const line = text.slice(0, match.index).split("\n").length;
-        const arbitrary = [...segment.matchAll(ARBITRARY_TEXT)].find(
+        const end = tagEnd(text, match.index!);
+        if (end === null) continue;
+        let tag = text.slice(match.index!, end);
+        // Inline whatever module constants this tag references.
+        for (const [name, value] of consts) {
+          if (new RegExp(`\\{\\s*${name}\\s*\\}|\\b${name}\\b`).test(tag)) {
+            tag += " " + value;
+          }
+        }
+        const line = text.slice(0, match.index!).split("\n").length;
+        const arbitrary = [...tag.matchAll(ARBITRARY_TEXT)].find(
           (m) => Number.parseFloat(m[1]) < 16,
         );
         if (arbitrary) {
           offenders.push(`${path}:${line} <${match[1]}> ${arbitrary[0]}`);
           continue;
         }
-        const token = segment.match(UNDER_FLOOR_TOKEN);
+        const token = tag.match(UNDER_FLOOR_TOKEN);
         if (token) offenders.push(`${path}:${line} <${match[1]}> ${token[0]}`);
       }
     }
@@ -122,31 +166,34 @@ describe("the form-control floor", () => {
     );
   });
 
-  it("has no more offenders than the last completed phase left behind", () => {
-    // Phase 1 baseline: 43. Phases 4-6 rebuild the surfaces that own these and
-    // drive this to 0; the number may never rise.
-    const offenders = controlOffenders();
-    expect(offenders.length).toBeLessThanOrEqual(43);
+  it("is respected by every form control", () => {
+    // Started at 43. Verified in the browser as well as in source: every
+    // input/select/textarea on all seven sampled routes computes >= 16px.
+    expect(controlOffenders()).toEqual([]);
   });
 });
 
-describe("the arbitrary-value ratchet", () => {
+describe("the scales are the only source of type, space and radius", () => {
   /**
-   * Budgets are the counts at the end of the last completed phase. Lower them
-   * as surfaces are rebuilt; never raise them. A new component that needs a
-   * value not on a scale means the SCALE gains a step — in themes.css, once —
-   * not that the component gains a number.
+   * These started as a ratchet — budgets of 623 / 1293 / 228, lowered per phase.
+   * The surface rebuild took all three to zero, so the ratchet became a rule.
+   *
+   * A component that needs a value not on a scale means the SCALE gains a step,
+   * in themes.css, once — not that the component gains a number. Width, height,
+   * inset and position are deliberately NOT covered: those are layout facts
+   * rather than rhythm, and forcing them onto a nine-step scale would be worse
+   * than leaving them arbitrary.
    */
-  it("does not add arbitrary font sizes", () => {
-    expect(countAll(ARBITRARY_TEXT)).toBeLessThanOrEqual(623);
+  it("uses no arbitrary font size", () => {
+    expect(countAll(ARBITRARY_TEXT)).toBe(0);
   });
 
-  it("does not add arbitrary spacing values", () => {
-    expect(countAll(ARBITRARY_SPACE)).toBeLessThanOrEqual(1293);
+  it("uses no arbitrary spacing value", () => {
+    expect(countAll(ARBITRARY_SPACE)).toBe(0);
   });
 
-  it("does not add arbitrary border radii", () => {
-    expect(countAll(ARBITRARY_RADIUS)).toBeLessThanOrEqual(228);
+  it("uses no arbitrary border radius", () => {
+    expect(countAll(ARBITRARY_RADIUS)).toBe(0);
   });
 });
 

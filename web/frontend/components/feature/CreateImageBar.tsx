@@ -55,10 +55,10 @@ export function CreateImageBar({
     >
       {running ? (
         <div
-          className="mytheca-wash flex aspect-[3/2] w-full flex-col items-center justify-center gap-[8px] rounded-[6px] border border-cardbd"
+          className="mytheca-wash flex aspect-[3/2] w-full flex-col items-center justify-center gap-sm rounded-sm border border-cardbd"
           aria-busy="true"
         >
-          <span aria-hidden className="text-[22px] text-mute2">
+          <span aria-hidden className="text-step-2 text-mute2">
             ❖
           </span>
           <Eyebrow size={9} tracking="0.16em" color="var(--accent)">
@@ -66,12 +66,12 @@ export function CreateImageBar({
           </Eyebrow>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center justify-center gap-x-[14px] gap-y-[8px] rounded-[6px] border border-dashed border-hair-strong p-[12px_14px]">
+        <div className="flex flex-wrap items-center justify-center gap-x-lg gap-y-sm rounded-sm border border-dashed border-hair-strong p-[12px_14px]">
           <div className="text-center sm:text-left">
             <Eyebrow size={9} tracking="0.16em" className="block">
               ❖ Create image
             </Eyebrow>
-            <span className="mt-[2px] block font-body text-[12.5px] text-ink-soft">
+            <span className="mt-3xs block font-body text-eyebrow text-ink-soft">
               Picture the scene as it stands right now.
             </span>
           </div>
@@ -93,7 +93,7 @@ export function CreateImageBar({
         {status}
       </p>
       {error ? (
-        <p role="alert" className="mt-[8px] text-center font-mono text-[11px] tracking-[0.08em] text-danger">
+        <p role="alert" className="mt-sm text-center font-mono text-eyebrow tracking-[0.08em] text-danger-ink">
           {error}
         </p>
       ) : null}

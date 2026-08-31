@@ -33,20 +33,20 @@ export function TranscriptFootBar({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-[6px]">
+    <div className="flex flex-col gap-xs">
       <div className="flex items-center justify-center">
         <button
           type="button"
           onClick={onContinue}
           disabled={disabled || continuing}
           title="Continue — let the scene play on without you saying anything"
-          className="flex items-center gap-[7px] rounded-[8px] border border-field-bd px-[13px] py-[6px] font-mono text-[10px] tracking-[0.1em] text-mute uppercase hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-field-bd disabled:hover:text-mute"
+          className="flex items-center gap-xs rounded-md border border-field-bd px-md py-xs font-mono text-eyebrow tracking-[0.1em] text-mute uppercase hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-field-bd disabled:hover:text-mute"
         >
           <span aria-hidden>▸</span>
           {continuing ? "Continuing…" : "Continue"}
         </button>
       </div>
-      <p className="text-center font-mono text-[9px] tracking-[0.06em] text-mute2">
+      <p className="text-center font-mono text-eyebrow tracking-[0.06em] text-mute2">
         Let the scene carry on without you
       </p>
       <CreateImageBar
@@ -54,7 +54,7 @@ export function TranscriptFootBar({
         running={creatingImage}
         stage={imageStage}
         error={imageError}
-        className="mt-[2px]"
+        className="mt-3xs"
       />
     </div>
   );

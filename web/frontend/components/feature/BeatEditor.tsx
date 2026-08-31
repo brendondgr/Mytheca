@@ -57,13 +57,13 @@ export function BeatEditor({
 
   return (
     <form
-      className="flex flex-col gap-[7px] rounded-[6px] border border-accent bg-field p-[10px]"
+      className="flex flex-col gap-xs rounded-sm border border-accent bg-field p-sm"
       onSubmit={(e) => {
         e.preventDefault();
         if (dirty && text.trim()) onSave(text);
       }}
     >
-      <label htmlFor={fieldId} className="font-mono text-[9px] tracking-[0.12em] text-mute uppercase">
+      <label htmlFor={fieldId} className="font-mono text-eyebrow tracking-[0.12em] text-mute uppercase">
         Editing {label}
       </label>
       <textarea
@@ -83,25 +83,25 @@ export function BeatEditor({
             if (dirty && text.trim()) onSave(text);
           }
         }}
-        className="block w-full resize-none bg-transparent font-body text-[15px] leading-[1.5] text-ink focus:outline-none"
+        className="block w-full resize-none bg-transparent font-body text-field leading-[1.5] text-ink focus:outline-none"
         style={{ overflowY: "hidden" }}
       />
-      <div className="flex items-center gap-[7px]">
+      <div className="flex items-center gap-xs">
         <button
           type="submit"
           disabled={saving || !dirty || !text.trim()}
-          className="flex h-[26px] items-center rounded-[3px] bg-accent px-[10px] font-mono text-[9px] tracking-[0.1em] text-[#F6ECDA] uppercase hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-45"
+          className="flex h-[26px] items-center rounded-xs bg-accent px-sm font-mono text-eyebrow tracking-[0.1em] text-[#F6ECDA] uppercase hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-45"
         >
           {saving ? "Saving…" : "Save"}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="flex h-[26px] items-center rounded-[3px] px-[8px] font-mono text-[9px] tracking-[0.1em] text-mute uppercase hover:bg-hover hover:text-ink"
+          className="flex h-[26px] items-center rounded-xs px-sm font-mono text-eyebrow tracking-[0.1em] text-mute uppercase hover:bg-hover hover:text-ink"
         >
           Cancel
         </button>
-        <span className="ml-auto font-mono text-[9px] tracking-[0.06em] text-mute2">
+        <span className="ml-auto font-mono text-eyebrow tracking-[0.06em] text-mute2">
           Esc cancels · ⌘↵ saves
         </span>
       </div>

@@ -91,7 +91,7 @@ export function Drawer({
         onClick={(event) => event.stopPropagation()}
         data-closing={closing || undefined}
         className={cn(
-          "drawer-panel flex w-full flex-col overflow-hidden rounded-t-[10px] bg-modal outline-none",
+          "drawer-panel flex w-full flex-col overflow-hidden rounded-t-md bg-modal outline-none",
           heightClass,
         )}
         style={{
@@ -103,14 +103,14 @@ export function Drawer({
         {/* Decoration. The sheet is dismissed by the close button, the backdrop or Escape —
             this is the affordance that says "sheet", and announcing it would add a nameless
             control to the trap. */}
-        <div aria-hidden className="flex justify-center pt-[8px] pb-[2px]">
+        <div aria-hidden className="flex justify-center pt-sm pb-3xs">
           <span className="h-[4px] w-[36px] rounded-full bg-field-bd" />
         </div>
-        <div className="flex flex-none items-center justify-between gap-[10px] px-[16px] py-[10px]">
+        <div className="flex flex-none items-center justify-between gap-sm px-lg py-sm">
           {labelledBy ? null : (
             <h2
               id={headingId}
-              className="min-w-0 truncate font-display text-[16px] font-bold text-ink"
+              className="min-w-0 truncate font-display text-body font-bold text-ink"
             >
               {title}
             </h2>
@@ -119,7 +119,7 @@ export function Drawer({
         </div>
         {/* The content scrolls, not the sheet: the handle and the close button stay put, so a
             long rail cannot push its own dismiss control off the screen. */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-[16px] pb-[16px]">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-lg pb-lg">{children}</div>
       </div>
     </div>,
     document.body,

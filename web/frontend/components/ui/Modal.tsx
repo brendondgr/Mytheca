@@ -94,7 +94,7 @@ export function Modal({
       className={cn(
         // dvh, not vh: on mobile the browser chrome makes vh taller than the
         // space actually available, so a 90vh panel can exceed the viewport.
-        "modal-panel max-h-[90dvh] w-full max-w-[92vw] rounded-[5px] bg-modal outline-none",
+        "modal-panel max-h-[90dvh] w-full max-w-[92vw] rounded-sm bg-modal outline-none",
         splitScroll
           ? "overflow-auto lg:flex lg:overflow-hidden"
           : "overflow-auto",
@@ -131,7 +131,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="touch-target-overlay press absolute -top-[13px] -right-[13px] z-10 flex h-[33px] w-[33px] cursor-pointer items-center justify-center rounded-full text-[19px] leading-none text-[#F8E9DC] shadow-[0_4px_14px_rgba(14,9,4,.5)] transition duration-fast ease-soft hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C24A33] focus-visible:ring-offset-2"
+            className="touch-target-overlay press absolute -top-md -right-[13px] z-10 flex h-[33px] w-[33px] cursor-pointer items-center justify-center rounded-full text-step-1 leading-none text-[#F8E9DC] shadow-[0_4px_14px_rgba(14,9,4,.5)] transition duration-fast ease-soft hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C24A33] focus-visible:ring-offset-2"
             style={{ background: "#A8321F", border: "1px solid #C24A33" }}
           >
             ×

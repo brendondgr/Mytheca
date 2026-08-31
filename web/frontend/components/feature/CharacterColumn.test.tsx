@@ -32,7 +32,7 @@ describe("CharacterColumn", () => {
     // grid asked the column, they would disagree at exactly the widths where
     // the Library shows three columns side by side.
     const grid = container.querySelector(".grid");
-    expect(grid).toHaveClass("grid-cols-2", "@[420px]:grid-cols-3", "gap-[12px]");
+    expect(grid).toHaveClass("grid-cols-2", "@[420px]:grid-cols-3", "gap-md");
     expect(container.querySelectorAll(".skeleton").length).toBeGreaterThan(0);
     expect(container.querySelector("[aria-busy='true']")).toBeInTheDocument();
   });

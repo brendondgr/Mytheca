@@ -6,8 +6,8 @@ import type { ContextBudget } from "@/lib/contextBudget";
 
 const LEVEL_TEXT: Record<ContextBudget["level"], string> = {
   ok: "text-ink-soft",
-  warn: "text-gold",
-  over: "text-danger",
+  warn: "text-gold-ink",
+  over: "text-danger-ink",
 };
 const LEVEL_BAR: Record<ContextBudget["level"], string> = {
   ok: "bg-accent",
@@ -37,17 +37,17 @@ export function ContextBudgetMeter({ budget }: { budget: ContextBudget }) {
     Math.round((budget.primerTokens / budget.primerSoftCap) * 100) || 0,
   );
   return (
-    <div role="status" className="rounded-[4px] border border-cardbd bg-field px-[12px] py-[10px]">
+    <div role="status" className="rounded-sm border border-cardbd bg-field px-md py-sm">
       <div className="flex items-center justify-between">
-        <Eyebrow size={9.5} tracking="0.14em" color="#A8762A">
+        <Eyebrow size={9.5} tracking="0.14em" entity="#A8762A">
           ⚖ Context budget
         </Eyebrow>
-        <span className={cn("font-mono text-[12px] font-medium", LEVEL_TEXT[budget.level])}>
+        <span className={cn("font-mono text-eyebrow font-medium", LEVEL_TEXT[budget.level])}>
           ~{fmtTokens(budget.totalTokens)} tok
         </span>
       </div>
       <div
-        className="mt-[8px] h-[6px] w-full overflow-hidden rounded-full bg-card2"
+        className="mt-sm h-[6px] w-full overflow-hidden rounded-full bg-card2"
         role="progressbar"
         aria-valuenow={budget.primerTokens}
         aria-valuemin={0}
@@ -64,17 +64,17 @@ export function ContextBudgetMeter({ budget }: { budget: ContextBudget }) {
           style={{ transform: `scaleX(${pct / 100})` }}
         />
       </div>
-      <dl className="mt-[8px] flex flex-col gap-[4px] font-mono text-[12px]">
-        <div className="flex justify-between gap-[8px]">
+      <dl className="mt-sm flex flex-col gap-2xs font-mono text-eyebrow">
+        <div className="flex justify-between gap-sm">
           <dt className="text-ink-soft">World Primer · every scene</dt>
           <dd className="text-ink">~{fmtTokens(budget.primerTokens)}</dd>
         </div>
-        <div className="flex justify-between gap-[8px]">
+        <div className="flex justify-between gap-sm">
           <dt className="text-ink-soft">Draft docs · grounding</dt>
           <dd className="text-ink">~{fmtTokens(budget.draftDocsTokens)}</dd>
         </div>
       </dl>
-      <p className={cn("mt-[7px] font-body text-[13px]", LEVEL_TEXT[budget.level])}>
+      <p className={cn("mt-xs font-body text-label", LEVEL_TEXT[budget.level])}>
         {LEVEL_NOTE[budget.level]}
       </p>
     </div>

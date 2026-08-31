@@ -63,7 +63,7 @@ export default function RouteError({
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
             href="/"
-            className="inline-flex items-center rounded-xs border border-field-bd px-md py-sm font-mono text-ui tracking-[0.1em] text-accent uppercase hover:bg-accent hover:text-on-accent"
+            className="inline-flex items-center rounded-xs border border-field-bd px-md py-sm font-mono text-ui tracking-[0.1em] text-accent-ink uppercase hover:bg-accent hover:text-on-accent"
           >
             Back to the Library
           </a>

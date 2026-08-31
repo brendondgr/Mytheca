@@ -110,7 +110,7 @@ export function ThinkingButton({
         // it is called, never what it will change.
         aria-label={`Thinking: ${label}. ${HELP}`}
         title={HELP}
-        className="flex flex-none items-center gap-[5px] rounded-[8px] border border-field-bd px-[9px] py-[5px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
+        className="flex flex-none items-center gap-2xs rounded-md border border-field-bd px-sm py-2xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
       >
         <ThinkIcon />
         {label}
@@ -129,7 +129,7 @@ export function ThinkingButton({
           // panel then ran to 396px, three quarters of it past the edge of a 320px screen and
           // unreachable, because the row clips rather than scrolls. Growing leftward keeps it
           // on screen at every width, and costs nothing on a wide one.
-          className="mytheca-menu absolute right-0 bottom-[38px] z-30 w-[210px] p-[6px]"
+          className="mytheca-menu absolute right-0 bottom-2xl z-30 w-[210px] p-xs"
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.preventDefault();
@@ -150,7 +150,7 @@ export function ThinkingButton({
                   onLevelChange(row.value as ThinkingLevel | null);
                   onOpenChange(false);
                 }}
-                className={`flex w-full items-baseline justify-between gap-[10px] rounded-[6px] px-[8px] py-[5px] text-left font-mono text-[10px] tracking-[0.08em] uppercase disabled:opacity-40 ${
+                className={`flex w-full items-baseline justify-between gap-sm rounded-sm px-sm py-2xs text-left font-mono text-eyebrow tracking-[0.08em] uppercase disabled:opacity-40 ${
                   active ? "bg-accent text-[#F6ECDA]" : "text-mute hover:bg-hover hover:text-ink"
                 }`}
               >

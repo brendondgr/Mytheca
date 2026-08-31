@@ -102,7 +102,7 @@ export function Toast({
             onFocusCapture={() => onPause?.(t.id)}
             onBlurCapture={() => onResume?.(t.id)}
             className={cn(
-              "toast-item pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-[4px] border bg-modal px-4 py-3 shadow-[0_12px_30px_rgba(14,9,4,.45)]",
+              "toast-item pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-sm border bg-modal px-4 py-3 shadow-[0_12px_30px_rgba(14,9,4,.45)]",
               t.variant === "error" ? "border-danger/50" : "border-field-bd",
             )}
             style={{
@@ -112,11 +112,11 @@ export function Toast({
           >
             <div className="min-w-0 flex-1">
               {t.title ? (
-                <p className="font-display text-[13px] font-semibold text-ink">
+                <p className="font-display text-label font-semibold text-ink">
                   {t.title}
                 </p>
               ) : null}
-              <p className="break-words font-body text-[13px] leading-snug text-ink-soft">
+              <p className="break-words font-body text-label leading-snug text-ink-soft">
                 {t.message}
               </p>
             </div>
@@ -127,7 +127,7 @@ export function Toast({
                   t.action?.onClick();
                   onDismiss(t.id);
                 }}
-                className="press touch-target-overlay flex-none cursor-pointer rounded-[3px] border border-field-bd px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-soft transition duration-fast ease-soft hover:border-accent hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="press touch-target-overlay flex-none cursor-pointer rounded-xs border border-field-bd px-2 py-1 font-mono text-eyebrow uppercase tracking-[0.08em] text-ink-soft transition duration-fast ease-soft hover:border-accent hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {t.action.label}
               </button>
@@ -136,7 +136,7 @@ export function Toast({
               type="button"
               onClick={() => onDismiss(t.id)}
               aria-label="Dismiss notification"
-              className="press touch-target-overlay flex-none cursor-pointer rounded text-[16px] leading-none text-ink-soft transition duration-fast ease-soft hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="press touch-target-overlay flex-none cursor-pointer rounded text-body leading-none text-ink-soft transition duration-fast ease-soft hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               ×
             </button>

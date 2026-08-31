@@ -66,9 +66,26 @@ PAIRS: list[tuple[str, str, str, float, bool]] = [
     ("mute2 / card", "--mute2", "--card-bg", 3.0, True),
     ("mute2 / field", "--mute2", "--field-bg", 4.5, True),
     # Accent as text (links, labeled highlights).
-    ("accent / page", "--accent", "--page-bg", 4.5, True),
-    ("accent / card", "--accent", "--card-bg", 4.5, True),
-    ("accent / field", "--accent", "--field-bg", 4.5, True),
+    ("accent(nontext) / page2", "--accent", "--page-bg", 3.0, True),
+    # The RAW accent is a non-text colour: fills, borders, focus rings. Text
+    # uses --accent-ink, checked below.
+    ("accent(nontext) / card", "--accent", "--card-bg", 3.0, True),
+    # card2 is the LIFTED content tier and is lighter than card, so it is the
+    # harder of the two — and it was not checked. axe measured accent-on-card2
+    # at 4.04:1 on Slate while this table reported accent-on-card passing.
+    ("accent(nontext) / card2", "--accent", "--card-bg2", 3.0, True),
+    ("accent(nontext) / surface", "--accent", "--surface", 3.0, True),
+    ("accent(nontext) / hover", "--accent", "--hover-bg", 3.0, True),
+    ("accent(nontext) / field", "--accent", "--field-bg", 3.0, True),
+    # The accent as TEXT, on every content surface it can land on.
+    ("accent-ink / page", "--accent-ink", "--page-bg", 4.5, True),
+    ("accent-ink / card", "--accent-ink", "--card-bg", 4.5, True),
+    ("accent-ink / card2", "--accent-ink", "--card-bg2", 4.5, True),
+    ("accent-ink / field", "--accent-ink", "--field-bg", 4.5, True),
+    ("accent-ink / menu", "--accent-ink", "--menu-bg", 4.5, True),
+    ("accent-ink / modal", "--accent-ink", "--modal-bg", 4.5, True),
+    ("accent-ink / surface", "--accent-ink", "--surface", 4.5, True),
+    ("accent-ink / hover", "--accent-ink", "--hover-bg", 4.5, True),
     # NOT a text pair. Accent on the menu ground is 3.67:1 in Slate and 4.40:1 in Ember, so
     # it may carry a border or a glyph inside a popover and must never carry copy — the
     # scene-config pins are the live case (their scope is stated in text, in `--ink`).
@@ -155,8 +172,22 @@ def parse_themes(css: str) -> dict[str, dict[str, str]]:
     return themes
 
 
+ACCENT_INK_RE = re.compile(
+    r"--accent-ink:\s*color-mix\(\s*in\s+oklab\s*,\s*var\(--accent\)\s+([0-9.]+)%"
+)
+
+
 def resolve_hex(tokens: dict[str, str], ref: str) -> str:
-    """Resolve a token name (optionally `--grad:N` for gradient stop N) or literal hex."""
+    """Resolve a token name (optionally `--grad:N` for gradient stop N) or literal hex.
+
+    `--accent-ink` is a `color-mix`, not a hex, so it is derived here from the
+    percentage declared in themes.css — the same read-it-from-the-CSS rule the
+    entity recipe uses, so the gate cannot check a colour the browser never
+    renders.
+    """
+    if ref == "--accent-ink":
+        weight = _accent_ink_weight()
+        return mix_oklab(resolve_hex(tokens, "--accent"), resolve_hex(tokens, "--ink"), weight)
     if ref.startswith("#"):
         return ref
     if ":" in ref:
@@ -168,6 +199,13 @@ def resolve_hex(tokens: dict[str, str], ref: str) -> str:
     if len(hexes) != 1:
         raise ValueError(f"{ref} is not a single hex color: {value!r}")
     return hexes[0]
+
+
+def _accent_ink_weight() -> float:
+    match = ACCENT_INK_RE.search(THEMES_CSS.read_text())
+    if not match:
+        raise ValueError("themes.css does not declare --accent-ink as a color-mix of --accent")
+    return float(match.group(1)) / 100.0
 
 
 def srgb_channel(value: int) -> float:

@@ -40,7 +40,7 @@ export function edgeKey(e: { source: string; target: string; type: string }): st
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full items-center justify-center font-mono text-[10px] tracking-[0.12em] text-mute2 uppercase">
+    <div className="flex h-full w-full items-center justify-center font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase">
       ❖ Loading graph…
     </div>
   ),

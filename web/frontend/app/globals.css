@@ -99,6 +99,15 @@
   /* Entity colour derived against the theme's ink — `text-entity` for small
    * text (4.5:1), `text-entity-strong` / `border-entity-strong` for large text
    * and non-text marks (3:1). Set `--entity` on an ancestor. */
+  /* Text variants of the semantic colours — see themes.css. `text-danger-ink`
+   * for copy, `bg-danger`/`border-danger` for fills and rules. */
+  --color-accent-ink: var(--accent-ink);
+  --color-gold-ink: var(--gold-ink);
+  --color-gold-soft-ink: var(--gold-soft-ink);
+  --color-narrator-ink: var(--narrator-ink);
+  --color-success-ink: var(--success-ink);
+  --color-danger-ink: var(--danger-ink);
+
   --color-entity: var(--entity-ink);
   --color-entity-strong: var(--entity-ink-strong);
   --color-entity-raw: var(--entity);

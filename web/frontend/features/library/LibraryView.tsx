@@ -69,13 +69,13 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
       {lib.error && !lib.modal && !lib.storylineToDelete ? (
         <div
           role="alert"
-          className="mx-[18px] mt-[12px] flex items-center justify-between gap-[12px] rounded-[6px] border border-cardbd bg-card px-[14px] py-[10px]"
+          className="mx-lg mt-md flex items-center justify-between gap-md rounded-sm border border-cardbd bg-card px-lg py-sm"
         >
-          <span className="font-body text-[14px] text-ink">{lib.error}</span>
+          <span className="font-body text-body-sm text-ink">{lib.error}</span>
           <button
             type="button"
             onClick={lib.retry}
-            className="cursor-pointer font-mono text-[11px] tracking-[0.08em] text-accent uppercase hover:underline"
+            className="cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase hover:underline"
           >
             Retry
           </button>
@@ -104,7 +104,7 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
 
       {/* The three columns are the Library's main region — it had an `sr-only` h1 and no
           landmark to jump to. */}
-      <main id="main" tabIndex={-1} className="mt-[16px] flex min-h-0 flex-1 flex-col border-t border-hair-strong">
+      <main id="main" tabIndex={-1} className="mt-lg flex min-h-0 flex-1 flex-col border-t border-hair-strong">
         <LibraryColumns lib={lib} />
       </main>
 

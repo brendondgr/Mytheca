@@ -32,7 +32,7 @@ function ViewModeSwitch({
     <div
       role="group"
       aria-label="Scene view"
-      className="flex items-center rounded-full border border-field-bd bg-field p-[2px]"
+      className="flex items-center rounded-full border border-field-bd bg-field p-3xs"
     >
       {VIEW_MODES.map((mode) => {
         const active = viewMode === mode.key;
@@ -43,9 +43,9 @@ function ViewModeSwitch({
             onClick={() => onChange(mode.key)}
             aria-pressed={active}
             title={mode.key === "graph" ? "See the scene's story graph" : "Back to the running scene"}
-            className={`rounded-full px-[8px] py-[4px] font-mono text-[9px] tracking-[0.08em] uppercase transition-colors sm:px-[10px] sm:tracking-[0.12em] ${
+            className={`rounded-full px-sm py-2xs font-mono text-eyebrow tracking-[0.08em] uppercase transition-colors sm:px-sm sm:tracking-[0.12em] ${
               active
-                ? "bg-card2 font-semibold text-accent"
+                ? "bg-card2 font-semibold text-accent-ink"
                 : "text-mute hover:bg-hover hover:text-ink"
             }`}
           >
@@ -248,7 +248,7 @@ export function SceneHeader({
         <Link
           href={backHref}
           aria-label="Back to Library"
-          className="flex flex-none items-center gap-2xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.1em] text-accent uppercase hover:bg-accent hover:text-on-accent sm:px-md"
+          className="flex flex-none items-center gap-2xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.1em] text-accent-ink uppercase hover:bg-accent hover:text-on-accent sm:px-md"
         >
           ‹<span className="hidden sm:inline">&nbsp;Library</span>
         </Link>
@@ -294,7 +294,7 @@ export function SceneHeader({
             aria-pressed={memoryOpen}
             aria-label="What the scene knows"
             title="How far back the cast remembers, and what it is reading"
-            className="flex flex-none items-center gap-xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-pressed:border-accent aria-pressed:text-accent"
+            className="flex flex-none items-center gap-xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink aria-pressed:border-accent aria-pressed:text-accent-ink"
           >
             <span aria-hidden>◍</span>
             <span className="hidden sm:inline">Memory</span>
@@ -320,8 +320,8 @@ const HEALTH_COPY: Record<
   // colour alone, which is exactly what the labelled form exists to avoid — so the shape
   // changes with the state too.
   reachable: { label: "Model ready", dot: "bg-success", text: "text-mute", glyph: "●" },
-  model_missing: { label: "Model not found", dot: "bg-gold", text: "text-gold", glyph: "!" },
-  unreachable: { label: "Model unreachable", dot: "bg-danger", text: "text-danger", glyph: "✕" },
+  model_missing: { label: "Model not found", dot: "bg-gold", text: "text-gold-ink", glyph: "!" },
+  unreachable: { label: "Model unreachable", dot: "bg-danger", text: "text-danger-ink", glyph: "✕" },
   unconfigured: { label: "No model set", dot: "bg-mute2", text: "text-mute2", glyph: "○" },
 };
 
@@ -343,7 +343,7 @@ function ModelStatus({ health, wide }: { health: LlmHealth | null; wide: boolean
       title={
         health.backend ? `${health.detail} (${health.backend})` : health.detail
       }
-      className="flex flex-none items-center gap-[6px] font-mono text-[9px] tracking-[0.12em] uppercase"
+      className="flex flex-none items-center gap-xs font-mono text-eyebrow tracking-[0.12em] uppercase"
     >
       {wide ? (
         <>
@@ -354,7 +354,7 @@ function ModelStatus({ health, wide }: { health: LlmHealth | null; wide: boolean
         // The name still says it in words; only the drawing shrinks. It used to be
         // `hidden sm:flex` — invisible at exactly the width where a broken endpoint is
         // hardest to diagnose.
-        <span aria-hidden className={`text-[11px] leading-none ${copy.text}`}>{copy.glyph}</span>
+        <span aria-hidden className={`text-eyebrow leading-none ${copy.text}`}>{copy.glyph}</span>
       )}
     </span>
   );

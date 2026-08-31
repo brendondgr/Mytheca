@@ -53,21 +53,21 @@ export function SceneLoader({
       >
         <Eyebrow
           tracking="0.24em"
-          color={hasArt ? OVER_ART.eyebrow : "#A8762A"}
+          entity={hasArt ? OVER_ART.eyebrow : "#A8762A"}
           className="block"
         >
           {kicker}
         </Eyebrow>
 
         <h2
-          className="mt-[10px] font-display text-[30px] leading-[1.1] font-bold tracking-[0.02em] sm:text-[36px]"
+          className="mt-sm font-display text-step-3 leading-[1.1] font-bold tracking-[0.02em] sm:text-step-3"
           style={{ color: hasArt ? OVER_ART.title : "var(--ink)" }}
         >
           {s.title}
         </h2>
 
         <div
-          className="mt-[10px] flex flex-wrap items-center gap-x-[10px] gap-y-[4px] font-mono text-[10px] tracking-[0.14em] uppercase"
+          className="mt-sm flex flex-wrap items-center gap-x-sm gap-y-2xs font-mono text-eyebrow tracking-[0.14em] uppercase"
           style={{ color: hasArt ? OVER_ART.meta : "var(--mute)" }}
         >
           <span>◆ {s.setting.name}</span>
@@ -76,17 +76,17 @@ export function SceneLoader({
         </div>
 
         {/* Cast assembling at the table. */}
-        <div className="mt-[22px]">
+        <div className="mt-xl">
           <Eyebrow
             tracking="0.18em"
             color={hasArt ? OVER_ART.eyebrow : "var(--mute2)"}
-            className="mb-[10px] block"
+            className="mb-sm block"
           >
             The cast gathers
           </Eyebrow>
-          <div className="flex flex-wrap items-center gap-[14px]">
+          <div className="flex flex-wrap items-center gap-lg">
             {s.cast.map((c) => (
-              <div key={c.id} className="flex items-center gap-[9px]">
+              <div key={c.id} className="flex items-center gap-sm">
                 <Monogram
                   mono={c.mono}
                   color={c.color}
@@ -97,7 +97,7 @@ export function SceneLoader({
                 />
                 <span className="min-w-0">
                   <span
-                    className="block font-display text-[14px] leading-[1.05] font-semibold"
+                    className="block font-display text-body-sm leading-[1.05] font-semibold"
                     style={{ color: hasArt ? OVER_ART.title : "var(--ink)" }}
                   >
                     {c.name.split(",")[0]}
@@ -105,8 +105,8 @@ export function SceneLoader({
                   <Eyebrow
                     size={8}
                     tracking="0.08em"
-                    color={hasArt ? OVER_ART.eyebrow : c.color}
-                    className="mt-[2px] block"
+                    entity={hasArt ? OVER_ART.eyebrow : c.color}
+                    className="mt-3xs block"
                   >
                     {c.role}
                   </Eyebrow>
@@ -118,16 +118,16 @@ export function SceneLoader({
 
         {/* Scene goal. */}
         {s.goal ? (
-          <div className="mt-[22px]">
+          <div className="mt-xl">
             <Eyebrow
               tracking="0.18em"
               color={hasArt ? OVER_ART.eyebrow : "var(--mute2)"}
-              className="mb-[6px] block"
+              className="mb-xs block"
             >
               Your aim
             </Eyebrow>
             <p
-              className="max-w-[460px] font-body text-[15px] leading-[1.5] italic"
+              className="max-w-[460px] font-body text-body-sm leading-[1.5] italic"
               style={{ color: hasArt ? OVER_ART.body : "var(--ink-soft)" }}
             >
               {s.goal}
@@ -136,15 +136,15 @@ export function SceneLoader({
         ) : null}
 
         {/* Conjuring progress. */}
-        <div className="mt-[26px] flex items-center gap-[12px]">
+        <div className="mt-xl flex items-center gap-md">
           <div className="relative h-[26px] w-[26px] flex-none">
             <div className="absolute inset-0 animate-[embSpin_1s_linear_infinite] rounded-full border-[2.5px] border-cardbd border-t-accent motion-reduce:animate-none" />
-            <div className="absolute inset-0 flex items-center justify-center text-[12px] text-accent">
+            <div className="absolute inset-0 flex items-center justify-center text-eyebrow text-accent-ink">
               ❖
             </div>
           </div>
           <div
-            className="font-mono text-[10px] tracking-[0.16em] uppercase"
+            className="font-mono text-eyebrow tracking-[0.16em] uppercase"
             style={{ color: hasArt ? OVER_ART.meta : "var(--mute)" }}
           >
             Conjuring the scene

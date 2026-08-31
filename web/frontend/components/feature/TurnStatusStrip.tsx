@@ -57,12 +57,12 @@ export function TurnStatusStrip({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={ENTER_TRANSITION}
-      className={cn("flex flex-col items-center gap-[4px]", className)}
+      className={cn("flex flex-col items-center gap-2xs", className)}
     >
       <p
         role="status"
         aria-live="polite"
-        className="inline-flex items-center gap-[8px] rounded-[999px] border border-cardbd bg-card px-[12px] py-[6px] font-mono text-[10px] tracking-[0.12em] text-ink-soft uppercase"
+        className="inline-flex items-center gap-sm rounded-lg border border-cardbd bg-card px-md py-xs font-mono text-eyebrow tracking-[0.12em] text-ink-soft uppercase"
       >
         {character ? (
           <Monogram
@@ -85,7 +85,7 @@ export function TurnStatusStrip({
           every phase would make the strip chatty for a screen reader. Wraps rather than
           truncates — a directive the player cannot finish reading is worse than none. */}
       {status.detail ? (
-        <p className="max-w-[46ch] text-balance px-[8px] text-center font-body text-[12px] leading-[1.4] text-mute2">
+        <p className="max-w-[46ch] text-balance px-sm text-center font-body text-eyebrow leading-[1.4] text-mute2">
           {status.detail}
         </p>
       ) : null}

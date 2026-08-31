@@ -23,7 +23,7 @@ import { cn } from "@/lib/cn";
 import { SETTING_TYPES } from "@/lib/seed-data";
 import type { useLibraryState } from "@/features/library/useLibraryState";
 
-const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
+const SEG = "font-mono text-eyebrow tracking-[0.06em] px-lg py-sm cursor-pointer";
 
 /** The setting prose fields, in reveal order — doubles as the draft progress. */
 const SETTING_DRAFT_STEPS: ProcessStep[] = [
@@ -85,16 +85,16 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
         {/* ── Main column (own scroll on lg+) ─────────────────────────── */}
         <div className="min-w-0 p-[22px_26px_24px] lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
           {/* Header — title left; a compact scene-art thumbnail right. */}
-          <div className="flex flex-wrap items-center justify-between gap-x-[24px] gap-y-[12px]">
+          <div className="flex flex-wrap items-center justify-between gap-x-xl gap-y-md">
             <div
               id="setting-modal-title"
-              className="min-w-0 font-display text-[22px] font-bold text-ink"
+              className="min-w-0 font-display text-step-2 font-bold text-ink"
             >
               {isEdit ? "Edit Setting" : "New Setting"}
             </div>
             {imageUrl ? (
               <div
-                className="h-[48px] w-[85px] flex-none overflow-hidden rounded-[5px] border border-cardbd bg-field"
+                className="h-[48px] w-[85px] flex-none overflow-hidden rounded-sm border border-cardbd bg-field"
                 aria-hidden
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount */}
@@ -104,7 +104,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
           </div>
 
           {/* Mode toggle — mobile/tablet only. */}
-          <div className="mt-[14px] inline-flex overflow-hidden rounded-full border border-field-bd bg-card md:hidden">
+          <div className="mt-lg inline-flex overflow-hidden rounded-full border border-field-bd bg-card md:hidden">
             <button
               type="button"
               onClick={() => lib.setMode("manual")}
@@ -120,12 +120,12 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
               ❖ Agentically
             </button>
           </div>
-          <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
+          <div className="my-lg h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
           {/* Live draft progress — which field Mytheca is writing right now. */}
           {lib.generating ? (
             <ProcessProgress
-              className="mb-[16px]"
+              className="mb-lg"
               label="Setting draft progress"
               steps={SETTING_DRAFT_STEPS}
               activeKey={lib.activeField}
@@ -134,13 +134,13 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
 
           {/* By-hand form (left) + agentic Draft with Mytheca (right). */}
           <div className="md:flex md:items-stretch">
-            <div className={cn("md:min-w-0 md:flex-1 md:pr-[26px]", agentic && "hidden md:block")}>
+            <div className={cn("md:min-w-0 md:flex-1 md:pr-xl", agentic && "hidden md:block")}>
               {d._ai ? (
-                <div className="mb-4 flex items-center gap-[9px] rounded-[0_3px_3px_0] border-l-[3px] border-l-narrator bg-[rgba(31,111,107,.12)] p-[9px_12px]">
-                  <span aria-hidden className="text-[13px] text-narrator">
+                <div className="mb-4 flex items-center gap-sm rounded-[0_3px_3px_0] border-l-[3px] border-l-narrator bg-[rgba(31,111,107,.12)] p-[9px_12px]">
+                  <span aria-hidden className="text-label text-narrator-ink">
                     ❖
                   </span>
-                  <span className="font-body text-[13.5px] text-ink">
+                  <span className="font-body text-label text-ink">
                     Drafted by Mytheca — review &amp; refine, then save.
                   </span>
                 </div>
@@ -153,15 +153,15 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 onChange={(e) => lib.setDraft("name", e.target.value)}
                 className={fieldClass("name")}
               />
-              <div className="mt-[14px]">
+              <div className="mt-lg">
                 <FieldLabel>Type</FieldLabel>
-                <div className="flex flex-wrap gap-[7px]">
+                <div className="flex flex-wrap gap-xs">
                   {SETTING_TYPES.map((t) => (
                     <ToggleChip
                       key={t}
                       selected={d.type === t}
                       onClick={() => lib.setDraft("type", t)}
-                      className="font-mono text-[10px] tracking-[0.05em] uppercase"
+                      className="font-mono text-eyebrow tracking-[0.05em] uppercase"
                     >
                       {t}
                     </ToggleChip>
@@ -174,7 +174,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 rows={2}
                 value={d.desc || ""}
                 onChange={(e) => lib.setDraft("desc", e.target.value)}
-                className={cn("mt-[14px]", fieldClass("desc"))}
+                className={cn("mt-lg", fieldClass("desc"))}
               />
               <TextArea
                 label="Atmosphere & senses"
@@ -182,7 +182,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 rows={3}
                 value={d.atmosphere || ""}
                 onChange={(e) => lib.setDraft("atmosphere", e.target.value)}
-                className={cn("mt-[14px]", fieldClass("atmosphere"))}
+                className={cn("mt-lg", fieldClass("atmosphere"))}
               />
               <TextArea
                 label="Notable features"
@@ -190,7 +190,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 rows={3}
                 value={d.features || ""}
                 onChange={(e) => lib.setDraft("features", e.target.value)}
-                className={cn("mt-[14px]", fieldClass("features"))}
+                className={cn("mt-lg", fieldClass("features"))}
               />
               <TextArea
                 label="Current state"
@@ -198,21 +198,21 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 rows={2}
                 value={d.currentState || ""}
                 onChange={(e) => lib.setDraft("currentState", e.target.value)}
-                className={cn("mt-[14px]", fieldClass("currentState"))}
+                className={cn("mt-lg", fieldClass("currentState"))}
               />
             </div>
 
             {/* Agentic draft panel — describe the place; Mytheca drafts it. */}
             <aside
               className={cn(
-                "mt-[18px] md:mt-0 md:w-[300px] md:shrink-0 md:border-l md:border-hair-strong md:pl-[26px]",
+                "mt-lg md:mt-0 md:w-[300px] md:shrink-0 md:border-l md:border-hair-strong md:pl-xl",
                 !agentic && "hidden md:block",
               )}
             >
               {/* Scene art — compact preview + Edit-image trigger (editor is a pop-up). */}
-              <div className="mb-[18px] border-b border-hair-strong pb-[16px]">
+              <div className="mb-lg border-b border-hair-strong pb-lg">
                 <FieldLabel>Scene art</FieldLabel>
-                <div className="overflow-hidden rounded-[6px] border border-cardbd bg-field">
+                <div className="overflow-hidden rounded-sm border border-cardbd bg-field">
                   {imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- generated scene art from our media mount
                     <img
@@ -221,11 +221,11 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                       className="aspect-[16/9] w-full object-cover"
                     />
                   ) : (
-                    <div className="flex aspect-[16/9] w-full flex-col items-center justify-center gap-[6px] px-[10px] text-center">
-                      <span aria-hidden className="text-[20px] text-mute2">
+                    <div className="flex aspect-[16/9] w-full flex-col items-center justify-center gap-xs px-sm text-center">
+                      <span aria-hidden className="text-step-2 text-mute2">
                         ◇
                       </span>
-                      <span className="font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
+                      <span className="font-mono text-eyebrow tracking-[0.1em] text-mute2 uppercase">
                         No scene art yet
                       </span>
                     </div>
@@ -234,16 +234,16 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                 <Button
                   variant="secondary"
                   onClick={() => setSceneArtOpen(true)}
-                  className="mt-[10px] w-full"
+                  className="mt-sm w-full"
                 >
                   ✎ Edit image
                 </Button>
               </div>
 
-              <Eyebrow tracking="0.2em" color="#A8762A" className="mb-[10px] block">
+              <Eyebrow tracking="0.2em" entity="#A8762A" className="mb-sm block">
                 ❖ Draft with Mytheca
               </Eyebrow>
-              <p className="mb-[10px] font-body text-[14px] text-ink">
+              <p className="mb-sm font-body text-body-sm text-ink">
                 Describe the place in a sentence —{" "}
                 <span className="text-ink-soft italic">Mytheca drafts the rest.</span>
               </p>
@@ -257,19 +257,19 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
               <Button
                 onClick={lib.draftSetting}
                 disabled={!canDraft || lib.generating}
-                className="mt-[12px] w-full"
+                className="mt-md w-full"
               >
                 {lib.generating ? "Drafting…" : "❖ Draft with Mytheca"}
               </Button>
               <Button
                 variant="ghost"
                 onClick={lib.closeModal}
-                className="mt-[10px] w-full md:hidden"
+                className="mt-sm w-full md:hidden"
               >
                 Cancel
               </Button>
               {lib.error ? (
-                <p role="alert" className="mt-4 font-body text-[13px] text-accent md:hidden">
+                <p role="alert" className="mt-4 font-body text-label text-accent-ink md:hidden">
                   {lib.error}
                 </p>
               ) : null}
@@ -286,24 +286,24 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
           {/* Event timeline — read-only §4.1 seam: empty until play accrues it. */}
           <div
             className={cn(
-              "mt-[20px] border-t border-hair-strong pt-[18px]",
+              "mt-lg border-t border-hair-strong pt-lg",
               agentic && "hidden md:block",
             )}
           >
             <FieldLabel>Event timeline</FieldLabel>
             {timeline.length ? (
-              <ul className="flex flex-col gap-[8px]">
+              <ul className="flex flex-col gap-sm">
                 {timeline.map((entry, i) => (
                   <li
                     key={i}
-                    className="rounded-[4px] border border-cardbd bg-field px-[10px] py-[8px] font-body text-[13.5px] text-ink-soft"
+                    className="rounded-sm border border-cardbd bg-field px-sm py-sm font-body text-label text-ink-soft"
                   >
                     {entry.summary}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="font-body text-[12.5px] text-mute">
+              <p className="font-body text-eyebrow text-mute">
                 A log of what happens here accrues as scenarios play out — it starts
                 empty and is written by the story, not authored.
               </p>
@@ -313,12 +313,12 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
           {/* Footer — error + actions. */}
           <div className={cn(agentic && "hidden md:block")}>
             {lib.error ? (
-              <p role="alert" className="mt-4 font-body text-[13px] text-accent">
+              <p role="alert" className="mt-4 font-body text-label text-accent-ink">
                 {lib.error}
               </p>
             ) : null}
             <div
-              className="mt-[20px] flex items-center justify-between gap-[10px]"
+              className="mt-lg flex items-center justify-between gap-sm"
               aria-busy={lib.pending || undefined}
             >
               {isEdit ? (
@@ -328,7 +328,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
                   disabled={lib.pending}
                   aria-busy={busy || undefined}
                   aria-label={busy ? "Deleting setting" : undefined}
-                  className="relative cursor-pointer p-[6px] font-mono text-[10.5px] tracking-[0.06em] text-accent uppercase hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                  className="relative cursor-pointer p-xs font-mono text-eyebrow tracking-[0.06em] text-accent-ink uppercase hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className={cn("inline-flex items-center", busy && "invisible")}>
                     Delete
@@ -342,7 +342,7 @@ export function SettingModal({ lib }: { lib: ReturnType<typeof useLibraryState> 
               ) : (
                 <span />
               )}
-              <div className="flex gap-[10px]">
+              <div className="flex gap-sm">
                 <Button variant="ghost" onClick={lib.closeModal}>
                   Cancel
                 </Button>

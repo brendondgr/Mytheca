@@ -51,21 +51,21 @@ export function SealModal({
       <div className="p-[22px_26px_24px]">
         <div
           id="seal-modal-title"
-          className="font-display text-[22px] font-bold text-ink"
+          className="font-display text-step-2 font-bold text-ink"
         >
           Seal
         </div>
-        <p className="mt-[6px] mb-[16px] font-body text-[12.5px] text-ink-soft">
+        <p className="mt-xs mb-lg font-body text-eyebrow text-ink-soft">
           The mark shown beside this world&apos;s name. Pick a shape and color — or
           dial in any custom color with the wheel.
         </p>
 
-        <div className="flex items-start gap-[18px]">
+        <div className="flex items-start gap-lg">
           {/* Large live preview */}
           <div
             aria-hidden
-            className="flex h-[96px] w-[96px] flex-none items-center justify-center rounded-[8px] border border-cardbd bg-field text-[52px] leading-none"
-            style={{ color: sealColor }}
+            className="flex h-[96px] w-[96px] flex-none items-center justify-center rounded-md border border-cardbd bg-field text-step-3 text-entity-strong leading-none"
+            style={{ ["--entity" as string]: sealColor }}
           >
             {seal}
           </div>
@@ -75,7 +75,7 @@ export function SealModal({
             <div
               role="group"
               aria-label="Seal symbol"
-              className="flex flex-wrap gap-[7px]"
+              className="flex flex-wrap gap-xs"
             >
               {SEAL_SYMBOLS.map((sym) => (
                 <button
@@ -85,7 +85,7 @@ export function SealModal({
                   aria-pressed={seal === sym}
                   onClick={() => onSymbolChange(sym)}
                   className={cn(
-                    "flex h-[34px] w-[34px] items-center justify-center rounded-[5px] border text-[18px] leading-none focus-visible:border-accent",
+                    "flex h-[34px] w-[34px] items-center justify-center rounded-sm border text-step-1 leading-none focus-visible:border-accent",
                     seal === sym
                       ? "border-accent bg-card2 text-ink"
                       : "border-cardbd bg-field text-ink-soft hover:border-accent hover:bg-hover hover:text-ink",
@@ -99,10 +99,10 @@ export function SealModal({
         </div>
 
         {/* Colors + custom wheel */}
-        <div className="mt-[18px]">
+        <div className="mt-lg">
           <FieldLabel>Color</FieldLabel>
-          <div className="flex flex-wrap items-center gap-[9px]">
-            <div role="group" aria-label="Seal color" className="flex flex-wrap gap-[9px]">
+          <div className="flex flex-wrap items-center gap-sm">
+            <div role="group" aria-label="Seal color" className="flex flex-wrap gap-sm">
               {SEAL_COLORS.map((col) => (
                 <button
                   key={col}
@@ -124,7 +124,7 @@ export function SealModal({
 
             {/* Custom color wheel — native picker, unlimited hex. */}
             <label
-              className="flex cursor-pointer items-center gap-[7px] rounded-full border border-cardbd bg-field px-[10px] py-[5px]"
+              className="flex cursor-pointer items-center gap-xs rounded-full border border-cardbd bg-field px-sm py-2xs"
               title="Custom color"
             >
               <span
@@ -137,7 +137,7 @@ export function SealModal({
                   boxShadow: isCustom ? `0 0 0 2px ${sealColor}` : "0 0 0 1px rgba(0,0,0,.15)",
                 }}
               />
-              <span className="font-mono text-[10px] tracking-[0.06em] text-ink-soft uppercase">
+              <span className="font-mono text-eyebrow tracking-[0.06em] text-ink-soft uppercase">
                 Custom
               </span>
               <input
@@ -151,7 +151,7 @@ export function SealModal({
           </div>
         </div>
 
-        <div className="mt-[22px] flex justify-end">
+        <div className="mt-xl flex justify-end">
           <Button variant="ghost" onClick={onClose}>
             Done
           </Button>

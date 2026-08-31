@@ -41,14 +41,14 @@ export function StorylineDeleteModal({
       className="sm:w-[440px]"
     >
       <div className="p-[22px_26px_24px]">
-        <div className="flex items-start justify-between gap-[14px]">
+        <div className="flex items-start justify-between gap-lg">
           <div>
-            <Eyebrow tracking="0.2em" color="#9A3520">
+            <Eyebrow tracking="0.2em" entity="#9A3520">
               Delete Storyline
             </Eyebrow>
             <div
               id="storyline-delete-title"
-              className="mt-1 font-display text-[22px] font-bold text-ink"
+              className="mt-1 font-display text-step-2 font-bold text-ink"
             >
               Delete “{storyline.title}”?
             </div>
@@ -56,9 +56,9 @@ export function StorylineDeleteModal({
           <CloseButton onClose={onCancel} />
         </div>
 
-        <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
+        <div className="my-lg h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
-        <p className="font-body text-[14.5px] leading-[1.5] text-ink">
+        <p className="font-body text-body-sm leading-[1.5] text-ink">
           This permanently removes the storyline and everything inside it
           {total > 0 ? (
             <>
@@ -72,13 +72,13 @@ export function StorylineDeleteModal({
         </p>
 
         {error ? (
-          <p role="alert" className="mt-4 font-body text-[13px] text-accent">
+          <p role="alert" className="mt-4 font-body text-label text-accent-ink">
             {error}
           </p>
         ) : null}
 
         <div
-          className="mt-[22px] flex items-center justify-end gap-[10px]"
+          className="mt-xl flex items-center justify-end gap-sm"
           aria-busy={pending || undefined}
         >
           <Button variant="ghost" onClick={onCancel} disabled={pending}>
@@ -90,7 +90,7 @@ export function StorylineDeleteModal({
             disabled={pending}
             aria-busy={busy || undefined}
             aria-label={busy ? "Deleting storyline" : undefined}
-            className="relative inline-flex cursor-pointer items-center justify-center rounded-[2px] px-[18px] py-[10px] font-mono text-[11px] tracking-[0.08em] text-[#F6ECDA] uppercase hover:brightness-[1.3] disabled:cursor-not-allowed disabled:opacity-60"
+            className="relative inline-flex cursor-pointer items-center justify-center rounded-xs px-lg py-sm font-mono text-eyebrow tracking-[0.08em] text-[#F6ECDA] uppercase hover:brightness-[1.3] disabled:cursor-not-allowed disabled:opacity-60"
             style={{ background: "#9A3520" }}
           >
             <span className={cn("inline-flex items-center", busy && "invisible")}>

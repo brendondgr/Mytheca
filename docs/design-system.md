@@ -167,7 +167,25 @@ Set `--entity` on an element and use the derived colour; never apply the raw val
 | `--entity-ink-strong` (`text-entity-strong`) | `color-mix(in oklab, var(--entity) 65%, var(--ink))` | **3.05:1** | large text (≥24px, or ≥18.66px bold) and non-text marks (1.4.11) |
 
 Because `--ink` is dark on Parchment and light on Ember/Slate, one recipe moves the colour the right
-direction in every theme automatically. The two percentages are the **highest hue retention** that
+direction in every theme automatically.
+
+The same idea covers the accent and the five semantic colours. In every case the **raw** token stays
+for fills, borders and focus rings — where the vivid hue is the point and the 3:1 non-text bar applies
+— and an `-ink` variant carries the text:
+
+| Text token | Recipe | Why that percentage |
+| --- | --- | --- |
+| `text-accent-ink` | `--accent` at **72 %** | The accent has only three known values, not an open palette, so it can keep far more hue. 75 % is the limit; 72 % leaves margin. Raw accent measured 4.27:1 on Ember's card2, 4.05:1 on Slate's, 3.32:1 on Slate's hover ground. |
+| `text-gold-ink` · `text-gold-soft-ink` · `text-narrator-ink` · `text-success-ink` · `text-danger-ink` | each at **45 %** | These are theme-*agnostic* by design — one fixed hex cannot clear 4.5:1 against both a cream ground and a near-black one. `#a8762a` measured 4.08 / 3.61 / 3.11 across surfaces; `#1f8a5b` measured 3.30. |
+
+`Monogram` is the one deliberate exception, and the exception proves the rule. Its ground is a fixed
+parchment `#EDE3CD` in **every** theme, so mixing toward the theme's ink would make Ember and Slate
+worse rather than better. Its initials mix toward a dark ink at 60 % instead; its ring keeps the
+character's colour untouched, because a ring is a non-text mark.
+
+`Eyebrow` takes `entity` for an identity colour and `color` only for a theme token, and clamps a
+numeric `size` to the 11px caption floor — those two props were the app's single largest source of
+contrast findings. The two percentages are the **highest hue retention** that
 still clears the bar across every built-in entity colour × every surface × all three themes.
 `utils/scripts/check_contrast.py` re-derives both numbers from the CSS on every run — the percentages
 are read out of `themes.css`, never hardcoded in the gate — so the recipe and the contrast it

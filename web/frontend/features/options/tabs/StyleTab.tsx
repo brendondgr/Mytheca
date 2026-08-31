@@ -52,10 +52,10 @@ export function StyleTab() {
   const mine = catalog?.presets.filter((p) => !p.builtin) ?? [];
 
   return (
-    <div className="flex flex-col gap-[18px]">
+    <div className="flex flex-col gap-lg">
       <div>
         <SectionHeader title="Narrative style presets" />
-        <p className="mt-[6px] font-body text-[13px] text-ink-soft">
+        <p className="mt-xs font-body text-label text-ink-soft">
           Reusable style guides — how a story is written, not what happens in it. Apply one to
           a world from its editor; it copies in and stays editable there, so changing a preset
           later never rewrites a world that already uses it.
@@ -63,8 +63,8 @@ export function StyleTab() {
       </div>
 
       {error ? (
-        <div className="flex flex-wrap items-center gap-[10px]">
-          <p role="alert" className="font-body text-[14px] text-danger">
+        <div className="flex flex-wrap items-center gap-sm">
+          <p role="alert" className="font-body text-body-sm text-danger-ink">
             {error}
           </p>
           <Button variant="secondary" onClick={load}>
@@ -74,34 +74,34 @@ export function StyleTab() {
       ) : null}
 
       {!catalog && !error ? (
-        <p className="font-body text-[14px] text-ink-soft">Loading presets…</p>
+        <p className="font-body text-body-sm text-ink-soft">Loading presets…</p>
       ) : null}
 
       {catalog ? (
         <>
-          <div className="flex flex-col gap-[10px]">
+          <div className="flex flex-col gap-sm">
             <span className="font-mono text-tag tracking-[0.08em] text-mute uppercase">
               Built in
             </span>
             {builtins.map((preset) => (
               <div
                 key={preset.id}
-                className="rounded-[4px] border border-cardbd bg-card2 p-[12px_14px]"
+                className="rounded-sm border border-cardbd bg-card2 p-[12px_14px]"
               >
-                <div className="font-display text-[15px] font-semibold text-ink">
+                <div className="font-display text-body-sm font-semibold text-ink">
                   {preset.name}
                 </div>
-                <p className="mt-[2px] font-body text-[13px] text-ink-soft">{preset.blurb}</p>
+                <p className="mt-3xs font-body text-label text-ink-soft">{preset.blurb}</p>
               </div>
             ))}
           </div>
 
-          <div className="flex flex-col gap-[10px]">
+          <div className="flex flex-col gap-sm">
             <span className="font-mono text-tag tracking-[0.08em] text-mute uppercase">
               Saved by you
             </span>
             {mine.length === 0 ? (
-              <p className="font-body text-[13px] text-mute2">
+              <p className="font-body text-label text-mute2">
                 None yet. Write a style guide on a world and choose “Save as preset” to reuse
                 it elsewhere.
               </p>
@@ -109,13 +109,13 @@ export function StyleTab() {
               mine.map((preset) => (
                 <div
                   key={preset.id}
-                  className="flex items-center justify-between gap-[12px] rounded-[4px] border border-cardbd bg-card2 p-[12px_14px]"
+                  className="flex items-center justify-between gap-md rounded-sm border border-cardbd bg-card2 p-[12px_14px]"
                 >
                   <div className="min-w-0">
-                    <div className="truncate font-display text-[15px] font-semibold text-ink">
+                    <div className="truncate font-display text-body-sm font-semibold text-ink">
                       {preset.name}
                     </div>
-                    <p className="mt-[2px] font-body text-[12.5px] text-mute2">
+                    <p className="mt-3xs font-body text-eyebrow text-mute2">
                       {Object.keys(preset.blocks).length} of 6 blocks
                     </p>
                   </div>

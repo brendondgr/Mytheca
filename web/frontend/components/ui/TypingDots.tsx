@@ -23,7 +23,7 @@ export function TypingDots({
   return (
     <span
       aria-hidden
-      className={cn("inline-flex items-center gap-[2px]", className)}
+      className={cn("inline-flex items-center gap-3xs", className)}
       data-testid="typing-dots"
     >
       {[0, 1, 2].map((i) => (

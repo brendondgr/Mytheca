@@ -35,7 +35,7 @@ export function CharacterCard({
   return (
     <div
       className={cn(
-        "mytheca-card group relative aspect-[2/3] overflow-hidden rounded-[4px] hover-lift hover:shadow-[0_8px_20px_rgba(20,14,6,.22)]",
+        "mytheca-card group relative aspect-[2/3] overflow-hidden rounded-sm hover-lift hover:shadow-[0_8px_20px_rgba(20,14,6,.22)]",
         !hasPortrait && "bg-card2",
         highlighted && "mytheca-glow",
       )}
@@ -50,7 +50,7 @@ export function CharacterCard({
         fill
         className="pointer-events-none"
         placeholder={
-          <div className="flex h-full w-full items-center justify-center pb-[64px]">
+          <div className="flex h-full w-full items-center justify-center pb-3xl">
             <Monogram mono={c.mono} color={c.color} size={96} ring={2} fontSize={36} />
           </div>
         }
@@ -68,7 +68,7 @@ export function CharacterCard({
         type="button"
         onClick={onPreview}
         aria-label={`View ${c.name}`}
-        className="absolute inset-0 z-0 cursor-pointer rounded-[4px]"
+        className="absolute inset-0 z-0 cursor-pointer rounded-sm"
       />
 
       {/* Edit pencil (top-right) — sibling above the stretched button. */}
@@ -76,7 +76,7 @@ export function CharacterCard({
         <IconButton
           label={`Edit ${c.name}`}
           onClick={onEdit}
-          className="absolute right-[10px] top-[10px] z-[2]"
+          className="absolute right-[10px] top-sm z-[2]"
         >
           ✎
         </IconButton>
@@ -87,7 +87,7 @@ export function CharacterCard({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] p-[12px_13px_13px]">
         {highlighted ? (
           <span
-            className="mb-[5px] block font-mono text-[8.5px] uppercase tracking-[0.12em]"
+            className="mb-2xs block font-mono text-eyebrow uppercase tracking-[0.12em]"
             style={{ color: hasPortrait ? OVER_ART.accent : "var(--accent)" }}
           >
             ◆ In this scene
@@ -95,7 +95,7 @@ export function CharacterCard({
         ) : null}
         <span
           className={cn(
-            "block font-display text-[16px] font-semibold leading-[1.1]",
+            "block font-display text-body font-semibold leading-[1.1]",
             !hasPortrait && "text-ink",
           )}
           style={hasPortrait ? { color: OVER_ART.title } : undefined}
@@ -104,8 +104,8 @@ export function CharacterCard({
         </span>
         <Eyebrow
           tracking="0.12em"
-          color={hasPortrait ? OVER_ART.eyebrow : c.color}
-          className="mt-[3px] block"
+          entity={hasPortrait ? OVER_ART.eyebrow : c.color}
+          className="mt-3xs block"
         >
           {c.role}
         </Eyebrow>

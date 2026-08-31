@@ -26,36 +26,36 @@ export function BeginSceneModal({
       <div className="p-[24px_28px]">
         <div className="flex items-center justify-between">
           <div>
-            <Eyebrow tracking="0.2em" color="#A8762A">
+            <Eyebrow tracking="0.2em" entity="#A8762A">
               Enter the scene
             </Eyebrow>
-            <div id="begin-title" className="mt-1 font-display text-[24px] font-bold text-ink">
+            <div id="begin-title" className="mt-1 font-display text-step-2 font-bold text-ink">
               {s.title}
             </div>
           </div>
           <CloseButton onClose={onClose} />
         </div>
-        <div className="my-[12px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
+        <div className="my-md h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
         <div className="rounded-[0_4px_4px_0] border-l-[3px] border-l-narrator bg-[rgba(31,138,130,.12)] p-[14px_16px]">
-          <Eyebrow tracking="0.16em" color="#1F8A82" className="mb-[6px] block">
+          <Eyebrow tracking="0.16em" entity="#1F8A82" className="mb-xs block">
             Narrator
           </Eyebrow>
-          <p className="font-body text-[15.5px] leading-[1.5] text-ink italic">{s.opening}</p>
+          <p className="font-body text-body-sm leading-[1.5] text-ink italic">{s.opening}</p>
         </div>
 
-        <div className="mt-5 flex gap-[26px]">
+        <div className="mt-5 flex gap-xl">
           <div className="flex-1">
             <FieldLabel>Cast at the table</FieldLabel>
             <div className="flex flex-col gap-2">
               {s.cast.map((c) => (
-                <div key={c.id} className="flex items-center gap-[10px]">
+                <div key={c.id} className="flex items-center gap-sm">
                   <Monogram mono={c.mono} color={c.color} size={30} ring={1.5} fontSize={11} />
                   <div className="min-w-0">
-                    <div className="font-display text-[14px] font-semibold leading-none text-ink">
+                    <div className="font-display text-body-sm font-semibold leading-none text-ink">
                       {c.name}
                     </div>
-                    <Eyebrow size={8} tracking="0.1em" color={c.color} className="mt-[3px] block">
+                    <Eyebrow size={8} tracking="0.1em" entity={c.color} className="mt-3xs block">
                       {c.role}
                     </Eyebrow>
                   </div>
@@ -65,22 +65,22 @@ export function BeginSceneModal({
           </div>
           <div className="flex-1">
             <FieldLabel>Setting</FieldLabel>
-            <div className="font-display text-[15px] font-semibold text-ink">◆ {s.setting.name}</div>
-            <p className="mt-[5px] font-body text-[13.5px] leading-[1.4] text-ink-soft">
+            <div className="font-display text-body-sm font-semibold text-ink">◆ {s.setting.name}</div>
+            <p className="mt-2xs font-body text-label leading-[1.4] text-ink-soft">
               {s.setting.desc}
             </p>
             <FieldLabel className="mt-4">Scene goal</FieldLabel>
-            <p className="font-body text-[14px] leading-[1.4] text-ink">{s.goal}</p>
+            <p className="font-body text-body-sm leading-[1.4] text-ink">{s.goal}</p>
           </div>
         </div>
 
-        <div className="mt-[22px] flex justify-end gap-[10px]">
+        <div className="mt-xl flex justify-end gap-sm">
           <Button variant="ghost" onClick={onClose}>
             Not yet
           </Button>
           <Link
             href={`/${storylineId}/${s.id}`}
-            className="inline-flex items-center rounded-[2px] bg-accent px-[22px] py-[11px] font-mono text-[11px] uppercase tracking-[0.1em] text-[#F6ECDA] hover-lift press hover:bg-accent-hover hover:shadow-[0_5px_14px_rgba(10,6,3,.3)] active:translate-y-0"
+            className="inline-flex items-center rounded-xs bg-accent px-xl py-md font-mono text-eyebrow uppercase tracking-[0.1em] text-[#F6ECDA] hover-lift press hover:bg-accent-hover hover:shadow-[0_5px_14px_rgba(10,6,3,.3)] active:translate-y-0"
           >
             Enter Scene ▸
           </Link>

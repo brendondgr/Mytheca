@@ -28,18 +28,18 @@ export function DirectionVerbsEditor({
     onChange(verbs.map((v, j) => (i === j ? { ...v, ...patch } : v)));
 
   return (
-    <section className="mb-[14px]">
+    <section className="mb-lg">
       <FieldLabel>Direction verbs — this scene&apos;s own</FieldLabel>
-      <p className="mt-[2px] mb-[8px] font-body text-[11.5px] leading-[1.45] text-mute2">
+      <p className="mt-3xs mb-sm font-body text-eyebrow leading-[1.45] text-mute2">
         One-tap phrasings added to the player&apos;s direction bar, alongside the built-in
         ones. The <em>chip</em> is the short name; the <em>phrasing</em> is what gets written
         into their direction box for them to edit.
       </p>
 
-      <ul className="grid gap-[8px]">
+      <ul className="grid gap-sm">
         {verbs.map((verb, i) => (
-          <li key={i} className="grid gap-[6px] rounded-[8px] border border-field-bd p-[8px]">
-            <div className="flex flex-wrap gap-[6px]">
+          <li key={i} className="grid gap-xs rounded-md border border-field-bd p-sm">
+            <div className="flex flex-wrap gap-xs">
               <TextField
                 label="Chip"
                 placeholder="Ring the bell"
@@ -69,7 +69,7 @@ export function DirectionVerbsEditor({
                 type="button"
                 onClick={() => onChange(verbs.filter((_, j) => j !== i))}
                 aria-label={`Remove ${verb.label || "this verb"}`}
-                className="min-h-[24px] rounded-[6px] border border-field-bd px-[8px] font-mono text-[9px] tracking-[0.08em] text-mute uppercase hover:bg-hover hover:text-ink"
+                className="min-h-[24px] rounded-sm border border-field-bd px-sm font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:bg-hover hover:text-ink"
               >
                 Remove
               </button>
@@ -82,12 +82,12 @@ export function DirectionVerbsEditor({
         <button
           type="button"
           onClick={() => onChange([...verbs, { label: "", group: "event", text: "" }])}
-          className="mt-[8px] min-h-[28px] rounded-[6px] border border-field-bd px-[10px] font-mono text-[9px] tracking-[0.08em] text-mute uppercase hover:bg-hover hover:text-ink"
+          className="mt-sm min-h-[28px] rounded-sm border border-field-bd px-sm font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:bg-hover hover:text-ink"
         >
           + Add a verb
         </button>
       ) : (
-        <p className="mt-[8px] font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
+        <p className="mt-sm font-mono text-eyebrow tracking-[0.1em] text-mute2 uppercase">
           {MAX_SCENE_VERBS} is the limit — the bar is a glance-and-tap surface
         </p>
       )}

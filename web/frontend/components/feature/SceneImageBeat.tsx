@@ -23,13 +23,13 @@ export function SceneImageBeat({
 }) {
   const caption = image.caption || "A picture of this moment in the scene.";
   return (
-    <figure className="my-[2px] flex flex-col items-center">
+    <figure className="my-3xs flex flex-col items-center">
       <button
         type="button"
         onClick={onOpen ? () => onOpen(image) : undefined}
         disabled={!onOpen}
         aria-label={`Enlarge scene image — ${caption}`}
-        className="group block w-full max-w-[560px] cursor-pointer overflow-hidden rounded-[6px] border border-cardbd bg-field shadow-[0_1px_2px_rgba(20,14,6,.06)] transition hover:border-accent hover:shadow-[0_6px_18px_rgba(10,6,3,.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:hover:border-cardbd disabled:hover:shadow-[0_1px_2px_rgba(20,14,6,.06)]"
+        className="group block w-full max-w-[560px] cursor-pointer overflow-hidden rounded-sm border border-cardbd bg-field shadow-[0_1px_2px_rgba(20,14,6,.06)] transition hover:border-accent hover:shadow-[0_6px_18px_rgba(10,6,3,.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:hover:border-cardbd disabled:hover:shadow-[0_1px_2px_rgba(20,14,6,.06)]"
       >
         {/* 1216x832 (see docs/comfyui-image-generation.md, "In-play scene
             images") — not literally 16:9, so the exact generation ratio is
@@ -41,11 +41,11 @@ export function SceneImageBeat({
           className="block w-full"
         />
       </button>
-      <figcaption className="mt-[7px] max-w-[560px] text-center">
+      <figcaption className="mt-xs max-w-[560px] text-center">
         <Eyebrow size={8} tracking="0.16em" className="block">
           A moment in the scene
         </Eyebrow>
-        <span className="mt-[3px] block font-body text-[12.5px] leading-[1.45] text-ink-soft italic">
+        <span className="mt-3xs block font-body text-eyebrow leading-[1.45] text-ink-soft italic">
           {caption}
         </span>
       </figcaption>

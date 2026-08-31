@@ -49,7 +49,7 @@ export function SceneRailBar({
   return (
     <div
       className={cn(
-        "flex flex-none items-stretch gap-[6px] border-t border-hair-strong bg-page px-[12px] pt-[7px] lg:hidden",
+        "flex flex-none items-stretch gap-xs border-t border-hair-strong bg-page px-md pt-xs lg:hidden",
         className,
       )}
     >
@@ -69,7 +69,7 @@ export function SceneRailBar({
             }
             onClick={t.onSelect}
             className={cn(
-              "touch-target press flex min-h-[36px] flex-1 items-center justify-center gap-[6px] rounded-[5px] border font-mono text-[10px] tracking-[0.12em] uppercase transition-colors duration-fast",
+              "touch-target press flex min-h-[36px] flex-1 items-center justify-center gap-xs rounded-sm border font-mono text-eyebrow tracking-[0.12em] uppercase transition-colors duration-fast",
               t.open
                 ? "border-accent bg-card2 text-ink"
                 : "border-field-bd bg-card text-mute hover:bg-hover hover:text-ink",
@@ -80,7 +80,7 @@ export function SceneRailBar({
               <span
                 aria-hidden
                 className={cn(
-                  "flex min-w-[17px] items-center justify-center rounded-[9px] px-[5px] py-[1px] text-[9px] leading-[1.4]",
+                  "flex min-w-[17px] items-center justify-center rounded-md px-2xs py-3xs text-eyebrow leading-[1.4]",
                   // Filled accent with the light ink the design system pairs with it
                   // (`accent-ink / accent`, already in the contrast gate) — accent *as text*
                   // at 9px on a card ground would not clear AA.

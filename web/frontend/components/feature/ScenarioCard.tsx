@@ -33,7 +33,7 @@ export function ScenarioCard({
   return (
     <div
       className={cn(
-        "mytheca-card relative overflow-hidden rounded-[4px] hover-lift hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        "mytheca-card relative overflow-hidden rounded-sm hover-lift hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
         hasImage && "min-h-[176px]",
         featured
           ? "border-2 border-accent shadow-[0_6px_18px_rgba(142,43,28,.16)]"
@@ -62,15 +62,15 @@ export function ScenarioCard({
         onClick={onSelect}
         aria-pressed={featured}
         aria-label={`Feature scenario ${s.title}`}
-        className="absolute inset-0 z-0 cursor-pointer rounded-[4px]"
+        className="absolute inset-0 z-0 cursor-pointer rounded-sm"
       />
 
       {/* Top-right cluster: Recent badge + edit pencil, grouped so they never
           overlap when both are present. */}
       {featured || onEdit ? (
-        <div className="pointer-events-none absolute right-[10px] top-[10px] z-[2] flex items-center gap-[6px]">
+        <div className="pointer-events-none absolute right-[10px] top-sm z-[2] flex items-center gap-xs">
           {featured ? (
-            <span className="rounded-full bg-accent px-[7px] py-[2px] font-mono text-[8px] uppercase tracking-[0.1em] whitespace-nowrap text-[#F6ECDA]">
+            <span className="rounded-full bg-accent px-xs py-3xs font-mono text-eyebrow uppercase tracking-[0.1em] whitespace-nowrap text-[#F6ECDA]">
               Recent
             </span>
           ) : null}
@@ -82,10 +82,10 @@ export function ScenarioCard({
         </div>
       ) : null}
 
-      <div className={cn("pointer-events-none relative z-[1]", featured ? "p-[15px]" : "p-[16px]")}>
+      <div className={cn("pointer-events-none relative z-[1]", featured ? "p-lg" : "p-lg")}>
         <h3
           className={cn(
-            "pr-[92px] font-display text-[19px] font-bold leading-[1.08]",
+            "pr-3xl font-display text-step-1 font-bold leading-[1.08]",
             !hasImage && "text-ink",
           )}
           style={hasImage ? { color: OVER_ART.title } : undefined}
@@ -98,14 +98,14 @@ export function ScenarioCard({
         <div className={cn(hasImage && "max-w-[60%]")}>
           <Eyebrow
             tracking="0.1em"
-            color={hasImage ? OVER_ART.eyebrow : "#A8762A"}
-            className="mt-[6px] block"
+            entity={hasImage ? OVER_ART.eyebrow : "#A8762A"}
+            className="mt-xs block"
           >
             {s.genre} · {s.tone}
           </Eyebrow>
           <p
             className={cn(
-              "mt-[9px] font-body text-body-sm leading-[1.4]",
+              "mt-sm font-body text-body-sm leading-[1.4]",
               hasImage ? "line-clamp-3" : "text-ink-soft",
             )}
             style={hasImage ? { color: OVER_ART.body } : undefined}
@@ -115,10 +115,10 @@ export function ScenarioCard({
         </div>
 
         <div
-          className={cn("mt-[14px] flex items-center justify-between border-t pt-[11px]")}
+          className={cn("mt-lg flex items-center justify-between border-t pt-md")}
           style={{ borderColor: hasImage ? OVER_ART.hair : "var(--hair)" }}
         >
-          <div className="flex items-center gap-[5px]">
+          <div className="flex items-center gap-2xs">
             {s.cast.map((c) =>
               onProfile ? (
                 <button

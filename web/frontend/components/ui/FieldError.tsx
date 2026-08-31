@@ -24,13 +24,13 @@ export function FieldError({
   return (
     <span
       aria-hidden={children ? undefined : true}
-      className={cn("block min-h-[1.15rem] pt-[3px]", className)}
+      className={cn("block min-h-[1.15rem] pt-3xs", className)}
     >
       {children ? (
         <span
           id={id}
           role="alert"
-          className="content-enter block font-mono text-[10px] leading-[1.15rem] tracking-[0.08em] text-danger"
+          className="content-enter block font-mono text-eyebrow leading-[1.15rem] tracking-[0.08em] text-danger-ink"
         >
           {children}
         </span>

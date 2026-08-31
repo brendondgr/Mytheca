@@ -443,10 +443,10 @@ export function Composer({
 
   return (
     /* Outer band: transparent, no background — just positions the centered panel. */
-    <div className="flex-none px-[16px] pb-[12px] sm:px-[30px] sm:pb-[14px]">
+    <div className="flex-none px-lg pb-md sm:px-2xl sm:pb-lg">
       {/* The single visual unit: the chat box panel (input area + gap + controls). */}
       {/* `relative` anchors the `@` menu, which opens upward out of the panel. */}
-      <div className="relative mx-auto flex max-w-[720px] flex-col rounded-[14px] border border-field-bd bg-field px-[10px] pt-[8px] pb-[7px] focus-within:border-accent transition-colors duration-150">
+      <div className="relative mx-auto flex max-w-[720px] flex-col rounded-lg border border-field-bd bg-field px-sm pt-sm pb-xs focus-within:border-accent transition-colors duration-150">
         {castMenu}
         {menuOpen ? (
           <MentionMenu
@@ -520,7 +520,7 @@ export function Composer({
           // of the two you were writing.
           aria-label={povName ? `Your line as ${povName}` : "Your message"}
           placeholder={placeholder}
-          className="composer-input block w-full resize-none bg-transparent px-[4px] pt-[2px] pb-[8px] font-body text-[14px] text-ink placeholder:text-mute2 focus:outline-none"
+          className="composer-input block w-full resize-none bg-transparent px-2xs pt-3xs pb-sm font-body text-field text-ink placeholder:text-mute2 focus:outline-none"
           style={{ overflowY: "hidden" }}
         />
 
@@ -530,12 +530,12 @@ export function Composer({
         {taggedFiles.length > 0 ? (
           <ul
             aria-label="Tagged in this turn"
-            className="mb-[6px] flex flex-wrap items-center gap-[5px] px-[4px]"
+            className="mb-xs flex flex-wrap items-center gap-2xs px-2xs"
           >
             {taggedFiles.map((file) => (
               <li key={file.id}>
                 <span
-                  className={`flex items-center gap-[4px] rounded-[6px] border py-[1px] pr-[1px] pl-[7px] font-mono text-[10px] text-mute ${
+                  className={`flex items-center gap-2xs rounded-sm border py-3xs pr-3xs pl-xs font-mono text-eyebrow text-mute ${
                     file.kind === "cast" && file.color ? "" : "border-field-bd"
                   }`}
                   style={
@@ -562,7 +562,7 @@ export function Composer({
                     type="button"
                     onClick={() => removeTag(file)}
                     aria-label={`Remove ${file.name}`}
-                    className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[4px] text-[12px] text-mute hover:bg-hover hover:text-ink"
+                    className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-sm text-eyebrow text-mute hover:bg-hover hover:text-ink"
                   >
                     ×
                   </button>
@@ -573,7 +573,7 @@ export function Composer({
         ) : null}
 
         {/* Controls bar — sits a gap below the textarea, no dividing line. */}
-        <div className="flex items-center gap-[7px]">
+        <div className="flex items-center gap-xs">
           {/* Left: Config, then the Player POV "Speaking as" select to its right. */}
           {hasConfig ? (
             <SceneConfigMenu
@@ -646,7 +646,7 @@ export function Composer({
             onClick={onSend}
             disabled={sendDisabled || !hasContent}
             aria-label="Send"
-            className="flex flex-none items-center gap-[5px] rounded-[8px] bg-accent px-[11px] py-[5px] font-mono text-[10px] tracking-[0.08em] text-[#F6ECDA] uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
+            className="flex flex-none items-center gap-2xs rounded-md bg-accent px-md py-2xs font-mono text-eyebrow tracking-[0.08em] text-[#F6ECDA] uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
           >
             Send
             {/* Right-arrow — matches the reference "Send →". */}

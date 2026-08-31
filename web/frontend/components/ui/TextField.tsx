@@ -31,7 +31,7 @@ export function TextField({ label, className, ...props }: TextFieldProps) {
         className={cn(
           // text-body resolves from the --fs-* scale, so the user's Text-size
           // preference actually reaches the input.
-          "w-full rounded-[2px] border bg-field px-[11px] py-[8px] font-body text-body text-ink",
+          "w-full rounded-xs border bg-field px-md py-sm font-body text-body text-ink",
           "transition-[border-color] duration-fast ease-soft",
           "focus:border-accent focus:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-60",

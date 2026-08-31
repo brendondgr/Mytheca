@@ -9,7 +9,7 @@ import type { TurnTraceFrame } from "@/lib/events";
 // redundant with the tag text (never colour-alone), so the WHAT of each row reads at a
 // glance — Stat / Plan / Speaker / Thinks / Speaks … — and stays legible without colour.
 const STEP_META: Record<string, { tag: string; color: string }> = {
-  turn: { tag: "You", color: "var(--accent)" },
+  turn: { tag: "You", color: "var(--accent-ink)" },
   intent: { tag: "Intent", color: "#8b5cf6" },
   assemble: { tag: "Scene", color: "#64748b" },
   lore: { tag: "Lore", color: "#0ea5e9" },
@@ -82,37 +82,37 @@ function StepRow({ step }: { step: TurnTraceFrame }) {
         onClick={() => hasDetail && setOpen((o) => !o)}
         aria-expanded={hasDetail ? open : undefined}
         disabled={!hasDetail}
-        className="flex w-full items-start gap-[9px] py-[8px] text-left disabled:cursor-default"
+        className="flex w-full items-start gap-sm py-sm text-left disabled:cursor-default"
       >
         <span
           aria-hidden
-          className="mt-[6px] h-[9px] w-[9px] flex-none rounded-full"
+          className="mt-xs h-[9px] w-[9px] flex-none rounded-full"
           style={{ backgroundColor: meta.color }}
         />
         <span className="min-w-0 flex-1">
-          <span className="flex items-baseline gap-[8px]">
+          <span className="flex items-baseline gap-sm">
             <span
-              className="flex-none font-mono text-[10px] tracking-[0.08em] uppercase"
-              style={{ color: meta.color }}
+              className="flex-none font-mono text-eyebrow tracking-[0.08em] text-entity uppercase"
+              style={{ ["--entity" as string]: meta.color }}
             >
               {meta.tag}
             </span>
-            <span className="min-w-0 flex-1 font-body text-[14px] leading-[1.4] text-ink">
+            <span className="min-w-0 flex-1 font-body text-body-sm leading-[1.4] text-ink">
               {step.title}
             </span>
             {hasDetail ? (
-              <span aria-hidden className="flex-none font-mono text-[11px] text-mute2">
+              <span aria-hidden className="flex-none font-mono text-eyebrow text-mute2">
                 {open ? "▾" : "▸"}
               </span>
             ) : null}
           </span>
           {open && step.detail ? (
-            <span className="mt-[5px] block font-body text-[13px] leading-[1.5] text-ink-soft">
+            <span className="mt-2xs block font-body text-label leading-[1.5] text-ink-soft">
               {step.detail}
             </span>
           ) : null}
           {open && pitch ? (
-            <span className="mt-[4px] block font-mono text-[11px] tracking-[0.06em] text-mute2 uppercase">
+            <span className="mt-2xs block font-mono text-eyebrow tracking-[0.06em] text-mute2 uppercase">
               {pitch}
             </span>
           ) : null}
@@ -136,23 +136,23 @@ function TurnBlock({
 }) {
   const steps = turn.steps.filter((s) => s.step !== "turn");
   return (
-    <section className="rounded-[4px] border border-cardbd bg-card2">
+    <section className="rounded-sm border border-cardbd bg-card2">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className={`flex w-full items-baseline gap-[8px] p-[10px_12px] text-left ${
+        className={`flex w-full items-baseline gap-sm p-[10px_12px] text-left ${
           open ? "border-b border-cardbd" : ""
         }`}
       >
-        <span className="flex-none font-mono text-[10px] tracking-[0.1em] text-mute2 uppercase">
+        <span className="flex-none font-mono text-eyebrow tracking-[0.1em] text-mute2 uppercase">
           Turn {index}
         </span>
-        <span className="min-w-0 flex-1 truncate font-body text-[13px] text-ink-soft">
+        <span className="min-w-0 flex-1 truncate font-body text-label text-ink-soft">
           {turn.label || "(turn)"}
         </span>
-        <span className="flex-none font-mono text-[10px] text-mute2">{steps.length}</span>
-        <span aria-hidden className="flex-none font-mono text-[11px] text-mute2">
+        <span className="flex-none font-mono text-eyebrow text-mute2">{steps.length}</span>
+        <span aria-hidden className="flex-none font-mono text-eyebrow text-mute2">
           {open ? "▾" : "▸"}
         </span>
       </button>
@@ -211,10 +211,10 @@ export function TurnInspectorPanel({
     >
       <header className="flex flex-none items-start justify-between gap-3 border-b border-hair-strong p-[14px_16px]">
         <div>
-          <h2 className="font-display text-[15px] font-bold leading-none text-ink">
+          <h2 className="font-display text-body-sm font-bold leading-none text-ink">
             Turn Inspector
           </h2>
-          <p className="mt-[6px] font-mono text-[9px] leading-[1.5] tracking-[0.08em] text-mute uppercase">
+          <p className="mt-xs font-mono text-eyebrow leading-[1.5] tracking-[0.08em] text-mute uppercase">
             What happens, step by step, per message
           </p>
         </div>
@@ -223,14 +223,14 @@ export function TurnInspectorPanel({
 
       <div className="min-h-0 flex-1 overflow-auto p-[12px_14px]">
         {ordered.length === 0 ? (
-          <p className="mt-[8px] font-body text-[14px] leading-[1.5] text-ink-soft">
+          <p className="mt-sm font-body text-body-sm leading-[1.5] text-ink-soft">
             Send a message in the scene and the flow will appear here — the intent read from
             your input, the planner&apos;s choice of who speaks and why, each character&apos;s
             private thinking, any lore look-up, stat + relationship changes, the story-graph
             commit, and the reflection step that sets up the next turn. Tap a step to expand it.
           </p>
         ) : (
-          <div className="flex flex-col gap-[12px]">
+          <div className="flex flex-col gap-md">
             {ordered.map((turn, i) => (
               <TurnBlock
                 key={turn.id}

@@ -11,7 +11,7 @@ function SearchIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       aria-hidden
-      className="pointer-events-none absolute top-1/2 left-md -translate-y-1/2 text-gold-soft"
+      className="pointer-events-none absolute top-1/2 left-md -translate-y-1/2 text-gold-soft-ink"
     >
       <circle cx="11" cy="11" r="7" />
       <line x1="21" y1="21" x2="16.5" y2="16.5" />

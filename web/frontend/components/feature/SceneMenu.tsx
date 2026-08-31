@@ -116,7 +116,7 @@ export function SceneMenu({
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={label}
-        className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[9px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent sm:px-[10px]"
+        className="flex flex-none items-center gap-xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink sm:px-sm"
       >
         <span aria-hidden>☰</span>
         <span className="hidden sm:inline">{triggerLabel}</span>
@@ -129,7 +129,7 @@ export function SceneMenu({
           role="menu"
           aria-label={label}
           tabIndex={-1}
-          className="absolute top-[38px] right-0 z-40 flex max-h-[calc(100dvh-70px)] w-[248px] flex-col overflow-y-auto mytheca-menu p-[7px] focus:outline-none"
+          className="absolute top-2xl right-0 z-40 flex max-h-[calc(100dvh-70px)] w-[248px] flex-col overflow-y-auto mytheca-menu p-xs focus:outline-none"
         >
           {openItem ? (
             <>
@@ -137,7 +137,7 @@ export function SceneMenu({
                 type="button"
                 role="menuitem"
                 onClick={() => setDrilled(null)}
-                className="flex w-full items-center gap-[7px] rounded-[3px] border-b border-hair px-[11px] py-[9px] text-left font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:bg-hover hover:text-ink"
+                className="flex w-full items-center gap-xs rounded-xs border-b border-hair px-md py-sm text-left font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:bg-hover hover:text-ink"
               >
                 <span aria-hidden>‹</span> Back
               </button>
@@ -148,9 +148,9 @@ export function SceneMenu({
             item.render ? (
               <div
                 key={item.key}
-                className="flex items-center justify-between gap-[8px] rounded-[3px] px-[11px] py-[9px]"
+                className="flex items-center justify-between gap-sm rounded-xs px-md py-sm"
               >
-                <span className="font-display text-[13px] font-semibold text-ink">
+                <span className="font-display text-label font-semibold text-ink">
                   {item.label}
                 </span>
                 {item.render}
@@ -182,9 +182,9 @@ export function SceneMenu({
                   // the player just made. Everything else closes, because it navigated.
                   if (item.pressed === undefined) close();
                 }}
-                className="flex w-full flex-col gap-[2px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent aria-checked:text-accent"
+                className="flex w-full flex-col gap-3xs rounded-xs px-md py-sm text-left hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent aria-checked:text-accent-ink"
               >
-                <span className="flex items-center gap-[7px] font-display text-[13px] font-semibold text-ink">
+                <span className="flex items-center gap-xs font-display text-label font-semibold text-ink">
                   {item.icon ? <span aria-hidden>{item.icon}</span> : null}
                   {item.label}
                 </span>

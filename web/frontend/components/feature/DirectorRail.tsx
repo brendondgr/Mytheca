@@ -29,7 +29,7 @@ export function TensionMeter({ pct, label }: { pct: number; label: string }) {
   return (
     <div>
       <div
-        className="h-[9px] overflow-hidden rounded-[5px] bg-cardbd"
+        className="h-[9px] overflow-hidden rounded-sm bg-cardbd"
         role="progressbar"
         aria-label="Tension"
         aria-valuenow={Math.round(pct)}
@@ -49,7 +49,7 @@ export function TensionMeter({ pct, label }: { pct: number; label: string }) {
           }}
         />
       </div>
-      <div className="mt-[6px] font-mono text-[9px] tracking-[0.06em] text-accent">{label}</div>
+      <div className="mt-xs font-mono text-eyebrow tracking-[0.06em] text-accent-ink">{label}</div>
     </div>
   );
 }
@@ -57,15 +57,15 @@ export function TensionMeter({ pct, label }: { pct: number; label: string }) {
 export function StateChips({ stats }: { stats: StatChip[] }) {
   if (stats.length === 0) return null;
   return (
-    <div className="flex flex-col gap-[7px]">
+    <div className="flex flex-col gap-xs">
       {stats.map((s) => (
         <div
           key={s.label}
           title={s.reason || undefined}
-          className="flex items-center justify-between rounded-[3px] border border-cardbd bg-card p-[8px_11px]"
+          className="flex items-center justify-between rounded-xs border border-cardbd bg-card p-[8px_11px]"
         >
-          <span className="font-body text-[13.5px] text-ink">{s.label}</span>
-          <span className="font-mono text-[11px]" style={{ color: chipColor(s.label, s.value) }}>
+          <span className="font-body text-label text-ink">{s.label}</span>
+          <span className="font-mono text-eyebrow text-entity" style={{ ["--entity" as string]: chipColor(s.label, s.value) }}>
             {fmt(s.value)}
           </span>
         </div>
@@ -104,10 +104,10 @@ function StatSlider({ def, value: live }: { def: StatDefinition; value?: number 
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate font-body text-[13px] text-ink">
+        <span className="min-w-0 truncate font-body text-label text-ink">
           {displayName}
           {currentBand ? (
-            <span style={{ color: "var(--accent)" }}>: {currentBand}</span>
+            <span className="text-accent-ink">: {currentBand}</span>
           ) : null}
         </span>
         {hasBands ? (
@@ -120,7 +120,7 @@ function StatSlider({ def, value: live }: { def: StatDefinition; value?: number 
             onMouseLeave={() => setHovered(false)}
             onFocus={() => setHovered(true)}
             onBlur={() => setHovered(false)}
-            className="flex h-[15px] w-[15px] flex-none cursor-pointer items-center justify-center rounded-full border border-cardbd font-mono text-[9px] leading-none text-mute hover:border-accent hover:text-accent focus:border-accent focus:text-accent focus:outline-none aria-expanded:border-accent aria-expanded:text-accent"
+            className="flex h-[15px] w-[15px] flex-none cursor-pointer items-center justify-center rounded-full border border-cardbd font-mono text-eyebrow leading-none text-mute hover:border-accent hover:text-accent-ink focus:border-accent focus:text-accent-ink focus:outline-none aria-expanded:border-accent aria-expanded:text-accent-ink"
           >
             ?
           </button>
@@ -128,9 +128,9 @@ function StatSlider({ def, value: live }: { def: StatDefinition; value?: number 
       </div>
 
       {/* Floating value readout, centered over the thumb (sits above the track). */}
-      <div className="relative mt-[3px] h-[17px]">
+      <div className="relative mt-3xs h-[17px]">
         <span
-          className="absolute top-0 -translate-x-1/2 font-mono text-[12px] font-medium text-accent"
+          className="absolute top-0 -translate-x-1/2 font-mono text-eyebrow font-medium text-accent-ink"
           style={{ left: `${labelPct}%` }}
         >
           {value}
@@ -150,7 +150,7 @@ function StatSlider({ def, value: live }: { def: StatDefinition; value?: number 
         />
       </div>
 
-      <div className="mt-[4px] flex justify-between font-mono text-[8.5px] text-mute2">
+      <div className="mt-2xs flex justify-between font-mono text-eyebrow text-mute2">
         <span>{min}</span>
         <span>{max}</span>
       </div>
@@ -163,13 +163,13 @@ function StatSlider({ def, value: live }: { def: StatDefinition; value?: number 
           }`}
         >
           <div className="overflow-hidden">
-            <dl className="mt-[7px] rounded-[3px] border border-cardbd bg-card2 p-[7px_9px]">
+            <dl className="mt-xs rounded-xs border border-cardbd bg-card2 p-[7px_9px]">
               {bands.map((b) => (
-                <div key={b.label} className="flex items-baseline justify-between gap-[10px] py-[2px]">
-                  <dt className="flex-none font-mono text-[9.5px] text-mute2">
+                <div key={b.label} className="flex items-baseline justify-between gap-sm py-3xs">
+                  <dt className="flex-none font-mono text-eyebrow text-mute2">
                     {b.min}–{b.max}
                   </dt>
-                  <dd className="text-right font-body text-[11.5px] leading-[1.3] text-ink-soft">
+                  <dd className="text-right font-body text-eyebrow leading-[1.3] text-ink-soft">
                     {b.label}
                   </dd>
                 </div>
@@ -202,7 +202,7 @@ export function StatSchema({ defs, values }: { defs: StatDefinition[]; values?: 
   const visible = defs.filter((d) => d.visibility === "public");
   if (visible.length === 0) return null;
   return (
-    <div className="flex flex-col gap-[16px]">
+    <div className="flex flex-col gap-lg">
       {visible.map((d) => (
         <StatSlider key={d.key} def={d} value={liveValueFor(d, values)} />
       ))}
@@ -212,10 +212,10 @@ export function StatSchema({ defs, values }: { defs: StatDefinition[]; values?: 
 
 export function Relationships({ items }: { items: Relationship[] }) {
   return (
-    <div className="flex flex-col gap-[6px]">
+    <div className="flex flex-col gap-xs">
       {items.map((r, i) => (
-        <p key={`${r.who}-${i}`} className="font-body text-[13px] leading-[1.4] text-ink-soft">
-          <span className="font-semibold" style={{ color: r.color }}>
+        <p key={`${r.who}-${i}`} className="font-body text-label leading-[1.4] text-ink-soft">
+          <span className="font-semibold text-entity" style={{ ["--entity" as string]: r.color }}>
             {r.who}
           </span>{" "}
           {r.text}
@@ -276,11 +276,11 @@ function ScenePulse({
       className="max-h-[52dvh] overflow-y-auto"
     >
       {activity.length === 0 ? (
-        <p className="font-body text-[12px] italic text-ink-soft">
+        <p className="font-body text-eyebrow italic text-ink-soft">
           The scene is quiet — your move.
         </p>
       ) : (
-        <div className="flex flex-col gap-[6px]">
+        <div className="flex flex-col gap-xs">
           {activity.map((entry) => {
             const char = entry.who ? charById?.(entry.who) : undefined;
             return (
@@ -290,20 +290,20 @@ function ScenePulse({
                 animate={{ opacity: 1, y: 0 }}
                 transition={ENTER_TRANSITION}
               >
-                <div className="rounded-[3px] border border-cardbd bg-card p-[6px_9px]">
-                  <div className="flex items-baseline gap-[5px]">
-                    <span aria-hidden className="flex-none font-mono text-[9px] text-mute2">
+                <div className="rounded-xs border border-cardbd bg-card p-[6px_9px]">
+                  <div className="flex items-baseline gap-2xs">
+                    <span aria-hidden className="flex-none font-mono text-eyebrow text-mute2">
                       {kindIcon(entry.kind)}
                     </span>
                     {char ? (
                       <span
-                        className="flex-none font-display text-[12px] font-semibold leading-[1.2]"
-                        style={{ color: char.color }}
+                        className="flex-none font-display text-eyebrow font-semibold text-entity leading-[1.2]"
+                        style={{ ["--entity" as string]: char.color }}
                       >
                         {char.name}
                       </span>
                     ) : null}
-                    <span className="min-w-0 font-body text-[12px] leading-[1.3] text-ink">
+                    <span className="min-w-0 font-body text-eyebrow leading-[1.3] text-ink">
                       {/* Labels lead with their subject — the raw characterId for event-derived
                           entries ("abc123 speaks") but the display name for trace-derived ones
                           ("Maerin is about to speak"). Strip whichever prefixes the label so the
@@ -314,7 +314,7 @@ function ScenePulse({
                     </span>
                   </div>
                   {entry.detail ? (
-                    <p className="mt-[2px] font-body text-[11px] leading-[1.3] text-ink-soft pl-[14px]">
+                    <p className="mt-3xs font-body text-eyebrow leading-[1.3] text-ink-soft pl-lg">
                       {entry.detail}
                     </p>
                   ) : null}
@@ -373,12 +373,12 @@ export function DirectorRailContent({
 }: DirectorRailProps) {
   return (
     <>
-      <Eyebrow tracking="0.16em" className="mb-[9px] block">
+      <Eyebrow tracking="0.16em" className="mb-sm block">
         Scene pulse
       </Eyebrow>
       <ScenePulse activity={activity} charById={charById} live={live} />
 
-      <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
+      <Eyebrow tracking="0.16em" className="mt-5 mb-sm block">
         Scene state
       </Eyebrow>
       <StateChips stats={stats} />

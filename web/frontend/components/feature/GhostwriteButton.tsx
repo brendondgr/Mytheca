@@ -43,7 +43,7 @@ export function GhostwriteButton({
         title="Undo — put your own note back"
         // 28px square: comfortably past the WCAG 2.5.8 24px floor now that there is no label
         // widening the hit area.
-        className="flex h-[28px] w-[28px] flex-none items-center justify-center rounded-[8px] border border-field-bd text-[13px] text-mute hover:border-accent hover:text-accent"
+        className="flex h-[28px] w-[28px] flex-none items-center justify-center rounded-md border border-field-bd text-label text-mute hover:border-accent hover:text-accent-ink"
       >
         <span aria-hidden>↶</span>
       </button>
@@ -57,7 +57,7 @@ export function GhostwriteButton({
       disabled={!canGhostwrite || running}
       aria-label="Write this line for me"
       title="Write it for me — turn your note into the line itself"
-      className="flex h-[28px] w-[28px] flex-none items-center justify-center rounded-[8px] border border-field-bd text-[13px] text-mute hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
+      className="flex h-[28px] w-[28px] flex-none items-center justify-center rounded-md border border-field-bd text-label text-mute hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
     >
       {running ? (
         <>

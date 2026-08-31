@@ -151,17 +151,17 @@ function StatePanel({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-start gap-[10px] rounded-[4px] border border-cardbd bg-card p-[14px]">
+    <div className="flex flex-col items-start gap-sm rounded-sm border border-cardbd bg-card p-lg">
       <p
         className={cn(
-          "font-display text-[14px] font-semibold",
-          tone === "error" ? "text-danger" : "text-ink",
+          "font-display text-body-sm font-semibold",
+          tone === "error" ? "text-danger-ink" : "text-ink",
         )}
       >
         {/* The seal, not a warning triangle — the tone stays in the manuscript
          * even when something has gone wrong. Meaning never rests on the
          * colour alone: the title text says what happened. */}
-        <span aria-hidden className="mr-[6px] text-gold">
+        <span aria-hidden className="mr-xs text-gold-ink">
           ❖
         </span>
         {title}

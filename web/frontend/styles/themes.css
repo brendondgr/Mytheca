@@ -293,6 +293,36 @@
   --entity: var(--accent);
   --entity-ink: color-mix(in oklab, var(--entity) 45%, var(--ink));
   --entity-ink-strong: color-mix(in oklab, var(--entity) 65%, var(--ink));
+
+  /* The five semantic colours, put through the same recipe.
+   *
+   * They are theme-AGNOSTIC by design — a "danger" red should read as the same
+   * red in all three themes — and that is exactly why they failed as text:
+   * one fixed hex cannot clear 4.5:1 against both a cream ground and a
+   * near-black one. Measured: #a8762a scored 4.08 on Slate's card, 3.61 on its
+   * card2 and 3.11 on parchment; #1f8a5b scored 3.30.
+   *
+   * The RAW values stay for `bg-*` and `border-*`, where the vivid hue is the
+   * point and the 3:1 non-text bar applies. The `-ink` variants are for text.
+   * All five are in check_contrast.py's entity palette, so the same gate that
+   * proves the 45% recipe proves these.
+   */
+  /* The accent AS TEXT. The raw --accent stays exactly as it is for fills,
+   * borders and focus rings, where it is the brand colour and only has to clear
+   * the 3:1 non-text bar. As small text it does not: measured 4.27:1 on Ember's
+   * card2, 4.05:1 on Slate's, and 3.32:1 on Slate's hover ground.
+   *
+   * 72% rather than the entity recipe's 45% because the accent only has to
+   * survive three known values instead of an open palette — the highest
+   * retention that clears 4.5:1 across all three themes and all eight content
+   * surfaces is 75%, so this keeps a margin while barely washing the hue. */
+  --accent-ink: color-mix(in oklab, var(--accent) 72%, var(--ink));
+
+  --gold-ink: color-mix(in oklab, #c8862a 45%, var(--ink));
+  --gold-soft-ink: color-mix(in oklab, #a8762a 45%, var(--ink));
+  --narrator-ink: color-mix(in oklab, #1f8a82 45%, var(--ink));
+  --success-ink: color-mix(in oklab, #1f8a5b 45%, var(--ink));
+  --danger-ink: color-mix(in oklab, #9a3520 45%, var(--ink));
 }
 
 /* ------------------------------------------------------------------ *

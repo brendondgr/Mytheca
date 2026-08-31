@@ -178,20 +178,20 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
 
   return (
     <section aria-labelledby="about-heading">
-      <h2 id="about-heading" className="font-display text-[19px] font-semibold text-ink">
+      <h2 id="about-heading" className="font-display text-step-1 font-semibold text-ink">
         About &amp; diagnostics
       </h2>
-      <p className="mt-[4px] mb-[18px] font-body text-[14px] text-ink-soft">
+      <p className="mt-2xs mb-lg font-body text-body-sm text-ink-soft">
         A read-only snapshot of the running stack. No secrets are shown.
       </p>
 
-      <dl className="divide-y divide-hair rounded-[4px] border border-cardbd">
+      <dl className="divide-y divide-hair rounded-sm border border-cardbd">
         {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between gap-[12px] px-[14px] py-[10px]">
-            <dt className="font-mono text-[10px] tracking-[0.12em] text-mute uppercase">
+          <div key={row.label} className="flex items-center justify-between gap-md px-lg py-sm">
+            <dt className="font-mono text-eyebrow tracking-[0.12em] text-mute uppercase">
               {row.label}
             </dt>
-            <dd className="truncate font-body text-[14px] text-ink" title={row.value}>
+            <dd className="truncate font-body text-body-sm text-ink" title={row.value}>
               {row.value}
             </dd>
           </div>
@@ -199,21 +199,21 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
 
         {/* Reasoning-budget ladder — only when backend info is available */}
         {budgetEntries.length > 0 ? (
-          <div className="px-[14px] py-[10px]">
-            <dt className="mb-[8px] font-mono text-[10px] tracking-[0.12em] text-mute uppercase">
+          <div className="px-lg py-sm">
+            <dt className="mb-sm font-mono text-eyebrow tracking-[0.12em] text-mute uppercase">
               Reasoning budgets
             </dt>
             <dd>
               <ul
                 aria-label="Reasoning budget ladder"
-                className="flex flex-wrap gap-x-[16px] gap-y-[4px]"
+                className="flex flex-wrap gap-x-lg gap-y-2xs"
               >
                 {budgetEntries.map(({ key, tokens }) => (
-                  <li key={key} className="flex items-baseline gap-[4px]">
-                    <span className="font-mono text-[10px] tracking-[0.08em] text-mute uppercase">
+                  <li key={key} className="flex items-baseline gap-2xs">
+                    <span className="font-mono text-eyebrow tracking-[0.08em] text-mute uppercase">
                       {key.replace("_", " ")}
                     </span>
-                    <span className="font-body text-[13px] text-ink">
+                    <span className="font-body text-label text-ink">
                       {tokens.toLocaleString()}
                     </span>
                   </li>
@@ -225,14 +225,14 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
       </dl>
 
       {/* ---- Maintenance ---- */}
-      <section aria-labelledby="maintenance-heading" className="mt-[32px]">
+      <section aria-labelledby="maintenance-heading" className="mt-2xl">
         <h2
           id="maintenance-heading"
-          className="font-display text-[19px] font-semibold text-ink"
+          className="font-display text-step-1 font-semibold text-ink"
         >
           Maintenance
         </h2>
-        <p className="mt-[4px] mb-[18px] font-body text-[14px] text-ink-soft">
+        <p className="mt-2xs mb-lg font-body text-body-sm text-ink-soft">
           Scan and remove WebP files left behind by cancelled drafts or deleted
           entities. Files generated in the last 24 hours are always kept.
         </p>
@@ -248,9 +248,9 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
           {liveMessage}
         </div>
 
-        <div className="rounded-[4px] border border-cardbd p-[16px]">
+        <div className="rounded-sm border border-cardbd p-lg">
           {/* Scan button */}
-          <div className="flex flex-wrap items-center gap-[10px]">
+          <div className="flex flex-wrap items-center gap-sm">
             <button
               type="button"
               onClick={handleScan}
@@ -258,7 +258,7 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
                 scanState.phase === "scanning" || scanState.phase === "cleaning"
               }
               aria-busy={scanState.phase === "scanning"}
-              className="rounded-[4px] border border-cardbd bg-surface px-[14px] py-[8px] font-body text-[13px] text-ink transition hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-sm border border-cardbd bg-surface px-lg py-sm font-body text-label text-ink transition hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
               {scanState.phase === "scanning" ? "Scanning…" : "Scan for orphaned media"}
             </button>
@@ -267,7 +267,7 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
             {(scanState.phase === "result" || scanState.phase === "confirming") && (
               <span
                 aria-hidden="true"
-                className="font-body text-[13px] text-ink-soft"
+                className="font-body text-label text-ink-soft"
               >
                 {scanState.data.orphanCount === 0
                   ? "No orphans found."
@@ -276,7 +276,7 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
             )}
 
             {scanState.phase === "done" && (
-              <span aria-hidden="true" className="font-body text-[13px] text-ink-soft">
+              <span aria-hidden="true" className="font-body text-label text-ink-soft">
                 Deleted {scanState.deletedCount} file
                 {scanState.deletedCount === 1 ? "" : "s"},{" "}
                 freed {formatBytes(scanState.freedBytes)}.
@@ -286,7 +286,7 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
             {scanState.phase === "error" && (
               <span
                 role="alert"
-                className="font-body text-[13px] text-danger"
+                className="font-body text-label text-danger-ink"
               >
                 {scanState.message}
               </span>
@@ -295,11 +295,11 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
 
           {/* Delete / confirmation flow — only shown when there are eligible orphans */}
           {scanState.phase === "result" && scanState.data.eligibleCount > 0 && (
-            <div className="mt-[12px]">
+            <div className="mt-md">
               <button
                 type="button"
                 onClick={handleConfirm}
-                className="rounded-[4px] border border-danger/60 bg-surface px-[14px] py-[8px] font-body text-[13px] text-danger transition hover:bg-danger/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
+                className="rounded-sm border border-danger/60 bg-surface px-lg py-sm font-body text-label text-danger-ink transition hover:bg-danger/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
               >
                 Delete {scanState.data.eligibleCount} file
                 {scanState.data.eligibleCount === 1 ? "" : "s"} (
@@ -313,26 +313,26 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
             <div
               role="group"
               aria-label="Confirm media deletion"
-              className="mt-[12px] flex flex-wrap items-center gap-[10px] rounded-[4px] border border-danger/40 bg-danger/5 px-[14px] py-[10px]"
+              className="mt-md flex flex-wrap items-center gap-sm rounded-sm border border-danger/40 bg-danger/5 px-lg py-sm"
             >
-              <span className="font-body text-[13px] text-ink">
+              <span className="font-body text-label text-ink">
                 This will permanently delete{" "}
                 <strong>{scanState.data.eligibleCount}</strong>{" "}
                 file{scanState.data.eligibleCount === 1 ? "" : "s"}{" "}
                 ({formatBytes(scanState.data.eligibleBytes)}). Are you sure?
               </span>
-              <div className="flex gap-[8px]">
+              <div className="flex gap-sm">
                 <button
                   type="button"
                   onClick={handleCleanup}
-                  className="rounded-[4px] bg-danger px-[14px] py-[8px] font-body text-[13px] text-white transition hover:bg-danger/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
+                  className="rounded-sm bg-danger px-lg py-sm font-body text-label text-white transition hover:bg-danger/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
                 >
                   Yes, delete
                 </button>
                 <button
                   type="button"
                   onClick={handleCancelConfirm}
-                  className="rounded-[4px] border border-cardbd bg-surface px-[14px] py-[8px] font-body text-[13px] text-ink transition hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="rounded-sm border border-cardbd bg-surface px-lg py-sm font-body text-label text-ink transition hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   Cancel
                 </button>
@@ -344,7 +344,7 @@ export function AboutTab({ opts }: { opts: OptionsState }) {
           {scanState.phase === "cleaning" && (
             <p
               aria-busy="true"
-              className="mt-[12px] font-body text-[13px] text-ink-soft"
+              className="mt-md font-body text-label text-ink-soft"
             >
               Deleting…
             </p>

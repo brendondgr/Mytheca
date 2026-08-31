@@ -23,9 +23,9 @@ export function CloseButton({
       disabled={disabled}
       aria-label="Close"
       className={cn(
-        "inline-flex cursor-pointer items-center justify-center text-[20px] leading-none text-mute",
+        "inline-flex cursor-pointer items-center justify-center text-step-2 leading-none text-mute",
         "touch-target-overlay press close-button-hover",
-        "enabled:hover:text-accent",
+        "enabled:hover:text-accent-ink",
         "disabled:cursor-not-allowed disabled:opacity-45",
         className,
       )}

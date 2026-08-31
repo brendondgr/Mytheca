@@ -155,10 +155,10 @@ function PinToggle({
       // UNLAYERED and a Tailwind utility (in `@layer utilities`) cannot override it, so the
       // class would be inert and imply a suppression that never happens. The 2px accent
       // outline is the focus indicator; the border change is a second, quieter signal.
-      className={`flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[6px] border focus-visible:border-accent disabled:opacity-50 ${
+      className={`flex h-[24px] w-[24px] flex-none items-center justify-center rounded-sm border focus-visible:border-accent disabled:opacity-50 ${
         pinned
-          ? "border-field-bd text-mute2 hover:border-accent hover:text-accent"
-          : "border-accent text-accent"
+          ? "border-field-bd text-mute2 hover:border-accent hover:text-accent-ink"
+          : "border-accent text-accent-ink"
       }`}
     >
       <PinIcon filled={pinned} />
@@ -295,7 +295,7 @@ export function SceneConfigMenu({
             ? "Scene configuration — settings apply to this turn only"
             : "Scene configuration"
         }
-        className="flex flex-none items-center gap-[5px] rounded-[8px] border border-field-bd px-[9px] py-[5px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent"
+        className="flex flex-none items-center gap-2xs rounded-md border border-field-bd px-sm py-2xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink"
       >
         <GearIcon />
         Config
@@ -321,8 +321,8 @@ export function SceneConfigMenu({
           // -386px and the first three controls were off-screen and unreachable, with the
           // panel itself not scrollable. Bounding it to the viewport is what keeps a control
           // added by the next phase reachable rather than silently lost off the top.
-          className={`absolute left-0 z-40 flex max-h-[calc(100dvh-140px)] w-[264px] flex-col gap-[13px] overflow-y-auto mytheca-menu p-[14px] focus:outline-none ${
-            openUp ? "bottom-[38px]" : "top-[38px]"
+          className={`absolute left-0 z-40 flex max-h-[calc(100dvh-140px)] w-[264px] flex-col gap-md overflow-y-auto mytheca-menu p-lg focus:outline-none ${
+            openUp ? "bottom-2xl" : "top-2xl"
           }`}
         >
           <Eyebrow tracking="0.16em" color="var(--accent)">
@@ -382,7 +382,7 @@ export function SceneConfigMenu({
               that is always there stops being read — and its whole job is to warn that the
               values above are about to spring back. */}
           {unpinnedCount > 0 ? (
-            <p className="font-body text-[11px] leading-[1.45] text-ink">
+            <p className="font-body text-eyebrow leading-[1.45] text-ink">
               {unpinnedCount === 1 ? "1 setting applies" : `${unpinnedCount} settings apply`}{" "}
               to your next message only, then spring back.
             </p>
@@ -498,17 +498,17 @@ export function SceneConfigMenu({
               the depth, and reports it, instead of asking the player to guess at it. */}
           <section
             aria-label="What the scene remembers"
-            className="flex flex-col gap-[3px] border-t border-field-bd pt-[10px]"
+            className="flex flex-col gap-3xs border-t border-field-bd pt-sm"
           >
-            <span className="font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase">
+            <span className="font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase">
               What the scene remembers
             </span>
             {sceneMemory ? (
-              <p className="font-body text-[11px] leading-[1.45] text-mute2">
+              <p className="font-body text-eyebrow leading-[1.45] text-mute2">
                 The last {sceneMemory.windowBeats} beat
                 {sceneMemory.windowBeats === 1 ? "" : "s"}, word for word
                 {sceneMemory.budgetTokens ? (
-                  <span className="font-mono text-[10px] text-ink-soft">
+                  <span className="font-mono text-eyebrow text-ink-soft">
                     {" "}
                     (≈ {sceneMemory.budgetTokens.toLocaleString()} tokens)
                   </span>
@@ -521,7 +521,7 @@ export function SceneConfigMenu({
                   : "Nothing has dropped out yet."}
               </p>
             ) : (
-              <p className="font-body text-[11px] leading-[1.45] text-mute2">
+              <p className="font-body text-eyebrow leading-[1.45] text-mute2">
                 Fitted to the model&apos;s context window once the scene starts.
               </p>
             )}

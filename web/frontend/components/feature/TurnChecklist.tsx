@@ -51,16 +51,16 @@ export function TurnChecklist({
    * distinction is carried by the glyph and by words, never by colour alone.
    */
   const mark = (state: TurnTask["state"]) => {
-    if (state === "yes") return { glyph: "✓", tone: "text-success", note: "" };
+    if (state === "yes") return { glyph: "✓", tone: "text-success-ink", note: "" };
     if (state === "partial")
       return { glyph: "◐", tone: "text-ink-soft", note: "started, not finished" };
-    if (state === "no") return { glyph: "✕", tone: "text-danger", note: "not on the page" };
+    if (state === "no") return { glyph: "✕", tone: "text-danger-ink", note: "not on the page" };
     return { glyph: "○", tone: "text-mute2", note: "" };
   };
 
   return (
     <section className={cn("mt-5", className)} aria-labelledby="turn-checklist-heading">
-      <Eyebrow tracking="0.16em" className="mb-[9px] block" id="turn-checklist-heading">
+      <Eyebrow tracking="0.16em" className="mb-sm block" id="turn-checklist-heading">
         What this turn owes you
       </Eyebrow>
 
@@ -72,7 +72,7 @@ export function TurnChecklist({
           : `${tasks.length} thing${tasks.length === 1 ? "" : "s"} to do, not yet checked`}
       </p>
 
-      <ul className="grid gap-[6px]">
+      <ul className="grid gap-xs">
         <AnimatePresence initial={false}>
           {tasks.map((task) => {
             const { glyph, tone, note } = mark(task.state);
@@ -82,19 +82,19 @@ export function TurnChecklist({
                 layout
                 initial={{ opacity: 0, x: -4 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="flex items-start gap-[7px]"
+                className="flex items-start gap-xs"
               >
                 <span
                   aria-hidden
-                  className={cn("mt-[3px] flex-none font-mono text-[10px] leading-none", tone)}
+                  className={cn("mt-3xs flex-none font-mono text-eyebrow leading-none", tone)}
                 >
                   {glyph}
                 </span>
                 <span
                   className={cn(
-                    "min-w-0 font-body text-[12.5px] leading-[1.4]",
+                    "min-w-0 font-body text-eyebrow leading-[1.4]",
                     task.state === "no"
-                      ? "text-danger"
+                      ? "text-danger-ink"
                       : task.state === ""
                         ? "text-mute2"
                         : "text-ink-soft",
@@ -102,14 +102,14 @@ export function TurnChecklist({
                 >
                   {task.must}
                   {task.who.length ? (
-                    <span className="ml-[5px] font-mono text-[9px] tracking-[0.08em] text-mute2">
+                    <span className="ml-2xs font-mono text-eyebrow tracking-[0.08em] text-mute2">
                       {task.who.join(" · ")}
                     </span>
                   ) : null}
                   {note ? (
                     <span
                       className={cn(
-                        "block font-mono text-[9px] tracking-[0.1em] uppercase",
+                        "block font-mono text-eyebrow tracking-[0.1em] uppercase",
                         task.state === "no" ? "" : "text-mute2",
                       )}
                     >

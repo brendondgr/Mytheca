@@ -22,28 +22,28 @@ export function ColumnHeader({
   // column width (edge-to-edge). Horizontal padding lives on the inner div
   // via the className prop so content aligns with the cards below.
   return (
-    <div className="sticky top-0 z-[10] bg-page pb-[12px]">
-      <div className={cn("border-b border-hair-strong pb-[8px]", className)}>
-        <div className="flex items-center justify-between gap-[8px]">
-          <div className="flex items-baseline gap-[8px]">
-            <h2 className="font-display text-[16px] font-semibold tracking-[0.06em] text-ink uppercase">
+    <div className="sticky top-0 z-[10] bg-page pb-md">
+      <div className={cn("border-b border-hair-strong pb-sm", className)}>
+        <div className="flex items-center justify-between gap-sm">
+          <div className="flex items-baseline gap-sm">
+            <h2 className="font-display text-body font-semibold tracking-[0.06em] text-ink uppercase">
               {title}
             </h2>
-            <span className="font-mono text-[11px] text-mute">{count}</span>
+            <span className="font-mono text-eyebrow text-mute">{count}</span>
           </div>
           {onAdd ? (
             <button
               type="button"
               aria-label={addLabel ?? `Add ${title.toLowerCase()}`}
               onClick={onAdd}
-              className="cursor-pointer rounded-[4px] px-[3px] font-mono text-[18px] leading-none text-mute transition-colors hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="cursor-pointer rounded-sm px-3xs font-mono text-step-1 leading-none text-mute transition-colors hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               +
             </button>
           ) : null}
         </div>
         {hint ? (
-          <p className="mt-[5px] font-mono text-[9.5px] tracking-[0.05em] text-mute">
+          <p className="mt-2xs font-mono text-eyebrow tracking-[0.05em] text-mute">
             {hint}
           </p>
         ) : null}
@@ -83,7 +83,7 @@ export function ColumnEmpty({
 }) {
   if (query) {
     return (
-      <div className="flex flex-col items-center gap-[10px] py-[24px] text-center">
+      <div className="flex flex-col items-center gap-sm py-xl text-center">
         <p className="font-body text-body-sm text-mute2 italic">
           No {noun} match “{query}”.
         </p>
@@ -91,7 +91,7 @@ export function ColumnEmpty({
           <button
             type="button"
             onClick={onClearQuery}
-            className="press cursor-pointer rounded-[3px] font-mono text-[11px] tracking-[0.08em] text-accent uppercase transition-colors duration-fast ease-soft hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="press cursor-pointer rounded-xs font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase transition-colors duration-fast ease-soft hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Clear search
           </button>
@@ -101,9 +101,9 @@ export function ColumnEmpty({
   }
 
   return (
-    <div className="flex flex-col items-center gap-[10px] rounded-[4px] border border-dashed border-cardbd px-[16px] py-[24px] text-center">
-      <p className="font-display text-[14px] font-semibold text-ink">
-        <span aria-hidden className="mr-[6px] text-gold">
+    <div className="flex flex-col items-center gap-sm rounded-sm border border-dashed border-cardbd px-lg py-xl text-center">
+      <p className="font-display text-body-sm font-semibold text-ink">
+        <span aria-hidden className="mr-xs text-gold-ink">
           ❖
         </span>
         No {noun} yet
@@ -117,7 +117,7 @@ export function ColumnEmpty({
         <button
           type="button"
           onClick={onAdd}
-          className="press touch-target cursor-pointer rounded-[2px] border border-accent px-[14px] py-[7px] font-mono text-[11px] tracking-[0.08em] text-accent uppercase transition-colors duration-fast ease-soft hover:bg-accent hover:text-[#F6ECDA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="press touch-target cursor-pointer rounded-xs border border-accent px-lg py-xs font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase transition-colors duration-fast ease-soft hover:bg-accent hover:text-[#F6ECDA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           {addLabel ?? `Add ${noun.replace(/s$/, "")}`}
         </button>

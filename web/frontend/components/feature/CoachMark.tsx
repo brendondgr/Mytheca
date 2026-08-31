@@ -41,9 +41,9 @@ export function CoachMark({
           onDismiss();
         }
       }}
-      className={`z-30 flex max-w-[260px] items-start gap-[8px] rounded-[8px] border border-accent bg-card p-[9px_10px] shadow-lg ${className ?? ""}`}
+      className={`z-30 flex max-w-[260px] items-start gap-sm rounded-md border border-accent bg-card p-[9px_10px] shadow-lg ${className ?? ""}`}
     >
-      <p className="min-w-0 flex-1 font-body text-[12px] leading-[1.45] text-ink-soft">
+      <p className="min-w-0 flex-1 font-body text-eyebrow leading-[1.45] text-ink-soft">
         {text}
       </p>
       <button
@@ -51,7 +51,7 @@ export function CoachMark({
         onClick={onDismiss}
         aria-label="Got it"
         // 24x24 minimum target (WCAG 2.5.8) — the glyph is small, the hit area is not.
-        className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[4px] text-[13px] leading-none text-mute hover:bg-hover hover:text-ink"
+        className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-sm text-label leading-none text-mute hover:bg-hover hover:text-ink"
       >
         ×
       </button>

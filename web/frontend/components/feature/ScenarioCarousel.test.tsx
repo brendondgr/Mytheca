@@ -200,7 +200,7 @@ describe("ScenarioCarousel", () => {
   it("renders each cast card as a discrete rounded, transparent tile", () => {
     const { container } = renderWithContainer();
     // Each card is a rounded, gapped tile (no flush border-r dividers).
-    expect(container.querySelectorAll(".group.rounded-\\[6px\\]").length).toBe(2);
+    expect(container.querySelectorAll(".group.rounded-sm").length).toBe(2);
     // Cards are transparent — no always-on solid Statistics block.
     expect(screen.queryByText("Statistics")).toBeNull();
   });

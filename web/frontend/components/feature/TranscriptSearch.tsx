@@ -49,7 +49,7 @@ export function TranscriptSearch({
     <div
       role="search"
       aria-label="Search this scene"
-      className="mx-auto flex w-full max-w-[720px] flex-none items-center gap-[8px] rounded-[10px] border border-field-bd bg-field px-[10px] py-[7px]"
+      className="mx-auto flex w-full max-w-[720px] flex-none items-center gap-sm rounded-md border border-field-bd bg-field px-sm py-xs"
     >
       <input
         ref={inputRef}
@@ -67,13 +67,13 @@ export function TranscriptSearch({
         }}
         placeholder="Find in this scene…"
         aria-label="Find in this scene"
-        className="composer-input min-w-0 flex-1 bg-transparent font-body text-[13px] text-ink placeholder:text-mute2 focus:outline-none"
+        className="composer-input min-w-0 flex-1 bg-transparent font-body text-field text-ink placeholder:text-mute2 focus:outline-none"
       />
       {/* The feedback loop of a search. Polite, so it does not interrupt the transcript. */}
       <span
         role="status"
         aria-live="polite"
-        className="flex-none font-mono text-[10px] tracking-[0.06em] whitespace-nowrap text-mute2 tabular-nums"
+        className="flex-none font-mono text-eyebrow tracking-[0.06em] whitespace-nowrap text-mute2 tabular-nums"
       >
         {status}
       </span>
@@ -82,7 +82,7 @@ export function TranscriptSearch({
         onClick={() => onStep(-1)}
         disabled={total === 0}
         aria-label="Previous match"
-        className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[4px] text-[12px] text-mute hover:bg-hover hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+        className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-sm text-eyebrow text-mute hover:bg-hover hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
       >
         ↑
       </button>
@@ -91,7 +91,7 @@ export function TranscriptSearch({
         onClick={() => onStep(1)}
         disabled={total === 0}
         aria-label="Next match"
-        className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[4px] text-[12px] text-mute hover:bg-hover hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+        className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-sm text-eyebrow text-mute hover:bg-hover hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
       >
         ↓
       </button>

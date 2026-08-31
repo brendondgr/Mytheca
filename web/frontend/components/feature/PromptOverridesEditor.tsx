@@ -119,12 +119,12 @@ export function PromptOverridesEditor({
   const activeSpecs = catalog.filter((s) => s.agent === active);
 
   return (
-    <div className="flex flex-col gap-[16px]">
+    <div className="flex flex-col gap-lg">
       {/* Upper sub-tabs, one per writing agent. */}
       <div
         role="tablist"
         aria-label="Writing agents"
-        className="flex flex-wrap gap-[6px] border-b border-hair pb-[10px]"
+        className="flex flex-wrap gap-xs border-b border-hair pb-sm"
       >
         {agents.map((agent, index) => {
           const selected = agent === active;
@@ -142,7 +142,7 @@ export function PromptOverridesEditor({
               onClick={() => setActive(agent)}
               onKeyDown={(event) => onTabKey(event, index)}
               className={cn(
-                "cursor-pointer rounded-[3px] border px-[12px] py-[6px] font-mono text-[11px] tracking-[0.08em] uppercase",
+                "cursor-pointer rounded-xs border px-md py-xs font-mono text-eyebrow tracking-[0.08em] uppercase",
                 selected
                   ? "border-accent bg-card2 text-ink"
                   : "border-cardbd bg-card text-ink-soft hover:border-hair-strong hover:bg-hover hover:text-ink",
@@ -158,22 +158,22 @@ export function PromptOverridesEditor({
         role="tabpanel"
         id={`${idPrefix}-panel-${active}`}
         aria-labelledby={`${idPrefix}-tab-${active}`}
-        className="flex flex-col gap-[18px]"
+        className="flex flex-col gap-lg"
       >
         {activeSpecs.map((spec) => (
-          <div key={spec.key} className="flex flex-col gap-[6px]">
-            <div className="flex items-center justify-between gap-[10px]">
-              <span className="font-display text-[14.5px] font-semibold text-ink">
+          <div key={spec.key} className="flex flex-col gap-xs">
+            <div className="flex items-center justify-between gap-sm">
+              <span className="font-display text-body-sm font-semibold text-ink">
                 {spec.label}
                 {isModified(spec.key) ? (
-                  <span className="ml-[8px] font-mono text-tag tracking-[0.06em] text-accent uppercase">
+                  <span className="ml-sm font-mono text-tag tracking-[0.06em] text-accent-ink uppercase">
                     overridden
                   </span>
                 ) : null}
                 {/* Where the live value comes from. Text, not colour — the point is to be
                     readable, and four layers cannot be told apart by hue anyway. */}
                 {sources?.[spec.key] ? (
-                  <span className="ml-[8px] font-mono text-tag tracking-[0.06em] text-mute2 uppercase">
+                  <span className="ml-sm font-mono text-tag tracking-[0.06em] text-mute2 uppercase">
                     {PROMPT_LAYER_LABELS[sources[spec.key]]}
                   </span>
                 ) : null}
@@ -184,14 +184,14 @@ export function PromptOverridesEditor({
                   setDraft((prev) => ({ ...prev, [spec.key]: effectiveDefault(spec.key) }))
                 }
                 disabled={!isModified(spec.key)}
-                className="cursor-pointer font-mono text-[10.5px] tracking-[0.08em] text-mute uppercase hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+                className="cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Reset to default
               </button>
             </div>
-            <p className="font-body text-[13px] text-ink-soft">{spec.description}</p>
+            <p className="font-body text-label text-ink-soft">{spec.description}</p>
             {spec.key === CONTRACT_KEY ? (
-              <p className="font-body text-[12.5px] text-danger">
+              <p className="font-body text-eyebrow text-danger-ink">
                 Caution: this prompt carries the strict{" "}
                 <code className="font-mono">&lt;speaker:&gt;</code> /{" "}
                 <code className="font-mono">&lt;type:&gt;</code> tags the engine parses — keep
@@ -211,7 +211,7 @@ export function PromptOverridesEditor({
         ))}
       </div>
 
-      <div className="flex items-center gap-[12px]">
+      <div className="flex items-center gap-md">
         <Button onClick={handleSave} disabled={saving || !dirty}>
           {saving ? "Saving…" : saveLabel}
         </Button>
@@ -219,8 +219,8 @@ export function PromptOverridesEditor({
           <span
             role={status.kind === "error" ? "alert" : "status"}
             className={cn(
-              "font-body text-[13px]",
-              status.kind === "error" ? "text-danger" : "text-ink-soft",
+              "font-body text-label",
+              status.kind === "error" ? "text-danger-ink" : "text-ink-soft",
             )}
           >
             {status.msg}

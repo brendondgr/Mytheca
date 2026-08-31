@@ -89,7 +89,7 @@ export function PlanModeButton({
         // tells a screen-reader user what it is called, never what it will do.
         aria-label={`Plan mode: ${LABELS[mode]}. ${HELP[mode]}`}
         title={HELP[mode]}
-        className="flex flex-none items-center gap-[5px] rounded-[8px] border border-field-bd px-[9px] py-[5px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
+        className="flex flex-none items-center gap-2xs rounded-md border border-field-bd px-sm py-2xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
       >
         <PlanIcon />
         {LABELS[mode]}
@@ -101,7 +101,7 @@ export function PlanModeButton({
     <div
       role="radiogroup"
       aria-label="Plan mode"
-      className="flex flex-none items-center gap-[3px] rounded-[8px] border border-accent p-[2px]"
+      className="flex flex-none items-center gap-3xs rounded-md border border-accent p-3xs"
       // Escape closes without choosing — the same affordance every other popover here has.
       onKeyDown={(e) => {
         if (e.key === "Escape") {
@@ -124,7 +124,7 @@ export function PlanModeButton({
               onModeChange(value);
               onOpenChange(false);
             }}
-            className={`rounded-[6px] px-[8px] py-[3px] font-mono text-[9px] tracking-[0.12em] uppercase disabled:opacity-40 ${
+            className={`rounded-sm px-sm py-3xs font-mono text-eyebrow tracking-[0.12em] uppercase disabled:opacity-40 ${
               active
                 ? "bg-accent text-[#F6ECDA]"
                 : "text-mute hover:bg-hover hover:text-ink"

@@ -59,7 +59,7 @@ export function CharacterColumn({
             onClearQuery={onClearQuery}
           />
         ) : (
-          <div className="grid grid-cols-2 gap-[12px] @[420px]:grid-cols-3">
+          <div className="grid grid-cols-2 gap-md @[420px]:grid-cols-3">
             {characters.map((c) => (
               <CharacterCard
                 key={c.id}

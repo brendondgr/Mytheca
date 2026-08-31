@@ -27,9 +27,9 @@ export function MemoryEdge({
   if (droppedBeats <= 0) return null;
 
   return (
-    <div className="flex items-center gap-[8px] py-[6px]" role="separator">
+    <div className="flex items-center gap-sm py-xs" role="separator">
       <span aria-hidden className="h-px flex-1 bg-hair-strong" />
-      <span className="flex-none text-center font-mono text-[9px] leading-[1.5] tracking-[0.14em] text-mute2 uppercase">
+      <span className="flex-none text-center font-mono text-eyebrow leading-[1.5] tracking-[0.14em] text-mute2 uppercase">
         {summarised
           ? `— everything above here is remembered as a summary (${droppedBeats}) —`
           : `— the cast no longer reads the ${droppedBeats} beat${droppedBeats === 1 ? "" : "s"} above —`}

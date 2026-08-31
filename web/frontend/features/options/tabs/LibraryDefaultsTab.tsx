@@ -37,24 +37,24 @@ export function LibraryDefaultsTab({ opts }: { opts: OptionsState }) {
   }
 
   if (!library) {
-    return <p className="font-body text-[14px] text-mute">Loading defaults…</p>;
+    return <p className="font-body text-body-sm text-mute">Loading defaults…</p>;
   }
 
   return (
     <section aria-labelledby="library-heading">
-      <h2 id="library-heading" className="font-display text-[19px] font-semibold text-ink">
+      <h2 id="library-heading" className="font-display text-step-1 font-semibold text-ink">
         Library defaults
       </h2>
-      <p className="mt-[4px] mb-[18px] font-body text-[14px] text-ink-soft">
+      <p className="mt-2xs mb-lg font-body text-body-sm text-ink-soft">
         Control what the Library shows when it first loads.
       </p>
 
-      <label className="mb-[16px] block max-w-[420px]">
+      <label className="mb-lg block max-w-[420px]">
         <FieldLabel>Default storyline</FieldLabel>
         <select
           value={library.defaultStorylineId ?? ""}
           onChange={(e) => save({ defaultStorylineId: e.target.value || null })}
-          className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
+          className="w-full rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field text-ink focus:border-accent focus:outline-none"
         >
           <option value="">Most recent</option>
           {storylines.map((s) => (
@@ -65,20 +65,20 @@ export function LibraryDefaultsTab({ opts }: { opts: OptionsState }) {
         </select>
       </label>
 
-      <label className="flex max-w-[420px] items-center gap-[10px]">
+      <label className="flex max-w-[420px] items-center gap-sm">
         <input
           type="checkbox"
           checked={library.openLastStoryline}
           onChange={(e) => save({ openLastStoryline: e.target.checked })}
           className="h-[16px] w-[16px] accent-[var(--accent)]"
         />
-        <span className="font-body text-[14px] text-ink">
+        <span className="font-body text-body-sm text-ink">
           Reopen the last storyline I used on startup
         </span>
       </label>
 
       {status ? (
-        <p aria-live="polite" className="mt-[14px] font-mono text-[11px] tracking-[0.06em] text-ink-soft">
+        <p aria-live="polite" className="mt-lg font-mono text-eyebrow tracking-[0.06em] text-ink-soft">
           {status}
         </p>
       ) : null}
