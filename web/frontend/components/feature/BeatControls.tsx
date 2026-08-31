@@ -96,8 +96,8 @@ export function BeatControls({
 
   if (confirming && onRewind) {
     return (
-      <span className="flex items-center gap-[6px]">
-        <span className="font-mono text-[9px] tracking-[0.08em] text-mute uppercase">
+      <span className="flex items-center gap-xs">
+        <span className="font-mono text-eyebrow tracking-[0.08em] text-mute uppercase">
           {rewindEmptiesScene && rewindBeatCount
             ? `Empty the scene — all ${rewindBeatCount} beats?`
             : rewindBeatCount
@@ -110,14 +110,14 @@ export function BeatControls({
             setConfirming(false);
             onRewind();
           }}
-          className="flex h-[24px] items-center rounded-[3px] bg-accent px-[8px] font-mono text-[9px] tracking-[0.08em] text-[#F6ECDA] uppercase hover:bg-accent-hover"
+          className="flex h-[24px] items-center rounded-xs bg-accent px-sm font-mono text-eyebrow tracking-[0.08em] text-[#F6ECDA] uppercase hover:bg-accent-hover"
         >
           Rewind
         </button>
         <button
           type="button"
           onClick={() => setConfirming(false)}
-          className="flex h-[24px] items-center rounded-[3px] px-[7px] font-mono text-[9px] tracking-[0.08em] text-mute uppercase hover:bg-hover hover:text-ink"
+          className="flex h-[24px] items-center rounded-xs px-xs font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:bg-hover hover:text-ink"
         >
           Keep
         </button>
@@ -193,7 +193,7 @@ export function BeatControls({
       aria-label={`Actions for ${label}`}
       aria-orientation="horizontal"
       onKeyDown={onKeyDown}
-      className="flex items-center gap-[2px] transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+      className="flex items-center gap-3xs transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
     >
       {controls.map((control, i) => (
         <button
@@ -205,7 +205,7 @@ export function BeatControls({
           title={control.title}
           tabIndex={i === activeIndex ? 0 : -1}
           onFocus={() => setActive(i)}
-          className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
+          className="flex h-[44px] w-[44px] items-center justify-center rounded-xs text-label text-mute hover:bg-hover hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 sm:h-[24px] sm:w-[24px] sm:text-eyebrow"
         >
           <span aria-hidden>{control.glyph}</span>
         </button>

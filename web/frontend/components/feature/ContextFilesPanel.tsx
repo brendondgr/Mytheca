@@ -82,12 +82,12 @@ export function ContextFilesPanel({
         show ? "flex md:flex" : "hidden md:flex",
       )}
     >
-      <div className="mb-[10px] flex items-center justify-between gap-[8px]">
-        <Eyebrow tracking="0.2em" color="#A8762A">
+      <div className="mb-sm flex items-center justify-between gap-sm">
+        <Eyebrow tracking="0.2em" entity="#A8762A">
           ⎙ Context files
         </Eyebrow>
         {docFiles.length > 0 ? (
-          <span className="font-mono text-[10px] tracking-[0.08em] text-mute2 uppercase">
+          <span className="font-mono text-eyebrow tracking-[0.08em] text-mute2 uppercase">
             {docFiles.length} {docFiles.length === 1 ? "file" : "files"}
           </span>
         ) : null}
@@ -98,14 +98,14 @@ export function ContextFilesPanel({
           e.preventDefault();
           void addFiles(e.dataTransfer.files);
         }}
-        className="flex flex-col items-center gap-[6px] rounded-[4px] border border-dashed border-cardbd bg-field/50 px-[14px] py-[16px] text-center"
+        className="flex flex-col items-center gap-xs rounded-sm border border-dashed border-cardbd bg-field/50 px-lg py-lg text-center"
       >
-        <span aria-hidden className="text-[18px] text-mute">
+        <span aria-hidden className="text-step-1 text-mute">
           ⤓
         </span>
-        <p className="font-body text-[13px] text-ink-soft">
-          Drag <code className="font-mono text-[12px]">.txt</code> or{" "}
-          <code className="font-mono text-[12px]">.md</code> files here.
+        <p className="font-body text-label text-ink-soft">
+          Drag <code className="font-mono text-eyebrow">.txt</code> or{" "}
+          <code className="font-mono text-eyebrow">.md</code> files here.
         </p>
         <input
           id={inputId}
@@ -120,7 +120,7 @@ export function ContextFilesPanel({
         />
         <label
           htmlFor={inputId}
-          className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:underline"
+          className="cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase hover:underline"
         >
           Browse files
         </label>
@@ -128,30 +128,30 @@ export function ContextFilesPanel({
 
       {/* Bulk select/deselect per category — for many dropped files. */}
       {docFiles.length > 0 ? (
-        <div className="mt-[12px] rounded-[4px] border border-cardbd bg-field px-[10px] py-[8px]">
-          <Eyebrow tracking="0.14em" color="#A8762A">
+        <div className="mt-md rounded-sm border border-cardbd bg-field px-sm py-sm">
+          <Eyebrow tracking="0.14em" entity="#A8762A">
             Select all
           </Eyebrow>
-          <div className="mt-[6px] flex flex-col gap-[5px]">
+          <div className="mt-xs flex flex-col gap-2xs">
             {DOC_USES.map(({ key, label, title }) => {
               const onCount = docFiles.filter((doc) => doc[key] ?? true).length;
               return (
-                <div key={key} className="flex items-center justify-between gap-[8px]">
+                <div key={key} className="flex items-center justify-between gap-sm">
                   <span
                     title={title}
-                    className="font-mono text-[10.5px] tracking-[0.06em] text-ink-soft uppercase"
+                    className="font-mono text-eyebrow tracking-[0.06em] text-ink-soft uppercase"
                   >
                     {label}{" "}
                     <span className="text-mute2 normal-case">
                       ({onCount}/{docFiles.length})
                     </span>
                   </span>
-                  <div className="flex gap-[6px]">
+                  <div className="flex gap-xs">
                     <button
                       type="button"
                       aria-label={`Select all for ${label}`}
                       onClick={() => setAllDocUse(key, true)}
-                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink"
+                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-sm py-3xs font-mono text-tag tracking-[0.08em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink"
                     >
                       All
                     </button>
@@ -159,7 +159,7 @@ export function ContextFilesPanel({
                       type="button"
                       aria-label={`Deselect all for ${label}`}
                       onClick={() => setAllDocUse(key, false)}
-                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] text-mute uppercase hover:border-accent hover:bg-hover hover:text-ink"
+                      className="cursor-pointer rounded-full border border-cardbd bg-transparent px-sm py-3xs font-mono text-tag tracking-[0.08em] text-mute uppercase hover:border-accent hover:bg-hover hover:text-ink"
                     >
                       None
                     </button>
@@ -172,28 +172,28 @@ export function ContextFilesPanel({
       ) : null}
 
       {/* Showcased contexts — pick which feed Draft / RAG / KG. */}
-      <div className="mt-[12px]">
+      <div className="mt-md">
         {docFiles.length > 0 ? (
-          <ul className="flex flex-col gap-[8px]">
+          <ul className="flex flex-col gap-sm">
             {docFiles.map((doc) => (
               <li
                 key={doc.name}
-                className="rounded-[4px] border border-cardbd bg-field px-[10px] py-[8px]"
+                className="rounded-sm border border-cardbd bg-field px-sm py-sm"
               >
-                <div className="flex items-center justify-between gap-[8px]">
-                  <span className="truncate font-mono text-[11px] text-ink-soft">
+                <div className="flex items-center justify-between gap-sm">
+                  <span className="truncate font-mono text-eyebrow text-ink-soft">
                     ⎙ {doc.name}
                   </span>
                   <button
                     type="button"
                     aria-label={`Remove ${doc.name}`}
                     onClick={() => removeFile(doc.name)}
-                    className="flex-none cursor-pointer text-mute hover:text-accent"
+                    className="flex-none cursor-pointer text-mute hover:text-accent-ink"
                   >
                     ×
                   </button>
                 </div>
-                <div className="mt-[7px] flex flex-wrap gap-[6px]">
+                <div className="mt-xs flex flex-wrap gap-xs">
                   {DOC_USES.map(({ key, label, title }) => {
                     const on = doc[key] ?? true;
                     return (
@@ -205,7 +205,7 @@ export function ContextFilesPanel({
                         aria-label={`${label} for ${doc.name}`}
                         onClick={() => toggleDocUse(doc.name, key)}
                         className={cn(
-                          "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
+                          "cursor-pointer rounded-full border px-sm py-3xs font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
                           on
                             ? "border-accent bg-card2 text-ink"
                             : "border-cardbd bg-transparent text-mute hover:border-accent hover:bg-hover hover:text-ink",
@@ -221,13 +221,13 @@ export function ContextFilesPanel({
             ))}
           </ul>
         ) : (
-          <p className="font-body text-[12.5px] text-mute">
+          <p className="font-body text-eyebrow text-mute">
             Dropped contexts appear here — choose which feed Mytheca&apos;s drafting,
             the retrieval corpus, and the knowledge graph.
           </p>
         )}
       </div>
-      <p className="mt-[10px] font-mono text-[9px] tracking-[0.14em] text-mute2 uppercase">
+      <p className="mt-sm font-mono text-eyebrow tracking-[0.14em] text-mute2 uppercase">
         Saved with this entry · embedded for retrieval
       </p>
     </aside>

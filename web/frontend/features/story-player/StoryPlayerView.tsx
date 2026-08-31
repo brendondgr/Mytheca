@@ -560,7 +560,7 @@ export function StoryPlayerView({
           <CoachMark
             text={COACH_MARKS["cast-rail"]}
             onDismiss={() => dismiss("cast-rail")}
-            className="absolute bottom-[139px] left-[16px] lg:top-[76px] lg:bottom-auto"
+            className="absolute bottom-3xl left-[16px] lg:top-3xl lg:bottom-auto"
           />
         ) : null}
         <CastRail {...castRailProps} />
@@ -572,7 +572,7 @@ export function StoryPlayerView({
         {/* The reading column IS the page's main region. It had no landmark at all: a
             screen-reader user could reach both rails by name and had no way to jump to the
             transcript between them. */}
-        <main className="relative flex min-w-0 flex-1 flex-col">
+        <main id="main" tabIndex={-1} className="relative flex min-w-0 flex-1 flex-col">
           <div
             ref={transcriptRef}
             // `.stream-viewport` sets overflow-anchor: none so the browser's own
@@ -589,7 +589,7 @@ export function StoryPlayerView({
               aria-busy={!scene.reveal}
             >
               <SceneIntro scenario={scenario} onProfile={showProfile} />
-              <div className="py-[2px] text-center font-mono text-[9px] tracking-[0.16em] text-mute2 uppercase">
+              <div className="py-3xs text-center font-mono text-eyebrow tracking-[0.16em] text-mute2 uppercase">
                 — the scene is joined —
               </div>
               {scene.messages.map((m, i) => (
@@ -620,14 +620,14 @@ export function StoryPlayerView({
                   // The beat currently being written gets a couple of lines of
                   // reserved height, so the composer does not hop the instant
                   // the first token lands and again as the line wraps.
-                  className={`${highlighted === i ? "rounded-[6px] ring-2 ring-accent" : ""} group relative${
+                  className={`${highlighted === i ? "rounded-sm ring-2 ring-accent" : ""} group relative${
                     scene.sending && i === scene.messages.length - 1 ? " min-h-[3.2em]" : ""
                   }`}
                 >
                   {/* Only for beats that are actually persisted: a `choices` row and the
                       optimistic bubble of an in-flight turn have no row to point at. */}
                   {m.id && !scene.sending ? (
-                    <span className="absolute -top-[10px] right-0 z-10">
+                    <span className="absolute -top-sm right-0 z-10">
                       <BeatControls
                         label={beatLabel(m, byId)}
                         rewindBeatCount={scene.messages.length - turnStartIndex(scene.messages, i)}
@@ -651,7 +651,7 @@ export function StoryPlayerView({
                   ) : null}
                   {/* Only on a beat that has been re-rolled — one version is not a choice. */}
                   {m.takes && m.id ? (
-                    <span className="absolute -bottom-[8px] right-0 z-10">
+                    <span className="absolute -bottom-sm right-0 z-10">
                       <BeatTakePager
                         count={m.takes.count}
                         active={m.takes.active}
@@ -726,7 +726,7 @@ export function StoryPlayerView({
                 charById={byId}
               />
               {scene.streamError ? (
-                <p role="alert" className="text-center font-mono text-[11px] tracking-[0.08em] text-danger">
+                <p role="alert" className="text-center font-mono text-eyebrow tracking-[0.08em] text-danger-ink">
                   {scene.streamError}
                 </p>
               ) : null}
@@ -763,7 +763,7 @@ export function StoryPlayerView({
           />
 
           {searchOpen ? (
-            <div className="flex-none px-[16px] pt-[10px] sm:px-[30px]">
+            <div className="flex-none px-lg pt-sm sm:px-2xl">
               <TranscriptSearch
                 query={query}
                 onQueryChange={(next) => {
@@ -783,7 +783,7 @@ export function StoryPlayerView({
 
           {/* Only while the reader has scrolled away from the live edge. */}
           {readerScrolledUp ? (
-            <JumpToLatest onClick={jumpToLatest} className="bottom-[139px] lg:bottom-[96px]" />
+            <JumpToLatest onClick={jumpToLatest} className="bottom-3xl lg:bottom-3xl" />
           ) : null}
 
           {/* Anchored above the composer band, one at a time. No overlay and no backdrop:
@@ -792,7 +792,7 @@ export function StoryPlayerView({
             <CoachMark
               text={COACH_MARKS[mark]}
               onDismiss={() => dismiss(mark)}
-              className="absolute right-[16px] bottom-[139px] left-auto sm:right-[30px] lg:bottom-[96px]"
+              className="absolute right-[16px] bottom-3xl left-auto sm:right-[30px] lg:bottom-3xl"
             />
           ) : null}
 
@@ -814,7 +814,7 @@ export function StoryPlayerView({
               castMenuOpen && absentCast.length ? (
                 <ul
                   aria-label="Who arrives"
-                  className="mytheca-menu absolute bottom-full left-0 z-40 mb-[6px] flex max-h-[240px] w-full max-w-[260px] flex-col gap-[2px] overflow-auto p-[6px]"
+                  className="mytheca-menu absolute bottom-full left-0 z-40 mb-xs flex max-h-[240px] w-full max-w-[260px] flex-col gap-3xs overflow-auto p-xs"
                 >
                   {absentCast.map((c) => (
                     <li key={c.id}>
@@ -829,7 +829,7 @@ export function StoryPlayerView({
                               `${c.name} arrives.`,
                           );
                         }}
-                        className="w-full rounded-[3px] px-[8px] py-[6px] text-left font-display text-[13px] text-ink hover:bg-hover"
+                        className="w-full rounded-xs px-sm py-xs text-left font-display text-label text-ink hover:bg-hover"
                       >
                         {c.name}
                       </button>

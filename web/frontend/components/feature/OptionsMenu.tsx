@@ -40,7 +40,7 @@ export function OptionsMenu() {
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls="options-menu"
-        className="rounded-[2px] border border-field-bd bg-field px-[15px] py-[8px] font-mono text-[10.5px] tracking-[0.1em] text-ink uppercase hover:border-accent hover:bg-hover hover:text-accent aria-expanded:border-accent aria-expanded:text-accent"
+        className="rounded-xs border border-field-bd bg-field px-lg py-sm font-mono text-eyebrow tracking-[0.1em] text-ink uppercase hover:border-accent hover:bg-hover hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink"
       >
         Options ▾
       </button>
@@ -48,18 +48,18 @@ export function OptionsMenu() {
         <div
           id="options-menu"
           aria-label="Options"
-          className="absolute top-[42px] right-0 z-40 w-[244px] mytheca-menu p-[7px]"
+          className="absolute top-3xl right-0 z-40 w-[244px] mytheca-menu p-xs"
         >
           <Link
             href="/options"
             onClick={() => setOpen(false)}
-            className="flex w-full items-center gap-[11px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-hover"
+            className="flex w-full items-center gap-md rounded-xs px-md py-sm text-left hover:bg-hover"
           >
-            <span className="w-4 text-center text-[14px] text-gold" aria-hidden>
+            <span className="w-4 text-center text-body-sm text-gold-ink" aria-hidden>
               ❖
             </span>
-            <span className="flex flex-col gap-[2px]">
-              <span className="font-display text-[14px] font-semibold text-ink">
+            <span className="flex flex-col gap-3xs">
+              <span className="font-display text-body-sm font-semibold text-ink">
                 Settings Menu
               </span>
               <span className="font-mono text-tag tracking-[0.04em] text-mute">
@@ -68,11 +68,11 @@ export function OptionsMenu() {
             </span>
           </Link>
 
-          <div className="mt-[5px] border-t border-hair px-[11px] pt-[9px] pb-[4px]">
-            <div className="mb-[8px] font-mono text-tag tracking-[0.18em] text-mute uppercase">
+          <div className="mt-2xs border-t border-hair px-md pt-sm pb-2xs">
+            <div className="mb-sm font-mono text-tag tracking-[0.18em] text-mute uppercase">
               Appearance
             </div>
-            <div role="group" aria-label="Theme" className="flex items-center gap-[10px]">
+            <div role="group" aria-label="Theme" className="flex items-center gap-sm">
               {THEMES.map((option) => {
                 const active = theme === option.key;
                 return (
@@ -83,7 +83,7 @@ export function OptionsMenu() {
                     aria-label={option.label}
                     aria-pressed={active}
                     title={option.label}
-                    className="flex items-center justify-center rounded-full border border-field-bd bg-field p-[6px] hover:border-accent hover:bg-hover"
+                    className="flex items-center justify-center rounded-full border border-field-bd bg-field p-xs hover:border-accent hover:bg-hover"
                   >
                     <span
                       className="h-[18px] w-[18px] rounded-full"

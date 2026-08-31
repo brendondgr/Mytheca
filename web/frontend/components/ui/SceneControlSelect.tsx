@@ -77,21 +77,21 @@ export function SceneControlSelect<T extends string | number>({
   const helpId = useId();
   const selectId = useId();
   return (
-    <div className={cn("flex flex-none flex-col gap-[3px]", className)}>
-      <div className="flex items-center justify-between gap-[6px]">
+    <div className={cn("flex flex-none flex-col gap-3xs", className)}>
+      <div className="flex items-center justify-between gap-xs">
         <label
           htmlFor={selectId}
-          className="font-mono text-[9px] tracking-[0.12em] text-mute2 uppercase"
+          className="font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase"
         >
           {label}
           {scopeNote ? (
             // The leading space is not decoration — the same trap as `cost` below: a CSS
             // margin separates these visually but `textContent` concatenates them, so the
             // caption read "…SAYS AT ONCE· this turn".
-            // `text-ink`, not `text-accent`: accent on the menu ground is 3.67:1 in Slate
+            // `text-ink`, not `text-accent-ink`: accent on the menu ground is 3.67:1 in Slate
             // and 4.40:1 in Ember, which is fine for a border and fails AA for text. The
             // pin glyph beside it is what carries the accent.
-            <span className="ml-[5px] text-ink normal-case">
+            <span className="ml-2xs text-ink normal-case">
               {" "}
               {scopeNote}
             </span>
@@ -109,7 +109,7 @@ export function SceneControlSelect<T extends string | number>({
         disabled={disabled}
         aria-label={label}
         aria-describedby={help ? helpId : undefined}
-        className="rounded-[3px] border border-field-bd bg-field p-[7px_8px] font-mono text-[12px] text-ink focus:border-accent focus:outline-none disabled:opacity-60"
+        className="rounded-xs border border-field-bd bg-field p-[7px_8px] font-mono text-field text-ink focus:border-accent focus:outline-none disabled:opacity-60"
       >
         {items.map((o) => (
           <option key={String(o.value)} value={String(o.value)}>
@@ -118,7 +118,7 @@ export function SceneControlSelect<T extends string | number>({
         ))}
       </select>
       {help ? (
-        <p id={helpId} className="font-body text-[11px] leading-[1.4] text-mute2">
+        <p id={helpId} className="font-body text-eyebrow leading-[1.4] text-mute2">
           {help}
           {cost ? (
             // The cost sits with the consequence, not in a separate readout: "what it does"
@@ -127,7 +127,7 @@ export function SceneControlSelect<T extends string | number>({
             // The leading space is not decoration: a CSS margin separates these visually but
             // `textContent` concatenates them, so the accessible description ran the two
             // together — "its own length.≈ 260 tokens a beat".
-            <span className="ml-[4px] font-mono text-[10px] tracking-[0.04em] text-ink-soft">
+            <span className="ml-2xs font-mono text-eyebrow tracking-[0.04em] text-ink-soft">
               {" "}
               {cost}
             </span>

@@ -126,18 +126,70 @@ Rules: body story text ≥ 16px on mobile; reading measure capped (~720px transc
 
 ### Typography Scale (font-size presets)
 
-Text sizes are driven by six CSS custom properties defined in `styles/themes.css` under `:root`, with four named preset classes that the user chooses from **Settings → Appearance → Text size**:
+Text sizes are driven by **seven** CSS custom properties defined in `styles/themes.css` under `:root`, with four named preset classes that the user chooses from **Settings → Appearance → Text size**:
 
 | CSS variable | Default | Compact | Comfortable | Large | Used for |
 | --- | --- | --- | --- | --- | --- |
-| `--fs-eyebrow` | 10px | 9px | 12px | 13.5px | `Eyebrow` component (role tags, section kickers, "❖ Draft with Mytheca" labels) |
-| `--fs-label` | 12px | 11px | 13px | 14px | `FieldLabel` headings, form section labels |
-| `--fs-ui` | 12px | 11px | 13px | 14px | `Button` text, tab labels |
-| `--fs-body-sm` | 14px | 13px | 15px | 16px | Card descriptions, modal body prose |
-| `--fs-body` | 15px | 14px | 16px | 17px | Input fields, longer reading text |
-| `--fs-tag` | 9.5px | 9px | 11px | 12px | `Tag` chips (genre, tone, role pills) |
+| `--fs-eyebrow` | 12px | 11px | 13px | 14px | `Eyebrow` component (role tags, section kickers, "❖ Draft with Mytheca" labels) |
+| `--fs-label` | 13px | 12px | 14px | 15px | `FieldLabel` headings, form section labels |
+| `--fs-ui` | 13px | 12px | 14px | 15px | `Button` text, tab labels |
+| `--fs-body-sm` | 15px | 14px | 16px | 17px | Card descriptions, modal body prose |
+| `--fs-body` | 16px | 15px | 17px | 18px | Longer reading text |
+| **`--fs-field`** | **16px** | **16px** | 17px | 18px | **Every form control.** A floor, not a preference — see below. |
+| `--fs-tag` | 12px | 11px | 13px | 14px | `Tag` chips (genre, tone, role pills) |
 
-The active preset is stored in `localStorage` key `mytheca-font-size` (default: `"default"`) and applied as a class on `<html>` (e.g., `.fs-comfortable`) by `lib/font-size.ts`'s no-flash inline script in `app/layout.tsx`. The hook is `useFontSize()` in `hooks/use-font-size.ts`. Tailwind utilities `text-eyebrow`, `text-label`, `text-ui`, `text-body-sm`, `text-body`, `text-tag` resolve from the live CSS variable via `@theme inline` in `globals.css`.
+**Two of these numbers are platform facts, not taste, and no preset may go below them.**
+
+`--fs-field` is pinned at **≥ 16px in every preset, Compact included**. Safari on iOS zooms the page
+when an `<input>`/`<select>`/`<textarea>` renders below 16 CSS px on focus, and does not reliably zoom
+back out. The 2026-08-31 baseline audit measured **776** controls below the floor across seven routes.
+Disabling zoom is not the alternative — that is a WCAG 1.4.4 failure. The floor is applied three ways:
+the token, an `@layer base` default in `globals.css` (in `base` so a component that genuinely wants
+larger still wins), and a source guard in `components/ui/design-scale.test.ts`.
+
+`--fs-tag` and `--fs-eyebrow` are caption tiers and stay **≥ 11px**. The same audit found 10.5px text
+making up 58.2 % of one route's visible copy. Anything that needs to be smaller than a tier here is
+decoration, and decoration does not carry information.
+
+The active preset is stored in `localStorage` key `mytheca-font-size` (default: `"default"`) and applied as a class on `<html>` (e.g., `.fs-comfortable`) by `lib/font-size.ts`'s no-flash inline script in `app/layout.tsx`. The hook is `useFontSize()` in `hooks/use-font-size.ts`. Tailwind utilities `text-eyebrow`, `text-label`, `text-ui`, `text-body-sm`, `text-body`, `text-field`, `text-tag` resolve from the live CSS variable via `@theme inline` in `globals.css`.
+
+### Entity colour on a surface
+
+Characters, graph node types, seals and stat bands carry their own colour, chosen for **identity** and
+independent of the theme. Rendering those raw as text is what produced **71** contrast failures in the
+baseline audit — `#8e2b1c` on the Slate card ground measured **1.71:1** against a 4.5:1 requirement.
+
+Set `--entity` on an element and use the derived colour; never apply the raw value to text:
+
+| Token | Recipe | Worst measured | For |
+| --- | --- | --- | --- |
+| `--entity-ink` (`text-entity`) | `color-mix(in oklab, var(--entity) 45%, var(--ink))` | **4.55:1** | small text |
+| `--entity-ink-strong` (`text-entity-strong`) | `color-mix(in oklab, var(--entity) 65%, var(--ink))` | **3.05:1** | large text (≥24px, or ≥18.66px bold) and non-text marks (1.4.11) |
+
+Because `--ink` is dark on Parchment and light on Ember/Slate, one recipe moves the colour the right
+direction in every theme automatically.
+
+The same idea covers the accent and the five semantic colours. In every case the **raw** token stays
+for fills, borders and focus rings — where the vivid hue is the point and the 3:1 non-text bar applies
+— and an `-ink` variant carries the text:
+
+| Text token | Recipe | Why that percentage |
+| --- | --- | --- |
+| `text-accent-ink` | `--accent` at **72 %** | The accent has only three known values, not an open palette, so it can keep far more hue. 75 % is the limit; 72 % leaves margin. Raw accent measured 4.27:1 on Ember's card2, 4.05:1 on Slate's, 3.32:1 on Slate's hover ground. |
+| `text-gold-ink` · `text-gold-soft-ink` · `text-narrator-ink` · `text-success-ink` · `text-danger-ink` | each at **45 %** | These are theme-*agnostic* by design — one fixed hex cannot clear 4.5:1 against both a cream ground and a near-black one. `#a8762a` measured 4.08 / 3.61 / 3.11 across surfaces; `#1f8a5b` measured 3.30. |
+
+`Monogram` is the one deliberate exception, and the exception proves the rule. Its ground is a fixed
+parchment `#EDE3CD` in **every** theme, so mixing toward the theme's ink would make Ember and Slate
+worse rather than better. Its initials mix toward a dark ink at 60 % instead; its ring keeps the
+character's colour untouched, because a ring is a non-text mark.
+
+`Eyebrow` takes `entity` for an identity colour and `color` only for a theme token, and clamps a
+numeric `size` to the 11px caption floor — those two props were the app's single largest source of
+contrast findings. The two percentages are the **highest hue retention** that
+still clears the bar across every built-in entity colour × every surface × all three themes.
+`utils/scripts/check_contrast.py` re-derives both numbers from the CSS on every run — the percentages
+are read out of `themes.css`, never hardcoded in the gate — so the recipe and the contrast it
+guarantees cannot drift apart.
 
 ## Themes & Color Tokens
 
@@ -187,6 +239,46 @@ All text must meet WCAG AA contrast (4.5:1 body, 3:1 large/non-text) **in every 
 **Frontend implementation.** The three token sets live in `web/frontend/styles/themes.css` as `.theme-light` / `.theme-dark` / `.theme-slate`; the active class sits on `<html>`, applied pre-paint by a no-flash inline script (`themeInitScript` in `lib/theme.ts`). `app/globals.css` maps the variables to Tailwind utilities via `@theme inline` — e.g. `bg-page`, `bg-card`, `bg-card2`, `text-ink`, `text-ink-soft`, `text-mute`, `border-cardbd`, `border-hair`, `text-accent`, and the interaction tokens `bg-accent-hover`, `bg-menu` / `border-menu-bd`, `bg-hover`, `bg-surface`, `text-tab-ink`, plus theme-agnostic `text-gold` / `text-narrator` / `text-success` / `text-danger`. Gradient surfaces (page glow, header, rails) use the `.mytheca-page` / `.mytheca-header` / `.mytheca-rail` helper classes. The current theme is read via `useTheme()` (a `useSyncExternalStore` over the `<html>` class + `localStorage['mytheca-theme']`, so no provider is needed) and toggled by `ThemeSwitcher`.
 
 ## Geometry, Elevation, Icon, Spacing
+
+### The scales (space · radius · elevation)
+
+The baseline audit counted **1,335 arbitrary spacing values over 165 distinct numbers** and **8
+distinct border radii** across 136 component files. That is the measured mechanism behind "every part
+looks good, the whole looks unpolished": components tuned in isolation cannot align with each other
+because there is nothing for them to align **to**.
+
+All three scales live in `:root` in `styles/themes.css` and are mapped to Tailwind in `globals.css`:
+
+| Scale | Steps | Tailwind |
+| --- | --- | --- |
+| Space | `--sp-3xs` 2 · `--sp-2xs` 4 · `--sp-xs` 6 · `--sp-sm` 8 · `--sp-md` 12 · `--sp-lg` 16 · `--sp-xl` 24 · `--sp-2xl` 32 · `--sp-3xl` 48 | `p-md`, `gap-lg`, `mt-xl` |
+| Radius | `--r-xs` 3 · `--r-sm` 5 · `--r-md` 9 · `--r-lg` 14 · `--r-full` | `rounded-xs` … `rounded-lg` |
+| Elevation | `--elev-sm` · `--elev-md` · `--elev-lg` · `--elev-xl`, all tinted by the per-theme `--shadow-tint` | `shadow-sm` … `shadow-xl` |
+
+**A value that is not on a scale is a bug, not a refinement.** If a design genuinely needs a step that
+does not exist, the scale gains a step — once, in `themes.css` — rather than the component gaining an
+arbitrary number. `components/ui/design-scale.test.ts` holds a **ratchet** on the arbitrary-value
+counts: the budgets are the totals at the end of the last completed overhaul phase, and they may
+never rise.
+
+Space is deliberately **not** tied to the `.fs-*` presets: text size is the user's preference, layout
+rhythm is the design's. Tying them makes the Large preset explode the layout instead of enlarging the
+words. Page rhythm that should follow the *viewport* uses `--gutter` and `--step-*` instead.
+
+Elevation tokens are named `--elev-*`, **not** `--shadow-*`, because Tailwind v4 owns the
+`--shadow-*` theme namespace: a token of the same name mapped through `@theme inline` compiles to
+`--shadow-sm: var(--shadow-sm)`, a self-referential custom property.
+
+`--header-h` (56px) is also declared here. It was previously referenced by the `scroll-margin` rule in
+`globals.css` and **declared nowhere**, so the 4.5rem fallback always applied while the real bars were
+52px and 50px — deep links landed ~20px off. It now also drives `scroll-padding-top`, which is what
+satisfies WCAG 2.2 SC 2.4.11 (Focus Not Obscured).
+
+Each theme declares `color-scheme` (`light` on Parchment, `dark` on Ember and Slate). Without it the
+dark themes were dark only in the parts Mytheca paints — native selects, date pickers, autofill
+grounds and Firefox scrollbars all rendered in light chrome.
+
+### Legacy geometry notes
 
 - **Radius:** cards/inputs/buttons `2–3px` (manuscript-flat); chat bubbles use asymmetric `3px 11px 11px 11px` (character) and `11px 3px 11px 11px` (player); pills/chips `11–20px`; modals/hero `4–6px`; avatars are circles.
 - **Borders:** hairline `1px` in `--card-bd`/`--hair`; selected state is a `2px` accent border on `--card-bg2`. Section headers use a thin double rule (`border-top:1px solid ink; border-bottom:1px solid hair-strong`).
@@ -478,6 +570,40 @@ in the app picks up the Mytheca curve automatically. The `--ease-*` names delibe
 **not** routed through `@theme inline`: the namespace key collides with the token name and
 compiles to a self-referential `--ease-out: var(--ease-out)`. `check_frontend_css.mjs` fails
 the build on that pattern.
+
+### Scroll reveals — two paths, four gates, one guarantee
+
+`.reveal` runs an entrance as an element scrolls into view. It has **two implementations** and the
+choice between them is made by the browser, not by the call site:
+
+| Path | When | Cost |
+| --- | --- | --- |
+| `animation-timeline: view()` | the engine supports it (Chromium today) | zero JS, runs on the compositor |
+| `IntersectionObserver` (`hooks/use-reveal.ts`) | it does not (Firefox, Safari) | one observer, mounted once in `MotionProvider` |
+
+Before the second path existed, reveals ran **in Chromium only** — everywhere else `.reveal` was inert
+and content simply appeared. That was the *correct* failure, but it meant most of the entrance
+choreography was invisible to most browsers.
+
+**The guarantee is that nothing can ever be left hidden.** The hidden state requires all four of:
+
+1. `@supports not (animation-timeline: view())` — the JS path never fights the CSS one;
+2. `@media (prefers-reduced-motion: no-preference)`;
+3. `.js-reveal` on `<html>`, which `useReveal` adds **only after** constructing a working observer;
+4. `data-reveal="pending"`, set per element by that observer.
+
+Drop any one — script 404, CSP block, observer throw, reduced motion, an engine with `view()` — and
+no rule matches, so the element is simply visible. `useReveal` additionally marks anything already on
+screen `shown` immediately (no flash, and deep links landing mid-page are safe), `unobserve`s in the
+callback (a 500-item transcript must not recompute geometry forever), uses `threshold: 0` with a px
+`rootMargin` (a section taller than the viewport can never reach a fractional threshold; `em`/`vh` in
+`rootMargin` throw `SyntaxError`), and re-sweeps on `pageshow` after a bfcache restore.
+
+Use `<Reveal>` for a single element and `<Reveal.Group>` + `<Reveal.Item index={i}>` for a
+choreographed sequence, rather than writing the classes and the `--i` property by hand.
+
+Verified 2026-08-31 in Firefox 153 (`view()` unsupported): `.js-reveal` applied, on-screen items
+`shown` at opacity 1, the below-fold item `pending` at opacity 0, and revealed on scroll.
 
 ### Shared motion utilities (`styles/motion.css`)
 

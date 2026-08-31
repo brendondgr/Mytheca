@@ -70,10 +70,10 @@ export function SceneMemoryPanel({
     >
       <header className="flex flex-none items-start justify-between gap-3 border-b border-hair-strong p-[14px_16px]">
         <div>
-          <h2 className="font-display text-[15px] leading-none font-bold text-ink">
+          <h2 className="font-display text-body-sm leading-none font-bold text-ink">
             What the scene knows
           </h2>
-          <p className="mt-[6px] font-mono text-[9px] leading-[1.5] tracking-[0.08em] text-mute uppercase">
+          <p className="mt-xs font-mono text-eyebrow leading-[1.5] tracking-[0.08em] text-mute uppercase">
             What the cast is reading right now
           </p>
         </div>
@@ -82,7 +82,7 @@ export function SceneMemoryPanel({
 
       <div className="min-h-0 flex-1 overflow-auto p-[12px_14px]">
         {!sessionId ? (
-          <p className="font-body text-[14px] leading-[1.5] text-ink-soft">
+          <p className="font-body text-body-sm leading-[1.5] text-ink-soft">
             Play a turn and this will show what the cast can see — how far back it remembers,
             the files you attached, what it looked up, and whether what you asked for happened.
           </p>
@@ -141,7 +141,7 @@ function RecapSection({
       ) : status === "loading" ? (
         <p className="text-mute2">Reading the scene back…</p>
       ) : status === "error" ? (
-        <p className="text-danger">That could not be written just now.</p>
+        <p className="text-danger-ink">That could not be written just now.</p>
       ) : status === "empty" ? (
         <p className="text-mute2">There is nothing to recap yet.</p>
       ) : null}
@@ -149,7 +149,7 @@ function RecapSection({
         type="button"
         onClick={run}
         disabled={status === "loading"}
-        className="mt-[6px] min-h-[28px] rounded-[6px] border border-field-bd px-[10px] font-mono text-[9px] tracking-[0.08em] text-mute uppercase hover:bg-hover hover:text-ink disabled:opacity-50"
+        className="mt-xs min-h-[28px] rounded-sm border border-field-bd px-sm font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:bg-hover hover:text-ink disabled:opacity-50"
       >
         {status === "idle" ? "Recap the scene" : "Write it again"}
       </button>
@@ -168,7 +168,7 @@ function Sections({
 }) {
   const { direction, retrieval, summary } = data;
   return (
-    <div className="flex flex-col gap-[16px]">
+    <div className="flex flex-col gap-lg">
       <Section title="How far back the cast remembers">
         <p>
           The last <strong className="font-semibold">{data.windowBeats}</strong> beat
@@ -183,7 +183,7 @@ function Sections({
         {/* Where the number came from matters: "we asked the model" and "we guessed" are
             different claims, and only one deserves to be trusted with a full window. */}
         {data.windowSource === "fallback" ? (
-          <p className="mt-[4px] text-mute2">
+          <p className="mt-2xs text-mute2">
             The model did not report a context size and none is configured, so a conservative
             default is in force.
           </p>
@@ -200,7 +200,7 @@ function Sections({
 
       <Section title="Files you attached">
         {data.taggedNames.length ? (
-          <ul className="flex flex-col gap-[2px]">
+          <ul className="flex flex-col gap-3xs">
             {data.taggedNames.map((n) => (
               <li key={n}>{n}</li>
             ))}
@@ -222,7 +222,7 @@ function Sections({
 
       <Section title="Who it knows about whom">
         {data.relationships.length ? (
-          <ul className="flex flex-col gap-[4px]">
+          <ul className="flex flex-col gap-2xs">
             {data.relationships.map((r) => (
               <li key={r}>{r}</li>
             ))}
@@ -234,13 +234,13 @@ function Sections({
 
       <Section title="What you asked for, and what landed">
         {direction.items.length ? (
-          <ul className="flex flex-col gap-[4px]">
+          <ul className="flex flex-col gap-2xs">
             {direction.items.map((item) => {
               const done = direction.delivered.includes(item);
               return (
-                <li key={item} className="flex items-start gap-[6px]">
+                <li key={item} className="flex items-start gap-xs">
                   {/* Glyph AND wording, never colour alone. */}
-                  <span aria-hidden className={done ? "text-success" : "text-mute2"}>
+                  <span aria-hidden className={done ? "text-success-ink" : "text-mute2"}>
                     {done ? "✓" : "○"}
                   </span>
                   <span>
@@ -262,10 +262,10 @@ function Sections({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <Eyebrow tracking="0.14em" className="mb-[6px] block">
+      <Eyebrow tracking="0.14em" className="mb-xs block">
         {title}
       </Eyebrow>
-      <div className="font-body text-[12.5px] leading-[1.5] text-ink-soft">{children}</div>
+      <div className="font-body text-eyebrow leading-[1.5] text-ink-soft">{children}</div>
     </section>
   );
 }

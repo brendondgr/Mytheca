@@ -50,7 +50,7 @@ export function ProcessProgress({
       role="group"
       aria-label={label}
       className={cn(
-        "rounded-[4px] border border-cardbd bg-card2/50 px-3 py-2",
+        "rounded-sm border border-cardbd bg-card2/50 px-3 py-2",
         className,
       )}
     >
@@ -75,7 +75,7 @@ export function ProcessProgress({
               />
               <span
                 className={cn(
-                  "font-mono text-[11px]",
+                  "font-mono text-eyebrow",
                   state === "active" ? "text-ink" : "text-ink-soft",
                   state === "done" && "line-through opacity-70",
                 )}
@@ -88,7 +88,7 @@ export function ProcessProgress({
       </ol>
       <p
         aria-live="polite"
-        className="mt-1 font-body text-[12px] text-ink-soft"
+        className="mt-1 font-body text-eyebrow text-ink-soft"
       >
         {done || (activeIndex < 0 && steps.length > 0 && !current) ? (
           done ? (

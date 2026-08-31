@@ -68,32 +68,32 @@ export function SourceDocumentsPanel({
   }
 
   return (
-    <div className="mt-[18px] border-t border-hair-strong pt-[16px]">
-      <Eyebrow tracking="0.2em" color="#A8762A" className="mb-[8px] block">
+    <div className="mt-lg border-t border-hair-strong pt-lg">
+      <Eyebrow tracking="0.2em" entity="#A8762A" className="mb-sm block">
         ⎙ Source documents
       </Eyebrow>
-      <p className="mb-[10px] font-body text-[12.5px] text-ink-soft">
+      <p className="mb-sm font-body text-eyebrow text-ink-soft">
         Documents used as context for this {entityType} — mined during a build or linked
         by hand.
       </p>
 
       {loading ? (
-        <p className="font-mono text-[10.5px] tracking-[0.06em] text-mute uppercase">Loading…</p>
+        <p className="font-mono text-eyebrow tracking-[0.06em] text-mute uppercase">Loading…</p>
       ) : linked.length > 0 ? (
-        <ul className="flex flex-col gap-[6px]">
+        <ul className="flex flex-col gap-xs">
           {linked.map((doc) => (
             <li
               key={doc.id}
-              className="flex items-center justify-between gap-[8px] rounded-[4px] border border-cardbd bg-field px-[10px] py-[6px]"
+              className="flex items-center justify-between gap-sm rounded-sm border border-cardbd bg-field px-sm py-xs"
             >
-              <span className="truncate font-mono text-[11px] text-ink-soft" title={doc.name}>
+              <span className="truncate font-mono text-eyebrow text-ink-soft" title={doc.name}>
                 ⎙ {doc.name}
               </span>
               <button
                 type="button"
                 aria-label={`Unlink ${doc.name}`}
                 onClick={() => void unlink(doc.id)}
-                className="flex-none cursor-pointer text-mute hover:text-danger focus-visible:text-danger"
+                className="flex-none cursor-pointer text-mute hover:text-danger-ink focus-visible:text-danger-ink"
               >
                 ×
               </button>
@@ -101,14 +101,14 @@ export function SourceDocumentsPanel({
           ))}
         </ul>
       ) : (
-        <p className="font-body text-[12px] text-mute">
+        <p className="font-body text-eyebrow text-mute">
           No documents linked yet.
         </p>
       )}
 
       {/* Link an existing corpus document by hand. */}
       {options.length > 0 ? (
-        <div className="mt-[10px] flex items-center gap-[6px]">
+        <div className="mt-sm flex items-center gap-xs">
           <label className="sr-only" htmlFor={`link-doc-${entityId}`}>
             Link a document to this {entityType}
           </label>
@@ -116,7 +116,7 @@ export function SourceDocumentsPanel({
             id={`link-doc-${entityId}`}
             value={pick}
             onChange={(e) => setPick(e.target.value)}
-            className="min-w-0 flex-1 rounded-[3px] border border-cardbd bg-field px-[8px] py-[5px] font-mono text-[11px] text-ink-soft focus-visible:border-accent"
+            className="min-w-0 flex-1 rounded-xs border border-cardbd bg-field px-sm py-2xs font-mono text-field text-ink-soft focus-visible:border-accent"
           >
             <option value="">Link a document…</option>
             {options.map((d) => (
@@ -129,7 +129,7 @@ export function SourceDocumentsPanel({
             type="button"
             disabled={!pick}
             onClick={() => void linkPicked()}
-            className="flex-none cursor-pointer rounded-[3px] border border-cardbd px-[10px] py-[5px] font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:border-accent disabled:opacity-40"
+            className="flex-none cursor-pointer rounded-xs border border-cardbd px-sm py-2xs font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase hover:border-accent disabled:opacity-40"
           >
             Link
           </button>

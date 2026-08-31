@@ -1077,6 +1077,27 @@ export interface LlmParams {
  */
 export type ReasoningVisibility = "hidden" | "summary" | "full";
 
+/** One entry in the provider dropdown. Pure config — the backend needs no I/O to build it. */
+export interface LlmProviderOption {
+  id: string;
+  label: string;
+  /** Already has a base URL or a key stored. Never reveals either. */
+  configured: boolean;
+  /** Prefilled when switching to this provider with nothing set. */
+  defaultBaseUrl: string;
+  /**
+   * False where the provider cannot list its models over the wire, so the UI
+   * shows a text field rather than an empty dropdown that looks broken.
+   */
+  supportsDiscovery: boolean;
+  /**
+   * False where the turn loop cannot yet parse this provider's stream. Selecting
+   * it works, but every turn arrives as one block instead of typing out — so the
+   * picker says so rather than letting an operator find out mid-scene.
+   */
+  streamingDispatched: boolean;
+}
+
 export interface LlmConfig {
   baseUrl: string;
   model: string;
@@ -1097,6 +1118,12 @@ export interface LlmConfig {
   maxContextTokens: number;
   /** How much of a turn's thinking reaches the player. */
   reasoningVisibility: ReasoningVisibility;
+  /**
+   * Every provider this build knows about. Sent with the config so the picker
+   * needs no second request — and so the frontend never hardcodes the list,
+   * which is the thing that goes stale between releases.
+   */
+  providers: LlmProviderOption[];
 }
 
 /** PATCH payload. Omit `apiKey` to keep the stored key; "" clears it. */
@@ -1210,6 +1237,16 @@ export interface AppSettings {
 
 export interface LlmModelsResult {
   models: string[];
+  /**
+   * False when the endpoint could not be reached. The route still returns 200:
+   * an unreachable local server is a NORMAL state, not an exception, and a 500
+   * would make the Options page look broken instead of the endpoint.
+   */
+  ok: boolean;
+  /** Human-readable reason when `ok` is false. Never a stack trace. */
+  error: string | null;
+  /** "endpoint" (asked and answered), "config" (declared), or "none". */
+  source: "endpoint" | "config" | "none";
 }
 
 export interface LlmTestResult {
@@ -1250,11 +1287,22 @@ export const updateLlmConfig = (body: LlmConfigUpdate) =>
   patch<LlmConfig>("/options/llm", body);
 export const updateLibraryDefaults = (body: LibraryDefaultsUpdate) =>
   patch<LibraryDefaults>("/options/library", body);
-export const fetchLlmModels = (body: { baseUrl?: string; apiKey?: string }) =>
-  post<LlmModelsResult>("/options/llm/models", body);
+/**
+ * Ask a provider what it serves.
+ *
+ * `provider` probes one WITHOUT switching to it, so an operator can find out
+ * whether a new endpoint works before giving up the one that does. Omitted =
+ * the active provider.
+ */
+export const fetchLlmModels = (body: {
+  baseUrl?: string;
+  apiKey?: string;
+  provider?: string;
+}) => post<LlmModelsResult>("/options/llm/models", body);
 export const testLlmConnection = (body: {
   baseUrl?: string;
   apiKey?: string;
+  provider?: string;
   model: string;
   params?: LlmParams;
 }) => post<LlmTestResult>("/options/llm/test", body);

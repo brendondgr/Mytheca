@@ -62,14 +62,14 @@ export function SettingColumn({
             onClearQuery={onClearQuery}
           />
         ) : (
-          <div className="flex flex-col gap-[14px]">
+          <div className="flex flex-col gap-lg">
             {settings.map((s) => {
               const isActive = s.id === activeId;
               return (
                 <div
                   key={s.id}
                   ref={isActive ? activeRef : undefined}
-                  className={isActive ? "scroll-mt-[68px]" : undefined}
+                  className={isActive ? "scroll-mt-3xl" : undefined}
                 >
                   <SettingCard
                     setting={s}

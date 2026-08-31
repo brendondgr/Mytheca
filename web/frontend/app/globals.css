@@ -36,6 +36,7 @@
   --color-hover: var(--hover-bg);
   --color-surface: var(--surface);
   --color-tab-ink: var(--tab-ink);
+  --color-on-accent: var(--on-accent);
 
   /* Theme-agnostic semantic colors (same across all three themes). */
   --color-gold: #c8862a;
@@ -53,6 +54,8 @@
   --text-body-sm: var(--fs-body-sm);
   --text-body:    var(--fs-body);
   --text-tag:     var(--fs-tag);
+  /* Every form control. Pinned >= 16px in every preset — see themes.css. */
+  --text-field:   var(--fs-field);
 
   /* Fluid display type + page rhythm — `text-step-1`, `gap-gutter`, `p-gutter`.
    * Distinct from the --fs-* tier above: those follow the user's Text-size
@@ -62,6 +65,52 @@
   --text-step-2: var(--step-2);
   --text-step-3: var(--step-3);
   --spacing-gutter: var(--gutter);
+
+  /* Space scale — `p-md`, `gap-lg`, `mt-xl`. Replaces 165 distinct arbitrary
+   * pixel values with nine steps. See themes.css for why space is NOT tied to
+   * the .fs-* presets. */
+  --spacing-3xs: var(--sp-3xs);
+  --spacing-2xs: var(--sp-2xs);
+  --spacing-xs:  var(--sp-xs);
+  --spacing-sm:  var(--sp-sm);
+  --spacing-md:  var(--sp-md);
+  --spacing-lg:  var(--sp-lg);
+  --spacing-xl:  var(--sp-xl);
+  --spacing-2xl: var(--sp-2xl);
+  --spacing-3xl: var(--sp-3xl);
+  --spacing-header: var(--header-h);
+
+  /* Radius — `rounded-xs` .. `rounded-lg`. Tailwind ships its own
+   * `rounded-sm/md/lg`; these entries REPLACE those values with Mytheca's,
+   * so a component cannot accidentally reach a stock radius that is off the
+   * scale. */
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+
+  /* Elevation — `shadow-sm` .. `shadow-xl`, theme-tinted. The source tokens
+   * are named --elev-* precisely so this mapping is not self-referential. */
+  --shadow-sm: var(--elev-sm);
+  --shadow-md: var(--elev-md);
+  --shadow-lg: var(--elev-lg);
+  --shadow-xl: var(--elev-xl);
+
+  /* Entity colour derived against the theme's ink — `text-entity` for small
+   * text (4.5:1), `text-entity-strong` / `border-entity-strong` for large text
+   * and non-text marks (3:1). Set `--entity` on an ancestor. */
+  /* Text variants of the semantic colours — see themes.css. `text-danger-ink`
+   * for copy, `bg-danger`/`border-danger` for fills and rules. */
+  --color-accent-ink: var(--accent-ink);
+  --color-gold-ink: var(--gold-ink);
+  --color-gold-soft-ink: var(--gold-soft-ink);
+  --color-narrator-ink: var(--narrator-ink);
+  --color-success-ink: var(--success-ink);
+  --color-danger-ink: var(--danger-ink);
+
+  --color-entity: var(--entity-ink);
+  --color-entity-strong: var(--entity-ink-strong);
+  --color-entity-raw: var(--entity);
 }
 
 /* Motion utilities.
@@ -193,9 +242,50 @@ h3 {
   cursor: progress;
 }
 
-/* Deep links land below the sticky header rather than under it. */
+/* Deep links land below the sticky header rather than under it.
+ * `--header-h` is now actually declared (themes.css) — it was a phantom token
+ * with a 4.5rem fallback while the real bars were 52px and 50px. */
 :where(section, [id]) {
-  scroll-margin-block-start: var(--header-h, 4.5rem);
+  scroll-margin-block-start: var(--header-h);
+}
+
+/* WCAG 2.2 SC 2.4.11 Focus Not Obscured (Minimum). Browsers scroll a focused
+ * element into view but do NOT account for author sticky chrome, so a Tab that
+ * lands just under the header leaves the focused control invisible. Setting
+ * scroll-padding on the scroll container is the whole fix, and it fixes
+ * in-page anchor landings at the same time. */
+:root {
+  scroll-padding-top: calc(var(--header-h) + var(--sp-sm));
+}
+
+/* The form-control floor.
+ *
+ * iOS Safari zooms the page when an input/select/textarea renders below 16 CSS
+ * px on focus, and does not reliably zoom back out. The baseline audit measured
+ * 776 controls below the floor across seven routes.
+ *
+ * This sits in `@layer base` ON PURPOSE, so a Tailwind utility still wins: a
+ * control that genuinely wants to be larger says so, and this only supplies the
+ * default. It is a floor for anything that never states a size, not a clamp —
+ * the clamp is `check_frontend_css.mjs`, which fails the build on any font-size
+ * utility below 16px reaching a form control.
+ *
+ * `font: inherit` is deliberately NOT used: it would inherit the serif body
+ * face into controls that want mono, and it re-opens the floor to whatever the
+ * ancestor happened to set. */
+@layer base {
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: var(--fs-field);
+  }
 }
 
 input::placeholder,

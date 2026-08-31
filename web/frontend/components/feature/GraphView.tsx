@@ -28,8 +28,8 @@ function GraphMessage({
       role={role}
       className="content-enter flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center"
     >
-      <p className="font-display text-[18px] text-ink">
-        <span aria-hidden className="mr-[6px] text-gold">
+      <p className="font-display text-step-1 text-ink">
+        <span aria-hidden className="mr-xs text-gold-ink">
           ❖
         </span>
         {title}
@@ -39,7 +39,7 @@ function GraphMessage({
         <button
           type="button"
           onClick={onRetry}
-          className="press touch-target mt-[4px] cursor-pointer rounded-[2px] border border-field-bd px-[12px] py-[6px] font-mono text-[10px] tracking-[0.12em] text-ink uppercase transition-colors duration-fast ease-soft hover:border-hair-strong hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="press touch-target mt-2xs cursor-pointer rounded-xs border border-field-bd px-md py-xs font-mono text-eyebrow tracking-[0.12em] text-ink uppercase transition-colors duration-fast ease-soft hover:border-hair-strong hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           Try again
         </button>
@@ -125,7 +125,7 @@ export function GraphView({ scenarioId }: { scenarioId: string }) {
     return (
       <section aria-label="Story graph" className={shell} aria-busy="true">
         <div
-          className="content-enter flex flex-1 items-center justify-center font-mono text-[11px] tracking-[0.16em] text-mute uppercase"
+          className="content-enter flex flex-1 items-center justify-center font-mono text-eyebrow tracking-[0.16em] text-mute uppercase"
           role="status"
         >
           ❖ Reading the story graph…

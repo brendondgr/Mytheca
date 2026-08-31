@@ -22,12 +22,12 @@ import { SkeletonBlock, SkeletonLine } from "@/components/ui/Skeleton";
 /** One scenario row — image band, title, eyebrow, goal line, cast footer. */
 function ScenarioCardSkeleton() {
   return (
-    <div className="min-h-[176px] rounded-[4px] border border-cardbd bg-card p-[14px]">
+    <div className="min-h-[176px] rounded-sm border border-cardbd bg-card p-lg">
       <SkeletonLine width="38%" height="9px" />
-      <SkeletonLine width="70%" height="18px" className="mt-[10px]" />
-      <SkeletonLine width="92%" height="12px" className="mt-[12px]" />
-      <SkeletonLine width="64%" height="12px" className="mt-[6px]" />
-      <SkeletonLine width="46%" height="10px" className="mt-[26px]" />
+      <SkeletonLine width="70%" height="18px" className="mt-sm" />
+      <SkeletonLine width="92%" height="12px" className="mt-md" />
+      <SkeletonLine width="64%" height="12px" className="mt-xs" />
+      <SkeletonLine width="46%" height="10px" className="mt-xl" />
     </div>
   );
 }
@@ -35,11 +35,11 @@ function ScenarioCardSkeleton() {
 /** One 2:3 character tile — the portrait frame with its name/role footer. */
 function CharacterTileSkeleton() {
   return (
-    <div className="relative aspect-[2/3] overflow-hidden rounded-[4px] border border-cardbd bg-card">
+    <div className="relative aspect-[2/3] overflow-hidden rounded-sm border border-cardbd bg-card">
       <SkeletonBlock className="absolute inset-0 h-full w-full rounded-none" />
-      <div className="absolute inset-x-[10px] bottom-[10px]">
+      <div className="absolute inset-x-[10px] bottom-sm">
         <SkeletonLine width="72%" height="13px" />
-        <SkeletonLine width="48%" height="9px" className="mt-[6px]" />
+        <SkeletonLine width="48%" height="9px" className="mt-xs" />
       </div>
     </div>
   );
@@ -48,18 +48,18 @@ function CharacterTileSkeleton() {
 /** One setting row — plate band, name, type eyebrow, description. */
 function SettingCardSkeleton() {
   return (
-    <div className="min-h-[118px] rounded-[4px] border border-cardbd bg-card p-[14px]">
+    <div className="min-h-[118px] rounded-sm border border-cardbd bg-card p-lg">
       <SkeletonLine width="30%" height="9px" />
-      <SkeletonLine width="62%" height="16px" className="mt-[10px]" />
-      <SkeletonLine width="88%" height="12px" className="mt-[12px]" />
-      <SkeletonLine width="55%" height="12px" className="mt-[6px]" />
+      <SkeletonLine width="62%" height="16px" className="mt-sm" />
+      <SkeletonLine width="88%" height="12px" className="mt-md" />
+      <SkeletonLine width="55%" height="12px" className="mt-xs" />
     </div>
   );
 }
 
 export function ScenarioColumnSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="flex flex-col gap-[14px]">
+    <div className="flex flex-col gap-lg">
       {Array.from({ length: rows }, (_, i) => (
         <ScenarioCardSkeleton key={i} />
       ))}
@@ -73,7 +73,7 @@ export function CharacterColumnSkeleton({ tiles = 6 }: { tiles?: number }) {
   // visibly re-flow the instant the real cast landed — which is precisely the
   // broken-trust moment a skeleton exists to avoid.
   return (
-    <div className="grid grid-cols-2 gap-[12px] @[420px]:grid-cols-3">
+    <div className="grid grid-cols-2 gap-md @[420px]:grid-cols-3">
       {Array.from({ length: tiles }, (_, i) => (
         <CharacterTileSkeleton key={i} />
       ))}
@@ -83,7 +83,7 @@ export function CharacterColumnSkeleton({ tiles = 6 }: { tiles?: number }) {
 
 export function SettingColumnSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="flex flex-col gap-[14px]">
+    <div className="flex flex-col gap-lg">
       {Array.from({ length: rows }, (_, i) => (
         <SettingCardSkeleton key={i} />
       ))}

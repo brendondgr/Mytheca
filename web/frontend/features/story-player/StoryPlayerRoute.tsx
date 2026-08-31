@@ -32,11 +32,11 @@ export function StoryPlayerRoute({
       >
         <div className="relative h-[54px] w-[54px]">
           <div className="absolute inset-0 animate-[embSpin_1s_linear_infinite] rounded-full border-[3px] border-cardbd border-t-accent motion-reduce:animate-none" />
-          <div className="absolute inset-0 flex items-center justify-center text-[20px] text-accent">
+          <div className="absolute inset-0 flex items-center justify-center text-step-2 text-accent-ink">
             ❖
           </div>
         </div>
-        <div className="font-mono text-[10px] tracking-[0.18em] text-mute uppercase">
+        <div className="font-mono text-eyebrow tracking-[0.18em] text-mute uppercase">
           Summoning the scene
           <span className="animate-[embDots_1.4s_infinite] motion-reduce:hidden">.</span>
           <span className="animate-[embDots_1.4s_infinite_.2s] motion-reduce:hidden">.</span>
@@ -53,14 +53,14 @@ export function StoryPlayerRoute({
           <Eyebrow tracking="0.2em" color="var(--danger)" className="block">
             The scene could not be raised
           </Eyebrow>
-          <p className="mt-[10px] font-body text-[15px] leading-[1.5] text-ink-soft">
+          <p className="mt-sm font-body text-body-sm leading-[1.5] text-ink-soft">
             {scene.message}
           </p>
-          <div className="mt-[18px] flex items-center justify-center gap-[10px]">
+          <div className="mt-lg flex items-center justify-center gap-sm">
             <Button onClick={scene.reload}>Try again</Button>
             <Link
               href={backHref}
-              className="rounded-[2px] border border-field-bd px-[16px] py-[9px] font-mono text-[10px] tracking-[0.1em] text-accent uppercase hover:bg-accent hover:text-[#F6ECDA]"
+              className="rounded-xs border border-field-bd px-lg py-sm font-mono text-eyebrow tracking-[0.1em] text-accent-ink uppercase hover:bg-accent hover:text-[#F6ECDA]"
             >
               ‹ Library
             </Link>

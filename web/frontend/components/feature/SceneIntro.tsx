@@ -23,13 +23,13 @@ export function SceneIntro({
   return (
     <section
       aria-label="Scene overview"
-      className="rounded-[6px] border border-cardbd bg-card2 p-[16px_18px]"
+      className="rounded-sm border border-cardbd bg-card2 p-[16px_18px]"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Eyebrow tracking="0.18em" color="var(--accent)">
           The scene is set
         </Eyebrow>
-        <div className="flex flex-wrap items-center gap-[6px]">
+        <div className="flex flex-wrap items-center gap-xs">
           {s.genre ? (
             <Tag variant="outline" tone="gold" pill>
               {s.genre}
@@ -43,35 +43,35 @@ export function SceneIntro({
         </div>
       </div>
 
-      <div className="mt-[10px] font-display text-[20px] font-semibold leading-[1.15] text-ink">
+      <div className="mt-sm font-display text-step-2 font-semibold leading-[1.15] text-ink">
         ◆ {s.title}
-        <span className="text-[15px] font-normal text-ink-soft">: {s.setting.name}</span>
-        <span className="ml-[8px] font-mono text-[11px] tracking-[0.12em] text-mute uppercase">
+        <span className="text-body-sm font-normal text-ink-soft">: {s.setting.name}</span>
+        <span className="ml-sm font-mono text-eyebrow tracking-[0.12em] text-mute uppercase">
           {s.setting.type}
         </span>
       </div>
       {stateLine ? (
-        <p className="mt-[5px] font-body text-[15px] leading-[1.45] text-ink-soft">
+        <p className="mt-2xs font-body text-body-sm leading-[1.45] text-ink-soft">
           {stateLine}
         </p>
       ) : null}
 
       {s.goal ? (
-        <div className="mt-[12px] border-t border-hair pt-[10px]">
-          <Eyebrow size={9} tracking="0.16em" className="mb-[4px] block">
+        <div className="mt-md border-t border-hair pt-sm">
+          <Eyebrow size={9} tracking="0.16em" className="mb-2xs block">
             Your aim
           </Eyebrow>
-          <p className="font-body text-[15.5px] leading-[1.45] text-ink italic">
+          <p className="font-body text-body-sm leading-[1.45] text-ink italic">
             {s.goal}
           </p>
         </div>
       ) : null}
 
-      <div className="mt-[12px] border-t border-hair pt-[10px]">
-        <Eyebrow size={9} tracking="0.16em" className="mb-[8px] block">
+      <div className="mt-md border-t border-hair pt-sm">
+        <Eyebrow size={9} tracking="0.16em" className="mb-sm block">
           In the Scene
         </Eyebrow>
-        <div className="flex flex-wrap gap-x-[16px] gap-y-[8px]">
+        <div className="flex flex-wrap gap-x-lg gap-y-sm">
           {s.cast.map((c) => {
             const inner = (
               <>
@@ -84,10 +84,10 @@ export function SceneIntro({
                   fontSize={11}
                 />
                 <span className="min-w-0 text-left">
-                  <span className="block font-display text-[14.5px] leading-[1.05] font-semibold text-ink">
+                  <span className="block font-display text-body-sm leading-[1.05] font-semibold text-ink">
                     {c.name.split(",")[0]}
                   </span>
-                  <Eyebrow size={9} tracking="0.08em" color={c.color} className="block">
+                  <Eyebrow size={9} tracking="0.08em" entity={c.color} className="block">
                     {c.role}
                   </Eyebrow>
                 </span>
@@ -100,12 +100,12 @@ export function SceneIntro({
                 onClick={() => onProfile(c.id)}
                 aria-label={`View ${c.name}`}
                 title={c.name}
-                className="flex items-center gap-[8px] rounded-[3px] px-[4px] py-[2px] hover:bg-hover"
+                className="flex items-center gap-sm rounded-xs px-2xs py-3xs hover:bg-hover"
               >
                 {inner}
               </button>
             ) : (
-              <span key={c.id} className="flex items-center gap-[8px]">
+              <span key={c.id} className="flex items-center gap-sm">
                 {inner}
               </span>
             );

@@ -44,6 +44,16 @@
   --hover-bg: #ecdfbc;
   --surface: #ede2c6;
   --tab-ink: #59492f;
+  /* Ink for text sitting ON an accent fill (buttons, the player's bubble, hover
+   * states). Identical in all three themes today, and a token anyway: it was
+   * hardcoded as #F6ECDA at 31 call sites, which put it outside the contrast
+   * gate and made "what colour is text on accent" unanswerable from the token
+   * set. A theme that ever wants a different one now has somewhere to say so. */
+  --on-accent: #f6ecda;
+  --shadow-tint: rgba(64, 44, 16, 0.22);
+  /* Parchment is a light theme; say so, so native selects, date pickers,
+   * autofill grounds and Firefox scrollbars match rather than guess. */
+  color-scheme: light;
 }
 
 .theme-dark {
@@ -73,6 +83,17 @@
   --hover-bg: #382c1a;
   --surface: #1b1509;
   --tab-ink: #b09a6f;
+  /* Ink for text sitting ON an accent fill (buttons, the player's bubble, hover
+   * states). Identical in all three themes today, and a token anyway: it was
+   * hardcoded as #F6ECDA at 31 call sites, which put it outside the contrast
+   * gate and made "what colour is text on accent" unanswerable from the token
+   * set. A theme that ever wants a different one now has somewhere to say so. */
+  --on-accent: #f6ecda;
+  --shadow-tint: rgba(6, 3, 0, 0.55);
+  /* Without this the two dark themes were dark only in the parts we paint:
+   * native controls, date/select popups, autofill backgrounds and Firefox
+   * scrollbars all rendered in light chrome. */
+  color-scheme: dark;
 }
 
 .theme-slate {
@@ -102,6 +123,14 @@
   --hover-bg: #2e3945;
   --surface: #141b22;
   --tab-ink: #b7c7d4;
+  /* Ink for text sitting ON an accent fill (buttons, the player's bubble, hover
+   * states). Identical in all three themes today, and a token anyway: it was
+   * hardcoded as #F6ECDA at 31 call sites, which put it outside the contrast
+   * gate and made "what colour is text on accent" unanswerable from the token
+   * set. A theme that ever wants a different one now has somewhere to say so. */
+  --on-accent: #f6ecda;
+  --shadow-tint: rgba(2, 5, 9, 0.55);
+  color-scheme: dark;
 }
 
 /* ------------------------------------------------------------------ *
@@ -173,57 +202,205 @@
 }
 
 /* ------------------------------------------------------------------ *
+ * Space, radius and elevation — the scales the app was missing.
+ *
+ * The 2026-08-31 baseline audit counted 1,335 arbitrary spacing values over
+ * 165 distinct numbers, and 8 distinct border radii, across 136 component
+ * files. That is the measured mechanism behind "every part looks good, the
+ * whole looks unpolished": components tuned in isolation cannot align with
+ * each other because there is nothing for them to align TO.
+ *
+ * These are that something. Eight space steps, four radii, four elevations.
+ * A value that is not on a scale is a bug, not a refinement — if a design
+ * genuinely needs a ninth step, the scale gains a step rather than the
+ * component gaining an arbitrary number.
+ *
+ * Space is deliberately NOT tied to the .fs-* presets: text size is the
+ * user's preference, layout rhythm is the design's. Tying them makes the
+ * Large preset explode the layout instead of enlarging the words. Page
+ * rhythm that should follow the viewport uses --gutter and --step-*, above.
+ * ------------------------------------------------------------------ */
+:root {
+  /* Space — 4px-based, geometric enough that adjacent steps read as
+   * different. Named by role so a component picks a step by intent. */
+  --sp-3xs: 2px;   /* optical nudges: icon-to-label, badge inset            */
+  --sp-2xs: 4px;   /* tight pairs: icon + text, chip padding-y             */
+  --sp-xs:  6px;   /* control inner padding-y, dense list gap              */
+  --sp-sm:  8px;   /* the default small gap between related things         */
+  --sp-md:  12px;  /* control inner padding-x, card inner gap              */
+  --sp-lg:  16px;  /* card padding, gap between distinct items             */
+  --sp-xl:  24px;  /* gap between groups within a section                  */
+  --sp-2xl: 32px;  /* gap between sections                                 */
+  --sp-3xl: 48px;  /* page-level separation, empty-state breathing room    */
+
+  /* Radius — four steps. 2px and 3px both existed and both meant "barely
+   * rounded"; they collapse to --r-xs. */
+  --r-xs: 3px;     /* chips, tags, chrome buttons, inline marks            */
+  --r-sm: 5px;     /* cards, fields, menus — the workhorse                 */
+  --r-md: 9px;     /* modals, drawers, large panels                        */
+  --r-lg: 14px;    /* hero surfaces, scene art frames                      */
+  --r-full: 999px; /* pills and circular controls                          */
+
+  /* Elevation — four steps sharing one theme-set tint, so a shadow reads as
+   * the same light source in all three themes rather than as three different
+   * rooms. --shadow-tint is declared per theme below. */
+  /* Named --elev-*, NOT --shadow-*, on purpose. Tailwind v4 owns the
+   * `--shadow-*` theme namespace, so a token of the same name mapped through
+   * `@theme inline` compiles to `--shadow-sm: var(--shadow-sm)` — a
+   * self-referential custom property. This is the same collision the --ease-*
+   * note in app/globals.css documents; it is avoided here by not sharing the
+   * name in the first place. */
+  --elev-sm: 0 1px 2px var(--shadow-tint);
+  --elev-md: 0 4px 14px var(--shadow-tint);
+  --elev-lg: 0 12px 32px var(--shadow-tint);
+  --elev-xl: 0 18px 44px var(--shadow-tint), 0 2px 8px var(--shadow-tint);
+
+  /* Chrome height. Was referenced by app/globals.css's scroll-margin rule and
+   * declared NOWHERE, so the 4.5rem fallback silently applied while the real
+   * bars were 52px and 50px — deep links landed ~20px off. One value now, and
+   * both bars consume it. */
+  --header-h: 56px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Entity colour on a surface.
+ *
+ * Characters, graph node types, seals and stat bands each carry their own
+ * colour, chosen for identity rather than for legibility, and independent of
+ * the theme. Rendering those raw as TEXT is what produced 71 contrast
+ * failures in the baseline audit — #8e2b1c on the Slate card ground measured
+ * 1.71:1 against a 4.5:1 requirement.
+ *
+ * The fix keeps the identity and fixes the legibility: mix the entity colour
+ * toward the theme's own ink until it clears. Because --ink is dark on
+ * Parchment and light on Ember/Slate, one recipe moves the colour the right
+ * direction in every theme automatically.
+ *
+ * The two ratios are measured, not guessed. Across every built-in entity
+ * colour x every surface token x all three themes, the highest hue retention
+ * that still clears the bar is:
+ *
+ *   45% -> 4.55:1 worst case  (>= 4.5, small text)
+ *   65% -> 3.05:1 worst case  (>= 3.0, large text >= 24px / >= 18.66px bold,
+ *                              and non-text marks under WCAG 1.4.11)
+ *
+ * Consumers set --entity on an element and use the derived colour; they never
+ * apply the raw value to text. utils/scripts/check_contrast.py re-derives both
+ * numbers from this file's palette on every run, so the ratios cannot drift
+ * away from the recipe without failing the gate.
+ * ------------------------------------------------------------------ */
+:root {
+  --entity: var(--accent);
+  --entity-ink: color-mix(in oklab, var(--entity) 45%, var(--ink));
+  --entity-ink-strong: color-mix(in oklab, var(--entity) 65%, var(--ink));
+
+  /* The five semantic colours, put through the same recipe.
+   *
+   * They are theme-AGNOSTIC by design — a "danger" red should read as the same
+   * red in all three themes — and that is exactly why they failed as text:
+   * one fixed hex cannot clear 4.5:1 against both a cream ground and a
+   * near-black one. Measured: #a8762a scored 4.08 on Slate's card, 3.61 on its
+   * card2 and 3.11 on parchment; #1f8a5b scored 3.30.
+   *
+   * The RAW values stay for `bg-*` and `border-*`, where the vivid hue is the
+   * point and the 3:1 non-text bar applies. The `-ink` variants are for text.
+   * All five are in check_contrast.py's entity palette, so the same gate that
+   * proves the 45% recipe proves these.
+   */
+  /* The accent AS TEXT. The raw --accent stays exactly as it is for fills,
+   * borders and focus rings, where it is the brand colour and only has to clear
+   * the 3:1 non-text bar. As small text it does not: measured 4.27:1 on Ember's
+   * card2, 4.05:1 on Slate's, and 3.32:1 on Slate's hover ground.
+   *
+   * 72% rather than the entity recipe's 45% because the accent only has to
+   * survive three known values instead of an open palette — the highest
+   * retention that clears 4.5:1 across all three themes and all eight content
+   * surfaces is 75%, so this keeps a margin while barely washing the hue. */
+  --accent-ink: color-mix(in oklab, var(--accent) 72%, var(--ink));
+
+  --gold-ink: color-mix(in oklab, #c8862a 45%, var(--ink));
+  --gold-soft-ink: color-mix(in oklab, #a8762a 45%, var(--ink));
+  --narrator-ink: color-mix(in oklab, #1f8a82 45%, var(--ink));
+  --success-ink: color-mix(in oklab, #1f8a5b 45%, var(--ink));
+  --danger-ink: color-mix(in oklab, #9a3520 45%, var(--ink));
+}
+
+/* ------------------------------------------------------------------ *
  * Typography scale — font-size CSS variables.
- * Six tokens cover every distinct text tier in the UI. The active
+ * Seven tokens cover every distinct text tier in the UI. The active
  * size-preset class (.fs-compact / .fs-default / .fs-comfortable /
  * .fs-large) sits on <html> alongside .theme-*; :root holds the
  * Default values so no class is needed for the most common case.
+ *
+ * FLOORS ARE NOT PREFERENCES. Two of these numbers are platform facts, not
+ * taste, and the presets may not go below them:
+ *
+ *   --fs-field is pinned at >= 16px in EVERY preset, Compact included.
+ *     Safari on iOS zooms the page when an <input>/<select>/<textarea>
+ *     renders below 16 CSS px and does not reliably zoom back out. The
+ *     2026-08-31 baseline audit measured 776 controls below the floor
+ *     across seven routes; that is what this token exists to stop.
+ *     Disabling zoom is NOT the alternative — that is a 1.4.4 failure.
+ *
+ *   --fs-tag / --fs-eyebrow are caption tiers and stay >= 11px, because
+ *     below that they stop being small and start being unreadable. The
+ *     same audit found 10.5px text making up 58.2% of one route's visible
+ *     copy.
+ *
+ * Anything that needs to be smaller than a tier here is decoration, and
+ * decoration does not carry information.
  * ------------------------------------------------------------------ */
 :root {
-  --fs-eyebrow: 10px;   /* mono uppercase labels, section kickers, card eyebrows */
-  --fs-label:   12px;   /* FieldLabel headings, form section labels */
-  --fs-ui:      12px;   /* Button text, tab labels */
-  --fs-body-sm: 14px;   /* card descriptions, modal body prose */
-  --fs-body:    15px;   /* input fields, longer reading text */
-  --fs-tag:     9.5px;  /* Tag chips (genre, tone, role pills) */
+  --fs-eyebrow: 12px;   /* mono uppercase labels, section kickers, card eyebrows */
+  --fs-label:   13px;   /* FieldLabel headings, form section labels */
+  --fs-ui:      13px;   /* Button text, tab labels */
+  --fs-body-sm: 15px;   /* card descriptions, modal body prose */
+  --fs-body:    16px;   /* longer reading text */
+  --fs-field:   16px;   /* EVERY form control. Floor, not a preference. */
+  --fs-tag:     12px;   /* Tag chips (genre, tone, role pills) */
 }
 
 .fs-compact {
-  --fs-eyebrow: 9px;
-  --fs-label:   11px;
-  --fs-ui:      11px;
-  --fs-body-sm: 13px;
-  --fs-body:    14px;
-  --fs-tag:     8.5px;
-}
-
-/* .fs-default — inherits :root values above; class applied for symmetry */
-.fs-default {
-  --fs-eyebrow: 10px;
+  --fs-eyebrow: 11px;
   --fs-label:   12px;
   --fs-ui:      12px;
   --fs-body-sm: 14px;
   --fs-body:    15px;
-  --fs-tag:     9.5px;
+  --fs-field:   16px;   /* pinned — Compact may not reintroduce iOS auto-zoom */
+  --fs-tag:     11px;
 }
 
-.fs-comfortable {
+/* .fs-default — inherits :root values above; class applied for symmetry */
+.fs-default {
   --fs-eyebrow: 12px;
   --fs-label:   13px;
   --fs-ui:      13px;
   --fs-body-sm: 15px;
   --fs-body:    16px;
-  --fs-tag:     11px;
+  --fs-field:   16px;
+  --fs-tag:     12px;
 }
 
-.fs-large {
-  --fs-eyebrow: 13.5px;
+.fs-comfortable {
+  --fs-eyebrow: 13px;
   --fs-label:   14px;
   --fs-ui:      14px;
   --fs-body-sm: 16px;
   --fs-body:    17px;
-  --fs-tag:     12px;
+  --fs-field:   17px;
+  --fs-tag:     13px;
 }
+
+.fs-large {
+  --fs-eyebrow: 14px;
+  --fs-label:   15px;
+  --fs-ui:      15px;
+  --fs-body-sm: 17px;
+  --fs-body:    18px;
+  --fs-field:   18px;
+  --fs-tag:     14px;
+}
+
 
 /* Shared dropdown/popover surface — every menu panel (storyline switcher,
  * Create, Options, Export, POV select, scene Config, MultiSelect) uses this so

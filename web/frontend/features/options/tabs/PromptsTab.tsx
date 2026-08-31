@@ -11,12 +11,12 @@ import { PromptOverridesEditor } from "@/components/feature/PromptOverridesEdito
 export function PromptsTab({ opts }: { opts: OptionsState }) {
   const prompts = opts.settings?.prompts;
   if (!prompts) {
-    return <p className="font-body text-[14px] text-ink-soft">Loading prompts…</p>;
+    return <p className="font-body text-body-sm text-ink-soft">Loading prompts…</p>;
   }
 
   return (
-    <div className="flex flex-col gap-[14px]">
-      <p className="font-body text-[14px] text-ink-soft">
+    <div className="flex flex-col gap-lg">
+      <p className="font-body text-body-sm text-ink-soft">
         These are the global default prompts that shape how scenes are written. Edit any prompt
         to change tone, phrasing, and how the story progresses everywhere — a storyline or an
         individual scenario can override them further.

@@ -89,16 +89,16 @@ export function StyleGuideModal({
       externalClose
     >
       <div className="p-[22px_26px_24px]">
-        <div id="style-guide-title" className="font-display text-[22px] font-bold text-ink">
+        <div id="style-guide-title" className="font-display text-step-2 font-bold text-ink">
           {heading}
         </div>
         {subtitle ? (
-          <p className="mt-[4px] font-body text-[14px] text-ink-soft">{subtitle}</p>
+          <p className="mt-2xs font-body text-body-sm text-ink-soft">{subtitle}</p>
         ) : null}
-        <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
+        <div className="my-lg h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
         {loadError ? (
-          <div className="flex flex-wrap items-center gap-[10px]">
-            <p role="alert" className="font-body text-[14px] text-danger">
+          <div className="flex flex-wrap items-center gap-sm">
+            <p role="alert" className="font-body text-body-sm text-danger-ink">
               {loadError}
             </p>
             <Button variant="secondary" onClick={loadCatalog}>
@@ -107,7 +107,7 @@ export function StyleGuideModal({
           </div>
         ) : null}
         {!catalog && !loadError ? (
-          <p className="font-body text-[14px] text-ink-soft">Loading the style guide…</p>
+          <p className="font-body text-body-sm text-ink-soft">Loading the style guide…</p>
         ) : null}
         {catalog ? (
           <StyleGuideEditor

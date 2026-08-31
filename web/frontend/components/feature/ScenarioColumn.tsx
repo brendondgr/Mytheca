@@ -62,7 +62,7 @@ export function ScenarioColumn({
           // revealed state, so with no support (or under reduced motion) every
           // card is simply visible. There is no scroll progress bar or parallax
           // anywhere: Mytheca has no root scroll to measure.
-          <div className="flex flex-col gap-[14px]">
+          <div className="flex flex-col gap-lg">
             {scenarios.map((s) => (
               <div key={s.id} className="reveal">
               <ScenarioCard

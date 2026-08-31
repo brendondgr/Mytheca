@@ -53,7 +53,7 @@ export function ArtStylePicker({
       <legend className="contents">
         <FieldLabel>{label}</FieldLabel>
       </legend>
-      <div className={cn("flex flex-wrap", compact ? "gap-[6px]" : "gap-[8px]")}>
+      <div className={cn("flex flex-wrap", compact ? "gap-xs" : "gap-sm")}>
         {styles.map((style) => {
           const isSelected = style.id === selected;
           return (
@@ -62,9 +62,9 @@ export function ArtStylePicker({
               className={cn(
                 "press relative flex cursor-pointer items-center rounded-full border",
                 "touch-target focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent",
-                compact ? "px-[11px] py-[5px]" : "flex-col items-start px-[12px] py-[7px]",
+                compact ? "px-md py-2xs" : "flex-col items-start px-md py-xs",
                 isSelected
-                  ? "border-[1.5px] border-accent bg-card2 text-accent"
+                  ? "border-[1.5px] border-accent bg-card2 text-accent-ink"
                   : "border-field-bd bg-field text-ink-soft hover:border-hair-strong hover:bg-hover hover:text-ink",
                 disabled && "cursor-not-allowed opacity-45",
               )}
@@ -81,14 +81,14 @@ export function ArtStylePicker({
               />
               <span
                 className={cn(
-                  "font-body text-[13px] leading-[1.3]",
+                  "font-body text-label leading-[1.3]",
                   isSelected && "font-semibold",
                 )}
               >
                 {style.label}
               </span>
               {compact ? null : (
-                <span className="mt-[1px] font-body text-[11.5px] leading-[1.35] text-mute">
+                <span className="mt-3xs font-body text-eyebrow leading-[1.35] text-mute">
                   {style.blurb}
                 </span>
               )}

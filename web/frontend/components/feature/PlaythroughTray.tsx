@@ -101,7 +101,7 @@ export function PlaythroughTrayContent({
   return (
     <>
           {count === 0 ? (
-            <p className="px-[11px] py-[10px] font-body text-[13px] text-mute">
+            <p className="px-md py-sm font-body text-label text-mute">
               This scene has not been played yet. Your first message starts a play-through.
             </p>
           ) : (
@@ -113,7 +113,7 @@ export function PlaythroughTrayContent({
                   <li key={session.id} className="border-b border-hair last:border-b-0">
                     {mode === "renaming" ? (
                       <form
-                        className="flex items-center gap-[6px] px-[9px] py-[8px]"
+                        className="flex items-center gap-xs px-sm py-sm"
                         onSubmit={(e) => {
                           e.preventDefault();
                           onRename(session.id, draftName);
@@ -126,25 +126,25 @@ export function PlaythroughTrayContent({
                           onChange={(e) => setDraftName(e.target.value)}
                           aria-label={`Rename ${playthroughLabel(session)}`}
                           placeholder="Name this play-through"
-                          className="min-w-0 flex-1 rounded-[3px] border border-field-bd bg-field px-[7px] py-[5px] font-body text-[13px] text-ink placeholder:text-mute2 focus:border-accent focus:outline-none"
+                          className="min-w-0 flex-1 rounded-xs border border-field-bd bg-field px-xs py-2xs font-body text-field text-ink placeholder:text-mute2 focus:border-accent focus:outline-none"
                         />
                         <button
                           type="submit"
-                          className="flex h-[26px] min-w-[26px] items-center justify-center rounded-[3px] px-[7px] font-mono text-[9px] tracking-[0.1em] text-accent uppercase hover:bg-hover"
+                          className="flex h-[26px] min-w-[26px] items-center justify-center rounded-xs px-xs font-mono text-eyebrow tracking-[0.1em] text-accent-ink uppercase hover:bg-hover"
                         >
                           Save
                         </button>
                         <button
                           type="button"
                           onClick={() => setMode(session.id, "idle")}
-                          className="flex h-[26px] min-w-[26px] items-center justify-center rounded-[3px] px-[7px] font-mono text-[9px] tracking-[0.1em] text-mute uppercase hover:bg-hover"
+                          className="flex h-[26px] min-w-[26px] items-center justify-center rounded-xs px-xs font-mono text-eyebrow tracking-[0.1em] text-mute uppercase hover:bg-hover"
                         >
                           Cancel
                         </button>
                       </form>
                     ) : mode === "confirming-delete" ? (
-                      <div className="flex items-center gap-[6px] px-[9px] py-[8px]">
-                        <span className="min-w-0 flex-1 font-body text-[13px] text-ink">
+                      <div className="flex items-center gap-xs px-sm py-sm">
+                        <span className="min-w-0 flex-1 font-body text-label text-ink">
                           Delete this play-through?
                         </span>
                         <button
@@ -153,20 +153,20 @@ export function PlaythroughTrayContent({
                             onDelete(session.id);
                             setMode(session.id, "idle");
                           }}
-                          className="flex h-[26px] items-center rounded-[3px] bg-accent px-[9px] font-mono text-[9px] tracking-[0.1em] text-[#F6ECDA] uppercase hover:bg-accent-hover"
+                          className="flex h-[26px] items-center rounded-xs bg-accent px-sm font-mono text-eyebrow tracking-[0.1em] text-[#F6ECDA] uppercase hover:bg-accent-hover"
                         >
                           Delete
                         </button>
                         <button
                           type="button"
                           onClick={() => setMode(session.id, "idle")}
-                          className="flex h-[26px] items-center rounded-[3px] px-[7px] font-mono text-[9px] tracking-[0.1em] text-mute uppercase hover:bg-hover"
+                          className="flex h-[26px] items-center rounded-xs px-xs font-mono text-eyebrow tracking-[0.1em] text-mute uppercase hover:bg-hover"
                         >
                           Keep
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-[4px] px-[4px] py-[3px]">
+                      <div className="flex items-center gap-2xs px-2xs py-3xs">
                         <button
                           type="button"
                           role="menuitem"
@@ -175,16 +175,16 @@ export function PlaythroughTrayContent({
                             leave();
                           }}
                           aria-current={isCurrent ? "true" : undefined}
-                          className="flex min-w-0 flex-1 flex-col gap-[2px] rounded-[3px] px-[7px] py-[7px] text-left hover:bg-hover"
+                          className="flex min-w-0 flex-1 flex-col gap-3xs rounded-xs px-xs py-xs text-left hover:bg-hover"
                         >
-                          <span className="flex items-center gap-[6px]">
+                          <span className="flex items-center gap-xs">
                             {isCurrent ? (
                               <span
                                 aria-hidden
                                 className="h-[6px] w-[6px] flex-none rounded-full bg-accent"
                               />
                             ) : null}
-                            <span className="truncate font-display text-[13px] font-semibold text-ink">
+                            <span className="truncate font-display text-label font-semibold text-ink">
                               {playthroughLabel(session)}
                             </span>
                           </span>
@@ -207,7 +207,7 @@ export function PlaythroughTrayContent({
                             setMode(session.id, "renaming");
                           }}
                           aria-label={`Rename ${playthroughLabel(session)}`}
-                          className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[3px] text-[12px] text-mute hover:bg-hover hover:text-ink"
+                          className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-xs text-eyebrow text-mute hover:bg-hover hover:text-ink"
                         >
                           <span aria-hidden>✎</span>
                         </button>
@@ -215,7 +215,7 @@ export function PlaythroughTrayContent({
                           type="button"
                           onClick={() => setMode(session.id, "confirming-delete")}
                           aria-label={`Delete ${playthroughLabel(session)}`}
-                          className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[3px] text-[12px] text-mute hover:bg-hover hover:text-danger"
+                          className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-xs text-eyebrow text-mute hover:bg-hover hover:text-danger-ink"
                         >
                           <span aria-hidden>×</span>
                         </button>
@@ -234,13 +234,13 @@ export function PlaythroughTrayContent({
               onCreate();
               leave();
             }}
-            className="mt-[4px] flex w-full items-center gap-[7px] rounded-[3px] border-t border-hair px-[11px] py-[9px] text-left hover:bg-hover"
+            className="mt-2xs flex w-full items-center gap-xs rounded-xs border-t border-hair px-md py-sm text-left hover:bg-hover"
           >
-            <span aria-hidden className="font-mono text-[13px] text-accent">
+            <span aria-hidden className="font-mono text-label text-accent-ink">
               +
             </span>
-            <span className="flex flex-col gap-[1px]">
-              <span className="font-display text-[13px] font-semibold text-ink">
+            <span className="flex flex-col gap-3xs">
+              <span className="font-display text-label font-semibold text-ink">
                 New play-through
               </span>
               <span className="font-mono text-tag tracking-[0.04em] text-mute">
@@ -290,10 +290,17 @@ export function PlaythroughTray({ disabled = false, ...props }: PlaythroughTrayP
         aria-expanded={open}
         aria-controls="playthrough-tray"
         title="Play-throughs — switch between saved stories, or start a new one"
-        className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[10px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
+        className="flex flex-none items-center gap-xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
       >
         <span aria-hidden>❑</span>
-        <span className="hidden sm:inline">Play-throughs</span>
+        {/* Below `sm` the visible label collapses to the glyph, and the glyph is
+            aria-hidden — which left `title` as the button's ONLY accessible
+            name. `title` is a last-resort naming source and is not surfaced on
+            touch at all. The sr-only copy names the button at every width; the
+            visible text is the one that folds. The action itself stays reachable
+            below `sm` through the scene menu (SceneHeader's item list). */}
+        <span className="sr-only">Play-throughs</span>
+        <span aria-hidden className="hidden sm:inline">Play-throughs</span>
         {count > 1 ? <span className="tabular-nums">{count}</span> : null}
       </button>
 
@@ -302,7 +309,7 @@ export function PlaythroughTray({ disabled = false, ...props }: PlaythroughTrayP
           id="playthrough-tray"
           role="menu"
           aria-label="Play-throughs"
-          className="absolute top-[38px] left-0 z-40 flex w-[300px] max-w-[calc(100vw-24px)] flex-col mytheca-menu p-[7px]"
+          className="absolute top-2xl left-0 z-40 flex w-[300px] max-w-[calc(100vw-24px)] flex-col mytheca-menu p-xs"
         >
           <PlaythroughTrayContent {...props} onDone={() => setOpen(false)} />
         </div>

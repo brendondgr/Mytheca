@@ -171,7 +171,7 @@ export function PovSelect({
   }
 
   const rowClass =
-    "flex w-full items-center gap-[8px] rounded-[3px] px-[8px] py-[6px] text-left text-ink hover:bg-hover focus:bg-hover focus:outline-none aria-checked:text-accent";
+    "flex w-full items-center gap-sm rounded-xs px-sm py-xs text-left text-ink hover:bg-hover focus:bg-hover focus:outline-none aria-checked:text-accent-ink";
 
   return (
     // `min-w-0` (no `flex-none`) lets the control shrink on a narrow composer row rather than
@@ -198,7 +198,7 @@ export function PovSelect({
         // composer row, but the control cannot collapse below the WCAG 2.5.8 floor doing it.
         // It measured 18px wide at 320 — and the global coarse-pointer floor could not save
         // it, because that rule is zero-specificity by design and `min-w-0` outranks it.
-        className="flex min-w-[24px] items-center gap-[5px] rounded-[8px] border border-field-bd px-[8px] py-[3px] text-mute hover:border-accent hover:text-accent aria-expanded:border-accent aria-expanded:text-accent"
+        className="flex min-w-[24px] items-center gap-2xs rounded-md border border-field-bd px-sm py-3xs text-mute hover:border-accent hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink"
       >
         {selected ? (
           <Monogram
@@ -212,7 +212,7 @@ export function PovSelect({
         ) : (
           <PlaywrightAvatar size={18} />
         )}
-        <span className="min-w-0 max-w-[96px] truncate font-mono text-[9px] tracking-[0.1em] text-current uppercase">
+        <span className="min-w-0 max-w-[96px] truncate font-mono text-eyebrow tracking-[0.1em] text-current uppercase">
           {selected ? selected.name : "Playwright"}
         </span>
         <Caret open={open} />
@@ -225,7 +225,7 @@ export function PovSelect({
           role="menu"
           aria-label="Speaking as"
           onKeyDown={onMenuKeyDown}
-          className="absolute bottom-[40px] left-0 z-40 flex max-h-[280px] min-w-[176px] max-w-[240px] flex-col gap-[2px] overflow-auto mytheca-menu p-[6px]"
+          className="absolute bottom-2xl left-0 z-40 flex max-h-[280px] min-w-[176px] max-w-[240px] flex-col gap-3xs overflow-auto mytheca-menu p-xs"
         >
           <button
             type="button"
@@ -236,7 +236,7 @@ export function PovSelect({
             className={rowClass}
           >
             <PlaywrightAvatar size={AVATAR} />
-            <span className="min-w-0 flex-1 truncate font-display text-[13px] font-semibold">
+            <span className="min-w-0 flex-1 truncate font-display text-label font-semibold">
               Playwright
             </span>
             {selected === null ? <CheckIcon /> : null}
@@ -261,7 +261,7 @@ export function PovSelect({
                   fontSize={9}
                   ring={1.5}
                 />
-                <span className="min-w-0 flex-1 truncate font-display text-[13px] font-semibold">
+                <span className="min-w-0 flex-1 truncate font-display text-label font-semibold">
                   {o.name}
                 </span>
                 {isSel ? <CheckIcon /> : null}

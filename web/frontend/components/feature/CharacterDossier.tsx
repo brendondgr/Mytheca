@@ -48,7 +48,7 @@ export function CharacterDossierContent({
       <button
         type="button"
         onClick={onClose}
-        className="mb-[14px] inline-flex items-center gap-[6px] font-mono text-[10px] tracking-[0.12em] text-mute uppercase hover:text-accent"
+        className="mb-lg inline-flex items-center gap-xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:text-accent-ink"
       >
         ‹ Back to scene
       </button>
@@ -60,7 +60,7 @@ export function CharacterDossierContent({
         onClick={() => onOpenProfile(c.id)}
         aria-label={`Open ${c.name}'s full profile`}
         title="Open full profile"
-        className="group/portrait block w-full p-[4px]"
+        className="group/portrait block w-full p-2xs"
         style={{
           border: `2px solid ${c.color}`,
           borderRadius: 6,
@@ -88,22 +88,22 @@ export function CharacterDossierContent({
               </div>
             }
           />
-          <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center bg-gradient-to-t from-black/55 to-transparent pb-[7px] pt-[18px] font-mono text-[8.5px] tracking-[0.14em] text-[#F6ECDA] uppercase opacity-0 transition-opacity duration-200 group-hover/portrait:opacity-100 group-focus-visible/portrait:opacity-100">
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center bg-gradient-to-t from-black/55 to-transparent pb-xs pt-lg font-mono text-eyebrow tracking-[0.14em] text-[#F6ECDA] uppercase opacity-0 transition-opacity duration-200 group-hover/portrait:opacity-100 group-focus-visible/portrait:opacity-100">
             ⤢ Full profile
           </span>
         </div>
       </button>
 
       {/* Identity */}
-      <h3 className="mt-[14px] font-display text-[19px] font-bold leading-[1.12] text-ink">
+      <h3 className="mt-lg font-display text-step-1 font-bold leading-[1.12] text-ink">
         {c.name}
       </h3>
-      <Eyebrow size={10} tracking="0.16em" color={c.color} className="mt-[5px] block">
+      <Eyebrow size={10} tracking="0.16em" entity={c.color} className="mt-2xs block">
         {c.role}
       </Eyebrow>
 
       {/* Stats */}
-      <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
+      <Eyebrow tracking="0.16em" className="mt-5 mb-sm block">
         Stats
       </Eyebrow>
       {/* A stat the author marked `hidden` is not the player's to see. Its changes are
@@ -112,14 +112,14 @@ export function CharacterDossierContent({
       <StatSchema defs={statDefs} values={stats} />
       {/* The rule, stated where a player can actually find it. They currently cannot learn
           it anywhere, and the answer is not obvious: most stats reset. */}
-      <p className="mt-[7px] font-body text-[11.5px] leading-[1.45] text-mute2">
+      <p className="mt-xs font-body text-eyebrow leading-[1.45] text-mute2">
         {carriesAnything
           ? "Some of these carry over into the next scene in this world; the rest start fresh."
           : "These start fresh in every play-through."}
       </p>
 
       {/* Relationships */}
-      <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
+      <Eyebrow tracking="0.16em" className="mt-5 mb-sm block">
         Relationships
       </Eyebrow>
       <Relationships items={relationships} />
@@ -129,14 +129,14 @@ export function CharacterDossierContent({
           character mid-play is a different decision, and it is a recorded deferral. */}
       {c.speech || typeof c.looseness === "number" ? (
         <>
-          <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
+          <Eyebrow tracking="0.16em" className="mt-5 mb-sm block">
             How they speak
           </Eyebrow>
           {c.speech ? (
-            <p className="font-body text-[13px] leading-[1.45] text-ink-soft">{c.speech}</p>
+            <p className="font-body text-label leading-[1.45] text-ink-soft">{c.speech}</p>
           ) : null}
           {typeof c.looseness === "number" ? (
-            <p className="mt-[5px] font-mono text-[10px] tracking-[0.12em] text-mute2 uppercase">
+            <p className="mt-2xs font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase">
               Word choice · {LOOSENESS_LABELS[c.looseness + 2]}
             </p>
           ) : null}
@@ -146,10 +146,10 @@ export function CharacterDossierContent({
       {/* Lightweight scene context (their aim) — more to come later. */}
       {c.goal ? (
         <>
-          <Eyebrow tracking="0.16em" className="mt-5 mb-[9px] block">
+          <Eyebrow tracking="0.16em" className="mt-5 mb-sm block">
             In this scene
           </Eyebrow>
-          <p className="font-body text-[13px] leading-[1.45] text-ink-soft italic">
+          <p className="font-body text-label leading-[1.45] text-ink-soft italic">
             {c.goal}
           </p>
         </>

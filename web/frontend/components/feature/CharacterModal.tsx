@@ -25,9 +25,9 @@ import { monoOf } from "@/lib/monogram";
 import { PALETTE } from "@/lib/seed-data";
 import type { useLibraryState } from "@/features/library/useLibraryState";
 
-const SEG = "font-mono text-[10.5px] tracking-[0.06em] px-[15px] py-[8px] cursor-pointer";
+const SEG = "font-mono text-eyebrow tracking-[0.06em] px-lg py-sm cursor-pointer";
 const LINK =
-  "cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40";
+  "cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase enabled:hover:underline disabled:opacity-40";
 
 /** The major stages of an agentic character draft (keys = lib.draftStage). */
 const CHARACTER_DRAFT_STEPS: ProcessStep[] = [
@@ -104,15 +104,15 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
         {/* ── Main column (own scroll on lg+) ─────────────────────────── */}
         <div className="min-w-0 p-[22px_26px_24px] lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
           {/* Header — title left; avatar preview + accent picker right. */}
-          <div className="flex flex-wrap items-end justify-between gap-x-[24px] gap-y-[14px]">
+          <div className="flex flex-wrap items-end justify-between gap-x-xl gap-y-lg">
             <div
               id="character-modal-title"
-              className="min-w-0 font-display text-[22px] font-bold text-ink"
+              className="min-w-0 font-display text-step-2 font-bold text-ink"
             >
               {isEdit ? "Edit Character" : "New Character"}
             </div>
 
-            <div className="flex items-center gap-[12px]">
+            <div className="flex items-center gap-md">
               <Monogram
                 mono={mono}
                 color={color}
@@ -125,7 +125,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
               <div
                 role="group"
                 aria-label="Accent color"
-                className="flex max-w-[180px] flex-wrap gap-[7px]"
+                className="flex max-w-[180px] flex-wrap gap-xs"
               >
                 {PALETTE.map((col) => (
                   <button
@@ -149,7 +149,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
           </div>
 
           {/* Mode toggle — mobile/tablet only. */}
-          <div className="mt-[14px] inline-flex overflow-hidden rounded-full border border-field-bd bg-card md:hidden">
+          <div className="mt-lg inline-flex overflow-hidden rounded-full border border-field-bd bg-card md:hidden">
             <button
               type="button"
               onClick={() => lib.setMode("manual")}
@@ -165,12 +165,12 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
               ❖ Agentically
             </button>
           </div>
-          <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
+          <div className="my-lg h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
           {/* Live draft progress — which stage Mytheca is on right now. */}
           {drafting ? (
             <ProcessProgress
-              className="mb-[16px]"
+              className="mb-lg"
               label="Character draft progress"
               steps={CHARACTER_DRAFT_STEPS}
               activeKey={lib.draftStage}
@@ -179,19 +179,19 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
 
           {/* By-hand form (left) + agentic Draft with Mytheca (right). */}
           <div className="md:flex md:items-stretch">
-            <div className={cn("md:min-w-0 md:flex-1 md:pr-[26px]", agentic && "hidden md:block")}>
+            <div className={cn("md:min-w-0 md:flex-1 md:pr-xl", agentic && "hidden md:block")}>
               {d._ai ? (
-                <div className="mb-4 flex items-center gap-[9px] rounded-[0_3px_3px_0] border-l-[3px] border-l-narrator bg-[rgba(31,111,107,.12)] p-[9px_12px]">
-                  <span aria-hidden className="text-[13px] text-narrator">
+                <div className="mb-4 flex items-center gap-sm rounded-[0_3px_3px_0] border-l-[3px] border-l-narrator bg-[rgba(31,111,107,.12)] p-[9px_12px]">
+                  <span aria-hidden className="text-label text-narrator-ink">
                     ❖
                   </span>
-                  <span className="font-body text-[13.5px] text-ink">
+                  <span className="font-body text-label text-ink">
                     Drafted by Mytheca — review &amp; refine, then save.
                   </span>
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-lg sm:grid-cols-2">
                 <TextField
                   label="Display name"
                   placeholder="e.g. Captain Doran Hale"
@@ -212,11 +212,11 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 placeholder="Dutiful · Rigid · Honourable"
                 value={d.traits || ""}
                 onChange={(e) => lib.setDraft("traits", e.target.value)}
-                className={cn("mt-[14px]", fieldClass("traits"))}
+                className={cn("mt-lg", fieldClass("traits"))}
               />
               {/* Voice — speech style + a (non-functional) voice-sample upload that
                   will feed text-to-speech later. */}
-              <div className="mt-[14px] flex flex-col gap-[12px] sm:flex-row sm:items-end">
+              <div className="mt-lg flex flex-col gap-md sm:flex-row sm:items-end">
                 <TextField
                   label="Voice / speech style"
                   placeholder="Formal and terse, by the book."
@@ -231,12 +231,12 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                     disabled
                     aria-disabled="true"
                     title="Coming soon — voice samples will drive text-to-speech."
-                    className="flex w-full cursor-not-allowed flex-col items-center gap-[3px] rounded-[3px] border border-dashed border-cardbd bg-field/40 px-[10px] py-[9px] text-center opacity-70"
+                    className="flex w-full cursor-not-allowed flex-col items-center gap-3xs rounded-xs border border-dashed border-cardbd bg-field/40 px-sm py-sm text-center opacity-70"
                   >
-                    <span aria-hidden className="text-[15px] text-mute">
+                    <span aria-hidden className="text-body-sm text-mute">
                       ⤓
                     </span>
-                    <span className="font-mono text-[9px] tracking-[0.08em] text-mute uppercase">
+                    <span className="font-mono text-eyebrow tracking-[0.08em] text-mute uppercase">
                       Upload · soon
                     </span>
                   </button>
@@ -248,7 +248,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 rows={3}
                 value={d.appearance || ""}
                 onChange={(e) => lib.setDraft("appearance", e.target.value)}
-                className={cn("mt-[14px]", fieldClass("appearance"))}
+                className={cn("mt-lg", fieldClass("appearance"))}
               />
               <TextArea
                 label="Background"
@@ -256,7 +256,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 rows={4}
                 value={d.background || ""}
                 onChange={(e) => lib.setDraft("background", e.target.value)}
-                className={cn("mt-[14px]", fieldClass("background"))}
+                className={cn("mt-lg", fieldClass("background"))}
               />
               <TextArea
                 label="Personality"
@@ -264,23 +264,23 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 rows={4}
                 value={d.personality || ""}
                 onChange={(e) => lib.setDraft("personality", e.target.value)}
-                className={cn("mt-[14px]", fieldClass("personality"))}
+                className={cn("mt-lg", fieldClass("personality"))}
               />
             </div>
 
             {/* Agentic draft panel — describe the character; Mytheca drafts it. */}
             <aside
               className={cn(
-                "mt-[18px] md:mt-0 md:w-[300px] md:shrink-0 md:border-l md:border-hair-strong md:pl-[26px]",
+                "mt-lg md:mt-0 md:w-[300px] md:shrink-0 md:border-l md:border-hair-strong md:pl-xl",
                 !agentic && "hidden md:block",
               )}
             >
               {/* Portrait — compact preview + Edit-image trigger (the editor is a
                   pop-up). Sits above Draft with Mytheca in this column. */}
-              <div className="mb-[18px] border-b border-hair-strong pb-[16px]">
+              <div className="mb-lg border-b border-hair-strong pb-lg">
                 <FieldLabel>Portrait</FieldLabel>
                 <div
-                  className="overflow-hidden rounded-[6px] border border-cardbd bg-field"
+                  className="overflow-hidden rounded-sm border border-cardbd bg-field"
                   style={{ borderColor: color }}
                 >
                   {portraitUrl ? (
@@ -291,9 +291,9 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                       className="aspect-square w-full object-cover"
                     />
                   ) : (
-                    <div className="flex aspect-square w-full flex-col items-center justify-center gap-[8px] px-[10px] text-center">
+                    <div className="flex aspect-square w-full flex-col items-center justify-center gap-sm px-sm text-center">
                       <Monogram mono={mono} color={color} size={56} ring={3} fontSize={22} />
-                      <span className="font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
+                      <span className="font-mono text-eyebrow tracking-[0.1em] text-mute2 uppercase">
                         No portrait yet
                       </span>
                     </div>
@@ -302,16 +302,16 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 <Button
                   variant="secondary"
                   onClick={() => setPortraitOpen(true)}
-                  className="mt-[10px] w-full"
+                  className="mt-sm w-full"
                 >
                   ✎ Edit image
                 </Button>
               </div>
 
-              <Eyebrow tracking="0.2em" color="#A8762A" className="mb-[10px] block">
+              <Eyebrow tracking="0.2em" entity="#A8762A" className="mb-sm block">
                 ❖ Draft with Mytheca
               </Eyebrow>
-              <p className="mb-[10px] font-body text-[14px] text-ink">
+              <p className="mb-sm font-body text-body-sm text-ink">
                 Describe the character in a sentence —{" "}
                 <span className="text-ink-soft italic">Mytheca drafts the rest.</span>
               </p>
@@ -325,19 +325,19 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
               <Button
                 onClick={lib.draftCharacter}
                 disabled={!canDraft || lib.generating}
-                className="mt-[12px] w-full"
+                className="mt-md w-full"
               >
                 {lib.generating ? "Drafting…" : "❖ Draft with Mytheca"}
               </Button>
               <Button
                 variant="ghost"
                 onClick={lib.closeModal}
-                className="mt-[10px] w-full md:hidden"
+                className="mt-sm w-full md:hidden"
               >
                 Cancel
               </Button>
               {lib.error ? (
-                <p role="alert" className="mt-4 font-body text-[13px] text-accent md:hidden">
+                <p role="alert" className="mt-4 font-body text-label text-accent-ink md:hidden">
                   {lib.error}
                 </p>
               ) : null}
@@ -354,17 +354,17 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
           {/* Voice & Tone — sits ABOVE Starting stats: voice is defined first. */}
           <div
             className={cn(
-              "mt-[20px] border-t border-hair-strong pt-[18px]",
+              "mt-lg border-t border-hair-strong pt-lg",
               agentic && "hidden md:block",
             )}
           >
-            <div className="flex items-end justify-between gap-[10px]">
+            <div className="flex items-end justify-between gap-sm">
               <FieldLabel>Voice &amp; tone</FieldLabel>
               <button
                 type="button"
                 onClick={lib.proposeVoiceSamples}
                 disabled={lib.generatingVoice}
-                className={cn(LINK, "mb-[6px]")}
+                className={cn(LINK, "mb-xs")}
               >
                 {lib.generatingVoice
                   ? "Proposing…"
@@ -373,7 +373,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                     : "❖ Propose"}
               </button>
             </div>
-            <p className="mb-[10px] font-body text-[12.5px] text-ink-soft">
+            <p className="mb-sm font-body text-eyebrow text-ink-soft">
               A past situation and this character&apos;s single response to it, in
               their own voice — not a back-and-forth. Derived from their
               background &amp; personality, saved with the character, and used to
@@ -390,35 +390,35 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
           {/* Starting stats — full-width row: propose → review → save with character. */}
           <div
             className={cn(
-              "mt-[20px] border-t border-hair-strong pt-[18px]",
+              "mt-lg border-t border-hair-strong pt-lg",
               agentic && "hidden md:block",
             )}
           >
-            <div className="flex items-end justify-between gap-[10px]">
+            <div className="flex items-end justify-between gap-sm">
               <FieldLabel>Starting stats</FieldLabel>
               <button
                 type="button"
                 onClick={lib.proposeStartingStats}
                 disabled={lib.generatingStats}
-                className={cn(LINK, "mb-[6px]")}
+                className={cn(LINK, "mb-xs")}
               >
                 {lib.generatingStats ? "Proposing…" : stats.length ? "❖ Redo" : "❖ Propose"}
               </button>
             </div>
-            <p className="mb-[10px] font-body text-[12.5px] text-ink-soft">
+            <p className="mb-sm font-body text-eyebrow text-ink-soft">
               Proposed values for this world&apos;s stats — review and adjust; they
               are saved with the character.
             </p>
             {stats.length ? (
-              <ul className="flex flex-col gap-[8px]">
+              <ul className="flex flex-col gap-sm">
                 {stats.map((p) => (
                   <li
                     key={p.key}
-                    className="rounded-[4px] border border-cardbd bg-field px-[10px] py-[8px]"
+                    className="rounded-sm border border-cardbd bg-field px-sm py-sm"
                   >
-                    <div className="flex items-center justify-between gap-[10px]">
-                      <span className="font-body text-[14px] text-ink">{p.displayName}</span>
-                      <label className="flex items-center gap-[6px]">
+                    <div className="flex items-center justify-between gap-sm">
+                      <span className="font-body text-body-sm text-ink">{p.displayName}</span>
+                      <label className="flex items-center gap-xs">
                         <span className="font-mono text-tag tracking-[0.06em] text-mute2">
                           {p.min}–{p.max}
                         </span>
@@ -429,18 +429,18 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                           max={p.max}
                           value={p.value}
                           onChange={(e) => setStatValue(p.key, e.target.value)}
-                          className="w-[64px] rounded-[2px] border border-field-bd bg-card px-[8px] py-[4px] text-right font-mono text-[13px] text-ink focus:border-accent focus:outline-none"
+                          className="w-[64px] rounded-xs border border-field-bd bg-card px-sm py-2xs text-right font-mono text-field text-ink focus:border-accent focus:outline-none"
                         />
                       </label>
                     </div>
                     {p.rationale ? (
-                      <p className="mt-[4px] font-body text-[12px] text-mute italic">{p.rationale}</p>
+                      <p className="mt-2xs font-body text-eyebrow text-mute italic">{p.rationale}</p>
                     ) : null}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="font-body text-[12.5px] text-mute">
+              <p className="font-body text-eyebrow text-mute">
                 No stats proposed yet — Propose to suggest starting values (only when
                 this world defines stats).
               </p>
@@ -450,7 +450,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                 variant="ghost"
                 onClick={() => m.editId && lib.applyStartingStats(m.editId)}
                 disabled={lib.applyingStats}
-                className="mt-[10px]"
+                className="mt-sm"
               >
                 {lib.applyingStats ? "Saving stats…" : "Save stats now"}
               </Button>
@@ -460,12 +460,12 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
           {/* Footer — error + actions. */}
           <div className={cn(agentic && "hidden md:block")}>
             {lib.error ? (
-              <p role="alert" className="mt-4 font-body text-[13px] text-accent">
+              <p role="alert" className="mt-4 font-body text-label text-accent-ink">
                 {lib.error}
               </p>
             ) : null}
             <div
-              className="mt-[20px] flex items-center justify-between gap-[10px]"
+              className="mt-lg flex items-center justify-between gap-sm"
               aria-busy={lib.pending || undefined}
             >
               {isEdit ? (
@@ -475,7 +475,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
                   disabled={lib.pending}
                   aria-busy={busy || undefined}
                   aria-label={busy ? "Deleting character" : undefined}
-                  className="relative cursor-pointer p-[6px] font-mono text-[10.5px] tracking-[0.06em] text-accent uppercase hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                  className="relative cursor-pointer p-xs font-mono text-eyebrow tracking-[0.06em] text-accent-ink uppercase hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className={cn("inline-flex items-center", busy && "invisible")}>
                     Delete
@@ -489,7 +489,7 @@ export function CharacterModal({ lib }: { lib: ReturnType<typeof useLibraryState
               ) : (
                 <span />
               )}
-              <div className="flex gap-[10px]">
+              <div className="flex gap-sm">
                 <Button variant="ghost" onClick={lib.closeModal}>
                   Cancel
                 </Button>

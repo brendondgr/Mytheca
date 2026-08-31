@@ -64,7 +64,7 @@ export function ScenarioCarousel({
     return (
       <section
         aria-label="Recent scenarios"
-        className="relative mx-[16px] mt-[18px] flex h-[326px] flex-none flex-col items-center justify-center gap-[8px] overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-[28px]"
+        className="relative mx-lg mt-lg flex h-[326px] flex-none flex-col items-center justify-center gap-sm overflow-hidden rounded-sm shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-xl"
         style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
       >
         <span
@@ -89,7 +89,7 @@ export function ScenarioCarousel({
     <section
       aria-roledescription="carousel"
       aria-label="Recent scenarios"
-      className="relative mx-[16px] mt-[18px] h-[326px] flex-none overflow-hidden rounded-[5px] shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-[28px]"
+      className="relative mx-lg mt-lg h-[326px] flex-none overflow-hidden rounded-sm shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-xl"
     >
       <div
         className="flex h-full w-full transition-transform duration-slow ease-out"
@@ -133,14 +133,14 @@ export function ScenarioCarousel({
                   line length even on the wide 16:9 panel. */}
               <div className="relative z-[1] flex w-full max-w-[340px] flex-1 flex-col overflow-hidden p-[42px_16px_16px] sm:p-[46px_20px_18px]">
                 <h2
-                  className="font-display text-[21px] font-bold leading-[1.08] sm:text-[25px]"
+                  className="font-display text-step-2 font-bold leading-[1.08] sm:text-step-2"
                   style={{ color: LIGHT.title }}
                 >
                   {s.title}
                 </h2>
 
                 {/* Location */}
-                <div className="mt-[7px] flex items-baseline gap-[5px]">
+                <div className="mt-xs flex items-baseline gap-2xs">
                   <span
                     className="flex-none font-mono text-eyebrow uppercase tracking-[0.18em]"
                     style={{ color: HERO.label }}
@@ -156,15 +156,15 @@ export function ScenarioCarousel({
                 </div>
 
                 {/* Genre / tone tags */}
-                <div className="mt-[8px] flex flex-wrap gap-[5px]">
+                <div className="mt-sm flex flex-wrap gap-2xs">
                   <span
-                    className="rounded-[2px] px-[7px] py-[2px] font-mono text-tag uppercase tracking-[0.09em]"
+                    className="rounded-xs px-xs py-3xs font-mono text-tag uppercase tracking-[0.09em]"
                     style={{ background: HERO.label, color: "#1f160c" }}
                   >
                     {s.genre}
                   </span>
                   <span
-                    className="rounded-[2px] border px-[7px] py-[2px] font-mono text-tag uppercase tracking-[0.09em]"
+                    className="rounded-xs border px-xs py-3xs font-mono text-tag uppercase tracking-[0.09em]"
                     style={{ color: LIGHT.tone, borderColor: LIGHT.toneBd }}
                   >
                     {s.tone}
@@ -173,7 +173,7 @@ export function ScenarioCarousel({
 
                 {/* Description — grows to fill remaining space */}
                 <p
-                  className="mt-[9px] flex-1 overflow-hidden font-body text-body-sm leading-[1.42] line-clamp-6"
+                  className="mt-sm flex-1 overflow-hidden font-body text-body-sm leading-[1.42] line-clamp-6"
                   style={{ color: LIGHT.desc }}
                 >
                   {s.goal}
@@ -184,7 +184,7 @@ export function ScenarioCarousel({
                   <button
                     type="button"
                     onClick={() => onBegin(s.id)}
-                    className="mt-[10px] w-full rounded-[2px] px-[4px] py-[8px] font-mono text-label uppercase tracking-[0.09em] hover-lift press hover:brightness-[1.18] hover:shadow-[0_5px_14px_rgba(10,6,3,.35)] active:translate-y-0"
+                    className="mt-sm w-full rounded-xs px-2xs py-sm font-mono text-label uppercase tracking-[0.09em] hover-lift press hover:brightness-[1.18] hover:shadow-[0_5px_14px_rgba(10,6,3,.35)] active:translate-y-0"
                     style={{ background: HERO.label, color: "#1f160c" }}
                   >
                     Begin Scene ▸
@@ -200,19 +200,19 @@ export function ScenarioCarousel({
       </div>
 
       {/* overlay: "Recent Scenario" label + chevrons + counter */}
-      <div className="pointer-events-none absolute top-[14px] left-[16px] right-[16px] flex items-center gap-3 sm:left-[30px]">
+      <div className="pointer-events-none absolute top-lg left-[16px] right-[16px] flex items-center gap-3 sm:left-[30px]">
         <span
           className="font-mono text-tag uppercase tracking-[0.22em]"
           style={{ color: HERO.label }}
         >
           Recent Scenario
         </span>
-        <div className="pointer-events-auto flex items-center gap-[6px]">
+        <div className="pointer-events-auto flex items-center gap-xs">
           <button
             type="button"
             onClick={onPrev}
             aria-label="Previous scenario"
-            className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] leading-none"
+            className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-label leading-none"
             style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label }}
           >
             ‹
@@ -224,7 +224,7 @@ export function ScenarioCarousel({
             type="button"
             onClick={onNext}
             aria-label="Next scenario"
-            className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] leading-none"
+            className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-label leading-none"
             style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label }}
           >
             ›
@@ -309,7 +309,7 @@ function CastStrip({
         className="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
         style={{ scrollbarWidth: "thin", scrollbarColor: `${HERO.label}44 transparent` }}
       >
-        <div className="flex h-full items-stretch gap-[16px] p-[16px]">
+        <div className="flex h-full items-stretch gap-lg p-lg">
           {cast.map((c) => (
             <CastCard
               key={c.id}
@@ -331,7 +331,7 @@ function CastStrip({
           type="button"
           onClick={() => page(-1)}
           aria-label="Previous characters"
-          className="absolute left-[8px] top-1/2 z-[4] flex h-[30px] w-[30px] -translate-y-1/2 items-center justify-center rounded-full text-[16px] leading-none shadow-[0_2px_10px_rgba(8,5,2,0.55)] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="absolute left-[8px] top-1/2 z-[4] flex h-[30px] w-[30px] -translate-y-1/2 items-center justify-center rounded-full text-body leading-none shadow-[0_2px_10px_rgba(8,5,2,0.55)] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label, outlineColor: HERO.label }}
         >
           ‹
@@ -342,7 +342,7 @@ function CastStrip({
           type="button"
           onClick={() => page(1)}
           aria-label="Next characters"
-          className="absolute right-[8px] top-1/2 z-[4] flex h-[30px] w-[30px] -translate-y-1/2 items-center justify-center rounded-full text-[16px] leading-none shadow-[0_2px_10px_rgba(8,5,2,0.55)] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="absolute right-[8px] top-1/2 z-[4] flex h-[30px] w-[30px] -translate-y-1/2 items-center justify-center rounded-full text-body leading-none shadow-[0_2px_10px_rgba(8,5,2,0.55)] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label, outlineColor: HERO.label }}
         >
           ›
@@ -392,7 +392,7 @@ function CastCard({
   return (
     <div
       ref={ref}
-      className="group relative grid h-full flex-none overflow-hidden rounded-[6px] transition-[grid-template-columns] duration-base ease-out motion-reduce:transition-none"
+      className="group relative grid h-full flex-none overflow-hidden rounded-sm transition-[grid-template-columns] duration-base ease-out motion-reduce:transition-none"
       // The card is a 2-column grid: a fixed portrait column + a stats column that
       // animates 0px → CAST_STATS_W when opened. Animating `grid-template-columns`
       // slides the extension out as part of the same bordered card and pushes the
@@ -414,7 +414,7 @@ function CastCard({
           imgClassName="object-top"
           className="pointer-events-none"
           placeholder={
-            <div className="flex h-full w-full items-center justify-center pb-[52px]">
+            <div className="flex h-full w-full items-center justify-center pb-3xl">
               <Monogram mono={c.mono} color={c.color} size={84} ring={2} fontSize={32} />
             </div>
           }
@@ -430,7 +430,7 @@ function CastCard({
         {/* Footer over the scrim: name + role (light text, theme-independent). */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] p-[11px_12px_12px]">
           <div
-            className="truncate font-display text-[15px] font-semibold leading-[1.12] sm:text-[16px]"
+            className="truncate font-display text-body-sm font-semibold leading-[1.12] sm:text-body"
             style={{ color: OVER_ART.title }}
             title={c.name}
           >
@@ -438,7 +438,7 @@ function CastCard({
           </div>
           {c.role ? (
             <div
-              className="mt-[2px] truncate font-mono text-label"
+              className="mt-3xs truncate font-mono text-label"
               style={{ color: OVER_ART.eyebrow }}
             >
               {c.role}
@@ -464,7 +464,7 @@ function CastCard({
           onClick={onToggleStats}
           aria-label={expanded ? `Hide statistics for ${c.name}` : `Show statistics for ${c.name}`}
           aria-expanded={expanded}
-          className="absolute right-[8px] top-[8px] z-[5] flex h-[26px] w-[26px] items-center justify-center rounded-full text-[13px] leading-none shadow-[0_2px_8px_rgba(8,5,2,0.5)] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="absolute right-[8px] top-sm z-[5] flex h-[26px] w-[26px] items-center justify-center rounded-full text-label leading-none shadow-[0_2px_8px_rgba(8,5,2,0.5)] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ background: HERO.chev, border: `1px solid ${c.color}`, color: HERO.label, outlineColor: HERO.label }}
         >
           {expanded ? "❮" : "❯"}
@@ -527,7 +527,7 @@ function CastStats({
       className="flex h-full flex-col"
       style={{ width }}
     >
-      <div className="flex items-start justify-between gap-2 px-[12px] pt-[12px]">
+      <div className="flex items-start justify-between gap-2 px-md pt-md">
         <div className="min-w-0">
           <div
             className="font-mono text-eyebrow uppercase tracking-[0.16em]"
@@ -535,7 +535,7 @@ function CastStats({
           >
             Statistics
           </div>
-          <div className="truncate font-display text-[14px] font-semibold" style={{ color: OVER_ART.title }}>
+          <div className="truncate font-display text-body-sm font-semibold" style={{ color: OVER_ART.title }}>
             {c.name}
           </div>
         </div>
@@ -543,19 +543,19 @@ function CastStats({
           type="button"
           onClick={onClose}
           aria-label="Close statistics"
-          className="flex h-[20px] w-[20px] flex-none items-center justify-center rounded-full text-[12px] leading-none hover:brightness-125 focus-visible:outline focus-visible:outline-2"
+          className="flex h-[20px] w-[20px] flex-none items-center justify-center rounded-full text-eyebrow leading-none hover:brightness-125 focus-visible:outline focus-visible:outline-2"
           style={{ color: OVER_ART.title, background: `${c.color}55`, outlineColor: HERO.label }}
         >
           ×
         </button>
       </div>
-      <div className="mt-[8px] min-h-0 flex-1 overflow-y-auto px-[12px] pb-[12px]">
+      <div className="mt-sm min-h-0 flex-1 overflow-y-auto px-md pb-md">
         {stats.length === 0 ? (
           <p className="font-body text-body-sm italic" style={{ color: LIGHT.desc }}>
             No statistics available.
           </p>
         ) : (
-          <ul className="flex flex-col gap-[6px]">
+          <ul className="flex flex-col gap-xs">
             {stats.map((d) => (
               <li key={d.key} className="flex items-baseline justify-between gap-2">
                 <span className="truncate font-body text-body-sm" style={{ color: LIGHT.loc }}>

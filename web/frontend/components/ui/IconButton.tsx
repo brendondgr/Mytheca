@@ -9,7 +9,7 @@ type IconButtonVariant = "card" | "field";
 const VARIANT: Record<IconButtonVariant, string> = {
   card: "border border-cardbd bg-card2 text-mute2 enabled:hover:border-accent enabled:hover:bg-accent enabled:hover:text-[#F6ECDA]",
   field:
-    "border border-field-bd bg-field text-accent enabled:hover:border-accent enabled:hover:bg-hover",
+    "border border-field-bd bg-field text-accent-ink enabled:hover:border-accent enabled:hover:bg-hover",
 };
 
 /** Small square icon button (edit ✎, delete ×, roll die). `label` is required
@@ -37,7 +37,7 @@ export function IconButton({
       aria-label={label}
       title={label}
       className={cn(
-        "inline-flex cursor-pointer items-center justify-center rounded-[3px] leading-none",
+        "inline-flex cursor-pointer items-center justify-center rounded-xs leading-none",
         "touch-target-overlay press",
         VARIANT[variant],
         "disabled:cursor-not-allowed disabled:opacity-45",

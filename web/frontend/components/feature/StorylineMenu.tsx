@@ -97,7 +97,7 @@ function StorylineCounts({ storyline: s }: { storyline: Storyline }) {
   return (
     // pl-[55px] = 11px outer padding + w-3 checkmark (12px) + gap-[10px] + w-3 symbol (12px) + gap-[10px]
     // aligns each count under the title text above
-    <div className="flex flex-col pb-[10px] pl-[55px] font-mono text-[12px] leading-[1.7] tracking-[0.03em] text-mute">
+    <div className="flex flex-col pb-sm pl-3xl font-mono text-eyebrow leading-[1.7] tracking-[0.03em] text-mute">
       <span>{scenarios} scenario{scenarios === 1 ? "" : "s"}</span>
       <span>{characters} cast</span>
       <span>{settings} setting{settings === 1 ? "" : "s"}</span>
@@ -167,16 +167,16 @@ export function StorylineMenu({
         // repaint the Library's LCP element on hydration.
         aria-label={active?.title ? `Switch storyline — ${active.title}` : "Switch storyline"}
         title="Switch storyline"
-        className="group flex items-center gap-[9px] rounded-[3px] border border-cardbd bg-card px-[12px] py-[5px] hover:border-accent hover:bg-hover focus-visible:border-accent"
+        className="group flex items-center gap-sm rounded-xs border border-cardbd bg-card px-md py-2xs hover:border-accent hover:bg-hover focus-visible:border-accent"
       >
         <span
           aria-hidden
-          className="text-[13px] leading-none"
-          style={{ color: active?.symbolColor || DEFAULT_SEAL_COLOR }}
+          className="text-label text-entity leading-none"
+          style={{ ["--entity" as string]: active?.symbolColor || DEFAULT_SEAL_COLOR }}
         >
           {active?.symbol || DEFAULT_SEAL_SYMBOL}
         </span>
-        <span className="hidden font-display text-[18px] font-bold uppercase leading-none tracking-[0.12em] text-ink md:inline">
+        <span className="hidden font-display text-step-1 font-bold uppercase leading-none tracking-[0.12em] text-ink md:inline">
           {active?.title ?? "Storyline"}
         </span>
         <svg
@@ -190,7 +190,7 @@ export function StorylineMenu({
           strokeLinecap="round"
           strokeLinejoin="round"
           className={cn(
-            "-mr-[2px] text-mute transition-transform group-hover:text-accent",
+            "-mr-3xs text-mute transition-transform group-hover:text-accent-ink",
             open && "rotate-180",
           )}
         >
@@ -212,9 +212,9 @@ export function StorylineMenu({
           // view — so without an inner scroller every world past the first few would be
           // unreachable. Capped at every width, because an unbounded popover is no better
           // on a desktop, only less obviously broken.
-          className="fixed inset-x-[12px] top-[54px] z-40 flex max-h-[calc(100dvh-70px)] w-auto flex-col overflow-y-auto mytheca-menu p-[7px] md:absolute md:inset-x-auto md:top-[38px] md:left-0 md:max-h-[calc(100dvh-60px)] md:w-[280px]"
+          className="fixed inset-x-[12px] top-3xl z-40 flex max-h-[calc(100dvh-70px)] w-auto flex-col overflow-y-auto mytheca-menu p-xs md:absolute md:inset-x-auto md:top-2xl md:left-0 md:max-h-[calc(100dvh-60px)] md:w-[280px]"
         >
-          <div className="px-[11px] pt-[5px] pb-[8px] font-mono text-[11px] uppercase tracking-[0.18em] text-mute2">
+          <div className="px-md pt-2xs pb-sm font-mono text-eyebrow uppercase tracking-[0.18em] text-mute2">
             Storylines
           </div>
           {storylines.map((s) => {
@@ -222,10 +222,10 @@ export function StorylineMenu({
             return (
               <div
                 key={s.id}
-                className={cn("rounded-[3px] hover:bg-hover", isActive && "bg-hover")}
+                className={cn("rounded-xs hover:bg-hover", isActive && "bg-hover")}
               >
                 {/* Title row: checkmark + symbol + title + edit/delete right-aligned */}
-                <div className="flex items-center gap-[10px] px-[11px] pt-[9px] pb-[3px]">
+                <div className="flex items-center gap-sm px-md pt-sm pb-3xs">
                   <button
                     type="button"
                     onClick={() => {
@@ -233,29 +233,29 @@ export function StorylineMenu({
                       setOpen(false);
                     }}
                     aria-current={isActive ? "true" : undefined}
-                    className="flex min-w-0 flex-1 items-center gap-[10px] text-left"
+                    className="flex min-w-0 flex-1 items-center gap-sm text-left"
                   >
                     <span
                       aria-hidden
                       className={cn(
-                        "w-3 flex-none text-center text-[11px]",
-                        isActive ? "text-accent" : "text-transparent",
+                        "w-3 flex-none text-center text-eyebrow",
+                        isActive ? "text-accent-ink" : "text-transparent",
                       )}
                     >
                       ✓
                     </span>
                     <span
                       aria-hidden
-                      className="w-3 flex-none text-center text-[13px] leading-none"
+                      className="w-3 flex-none text-center text-label leading-none"
                       style={{ color: s.symbolColor || DEFAULT_SEAL_COLOR }}
                     >
                       {s.symbol || DEFAULT_SEAL_SYMBOL}
                     </span>
-                    <span className="min-w-0 flex-1 truncate font-display text-[15px] font-semibold text-ink">
+                    <span className="min-w-0 flex-1 truncate font-display text-body-sm font-semibold text-ink">
                       {s.title}
                     </span>
                   </button>
-                  <div className="flex flex-none items-center gap-[1px]">
+                  <div className="flex flex-none items-center gap-3xs">
                     <button
                       type="button"
                       aria-label={`Writing prompts for ${s.title}`}
@@ -264,7 +264,7 @@ export function StorylineMenu({
                         onConfigurePrompts(s.id);
                         setOpen(false);
                       }}
-                      className="rounded-[3px] p-[6px] text-mute hover:bg-hover hover:text-accent focus-visible:text-accent"
+                      className="rounded-xs p-xs text-mute hover:bg-hover hover:text-accent-ink focus-visible:text-accent-ink"
                     >
                       <GearIcon />
                     </button>
@@ -276,7 +276,7 @@ export function StorylineMenu({
                         onDocuments(s.id);
                         setOpen(false);
                       }}
-                      className="rounded-[3px] p-[6px] text-mute hover:bg-hover hover:text-accent focus-visible:text-accent"
+                      className="rounded-xs p-xs text-mute hover:bg-hover hover:text-accent-ink focus-visible:text-accent-ink"
                     >
                       <DocsIcon />
                     </button>
@@ -288,7 +288,7 @@ export function StorylineMenu({
                         onEdit(s.id);
                         setOpen(false);
                       }}
-                      className="rounded-[3px] p-[6px] text-mute hover:bg-hover hover:text-accent focus-visible:text-accent"
+                      className="rounded-xs p-xs text-mute hover:bg-hover hover:text-accent-ink focus-visible:text-accent-ink"
                     >
                       <PencilIcon />
                     </button>
@@ -300,7 +300,7 @@ export function StorylineMenu({
                         onDelete(s.id);
                         setOpen(false);
                       }}
-                      className="rounded-[3px] p-[6px] text-mute hover:bg-hover hover:text-danger focus-visible:text-danger"
+                      className="rounded-xs p-xs text-mute hover:bg-hover hover:text-danger-ink focus-visible:text-danger-ink"
                     >
                       <TrashIcon />
                     </button>
@@ -311,19 +311,19 @@ export function StorylineMenu({
               </div>
             );
           })}
-          <div className="my-[6px] border-t border-hair" />
+          <div className="my-xs border-t border-hair" />
           <button
             type="button"
             onClick={() => {
               onCreate();
               setOpen(false);
             }}
-            className="flex w-full items-center gap-[10px] rounded-[3px] px-[11px] py-[9px] text-left hover:bg-hover"
+            className="flex w-full items-center gap-sm rounded-xs px-md py-sm text-left hover:bg-hover"
           >
-            <span aria-hidden className="w-3 flex-none text-center text-[14px] text-gold">
+            <span aria-hidden className="w-3 flex-none text-center text-body-sm text-gold-ink">
               ＋
             </span>
-            <span className="font-display text-[15px] font-semibold text-ink">
+            <span className="font-display text-body-sm font-semibold text-ink">
               New Storyline
             </span>
           </button>

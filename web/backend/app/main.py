@@ -34,7 +34,7 @@ from app.routes import (
     stats,
     storylines,
 )
-from app.services import llm_backend
+from app.services import llm_backend, settings_store
 
 logger = logging.getLogger("mytheca")
 
@@ -47,6 +47,11 @@ def _refresh_backend_once() -> None:
     """
     try:
         with SessionLocal() as db:
+            # Which PROVIDER first, then which engine within it. A fresh process
+            # otherwise generates against the default provider until somebody
+            # happens to save Options — so a restart would silently change which
+            # backend the app talks to.
+            settings_store.prime_active_provider(db)
             llm_backend.refresh_for_config(db)
     except Exception as exc:  # pragma: no cover - defensive; never crash the poller
         logger.debug("LLM backend detection refresh failed: %s", exc)

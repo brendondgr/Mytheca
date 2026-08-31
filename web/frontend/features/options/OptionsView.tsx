@@ -1,8 +1,8 @@
 "use client";
 
+import { HeaderBar, HeaderLead, HeaderTrail } from "@/components/layout/HeaderBar";
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { AppShell } from "@/components/layout/AppShell";
 import { cn } from "@/lib/cn";
 import { useOptionsSettings } from "@/features/options/useOptionsSettings";
 import { LanguageModelsTab } from "@/features/options/tabs/LanguageModelsTab";
@@ -48,51 +48,65 @@ export function OptionsView() {
   }
 
   return (
-    <AppShell>
-      <header className="mytheca-header relative z-[15] flex h-[52px] flex-none items-center justify-between gap-3 border-b border-hair-strong px-[16px] shadow-[0_3px_14px_rgba(10,6,2,0.22)] sm:px-[26px]">
-        <div className="flex items-center gap-[13px]">
-          <span aria-hidden className="text-[16px] text-accent">
+    <>
+    {/* No <AppShell> here. The root layout already wraps every route in one;
+        rendering a second nested it — two `.mytheca-themed` grounds, two
+        MotionProviders, two ToastProviders, and (once the frame gained one) TWO
+        skip links, so the first Tab and the second Tab both said "Skip to
+        content". A fragment is all this needs: the shell supplies the ground
+        and the flex column. */}
+      <HeaderBar elevated>
+        {/* HeaderLead, not a bare flex div: it carries `min-w-0`, without which
+            this cluster cannot shrink and pushes the Library link past the
+            viewport edge. Measured at V8 — 390px with a 32px root font size,
+            the WCAG 1.4.4 "text at 200%" viewport — where the link overflowed
+            by 5px. Text-resize overflow is exactly the failure a fixed-width
+            header cluster produces and a page-width check never sees. */}
+        <HeaderLead>
+          <span aria-hidden className="text-body text-accent-ink">
             ❖
           </span>
-          <span className="font-display text-[20px] font-bold tracking-[0.2em] text-ink">
+          <span className="truncate font-display text-step-2 font-bold tracking-[0.2em] text-ink">
             MYTHECA
           </span>
-          <span className="hidden h-5 w-px bg-hair-strong md:block" aria-hidden />
-          <span className="hidden font-mono text-[10.5px] tracking-[0.18em] text-mute uppercase md:block">
+          <span className="hidden h-5 w-px flex-none bg-hair-strong md:block" aria-hidden />
+          <span className="hidden truncate font-mono text-eyebrow tracking-[0.18em] text-mute uppercase md:block">
             Options
           </span>
-        </div>
-        <Link
-          href="/"
-          className="rounded-[2px] border border-field-bd bg-field px-[13px] py-[7px] font-mono text-[10.5px] tracking-[0.1em] text-ink uppercase hover:border-accent hover:bg-hover hover:text-accent"
-        >
-          ← Library
-        </Link>
-      </header>
+        </HeaderLead>
+        <HeaderTrail>
+          <Link
+            href="/"
+            className="rounded-xs border border-field-bd bg-field px-md py-xs font-mono text-eyebrow tracking-[0.1em] text-ink uppercase hover:border-accent hover:bg-hover hover:text-accent-ink"
+          >
+            ← Library
+          </Link>
+        </HeaderTrail>
+      </HeaderBar>
 
-      <main className="mx-auto w-full max-w-[1120px] flex-1 px-[16px] py-[24px] sm:px-[24px] lg:w-[66%]">
-        <h1 className="mb-[4px] font-display text-[26px] font-semibold text-ink">Options</h1>
-        <p className="mb-[20px] font-body text-[14px] text-ink-soft">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1120px] flex-1 px-lg py-xl sm:px-xl lg:w-[66%]">
+        <h1 className="mb-2xs font-display text-step-2 font-semibold text-ink">Options</h1>
+        <p className="mb-lg font-body text-body-sm text-ink-soft">
           Everything customizable lives here — language models, appearance, and library defaults.
         </p>
 
         {opts.error ? (
           <div
             role="alert"
-            className="mb-[16px] flex items-center justify-between gap-[12px] rounded-[6px] border border-cardbd bg-card px-[14px] py-[10px]"
+            className="mb-lg flex items-center justify-between gap-md rounded-sm border border-cardbd bg-card px-lg py-sm"
           >
-            <span className="font-body text-[14px] text-ink">{opts.error}</span>
+            <span className="font-body text-body-sm text-ink">{opts.error}</span>
             <button
               type="button"
               onClick={opts.retry}
-              className="cursor-pointer font-mono text-[11px] tracking-[0.08em] text-accent uppercase hover:underline"
+              className="cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase hover:underline"
             >
               Retry
             </button>
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-[16px] lg:flex-row lg:gap-[24px]">
+        <div className="flex flex-col gap-lg lg:flex-row lg:gap-xl">
           {/* Vertical tab list (left). Collapses to a horizontal scroller < lg. */}
           <div
             role="tablist"
@@ -101,7 +115,7 @@ export function OptionsView() {
             // The edge fade applies only below `lg`, where this is a horizontal
             // strip that can clip; from `lg` it is a vertical rail with
             // `overflow-visible` and nothing to fade.
-            className="scroll-fade flex flex-none gap-[6px] overflow-x-auto rounded-[6px] lg:w-[210px] lg:flex-col lg:self-start lg:overflow-visible lg:border lg:border-cardbd lg:bg-surface lg:p-[10px] lg:[&::before]:hidden lg:[&::after]:hidden"
+            className="scroll-fade flex flex-none gap-xs overflow-x-auto rounded-sm lg:w-[210px] lg:flex-col lg:self-start lg:overflow-visible lg:border lg:border-cardbd lg:bg-surface lg:p-sm lg:[&::before]:hidden lg:[&::after]:hidden"
           >
             {TABS.map((tab, index) => {
               const selected = tab.key === active;
@@ -119,13 +133,13 @@ export function OptionsView() {
                   onClick={() => setActive(tab.key)}
                   onKeyDown={(event) => onKeyDown(event, index)}
                   className={cn(
-                    "flex flex-none cursor-pointer flex-col gap-[2px] rounded-[3px] border px-[13px] py-[10px] text-left whitespace-nowrap lg:whitespace-normal",
+                    "flex flex-none cursor-pointer flex-col gap-3xs rounded-xs border px-md py-sm text-left whitespace-nowrap lg:whitespace-normal",
                     selected
                       ? "border-accent bg-card2 text-ink"
                       : "border-cardbd bg-card text-ink-soft hover:border-hair-strong hover:bg-hover hover:text-ink",
                   )}
                 >
-                  <span className="font-display text-[14.5px] font-semibold">{tab.label}</span>
+                  <span className="font-display text-body-sm font-semibold">{tab.label}</span>
                   <span className="font-mono text-tag tracking-[0.06em] text-mute uppercase">
                     {tab.sub}
                   </span>
@@ -143,7 +157,7 @@ export function OptionsView() {
                 id={`opt-panel-${tab.key}`}
                 aria-labelledby={`opt-tab-${tab.key}`}
                 hidden={tab.key !== active}
-                className="rounded-[5px] border border-cardbd bg-card p-[18px] sm:p-[22px]"
+                className="rounded-sm border border-cardbd bg-card p-lg sm:p-xl"
               >
                 {tab.key === "models" ? (
                   <LanguageModelsTab key={opts.settings ? "ready" : "loading"} opts={opts} />
@@ -163,6 +177,6 @@ export function OptionsView() {
           </div>
         </div>
       </main>
-    </AppShell>
+    </>
   );
 }

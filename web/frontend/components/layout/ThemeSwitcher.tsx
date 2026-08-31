@@ -11,7 +11,7 @@ export function ThemeSwitcher() {
     <div
       role="group"
       aria-label="Theme"
-      className="flex items-center gap-[7px] rounded-full border border-field-bd bg-field px-[9px] py-[5px]"
+      className="flex items-center gap-xs rounded-full border border-field-bd bg-field px-sm py-2xs"
     >
       {THEMES.map((option) => {
         const active = theme === option.key;

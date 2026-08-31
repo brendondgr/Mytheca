@@ -21,6 +21,10 @@ function makeOpts(overrides: Partial<OptionsState["settings"]> = {}): OptionsSta
         authoringConcurrency: 3,
         maxContextTokens: 16384,
         reasoningVisibility: "summary" as const,
+        providers: [
+          { id: "openai-compatible", label: "OpenAI-compatible", configured: true, defaultBaseUrl: "", supportsDiscovery: true, streamingDispatched: true },
+          { id: "anthropic", label: "Anthropic (Claude)", configured: false, defaultBaseUrl: "https://api.anthropic.com", supportsDiscovery: true, streamingDispatched: true },
+        ],
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
       comfy: COMFY_FIXTURE,
@@ -86,6 +90,10 @@ describe("LanguageModelsTab", () => {
         authoringConcurrency: 3,
         maxContextTokens: 16384,
         reasoningVisibility: "summary" as const,
+        providers: [
+          { id: "openai-compatible", label: "OpenAI-compatible", configured: true, defaultBaseUrl: "", supportsDiscovery: true, streamingDispatched: true },
+          { id: "anthropic", label: "Anthropic (Claude)", configured: false, defaultBaseUrl: "https://api.anthropic.com", supportsDiscovery: true, streamingDispatched: true },
+        ],
       },
     });
     render(<LanguageModelsTab opts={opts} />);
@@ -124,6 +132,10 @@ describe("LanguageModelsTab", () => {
         authoringConcurrency: 3,
         maxContextTokens: 16384,
         reasoningVisibility: "summary" as const,
+        providers: [
+          { id: "openai-compatible", label: "OpenAI-compatible", configured: true, defaultBaseUrl: "", supportsDiscovery: true, streamingDispatched: true },
+          { id: "anthropic", label: "Anthropic (Claude)", configured: false, defaultBaseUrl: "https://api.anthropic.com", supportsDiscovery: true, streamingDispatched: true },
+        ],
       },
     });
     render(<LanguageModelsTab opts={opts} />);
@@ -153,7 +165,55 @@ describe("LanguageModelsTab", () => {
 
     await user.click(screen.getByRole("button", { name: /fetch models/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not reach/i);
-    // No options rendered; the model control stays a plain text input.
-    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+    // The MODEL control stays a plain text input. Scoped to it on purpose: the
+    // provider picker is also a <select>, so an unscoped queryByRole("option")
+    // now finds its entries and would pass whatever the model control did.
+    expect(screen.getByLabelText(/^model/i)).toHaveProperty("tagName", "INPUT");
+  });
+
+  it("tells the three empty states apart", async () => {
+    const user = userEvent.setup();
+    const opts = makeOpts();
+
+    // Unreachable — the route answers 200 with ok:false, not a throw.
+    vi.mocked(api.fetchLlmModels).mockResolvedValueOnce({
+      models: [], ok: false, error: "connection refused", source: "none",
+    });
+    const view = render(<LanguageModelsTab opts={opts} />);
+    await user.click(screen.getByRole("button", { name: /fetch models/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/simply be off/i);
+    view.unmount();
+
+    // Reached, and serving nothing — a different sentence, and not an alert.
+    vi.mocked(api.fetchLlmModels).mockResolvedValueOnce({
+      models: [], ok: true, error: null, source: "endpoint",
+    });
+    render(<LanguageModelsTab opts={opts} />);
+    await user.click(screen.getByRole("button", { name: /fetch models/i }));
+    expect(await screen.findByText(/reports no models/i)).toBeInTheDocument();
+  });
+
+  it("says when a provider's turns will not type out", async () => {
+    const user = userEvent.setup();
+    const opts = makeOpts();
+    // Anthropic's stream is not parsed by the turn loop yet. Selecting it works,
+    // but every turn arrives as one block — which the picker must say, because
+    // the alternative is an operator discovering it mid-scene with no error.
+    opts.settings!.llm.providers = opts.settings!.llm.providers.map((p) =>
+      p.id === "anthropic" ? { ...p, streamingDispatched: false } : p,
+    );
+    render(<LanguageModelsTab opts={opts} />);
+    await user.selectOptions(screen.getByLabelText(/provider/i), "anthropic");
+    expect(screen.getByText(/arrive as one block/i)).toBeInTheDocument();
+  });
+
+  it("keeps each provider's endpoint and key separate when switching", async () => {
+    const user = userEvent.setup();
+    render(<LanguageModelsTab opts={makeOpts()} />);
+
+    await user.selectOptions(screen.getByLabelText(/provider/i), "anthropic");
+    // Stale models from the previous provider must not survive the switch —
+    // offering an Ollama tag as an Anthropic model is worse than offering none.
+    expect(screen.getByLabelText(/^model/i)).toHaveValue("");
   });
 });

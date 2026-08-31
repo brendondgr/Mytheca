@@ -29,7 +29,7 @@ export function TextArea({ label, className, rows = 3, ...props }: TextAreaProps
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
         className={cn(
-          "w-full resize-y rounded-[2px] border bg-field px-[11px] py-[8px] font-body text-body leading-[1.5] text-ink",
+          "w-full resize-y rounded-xs border bg-field px-md py-sm font-body text-body leading-[1.5] text-ink",
           "transition-[border-color] duration-fast ease-soft",
           "focus:border-accent focus:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-60",

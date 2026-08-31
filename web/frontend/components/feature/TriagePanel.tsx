@@ -112,15 +112,15 @@ export function TriagePanel({
     return (
       <li
         className={cn(
-          "rounded-[4px] border bg-field px-[10px] py-[8px]",
+          "rounded-sm border bg-field px-sm py-sm",
           classifying ? "border-accent" : "border-cardbd",
         )}
       >
-        <div className="flex items-center justify-between gap-[8px]">
-          <span className="flex min-w-0 items-center gap-[8px]">
-            <span className="truncate font-mono text-[11px] text-ink-soft">⎙ {doc.name}</span>
+        <div className="flex items-center justify-between gap-sm">
+          <span className="flex min-w-0 items-center gap-sm">
+            <span className="truncate font-mono text-eyebrow text-ink-soft">⎙ {doc.name}</span>
             {classifying ? (
-              <span className="flex-none animate-pulse font-mono text-[9px] tracking-[0.08em] text-accent uppercase motion-reduce:animate-none">
+              <span className="flex-none animate-pulse font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase motion-reduce:animate-none">
                 classifying…
               </span>
             ) : null}
@@ -133,12 +133,12 @@ export function TriagePanel({
             // It measured 10x24: a destructive control ten pixels wide. The rest of this
             // panel's density is deliberate and is left alone — this one is the exception
             // because it deletes something and was the smallest target on the page.
-            className="flex h-[24px] w-[24px] flex-none cursor-pointer items-center justify-center rounded-[3px] text-mute hover:bg-hover hover:text-accent"
+            className="flex h-[24px] w-[24px] flex-none cursor-pointer items-center justify-center rounded-xs text-mute hover:bg-hover hover:text-accent-ink"
           >
             ×
           </button>
         </div>
-        <div className="mt-[7px] flex flex-wrap items-center gap-[6px]">
+        <div className="mt-xs flex flex-wrap items-center gap-xs">
           <label className="sr-only" htmlFor={`cat-${doc.name}`}>
             Category for {doc.name}
           </label>
@@ -146,7 +146,7 @@ export function TriagePanel({
             id={`cat-${doc.name}`}
             value={doc.category}
             onChange={(e) => onSetCategory(doc.name, e.target.value as DocCategory)}
-            className="rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-tag uppercase tracking-[0.06em] text-ink-soft"
+            className="rounded-xs border border-cardbd bg-card px-xs py-3xs font-mono text-field uppercase tracking-[0.06em] text-ink-soft"
           >
             {CATEGORY_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -165,7 +165,7 @@ export function TriagePanel({
                 aria-label={`${label} for ${doc.name}`}
                 onClick={() => onToggleUse(doc.name, key)}
                 className={cn(
-                  "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
+                  "cursor-pointer rounded-full border px-sm py-3xs font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
                   on
                     ? "border-accent bg-card2 text-ink"
                     : "border-cardbd bg-transparent text-mute hover:border-accent hover:bg-hover hover:text-ink",
@@ -195,13 +195,13 @@ export function TriagePanel({
       )}
     >
       {/* ── Sticky top: upload zone + triage button ─────────────────────── */}
-      <div className="sticky top-0 z-10 flex flex-col gap-[12px] border-b border-hair-strong bg-card p-[18px_20px]">
-        <div className="flex items-center justify-between gap-[8px]">
-          <Eyebrow size={10} tracking="0.2em" color="#A8762A">
+      <div className="sticky top-0 z-10 flex flex-col gap-md border-b border-hair-strong bg-card p-[18px_20px]">
+        <div className="flex items-center justify-between gap-sm">
+          <Eyebrow size={10} tracking="0.2em" entity="#A8762A">
             ⎙ Context files
           </Eyebrow>
           {docs.length > 0 ? (
-            <span className="font-mono text-[11px] tracking-[0.08em] text-mute uppercase">
+            <span className="font-mono text-eyebrow tracking-[0.08em] text-mute uppercase">
               {docs.length} {docs.length === 1 ? "file" : "files"}
             </span>
           ) : null}
@@ -214,8 +214,8 @@ export function TriagePanel({
             keyboard alternative to dragging, and an alternative gated behind a disclosure
             (and behind an animation) is not an alternative. The `sr-only` input travels with
             its label so the `htmlFor` association is never split across a collapsed region. */}
-        <div className="flex flex-wrap items-center justify-between gap-[8px]">
-          <div className="flex items-center gap-[10px]">
+        <div className="flex flex-wrap items-center justify-between gap-sm">
+          <div className="flex items-center gap-sm">
             <input
               id={inputId}
               type="file"
@@ -229,7 +229,7 @@ export function TriagePanel({
             />
             <label
               htmlFor={inputId}
-              className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:underline"
+              className="cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase hover:underline"
             >
               Browse files
             </label>
@@ -239,7 +239,7 @@ export function TriagePanel({
             onClick={() => setUploadOpen((o) => !o)}
             aria-expanded={uploadOpen}
             aria-controls={uploadPanelId}
-            className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-mute uppercase hover:text-ink lg:hidden"
+            className="cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:text-ink lg:hidden"
           >
             {uploadOpen ? "− Add files" : "＋ Add files"}
           </button>
@@ -271,9 +271,9 @@ export function TriagePanel({
               uploadOpen ? "visible" : "invisible",
             )}
           >
-            <div className="flex flex-col gap-[12px] pt-[2px]">
+            <div className="flex flex-col gap-md pt-3xs">
             {/* Upload target: pick a bucket + Draft/RAG once, then drop a whole batch. */}
-            <div className="flex flex-wrap items-center gap-[6px]">
+            <div className="flex flex-wrap items-center gap-xs">
               <span
                 id="upload-as-label"
                 className="font-mono text-tag tracking-[0.1em] text-mute2 uppercase"
@@ -284,7 +284,7 @@ export function TriagePanel({
                 aria-labelledby="upload-as-label"
                 value={uploadCategory}
                 onChange={(e) => setUploadCategory(e.target.value as DocCategory)}
-                className="rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-tag uppercase tracking-[0.06em] text-ink-soft"
+                className="rounded-xs border border-cardbd bg-card px-xs py-3xs font-mono text-field uppercase tracking-[0.06em] text-ink-soft"
               >
                 {CATEGORY_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -303,7 +303,7 @@ export function TriagePanel({
                     aria-label={`Default ${label} for uploads`}
                     onClick={() => setUploadUses((prev) => ({ ...prev, [key]: !prev[key] }))}
                     className={cn(
-                      "cursor-pointer rounded-full border px-[9px] py-[2px] font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
+                      "cursor-pointer rounded-full border px-sm py-3xs font-mono text-tag tracking-[0.08em] uppercase focus-visible:border-accent",
                       on
                         ? "border-accent bg-card2 text-ink"
                         : "border-cardbd bg-transparent text-mute hover:border-accent hover:bg-hover hover:text-ink",
@@ -322,14 +322,14 @@ export function TriagePanel({
                 e.preventDefault();
                 onAddFiles(e.dataTransfer.files, uploadOpts);
               }}
-              className="flex flex-col items-center gap-[6px] rounded-[4px] border border-dashed border-cardbd bg-field/50 px-[14px] py-[16px] text-center"
+              className="flex flex-col items-center gap-xs rounded-sm border border-dashed border-cardbd bg-field/50 px-lg py-lg text-center"
             >
-              <span aria-hidden className="text-[18px] text-mute">
+              <span aria-hidden className="text-step-1 text-mute">
                 ⤓
               </span>
-              <p className="font-body text-[13px] text-ink-soft">
-                Drag <code className="font-mono text-[12px]">.txt</code> or{" "}
-                <code className="font-mono text-[12px]">.md</code> files here
+              <p className="font-body text-label text-ink-soft">
+                Drag <code className="font-mono text-eyebrow">.txt</code> or{" "}
+                <code className="font-mono text-eyebrow">.md</code> files here
                 {uploadCategory !== "select" ? (
                   <>
                     {" "}
@@ -363,7 +363,7 @@ export function TriagePanel({
         {triaging && triageActive ? (
           <p
             aria-live="polite"
-            className="font-mono text-[10px] tracking-[0.06em] text-mute"
+            className="font-mono text-eyebrow tracking-[0.06em] text-mute"
           >
             Classifying {triageActive.name}…
           </p>
@@ -375,7 +375,7 @@ export function TriagePanel({
           it gets one bulk control. A thin fixed row (rather than a slot in the sticky
           header) keeps the scarce vertical space on the stacked mobile layout. */}
       {docs.length > 0 ? (
-        <div className="flex flex-none items-center justify-between gap-[8px] border-b border-hair-strong bg-card px-[20px] py-[7px]">
+        <div className="flex flex-none items-center justify-between gap-sm border-b border-hair-strong bg-card px-lg py-xs">
           <span className="font-mono text-tag tracking-[0.1em] text-mute2 uppercase">
             Draft{" "}
             <span className="text-ink-soft normal-case">
@@ -391,7 +391,7 @@ export function TriagePanel({
             // label from assistive tech (WCAG 2.5.3, Label in Name).
             // min-h/min-w keep the new control at the WCAG 2.5.8 (AA) 24x24 floor —
             // the older per-row chips predate that and are tracked separately.
-            className="inline-flex min-h-[24px] min-w-[24px] cursor-pointer items-center justify-center rounded-full border border-cardbd bg-transparent px-[10px] py-[2px] font-mono text-tag tracking-[0.08em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink disabled:cursor-default disabled:opacity-40"
+            className="inline-flex min-h-[24px] min-w-[24px] cursor-pointer items-center justify-center rounded-full border border-cardbd bg-transparent px-sm py-3xs font-mono text-tag tracking-[0.08em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink disabled:cursor-default disabled:opacity-40"
           >
             {allDraftSelected ? "De-select All" : "Re-select All"}
           </button>
@@ -406,9 +406,9 @@ export function TriagePanel({
           viewport. The fix now lives once, in `app/globals.css`, which redefines the
           utility as `position: fixed`; this `relative` is kept because it costs nothing
           and makes the containing block explicit for anything else positioned in here. */}
-      <div className="relative flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto p-[18px_20px] pt-[16px]">
+      <div className="relative flex min-h-0 flex-1 flex-col gap-lg overflow-y-auto p-[18px_20px] pt-lg">
         {docs.length === 0 ? (
-          <p className="font-body text-[13px] text-ink-soft">
+          <p className="font-body text-label text-ink-soft">
             Drop reference files, then use Self-Triage to categorize each one manually —
             or let Triage sort them into Characters, Settings, or Other automatically.
             They persist as this world&apos;s corpus.
@@ -421,13 +421,13 @@ export function TriagePanel({
               if (uncategorized.length === 0) return null;
               return (
                 <div key="select">
-                  <div className="mb-[8px] flex items-baseline gap-[8px]">
-                    <span className="font-mono text-[11.5px] font-semibold tracking-[0.12em] text-ink uppercase">
+                  <div className="mb-sm flex items-baseline gap-sm">
+                    <span className="font-mono text-eyebrow font-semibold tracking-[0.12em] text-ink uppercase">
                       Uncategorized
                     </span>
-                    <span className="font-mono text-[10.5px] text-mute">· Not yet categorized</span>
+                    <span className="font-mono text-eyebrow text-mute">· Not yet categorized</span>
                   </div>
-                  <ul className="flex flex-col gap-[8px]">
+                  <ul className="flex flex-col gap-sm">
                     {uncategorized.map((doc) => (
                       <DocRow key={doc.name} doc={doc} />
                     ))}
@@ -440,13 +440,13 @@ export function TriagePanel({
               if (inGroup.length === 0) return null;
               return (
                 <div key={key}>
-                  <div className="mb-[8px] flex items-baseline gap-[8px]">
-                    <span className="font-mono text-[11.5px] font-semibold tracking-[0.12em] text-ink uppercase">
+                  <div className="mb-sm flex items-baseline gap-sm">
+                    <span className="font-mono text-eyebrow font-semibold tracking-[0.12em] text-ink uppercase">
                       {label}
                     </span>
-                    <span className="font-mono text-[10.5px] text-mute">· {hint}</span>
+                    <span className="font-mono text-eyebrow text-mute">· {hint}</span>
                   </div>
-                  <ul className="flex flex-col gap-[8px]">
+                  <ul className="flex flex-col gap-sm">
                     {inGroup.map((doc) => (
                       <DocRow key={doc.name} doc={doc} />
                     ))}
@@ -457,7 +457,7 @@ export function TriagePanel({
           </>
         ) : (
           // Flat list — no doc has been categorized yet.
-          <ul className="flex flex-col gap-[8px]">
+          <ul className="flex flex-col gap-sm">
             {docs.map((doc) => (
               <DocRow key={doc.name} doc={doc} />
             ))}

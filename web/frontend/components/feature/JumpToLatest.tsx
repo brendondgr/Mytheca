@@ -18,14 +18,14 @@ export function JumpToLatest({
   return (
     <div
       className={cn(
-        "pointer-events-none absolute inset-x-0 bottom-[10px] flex justify-center",
+        "pointer-events-none absolute inset-x-0 bottom-sm flex justify-center",
         className,
       )}
     >
       <button
         type="button"
         onClick={onClick}
-        className="content-enter press touch-target pointer-events-auto inline-flex cursor-pointer items-center gap-[7px] rounded-full border border-menu-bd bg-menu px-[14px] py-[7px] font-mono text-[10.5px] tracking-[0.1em] text-ink uppercase shadow-[0_6px_18px_rgba(10,6,2,.35)] transition-colors duration-fast ease-soft hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="content-enter press touch-target pointer-events-auto inline-flex cursor-pointer items-center gap-xs rounded-full border border-menu-bd bg-menu px-lg py-xs font-mono text-eyebrow tracking-[0.1em] text-ink uppercase shadow-[0_6px_18px_rgba(10,6,2,.35)] transition-colors duration-fast ease-soft hover:border-accent hover:text-accent-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <span aria-hidden>↓</span>
         Jump to latest

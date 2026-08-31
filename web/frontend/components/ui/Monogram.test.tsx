@@ -3,11 +3,29 @@ import { describe, it, expect } from "vitest";
 import { Monogram } from "./Monogram";
 
 describe("Monogram", () => {
-  it("renders the initials styled with the character color", () => {
+  it("keeps the character colour on the ring, where 3:1 is the bar", () => {
     render(<Monogram mono="MV" color="#8E2B1C" />);
     const el = screen.getByText("MV");
     expect(el).toBeInTheDocument();
-    expect(el).toHaveStyle({ color: "#8E2B1C" });
+    // jsdom normalises hex to rgb().
+    expect(el.style.border).toContain("rgb(142, 43, 28)");
+  });
+
+  it("darkens the INITIALS toward the parchment ground's own ink", () => {
+    // Bold 10-13px of a character colour on the fixed #EDE3CD circle measured
+    // 3.11:1 and 3.86:1. The mix is toward a dark ink rather than the theme's,
+    // because this ground is cream in every theme — mixing toward the theme ink
+    // would make Ember and Slate worse, not better.
+    render(<Monogram mono="MV" color="#8E2B1C" />);
+    const el = screen.getByText("MV");
+    expect(el.style.color).toBe(
+      "color-mix(in oklab, rgb(142, 43, 28) 60%, rgb(36, 27, 16))",
+    );
+  });
+
+  it("leaves the colour alone on a non-default ground, where the recipe would not hold", () => {
+    render(<Monogram mono="MV" color="#8E2B1C" bg="#101010" />);
+    expect(screen.getByText("MV").style.color).toBe("rgb(142, 43, 28)");
   });
 
   it("renders the portrait image (with the colored ring) when src is given", () => {

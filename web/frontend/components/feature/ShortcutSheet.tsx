@@ -46,26 +46,26 @@ export function ShortcutSheet({ open, onClose }: { open: boolean; onClose: () =>
   return (
     <Modal open={open} onClose={onClose} ariaLabel="Keyboard shortcuts" className="max-w-[420px]">
       <div className="p-[18px_20px]">
-        <h2 className="mb-[14px] font-display text-[18px] leading-none font-bold text-ink">
+        <h2 className="mb-lg font-display text-step-1 leading-none font-bold text-ink">
           Keyboard shortcuts
         </h2>
-        <div className="flex flex-col gap-[16px]">
+        <div className="flex flex-col gap-lg">
           {GROUPS.map((group) => (
             <section key={group.title}>
-              <Eyebrow tracking="0.14em" className="mb-[8px] block">
+              <Eyebrow tracking="0.14em" className="mb-sm block">
                 {group.title}
               </Eyebrow>
-              <dl className="flex flex-col gap-[7px]">
+              <dl className="flex flex-col gap-xs">
                 {group.bindings.map((b) => (
-                  <div key={b.what} className="flex items-baseline justify-between gap-[12px]">
-                    <dd className="order-2 flex-1 font-body text-[12.5px] leading-[1.4] text-ink-soft">
+                  <div key={b.what} className="flex items-baseline justify-between gap-md">
+                    <dd className="order-2 flex-1 font-body text-eyebrow leading-[1.4] text-ink-soft">
                       {b.what}
                     </dd>
-                    <dt className="order-1 flex flex-none items-center gap-[3px]">
+                    <dt className="order-1 flex flex-none items-center gap-3xs">
                       {b.keys.map((k) => (
                         <kbd
                           key={k}
-                          className="rounded-[4px] border border-field-bd bg-field px-[6px] py-[2px] font-mono text-[10px] text-mute"
+                          className="rounded-sm border border-field-bd bg-field px-xs py-3xs font-mono text-eyebrow text-mute"
                         >
                           {k}
                         </kbd>
@@ -77,7 +77,7 @@ export function ShortcutSheet({ open, onClose }: { open: boolean; onClose: () =>
             </section>
           ))}
         </div>
-        <p className="mt-[16px] font-body text-[11.5px] leading-[1.45] text-mute2">
+        <p className="mt-lg font-body text-eyebrow leading-[1.45] text-mute2">
           Every one of these has a pointer equivalent — nothing here is the only way to do
           something.
         </p>

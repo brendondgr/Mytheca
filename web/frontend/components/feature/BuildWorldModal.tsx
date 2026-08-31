@@ -119,7 +119,7 @@ export function BuildWorldModal({
       className="sm:w-[520px]"
     >
       <div className="p-[22px_26px_24px]">
-        <div className="flex items-start justify-between gap-[14px]">
+        <div className="flex items-start justify-between gap-lg">
           <div>
             {/* `--mute` rather than the Eyebrow default `--mute2`: at 10px uppercase
                 on the modal panel, mute2 measures ~3.9:1 — under AA. */}
@@ -128,7 +128,7 @@ export function BuildWorldModal({
             </Eyebrow>
             <h2
               id="build-world-title"
-              className="mt-1 font-display text-[22px] font-bold text-ink"
+              className="mt-1 font-display text-step-2 font-bold text-ink"
             >
               {asking
                 ? "Build the cast and settings?"
@@ -142,96 +142,96 @@ export function BuildWorldModal({
           {running ? null : <CloseButton onClose={finished ? onEnter : onCancel} />}
         </div>
 
-        <div className="my-[16px] h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
+        <div className="my-lg h-[3px] border-t border-b border-t-ink border-b-hair-strong" />
 
         {asking ? (
           <>
-            <p className="font-body text-[14.5px] leading-[1.5] text-ink">
+            <p className="font-body text-body-sm leading-[1.5] text-ink">
               Mytheca will write this world’s cast and the places your scenes return to —
               each character fleshed out with their voice and starting stats. You’ll
               watch it happen here.
             </p>
 
-            <fieldset className="mt-[16px] flex flex-col gap-[10px] border-0 p-0">
-              <legend className="mb-[2px] font-mono text-[10px] tracking-[0.12em] text-mute uppercase">
+            <fieldset className="mt-lg flex flex-col gap-sm border-0 p-0">
+              <legend className="mb-3xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase">
                 Who gets built
               </legend>
 
-              <label className="flex cursor-pointer items-start gap-[10px]">
+              <label className="flex cursor-pointer items-start gap-sm">
                 <input
                   type="radio"
                   name="build-source"
                   checked={source === "documents"}
                   disabled={!hasFiles}
                   onChange={() => setSource("documents")}
-                  className="mt-[3px] h-[14px] w-[14px] shrink-0 accent-[var(--accent)] disabled:opacity-40"
+                  className="mt-3xs h-[14px] w-[14px] shrink-0 accent-[var(--accent)] disabled:opacity-40"
                 />
                 <span
                   className={
                     hasFiles
-                      ? "font-body text-[14px] leading-[1.45] text-ink"
-                      : "font-body text-[14px] leading-[1.45] text-mute"
+                      ? "font-body text-body-sm leading-[1.45] text-ink"
+                      : "font-body text-body-sm leading-[1.45] text-mute"
                   }
                 >
                   The people and places in my files
-                  <span className="block font-body text-[12.5px] text-ink-soft">
+                  <span className="block font-body text-eyebrow text-ink-soft">
                     {hasFiles ? describeFiles(sourceFiles) : "No context files uploaded."}
                   </span>
                 </span>
               </label>
 
-              <label className="flex cursor-pointer items-start gap-[10px]">
+              <label className="flex cursor-pointer items-start gap-sm">
                 <input
                   type="radio"
                   name="build-source"
                   checked={source === "invent"}
                   onChange={() => setSource("invent")}
-                  className="mt-[3px] h-[14px] w-[14px] shrink-0 accent-[var(--accent)]"
+                  className="mt-3xs h-[14px] w-[14px] shrink-0 accent-[var(--accent)]"
                 />
-                <span className="font-body text-[14px] leading-[1.45] text-ink">
+                <span className="font-body text-body-sm leading-[1.45] text-ink">
                   Invent a cast from the premise
-                  <span className="block font-body text-[12.5px] text-ink-soft">
+                  <span className="block font-body text-eyebrow text-ink-soft">
                     Mytheca makes up who lives here. Your files still ground the writing.
                   </span>
                 </span>
               </label>
             </fieldset>
 
-            <fieldset className="mt-[18px] flex flex-col gap-[12px] border-0 p-0">
+            <fieldset className="mt-lg flex flex-col gap-md border-0 p-0">
               <legend className="sr-only">What to build</legend>
 
-              <label className="flex cursor-pointer items-start gap-[10px]">
+              <label className="flex cursor-pointer items-start gap-sm">
                 <input
                   type="checkbox"
                   checked={enabled}
                   onChange={(e) => setEnabled(e.target.checked)}
-                  className="mt-[3px] h-[15px] w-[15px] shrink-0 accent-[var(--accent)]"
+                  className="mt-3xs h-[15px] w-[15px] shrink-0 accent-[var(--accent)]"
                 />
-                <span className="font-body text-[14px] leading-[1.45] text-ink">
+                <span className="font-body text-body-sm leading-[1.45] text-ink">
                   Write the characters and settings
-                  <span className="block font-body text-[12.5px] text-ink-soft">
+                  <span className="block font-body text-eyebrow text-ink-soft">
                     A few minutes — a generation per character and place.
                   </span>
                 </span>
               </label>
 
-              <label className="flex cursor-pointer items-start gap-[10px]">
+              <label className="flex cursor-pointer items-start gap-sm">
                 <input
                   type="checkbox"
                   checked={withArtwork}
                   disabled={!enabled || comfy !== "up"}
                   onChange={(e) => setWithArtwork(e.target.checked)}
-                  className="mt-[3px] h-[15px] w-[15px] shrink-0 accent-[var(--accent)] disabled:opacity-40"
+                  className="mt-3xs h-[15px] w-[15px] shrink-0 accent-[var(--accent)] disabled:opacity-40"
                 />
                 <span
                   className={
                     enabled && comfy === "up"
-                      ? "font-body text-[14px] leading-[1.45] text-ink"
-                      : "font-body text-[14px] leading-[1.45] text-mute"
+                      ? "font-body text-body-sm leading-[1.45] text-ink"
+                      : "font-body text-body-sm leading-[1.45] text-mute"
                   }
                 >
                   Also paint portraits and scene art
-                  <span className="block font-body text-[12.5px] text-ink-soft">
+                  <span className="block font-body text-eyebrow text-ink-soft">
                     {comfy === "probing"
                       ? "Checking for a ComfyUI server…"
                       : comfy === "up"
@@ -246,7 +246,7 @@ export function BuildWorldModal({
                   value={artStyle}
                   onChange={setArtStyle}
                   label="Style for every image in this build"
-                  className="ml-[25px]"
+                  className="ml-xl"
                 />
               ) : null}
             </fieldset>
@@ -255,7 +255,7 @@ export function BuildWorldModal({
           <BuildConsole build={build} />
         )}
 
-        <div className="mt-[22px] flex flex-wrap items-center justify-end gap-[10px]">
+        <div className="mt-xl flex flex-wrap items-center justify-end gap-sm">
           {asking ? (
             <>
               <Button variant="ghost" onClick={onCancel}>
@@ -284,7 +284,7 @@ export function BuildWorldModal({
             </>
           ) : running ? (
             <>
-              <span className="mr-auto font-mono text-[10px] tracking-[0.12em] text-mute2 uppercase">
+              <span className="mr-auto font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase">
                 Stay here — the world opens when it’s built.
               </span>
               <Button variant="ghost" onClick={onStop}>
@@ -293,7 +293,7 @@ export function BuildWorldModal({
             </>
           ) : (
             <>
-              <span className="mr-auto font-mono text-[10px] tracking-[0.12em] text-mute2 uppercase">
+              <span className="mr-auto font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase">
                 {buildSummary(build)}
               </span>
               <Button onClick={onEnter}>
@@ -317,7 +317,7 @@ function BuildConsole({ build }: { build: BuildState }) {
     <div>
       <p
         aria-live="polite"
-        className="flex items-center gap-[8px] font-body text-[14px] text-ink"
+        className="flex items-center gap-sm font-body text-body-sm text-ink"
       >
         {running ? (
           <span
@@ -332,14 +332,14 @@ function BuildConsole({ build }: { build: BuildState }) {
               : `Built ${buildSummary(build)}.`)}
         </span>
         {running && build.total > 1 ? (
-          <span className="ml-auto shrink-0 font-mono text-[11px] text-mute">
+          <span className="ml-auto shrink-0 font-mono text-eyebrow text-mute">
             {build.index} / {build.total}
           </span>
         ) : null}
       </p>
 
       {build.phase === "failed" && build.error && build.step === "" && build.entities.length ? (
-        <p role="alert" className="mt-[10px] font-body text-[13px] text-danger">
+        <p role="alert" className="mt-sm font-body text-label text-danger-ink">
           {build.error}
         </p>
       ) : null}
@@ -348,16 +348,16 @@ function BuildConsole({ build }: { build: BuildState }) {
           roster (and that it came from their files) rather than entities appearing from
           nowhere. */}
       {build.plan ? (
-        <div className="mt-[14px] rounded-[4px] border border-hair-strong bg-field px-[12px] py-[10px]">
-          <span className="font-mono text-[10px] tracking-[0.12em] text-mute uppercase">
+        <div className="mt-lg rounded-sm border border-hair-strong bg-field px-md py-sm">
+          <span className="font-mono text-eyebrow tracking-[0.12em] text-mute uppercase">
             {build.plan.source === "documents" ? "From your files" : "Invented"}
           </span>
-          <p className="mt-[4px] font-body text-[13px] leading-[1.45] text-ink">
+          <p className="mt-2xs font-body text-label leading-[1.45] text-ink">
             {[...build.plan.characters, ...build.plan.settings].map((e) => e.name).join(" · ") ||
               "Nothing to build."}
           </p>
           {build.plan.note ? (
-            <p className="mt-[4px] font-body text-[12px] text-ink-soft">{build.plan.note}</p>
+            <p className="mt-2xs font-body text-eyebrow text-ink-soft">{build.plan.note}</p>
           ) : null}
         </div>
       ) : null}
@@ -366,13 +366,13 @@ function BuildConsole({ build }: { build: BuildState }) {
       <EntityList label="Settings" entities={settings} />
 
       {build.problems.length ? (
-        <div className="mt-[16px] border-t border-hair-strong pt-[12px]">
-          <span className="font-mono text-[10px] tracking-[0.12em] text-mute2 uppercase">
+        <div className="mt-lg border-t border-hair-strong pt-md">
+          <span className="font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase">
             Skipped
           </span>
-          <ul className="mt-[6px] flex flex-col gap-[4px]">
+          <ul className="mt-xs flex flex-col gap-2xs">
             {build.problems.map((p, i) => (
-              <li key={i} className="font-body text-[12.5px] leading-[1.4] text-ink-soft">
+              <li key={i} className="font-body text-eyebrow leading-[1.4] text-ink-soft">
                 {p}
               </li>
             ))}
@@ -392,31 +392,31 @@ function EntityList({
 }) {
   if (!entities.length) return null;
   return (
-    <div className="mt-[16px]">
-      <span className="font-mono text-[10px] tracking-[0.12em] text-mute2 uppercase">
+    <div className="mt-lg">
+      <span className="font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase">
         {label} ({entities.length})
       </span>
-      <ul className="mt-[8px] flex flex-col gap-[8px]">
+      <ul className="mt-sm flex flex-col gap-sm">
         {entities.map((e) => (
-          <li key={e.id} className="flex items-center gap-[10px]">
+          <li key={e.id} className="flex items-center gap-sm">
             <SmartImage
               src={e.image ? mediaSrc(e.image) : null}
               alt=""
               aspect="1 / 1"
-              className="h-[34px] w-[34px] shrink-0 rounded-[3px] border border-cardbd"
+              className="h-[34px] w-[34px] shrink-0 rounded-xs border border-cardbd"
               placeholder={
                 <span
                   aria-hidden
-                  className="flex h-full w-full items-center justify-center bg-field font-mono text-[11px] text-mute"
+                  className="flex h-full w-full items-center justify-center bg-field font-mono text-eyebrow text-mute"
                 >
                   ✓
                 </span>
               }
             />
             <span className="min-w-0">
-              <span className="block truncate font-body text-[14px] text-ink">{e.name}</span>
+              <span className="block truncate font-body text-body-sm text-ink">{e.name}</span>
               {e.role ? (
-                <span className="block truncate font-body text-[12px] text-ink-soft">
+                <span className="block truncate font-body text-eyebrow text-ink-soft">
                   {e.role}
                 </span>
               ) : null}

@@ -39,10 +39,10 @@ function speechColor(color: string | undefined): string | undefined {
 export function NarratorCard({ text, streaming }: { text: string; streaming?: boolean }) {
   return (
     <div className="rounded-[0_5px_5px_0] border-l-[3px] border-l-narrator bg-[rgba(31,138,130,.12)] p-[13px_17px]">
-      <Eyebrow size={8} tracking="0.18em" color="#1F8A82" className="mb-[6px] block">
+      <Eyebrow size={8} tracking="0.18em" entity="#1F8A82" className="mb-xs block">
         Narrator
       </Eyebrow>
-      <p className="font-body text-[15.5px] leading-[1.55] whitespace-pre-line text-ink">
+      <p className="font-body text-body-sm leading-[1.55] whitespace-pre-line text-ink">
         <QuotedText text={text} />
         {streaming ? <StreamCaret /> : null}
       </p>
@@ -64,8 +64,8 @@ export function NarratorCard({ text, streaming }: { text: string; streaming?: bo
  */
 export function SceneProseCard({ text, streaming }: { text: string; streaming?: boolean }) {
   return (
-    <div className="py-[2px]">
-      <p className="max-w-[66ch] font-body text-[15.5px] leading-[1.72] whitespace-pre-line text-ink">
+    <div className="py-3xs">
+      <p className="max-w-[66ch] font-body text-body-sm leading-[1.72] whitespace-pre-line text-ink">
         <QuotedText text={text} />
         {streaming ? <StreamCaret /> : null}
       </p>
@@ -92,12 +92,12 @@ export function AttachedFiles({
   return (
     <ul
       aria-label="Files this turn carried"
-      className="mt-[5px] flex flex-wrap justify-end gap-[4px]"
+      className="mt-2xs flex flex-wrap justify-end gap-2xs"
     >
       {named.map((f) => (
         <li
           key={f.id}
-          className="flex items-center gap-[4px] rounded-[6px] border border-field-bd px-[6px] py-[1px] font-mono text-[9px] text-mute"
+          className="flex items-center gap-2xs rounded-sm border border-field-bd px-xs py-3xs font-mono text-eyebrow text-mute"
         >
           <span aria-hidden>⎙</span>
           <span className="max-w-[140px] truncate">{f.name}</span>
@@ -118,12 +118,12 @@ export function PlayerMessage({
   return (
     <div className="flex justify-end">
       <div className="max-w-[78%]">
-        <div className="mb-[5px] text-right">
+        <div className="mb-2xs text-right">
           <Eyebrow size={8} tracking="0.14em" color="var(--accent)">
             You
           </Eyebrow>
         </div>
-        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] whitespace-pre-line text-[#F6ECDA]">
+        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-body-sm leading-[1.5] whitespace-pre-line text-[#F6ECDA]">
           <QuotedText text={text} />
         </div>
         {attachments}
@@ -152,11 +152,11 @@ export function PlayerAsCharacterMessage({
   return (
     <div className="flex justify-end">
       <div className="max-w-[78%]">
-        <div className="mb-[5px] flex items-center justify-end gap-[7px]">
+        <div className="mb-2xs flex items-center justify-end gap-xs">
           {action ? (
-            <span className="font-body text-[13px] text-mute2">{action}</span>
+            <span className="font-body text-label text-mute2">{action}</span>
           ) : null}
-          <Eyebrow size={8} tracking="0.14em" color={c.color}>
+          <Eyebrow size={8} tracking="0.14em" entity={c.color}>
             {c.name}
           </Eyebrow>
           <Monogram
@@ -168,7 +168,7 @@ export function PlayerAsCharacterMessage({
             ring={1.5}
           />
         </div>
-        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-[15.5px] leading-[1.5] whitespace-pre-line text-[#F6ECDA]">
+        <div className="rounded-[11px_3px_11px_11px] bg-accent p-[11px_15px] font-body text-body-sm leading-[1.5] whitespace-pre-line text-[#F6ECDA]">
           <QuotedText text={text} />
         </div>
       </div>
@@ -225,18 +225,18 @@ export function CharacterMessage({
         <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={40} fontSize={14} />
       </button>
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-[9px]">
+        <div className="flex items-baseline gap-sm">
           <button
             type="button"
             onClick={onProfile}
             disabled={!onProfile}
-            className="font-display text-[15px] font-semibold hover:underline disabled:no-underline"
-            style={{ color: c.color }}
+            className="font-display text-body-sm font-semibold text-entity hover:underline disabled:no-underline"
+            style={{ ["--entity" as string]: c.color }}
           >
             {c.name}
           </button>
           {action ? (
-            <span className="font-body text-[13px] text-mute2">{action}</span>
+            <span className="font-body text-label text-mute2">{action}</span>
           ) : null}
         </div>
         {/* Raw deliberation, while it is happening. Deliberately subordinate to everything
@@ -244,11 +244,11 @@ export function CharacterMessage({
             is long and rambling, and it must never compete with the prose. It sits ABOVE
             the bubble so the beat itself never shifts as the reasoning grows. */}
         {reasoning ? (
-          <details className="mt-[6px] group">
-            <summary className="cursor-pointer list-none font-mono text-[9px] tracking-[0.14em] text-mute2 uppercase focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+          <details className="mt-xs group">
+            <summary className="cursor-pointer list-none font-mono text-eyebrow tracking-[0.14em] text-mute2 uppercase focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
               working…
             </summary>
-            <p className="mt-[4px] max-h-[8lh] overflow-y-auto border-l border-hair pl-[9px] font-mono text-[11px] leading-[1.45] text-mute2">
+            <p className="mt-2xs max-h-[8lh] overflow-y-auto border-l border-hair pl-sm font-mono text-eyebrow leading-[1.45] text-mute2">
               {reasoning}
             </p>
           </details>
@@ -256,16 +256,16 @@ export function CharacterMessage({
         {/* Nothing written yet: hold the beat's height with the same bubble geometry the
             prose will land in, so filling it in does not shift the page. */}
         {pending && !thought && !text ? (
-          <div className="mt-[6px] flex min-h-[2.4em] items-center rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px]">
+          <div className="mt-xs flex min-h-[2.4em] items-center rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px]">
             <TypingDots className="text-mute2" />
             <span className="sr-only">{c.name} is composing a reply</span>
           </div>
         ) : null}
         {thought || text ? (
-          <div className="mt-[6px] rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px] shadow-[0_1px_2px_rgba(20,14,6,.06)]">
+          <div className="mt-xs rounded-[3px_11px_11px_11px] border border-cardbd bg-card p-[11px_15px] shadow-[0_1px_2px_rgba(20,14,6,.06)]">
             {thought ? (
-              <p className="font-body text-[15.5px] leading-[1.5] text-ink-soft italic">
-                <span className="mr-[6px] align-baseline font-mono text-[9px] not-italic uppercase tracking-[0.14em] text-mute2">
+              <p className="font-body text-body-sm leading-[1.5] text-ink-soft italic">
+                <span className="mr-xs align-baseline font-mono text-eyebrow not-italic uppercase tracking-[0.14em] text-mute2">
                   thinks
                 </span>
                 <QuotedText text={thought} />
@@ -276,8 +276,8 @@ export function CharacterMessage({
                 // `whitespace-pre-line` keeps the paragraph breaks inside a first-person
                 // passage, which may legitimately run to two or three paragraphs. Plain
                 // body text throughout — only the quoted speech is bolded, by QuotedText.
-                className={`font-body text-[15.5px] leading-[1.5] whitespace-pre-line text-ink${
-                  thought ? " mt-[8px] border-t border-hair pt-[8px]" : ""
+                className={`font-body text-body-sm leading-[1.5] whitespace-pre-line text-ink${
+                  thought ? " mt-sm border-t border-hair pt-sm" : ""
                 }`}
               >
                 <QuotedText text={text} color={speechColor(c.color)} />
@@ -329,19 +329,19 @@ export function BranchChoices({
   const asked = Boolean(prompt?.trim());
   return (
     <div className="w-full max-w-[600px] self-center">
-      <div className="mb-[10px] text-center">
+      <div className="mb-sm text-center">
         <Eyebrow tracking="0.16em" color="var(--accent)">
           {asked ? "The story is asking you" : "Your move — choose a path"}
         </Eyebrow>
         {asked && (
-          <p className="mt-[8px] font-display text-[17px] leading-[1.5] text-ink">{prompt}</p>
+          <p className="mt-sm font-display text-step-1 leading-[1.5] text-ink">{prompt}</p>
         )}
       </div>
       <div className={choices.length === 0 ? "hidden" : layout}>
         {choices.map((ch) => (
           <div
             key={ch.id}
-            className="mytheca-row flex items-center gap-[10px] rounded-[4px] border border-field-bd bg-card p-[12px_15px] hover-nudge hover:border-accent hover:bg-hover"
+            className="mytheca-row flex items-center gap-sm rounded-sm border border-field-bd bg-card p-[12px_15px] hover-nudge hover:border-accent hover:bg-hover"
           >
             <button
               type="button"
@@ -351,14 +351,14 @@ export function BranchChoices({
               // not send it. (It also must not contain the word "send": the composer's own
               // Send button is found by that name, and two matches is an ambiguous control.)
               aria-label={`Put "${ch.label}" in the composer to edit`}
-              className="flex min-w-0 flex-1 items-center gap-[13px] text-left disabled:opacity-50"
+              className="flex min-w-0 flex-1 items-center gap-md text-left disabled:opacity-50"
             >
-              <span aria-hidden className="flex-none text-[13px] text-accent">
+              <span aria-hidden className="flex-none text-label text-accent-ink">
                 ◆
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block font-display text-[15px] text-ink">{ch.label}</span>
-                <span className="mt-[2px] block font-body text-[13px] text-ink-soft">
+                <span className="block font-display text-body-sm text-ink">{ch.label}</span>
+                <span className="mt-3xs block font-body text-label text-ink-soft">
                   {ch.outcome}
                 </span>
               </span>
@@ -370,7 +370,7 @@ export function BranchChoices({
                 disabled={disabled}
                 aria-label={`Play out "${ch.label}"`}
                 title="Skip the typing and let the scene play this choice out"
-                className="min-h-[32px] flex-none rounded-[6px] border border-field-bd px-[8px] font-mono text-[9px] tracking-[0.08em] whitespace-nowrap text-mute uppercase hover:bg-hover hover:text-ink disabled:opacity-50"
+                className="min-h-[32px] flex-none rounded-sm border border-field-bd px-sm font-mono text-eyebrow tracking-[0.08em] whitespace-nowrap text-mute uppercase hover:bg-hover hover:text-ink disabled:opacity-50"
               >
                 Play it out
               </button>
@@ -393,7 +393,7 @@ export function BranchChoices({
  */
 function DirectionAside({ text }: { text: string }) {
   return (
-    <div className="py-[2px] text-center font-mono text-[9px] leading-[1.7] tracking-[0.16em] text-mute2 uppercase">
+    <div className="py-3xs text-center font-mono text-eyebrow leading-[1.7] tracking-[0.16em] text-mute2 uppercase">
       — you directed the scene: {text} —
     </div>
   );

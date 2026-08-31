@@ -39,6 +39,25 @@ class LlmParams(CamelModel):
     presence_penalty: float = 0.0
 
 
+class LlmProviderOption(CamelModel):
+    """One entry in the provider dropdown — pure config, no I/O to produce."""
+
+    id: str
+    label: str
+    #: Whether this provider already has a base URL or an API key stored, so the
+    #: picker can mark it without ever revealing either.
+    configured: bool = False
+    #: The base URL to prefill when the operator switches to it and has none.
+    default_base_url: str = ""
+    #: False for providers that cannot list their models over the wire, so the UI
+    #: shows a text field rather than an empty dropdown that looks broken.
+    supports_discovery: bool = True
+    #: False where the turn loop cannot yet parse this provider's stream, so
+    #: every turn would silently arrive as one block instead of typing out. The
+    #: picker says so rather than letting an operator find out mid-scene.
+    streaming_dispatched: bool = False
+
+
 class LlmConfigRead(CamelModel):
     base_url: str = ""
     model: str = ""
@@ -55,6 +74,11 @@ class LlmConfigRead(CamelModel):
     max_context_tokens: int = 16384
     # How much of a turn's thinking reaches the player (see ``ReasoningVisibility``).
     reasoning_visibility: ReasoningVisibility = "full"
+    # Every provider the build knows about, with whether each is already set up.
+    # Sent with the config so the Options panel can render its dropdown without a
+    # second request — and so it never has to hardcode the list, which is the
+    # thing that goes stale between releases.
+    providers: list[LlmProviderOption] = []
 
 
 class LlmConfigUpdate(CamelModel):
@@ -213,15 +237,35 @@ class LlmModelsRequest(CamelModel):
     # When omitted, the stored config is used.
     base_url: str | None = None
     api_key: str | None = None
+    # Probe a provider WITHOUT switching to it first. Discovery that requires
+    # committing to a provider before you can see whether it works is not
+    # discovery — the operator would have to destroy a working config to try a
+    # new one. Omitted = the active provider.
+    provider: str | None = None
 
 
 class LlmModelsResponse(CamelModel):
+    """The result of a discovery attempt.
+
+    `ok` is False for an endpoint that could not be reached, and the route still
+    returns **200**. An unreachable local server is a NORMAL state, not an
+    exception: someone's GPU box being off is not an error in Mytheca, and a 500
+    here would make the Options page look broken instead of the endpoint.
+    """
+
     models: list[str]
+    ok: bool = True
+    #: Human-readable reason when `ok` is False. Never a stack trace.
+    error: str | None = None
+    #: Where the list came from: "endpoint" (asked and answered), "config" (this
+    #: provider cannot list, so these are declared), or "none".
+    source: str = "endpoint"
 
 
 class LlmTestRequest(CamelModel):
     base_url: str | None = None
     api_key: str | None = None
+    provider: str | None = None
     model: str
     params: LlmParams | None = None
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { HeaderBar, HeaderLead, HeaderTrail } from "@/components/layout/HeaderBar";
 import type { LlmHealth } from "@/lib/types";
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -31,7 +32,7 @@ function ViewModeSwitch({
     <div
       role="group"
       aria-label="Scene view"
-      className="flex items-center rounded-full border border-field-bd bg-field p-[2px]"
+      className="flex items-center rounded-full border border-field-bd bg-field p-3xs"
     >
       {VIEW_MODES.map((mode) => {
         const active = viewMode === mode.key;
@@ -42,9 +43,9 @@ function ViewModeSwitch({
             onClick={() => onChange(mode.key)}
             aria-pressed={active}
             title={mode.key === "graph" ? "See the scene's story graph" : "Back to the running scene"}
-            className={`rounded-full px-[8px] py-[4px] font-mono text-[9px] tracking-[0.08em] uppercase transition-colors sm:px-[10px] sm:tracking-[0.12em] ${
+            className={`rounded-full px-sm py-2xs font-mono text-eyebrow tracking-[0.08em] uppercase transition-colors sm:px-sm sm:tracking-[0.12em] ${
               active
-                ? "bg-card2 font-semibold text-accent"
+                ? "bg-card2 font-semibold text-accent-ink"
                 : "text-mute hover:bg-hover hover:text-ink"
             }`}
           >
@@ -242,25 +243,25 @@ export function SceneHeader({
   ];
 
   return (
-    <header className="mytheca-header flex h-[50px] flex-none items-center justify-between gap-2 border-b border-hair-strong px-[12px] sm:gap-3 sm:px-[24px]">
-      <div className="flex min-w-0 items-center gap-[8px] sm:gap-[14px]">
+    <HeaderBar>
+      <HeaderLead>
         <Link
           href={backHref}
           aria-label="Back to Library"
-          className="flex flex-none items-center gap-[7px] rounded-[2px] border border-field-bd px-[9px] py-[6px] font-mono text-[10px] tracking-[0.1em] text-accent uppercase hover:bg-accent hover:text-[#F6ECDA] sm:px-[11px]"
+          className="flex flex-none items-center gap-2xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.1em] text-accent-ink uppercase hover:bg-accent hover:text-on-accent sm:px-md"
         >
           ‹<span className="hidden sm:inline">&nbsp;Library</span>
         </Link>
         <span className="h-[22px] w-px flex-none bg-hair-strong" aria-hidden />
         <div className="min-w-0">
-          <div className="truncate font-display text-[16px] font-bold leading-none text-ink">
+          <div className="truncate font-display text-step-0 leading-none font-bold text-ink">
             {title}
           </div>
           <div className="mt-1 truncate font-mono text-tag tracking-[0.14em] text-mute uppercase">
             {meta} · live scene
           </div>
         </div>
-      </div>
+      </HeaderLead>
       {/* Deliberately `flex-none`. Letting this cluster shrink was tried and is
         * worse: its children have intrinsic widths, so a squeezed container
         * pushes them 50–150px past the edge instead of 7px. The real fix was never a
@@ -270,7 +271,7 @@ export function SceneHeader({
         * Rendered ONCE in one of two forms, never twice with one copy `aria-hidden`: a
         * duplicated cluster produces duplicate accessible names and a tab order that
         * visits invisible buttons. */}
-      <div className="flex flex-none items-center gap-[8px] sm:gap-[14px]">
+      <HeaderTrail className="gap-sm sm:gap-md">
         {/* Inline at every width: the scene's primary mode toggle, and whether the model
             behind it is actually there. Both are compact, and both answer a question the
             player should not have to open a menu to ask. */}
@@ -293,7 +294,7 @@ export function SceneHeader({
             aria-pressed={memoryOpen}
             aria-label="What the scene knows"
             title="How far back the cast remembers, and what it is reading"
-            className="flex flex-none items-center gap-[6px] rounded-[2px] border border-field-bd px-[9px] py-[6px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent aria-pressed:border-accent aria-pressed:text-accent sm:px-[10px]"
+            className="flex flex-none items-center gap-xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink aria-pressed:border-accent aria-pressed:text-accent-ink"
           >
             <span aria-hidden>◍</span>
             <span className="hidden sm:inline">Memory</span>
@@ -305,8 +306,8 @@ export function SceneHeader({
         {sceneMenuItems.length > 0 || extraSlot ? (
           <SceneMenu items={sceneMenuItems} extraSlot={extraSlot} />
         ) : null}
-      </div>
-    </header>
+      </HeaderTrail>
+    </HeaderBar>
   );
 }
 
@@ -319,8 +320,8 @@ const HEALTH_COPY: Record<
   // colour alone, which is exactly what the labelled form exists to avoid — so the shape
   // changes with the state too.
   reachable: { label: "Model ready", dot: "bg-success", text: "text-mute", glyph: "●" },
-  model_missing: { label: "Model not found", dot: "bg-gold", text: "text-gold", glyph: "!" },
-  unreachable: { label: "Model unreachable", dot: "bg-danger", text: "text-danger", glyph: "✕" },
+  model_missing: { label: "Model not found", dot: "bg-gold", text: "text-gold-ink", glyph: "!" },
+  unreachable: { label: "Model unreachable", dot: "bg-danger", text: "text-danger-ink", glyph: "✕" },
   unconfigured: { label: "No model set", dot: "bg-mute2", text: "text-mute2", glyph: "○" },
 };
 
@@ -342,7 +343,7 @@ function ModelStatus({ health, wide }: { health: LlmHealth | null; wide: boolean
       title={
         health.backend ? `${health.detail} (${health.backend})` : health.detail
       }
-      className="flex flex-none items-center gap-[6px] font-mono text-[9px] tracking-[0.12em] uppercase"
+      className="flex flex-none items-center gap-xs font-mono text-eyebrow tracking-[0.12em] uppercase"
     >
       {wide ? (
         <>
@@ -353,7 +354,7 @@ function ModelStatus({ health, wide }: { health: LlmHealth | null; wide: boolean
         // The name still says it in words; only the drawing shrinks. It used to be
         // `hidden sm:flex` — invisible at exactly the width where a broken endpoint is
         // hardest to diagnose.
-        <span aria-hidden className={`text-[11px] leading-none ${copy.text}`}>{copy.glyph}</span>
+        <span aria-hidden className={`text-eyebrow leading-none ${copy.text}`}>{copy.glyph}</span>
       )}
     </span>
   );

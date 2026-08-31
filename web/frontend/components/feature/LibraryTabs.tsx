@@ -44,7 +44,7 @@ export function LibraryTabs({
       // track, so a clipped tab reads as "there is more this way" rather than
       // as the end of the list. It is driven by animation-timeline: scroll(),
       // so there is no scroll listener behind it.
-      className="scroll-fade flex items-center gap-1 overflow-x-auto border-b border-hair-strong px-[28px]"
+      className="scroll-fade flex items-center gap-1 overflow-x-auto border-b border-hair-strong px-xl"
     >
       {tabs.map((tab, index) => {
         const selected = tab.key === active;
@@ -62,14 +62,14 @@ export function LibraryTabs({
             onClick={() => onChange(tab.key)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              "flex cursor-pointer items-center gap-2 px-[18px] pt-[10px] pb-[13px] font-display text-[16px] font-semibold whitespace-nowrap",
+              "flex cursor-pointer items-center gap-2 px-lg pt-sm pb-md font-display text-body font-semibold whitespace-nowrap",
               selected
                 ? "border-b-2 border-accent text-ink"
                 : "border-b-2 border-transparent text-tab-ink",
             )}
           >
             {tab.label}
-            <span className="font-mono text-[11px] font-normal text-[#A38E63]">
+            <span className="font-mono text-eyebrow font-normal text-[#A38E63]">
               {tab.count}
             </span>
           </button>

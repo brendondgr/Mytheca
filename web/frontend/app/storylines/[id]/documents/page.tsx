@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { DocumentsView } from "@/features/documents/DocumentsView";
 
 export const metadata: Metadata = {
-  title: "Documents · Mytheca",
+  title: "Documents",
 };
 
 // `/storylines/[id]/documents` — the world's context-document manager: see & adjust

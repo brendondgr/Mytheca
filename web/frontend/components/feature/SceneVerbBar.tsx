@@ -75,7 +75,7 @@ export function SceneVerbBar({
     <div
       role="toolbar"
       aria-label="Direction"
-      className="-mx-[2px] flex max-w-full items-center gap-[8px] overflow-x-auto px-[2px] py-[1px]"
+      className="-mx-3xs flex max-w-full items-center gap-sm overflow-x-auto px-3xs py-3xs"
     >
       {VERB_GROUPS.map((group: VerbGroup) => {
         const rows = verbs.filter((v) => v.group === group);
@@ -85,11 +85,11 @@ export function SceneVerbBar({
             key={group}
             role="group"
             aria-label={VERB_GROUP_LABELS[group]}
-            className="flex flex-none items-center gap-[4px]"
+            className="flex flex-none items-center gap-2xs"
           >
             <span
               aria-hidden
-              className="flex-none font-mono text-[8px] tracking-[0.12em] text-mute2 uppercase"
+              className="flex-none font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase"
             >
               {VERB_GROUP_LABELS[group]}
             </span>
@@ -110,7 +110,7 @@ export function SceneVerbBar({
                   onClick={() =>
                     verb.expands === "cast" ? onExpandCast?.() : onVerb(verb.text)
                   }
-                  className="min-h-[24px] flex-none rounded-[6px] border border-field-bd px-[7px] py-[2px] font-mono text-[9px] tracking-[0.06em] whitespace-nowrap text-mute uppercase hover:bg-hover hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+                  className="min-h-[24px] flex-none rounded-sm border border-field-bd px-xs py-3xs font-mono text-eyebrow tracking-[0.06em] whitespace-nowrap text-mute uppercase hover:bg-hover hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   {verb.label}
                 </button>

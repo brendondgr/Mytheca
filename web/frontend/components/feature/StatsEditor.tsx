@@ -5,9 +5,9 @@ import { blankStat, statKeyOf } from "@/features/library/editor";
 import type { StatBand, StatDefinition } from "@/lib/types";
 
 const NUM =
-  "w-[58px] rounded-[2px] border border-field-bd bg-card px-[7px] py-[4px] text-right font-mono text-[12.5px] text-ink focus:border-accent focus:outline-none";
+  "w-[58px] rounded-xs border border-field-bd bg-card px-xs py-2xs text-right font-mono text-field text-ink focus:border-accent focus:outline-none";
 const TXT =
-  "w-full rounded-[2px] border border-field-bd bg-card px-[9px] py-[5px] font-body text-[13.5px] text-ink focus:border-accent focus:outline-none";
+  "w-full rounded-xs border border-field-bd bg-card px-sm py-2xs font-body text-field text-ink focus:border-accent focus:outline-none";
 
 /**
  * The universal-stats editor for a Storyline — every character shares these.
@@ -64,41 +64,41 @@ export function StatsEditor({
 
   return (
     <div>
-      <div className="flex items-end justify-between gap-[10px]">
+      <div className="flex items-end justify-between gap-sm">
         <FieldLabel>Statistics</FieldLabel>
         <button
           type="button"
           onClick={addStat}
-          className="mb-[6px] cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:underline"
+          className="mb-xs cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase hover:underline"
         >
           + Add statistic
         </button>
       </div>
-      <p className="mb-[12px] font-body text-[12.5px] text-ink-soft">
+      <p className="mb-md font-body text-eyebrow text-ink-soft">
         Universal stats shared by every character in this world. Give each a range
         and labeled <span className="italic">bands</span> — what its values mean
         (e.g. Health 0–20 = “Nearly dead”) — so the story engine can read a
         character&apos;s condition from a number. In any description you can write{" "}
-        <span className="font-mono text-[11.5px] text-accent">{"{Character}"}</span>{" "}
+        <span className="font-mono text-eyebrow text-accent-ink">{"{Character}"}</span>{" "}
         — it&apos;s replaced with the character&apos;s name when the story engine
         reads their current stat.
       </p>
 
       {stats.length === 0 ? (
-        <p className="font-body text-[12.5px] text-mute">
+        <p className="font-body text-eyebrow text-mute">
           No stats yet — add one to define what every character tracks.
         </p>
       ) : (
-        <ul className="flex flex-col gap-[12px]">
+        <ul className="flex flex-col gap-md">
           {stats.map((s, si) => (
             <li
               key={si}
               role="group"
               aria-label={s.displayName || "New statistic"}
-              className="rounded-[5px] border border-cardbd bg-field p-[12px]"
+              className="rounded-sm border border-cardbd bg-field p-md"
             >
               {/* Name + remove */}
-              <div className="flex items-start gap-[10px]">
+              <div className="flex items-start gap-sm">
                 <div className="min-w-0 flex-1">
                   <input
                     aria-label={`Statistic ${si + 1} name`}
@@ -112,7 +112,7 @@ export function StatsEditor({
                   type="button"
                   onClick={() => removeStat(si)}
                   aria-label={`Remove ${s.displayName || "statistic"}`}
-                  className="cursor-pointer px-[6px] py-[4px] font-mono text-[10px] tracking-[0.06em] text-accent uppercase hover:underline"
+                  className="cursor-pointer px-xs py-2xs font-mono text-eyebrow tracking-[0.06em] text-accent-ink uppercase hover:underline"
                 >
                   Remove
                 </button>
@@ -125,13 +125,13 @@ export function StatsEditor({
                 value={s.description}
                 onChange={(e) => patchStat(si, { description: e.target.value })}
                 rows={2}
-                className={`${TXT} mt-[8px] resize-y`}
+                className={`${TXT} mt-sm resize-y`}
               />
 
               {/* Range */}
-              <div className="mt-[10px] flex flex-wrap items-center gap-x-[16px] gap-y-[8px]">
+              <div className="mt-sm flex flex-wrap items-center gap-x-lg gap-y-sm">
                 {(["min", "max", "default"] as const).map((field) => (
-                  <label key={field} className="flex items-center gap-[6px]">
+                  <label key={field} className="flex items-center gap-xs">
                     <span className="font-mono text-tag tracking-[0.08em] text-mute2 uppercase">
                       {field}
                     </span>
@@ -147,28 +147,28 @@ export function StatsEditor({
               </div>
 
               {/* Bands ("tickers") */}
-              <div className="mt-[12px] border-t border-hair-strong pt-[10px]">
-                <div className="flex items-center justify-between gap-[10px]">
+              <div className="mt-md border-t border-hair-strong pt-sm">
+                <div className="flex items-center justify-between gap-sm">
                   <span className="font-mono text-tag tracking-[0.1em] text-mute2 uppercase">
                     Bands · what the ranges mean
                   </span>
                   <button
                     type="button"
                     onClick={() => addBand(si)}
-                    className="cursor-pointer font-mono text-[10px] tracking-[0.06em] text-accent uppercase hover:underline"
+                    className="cursor-pointer font-mono text-eyebrow tracking-[0.06em] text-accent-ink uppercase hover:underline"
                   >
                     + Add band
                   </button>
                 </div>
                 {s.bands.length === 0 ? (
-                  <p className="mt-[6px] font-body text-[12px] text-mute">
+                  <p className="mt-xs font-body text-eyebrow text-mute">
                     No bands — add one to label a range (e.g. 0–20 “Nearly dead”).
                   </p>
                 ) : (
-                  <ul className="mt-[8px] flex flex-col gap-[10px]">
+                  <ul className="mt-sm flex flex-col gap-sm">
                     {s.bands.map((b, bi) => (
-                      <li key={bi} className="flex flex-col gap-[6px]">
-                        <div className="flex flex-wrap items-center gap-[8px]">
+                      <li key={bi} className="flex flex-col gap-xs">
+                        <div className="flex flex-wrap items-center gap-sm">
                           <input
                             type="number"
                             aria-label={`Band ${bi + 1} min`}
@@ -197,7 +197,7 @@ export function StatsEditor({
                             type="button"
                             onClick={() => removeBand(si, bi)}
                             aria-label={`Remove band ${bi + 1}`}
-                            className="cursor-pointer px-[5px] font-mono text-[13px] text-accent hover:underline"
+                            className="cursor-pointer px-2xs font-mono text-label text-accent-ink hover:underline"
                           >
                             ✕
                           </button>
@@ -207,7 +207,7 @@ export function StatsEditor({
                           placeholder="Description — e.g. “{Character} is exhausted and cannot act at full strength.”"
                           value={b.description ?? ""}
                           onChange={(e) => patchBand(si, bi, { description: e.target.value })}
-                          className={`${TXT} text-[12.5px]`}
+                          className={TXT}
                         />
                       </li>
                     ))}

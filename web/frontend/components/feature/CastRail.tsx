@@ -17,11 +17,11 @@ export function TurnOrder({
   charById: (id: string) => Character | undefined;
 }) {
   return (
-    <div className="mt-[22px]">
-      <Eyebrow tracking="0.16em" className="mb-[10px] block">
+    <div className="mt-xl">
+      <Eyebrow tracking="0.16em" className="mb-sm block">
         Turn order
       </Eyebrow>
-      <div className="flex flex-wrap gap-[5px]">
+      <div className="flex flex-wrap gap-2xs">
         {order.map((x, i) => {
           const isYou = x === "You";
           const c = isYou ? undefined : charById(x);
@@ -31,7 +31,7 @@ export function TurnOrder({
           return (
             <span
               key={`${x}-${i}`}
-              className="rounded-[12px] border px-[9px] py-1 font-mono text-[9px] font-medium tracking-[0.04em]"
+              className="rounded-lg border px-sm py-1 font-mono text-eyebrow font-medium tracking-[0.04em]"
               style={{
                 borderColor: color,
                 color: active ? "#F6ECDA" : color,
@@ -78,7 +78,7 @@ function PresenceControl({
       aria-label={`Presence for ${character.name}`}
       value={status}
       onChange={(e) => onChange(e.target.value as PresenceStatus)}
-      className="mt-[6px] w-full rounded-[3px] border border-cardbd bg-card px-[6px] py-[3px] font-mono text-[9px] tracking-[0.04em] text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="mt-xs w-full rounded-xs border border-cardbd bg-card px-xs py-3xs font-mono text-field tracking-[0.04em] text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       {PRESENCE_OPTIONS.map((o) => (
         <option key={o.value} value={o.value}>
@@ -103,13 +103,13 @@ function CastMemberStats({
   const visible = statDefs.filter((d) => d.visibility === "public");
   if (visible.length === 0) return null;
   return (
-    <div className="mt-[6px] flex flex-col gap-[2px]">
+    <div className="mt-xs flex flex-col gap-3xs">
       {visible.map((d) => (
         <div key={d.key} className="flex items-baseline justify-between gap-2">
-          <span className="min-w-0 truncate font-mono text-[9px] tracking-[0.02em] text-ink-soft">
+          <span className="min-w-0 truncate font-mono text-eyebrow tracking-[0.02em] text-ink-soft">
             {d.displayName}
           </span>
-          <span className="flex-none font-mono text-[9px] text-accent">
+          <span className="flex-none font-mono text-eyebrow text-accent-ink">
             {liveValueFor(d, values) ?? d.default}
           </span>
         </div>
@@ -148,43 +148,43 @@ function CastMemberRow({
   return (
     <div
       className={cn(
-        "rounded-[3px] border p-[8px_10px]",
+        "rounded-xs border p-[8px_10px]",
         effectiveSpeaking ? "border-accent bg-card2" : "border-cardbd bg-card",
         away && "opacity-60",
       )}
     >
-      <div className="flex items-center gap-[10px]">
+      <div className="flex items-center gap-sm">
         <button
           type="button"
           onClick={() => onProfile(c.id)}
           title="View profile"
-          className="mytheca-row flex min-w-0 flex-1 items-center gap-[10px] text-left hover-nudge"
+          className="mytheca-row flex min-w-0 flex-1 items-center gap-sm text-left hover-nudge"
         >
           <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={34} fontSize={13} />
           <span className="min-w-0 flex-1">
             <span
               className={cn(
-                "block font-display text-[14px] font-semibold leading-[1.05] text-ink",
+                "block font-display text-body-sm font-semibold leading-[1.05] text-ink",
                 status === "dead" && "line-through",
               )}
             >
               {c.name}
             </span>
-            <Eyebrow size={8} tracking="0.08em" color={c.color} className="mt-[3px] block">
+            <Eyebrow size={8} tracking="0.08em" entity={c.color} className="mt-3xs block">
               {c.role}
             </Eyebrow>
           </span>
         </button>
         {effectiveSpeaking ? (
-          <span className="flex-none font-mono text-[7.5px] tracking-[0.1em] text-success uppercase">
+          <span className="flex-none font-mono text-eyebrow tracking-[0.1em] text-success-ink uppercase">
             Speaking
           </span>
         ) : isThinking ? (
-          <span className="flex flex-none items-center gap-[4px] font-mono text-[7.5px] tracking-[0.1em] text-ink-soft uppercase">
+          <span className="flex flex-none items-center gap-2xs font-mono text-eyebrow tracking-[0.1em] text-ink-soft uppercase">
             Thinking <TypingDots />
           </span>
         ) : away ? (
-          <span className="flex-none font-mono text-[7.5px] tracking-[0.1em] text-ink-soft uppercase">
+          <span className="flex-none font-mono text-eyebrow tracking-[0.1em] text-ink-soft uppercase">
             {PRESENCE_LABEL[status]}
           </span>
         ) : null}
@@ -263,7 +263,7 @@ export function CastRailContent({
       <Eyebrow tracking="0.16em" className="mb-3 block">
         In the Scene
       </Eyebrow>
-      <div className="flex flex-col gap-[7px]">
+      <div className="flex flex-col gap-xs">
         {present.map((c) => (
           <CastMemberRow
             key={c.id}
@@ -281,10 +281,10 @@ export function CastRailContent({
 
       {away.length > 0 ? (
         <>
-          <Eyebrow tracking="0.16em" className="mb-2 mt-[18px] block">
+          <Eyebrow tracking="0.16em" className="mb-2 mt-lg block">
             Out of the Scene
           </Eyebrow>
-          <div className="flex flex-col gap-[7px]">
+          <div className="flex flex-col gap-xs">
             {away.map((c) => (
               <CastMemberRow
                 key={c.id}
@@ -304,12 +304,12 @@ export function CastRailContent({
 
       {elsewhere.length > 0 ? (
         <>
-          <Eyebrow tracking="0.16em" className="mb-2 mt-[18px] block">
+          <Eyebrow tracking="0.16em" className="mb-2 mt-lg block">
             Elsewhere in the World
           </Eyebrow>
-          <ul className="flex flex-col gap-[5px]">
+          <ul className="flex flex-col gap-2xs">
             {elsewhere.map((c) => (
-              <li key={c.id} className="flex items-center gap-[7px]">
+              <li key={c.id} className="flex items-center gap-xs">
                 <Monogram
                   mono={c.mono}
                   color={c.color}
@@ -318,7 +318,7 @@ export function CastRailContent({
                   fontSize={9}
                   src={c.portrait ? mediaUrl(c.portrait) : null}
                 />
-                <span className="min-w-0 flex-1 truncate font-display text-[12px] text-mute2">
+                <span className="min-w-0 flex-1 truncate font-display text-eyebrow text-mute2">
                   {c.name}
                 </span>
                 {setPresence ? (
@@ -332,7 +332,7 @@ export function CastRailContent({
                         ? "Play a turn first — there is no scene to join yet."
                         : `Bring ${c.name} into the scene`
                     }
-                    className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[5px] border border-field-bd text-[13px] leading-none text-mute hover:bg-hover hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+                    className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-sm border border-field-bd text-label leading-none text-mute hover:bg-hover hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
                   >
                     +
                   </button>

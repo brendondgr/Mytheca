@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import type { ArtStyleId } from "@/lib/api";
 
 const LINK =
-  "cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40";
+  "cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase enabled:hover:underline disabled:opacity-40";
 
 /** The `messageOf()` fallback in useLibraryState for a non-`Error` throw — too
  * vague to leave on screen, so a retry-able failure names the operation instead. */
@@ -96,10 +96,10 @@ export function PortraitModal({
       z={70}
     >
       <div className="p-[22px_26px_24px]">
-        <div className="flex items-end justify-between gap-[10px]">
+        <div className="flex items-end justify-between gap-sm">
           <div
             id="portrait-modal-title"
-            className="font-display text-[22px] font-bold text-ink"
+            className="font-display text-step-2 font-bold text-ink"
           >
             Portrait
           </div>
@@ -110,12 +110,12 @@ export function PortraitModal({
               onGeneratePrompts();
             }}
             disabled={!hasDescription || generatingPrompts}
-            className={cn(LINK, "mb-[6px]")}
+            className={cn(LINK, "mb-xs")}
           >
             {generatingPrompts ? "Writing…" : "❖ Generate prompts"}
           </button>
         </div>
-        <p className="mt-[6px] mb-[14px] font-body text-[12.5px] text-ink-soft">
+        <p className="mt-xs mb-lg font-body text-eyebrow text-ink-soft">
           A portrait via ComfyUI — accurate to their species/race, look, and personality.
           Pick a style, generate the prompts from the character&apos;s context, tweak, then
           render.
@@ -126,11 +126,11 @@ export function PortraitModal({
             value={artStyle}
             onChange={onArtStyleChange}
             disabled={generatingPrompts || generatingPortrait}
-            className="mb-[16px]"
+            className="mb-lg"
           />
         ) : null}
 
-        <div className="md:flex md:gap-[18px]">
+        <div className="md:flex md:gap-lg">
           <div className="md:min-w-0 md:flex-1">
             <TextArea
               label="Positive prompt"
@@ -149,7 +149,7 @@ export function PortraitModal({
               value={negative}
               onChange={(e) => onNegativeChange(e.target.value)}
               className={cn(
-                "mt-[12px]",
+                "mt-md",
                 activeField === "_portraitNegative" && "mytheca-field-active",
               )}
             />
@@ -159,15 +159,15 @@ export function PortraitModal({
                 onGeneratePortrait();
               }}
               disabled={!canRenderPortrait || generatingPortrait}
-              className="mt-[12px]"
+              className="mt-md"
             >
               {generatingPortrait ? "Rendering… (this can take a moment)" : "❖ Generate portrait"}
             </Button>
           </div>
           {/* Preview — the rendered WebP, or a monogram placeholder. */}
-          <div className="mt-[14px] flex flex-none justify-center md:mt-0">
+          <div className="mt-lg flex flex-none justify-center md:mt-0">
             <div
-              className="flex aspect-[2/3] w-[200px] items-center justify-center overflow-hidden rounded-[6px] border border-cardbd bg-field"
+              className="flex aspect-[2/3] w-[200px] items-center justify-center overflow-hidden rounded-sm border border-cardbd bg-field"
               style={{ borderColor: color }}
             >
               <SmartImage
@@ -176,9 +176,9 @@ export function PortraitModal({
                 aspect="2 / 3"
                 className="h-full w-full"
                 placeholder={
-                  <div className="flex flex-col items-center gap-[8px] px-[10px] text-center">
+                  <div className="flex flex-col items-center gap-sm px-sm text-center">
                     <Monogram mono={mono} color={color} size={64} ring={3} fontSize={26} />
-                    <span className="font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
+                    <span className="font-mono text-eyebrow tracking-[0.1em] text-mute2 uppercase">
                       No portrait yet
                     </span>
                   </div>
@@ -189,8 +189,8 @@ export function PortraitModal({
         </div>
 
         {error ? (
-          <div className="mt-4 flex flex-wrap items-center gap-[10px]">
-            <p role="alert" className="font-body text-[13px] text-accent">
+          <div className="mt-4 flex flex-wrap items-center gap-sm">
+            <p role="alert" className="font-body text-label text-accent-ink">
               {error === VAGUE_ERROR
                 ? lastAction === "prompts"
                   ? "Could not generate the portrait prompts."
@@ -202,7 +202,7 @@ export function PortraitModal({
             </Button>
           </div>
         ) : null}
-        <div className="mt-[20px] flex justify-end">
+        <div className="mt-lg flex justify-end">
           <Button variant="ghost" onClick={onClose}>
             Done
           </Button>

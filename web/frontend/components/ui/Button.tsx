@@ -15,7 +15,7 @@ const VARIANT: Record<ButtonVariant, string> = {
   primary:
     "bg-accent text-[#F6ECDA] border border-accent-hover hover:bg-accent-hover hover:shadow-[0_5px_14px_rgba(10,6,3,.3)]",
   secondary:
-    "bg-card text-accent border border-accent hover:bg-accent hover:text-[#F6ECDA] hover:shadow-[0_5px_14px_rgba(10,6,3,.25)]",
+    "bg-card text-accent-ink border border-accent hover:bg-accent hover:text-[#F6ECDA] hover:shadow-[0_5px_14px_rgba(10,6,3,.25)]",
   ghost:
     "bg-transparent text-ink-soft border border-field-bd hover:bg-hover hover:text-ink hover:border-hair-strong",
 };
@@ -54,7 +54,7 @@ export function Button({
       aria-busy={loading || undefined}
       aria-label={loading ? loadingLabel : undefined}
       className={cn(
-        "relative inline-flex cursor-pointer items-center justify-center rounded-[2px] px-[18px] py-[10px] font-mono text-ui uppercase tracking-[0.08em]",
+        "relative inline-flex cursor-pointer items-center justify-center rounded-xs px-lg py-sm font-mono text-ui uppercase tracking-[0.08em]",
         // 44px floor on touch only. On a mouse the button keeps the density the
         // design system specifies; see the note in styles/motion.css.
         "touch-target",

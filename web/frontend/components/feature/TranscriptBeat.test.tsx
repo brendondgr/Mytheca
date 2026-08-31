@@ -68,8 +68,8 @@ describe("TranscriptBeat", () => {
     const thought = screen.getByText("Coin first.");
     const speech = screen.getByText("Fine.");
     // Same font size for both — the thought is no longer a smaller, separate block.
-    expect(thought.className).toContain("text-[15.5px]");
-    expect(speech.className).toContain("text-[15.5px]");
+    expect(thought.className).toContain("text-body-sm");
+    expect(speech.className).toContain("text-body-sm");
     // Both live inside the SAME bubble container.
     const box = thought.closest("div");
     expect(box).not.toBeNull();

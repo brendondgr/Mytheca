@@ -98,8 +98,8 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
 
   if (c.isEdit && c.loading) {
     return (
-      <main className="mx-auto w-full max-w-[1180px] px-[18px] py-[40px]">
-        <p aria-live="polite" className="font-body text-[15px] text-mute">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1180px] px-lg py-2xl">
+        <p aria-live="polite" className="font-body text-body-sm text-mute">
           Loading the storyline…
         </p>
       </main>
@@ -115,7 +115,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
     // descendants. It used to be what stopped `sr-only` labels escaping `overflow-hidden`
     // and inflating the root scroller; `app/globals.css` now closes that repo-wide by
     // redefining the utility as `position: fixed`, and this stays as a cheap backstop.
-    <main className="relative flex h-dvh min-h-0 flex-col overflow-hidden lg:flex-row">
+    <main id="main" tabIndex={-1} className="relative flex h-dvh min-h-0 flex-col overflow-hidden lg:flex-row">
       {/* ── Left sidebar — the Assistant (own scroll; StorylineAgentPanel is the landmark) ── */}
       <div className="mytheca-rail order-2 flex max-h-[50dvh] min-h-0 shrink-0 flex-col border-t border-hair-strong lg:order-1 lg:max-h-none lg:w-[380px] lg:border-t-0 lg:border-r lg:self-stretch">
         <StorylineAgentPanel agent={agent} mode={c.isEdit ? "edit" : "create"} />
@@ -123,29 +123,29 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
 
       {/* ── Center — the world fields (own scroll) ──────────────────────── */}
       <div className="order-1 min-h-0 flex-1 min-w-0 overflow-y-auto lg:order-2">
-        <div className="mx-auto flex w-full max-w-[840px] flex-col px-[22px] py-[20px]">
+        <div className="mx-auto flex w-full max-w-[840px] flex-col px-xl py-lg">
           <Link
             href="/"
-            className="font-mono text-[11px] tracking-[0.08em] text-mute uppercase hover:text-accent"
+            className="font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:text-accent-ink"
           >
             ‹ Library
           </Link>
-          <h1 className="mt-[8px] font-display text-[26px] font-bold text-ink">
+          <h1 className="mt-sm font-display text-step-2 font-bold text-ink">
             {c.isEdit ? "Edit Storyline" : "New Storyline"}
           </h1>
 
           {c.error ? (
             <p
               role="alert"
-              className="mt-[12px] rounded-[4px] border border-danger/40 bg-card px-[14px] py-[10px] font-body text-[13.5px] text-danger"
+              className="mt-md rounded-sm border border-danger/40 bg-card px-lg py-sm font-body text-label text-danger-ink"
             >
               {c.error}
             </p>
           ) : null}
 
           {/* Fields */}
-          <div className="mt-[16px] min-w-0">
-            <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+          <div className="mt-lg min-w-0">
+            <div className="grid grid-cols-1 gap-lg sm:grid-cols-2">
               <TextField
                 label="Title"
                 placeholder="e.g. Embergate"
@@ -164,7 +164,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
               placeholder="One line for the switcher — what the world is, in a breath."
               value={c.fields.tagline}
               onChange={(e) => c.setField("tagline", e.target.value)}
-              className="mt-[14px]"
+              className="mt-lg"
             />
             <TextArea
               label="Premise"
@@ -172,23 +172,23 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
               rows={6}
               value={c.fields.premise}
               onChange={(e) => c.setField("premise", e.target.value)}
-              className="mt-[14px]"
+              className="mt-lg"
             />
 
             {/* World Primer */}
-            <div className="mt-[18px] border-t border-hair-strong pt-[16px]">
-              <div className="flex items-end justify-between gap-[10px]">
+            <div className="mt-lg border-t border-hair-strong pt-lg">
+              <div className="flex items-end justify-between gap-sm">
                 <FieldLabel>World Primer</FieldLabel>
                 <button
                   type="button"
                   onClick={c.generatePrimer}
                   disabled={!canGeneratePrimer || c.generatingPrimer}
-                  className="mb-[6px] cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40"
+                  className="mb-xs cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase enabled:hover:underline disabled:opacity-40"
                 >
                   {c.generatingPrimer ? "Generating…" : "❖ Generate primer"}
                 </button>
               </div>
-              <p className="mb-[8px] font-body text-[12.5px] text-ink-soft">
+              <p className="mb-sm font-body text-eyebrow text-ink-soft">
                 Agent-facing context injected into every scene — keep it lean (see the budget).
               </p>
               <TextArea
@@ -203,20 +203,20 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
             {/* Narrative style — how this story is WRITTEN, where the primer above is
                 what is true in it. A summary row plus a modal, like the seal below: six
                 blocks of prose do not belong inline in a column of form fields. */}
-            <div className="mt-[18px] flex items-center justify-between gap-[12px] border-t border-hair-strong pt-[16px]">
+            <div className="mt-lg flex items-center justify-between gap-md border-t border-hair-strong pt-lg">
               <div className="min-w-0">
-                <div className="flex items-end gap-[10px]">
+                <div className="flex items-end gap-sm">
                   <FieldLabel>Narrative style</FieldLabel>
                   <button
                     type="button"
                     onClick={c.generateStyle}
                     disabled={!c.fields.premise.trim() || c.generatingStyle}
-                    className="mb-[6px] cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase enabled:hover:underline disabled:opacity-40"
+                    className="mb-xs cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase enabled:hover:underline disabled:opacity-40"
                   >
                     {c.generatingStyle ? "Drafting…" : "❖ Draft style"}
                   </button>
                 </div>
-                <p className="font-body text-[12.5px] text-ink-soft">
+                <p className="font-body text-eyebrow text-ink-soft">
                   {styleCount
                     ? `${styleCount} of 6 set — how the cast writes, not what they know.`
                     : "Optional. How the prose sounds, paces and describes — nothing is said about it until you write one."}
@@ -228,14 +228,14 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
             </div>
 
             {/* Seal */}
-            <div className="mt-[18px] flex items-center justify-between gap-[12px] border-t border-hair-strong pt-[16px]">
-              <div className="flex items-center gap-[10px]">
+            <div className="mt-lg flex items-center justify-between gap-md border-t border-hair-strong pt-lg">
+              <div className="flex items-center gap-sm">
                 <span className="font-mono text-tag tracking-[0.1em] text-mute2 uppercase">
                   Seal
                 </span>
                 <span
                   aria-hidden
-                  className="flex h-[34px] w-[34px] items-center justify-center rounded-[5px] border border-cardbd bg-field text-[19px] leading-none"
+                  className="flex h-[34px] w-[34px] items-center justify-center rounded-sm border border-cardbd bg-field text-step-1 leading-none"
                   style={{ color: c.fields.symbolColor }}
                 >
                   {c.fields.symbol}
@@ -247,7 +247,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
             </div>
 
             {/* Statistics */}
-            <div className="mt-[18px] border-t border-hair-strong pt-[16px]">
+            <div className="mt-lg border-t border-hair-strong pt-lg">
               <StatsEditor
                 stats={c.stats}
                 originalKeys={c.statsOriginalKeys}
@@ -257,16 +257,16 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
           </div>
 
           {/* Footer actions — sticky to the bottom of the scrolling left pane. */}
-          <div className="sticky bottom-0 z-[1] -mx-[22px] mt-[20px] flex flex-wrap items-center justify-end gap-[12px] border-t border-hair-strong bg-page px-[22px] pt-[14px] pb-[16px]">
+          <div className="sticky bottom-0 z-[1] -mx-xl mt-lg flex flex-wrap items-center justify-end gap-md border-t border-hair-strong bg-page px-xl pt-lg pb-lg">
             {c.committing && c.progress ? (
-              <span aria-live="polite" className="mr-auto font-body text-[13px] text-mute">
+              <span aria-live="polite" className="mr-auto font-body text-label text-mute">
                 {c.progress}
               </span>
             ) : c.isEdit ? (
-              <div className="mr-auto flex items-center gap-[10px]">
+              <div className="mr-auto flex items-center gap-sm">
                 <span
                   aria-live="polite"
-                  className="font-mono text-[10px] tracking-[0.12em] text-mute2 uppercase"
+                  className="font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase"
                 >
                   {c.reembedProgress
                     ? c.reembedProgress
@@ -278,7 +278,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
                   type="button"
                   onClick={() => void c.reembed()}
                   disabled={c.reembedding || !c.ragStatus?.available}
-                  className="font-mono text-[10px] tracking-[0.1em] text-accent uppercase hover:underline disabled:text-mute2 disabled:no-underline"
+                  className="font-mono text-eyebrow tracking-[0.1em] text-accent-ink uppercase hover:underline disabled:text-mute2 disabled:no-underline"
                 >
                   {c.reembedding ? "Embedding…" : "Re-embed"}
                 </button>
@@ -286,7 +286,7 @@ export function StorylineCreatorView({ editId }: { editId?: string }) {
             ) : null}
             <Link
               href="/"
-              className="font-mono text-[11px] tracking-[0.08em] text-mute uppercase hover:text-accent"
+              className="font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:text-accent-ink"
             >
               Cancel
             </Link>

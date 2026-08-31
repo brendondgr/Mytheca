@@ -11,7 +11,7 @@ export function Chip({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border border-cardbd bg-card px-3 py-[5px]",
+        "inline-flex items-center gap-2 rounded-full border border-cardbd bg-card px-3 py-2xs",
         className,
       )}
     >

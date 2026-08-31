@@ -10,8 +10,8 @@ const FILL: Record<TagTone, string> = {
 };
 
 const OUTLINE: Record<TagTone, string> = {
-  gold: "border border-gold-soft text-gold-soft",
-  accent: "border border-accent text-accent",
+  gold: "border border-gold-soft text-gold-soft-ink",
+  accent: "border border-accent text-accent-ink",
   neutral: "border border-field-bd text-ink-soft",
 };
 
@@ -32,8 +32,8 @@ export function Tag({
   return (
     <span
       className={cn(
-        "inline-flex items-center px-[9px] py-[3px] font-mono text-tag uppercase tracking-[0.1em] whitespace-nowrap",
-        pill ? "rounded-full" : "rounded-[2px]",
+        "inline-flex items-center px-sm py-3xs font-mono text-tag uppercase tracking-[0.1em] whitespace-nowrap",
+        pill ? "rounded-full" : "rounded-xs",
         variant === "fill" ? FILL[tone] : OUTLINE[tone],
         className,
       )}

@@ -69,24 +69,24 @@ export function SceneImageModal({
           alt={caption}
           // dvh: on mobile, `vh` measures the viewport as if the browser chrome
           // were hidden, so a 70vh image can exceed the space actually visible.
-          className="block h-auto max-h-[70dvh] w-full rounded-[4px] border border-cardbd object-contain"
+          className="block h-auto max-h-[70dvh] w-full rounded-sm border border-cardbd object-contain"
         />
-        <p className="mt-[12px] font-body text-[13.5px] leading-[1.5] text-ink">{caption}</p>
+        <p className="mt-md font-body text-label leading-[1.5] text-ink">{caption}</p>
 
         {image.prompt ? (
-          <div className="mt-[12px]">
+          <div className="mt-md">
             <button
               type="button"
               onClick={() => setShowPrompt((open) => !open)}
               aria-expanded={showPrompt}
-              className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-accent uppercase hover:underline"
+              className="cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase hover:underline"
             >
               {showPrompt ? "▾ Hide the prompt" : "▸ Show the prompt"}
             </button>
             {showPrompt ? (
-              <div className="mt-[8px] rounded-[4px] border border-cardbd bg-field p-[10px_12px]">
+              <div className="mt-sm rounded-sm border border-cardbd bg-field p-[10px_12px]">
                 {onRepaint ? null : (
-                  <Eyebrow size={8} tracking="0.14em" className="mb-[5px] block">
+                  <Eyebrow size={8} tracking="0.14em" className="mb-2xs block">
                     Image prompt
                   </Eyebrow>
                 )}
@@ -109,12 +109,12 @@ export function SceneImageModal({
                       label="Style"
                       compact
                       disabled={busy}
-                      className="mt-[10px]"
+                      className="mt-sm"
                     />
-                    <div className="mt-[10px] flex flex-wrap items-center justify-between gap-[8px]">
+                    <div className="mt-sm flex flex-wrap items-center justify-between gap-sm">
                       <span
                         role="status"
-                        className="font-mono text-[9px] tracking-[0.08em] text-mute2 uppercase"
+                        className="font-mono text-eyebrow tracking-[0.08em] text-mute2 uppercase"
                       >
                         {busy ? "Painting the moment…" : ""}
                       </span>
@@ -128,7 +128,7 @@ export function SceneImageModal({
                     </div>
                   </>
                 ) : (
-                  <p className="font-body text-[12.5px] leading-[1.5] text-ink-soft">
+                  <p className="font-body text-eyebrow leading-[1.5] text-ink-soft">
                     {image.prompt}
                   </p>
                 )}
@@ -137,7 +137,7 @@ export function SceneImageModal({
           </div>
         ) : null}
 
-        <div className="mt-[16px] flex justify-end">
+        <div className="mt-lg flex justify-end">
           <Button variant="ghost" onClick={onClose}>
             Done
           </Button>

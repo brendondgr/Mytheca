@@ -34,7 +34,7 @@ export function SettingCard({
     <div
       aria-current={active ? "true" : undefined}
       className={cn(
-        "mytheca-card relative overflow-hidden rounded-[3px] border hover-lift hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
+        "mytheca-card relative overflow-hidden rounded-xs border hover-lift hover:shadow-[0_7px_18px_rgba(20,14,6,.18)]",
         hasImage && "min-h-[118px]",
         active ? "-translate-y-[2px] border-2 border-accent mytheca-glow" : "border-cardbd",
         !hasImage && (active ? "bg-card2" : "bg-card"),
@@ -61,7 +61,7 @@ export function SettingCard({
           style={{ backgroundImage: PLATE_STRIPES }}
           aria-hidden
         >
-          <span className="rounded-[2px] bg-card px-[9px] py-[3px] font-mono text-tag tracking-[0.1em] text-mute">
+          <span className="rounded-xs bg-card px-sm py-3xs font-mono text-tag tracking-[0.1em] text-mute">
             setting plate
           </span>
         </div>
@@ -71,7 +71,7 @@ export function SettingCard({
         <IconButton
           label={`Edit ${s.name}`}
           onClick={onEdit}
-          className="absolute right-[10px] top-[10px] z-[2]"
+          className="absolute right-[10px] top-sm z-[2]"
         >
           ✎
         </IconButton>
@@ -79,12 +79,12 @@ export function SettingCard({
 
       <div className={cn("relative z-[1]", hasImage ? "p-[14px_16px]" : "p-[13px_15px]")}>
         <div
-          className={cn("pr-[28px] font-display text-[16px] font-semibold", !hasImage && "text-ink")}
+          className={cn("pr-xl font-display text-body font-semibold", !hasImage && "text-ink")}
           style={hasImage ? { color: OVER_ART.title } : undefined}
         >
           {s.name}
         </div>
-        <Eyebrow tracking="0.12em" color={hasImage ? OVER_ART.eyebrow : "#A8762A"} className="mt-1 block">
+        <Eyebrow tracking="0.12em" entity={hasImage ? OVER_ART.eyebrow : "#A8762A"} className="mt-1 block">
           {s.type}
         </Eyebrow>
         {/* Active state isn't conveyed by the accent border alone — a labelled
@@ -92,8 +92,8 @@ export function SettingCard({
         {active ? (
           <span
             className={cn(
-              "mt-[4px] block font-mono text-[8.5px] uppercase tracking-[0.12em]",
-              !hasImage && "text-accent",
+              "mt-2xs block font-mono text-eyebrow uppercase tracking-[0.12em]",
+              !hasImage && "text-accent-ink",
             )}
             style={hasImage ? { color: OVER_ART.accent } : undefined}
           >
@@ -102,7 +102,7 @@ export function SettingCard({
         ) : null}
         <p
           className={cn(
-            "mt-[7px] font-body text-body-sm leading-[1.4]",
+            "mt-xs font-body text-body-sm leading-[1.4]",
             hasImage ? "max-w-[58%] line-clamp-2" : "text-ink-soft",
           )}
           style={hasImage ? { color: OVER_ART.body } : undefined}

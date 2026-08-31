@@ -45,31 +45,31 @@ export function PlanApproval({
       // A live region: it arrives mid-stream, after the player has pressed Send and looked
       // away. Announcing it is the difference between a panel and an ambush.
       aria-live="polite"
-      className="mx-auto mb-[10px] flex max-w-[720px] flex-col gap-[9px] rounded-[12px] border border-accent bg-field p-[13px]"
+      className="mx-auto mb-sm flex max-w-[720px] flex-col gap-sm rounded-lg border border-accent bg-field p-md"
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-[6px]">
+      <div className="flex flex-wrap items-baseline justify-between gap-xs">
         <Eyebrow tracking="0.16em" color="var(--accent)">
           The plan — nothing written yet
         </Eyebrow>
-        <span className="font-mono text-[9px] tracking-[0.1em] text-mute2 uppercase">
+        <span className="font-mono text-eyebrow tracking-[0.1em] text-mute2 uppercase">
           {beats.length} beat{beats.length === 1 ? "" : "s"}
         </span>
       </div>
 
-      <ol className="flex flex-col gap-[6px]">
+      <ol className="flex flex-col gap-xs">
         {beats.map((beat, i) => (
           <li
             key={`${beat.action}-${beat.actorId ?? "none"}-${i}`}
-            className="flex items-baseline gap-[8px]"
+            className="flex items-baseline gap-sm"
           >
             <span
               aria-hidden
-              className="w-[14px] flex-none font-mono text-[9px] text-mute2"
+              className="w-[14px] flex-none font-mono text-eyebrow text-mute2"
             >
               {i + 1}
             </span>
-            <span className="min-w-0 flex-1 font-body text-[12px] leading-[1.5] text-ink">
-              <span className="font-mono text-[10px] tracking-[0.08em] text-accent uppercase">
+            <span className="min-w-0 flex-1 font-body text-eyebrow leading-[1.5] text-ink">
+              <span className="font-mono text-eyebrow tracking-[0.08em] text-accent-ink uppercase">
                 {beat.actorName || (beat.action === "narrate" ? "Narrator" : beat.action)}
               </span>
               {beat.reason ? <span className="text-mute"> — {beat.reason}</span> : null}
@@ -77,7 +77,7 @@ export function PlanApproval({
                   worth arguing with: a beat pitched `grave` when you meant it lightly is the
                   case where approving blind costs you the scene. */}
               {beat.register ? (
-                <span className="ml-[5px] font-mono text-[9px] tracking-[0.08em] text-mute2 uppercase">
+                <span className="ml-2xs font-mono text-eyebrow tracking-[0.08em] text-mute2 uppercase">
                   · {beat.register}
                 </span>
               ) : null}
@@ -86,12 +86,12 @@ export function PlanApproval({
         ))}
       </ol>
 
-      <div className="flex flex-wrap items-center gap-[7px]">
+      <div className="flex flex-wrap items-center gap-xs">
         <button
           type="button"
           onClick={onApprove}
           disabled={busy}
-          className="flex-none rounded-[8px] bg-accent px-[11px] py-[5px] font-mono text-[10px] tracking-[0.08em] text-[#F6ECDA] uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
+          className="flex-none rounded-md bg-accent px-md py-2xs font-mono text-eyebrow tracking-[0.08em] text-[#F6ECDA] uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
         >
           Play it out
         </button>
@@ -99,11 +99,11 @@ export function PlanApproval({
           type="button"
           onClick={onDismiss}
           disabled={busy}
-          className="flex-none rounded-[8px] border border-field-bd px-[9px] py-[5px] font-mono text-[9px] tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent disabled:opacity-50"
+          className="flex-none rounded-md border border-field-bd px-sm py-2xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink disabled:opacity-50"
         >
           Change it
         </button>
-        <p className="min-w-0 flex-1 font-body text-[11px] leading-[1.45] text-mute2">
+        <p className="min-w-0 flex-1 font-body text-eyebrow leading-[1.45] text-mute2">
           Approving runs exactly these beats. Changing it puts you back in the composer —
           nothing has been written either way.
         </p>

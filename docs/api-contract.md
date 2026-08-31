@@ -284,12 +284,19 @@ key is **write-only**: it is stored server-side and never returned in clear.
   below). Returns the masked `LlmConfigRead`.
 - `PATCH /options/library` — body may include `defaultStorylineId`,
   `openLastStoryline`. Returns `LibraryDefaultsRead`.
-- `POST /options/llm/models` — `{ baseUrl?, apiKey? }` (fall back to stored).
+- `POST /options/llm/models` — `{ baseUrl?, apiKey?, provider? }` (each falls back to
+  the stored value; `provider` probes a NON-active provider so an operator can test a new
+  endpoint before giving up a working one). Returns
+  `{ models, ok, error, source }` and **always 200** — an unreachable endpoint is
+  `ok: false` with a reason, not a 5xx, because a local server being off is a normal
+  state and a 500 makes the Options page look broken instead of the endpoint. `source` is
+  `endpoint` (asked and answered), `config` (this provider cannot list, so these are
+  declared) or `none`.
   Proxies `GET {baseUrl}/models` server-side (dodges browser CORS, keeps the key
   off the client) → `{ "models": ["id", …] }`. Upstream non-2xx →
   `502 upstream_error`; network/timeout → `502 bad_gateway`; missing URL →
   `400 bad_request`.
-- `POST /options/llm/test` — `{ baseUrl?, apiKey?, model, params? }`. Proxies a
+- `POST /options/llm/test` — `{ baseUrl?, apiKey?, provider?, model, params? }`. Proxies a
   tiny `POST {baseUrl}/chat/completions` → `{ ok, model, latencyMs, sample }`.
 - `GET /options/llm/backend` — read-only diagnostics for the auto-detected
   inference engine of the configured endpoint → `{ "backend": "vllm" | "llamacpp" |

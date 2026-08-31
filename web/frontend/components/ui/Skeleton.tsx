@@ -55,7 +55,7 @@ export function SkeletonText({
   lineClassName?: string;
 }) {
   return (
-    <span aria-hidden="true" className={cn("flex flex-col gap-[6px]", className)}>
+    <span aria-hidden="true" className={cn("flex flex-col gap-xs", className)}>
       {Array.from({ length: lines }, (_, i) => (
         <SkeletonLine
           key={i}

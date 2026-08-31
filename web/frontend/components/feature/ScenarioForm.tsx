@@ -39,9 +39,9 @@ export function ScenarioForm({
         placeholder="e.g. The Embergate Conspiracy"
         value={draft.title || ""}
         onChange={(e) => setDraft("title", e.target.value)}
-        className="mb-[14px]"
+        className="mb-lg"
       />
-      <div className="mb-[14px] flex gap-3">
+      <div className="mb-lg flex gap-3">
         <TextField
           label="Genre"
           placeholder="Intrigue"
@@ -62,7 +62,7 @@ export function ScenarioForm({
         placeholder="What is at stake in this scene?"
         value={draft.goal || ""}
         onChange={(e) => setDraft("goal", e.target.value)}
-        className="mb-[14px]"
+        className="mb-lg"
       />
       <MultiSelect
         multiple
@@ -72,7 +72,7 @@ export function ScenarioForm({
         options={castOptions}
         selected={cast}
         onChange={(next) => setDraft("cast", next)}
-        className="mb-[14px]"
+        className="mb-lg"
       />
       <DirectionVerbsEditor
         verbs={(draft.directionVerbs as AuthoredVerb[] | undefined) ?? []}

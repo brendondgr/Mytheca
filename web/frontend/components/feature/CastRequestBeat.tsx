@@ -40,7 +40,7 @@ export function CastRequestBeat({
 
   if (resolved) {
     return (
-      <p className="py-[2px] text-center font-mono text-[9px] tracking-[0.16em] text-mute2 uppercase">
+      <p className="py-3xs text-center font-mono text-eyebrow tracking-[0.16em] text-mute2 uppercase">
         — you answered about {name} —
       </p>
     );
@@ -49,7 +49,7 @@ export function CastRequestBeat({
   return (
     <section
       aria-label={`The scene is asking for ${name}`}
-      className="mx-auto flex max-w-[420px] flex-col items-center gap-[7px] rounded-[10px] border border-field-bd bg-field px-[12px] py-[10px] text-center"
+      className="mx-auto flex max-w-[420px] flex-col items-center gap-xs rounded-md border border-field-bd bg-field px-md py-sm text-center"
     >
       <Monogram
         mono={character.mono}
@@ -59,20 +59,20 @@ export function CastRequestBeat({
         fontSize={11}
         src={character.portrait ? mediaUrl(character.portrait) : null}
       />
-      <p className="font-body text-[12.5px] leading-[1.45] text-ink-soft">
+      <p className="font-body text-eyebrow leading-[1.45] text-ink-soft">
         The scene is asking for <strong className="font-semibold">{name}</strong>.
       </p>
       {reason ? (
         // The player's own words, not a generic prompt — so the ask is obviously a
         // consequence of what they wrote rather than the model inventing a reason.
-        <p className="font-body text-[11.5px] leading-[1.4] text-mute2 italic">“{reason}”</p>
+        <p className="font-body text-eyebrow leading-[1.4] text-mute2 italic">“{reason}”</p>
       ) : null}
-      <div className="flex flex-wrap items-center justify-center gap-[6px]">
+      <div className="flex flex-wrap items-center justify-center gap-xs">
         <button
           type="button"
           onClick={onAccept}
           disabled={disabled}
-          className="min-h-[32px] rounded-[8px] bg-accent px-[11px] py-[5px] font-mono text-[10px] tracking-[0.08em] text-[#F6ECDA] uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
+          className="min-h-[32px] rounded-md bg-accent px-md py-2xs font-mono text-eyebrow tracking-[0.08em] text-[#F6ECDA] uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
         >
           Bring them in
         </button>
@@ -80,7 +80,7 @@ export function CastRequestBeat({
           type="button"
           onClick={onDecline}
           disabled={disabled}
-          className="min-h-[32px] rounded-[8px] border border-field-bd px-[11px] py-[5px] font-mono text-[10px] tracking-[0.08em] text-mute uppercase hover:bg-hover hover:text-ink disabled:opacity-50"
+          className="min-h-[32px] rounded-md border border-field-bd px-md py-2xs font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:bg-hover hover:text-ink disabled:opacity-50"
         >
           Not now
         </button>

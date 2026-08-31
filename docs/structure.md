@@ -63,7 +63,8 @@ mytheca/
 │   │       ├── main.py     # App factory; every router mounted under /api; /media static mount
 │   │       ├── routes/     # characters · context_documents · graph · options · play · rag
 │   │       │               #   scenarios · settings · stats · storylines
-│   │       ├── services/   # Turn loop, CRUD, graph, RAG glue, media, LLM proxy (46 modules)
+│   │       ├── services/   # Turn loop, CRUD, graph, RAG glue, media, LLM transport (46 modules)
+│   │       │   └── llm_providers/  # The provider seam: base contract + 4 adapters
 │   │       ├── agents/     # LLM agents — authoring + turn loop + prompt_registry + storyline_edit/
 │   │       ├── content/    # graph_registry.py (type catalogue) + stats/*.md guidance
 │   │       ├── rag/        # schema · serializer · tokens · entries · embedder · store · indexer

@@ -65,12 +65,12 @@ export function DirectionRow({
   // the direction — what changes between modes is only which box the verb writes into, and
   // that is the parent's business (see `Composer.insertDirection`).
   return (
-    <div className="mb-[6px] border-b border-field-bd pb-[6px]">
-      <div className="flex flex-wrap items-center gap-x-[8px] gap-y-[3px] px-[4px]">
-        <span className="font-mono text-[9px] tracking-[0.14em] text-mute2 uppercase">
+    <div className="mb-xs border-b border-field-bd pb-xs">
+      <div className="flex flex-wrap items-center gap-x-sm gap-y-3xs px-2xs">
+        <span className="font-mono text-eyebrow tracking-[0.14em] text-mute2 uppercase">
           Direction
         </span>
-        <span className="font-body text-[11px] text-mute2">
+        <span className="font-body text-eyebrow text-mute2">
           {mode === "playwright"
             ? "— this message steers the scene"
             : `— ${povName ? `${povName} speaks below` : "your character speaks below"}`}
@@ -85,9 +85,9 @@ export function DirectionRow({
               onClick={toggleVerbs}
               aria-expanded={verbsOpen}
               aria-controls={verbsOpen ? verbsId : undefined}
-              className="min-h-[24px] flex-none rounded-[6px] border border-field-bd px-[7px] py-[2px] font-mono text-[9px] tracking-[0.06em] text-mute2 uppercase hover:bg-hover hover:text-ink aria-expanded:border-accent aria-expanded:text-accent"
+              className="min-h-[24px] flex-none rounded-sm border border-field-bd px-xs py-3xs font-mono text-eyebrow tracking-[0.06em] text-mute2 uppercase hover:bg-hover hover:text-ink aria-expanded:border-accent aria-expanded:text-accent-ink"
             >
-              <span aria-hidden className="mr-[3px]">{verbsOpen ? "−" : "+"}</span>
+              <span aria-hidden className="mr-3xs">{verbsOpen ? "−" : "+"}</span>
               Verbs
             </button>
             {verbsOpen ? <div id={verbsId} className="contents">{children}</div> : null}
@@ -106,7 +106,7 @@ export function DirectionRow({
           }}
           aria-label="Scene direction"
           placeholder="Tell the scene what should happen — as vague or as exact as you like"
-          className="composer-input mt-[2px] block w-full resize-none bg-transparent px-[4px] py-[2px] font-body text-[13px] text-mute placeholder:text-mute2 focus:outline-none"
+          className="composer-input mt-3xs block w-full resize-none bg-transparent px-2xs py-3xs font-body text-field text-mute placeholder:text-mute2 focus:outline-none"
           style={{ overflowY: "hidden" }}
         />
       ) : null}

@@ -240,28 +240,33 @@ def _completion_request(
     """
     if not model:
         raise APIError(400, "bad_request", "A model is required to generate.")
+    from app.services import llm_providers
+
     p = params or LlmParams()
-    url = f"{_normalize(base_url)}/chat/completions"
-    body: dict = {
-        "model": model,
-        "messages": messages,
-        "temperature": p.temperature,
-        "max_tokens": p.max_tokens,
-        "top_p": p.top_p,
-        "frequency_penalty": p.frequency_penalty,
-        "presence_penalty": p.presence_penalty,
-    }
-    if extra_body:
-        body.update(extra_body)
-    # Dropped rather than raised when the channel is on: a caller asking for a stop sequence
-    # wants a bounded generation, and refusing the whole call would be a worse answer than
-    # generating without it. The reason is logged so it is not invisible.
-    if stop:
-        if stop_is_safe(reasoning):
-            body["stop"] = list(stop)
-        else:
-            logger.debug("stop sequence dropped: reasoning channel is on (%s)", reasoning)
-    if reasoning is not None:
+    adapter = llm_providers.active_adapter()
+    url = adapter.chat_url(base_url, model)
+    # For the OpenAI-compatible provider this reproduces the body this function
+    # used to build literally — key order included, verified by a parity harness
+    # against the previous implementation — so the path every existing install
+    # runs on is unchanged. Other providers get their own dialect here, which is
+    # what makes the stored `provider` field load-bearing rather than decorative.
+    body = adapter.build_body(
+        llm_providers.ChatRequest(
+            model=model,
+            messages=messages,
+            params=p,
+            reasoning=reasoning,
+            stop=list(stop) if stop else None,
+            extra_body=dict(extra_body or {}),
+        )
+    )
+    if reasoning is not None and getattr(adapter, "reasoning_applied_by_caller", False):
+        # The OpenAI-compatible family carries the thinking budget under
+        # LOCAL-ENGINE keys (`thinking_token_budget` on vLLM,
+        # `thinking_budget_tokens` on llama.cpp), and picking between them needs
+        # a probe of the endpoint. That is I/O, and adapters are pure — so this
+        # one step stays here. Omitting it returns a 200 and simply thinks
+        # forever.
         # Local import avoids a circular import (llm_backend imports this module).
         from app.services import llm_backend
 
@@ -668,43 +673,99 @@ def _prompt_tokens(payload: dict) -> int | None:
     return value if value > 0 else None
 
 
-def list_models(base_url: str, api_key: str) -> LlmModelsResponse:
-    url = f"{_normalize(base_url)}/models"
-    res = _send("GET", url, headers=_headers(api_key))
+def list_models(
+    base_url: str, api_key: str, provider: str | None = None
+) -> LlmModelsResponse:
+    """Ask a provider what it serves. Raises on an unreachable endpoint.
+
+    Prefer `safe_list_models` from any UI path — see the note there.
+    """
+    from app.services import llm_providers
+
+    adapter = llm_providers.get_adapter(provider)
+    if not getattr(adapter, "supports_discovery", True):
+        # OpenAI reports no context windows and Anthropic does not list models at
+        # all. Where discovery genuinely cannot answer, the answer belongs in
+        # config, not in a fabricated request that would 404.
+        declared = list(getattr(adapter, "known_models", []) or [])
+        return LlmModelsResponse(models=declared, ok=True, source="config" if declared else "none")
+    url = adapter.models_url(base_url)
+    res = _send("GET", url, headers=adapter.headers(api_key))
     _ensure_ok(res)
     try:
         payload = res.json()
     except ValueError as exc:
         raise APIError(502, "upstream_error", "The model endpoint returned invalid JSON.") from exc
-    data = payload.get("data") if isinstance(payload, dict) else None
-    items = data if isinstance(data, list) else (payload if isinstance(payload, list) else [])
-    models = [
-        str(m.get("id")) if isinstance(m, dict) else str(m)
-        for m in items
-        if (isinstance(m, dict) and m.get("id")) or isinstance(m, str)
-    ]
-    return LlmModelsResponse(models=models)
+    models = adapter.parse_models(payload if isinstance(payload, dict) else {"data": payload})
+    return LlmModelsResponse(models=models, ok=True, source="endpoint")
 
 
-def test_chat(base_url: str, api_key: str, model: str, params: LlmParams | None) -> LlmTestResponse:
+def safe_list_models(
+    base_url: str, api_key: str, provider: str | None = None
+) -> LlmModelsResponse:
+    """Discovery that never raises into a UI path.
+
+    An unreachable local server is a NORMAL state, not an exception. Letting a
+    connection error propagate turns "your GPU box is off" into a 500 that reads
+    as "Mytheca is broken", and it takes the Options page down with it — the one
+    page an operator visits precisely when an endpoint is misbehaving.
+
+    Returns the three states the picker has to tell apart, on one shape:
+      * nothing configured  -> ok=True,  models=[], source="none"
+      * unreachable         -> ok=False, models=[], error set
+      * reachable, empty    -> ok=True,  models=[], source="endpoint"
+    """
+    if not (base_url or "").strip():
+        return LlmModelsResponse(
+            models=[], ok=True, source="none", error="No endpoint configured yet."
+        )
+    try:
+        return list_models(base_url, api_key, provider)
+    except APIError as exc:
+        # The operator sees the reason; the stack stays in the log.
+        logger.info("model discovery failed for %s: %s", base_url, exc.message)
+        return LlmModelsResponse(models=[], ok=False, source="none", error=exc.message)
+    except Exception as exc:  # noqa: BLE001 - discovery must never take a page down
+        logger.exception("unexpected error listing models for %s", base_url)
+        return LlmModelsResponse(
+            models=[], ok=False, source="none", error=f"{exc.__class__.__name__} while listing models."
+        )
+
+
+def test_chat(
+    base_url: str,
+    api_key: str,
+    model: str,
+    params: LlmParams | None,
+    provider: str | None = None,
+) -> LlmTestResponse:
+    """One tiny round trip, in the provider's own dialect.
+
+    This is the check that catches a wrong provider selection, which otherwise
+    shows up much later as an empty generation with no error — the silent
+    failure mode this whole layer exists to prevent.
+    """
+    from app.services import llm_providers
+
     if not model:
         raise APIError(400, "bad_request", "A model is required to run a test.")
+    adapter = llm_providers.get_adapter(provider)
     p = params or LlmParams()
-    url = f"{_normalize(base_url)}/chat/completions"
-    body = {
-        "model": model,
-        "messages": [{"role": "user", "content": "Reply with the single word: ok"}],
-        "temperature": p.temperature,
-        "max_tokens": min(p.max_tokens, 16),
-    }
+    request = llm_providers.ChatRequest(
+        model=model,
+        messages=[{"role": "user", "content": "Reply with the single word: ok"}],
+        # A test must not cost real output: 16 tokens is enough for "ok".
+        params=p.model_copy(update={"max_tokens": min(p.max_tokens, 16)}),
+    )
+    url = adapter.chat_url(base_url, model)
+    body = adapter.build_body(request)
     started = time.perf_counter()
-    res = _send("POST", url, headers=_headers(api_key), json=body)
+    res = _send("POST", url, headers=adapter.headers(api_key), json=body)
     _ensure_ok(res)
     elapsed_ms = int((time.perf_counter() - started) * 1000)
     try:
-        payload = res.json()
-        choices = payload.get("choices") or []
-        sample = (choices[0].get("message", {}).get("content") or "").strip() if choices else ""
-    except (ValueError, AttributeError, IndexError):
+        reply = adapter.parse_reply(res.json())
+        sample = reply.text.strip()
+    except (ValueError, AttributeError, IndexError, KeyError):
         sample = ""
     return LlmTestResponse(ok=True, model=model, latency_ms=elapsed_ms, sample=sample[:200])

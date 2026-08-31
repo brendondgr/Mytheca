@@ -140,15 +140,15 @@ export function StyleGuideEditor({
   }
 
   return (
-    <div className="flex flex-col gap-[16px]">
-      <div className="flex flex-col gap-[8px] border-b border-hair pb-[12px]">
-        <p className="font-body text-[13px] text-ink-soft">
+    <div className="flex flex-col gap-lg">
+      <div className="flex flex-col gap-sm border-b border-hair pb-md">
+        <p className="font-body text-label text-ink-soft">
           {layer === "scenario"
             ? "How this scene is written, where it differs from the world. Leave a field empty to keep the world's."
             : "How this story is written — not what happens in it. Every field is optional; leave one empty and nothing is said about it."}
         </p>
         {presets.length ? (
-          <div className="flex flex-wrap items-center gap-[8px]">
+          <div className="flex flex-wrap items-center gap-sm">
             <span className="font-mono text-tag tracking-[0.06em] text-mute uppercase">
               Start from
             </span>
@@ -158,7 +158,7 @@ export function StyleGuideEditor({
                 type="button"
                 title={preset.blurb || preset.name}
                 onClick={() => applyPreset(preset)}
-                className="cursor-pointer rounded-[3px] border border-cardbd bg-card px-[10px] py-[5px] font-mono text-[11px] tracking-[0.06em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink"
+                className="cursor-pointer rounded-xs border border-cardbd bg-card px-sm py-2xs font-mono text-eyebrow tracking-[0.06em] text-ink-soft uppercase hover:border-accent hover:bg-hover hover:text-ink"
               >
                 {preset.name}
               </button>
@@ -166,9 +166,9 @@ export function StyleGuideEditor({
           </div>
         ) : null}
         {onRevise ? (
-          <div className="flex flex-wrap items-end gap-[8px]">
+          <div className="flex flex-wrap items-end gap-sm">
             <label className="min-w-[220px] flex-1">
-              <span className="mb-[4px] block font-mono text-tag tracking-[0.06em] text-mute uppercase">
+              <span className="mb-2xs block font-mono text-tag tracking-[0.06em] text-mute uppercase">
                 Ask for a change
               </span>
               <TextArea
@@ -200,14 +200,14 @@ export function StyleGuideEditor({
         const source: StyleLayer = sources[block.id] ?? "none";
         const showingInherited = !own.trim() && Boolean(below);
         return (
-          <div key={block.id} className="flex flex-col gap-[6px]">
-            <div className="flex items-center justify-between gap-[10px]">
-              <span className="font-display text-[14.5px] font-semibold text-ink">
+          <div key={block.id} className="flex flex-col gap-xs">
+            <div className="flex items-center justify-between gap-sm">
+              <span className="font-display text-body-sm font-semibold text-ink">
                 {block.label}
                 <span
                   className={cn(
-                    "ml-[8px] font-mono text-tag tracking-[0.06em] uppercase",
-                    source === "none" ? "text-mute2" : "text-accent",
+                    "ml-sm font-mono text-tag tracking-[0.06em] uppercase",
+                    source === "none" ? "text-mute2" : "text-accent-ink",
                   )}
                 >
                   {STYLE_LAYER_LABELS[source]}
@@ -225,12 +225,12 @@ export function StyleGuideEditor({
                 }
                 onClick={() => setBlock(block.id, "")}
                 disabled={!own.trim()}
-                className="cursor-pointer font-mono text-[10.5px] tracking-[0.08em] text-mute uppercase hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+                className="cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {layer === "scenario" ? "Use the world's" : "Clear"}
               </button>
             </div>
-            <p className="font-body text-[13px] text-ink-soft">{block.helper}</p>
+            <p className="font-body text-label text-ink-soft">{block.helper}</p>
             <TextArea
               aria-label={`${block.label} — style`}
               rows={block.placement === "tail" ? 2 : 5}
@@ -239,7 +239,7 @@ export function StyleGuideEditor({
               onChange={(event) => setBlock(block.id, event.target.value)}
             />
             {showingInherited ? (
-              <p className="font-body text-[12.5px] text-mute2">
+              <p className="font-body text-eyebrow text-mute2">
                 Inheriting from the world. Type here to change it for this scene only.
               </p>
             ) : null}
@@ -247,7 +247,7 @@ export function StyleGuideEditor({
         );
       })}
 
-      <div className="flex flex-wrap items-center gap-[12px]">
+      <div className="flex flex-wrap items-center gap-md">
         <Button onClick={() => run(() => onSave(packBlocks(draft)), "Saved.")} disabled={saving || !dirty}>
           {saving ? "Saving…" : saveLabel}
         </Button>
@@ -257,7 +257,7 @@ export function StyleGuideEditor({
           </Button>
         ) : null}
         {onSavePreset && namingPreset ? (
-          <div className="flex flex-wrap items-center gap-[8px]">
+          <div className="flex flex-wrap items-center gap-sm">
             <TextField
               aria-label="Preset name"
               value={presetName}
@@ -294,7 +294,7 @@ export function StyleGuideEditor({
                 setNamingPreset(false);
                 setPresetName("");
               }}
-              className="cursor-pointer font-mono text-[10.5px] tracking-[0.08em] text-mute uppercase hover:text-accent"
+              className="cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:text-accent-ink"
             >
               Cancel
             </button>
@@ -304,8 +304,8 @@ export function StyleGuideEditor({
           <span
             role={status.kind === "error" ? "alert" : "status"}
             className={cn(
-              "font-body text-[13px]",
-              status.kind === "error" ? "text-danger" : "text-ink-soft",
+              "font-body text-label",
+              status.kind === "error" ? "text-danger-ink" : "text-ink-soft",
             )}
           >
             {status.msg}

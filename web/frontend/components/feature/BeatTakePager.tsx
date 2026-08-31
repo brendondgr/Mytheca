@@ -31,19 +31,19 @@ export function BeatTakePager({
   const atEnd = active >= count - 1;
 
   return (
-    <span className="flex items-center gap-[3px]">
+    <span className="flex items-center gap-3xs">
       <button
         type="button"
         onClick={() => onSelect(active - 1)}
         disabled={disabled || atStart}
         aria-label={`Previous version of ${label}`}
-        className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-30 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
+        className="flex h-[44px] w-[44px] items-center justify-center rounded-xs text-label text-mute hover:bg-hover hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-30 sm:h-[24px] sm:w-[24px] sm:text-eyebrow"
       >
         <span aria-hidden>‹</span>
       </button>
       <span
         aria-live="polite"
-        className="font-mono text-[9px] tracking-[0.06em] text-mute tabular-nums"
+        className="font-mono text-eyebrow tracking-[0.06em] text-mute tabular-nums"
       >
         {active + 1} / {count}
       </span>
@@ -52,7 +52,7 @@ export function BeatTakePager({
         onClick={() => onSelect(active + 1)}
         disabled={disabled || atEnd}
         aria-label={`Next version of ${label}`}
-        className="flex h-[44px] w-[44px] items-center justify-center rounded-[3px] text-[13px] text-mute hover:bg-hover hover:text-accent disabled:cursor-not-allowed disabled:opacity-30 sm:h-[24px] sm:w-[24px] sm:text-[11px]"
+        className="flex h-[44px] w-[44px] items-center justify-center rounded-xs text-label text-mute hover:bg-hover hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-30 sm:h-[24px] sm:w-[24px] sm:text-eyebrow"
       >
         <span aria-hidden>›</span>
       </button>

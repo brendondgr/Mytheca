@@ -74,7 +74,7 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
   const [saving, setSaving] = useState(false);
 
   if (!comfy) {
-    return <p className="font-body text-[14px] text-mute">Loading image-generation settings…</p>;
+    return <p className="font-body text-body-sm text-mute">Loading image-generation settings…</p>;
   }
 
   async function loadWorkflows() {
@@ -144,16 +144,16 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
 
   return (
     <section aria-labelledby="images-heading">
-      <h2 id="images-heading" className="font-display text-[19px] font-semibold text-ink">
+      <h2 id="images-heading" className="font-display text-step-1 font-semibold text-ink">
         Image generation
       </h2>
-      <p className="mt-[4px] mb-[18px] font-body text-[14px] text-ink-soft">
+      <p className="mt-2xs mb-lg font-body text-body-sm text-ink-soft">
         Point Mytheca at a local ComfyUI server. Workflows are loaded from{" "}
-        <code className="font-mono text-[12px] text-ink">utils/workflows/</code>.
+        <code className="font-mono text-eyebrow text-ink">utils/workflows/</code>.
       </p>
 
-      <div className="grid gap-[16px]">
-        <div className="flex items-end gap-[10px]">
+      <div className="grid gap-lg">
+        <div className="flex items-end gap-sm">
           <TextField
             label="ComfyUI base URL"
             className="flex-1"
@@ -169,13 +169,13 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
         {statusResult ? (
           <p
             aria-live="polite"
-            className={`-mt-[8px] font-mono text-[11px] tracking-[0.04em] ${statusOk ? "text-success" : "text-danger"}`}
+            className={`-mt-sm font-mono text-eyebrow tracking-[0.04em] ${statusOk ? "text-success-ink" : "text-danger-ink"}`}
           >
             {statusResult}
           </p>
         ) : null}
 
-        <div className="flex items-end gap-[10px]">
+        <div className="flex items-end gap-sm">
           <label className="block flex-1">
             <FieldLabel>
               Workflow {workflows.length > 0 ? `(${workflows.length} available)` : ""}
@@ -184,7 +184,7 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
               <select
                 value={workflow}
                 onChange={(e) => setWorkflow(e.target.value)}
-                className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
+                className="w-full rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field text-ink focus:border-accent focus:outline-none"
               >
                 <option value="">Select a workflow…</option>
                 {workflowOptions.map((w) => (
@@ -198,7 +198,7 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
                 value={workflow}
                 onChange={(e) => setWorkflow(e.target.value)}
                 placeholder="List workflows, or type a file name"
-                className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
+                className="w-full rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field text-ink focus:border-accent focus:outline-none"
               />
             )}
           </label>
@@ -207,16 +207,16 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
           </Button>
         </div>
         {fetchError ? (
-          <p role="alert" className="-mt-[8px] font-mono text-[11px] tracking-[0.04em] text-danger">
+          <p role="alert" className="-mt-sm font-mono text-eyebrow tracking-[0.04em] text-danger-ink">
             {fetchError}
           </p>
         ) : null}
 
-        <fieldset className="rounded-[4px] border border-cardbd p-[14px]">
-          <legend className="px-[6px] font-mono text-[9px] tracking-[0.14em] text-gold uppercase">
+        <fieldset className="rounded-sm border border-cardbd p-lg">
+          <legend className="px-xs font-mono text-eyebrow tracking-[0.14em] text-gold-ink uppercase">
             Default generation parameters
           </legend>
-          <div className="grid gap-[12px] sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-md sm:grid-cols-2 lg:grid-cols-3">
             {PARAM_FIELDS.map((f) => (
               <TextField
                 key={f.key}
@@ -230,38 +230,38 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
               />
             ))}
           </div>
-          <label className="mt-[12px] block">
+          <label className="mt-md block">
             <FieldLabel>Negative prompt</FieldLabel>
             <input
               value={params.negativePrompt}
               onChange={(e) => setParams((p) => ({ ...p, negativePrompt: e.target.value }))}
               placeholder="low quality, bad anatomy…"
-              className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
+              className="w-full rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field text-ink focus:border-accent focus:outline-none"
             />
           </label>
         </fieldset>
 
-        <fieldset className="rounded-[4px] border border-cardbd p-[14px]">
-          <legend className="px-[6px] font-mono text-[9px] tracking-[0.14em] text-gold uppercase">
+        <fieldset className="rounded-sm border border-cardbd p-lg">
+          <legend className="px-xs font-mono text-eyebrow tracking-[0.14em] text-gold-ink uppercase">
             Art style
           </legend>
-          <p className="mb-[10px] font-body text-[12.5px] text-ink-soft">
+          <p className="mb-sm font-body text-eyebrow text-ink-soft">
             The look every generated image starts from — portraits, place art, scene art, and
             the in-play picture alike. Each surface&apos;s own picker overrides it per render.
           </p>
-          <div className="grid gap-[8px] sm:grid-cols-3">
+          <div className="grid gap-sm sm:grid-cols-3">
             {(comfy.styles ?? []).map((style) => (
               <label
                 key={style.id}
                 className={cn(
-                  "flex cursor-pointer flex-col rounded-[4px] border p-[10px_12px]",
+                  "flex cursor-pointer flex-col rounded-sm border p-[10px_12px]",
                   "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent",
                   style.id === artStyle
                     ? "border-[1.5px] border-accent bg-card2"
                     : "border-field-bd bg-field hover:border-hair-strong hover:bg-hover",
                 )}
               >
-                <span className="flex items-center gap-[8px]">
+                <span className="flex items-center gap-sm">
                   <input
                     type="radio"
                     name="default-art-style"
@@ -272,14 +272,14 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
                   />
                   <span
                     className={cn(
-                      "font-body text-[14px] text-ink",
-                      style.id === artStyle && "font-semibold text-accent",
+                      "font-body text-body-sm text-ink",
+                      style.id === artStyle && "font-semibold text-accent-ink",
                     )}
                   >
                     {style.label}
                   </span>
                 </span>
-                <span className="mt-[3px] font-body text-[12px] leading-[1.4] text-mute">
+                <span className="mt-3xs font-body text-eyebrow leading-[1.4] text-mute">
                   {style.blurb}
                 </span>
               </label>
@@ -287,12 +287,12 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
           </div>
         </fieldset>
 
-        <fieldset className="rounded-[4px] border border-cardbd p-[14px]">
-          <legend className="px-[6px] font-mono text-[9px] tracking-[0.14em] text-gold uppercase">
+        <fieldset className="rounded-sm border border-cardbd p-lg">
+          <legend className="px-xs font-mono text-eyebrow tracking-[0.14em] text-gold-ink uppercase">
             Style LoRAs
           </legend>
-          <div className="mb-[10px] flex flex-wrap items-center justify-between gap-[10px]">
-            <p className="max-w-[46ch] font-body text-[12.5px] text-ink-soft">
+          <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
+            <p className="max-w-[46ch] font-body text-eyebrow text-ink-soft">
               Which LoRA each style loads. Turn one off and that style renders on the base
               checkpoint alone — the workflow&apos;s LoRA node is routed around.
             </p>
@@ -300,7 +300,7 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
               {loras.length > 0 ? `List LoRAs (${loras.length})` : "List LoRAs"}
             </Button>
           </div>
-          <div className="grid gap-[12px]">
+          <div className="grid gap-md">
             {(comfy.styles ?? []).map((style) => {
               const entry = styleLoras[style.id] ?? {};
               const name = entry.loraName ?? "";
@@ -308,9 +308,9 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
               return (
                 <div
                   key={style.id}
-                  className="grid gap-[8px] sm:grid-cols-[auto_1fr_110px] sm:items-end"
+                  className="grid gap-sm sm:grid-cols-[auto_1fr_110px] sm:items-end"
                 >
-                  <label className="flex items-center gap-[8px] font-body text-[13.5px] text-ink">
+                  <label className="flex items-center gap-sm font-body text-label text-ink">
                     <input
                       type="checkbox"
                       checked={entry.loraEnabled ?? false}
@@ -326,7 +326,7 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
                       <select
                         value={name}
                         onChange={(e) => patchStyle(style.id, { loraName: e.target.value })}
-                        className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
+                        className="w-full rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field text-ink focus:border-accent focus:outline-none"
                       >
                         <option value="">None</option>
                         {options.map((l) => (
@@ -340,7 +340,7 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
                         value={name}
                         onChange={(e) => patchStyle(style.id, { loraName: e.target.value })}
                         placeholder="List LoRAs, or type a file name"
-                        className="w-full rounded-[2px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[15px] text-ink focus:border-accent focus:outline-none"
+                        className="w-full rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field text-ink focus:border-accent focus:outline-none"
                       />
                     )}
                   </label>
@@ -361,12 +361,12 @@ export function ImageModelsTab({ opts }: { opts: OptionsState }) {
           </div>
         </fieldset>
 
-        <div className="flex flex-wrap items-center gap-[12px]">
+        <div className="flex flex-wrap items-center gap-md">
           <Button onClick={save} disabled={saving}>
             {saving ? "Saving…" : "Save"}
           </Button>
           {status ? (
-            <span aria-live="polite" className="font-mono text-[11px] tracking-[0.06em] text-ink-soft">
+            <span aria-live="polite" className="font-mono text-eyebrow tracking-[0.06em] text-ink-soft">
               {status}
             </span>
           ) : null}

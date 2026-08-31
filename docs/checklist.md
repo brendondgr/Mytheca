@@ -14,6 +14,68 @@ Verified against the code on 2026-08-04.
 
 ## Unbuilt capabilities
 
+- **Only ONE of the four LLM providers is verified against a live endpoint.**
+  `openai-compatible` is exercised constantly — it is what this install runs on, its adapter
+  was verified byte-identical to the previous implementation (key order included) by a parity
+  harness, and a full `scene_smoke` turn plays through it with 0 problems. `anthropic`,
+  `gemini` and `ollama` are verified only against their reference documentation, an
+  adversarial review, and 46 contract tests. **None of the three has ever made a real
+  request.** Everything most likely to be wrong in them is invisible offline: whether a body
+  is accepted, whether a stream frames the way the docs say, whether usage fields carry the
+  names claimed. Treat them as "written carefully, unproven", and expect the first live call
+  of each to find something.
+- **Streaming is not provider-dispatched.** `llm.chat_complete_stream` still parses the
+  OpenAI SSE dialect directly (`data:` frames, `[DONE]`, `choices[0].delta.content`), and
+  `llm.stop_is_safe` is still applied globally rather than per adapter. Each adapter
+  implements `stream_delta`/`stream_done` and carries `stop_matches_reasoning`, and neither
+  is read on the live streaming path. Selecting Anthropic, Gemini or Ollama therefore fails
+  the content-type check, lands in `_NO_STREAM`, and degrades every turn to the blocking
+  path — the whole passage arriving at once instead of typing out.
+
+  **This is no longer silent.** `ProviderAdapter.streaming_dispatched` carries it, the
+  config API exposes it, and the Options picker marks such a provider "· no live typing"
+  and explains the consequence in a sentence. An operator can still choose it and
+  everything else works; they simply choose knowing. Wiring the stream is the remaining
+  half of the seam, and it is deliberately NOT attempted here: it means rewriting the
+  hottest path in the product — the live turn — and doing that carelessly to finish a
+  bonus feature is a bad trade against the 2,117 tests and the working scene loop.
+- **`gemini.py` is 790 lines**, against a project guideline of 800 max / under 500 preferred.
+  It is one class plus its parsing helpers and splitting it would scatter one dialect across
+  files, but it is at the ceiling and the next addition should split rather than grow it.
+- **Per-role model routing is still not possible.** "Cheap model for the planner, strong model
+  for prose" is the main practical reason to hold several providers at once, and the seam does
+  not deliver it: one global model id still serves ~25 agent call sites via the positional
+  `LlmConn` four-tuple. Doing it means making `LlmConn` a dataclass and deciding a product
+  question — how the engine should spend money and latency — that is the owner's, not an
+  implementation detail. **Human decision needed.**
+
+- **The story player's mount-time long frames are unexplained.** Under 4x CPU throttle the player
+  produces a ~240ms long animation frame (~190ms blocking) at `scrollY 0`, plus 11-12 frames over
+  1.5x the 16.7ms median and 9-12% dropped frames. Phase 3 of the website overhaul removed two real
+  redundant forced layouts (`Composer.resize` and `BeatEditor` each read `scrollHeight` again after
+  writing `height`) and **measured no change** — 241ms -> 247ms, dropped 8.82% -> 11.76%, n=1 per arm
+  headless, i.e. noise. Those are keystroke paths and nothing types during a scroll pass, so the cost
+  is mount/hydration work instead. Needs a profile, not a guess; `--headful` first, since headless
+  under-reports jank.
+- **Two frontend tests are flaky under full-suite load**, both timing-sensitive with real timers:
+  `ToastProvider.test.tsx` "holds the auto-dismiss timer while the pointer is over the toast", and
+  `CharacterModal.test.tsx` "drafts a full character from a seed into the form" (observed timing out
+  at 4091ms). Both pass in isolation and on re-run. Observed 2026-08-31. The fix is fake timers.
+- **`viewport-fit=cover` and safe-area insets are not adopted.** `app/layout.tsx` declares
+  the viewport but deliberately omits `viewportFit: "cover"`, because that and
+  `env(safe-area-inset-*)` are all-or-nothing: opting in makes every fixed/sticky element —
+  both header bars, the composer, every `Drawer`, `SceneRailBar` — responsible for insetting
+  itself, and landscape moves the insets to left/right. Without it the browser letterboxes
+  into the safe area automatically (safe, with visible bars). Adopt both together or neither.
+- **`/storylines/new` and `/storylines/[id]/edit` render no header bar at all**, so there is
+  no in-app way back except browser back. Every other route now shares the `HeaderBar`
+  chassis at one height. Deliberate for a full-screen editor, but it means the skip link on
+  those routes skips nothing.
+- **`app/not-found.tsx` is reachable only for genuinely unmatched paths.** `/<anything>`
+  matches the `[storylineId]` dynamic segment first, so an unknown storyline renders the
+  storyline route rather than the 404. Pre-existing routing behaviour, recorded because the
+  new not-found page makes it look like it should have caught that case.
+
 - **Nothing measures free-text mode against the structured one.** `sceneMode: "freetext"`
   (`docs/plans/free-text-mode.md`) ships on the owner's judgement — preference-driven and
   deliberately so — and the honest statement of its trade is that it **sells per-character

@@ -40,37 +40,37 @@ export function StorylineAgentPanel({
       className="flex h-full min-h-0 w-full flex-col bg-card2/40"
     >
       {/* Header */}
-      <div className="flex items-center justify-between gap-[10px] border-b border-hair-strong px-[16px] py-[12px]">
-        <Eyebrow size={9.5} tracking="0.2em" color="#A8762A">
+      <div className="flex items-center justify-between gap-sm border-b border-hair-strong px-lg py-md">
+        <Eyebrow size={9.5} tracking="0.2em" entity="#A8762A">
           ❖ Assistant
         </Eyebrow>
         <button
           type="button"
           onClick={newChat}
-          className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-mute uppercase hover:text-accent"
+          className="cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:text-accent-ink"
         >
           ↺ New chat
         </button>
       </div>
 
       {/* Scope selector */}
-      <div className="border-b border-hair-strong px-[16px] py-[12px]">
-        <p className="mb-[8px] font-mono text-[10px] tracking-[0.1em] text-mute2 uppercase">
+      <div className="border-b border-hair-strong px-lg py-md">
+        <p className="mb-sm font-mono text-eyebrow tracking-[0.1em] text-mute2 uppercase">
           The assistant may edit
         </p>
-        <div className="flex flex-wrap gap-[6px]">
+        <div className="flex flex-wrap gap-xs">
           {AGENT_FIELDS.map((f) => (
             <ToggleChip
               key={f.key}
               selected={Boolean(scope[f.key]?.writable)}
               onClick={() => setWritable(f.key)}
-              className="text-[12px]"
+              className="text-eyebrow"
             >
               {f.label}
             </ToggleChip>
           ))}
         </div>
-        <p className="mt-[7px] font-body text-[11.5px] text-mute">
+        <p className="mt-xs font-body text-eyebrow text-mute">
           Unchecked fields are structurally out of reach — the assistant can&rsquo;t change them.
         </p>
       </div>
@@ -80,10 +80,10 @@ export function StorylineAgentPanel({
         role="log"
         aria-live="polite"
         aria-label="Conversation with the assistant"
-        className="min-h-0 flex-1 space-y-[10px] overflow-y-auto px-[16px] py-[14px]"
+        className="min-h-0 flex-1 space-y-sm overflow-y-auto px-lg py-lg"
       >
         {panel.messages.length === 0 && !panel.streaming ? (
-          <p className="font-body text-[13px] text-mute italic">
+          <p className="font-body text-label text-mute italic">
             Discuss the storyline, then ask for changes — e.g. &ldquo;tighten the tagline&rdquo; or
             &ldquo;rebalance the stats so Resolve tops out at 80.&rdquo;
           </p>
@@ -93,12 +93,12 @@ export function StorylineAgentPanel({
         ))}
         {panel.streaming ? <MessageBubble role="assistant" content={panel.streaming} streaming /> : null}
         {busy && !panel.streaming ? (
-          <p className="font-body text-[12px] text-mute italic">Thinking…</p>
+          <p className="font-body text-eyebrow text-mute italic">Thinking…</p>
         ) : null}
         {panel.error ? (
           <p
             role="alert"
-            className="rounded-[4px] border border-danger/40 bg-card px-[10px] py-[7px] font-body text-[12.5px] text-danger"
+            className="rounded-sm border border-danger/40 bg-card px-sm py-xs font-body text-eyebrow text-danger-ink"
           >
             {panel.error}
           </p>
@@ -117,7 +117,7 @@ export function StorylineAgentPanel({
       ) : null}
 
       {/* Composer */}
-      <div className="border-t border-hair-strong px-[16px] py-[12px]">
+      <div className="border-t border-hair-strong px-lg py-md">
         <textarea
           aria-label="Message the assistant"
           rows={2}
@@ -130,9 +130,9 @@ export function StorylineAgentPanel({
             }
           }}
           placeholder="Discuss first, then ask for changes…"
-          className="w-full resize-none rounded-[3px] border border-field-bd bg-field px-[11px] py-[8px] font-body text-[14px] leading-[1.5] text-ink focus:border-accent focus:outline-none"
+          className="w-full resize-none rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field leading-[1.5] text-ink focus:border-accent focus:outline-none"
         />
-        <div className="mt-[8px] flex items-center justify-end">
+        <div className="mt-sm flex items-center justify-end">
           <Button onClick={submit} disabled={busy || !input.trim()}>
             {busy ? "Sending…" : "Send →"}
           </Button>
@@ -156,7 +156,7 @@ function MessageBubble({
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[85%] whitespace-pre-wrap rounded-[8px] px-[11px] py-[8px] font-body text-[13.5px] leading-[1.5]",
+          "max-w-[85%] whitespace-pre-wrap rounded-md px-md py-sm font-body text-label leading-[1.5]",
           isUser ? "bg-accent/12 text-ink" : "border border-hair bg-card text-ink-soft",
         )}
       >
@@ -183,21 +183,21 @@ function PlanReview({
   return (
     <section
       aria-label="Proposed plan"
-      className="max-h-[42%] overflow-y-auto border-t border-accent/40 bg-card px-[16px] py-[12px]"
+      className="max-h-[42%] overflow-y-auto border-t border-accent/40 bg-card px-lg py-md"
     >
-      <p className="mb-[8px] font-mono text-[10px] tracking-[0.12em] text-accent uppercase">
+      <p className="mb-sm font-mono text-eyebrow tracking-[0.12em] text-accent-ink uppercase">
         Proposed changes — review before applying
       </p>
-      <div className="space-y-[10px]">
+      <div className="space-y-sm">
         {plan.changes.map((c) => (
-          <div key={c.field} className="rounded-[4px] border border-hair bg-field px-[10px] py-[8px]">
-            <p className="font-mono text-[10px] tracking-[0.08em] text-mute2 uppercase">{c.field}</p>
+          <div key={c.field} className="rounded-sm border border-hair bg-field px-sm py-sm">
+            <p className="font-mono text-eyebrow tracking-[0.08em] text-mute2 uppercase">{c.field}</p>
             {c.before ? (
-              <p className="mt-[3px] font-body text-[12.5px] text-mute line-through">{c.before}</p>
+              <p className="mt-3xs font-body text-eyebrow text-mute line-through">{c.before}</p>
             ) : null}
-            <p className="mt-[2px] font-body text-[13.5px] text-ink">{c.after}</p>
+            <p className="mt-3xs font-body text-label text-ink">{c.after}</p>
             {c.rationale ? (
-              <p className="mt-[4px] font-body text-[11.5px] text-ink-soft italic">{c.rationale}</p>
+              <p className="mt-2xs font-body text-eyebrow text-ink-soft italic">{c.rationale}</p>
             ) : null}
           </div>
         ))}
@@ -208,7 +208,7 @@ function PlanReview({
           <StyleChangeRow key={s.block} change={s} />
         ))}
       </div>
-      <div className="mt-[12px] flex items-center gap-[10px]">
+      <div className="mt-md flex items-center gap-sm">
         <Button onClick={onApprove} disabled={applying}>
           {applying ? "Applying…" : approveLabel}
         </Button>
@@ -216,7 +216,7 @@ function PlanReview({
           type="button"
           onClick={onDismiss}
           disabled={applying}
-          className="cursor-pointer font-mono text-[10px] tracking-[0.08em] text-mute uppercase hover:text-accent disabled:opacity-40"
+          className="cursor-pointer font-mono text-eyebrow tracking-[0.08em] text-mute uppercase hover:text-accent-ink disabled:opacity-40"
         >
           Dismiss
         </button>
@@ -229,19 +229,19 @@ function PlanReview({
 function StyleChangeRow({ change }: { change: StyleChange }) {
   const removing = !change.after;
   return (
-    <div className="rounded-[4px] border border-hair bg-field px-[10px] py-[8px]">
-      <p className="font-mono text-[10px] tracking-[0.08em] text-mute2 uppercase">
+    <div className="rounded-sm border border-hair bg-field px-sm py-sm">
+      <p className="font-mono text-eyebrow tracking-[0.08em] text-mute2 uppercase">
         Narrative style · {change.block}
-        {removing ? <span className="ml-[6px] text-danger">remove</span> : null}
+        {removing ? <span className="ml-xs text-danger-ink">remove</span> : null}
       </p>
       {change.before ? (
-        <p className="mt-[3px] font-body text-[12.5px] text-mute line-through">{change.before}</p>
+        <p className="mt-3xs font-body text-eyebrow text-mute line-through">{change.before}</p>
       ) : null}
       {change.after ? (
-        <p className="mt-[2px] font-body text-[13.5px] text-ink">{change.after}</p>
+        <p className="mt-3xs font-body text-label text-ink">{change.after}</p>
       ) : null}
       {change.rationale ? (
-        <p className="mt-[4px] font-body text-[11.5px] text-ink-soft italic">{change.rationale}</p>
+        <p className="mt-2xs font-body text-eyebrow text-ink-soft italic">{change.rationale}</p>
       ) : null}
     </div>
   );
@@ -250,25 +250,25 @@ function StyleChangeRow({ change }: { change: StyleChange }) {
 function StatChangeRow({ change }: { change: StatChange }) {
   const verb = { add: "Add", update: "Update", remove: "Remove" }[change.changeType];
   return (
-    <div className="rounded-[4px] border border-hair bg-field px-[10px] py-[8px]">
-      <div className="flex items-center gap-[8px]">
-        <span className="font-mono text-[10px] tracking-[0.08em] text-mute2 uppercase">
+    <div className="rounded-sm border border-hair bg-field px-sm py-sm">
+      <div className="flex items-center gap-sm">
+        <span className="font-mono text-eyebrow tracking-[0.08em] text-mute2 uppercase">
           {verb} stat · {change.key}
         </span>
         {change.schemaAltering ? (
-          <span className="rounded-[3px] bg-gold/20 px-[5px] py-[1px] font-mono text-[9px] tracking-[0.06em] text-gold uppercase">
+          <span className="rounded-xs bg-gold/20 px-2xs py-3xs font-mono text-eyebrow tracking-[0.06em] text-gold-ink uppercase">
             schema change
           </span>
         ) : null}
       </div>
       {change.after && change.changeType !== "remove" ? (
-        <p className="mt-[3px] font-body text-[12.5px] text-ink">
+        <p className="mt-3xs font-body text-eyebrow text-ink">
           {change.after.displayName || change.after.key} · range {change.after.min}–{change.after.max},
           default {change.after.default}
         </p>
       ) : null}
       {change.rationale ? (
-        <p className="mt-[3px] font-body text-[11.5px] text-ink-soft italic">{change.rationale}</p>
+        <p className="mt-3xs font-body text-eyebrow text-ink-soft italic">{change.rationale}</p>
       ) : null}
     </div>
   );

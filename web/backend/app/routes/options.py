@@ -88,14 +88,30 @@ def update_library(data: LibraryDefaultsUpdate, db: Session = Depends(get_db)):
 
 @router.post("/llm/models", response_model=LlmModelsResponse)
 def list_llm_models(data: LlmModelsRequest, db: Session = Depends(get_db)):
-    base_url, api_key = settings_store.resolve_llm_credentials(db, data.base_url, data.api_key)
-    return llm.list_models(base_url, api_key)
+    """List what a provider actually serves.
+
+    Returns **200 with `ok: false`** when the endpoint cannot be reached, rather
+    than raising. An unreachable local server is a normal state, not an
+    exception — someone's GPU box being off is not a fault in Mytheca — and a
+    500 here makes the Options page look broken instead of the endpoint. The
+    three empty states the UI must tell apart (nothing configured, unreachable,
+    reachable but serving nothing) are all carried on this one shape.
+
+    `provider` probes a NON-active provider, so an operator can see whether a
+    new endpoint works before switching to it and losing the one that does.
+    """
+    base_url, api_key = settings_store.resolve_llm_credentials(
+        db, data.base_url, data.api_key, data.provider
+    )
+    return llm.safe_list_models(base_url, api_key, data.provider)
 
 
 @router.post("/llm/test", response_model=LlmTestResponse)
 def test_llm(data: LlmTestRequest, db: Session = Depends(get_db)):
-    base_url, api_key = settings_store.resolve_llm_credentials(db, data.base_url, data.api_key)
-    return llm.test_chat(base_url, api_key, data.model, data.params)
+    base_url, api_key = settings_store.resolve_llm_credentials(
+        db, data.base_url, data.api_key, data.provider
+    )
+    return llm.test_chat(base_url, api_key, data.model, data.params, provider=data.provider)
 
 
 @router.get("/llm/backend", response_model=LlmBackendResponse)
