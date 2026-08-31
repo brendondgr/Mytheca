@@ -3,7 +3,9 @@
 **Against:** [`repo-audit-report.md`](repo-audit-report.md) · **Profile:** [`repo-profile.yaml`](repo-profile.yaml)
 **Date:** 2026-08-31 · **Baseline commit:** `3dd8438` (clean tree, branch `main`)
 
-**Nothing in this plan has been applied.** It is the approval gate. Destructive steps are named
+**APPLIED 2026-08-31**, on branch `repo-audit-restructure`, after owner approval. Phase-by-phase
+outcomes are recorded at the foot of this file; the plan text above them is left as written so the
+plan and what happened can be compared. Destructive steps are named
 individually with their consequence, never bundled into a "cleanup" line.
 
 Owner decisions already taken (2026-08-31): licence **MIT**; GitHub repository **renamed to
@@ -204,3 +206,79 @@ And two things only the owner can supply:
 
 4. The **GitHub rename** (Phase 3) — Phase 3's Quickstart is not true until it lands.
 5. The **Why**, the **LLM capability floor**, and the **copyright name string** (Phases 1, 3, 5).
+
+---
+
+# What actually happened
+
+Recorded after the fact. Where reality diverged from the plan, the divergence is the useful part.
+
+## Delivered as planned
+
+**Phase 1 — Licence.** MIT at the root, `license = "MIT"` + `license-files` in `pyproject.toml`.
+The copyright line reads `brendondgr`; **replace it with your legal name** if you want it to be
+enforceable as written.
+
+**Phase 2 — Truth.** All four false claims corrected. One extra was found while verifying them:
+`CLAUDE.md` named `voiced` as the `sceneFlow` default when `turn_settings.DEFAULT_SCENE_FLOW` has
+read `continuous` since 2026-08-24. Being wrong in a governing-rules file outranks being wrong on
+the front page, since agents and contributors act on it.
+
+**Phase 3 — Runnable.** Quickstart rewritten against a real URL. "You need to bring a model" now
+leads the prerequisites instead of hiding in a comment. Slow first-run steps disclosed.
+**Still owed by the owner: the GitHub rename.** Until `brendondgr/Velora` becomes
+`brendondgr/Mytheca`, the clone command in the README is a claim the remote does not honour.
+
+**Phase 4 — Showcase.** Two screenshots at `docs/assets/`, Slate theme per the owner's preference.
+Three deviations from the plan, all improvements:
+- The cast had no portraits, so ComfyUI was started and all six were generated through the app's
+  own agent → render → persist path. Setting art followed, because five cards reading
+  "setting plate" is what an unfinished screenshot looks like.
+- The library shot was **un-held** — see the S-2 withdrawal below.
+- Format is JPEG, not PNG. WebP was 7× smaller and tempting; GitHub's own documentation lists
+  PNG, GIF, JPEG and SVG and **does not list WebP**, so it was not used. Verified by fetching the
+  docs, not by assuming. 904 KB total against 3 MB for equivalent PNGs.
+
+**Phase 5 — Why / When / the writing.** Written from the owner's own briefing. `reports/` deleted,
+the latency report moved into `docs/research/` and linked from the README.
+
+**Phase 6 — Layout and hygiene.** `libs/` deleted, `line_counter.py` moved, every inbound
+reference updated in the same commit. CI added. The plan named three doc-gate scripts for CI and
+one of them — `check_doc_links.py` — **did not exist**; writing a workflow step that referenced a
+missing script would have been the same class of error this audit exists to find. It was written
+(stdlib only, skips historical directories) and found two broken links and one bug in itself on
+its first run.
+
+## The finding that changed shape
+
+**X-1 was resolved, not just recorded.** The quoted "18, 22 and 24 beats" traced to nothing in the
+record — and then the world holding the evidence appeared on the deletion list. The event log was
+recovered first: 139 events proving EXP-2026-08-016 ran on 2026-08-25 and was simply never
+written up. Two things the citations had missed:
+
+1. The figure was the **milder half**. Those are the `voiced` arm's worst turns; `continuous`
+   produced a **38-beat** turn, above `TURN_MAX_BEATS`, appearing in none of the citing documents.
+2. The arms **are** identifiable — `ISSUES.md` records them in passing, which my first pass
+   claimed was impossible and got wrong.
+
+The experiment now has data, a metrics script, a filled RESULTS, manifest and INDEX row.
+`make validate-research` passes. **The `status: failed` I assigned is the owner's to revise** —
+assigning a status is a judgement about your own work, not an inference from the text.
+
+## The finding that was wrong
+
+**S-2 is withdrawn.** I claimed the character-card badge overlapped the name; measuring the DOM
+gives a 4 px gap and no overlap. I had read it off a downscaled screenshot. It is kept in the
+report as withdrawn rather than deleted, because a retracted finding is part of the record, and
+because it cost a real decision — the library screenshot was held back for it.
+
+## Still open
+
+| Item | Owner action |
+|---|---|
+| GitHub rename `Velora` → `Mytheca` | Only you can do it. The README's clone URL is wrong until then. |
+| LICENSE copyright name | Currently `brendondgr`; a legal name is conventional. |
+| The **Why**, and the LLM capability floor | Drafted from your briefing. Correct them — they are claims you would have to defend. |
+| EXP-016 `status` | I set `failed` with reasoning. Yours to revise. |
+| H-4, first-boot migration error | Needs reproduction on a genuinely fresh database. |
+| 301 orphaned media files, 72 MB | From the deleted worlds. `media/` is gitignored so this is disk, not repo weight. `POST /api/options/media/cleanup` clears it. Not run — deleting more of your data unasked was not mine to decide. |

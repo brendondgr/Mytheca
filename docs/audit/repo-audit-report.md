@@ -470,16 +470,18 @@ An audit that only lists faults misrepresents the repo.
 Ordered by consequence, not by effort. Detail and sequencing in
 [`repo-restructure-plan.md`](repo-restructure-plan.md).
 
-| # | Finding | Why it is here |
+| # | Finding | Outcome |
 |---|---|---|
-| 1 | L-1 LICENSE | Legal. Blocks the stated goal outright. |
-| 2 | T-1 – T-3 truth | Cosmetic work on top of false claims makes the repo worse. |
-| 3 | R-1 – R-3 runnable | The documented path fails at step one and hides its real prerequisite. |
-| 4 | S-1 screenshots | Largest gap for the archetype; the asset is captured and waiting. |
-| 5 | D-1 Why / When | The two sections this specific reader needs; needs the owner. |
-| 6 | W-1 surface the writing | Highest-value artifact in the repo, linked from nowhere. |
-| 7 | H-1 – H-3 hygiene | Real reasons, modest payoff. |
-| 8 | H-4, S-2 | Diagnosis and a UI fix; separate work. |
+| 1 | L-1 LICENSE | **Fixed.** MIT at root + `pyproject`. Copyright name needs the owner. |
+| 2 | T-1 – T-3 truth | **Fixed**, plus a fifth found in `CLAUDE.md` (`sceneFlow` default). |
+| 3 | R-1 – R-3 runnable | **Fixed**, except the GitHub rename, which only the owner can do. |
+| 4 | S-1 screenshots | **Fixed.** Two shipped, after generating the cast and setting art that did not exist. |
+| 5 | D-1 Why / When | **Drafted** from the owner's briefing; theirs to correct. |
+| 6 | W-1 surface the writing | **Fixed.** Moved into `docs/research/` and linked. |
+| 7 | H-1 – H-3 hygiene | **Fixed.** CI added, plus a doc-link checker that did not exist. |
+| 8 | X-1 untraceable metric | **Resolved** — the run was recovered from its event log before the world was deleted. |
+| 9 | S-2 badge overlap | **Withdrawn.** Measured; there is no overlap. My error. |
+| 10 | H-4 first-boot migration error | **Open.** Needs reproduction on a fresh database. |
 
 ---
 

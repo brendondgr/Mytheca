@@ -13,9 +13,16 @@
 
 </div>
 
+<p align="center">
+  <img src="docs/assets/story-player.jpg" width="900"
+       alt="A scene mid-turn: four cast members down the left with live health, patience, suspicion and trust values; the centre column carries a multi-speaker passage where Wren Calloway, Brother Aldous and Maerin Voss each take a beat; the right rail shows scene state with suspicion at +2.">
+</p>
+
+<p align="center"><sub>A turn of <em>The Embergate Conspiracy</em> — four characters, one bound plan, streamed beat by beat.</sub></p>
+
 ---
 
-**Status:** active, solo, self-host only. Started June 2026; ~850 commits. It runs, and I play it.
+**Status:** active, solo, self-host only. Started June 2026; 848 commits. It runs, and I play it.
 It also has no authentication and no multi-user story, no deployment target has been chosen, and of
 the four LLM providers only the OpenAI-compatible one has ever been verified against a live endpoint.
 [`docs/checklist.md`](docs/checklist.md) is the honest list of what is unbuilt and undecided.
@@ -40,7 +47,14 @@ particular characters speak to each other.
 
 **Mytheca** — from *Myth* + the Greek *Bibliotheca* ("library") — is a **library of myths**: a place to author interactive worlds and then live inside them. You create a **storyline** (the world) with its **characters**, **settings**, and **scenarios** (live situations), then play through scenes where AI characters converse with one another and with you, while a persistent **Narrator** describes the world around them. The central chat reads like a scene, not a flat message thread.
 
-The story is driven by a **multi-agent backend** that emits **small, typed, validated story events**. The AI decides *what happens*; the UI decides *how it looks* — the model never dictates layout. A bounded, guidance-driven **stat system** (trust, patience, suspicion, health…) gives the world continuity and consequence over time.
+A bounded, guidance-driven **stat system** (trust, patience, suspicion, health…) gives the world continuity and consequence over time: the model proposes a change, the server clamps it to the band the world declares, and the value persists across the play-through.
+
+<p align="center">
+  <img src="docs/assets/library.jpg" width="900"
+       alt="The library view of a storyline: a recent-scenario panel with a Begin Scene button, a carousel of four painted character portraits, and three columns listing scenarios, the six-character cast, and five settings with their own establishing art.">
+</p>
+
+<p align="center"><sub>The library. Portraits and setting art are generated in-app through a local ComfyUI workflow, in one of three styles.</sub></p>
 
 ## Research record
 
