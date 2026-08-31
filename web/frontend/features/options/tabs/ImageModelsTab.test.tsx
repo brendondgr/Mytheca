@@ -21,6 +21,10 @@ function makeOpts(overrides: Partial<OptionsState["settings"]> = {}): OptionsSta
         authoringConcurrency: 3,
         maxContextTokens: 16384,
         reasoningVisibility: "summary" as const,
+        providers: [
+          { id: "openai-compatible", label: "OpenAI-compatible", configured: true, defaultBaseUrl: "", supportsDiscovery: true },
+          { id: "anthropic", label: "Anthropic (Claude)", configured: false, defaultBaseUrl: "https://api.anthropic.com", supportsDiscovery: true },
+        ],
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
       comfy: COMFY_FIXTURE,

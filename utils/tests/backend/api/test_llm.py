@@ -58,7 +58,17 @@ def test_test_chat_returns_ok_and_sample(client, monkeypatch):
     assert data["latencyMs"] >= 0
 
 
-def test_upstream_error_maps_to_envelope(client, monkeypatch):
+# ---- Discovery answers 200, always -----------------------------------------
+# These three used to assert 4xx/5xx envelopes on /llm/models. The route
+# deliberately no longer raises: an unreachable local server is a NORMAL state,
+# not an exception, and a 500 there makes the Options page look broken instead
+# of the endpoint — on the one page an operator opens precisely when an endpoint
+# is misbehaving. The envelope mapping itself is unchanged and is asserted
+# directly below, so this is a narrowing of where errors surface, not a loss of
+# error handling.
+
+
+def test_upstream_error_is_reported_not_raised(client, monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, text="kaboom")
 
@@ -66,11 +76,14 @@ def test_upstream_error_maps_to_envelope(client, monkeypatch):
     res = client.post(
         "/api/options/llm/models", json={"baseUrl": "http://localhost:7070/v1"}
     )
-    assert res.status_code == 502
-    assert res.json()["error"]["code"] == "upstream_error"
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is False
+    assert body["models"] == []
+    assert body["error"]  # a reason the operator can act on, not a stack trace
 
 
-def test_transport_error_maps_to_bad_gateway(client, monkeypatch):
+def test_transport_error_is_reported_not_raised(client, monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("refused")
 
@@ -78,17 +91,47 @@ def test_transport_error_maps_to_bad_gateway(client, monkeypatch):
     res = client.post(
         "/api/options/llm/models", json={"baseUrl": "http://localhost:7070/v1"}
     )
-    assert res.status_code == 502
-    assert res.json()["error"]["code"] == "bad_gateway"
+    assert res.status_code == 200
+    assert res.json()["ok"] is False
 
 
-def test_missing_base_url_is_bad_request(client, monkeypatch):
-    # No stored config and no baseUrl in the request → 400 (clear any seeded default).
+def test_missing_base_url_is_an_empty_state_not_an_error(client, monkeypatch):
+    """"Nothing configured yet" is a state the UI renders, not a client error."""
     client.patch("/api/options/llm", json={"baseUrl": ""})
     _patch_upstream(monkeypatch, lambda req: httpx.Response(200, json={"data": []}))
     res = client.post("/api/options/llm/models", json={})
-    assert res.status_code == 400
-    assert res.json()["error"]["code"] == "bad_request"
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is True
+    assert body["source"] == "none"
+    assert body["models"] == []
+
+
+def test_the_error_envelope_itself_still_maps(client, monkeypatch):
+    """The mapping `safe_list_models` catches is unchanged — proven on the raw call.
+
+    Without this, moving discovery behind a never-raises wrapper would silently
+    delete the only coverage of upstream_error / bad_gateway.
+    """
+    from app.core.errors import APIError
+    from app.services import llm
+
+    _patch_upstream(monkeypatch, lambda req: httpx.Response(500, text="kaboom"))
+    with pytest.raises(APIError) as upstream:
+        llm.list_models("http://localhost:7070/v1", "")
+    assert upstream.value.code == "upstream_error"
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused")
+
+    _patch_upstream(monkeypatch, refuse)
+    with pytest.raises(APIError) as transport:
+        llm.list_models("http://localhost:7070/v1", "")
+    assert transport.value.code == "bad_gateway"
+
+    with pytest.raises(APIError) as missing:
+        llm.list_models("", "")
+    assert missing.value.code == "bad_request"
 
 
 # ---- reasoning-budget injection in chat_complete ---------------------------

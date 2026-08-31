@@ -14,6 +14,34 @@ Verified against the code on 2026-08-04.
 
 ## Unbuilt capabilities
 
+- **Only ONE of the four LLM providers is verified against a live endpoint.**
+  `openai-compatible` is exercised constantly — it is what this install runs on, its adapter
+  was verified byte-identical to the previous implementation (key order included) by a parity
+  harness, and a full `scene_smoke` turn plays through it with 0 problems. `anthropic`,
+  `gemini` and `ollama` are verified only against their reference documentation, an
+  adversarial review, and 46 contract tests. **None of the three has ever made a real
+  request.** Everything most likely to be wrong in them is invisible offline: whether a body
+  is accepted, whether a stream frames the way the docs say, whether usage fields carry the
+  names claimed. Treat them as "written carefully, unproven", and expect the first live call
+  of each to find something.
+- **Streaming is not provider-dispatched.** `llm.chat_complete_stream` still parses the
+  OpenAI SSE dialect directly (`data:` frames, `[DONE]`, `choices[0].delta.content`), and
+  `llm.stop_is_safe` is still applied globally rather than per adapter. Each adapter
+  implements `stream_delta`/`stream_done` and carries `stop_matches_reasoning`, and neither
+  is read on the live streaming path. Consequence: selecting Anthropic or Gemini would fail
+  the content-type check, be added to `_NO_STREAM`, and silently degrade every turn to the
+  blocking path — which destroys the live-typing behaviour with no error surfaced. Wiring the
+  stream is the remaining half of the provider seam.
+- **`gemini.py` is 790 lines**, against a project guideline of 800 max / under 500 preferred.
+  It is one class plus its parsing helpers and splitting it would scatter one dialect across
+  files, but it is at the ceiling and the next addition should split rather than grow it.
+- **Per-role model routing is still not possible.** "Cheap model for the planner, strong model
+  for prose" is the main practical reason to hold several providers at once, and the seam does
+  not deliver it: one global model id still serves ~25 agent call sites via the positional
+  `LlmConn` four-tuple. Doing it means making `LlmConn` a dataclass and deciding a product
+  question — how the engine should spend money and latency — that is the owner's, not an
+  implementation detail. **Human decision needed.**
+
 - **The story player's mount-time long frames are unexplained.** Under 4x CPU throttle the player
   produces a ~240ms long animation frame (~190ms blocking) at `scrollY 0`, plus 11-12 frames over
   1.5x the 16.7ms median and 9-12% dropped frames. Phase 3 of the website overhaul removed two real

@@ -26,6 +26,7 @@ from app.schemas.settings import (
     LlmConfigRead,
     LlmConfigUpdate,
     LlmParams,
+    LlmProviderOption,
     PromptsConfigRead,
     PromptsConfigUpdate,
     PromptSpecRead,
@@ -99,8 +100,93 @@ def _reasoning_visibility(value: object) -> ReasoningVisibility:
     return _DEFAULT_REASONING_VISIBILITY
 
 
+# ---- Per-provider credentials ----------------------------------------------
+# The llm row was a FLAT single-endpoint document: one baseUrl, one model, one
+# _apiKey. Supporting several providers means holding several credentials at
+# once, and there was nowhere to put them — so an operator could not even *test*
+# a second endpoint without destroying the first one's settings.
+#
+# The row now carries a `providers` map alongside the flat fields. The flat
+# fields remain the ACTIVE provider's values, so every existing reader —
+# `get_llm`, `resolve_llm_credentials`, all ~25 agent call sites — keeps working
+# unchanged and no migration is required. `_with_providers` seeds the map from
+# the flat fields the first time a pre-existing row is read, which is what makes
+# this backward compatible rather than merely additive.
+
+
+def _provider_slot(doc: dict, provider: str) -> dict:
+    return (doc.get("providers") or {}).get(provider) or {}
+
+
+def _with_providers(doc: dict) -> dict:
+    """Ensure the row has a `providers` map, seeded from the flat fields."""
+    providers = dict(doc.get("providers") or {})
+    active = doc.get("provider") or "openai-compatible"
+    if active not in providers:
+        providers[active] = {
+            "baseUrl": doc.get("baseUrl", ""),
+            "model": doc.get("model", ""),
+            "_apiKey": doc.get("_apiKey", ""),
+        }
+    doc["providers"] = providers
+    return doc
+
+
+def _normalize_provider(doc: dict) -> dict:
+    """Map a stored provider id onto one the registry actually knows.
+
+    Existing rows hold `openai` or `local` — the two values the pre-adapter
+    settings row could take, both meaning "the one OpenAI-compatible endpoint".
+    Left as-is they match no adapter, so the operator's working configuration
+    would show as *unconfigured* in the new picker and the dropdown would
+    preselect nothing. Normalising on READ migrates every existing install with
+    no migration step and no data change.
+    """
+    from app.services import llm_providers
+
+    doc["provider"] = llm_providers.get_adapter(doc.get("provider")).id
+    return doc
+
+
 def _llm_doc(db: Session) -> dict:
-    return {**_llm_defaults(), **_get_row(db, LLM_KEY)}
+    return _with_providers(_normalize_provider({**_llm_defaults(), **_get_row(db, LLM_KEY)}))
+
+
+def _provider_options(doc: dict) -> list[LlmProviderOption]:
+    """The provider dropdown, built from the registry rather than a literal list.
+
+    Pure config — no network. The Options panel therefore renders its picker even
+    when every configured endpoint is down, which is exactly when an operator is
+    most likely to be looking at it.
+    """
+    from app.services import llm_providers
+
+    slots = doc.get("providers") or {}
+    out: list[LlmProviderOption] = []
+    for pid, label, default_base_url, supports_discovery in llm_providers.provider_options():
+        slot = slots.get(pid) or {}
+        out.append(
+            LlmProviderOption(
+                id=pid,
+                label=label,
+                configured=bool(slot.get("_apiKey") or slot.get("baseUrl")),
+                default_base_url=default_base_url,
+                supports_discovery=supports_discovery,
+            )
+        )
+    return out
+
+
+def prime_active_provider(db: Session) -> None:
+    """Load the stored provider into the process global at startup.
+
+    Without this a fresh process generates against the DEFAULT provider until
+    someone happens to save Options — so a restart would silently change which
+    backend the app talks to.
+    """
+    from app.services import llm_providers
+
+    llm_providers.set_active(_llm_doc(db).get("provider"))
 
 
 def get_llm(db: Session) -> LlmConfigRead:
@@ -118,6 +204,7 @@ def get_llm(db: Session) -> LlmConfigRead:
             1024, int(doc.get("maxContextTokens") or _DEFAULT_MAX_CONTEXT_TOKENS)
         ),
         reasoning_visibility=_reasoning_visibility(doc.get("reasoningVisibility")),
+        providers=_provider_options(doc),
     )
 
 
@@ -128,8 +215,22 @@ def update_llm(db: Session, data: LlmConfigUpdate) -> LlmConfigRead:
         doc["baseUrl"] = data.base_url.strip().rstrip("/")
     if data.model is not None:
         doc["model"] = data.model
-    if data.provider is not None:
+    if data.provider is not None and data.provider != doc.get("provider"):
+        # Switching provider parks the outgoing one's credentials in its slot and
+        # loads the incoming one's. Without this, changing the dropdown would
+        # silently carry an Anthropic key over to an Ollama endpoint — or, worse,
+        # overwrite the key the operator spent a minute pasting in.
+        outgoing = doc.get("provider") or "openai-compatible"
+        doc.setdefault("providers", {})[outgoing] = {
+            "baseUrl": doc.get("baseUrl", ""),
+            "model": doc.get("model", ""),
+            "_apiKey": doc.get("_apiKey", ""),
+        }
         doc["provider"] = data.provider
+        slot = _provider_slot(doc, data.provider)
+        doc["baseUrl"] = slot.get("baseUrl", "")
+        doc["model"] = slot.get("model", "")
+        doc["_apiKey"] = slot.get("_apiKey", "")
     if data.params is not None:
         doc["params"] = data.params.model_dump(by_alias=True)
     # api_key: None = keep; "" = clear; otherwise replace.
@@ -141,18 +242,58 @@ def update_llm(db: Session, data: LlmConfigUpdate) -> LlmConfigRead:
         doc["maxContextTokens"] = max(1024, int(data.max_context_tokens))
     if data.reasoning_visibility is not None:
         doc["reasoningVisibility"] = data.reasoning_visibility
+    # Mirror the flat fields back into the active provider's slot, so the next
+    # switch away and back restores what the operator last had.
+    doc.setdefault("providers", {})[doc.get("provider") or "openai-compatible"] = {
+        "baseUrl": doc.get("baseUrl", ""),
+        "model": doc.get("model", ""),
+        "_apiKey": doc.get("_apiKey", ""),
+    }
     _set_row(db, LLM_KEY, doc)
+    # Generation reads the active provider from a process global (see
+    # llm_providers.set_active for why). Updating the row without updating that
+    # is the silent failure this whole layer exists to prevent: the operator
+    # picks Anthropic, the picker says Anthropic, and every turn keeps going to
+    # the old endpoint in the old dialect.
+    from app.services import llm_providers
+
+    llm_providers.set_active(doc.get("provider"))
     return get_llm(db)
 
 
 def resolve_llm_credentials(
-    db: Session, base_url: str | None, api_key: str | None
+    db: Session,
+    base_url: str | None,
+    api_key: str | None,
+    provider: str | None = None,
 ) -> tuple[str, str]:
-    """Fall back to the stored base URL / key when a request omits them."""
+    """Fall back to the stored base URL / key when a request omits them.
+
+    `provider` lets Options probe a NON-active provider — listing its models or
+    running a test call — without switching to it first. Discovery that requires
+    committing to a provider before you can see whether it works is not
+    discovery.
+    """
     doc = _llm_doc(db)
-    resolved_url = (base_url or doc.get("baseUrl") or "").strip()
-    resolved_key = api_key if api_key is not None else (doc.get("_apiKey") or "")
+    slot = _provider_slot(doc, provider) if provider else {}
+    fallback_url = slot.get("baseUrl") if provider else doc.get("baseUrl")
+    fallback_key = slot.get("_apiKey") if provider else doc.get("_apiKey")
+    resolved_url = (base_url or fallback_url or "").strip()
+    resolved_key = api_key if api_key is not None else (fallback_key or "")
     return resolved_url, resolved_key
+
+
+def configured_providers(db: Session) -> dict[str, bool]:
+    """Which providers have a credential or a base URL stored.
+
+    Powers the Options dropdown's "configured" marks. Returns booleans, never
+    the values — a key never leaves this module.
+    """
+    doc = _llm_doc(db)
+    return {
+        pid: bool((slot or {}).get("_apiKey") or (slot or {}).get("baseUrl"))
+        for pid, slot in (doc.get("providers") or {}).items()
+    }
 
 
 # ---- ComfyUI config --------------------------------------------------------

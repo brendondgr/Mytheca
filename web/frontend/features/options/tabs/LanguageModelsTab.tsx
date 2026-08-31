@@ -53,6 +53,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
   // Lazy-init from the loaded config. OptionsView keys this component on whether
   // settings are loaded, so it remounts with the correct values (no hydration
   // effect, no synchronous setState-in-effect).
+  const [provider, setProvider] = useState(llm?.provider ?? "openai-compatible");
   const [baseUrl, setBaseUrl] = useState(llm?.baseUrl ?? "");
   const [model, setModel] = useState(llm?.model ?? "");
   const [apiKey, setApiKey] = useState("");
@@ -65,6 +66,20 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
 
   const [models, setModels] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
+  /**
+   * The THREE empty states, kept apart on purpose. They look identical (an empty
+   * dropdown) and mean completely different things, and collapsing them is how a
+   * settings panel ends up telling someone their config is wrong when their GPU
+   * box is simply off:
+   *   "idle"        nothing asked for yet
+   *   "none"        nothing configured to ask
+   *   "unreachable" asked, could not connect  (`ok: false`)
+   *   "empty"       asked, answered, serving nothing
+   *   "ok"          asked, answered, has models
+   */
+  const [discovery, setDiscovery] = useState<
+    "idle" | "none" | "unreachable" | "empty" | "ok"
+  >("idle");
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [testing, setTesting] = useState(false);
@@ -78,23 +93,56 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
     return <p className="font-body text-body-sm text-mute">Loading language-model settings…</p>;
   }
 
+  const current = llm.providers?.find((p) => p.id === provider);
+  const supportsDiscovery = current?.supportsDiscovery ?? true;
+
   // Pass apiKey only when the user typed one; the backend falls back to the stored key.
-  const credentials = () => ({ baseUrl, ...(apiKey ? { apiKey } : {}) });
+  const credentials = () => ({ provider, baseUrl, ...(apiKey ? { apiKey } : {}) });
 
   async function fetchModels() {
-    if (!baseUrl.trim()) return;
+    if (!baseUrl.trim()) {
+      setModels([]);
+      setDiscovery("none");
+      setFetchError(null);
+      return;
+    }
     setFetching(true);
     setFetchError(null);
     try {
-      const { models: found } = await fetchLlmModels(credentials());
-      setModels(found);
-      if (found.length === 0) setFetchError("No models reported by this endpoint.");
+      // The route answers 200 with `ok: false` for an unreachable endpoint —
+      // someone's GPU box being off is not an error in Mytheca — so the
+      // interesting case arrives here, not in the catch.
+      const res = await fetchLlmModels(credentials());
+      setModels(res.models);
+      if (!res.ok) {
+        setDiscovery("unreachable");
+        setFetchError(res.error ?? "Could not reach this endpoint.");
+      } else if (res.models.length === 0) {
+        setDiscovery("empty");
+      } else {
+        setDiscovery("ok");
+      }
     } catch (err) {
       setModels([]);
+      setDiscovery("unreachable");
       setFetchError(err instanceof Error ? err.message : "Could not reach the endpoint.");
     } finally {
       setFetching(false);
     }
+  }
+
+  /** Switching provider swaps in that provider's own endpoint and clears stale models. */
+  function switchProvider(next: string) {
+    const option = llm?.providers?.find((p) => p.id === next);
+    setProvider(next);
+    setModels([]);
+    setDiscovery("idle");
+    setFetchError(null);
+    setApiKey("");
+    // Only prefill an EMPTY field: overwriting a URL the operator typed would
+    // lose work, and a provider they have already configured keeps its own.
+    setBaseUrl((prev) => (prev.trim() ? prev : option?.defaultBaseUrl ?? ""));
+    setModel("");
   }
 
   async function runTest() {
@@ -119,6 +167,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
     setStatus(null);
     try {
       await opts.saveLlm({
+        provider,
         baseUrl,
         model,
         params,
@@ -145,11 +194,28 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
         Language models
       </h2>
       <p className="mt-2xs mb-lg font-body text-body-sm text-ink-soft">
-        Point Mytheca at any OpenAI-compatible endpoint — a local server or a hosted API.
+        Point Mytheca at a local server or a hosted API. Each provider keeps its own
+        endpoint and key, so switching between them does not lose either.
       </p>
 
       <div className="grid gap-lg">
-        <div className="flex items-end gap-sm">
+        <label className="block">
+          <FieldLabel>Provider</FieldLabel>
+          <select
+            value={provider}
+            onChange={(e) => switchProvider(e.target.value)}
+            className="w-full rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field text-ink focus:border-accent focus:outline-none"
+          >
+            {(llm.providers ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+                {p.configured ? " · configured" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="flex flex-wrap items-end gap-sm">
           <TextField
             label="Base URL"
             className="flex-1"
@@ -159,13 +225,32 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
             placeholder="http://localhost:7070/v1"
             inputMode="url"
           />
-          <Button variant="secondary" onClick={() => void fetchModels()} disabled={fetching || !baseUrl.trim()}>
-            {fetching ? "Fetching…" : "Fetch models"}
-          </Button>
+          {supportsDiscovery ? (
+            <Button
+              variant="secondary"
+              onClick={() => void fetchModels()}
+              disabled={fetching || !baseUrl.trim()}
+            >
+              {fetching ? "Fetching…" : "Fetch models"}
+            </Button>
+          ) : null}
         </div>
-        {fetchError ? (
+        {/* The three empty states, said differently on purpose. An empty dropdown
+            means "nothing configured", "your endpoint is down" and "this server
+            serves no models" — and telling someone their configuration is wrong
+            when their GPU box is simply off is the failure this exists to avoid. */}
+        {discovery === "unreachable" ? (
           <p role="alert" className="-mt-sm font-mono text-eyebrow tracking-[0.04em] text-danger-ink">
-            {fetchError}
+            Could not reach this endpoint{fetchError ? ` — ${fetchError}` : "."} Nothing is
+            wrong with Mytheca; the server may simply be off.
+          </p>
+        ) : discovery === "empty" ? (
+          <p role="status" className="-mt-sm font-mono text-eyebrow tracking-[0.04em] text-mute">
+            Reached the endpoint, and it reports no models. Load one, or type an id below.
+          </p>
+        ) : discovery === "none" ? (
+          <p role="status" className="-mt-sm font-mono text-eyebrow tracking-[0.04em] text-mute">
+            No endpoint yet — add a base URL to see what it serves.
           </p>
         ) : null}
 
@@ -184,6 +269,7 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
         <label className="block">
           <FieldLabel>
             Model {models.length > 0 ? `(${models.length} available)` : ""}
+            {!supportsDiscovery ? " — this provider does not list models" : ""}
           </FieldLabel>
           {models.length > 0 ? (
             <select
@@ -202,7 +288,11 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
             <input
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              placeholder="Fetch models to choose, or type an id"
+              placeholder={
+                supportsDiscovery
+                  ? "Fetch models to choose, or type an id"
+                  : "Type the model id"
+              }
               className="w-full rounded-xs border border-field-bd bg-field px-md py-sm font-body text-field text-ink focus:border-accent focus:outline-none"
             />
           )}
