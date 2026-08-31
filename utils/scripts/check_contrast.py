@@ -7,6 +7,19 @@ load-bearing text/surface token pairs meet WCAG 2.2 AA in every theme:
 - SOFT pairs are reported but do not fail (known, documented trade-offs —
   e.g. the theme-agnostic gold eyebrow accent over light parchment).
 
+It ALSO gates the entity-colour recipe (§2 below). Characters, graph node
+types, seals and stat bands carry theme-independent colours chosen for
+identity; rendering those raw as text produced 71 contrast failures in the
+2026-08-31 baseline audit (#8e2b1c on the Slate card ground measured 1.71:1).
+themes.css fixes that by mixing the entity colour toward the theme's own ink,
+and this script re-derives the resulting ratio for every entity colour against
+every surface in every theme — so the mix percentages in the CSS cannot drift
+away from the contrast they were chosen to guarantee.
+
+The percentages are READ FROM themes.css, never hardcoded here. Changing the
+CSS changes what this gate checks, which is the only way the two can stay
+honest about each other.
+
 Run: uv run python utils/scripts/check_contrast.py
 """
 
@@ -80,6 +93,53 @@ PAIRS: list[tuple[str, str, str, float, bool]] = [
     ("tab-ink / rail-bottom", "--tab-ink", "--rail-grad:1", 4.5, False),
 ]
 
+# --- §2. The entity palette -------------------------------------------------
+# Every theme-independent colour the app can attach to an entity and then put
+# NEAR text. Sources: web/frontend/lib/graphColors.ts (node + edge types),
+# lib/seals.ts, lib/cardArt.ts, and the character colours seeded by
+# core/seed.py. A colour added there must be added here, or it is ungated.
+ENTITY_COLORS: list[tuple[str, str]] = [
+    ("graph/Character", "#B0492F"),
+    ("graph/Setting", "#2F7D6B"),
+    ("graph/Event", "#C56A1F"),
+    ("graph/Faction", "#6B4A8A"),
+    ("graph/Secret", "#B0506A"),
+    ("graph/Consequence", "#3A5A78"),
+    ("edge/positive", "#1F8A5B"),
+    ("edge/negative", "#9A3520"),
+    ("edge/neutral", "#5B6B7A"),
+    ("semantic/gold", "#C8862A"),
+    ("semantic/gold-soft", "#A8762A"),
+    ("semantic/narrator", "#1F8A82"),
+    ("theme/accent-light", "#8E2B1C"),
+    ("theme/accent-dark", "#D3694F"),
+    ("theme/accent-slate", "#DC634A"),
+]
+
+# Surfaces an entity-coloured string can land on. Text sits on content tiers;
+# the chrome gradients are covered by the PAIRS table above.
+ENTITY_SURFACES = [
+    "--card-bg",
+    "--card-bg2",
+    "--page-bg",
+    "--menu-bg",
+    "--surface",
+    "--hover-bg",
+    "--field-bg",
+    "--modal-bg",
+]
+
+# (token, minimum ratio, what it is for)
+ENTITY_DERIVED = [
+    ("--entity-ink", 4.5, "small text"),
+    ("--entity-ink-strong", 3.0, "large text (>=24px / >=18.66px bold) + non-text marks"),
+]
+
+MIX_RE = re.compile(
+    r"(--entity-ink(?:-strong)?)\s*:\s*color-mix\(\s*in\s+oklab\s*,"
+    r"\s*var\(--entity\)\s+([0-9.]+)%\s*,\s*var\(--ink\)\s*\)"
+)
+
 HEX_RE = re.compile(r"#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b")
 BLOCK_RE = re.compile(r"\.(theme-[a-z]+)\s*\{(.*?)\}", re.S)
 DECL_RE = re.compile(r"(--[a-z0-9-]+)\s*:\s*([^;]+);")
@@ -133,8 +193,114 @@ def ratio(fg: str, bg: str) -> float:
     return (lighter + 0.05) / (darker + 0.05)
 
 
+# --- OKLab, so the gate mixes exactly the way `color-mix(in oklab, ...)` does.
+# Mixing in sRGB would give a different answer and the gate would be checking a
+# colour the browser never renders.
+_M1 = (
+    (0.4122214708, 0.5363325363, 0.0514459929),
+    (0.2119034982, 0.6806995451, 0.1073969566),
+    (0.0883024619, 0.2817188376, 0.6299787005),
+)
+_M2 = (
+    (0.2104542553, 0.7936177850, -0.0040720468),
+    (1.9779984951, -2.4285922050, 0.4505937099),
+    (0.0259040371, 0.7827717662, -0.8086757660),
+)
+_M1_INV = (
+    (1.0, 0.3963377774, 0.2158037573),
+    (1.0, -0.1055613458, -0.0638541728),
+    (1.0, -0.0894841775, -1.2914855480),
+)
+_M2_INV = (
+    (4.0767416621, -3.3077115913, 0.2309699292),
+    (-1.2684380046, 2.6097574011, -0.3413193965),
+    (-0.0041960863, -0.7034186147, 1.7076147010),
+)
+
+
+def _linear_to_srgb(c: float) -> float:
+    c = max(0.0, min(1.0, c))
+    return 12.92 * c if c <= 0.0031308 else 1.055 * (c ** (1 / 2.4)) - 0.055
+
+
+def to_oklab(hex_color: str) -> tuple[float, float, float]:
+    h = hex_color.lstrip("#")
+    if len(h) == 3:
+        h = "".join(ch * 2 for ch in h)
+    rgb = [srgb_channel(int(h[i : i + 2], 16)) for i in (0, 2, 4)]
+    lms = [sum(_M1[i][j] * rgb[j] for j in range(3)) for i in range(3)]
+    lms = [abs(v) ** (1 / 3) * (1 if v >= 0 else -1) for v in lms]
+    return tuple(sum(_M2[i][j] * lms[j] for j in range(3)) for i in range(3))
+
+
+def from_oklab(lab: tuple[float, float, float]) -> str:
+    lms = [sum(_M1_INV[i][j] * lab[j] for j in range(3)) for i in range(3)]
+    lms = [v**3 for v in lms]
+    rgb = [sum(_M2_INV[i][j] * lms[j] for j in range(3)) for i in range(3)]
+    return "#%02x%02x%02x" % tuple(
+        max(0, min(255, round(_linear_to_srgb(c) * 255))) for c in rgb
+    )
+
+
+def mix_oklab(color: str, toward: str, weight: float) -> str:
+    """`color-mix(in oklab, <color> <weight*100>%, <toward>)`."""
+    a, b = to_oklab(color), to_oklab(toward)
+    return from_oklab(tuple(a[i] * weight + b[i] * (1 - weight) for i in range(3)))
+
+
+def parse_mix_ratios(css: str) -> dict[str, float]:
+    """Read the entity mix percentages out of themes.css.
+
+    Hardcoding them here would let the CSS and the gate disagree silently,
+    which is the exact failure this whole script exists to prevent.
+    """
+    found = {m.group(1): float(m.group(2)) / 100.0 for m in MIX_RE.finditer(css)}
+    missing = [name for name, _, _ in ENTITY_DERIVED if name not in found]
+    if missing:
+        raise ValueError(
+            "themes.css does not declare "
+            + ", ".join(missing)
+            + " as `color-mix(in oklab, var(--entity) N%, var(--ink))`"
+        )
+    return found
+
+
+def check_entities(
+    themes: dict[str, dict[str, str]], ratios: dict[str, float]
+) -> int:
+    """Every entity colour, derived per theme, against every surface it can sit on."""
+    failures = 0
+    print("\n== entity colour on surface ==")
+    for token, minimum, purpose in ENTITY_DERIVED:
+        weight = ratios[token]
+        worst = (999.0, "", "", "")
+        for theme_name, tokens in sorted(themes.items()):
+            ink = resolve_hex(tokens, "--ink")
+            for label, raw in ENTITY_COLORS:
+                derived = mix_oklab(raw, ink, weight)
+                for surface in ENTITY_SURFACES:
+                    bg = resolve_hex(tokens, surface)
+                    r = ratio(derived, bg)
+                    if r < worst[0]:
+                        worst = (r, theme_name, label, surface)
+                    if r < minimum:
+                        failures += 1
+                        print(
+                            f"  FAIL {token} @ {weight:.0%}  {label} on "
+                            f"{surface} in {theme_name}: {r:.2f} < {minimum}"
+                        )
+        mark = "ok  " if worst[0] >= minimum else "FAIL"
+        print(
+            f"  {mark} {token:22s} @ {weight:.0%} hue  worst {worst[0]:5.2f} "
+            f"(min {minimum}) — {worst[2]} on {worst[3]} in {worst[1]}"
+        )
+        print(f"       for: {purpose}")
+    return failures
+
+
 def main() -> int:
-    themes = parse_themes(THEMES_CSS.read_text())
+    css = THEMES_CSS.read_text()
+    themes = parse_themes(css)
     if not themes:
         print(f"No .theme-* blocks found in {THEMES_CSS}")
         return 1
@@ -157,10 +323,12 @@ def main() -> int:
             print(
                 f"  {mark} {label:28s} {fg} on {bg}  {r:5.2f}  (min {minimum})"
             )
+    failures += check_entities(themes, parse_mix_ratios(css))
+
     if failures:
         print(f"\n{failures} hard contrast failure(s).")
         return 1
-    print("\nAll hard contrast pairs pass WCAG AA.")
+    print("\nAll hard contrast pairs pass WCAG AA, entity recipe included.")
     return 0
 
 
