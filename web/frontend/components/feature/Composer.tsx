@@ -27,6 +27,7 @@ import {
   stripMentions,
   type MentionOption,
 } from "@/features/story-player/mentions";
+import { Icon } from "@/components/ui/Icon";
 
 /** Maximum visible height of the textarea before it becomes scrollable (~10 lines). */
 const MAX_HEIGHT = 240;
@@ -656,24 +657,12 @@ export function Composer({
             onClick={onSend}
             disabled={sendDisabled || !hasContent}
             aria-label="Send"
-            className="flex flex-none items-center gap-2xs rounded-md bg-accent px-md py-2xs font-mono text-eyebrow tracking-[0.08em] text-on-accent uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
+            // Square below `sm` like every other control in this row; the word returns
+            // beside the arrow at `sm`. The accessible name is "Send" either way.
+            className="flex h-control w-control touch-target-overlay flex-none items-center justify-center gap-2xs rounded-md bg-accent font-mono text-eyebrow tracking-[0.08em] text-on-accent uppercase hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent sm:w-auto sm:px-md sm:py-2xs"
           >
-            Send
-            {/* Right-arrow — matches the reference "Send →". */}
-            <svg
-              aria-hidden="true"
-              width="12"
-              height="12"
-              viewBox="0 0 14 14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M2.5 7h9M8 3.5 11.5 7 8 10.5" />
-            </svg>
+            <span className="hidden sm:inline">Send</span>
+            <Icon name="send" size={14} />
           </button>
           </div>
         </div>

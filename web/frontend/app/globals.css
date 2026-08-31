@@ -79,6 +79,7 @@
   --spacing-2xl: var(--sp-2xl);
   --spacing-3xl: var(--sp-3xl);
   --spacing-header: var(--header-h);
+  --spacing-control: var(--control);
 
   /* Radius — `rounded-xs` .. `rounded-lg`. Tailwind ships its own
    * `rounded-sm/md/lg`; these entries REPLACE those values with Mytheca's,
@@ -323,4 +324,19 @@ textarea.composer-input:focus-visible {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* A horizontal snap track with no visible scrollbar.
+ *
+ * The scrollbar is chrome for a gesture that is already obvious — a hero that slides
+ * under a finger — and on a desktop it draws a grey bar across the bottom of the
+ * artwork. Scrolling itself is untouched: keyboard, trackpad, wheel and a screen
+ * reader's own scrolling all still work, which is the difference between hiding the
+ * scrollbar and disabling overflow. */
+.scroll-track {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-track::-webkit-scrollbar {
+  display: none;
 }

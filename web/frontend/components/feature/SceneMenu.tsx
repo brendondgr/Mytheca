@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Icon } from "@/components/ui/Icon";
 
 /** The conversation-record export formats. Moved here from the deleted `ExportMenu`. */
 export type ExportFormat = "json" | "md";
@@ -20,6 +21,19 @@ export interface SceneMenuItem {
   /** One short line under the label — what the item does, or why it is disabled. */
   hint?: string;
   icon?: ReactNode;
+  /**
+   * A number worth advertising — the present-cast count, the outcomes a direction still
+   * owes. `null` or `0` shows nothing. It is folded into the row's accessible name rather
+   * than left as a bare numeral, because "Scene 2" tells a screen-reader user nothing.
+   *
+   * Inherited from the deleted `SceneRailBar`, whose Cast/Scene/Knows triggers moved in
+   * here. The badge was the only place those counts existed on a phone.
+   */
+  count?: number | null;
+  /** How the count reads aloud, e.g. `"2 still owed"`. Required whenever `count` shows. */
+  countLabel?: (n: number) => string;
+  /** Draw attention: the badge fills with accent. For things the scene owes, not totals. */
+  urgent?: boolean;
   onSelect?: () => void;
   disabled?: boolean;
   /**
@@ -28,6 +42,16 @@ export interface SceneMenuItem {
    * `aria-pressed` on a `menuitem` is not.
    */
   pressed?: boolean;
+  /**
+   * Close the menu when this toggle is selected.
+   *
+   * A toggle normally keeps the menu open, so the player can see the state change they
+   * just made. That argument holds for a control whose effect is visible beside the menu
+   * — the Turn Inspector docks a rail at `lg` — and fails for one that opens a bottom
+   * sheet, because the sheet lands UNDER the panel that is still open in front of it.
+   * The rails below `sm` are the second kind.
+   */
+  closesMenu?: boolean;
   render?: ReactNode;
   /**
    * A panel this row owns. Selecting the row **replaces the menu's rows with this panel**
@@ -74,6 +98,7 @@ export function SceneMenu({
   const [drilled, setDrilled] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const panelId = useId();
   const openItem = drilled ? (items.find((i) => i.key === drilled) ?? null) : null;
 
@@ -82,6 +107,14 @@ export function SceneMenu({
   const close = () => {
     setOpen(false);
     setDrilled(null);
+    // Focus goes back to the trigger, synchronously, before the panel unmounts.
+    //
+    // Standard menu behaviour, and load-bearing since the rails moved in here. A row that
+    // opens a bottom sheet is gone the moment it is selected, so `useFocusTrap` — which
+    // records `document.activeElement` when the sheet mounts and restores to it on close —
+    // would otherwise capture a detached node and drop focus to `<body>`. Escaping out of
+    // the sheet would leave a keyboard user at the top of the document.
+    triggerRef.current?.focus();
   };
 
   useEffect(() => {
@@ -110,15 +143,19 @@ export function SceneMenu({
   return (
     <div ref={ref} className="relative flex-none">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => (open ? close() : setOpen(true))}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={label}
-        className="flex flex-none items-center gap-xs rounded-xs border border-field-bd px-sm py-xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink sm:px-sm"
+        // A square below `sm`, matching the back link on the other side of the bar.
+        // Sized by `--control` rather than by padding, which is what made the two
+        // controls different rectangles wearing the same border.
+        className="flex h-control w-control touch-target-overlay flex-none items-center justify-center gap-xs rounded-xs border border-field-bd font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink aria-expanded:border-accent aria-expanded:text-accent-ink sm:w-auto sm:px-sm"
       >
-        <span aria-hidden>☰</span>
+        <Icon name="menu" size={16} />
         <span className="hidden sm:inline">{triggerLabel}</span>
       </button>
 
@@ -139,7 +176,7 @@ export function SceneMenu({
                 onClick={() => setDrilled(null)}
                 className="flex w-full items-center gap-xs rounded-xs border-b border-hair px-md py-sm text-left font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:bg-hover hover:text-ink"
               >
-                <span aria-hidden>‹</span> Back
+<Icon name="back" size={12} /> Back
               </button>
               <div className="min-h-0 flex-1">{openItem.panel}</div>
             </>
@@ -169,7 +206,11 @@ export function SceneMenu({
                 // computation it concatenates with the label — "Turn Inspectorwhat the
                 // scene read, who it chose, and why" — which is what a screen reader would
                 // announce as the item's name.
-                aria-label={item.label}
+                aria-label={
+                  item.count && item.countLabel
+                    ? `${item.label}, ${item.countLabel(item.count)}`
+                    : item.label
+                }
                 aria-describedby={item.hint ? `${panelId}-${item.key}-hint` : undefined}
                 aria-haspopup={item.panel ? "menu" : undefined}
                 onClick={() => {
@@ -179,14 +220,28 @@ export function SceneMenu({
                   }
                   item.onSelect?.();
                   // A toggle keeps the panel open: closing it would hide the state change
-                  // the player just made. Everything else closes, because it navigated.
-                  if (item.pressed === undefined) close();
+                  // the player just made. Everything else closes, because it navigated —
+                  // as does a toggle that opens a surface this menu would sit on top of.
+                  if (item.pressed === undefined || item.closesMenu) close();
                 }}
                 className="flex w-full flex-col gap-3xs rounded-xs px-md py-sm text-left hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent aria-checked:text-accent-ink"
               >
-                <span className="flex items-center gap-xs font-display text-label font-semibold text-ink">
-                  {item.icon ? <span aria-hidden>{item.icon}</span> : null}
-                  {item.label}
+                <span className="flex w-full items-center gap-xs font-display text-label font-semibold text-ink">
+                  {item.icon ? <span aria-hidden className="flex-none">{item.icon}</span> : null}
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  {item.count ? (
+                    <span
+                      aria-hidden
+                      className={
+                        "flex min-w-[17px] flex-none items-center justify-center rounded-md px-2xs py-3xs font-mono text-eyebrow leading-[1.4] " +
+                        (item.urgent
+                          ? "bg-accent text-on-accent"
+                          : "border border-cardbd bg-card2 text-ink-soft")
+                      }
+                    >
+                      {item.count}
+                    </span>
+                  ) : null}
                 </span>
                 {item.hint ? (
                   <span

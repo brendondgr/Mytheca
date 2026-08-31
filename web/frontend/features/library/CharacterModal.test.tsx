@@ -47,7 +47,7 @@ vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock()
 async function openCharacterCreator(user: ReturnType<typeof userEvent.setup>) {
   render(<LibraryView />);
   await screen.findAllByText("The Embergate Conspiracy");
-  await user.click(screen.getByRole("button", { name: /\+ create/i }));
+  await user.click(screen.getByRole("button", { name: /^create$/i }));
   await user.click(screen.getByRole("button", { name: /forge a character/i }));
   return screen.getByRole("dialog");
 }

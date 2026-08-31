@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { EntityType } from "@/features/library/editor";
+import { Icon } from "@/components/ui/Icon";
 
 const ITEMS: { type: EntityType; icon: string; label: string; sub: string }[] = [
   { type: "character", icon: "❖", label: "Forge a Character", sub: "add to the cast" },
@@ -47,9 +48,14 @@ export function CreateMenu({
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls="create-menu"
-        className="rounded-xs bg-accent px-lg py-sm font-mono text-eyebrow uppercase tracking-[0.1em] text-[#F6ECDA] hover-lift press hover:bg-accent-hover hover:shadow-[0_5px_14px_rgba(10,6,3,.3)] active:translate-y-0"
+        aria-label="Create"
+        // A plus, and nothing else, below `sm`. The popover it opens already asks what
+        // to create — "+ Create ▾" spends 96px of a 390px bar saying what the plus and
+        // the panel say between them.
+        className="flex h-control w-control touch-target-overlay items-center justify-center gap-2xs rounded-xs bg-accent font-mono text-eyebrow uppercase tracking-[0.1em] text-on-accent hover-lift press hover:bg-accent-hover hover:shadow-[0_5px_14px_rgba(10,6,3,.3)] active:translate-y-0 sm:w-auto sm:px-lg"
       >
-        + Create ▾
+        <Icon name="plus" size={15} strokeWidth={2.2} />
+        <span className="hidden sm:inline">Create</span>
       </button>
       {open ? (
         <div

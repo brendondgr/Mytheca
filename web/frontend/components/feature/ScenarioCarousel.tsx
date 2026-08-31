@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { mediaUrl } from "@/lib/api";
 import { Monogram } from "@/components/ui/Monogram";
 import { SmartImage } from "@/components/ui/SmartImage";
+import { Icon } from "@/components/ui/Icon";
 import { CARD_SCRIM, PORTRAIT_SCRIM, OVER_ART } from "@/lib/cardArt";
 import type { Character, ResolvedScenario, StatDefinition } from "@/lib/types";
 
@@ -39,7 +40,6 @@ export function ScenarioCarousel({
   onPrev,
   onNext,
   onSelect,
-  counterText,
   onBegin,
   onProfile,
   // Edit button removed from carousel — prop kept for caller compat.
@@ -55,11 +55,51 @@ export function ScenarioCarousel({
   onPrev: () => void;
   onNext: () => void;
   onSelect: (id: string) => void;
-  counterText: string;
   onBegin?: (id: string) => void;
   onProfile?: (id: string) => void;
   onEdit?: (id: string) => void;
 }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  /**
+   * Which slide the SCROLL currently shows, guarded so the two directions cannot fight.
+   *
+   * Two things move this track: a finger, and `index` changing from outside (the chevrons,
+   * or selecting a card in the Scenarios column below). Without the guard they feed each
+   * other — a programmatic scroll fires `scroll`, which reports an index, which re-runs the
+   * effect, which scrolls again — and the track jitters instead of settling.
+   */
+  const settlingTo = useRef<number | null>(null);
+
+  const onTrackScroll = useCallback(() => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const at = Math.round(el.scrollLeft / el.clientWidth);
+    if (settlingTo.current !== null) {
+      // Ignore everything until the programmatic scroll has arrived where it was sent.
+      if (at === settlingTo.current) settlingTo.current = null;
+      return;
+    }
+    const slide = slides[at];
+    if (slide && at !== index) onSelect(slide.id);
+  }, [index, onSelect, slides]);
+
+  // `index` moved without the finger — scroll the track to match.
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const want = index * el.clientWidth;
+    if (Math.abs(el.scrollLeft - want) < 2) return;
+    settlingTo.current = index;
+    // `auto` under reduced motion: `scroll-behavior: smooth` on a 100%-wide track is a
+    // full-screen slide, which is exactly the movement that rule exists to suppress.
+    el.scrollTo({
+      left: want,
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  }, [index]);
+
   if (slides.length === 0) {
     return (
       <section
@@ -91,22 +131,38 @@ export function ScenarioCarousel({
       aria-label="Recent scenarios"
       className="relative mx-lg mt-lg h-[326px] flex-none overflow-hidden rounded-sm shadow-[0_6px_22px_rgba(20,14,6,.18)] sm:mx-xl"
     >
+      {/* A native scroll-snap track, not a transform pager.
+       *
+       * Swipe and click-drag come free, and so do the trackpad, the arrow keys and a
+       * screen reader's own scrolling — none of which a `translateX` on a parent has
+       * any answer for. The chevrons still work: they move `index`, and the effect
+       * below scrolls the track to match, which is also what makes an external change
+       * (clicking a card in the Scenarios column) move the hero. */}
       <div
-        className="flex h-full w-full transition-transform duration-slow ease-out"
-        style={{ transform: `translateX(-${index * 100}%)` }}
+        ref={trackRef}
+        onScroll={onTrackScroll}
+        className="scroll-track flex h-full w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden"
       >
         {slides.map((s, i) => (
           <div
             key={s.id}
+            // Still `inert`, and it still tracks the visible slide — `index` now follows
+            // the SCROLL, so a slide stops being inert as it arrives. Dropping it because
+            // "the user can scroll there" was tried and is wrong: it puts every off-screen
+            // slide's Begin Scene button in the tab order, so a keyboard user tabs through
+            // three scenarios they cannot see. Scrolling is unaffected — a touch on an
+            // inert child still finds the scrollable ancestor.
             aria-hidden={i !== index}
             inert={i !== index}
-            className="flex h-full w-full min-w-0 flex-[0_0_100%]"
+            className="flex h-full w-full min-w-0 flex-[0_0_100%] snap-center"
             style={{ background: HERO.panel, border: `1px solid ${HERO.border}` }}
           >
             {/* LEFT PANEL — scene art as background (sized to the 16:9 image
                 aspect ratio), dark overlay, text + Begin Scene. */}
+            {/* Full width below `lg`, where the cast strip beside it is hidden. A 16:9
+                panel with nothing to its right leaves a third of a phone's hero blank. */}
             <div
-              className="relative flex aspect-[16/9] h-full flex-none flex-col overflow-hidden border-r"
+              className="relative flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden border-r lg:aspect-[16/9] lg:w-auto lg:flex-none"
               style={{ borderColor: HERO.divider }}
             >
               {/* Background: scene art image or hatched placeholder. The hero
@@ -131,16 +187,18 @@ export function ScenarioCarousel({
 
               {/* Text content above the overlay — capped width for readable
                   line length even on the wide 16:9 panel. */}
-              {/* The top reserve has to clear the absolutely-positioned overlay
-                  row above (the "Recent Scenario" label and the ‹ 1/3 › pager),
-                  which spans 44px from `top-lg`. 42px did not: the title's first
-                  line began 20px inside that band and ran under the pager at
-                  390px. Nothing overflowed the viewport, so the responsive
-                  checks were silent — an overlap is invisible to a `scrollWidth`
-                  gate and the first thing a person sees.
-                  48 + 16 = 64px, composed from scale steps rather than a
-                  measured literal, so it stays on the system. */}
-              <div className="relative z-[1] flex w-full max-w-[340px] flex-1 flex-col overflow-hidden px-lg pt-[calc(var(--sp-3xl)+var(--sp-lg))] pb-lg sm:px-xl">
+              {/* The top reserve clears the absolutely-positioned overlay row above.
+                  42px did not: the title's first line began 20px inside that band and ran
+                  under the pager at 390px. Nothing overflowed the viewport, so every
+                  responsive check was silent — an overlap is invisible to a `scrollWidth`
+                  gate and the first thing a person sees. 48 + 16 = 64px, from scale steps
+                  rather than a measured literal. Below `sm` the row is only the label, so
+                  the reserve is generous there rather than exact; it is a floor. */}
+              {/* `justify-center`: the block sits in the middle of the panel rather than
+                  pinned under the label, which is what the top reserve used to be for.
+                  The reserve stays — the "Recent Scenario" label still overlays the top —
+                  but it is now a floor rather than the whole layout. */}
+              <div className="relative z-[1] flex w-full max-w-[340px] flex-1 flex-col justify-center overflow-hidden px-lg pt-[calc(var(--sp-3xl)+var(--sp-lg))] pb-lg sm:px-xl">
                 <h2
                   className="font-display text-step-2 font-bold leading-[1.08] sm:text-step-2"
                   style={{ color: LIGHT.title }}
@@ -202,8 +260,14 @@ export function ScenarioCarousel({
               </div>
             </div>
 
-            {/* CHARACTER STRIP — an arrow-paged carousel of portrait cards */}
-            <CastStrip cast={s.cast} statDefs={statDefs} statsByCharId={statsByCharId} onProfile={onProfile} />
+            {/* CHARACTER STRIP — an arrow-paged carousel of portrait cards.
+                `lg`-only: the cast is already on the Characters tab and on the scenario
+                card below, and a second horizontally-scrolling strip inside a
+                horizontally-scrolling hero is two swipe gestures competing for one
+                finger. */}
+            <div className="hidden min-w-0 flex-1 lg:flex">
+              <CastStrip cast={s.cast} statDefs={statDefs} statsByCharId={statsByCharId} onProfile={onProfile} />
+            </div>
           </div>
         ))}
       </div>
@@ -216,27 +280,30 @@ export function ScenarioCarousel({
         >
           Recent Scenario
         </span>
-        <div className="pointer-events-auto flex items-center gap-xs">
+        {/* Chevrons at `sm` and above only, and no counter at any width.
+         *
+         * On a phone the track is swipeable, so the chevrons are a second way to do what
+         * a finger already does — and the "1 / 3" beside them was a readout of a position
+         * the scroll itself shows. Both were in the corner the title has to clear, which
+         * is what the 64px top reserve below is paying for. */}
+        <div className="pointer-events-auto hidden items-center gap-xs sm:flex">
           <button
             type="button"
             onClick={onPrev}
             aria-label="Previous scenario"
-            className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-label leading-none"
+            className="flex h-[22px] w-[22px] items-center justify-center rounded-full leading-none"
             style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label }}
           >
-            ‹
+            <Icon name="back" size={11} strokeWidth={2.4} />
           </button>
-          <span className="font-mono text-tag" style={{ color: HERO.label }}>
-            {counterText}
-          </span>
           <button
             type="button"
             onClick={onNext}
             aria-label="Next scenario"
-            className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-label leading-none"
+            className="flex h-[22px] w-[22px] items-center justify-center rounded-full leading-none"
             style={{ background: HERO.chev, border: `1px solid ${HERO.chevBd}`, color: HERO.label }}
           >
-            ›
+            <Icon name="forward" size={11} strokeWidth={2.4} />
           </button>
         </div>
       </div>

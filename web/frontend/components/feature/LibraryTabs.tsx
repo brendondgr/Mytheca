@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 export interface TabItem {
@@ -15,11 +15,22 @@ export function LibraryTabs({
   active,
   onChange,
   idBase = "lib",
+  action,
 }: {
   tabs: TabItem[];
   active: string;
   onChange: (key: string) => void;
   idBase?: string;
+  /**
+   * One control at the end of the bar — in practice, "add one of these".
+   *
+   * It lives here below `lg` because the column header that used to carry it is hidden
+   * there: the header said "SCENARIOS 3" directly under a tab that already says
+   * "Scenarios 3", which is the duplication this slot exists to remove without also
+   * removing the only way to create something on a phone. Outside the tablist's
+   * `role="tablist"` children, so it is not announced as a tab.
+   */
+  action?: ReactNode;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -37,6 +48,7 @@ export function LibraryTabs({
   }
 
   return (
+    <div className="flex items-stretch border-b border-hair-strong">
     <div
       role="tablist"
       aria-label="Library sections"
@@ -44,7 +56,7 @@ export function LibraryTabs({
       // track, so a clipped tab reads as "there is more this way" rather than
       // as the end of the list. It is driven by animation-timeline: scroll(),
       // so there is no scroll listener behind it.
-      className="scroll-fade flex items-center gap-1 overflow-x-auto border-b border-hair-strong px-xl"
+      className="scroll-fade flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-lg sm:px-xl"
     >
       {tabs.map((tab, index) => {
         const selected = tab.key === active;
@@ -75,6 +87,10 @@ export function LibraryTabs({
           </button>
         );
       })}
+    </div>
+      {action ? (
+        <div className="flex flex-none items-center pr-lg pb-md sm:pr-xl">{action}</div>
+      ) : null}
     </div>
   );
 }

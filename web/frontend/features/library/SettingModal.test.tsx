@@ -39,7 +39,7 @@ vi.mock("@/lib/api", async () => (await import("@/test/api-mock")).makeApiMock()
 async function openSettingCreator(user: ReturnType<typeof userEvent.setup>) {
   render(<LibraryView />);
   await screen.findAllByText("The Embergate Conspiracy");
-  await user.click(screen.getByRole("button", { name: /\+ create/i }));
+  await user.click(screen.getByRole("button", { name: /^create$/i }));
   await user.click(screen.getByRole("button", { name: /add a setting/i }));
   return screen.getByRole("dialog");
 }

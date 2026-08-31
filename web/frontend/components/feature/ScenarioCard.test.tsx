@@ -57,13 +57,24 @@ describe("ScenarioCard", () => {
     expect(screen.getByText(/The Harbor/)).toBeInTheDocument();
   });
 
-  it("shows the Recent badge only when featured", () => {
+  it("says it is featured through aria-pressed rather than a Recent badge", () => {
+    // The badge is gone. It measured 91px beside the edit pencil, which is why the title
+    // needed a 92px reserve to clear it — a fifth of the card's width at 390px, spent
+    // saying what the 2px accent border and accent shadow already say. `aria-pressed` is
+    // where a screen reader looks for this anyway, and it was already there.
     const { rerender } = render(
       <ScenarioCard scenario={base} featured={false} onSelect={vi.fn()} />,
     );
     expect(screen.queryByText(/^recent$/i)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /feature scenario/i }),
+    ).toHaveAttribute("aria-pressed", "false");
+
     rerender(<ScenarioCard scenario={base} featured onSelect={vi.fn()} />);
-    expect(screen.getByText(/^recent$/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^recent$/i)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /feature scenario/i }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("features the scenario when the card is clicked", async () => {

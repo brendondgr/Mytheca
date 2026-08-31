@@ -1,23 +1,5 @@
 import { HeaderBar, HeaderLead, HeaderTrail } from "@/components/layout/HeaderBar";
-
-function SearchIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      aria-hidden
-      className="pointer-events-none absolute top-1/2 left-md -translate-y-1/2 text-gold-soft-ink"
-    >
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.5" y2="16.5" />
-    </svg>
-  );
-}
+import { Icon } from "@/components/ui/Icon";
 
 /**
  * Top app bar: the Mytheca emblem + wordmark, the storyline switcher slot, library search,
@@ -77,7 +59,11 @@ export function AppHeader({
       </HeaderLead>
       <HeaderTrail>
         <div className="relative hidden items-center sm:flex">
-          <SearchIcon />
+          <Icon
+            name="search"
+            size={13}
+            className="pointer-events-none absolute top-1/2 left-md -translate-y-1/2 text-gold-soft-ink"
+          />
           <input
             type="search"
             aria-label="Search the library"

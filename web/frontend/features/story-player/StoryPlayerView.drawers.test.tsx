@@ -48,9 +48,26 @@ function streamOf(...frames: TurnStreamFrame[]) {
 async function openDrawer(name: "Cast" | "Scene") {
   const user = userEvent.setup();
   render(<StoryPlayerView scenario={embergate} statDefs={SEED_STAT_DEFS} />);
-  const trigger = screen.getByRole("button", { name: new RegExp(`^${name}(,|$)`) });
+  return { user, ...(await raise(user, name)) };
+}
+
+/**
+ * Open one rail sheet from the scene menu.
+ *
+ * The rails used to have a bar of their own above the composer — a third horizontal band
+ * of chrome on the narrowest screen in the app. They are menu rows now, which means two
+ * taps rather than one, and it means the ROW is gone by the time the sheet is open: it
+ * closes the menu behind it, so a sheet that landed under an open panel cannot happen.
+ *
+ * `trigger` is therefore the menu button, not the row. That is also where focus returns
+ * when the sheet closes, and the reason `SceneMenu.close` focuses its trigger
+ * synchronously.
+ */
+async function raise(user: ReturnType<typeof userEvent.setup>, name: "Cast" | "Scene") {
+  const trigger = screen.getByRole("button", { name: /scene menu/i });
   await user.click(trigger);
-  return { user, trigger, dialog: screen.getByRole("dialog") };
+  await user.click(screen.getByRole("menuitemcheckbox", { name: new RegExp(`^${name}(,|$)`) }));
+  return { trigger, dialog: screen.getByRole("dialog") };
 }
 
 /**
@@ -110,7 +127,7 @@ describe("story player rail drawers — the capabilities that used to be lost be
     await user.click(screen.getByRole("button", { name: /send/i }));
     await screen.findAllByText("Mei admits the letter");
 
-    await user.click(screen.getByRole("button", { name: /^Scene(,|$)/ }));
+    await raise(user, "Scene");
     const sheet = within(screen.getByRole("dialog"));
     expect(sheet.getByText("Scene pulse")).toBeInTheDocument();
     expect(sheet.getByText("Scene state")).toBeInTheDocument();
@@ -127,13 +144,21 @@ describe("story player rail drawers — the capabilities that used to be lost be
     );
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} statDefs={SEED_STAT_DEFS} />);
-    expect(screen.getByRole("button", { name: "Scene" })).toBeInTheDocument();
+    const openMenu = () => user.click(screen.getByRole("button", { name: /scene menu/i }));
+    await openMenu();
+    expect(screen.getByRole("menuitemcheckbox", { name: "Scene" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
 
     await user.type(screen.getByRole("textbox", { name: /your message/i }), "Ask her.");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
-    // The checklist advertises itself instead of hiding behind a sheet nobody opens.
-    expect(await screen.findByRole("button", { name: "Scene, 2 still owed" })).toBeInTheDocument();
+    // The count still rides in the row's NAME rather than beside it as a bare numeral —
+    // "Scene 2" tells a screen-reader user nothing. One tap deeper than it used to be,
+    // and that is the trade the menu makes.
+    await openMenu();
+    expect(
+      await screen.findByRole("menuitemcheckbox", { name: "Scene, 2 still owed" }),
+    ).toBeInTheDocument();
   });
 
   it("the pulse inside the sheet does not announce a backlog on open", async () => {
@@ -166,14 +191,15 @@ describe("story player rail drawers — the capabilities that used to be lost be
 
   it("never has two sheets open at once", async () => {
     const { user } = await openDrawer("Cast");
-    await user.click(screen.getByRole("button", { name: /^Scene(,|$)/ }));
+    await raise(user, "Scene");
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
     expect(screen.getByRole("dialog", { name: "Scene" })).toBeInTheDocument();
   });
 
-  it("the trigger toggles its own sheet shut", async () => {
-    const { user, trigger } = await openDrawer("Cast");
-    await user.click(trigger);
+  it("the row toggles its own sheet shut", async () => {
+    const { user } = await openDrawer("Cast");
+    await user.click(screen.getByRole("button", { name: /scene menu/i }));
+    await user.click(screen.getByRole("menuitemcheckbox", { name: /^Cast(,|$)/ }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
@@ -187,7 +213,7 @@ describe("story player rail drawers across the lg boundary", () => {
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} statDefs={SEED_STAT_DEFS} />);
 
-    await user.click(screen.getByRole("button", { name: /^Cast(,|$)/ }));
+    await raise(user, "Cast");
     expect(screen.getByRole("dialog", { name: "Cast" })).toBeInTheDocument();
 
     setWidth(1280);
@@ -203,11 +229,11 @@ describe("story player rail drawers across the lg boundary", () => {
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} statDefs={SEED_STAT_DEFS} />);
 
-    await user.click(screen.getByRole("button", { name: /^Cast(,|$)/ }));
+    await raise(user, "Cast");
     setWidth(1280);
     setWidth(375);
 
-    await user.click(screen.getByRole("button", { name: /^Cast(,|$)/ }));
+    await raise(user, "Cast");
     expect(screen.getByRole("dialog", { name: "Cast" })).toBeInTheDocument();
   });
 });

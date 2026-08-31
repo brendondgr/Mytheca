@@ -52,7 +52,6 @@ function renderCarousel(overrides: Partial<Parameters<typeof ScenarioCarousel>[0
     onPrev: vi.fn(),
     onNext: vi.fn(),
     onSelect: vi.fn(),
-    counterText: "1 / 1",
     onBegin: vi.fn(),
     onProfile: vi.fn(),
     ...overrides,
@@ -60,6 +59,145 @@ function renderCarousel(overrides: Partial<Parameters<typeof ScenarioCarousel>[0
   render(<ScenarioCarousel {...props} />);
   return props;
 }
+
+describe("ScenarioCarousel — the hero as a scroll track", () => {
+  it("is a snap track, so a finger can move it", () => {
+    const { container } = renderWithContainer();
+    const track = container.querySelector(".scroll-track")!;
+    // The pager it replaced was a `translateX` on a parent: swipe, click-drag, the
+    // trackpad, the arrow keys and a screen reader's own scrolling all had no answer.
+    expect(track.className).toContain("snap-x");
+    expect(track.className).toContain("overflow-x-auto");
+    expect((track as HTMLElement).style.transform).toBe("");
+  });
+
+  it("shows no position counter", () => {
+    // "1 / 3" was a readout of a position the scroll itself now shows, sitting in the
+    // corner the title has to clear.
+    const { container } = renderWithContainer();
+    expect(container.textContent).not.toMatch(/\d\s*\/\s*\d/);
+  });
+
+  it("keeps off-screen slides out of the tab order", () => {
+    // Dropping `inert` was tried, on the grounds that a scrollable slide is reachable.
+    // It puts every off-screen slide's Begin Scene button in the tab order, so a
+    // keyboard user tabs through scenarios they cannot see. `index` follows the scroll,
+    // so a slide stops being inert as it arrives.
+    const second: ResolvedScenario = { ...scenario, id: "sc2", title: "The Second Hunt" };
+    const { container } = render(
+      <ScenarioCarousel
+        slides={[scenario, second]}
+        index={0}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onSelect={vi.fn()}
+        onBegin={vi.fn()}
+      />,
+    );
+    const slides = [...container.querySelectorAll(".snap-center")];
+    expect(slides).toHaveLength(2);
+    expect(slides[0].hasAttribute("inert")).toBe(false);
+    expect(slides[1].hasAttribute("inert")).toBe(true);
+    expect(slides[1].getAttribute("aria-hidden")).toBe("true");
+  });
+
+  /**
+   * The scroll<->index guard, exercised directly.
+   *
+   * jsdom reports `clientWidth: 0` and never lays out, so the track's own numbers have to
+   * be forced. That makes these tests about the LOGIC — which is the part that cannot be
+   * checked by looking at it, and the part where a mistake is a jittering hero rather than
+   * a wrong pixel.
+   */
+  function trackWith(slides: ResolvedScenario[], index: number, onSelect = vi.fn()) {
+    const { container, rerender } = render(
+      <ScenarioCarousel
+        slides={slides}
+        index={index}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onSelect={onSelect}
+      />,
+    );
+    const track = container.querySelector<HTMLElement>(".scroll-track")!;
+    Object.defineProperty(track, "clientWidth", { configurable: true, value: 300 });
+    Object.defineProperty(track, "scrollLeft", { configurable: true, writable: true, value: index * 300 });
+    // A smooth scroll fires `scroll` MANY times on its way, at positions that are not
+    // the destination. Jumping straight there is the mistake that makes this fake useless:
+    // the guard's whole job is the frames in between, and a fake without them passes
+    // whether the guard is present or not (verified by deleting it).
+    track.scrollTo = vi.fn(({ left = 0 }: ScrollToOptions = {}) => {
+      const from = track.scrollLeft;
+      for (const t of [0.2, 0.6, 1]) {
+        Object.defineProperty(track, "scrollLeft", {
+          configurable: true,
+          writable: true,
+          value: from + (left - from) * t,
+        });
+        fireEvent.scroll(track);
+      }
+    }) as typeof track.scrollTo;
+    return { track, onSelect, rerender };
+  }
+
+  const two: ResolvedScenario[] = [scenario, { ...scenario, id: "sc2", title: "The Second Hunt" }];
+
+  it("reports the slide a finger settles on", () => {
+    const { track, onSelect } = trackWith(two, 0);
+    Object.defineProperty(track, "scrollLeft", { configurable: true, writable: true, value: 300 });
+    fireEvent.scroll(track);
+    expect(onSelect).toHaveBeenCalledWith("sc2");
+  });
+
+  it("does not report the slide it was just told to show", () => {
+    // The jitter this prevents: index changes -> effect scrolls -> the scroll fires ->
+    // onSelect reports the same index -> the effect runs again. One of the two writers
+    // has to stand down, and it is the one that did not initiate.
+    const { track, onSelect, rerender } = trackWith(two, 0);
+    onSelect.mockClear();
+    rerender(
+      <ScenarioCarousel
+        slides={two}
+        index={1}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onSelect={onSelect}
+      />,
+    );
+    expect(track.scrollTo).toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+
+    // ...and the guard clears, so the NEXT finger movement is heard again.
+    Object.defineProperty(track, "scrollLeft", { configurable: true, writable: true, value: 0 });
+    fireEvent.scroll(track);
+    expect(onSelect).toHaveBeenCalledWith("sc1");
+  });
+
+  it("does not scroll when the track is already where it was asked to be", () => {
+    const { track, rerender } = trackWith(two, 1);
+    (track.scrollTo as ReturnType<typeof vi.fn>).mockClear();
+    rerender(
+      <ScenarioCarousel
+        slides={two}
+        index={1}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(track.scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("hides the cast strip below lg", () => {
+    // Two horizontally-scrolling strips nested inside each other is two swipe gestures
+    // competing for one finger, and the cast is already on the Characters tab.
+    const { container } = renderWithContainer();
+    const strip = [...container.querySelectorAll<HTMLElement>(".overflow-x-auto")].find(
+      (el) => !el.classList.contains("scroll-track"),
+    )!;
+    expect(strip.closest(".hidden")?.className).toContain("lg:flex");
+  });
+});
 
 describe("ScenarioCarousel", () => {
   it("renders the empty state when there are no slides", () => {
@@ -70,7 +208,6 @@ describe("ScenarioCarousel", () => {
         onPrev={vi.fn()}
         onNext={vi.fn()}
         onSelect={vi.fn()}
-        counterText="0 / 0"
       />,
     );
     expect(screen.getByText(/no scenarios yet/i)).toBeInTheDocument();
@@ -215,7 +352,12 @@ describe("ScenarioCarousel", () => {
   it("shows arrow controls and pages the cast strip when it overflows", async () => {
     const user = userEvent.setup();
     const { container } = renderWithContainer();
-    const strip = container.querySelector(".overflow-x-auto") as HTMLElement;
+    // NOT just `.overflow-x-auto`: the hero itself is a scroll-snap track now, and it
+    // matches that selector first. `.scroll-track` is the hero; the cast strip is the
+    // other one.
+    const strip = [...container.querySelectorAll<HTMLElement>(".overflow-x-auto")].find(
+      (el) => !el.classList.contains("scroll-track"),
+    )!;
     const scrollBy = vi.fn();
     strip.scrollBy = scrollBy;
 
@@ -251,7 +393,6 @@ function renderWithContainer() {
       onPrev={vi.fn()}
       onNext={vi.fn()}
       onSelect={vi.fn()}
-      counterText="1 / 1"
       onBegin={vi.fn()}
       onProfile={vi.fn()}
     />,

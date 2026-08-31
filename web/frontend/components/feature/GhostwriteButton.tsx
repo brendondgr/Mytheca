@@ -1,6 +1,7 @@
 "use client";
 
 import { TypingDots } from "@/components/ui/TypingDots";
+import { Icon } from "@/components/ui/Icon";
 
 /**
  * **Ghostwrite** — turn the note in the message box into the line itself.
@@ -41,11 +42,11 @@ export function GhostwriteButton({
         onClick={onUndo}
         aria-label="Undo the drafted line and restore what you wrote"
         title="Undo — put your own note back"
-        // 28px square: comfortably past the WCAG 2.5.8 24px floor now that there is no label
-        // widening the hit area.
-        className="flex h-[28px] w-[28px] flex-none items-center justify-center rounded-md border border-field-bd text-label text-mute hover:border-accent hover:text-accent-ink"
+        // `--control`, the same square every other chrome button uses. It was 28px, which
+        // is past the WCAG 2.5.8 floor and still a third rectangle in a row of them.
+        className="flex h-control w-control touch-target-overlay flex-none items-center justify-center rounded-md border border-field-bd text-label text-mute hover:border-accent hover:text-accent-ink"
       >
-        <span aria-hidden>↶</span>
+        <Icon name="undo" size={14} />
       </button>
     );
   }
@@ -57,7 +58,7 @@ export function GhostwriteButton({
       disabled={!canGhostwrite || running}
       aria-label="Write this line for me"
       title="Write it for me — turn your note into the line itself"
-      className="flex h-[28px] w-[28px] flex-none items-center justify-center rounded-md border border-field-bd text-label text-mute hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
+      className="flex h-control w-control touch-target-overlay flex-none items-center justify-center rounded-md border border-field-bd text-label text-mute hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
     >
       {running ? (
         <>
@@ -67,7 +68,7 @@ export function GhostwriteButton({
           </span>
         </>
       ) : (
-        <span aria-hidden>✒</span>
+        <Icon name="write" size={14} />
       )}
     </button>
   );

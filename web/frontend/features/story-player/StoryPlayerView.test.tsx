@@ -252,8 +252,12 @@ describe("StoryPlayerView", () => {
     await user.keyboard("{Escape}");
 
     // Flip to Graph — the transcript is replaced by the graph view, and the
-    // chat-only controls (Turn Inspector toggle) drop away.
+    // chat-only controls (Turn Inspector toggle) drop away. jsdom reports no media
+    // match, so this is the sub-`sm` case: the switch is a row inside the menu, not an
+    // inline control in the bar.
+    await openSceneMenu();
     await user.click(screen.getByRole("button", { name: /^graph$/i }));
+    await user.keyboard("{Escape}");
     expect(screen.getByTestId("graph-view-stub")).toBeInTheDocument();
     expect(screen.queryByText(/Lamplight gutters across the Saltworn/i)).not.toBeInTheDocument();
     await openSceneMenu();
@@ -263,7 +267,9 @@ describe("StoryPlayerView", () => {
     await user.keyboard("{Escape}");
 
     // Flip back to Chat — the transcript and the Inspector toggle return.
+    await openSceneMenu();
     await user.click(screen.getByRole("button", { name: /^chat$/i }));
+    await user.keyboard("{Escape}");
     expect(screen.getByText(/Lamplight gutters across the Saltworn/i)).toBeInTheDocument();
     expect(screen.queryByTestId("graph-view-stub")).not.toBeInTheDocument();
     await openSceneMenu();
@@ -322,17 +328,20 @@ describe("StoryPlayerView — what the scene knows", () => {
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
 
-    // jsdom reports no media query match, so this is the narrow header: the memory toggle
-    // lives in the scene menu rather than inline. (The rail bar's "Knows" trigger is the
-    // other way to the same state.)
-    await user.click(screen.getByRole("button", { name: /scene menu/i }));
+    // jsdom reports no media query match, so this is the narrow header: both toggles live
+    // in the scene menu rather than inline.
+    const openMenu = () => user.click(screen.getByRole("button", { name: /scene menu/i }));
+    await openMenu();
     await user.click(screen.getByRole("menuitemcheckbox", { name: "What the scene knows" }));
     expect(
       screen.getByRole("complementary", { name: "What the scene knows" }),
     ).toBeInTheDocument();
 
-    // The menu is still open — a toggle keeps it that way, so the state change the player
-    // just made stays visible.
+    // The memory toggle CLOSES the menu behind it — the rail it opens takes the full
+    // width below `sm`, so an open menu would sit on top of what the tap just revealed.
+    // The Inspector does not: at `lg` it docks a rail beside the menu, where keeping the
+    // menu open is what lets the player see the state change they just made.
+    await openMenu();
     await user.click(screen.getByRole("menuitemcheckbox", { name: "Turn Inspector" }));
     expect(screen.getByRole("complementary", { name: "Turn inspector" })).toBeInTheDocument();
     expect(
@@ -381,9 +390,12 @@ describe("StoryPlayerView keyboard", () => {
   it("closes the memory rail with Escape", async () => {
     const user = userEvent.setup();
     render(<StoryPlayerView scenario={embergate} />);
-    // Opened from the rail bar rather than the header menu: a toggle keeps the menu open, so
-    // the header path would spend the first Escape closing the menu. Same state either way.
-    await user.click(screen.getByRole("button", { name: "Knows" }));
+    // The rail bar this used to open from is gone; the memory rail is a scene-menu toggle
+    // now, and one that closes the menu behind it — the rail takes the full width below
+    // `sm`, so an open menu would sit on top of what the tap just revealed. That leaves
+    // exactly one thing for Escape to close, which is what this asserts.
+    await user.click(screen.getByRole("button", { name: /scene menu/i }));
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "What the scene knows" }));
     expect(
       screen.getByRole("complementary", { name: "What the scene knows" }),
     ).toBeInTheDocument();
@@ -395,48 +407,6 @@ describe("StoryPlayerView keyboard", () => {
   });
 });
 
-describe("StoryPlayerView coach marks", () => {
-  beforeEach(() => localStorage.clear());
-
-  it("shows exactly one hint at a time", () => {
-    render(<StoryPlayerView scenario={embergate} />);
-    const hints = screen
-      .getAllByRole("status")
-      .filter((el) => /Type what you say|Speak as one of the cast|The cast is here/.test(el.textContent ?? ""));
-    expect(hints).toHaveLength(1);
-  });
-
-  it("moves to the next hint once one is dismissed", async () => {
-    const user = userEvent.setup();
-    render(<StoryPlayerView scenario={embergate} />);
-    expect(screen.getByText(/type what you say/i)).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Got it" }));
-    expect(screen.getByText(/speak as one of the cast/i)).toBeInTheDocument();
-  });
-
-  it("counts acting on the thing as dismissing its hint", async () => {
-    // Anything that can only be dismissed by its × eventually traps someone.
-    const user = userEvent.setup();
-    render(<StoryPlayerView scenario={embergate} />);
-    await user.type(screen.getByRole("textbox", { name: /your message/i }), "hello");
-    expect(screen.queryByText(/type what you say/i)).not.toBeInTheDocument();
-  });
-
-  it("offers the cast hint below lg now that the cast is reachable there", async () => {
-    // jsdom's matchMedia reports no match, so this is the sub-`lg` case. The hint used to be
-    // withheld here because it pointed at a rail that did not exist; it now points at the
-    // Cast trigger above the composer, which does.
-    const user = userEvent.setup();
-    render(<StoryPlayerView scenario={embergate} />);
-    await user.click(screen.getByRole("button", { name: "Got it" }));
-    await user.click(screen.getByRole("button", { name: "Got it" }));
-    expect(screen.getByText(/the cast is here/i)).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Got it" }));
-    expect(screen.queryByRole("button", { name: "Got it" })).not.toBeInTheDocument();
-  });
-});
 
 describe("StoryPlayerView transcript search", () => {
   it("opens with Cmd+F when the player is not writing", async () => {

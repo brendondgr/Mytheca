@@ -24,24 +24,31 @@ Verified against the code on 2026-08-04.
   is accepted, whether a stream frames the way the docs say, whether usage fields carry the
   names claimed. Treat them as "written carefully, unproven", and expect the first live call
   of each to find something.
-- **Streaming is not provider-dispatched.** `llm.chat_complete_stream` still parses the
-  OpenAI SSE dialect directly (`data:` frames, `[DONE]`, `choices[0].delta.content`), and
-  `llm.stop_is_safe` is still applied globally rather than per adapter. Each adapter
-  implements `stream_delta`/`stream_done` and carries `stop_matches_reasoning`, and neither
-  is read on the live streaming path. Selecting Anthropic, Gemini or Ollama therefore fails
-  the content-type check, lands in `_NO_STREAM`, and degrades every turn to the blocking
-  path — the whole passage arriving at once instead of typing out.
+- **Nothing has ever streamed from Anthropic, Gemini or Ollama.** The code exists as of
+  2026-08-31: `llm.chat_complete_stream` reads a stream entirely through the active adapter
+  (`stream_media_types` for the media check, `parse_stream_line` for framing, then
+  `stream_delta` / `stream_reasoning` / `stream_usage` / `stream_finish_reason` for the
+  contents), `llm.stop_is_safe` consults the adapter instead of hardcoding llama.cpp's
+  behaviour, and all four adapters declare `streaming_dispatched = True`. The blocking path
+  was half-wired the same way and is fixed in the same change: it built the URL and body
+  through the adapter and then sent a hardcoded `Authorization: Bearer` header and read
+  `choices[0].message.content` itself, so on Anthropic and Gemini a successful call parsed
+  as an empty completion. Thirteen dialect tests live in
+  `utils/tests/backend/services/test_llm_stream_dispatch.py`.
 
-  **This is no longer silent.** `ProviderAdapter.streaming_dispatched` carries it, the
-  config API exposes it, and the Options picker marks such a provider "· no live typing"
-  and explains the consequence in a sentence. An operator can still choose it and
-  everything else works; they simply choose knowing. Wiring the stream is the remaining
-  half of the seam, and it is deliberately NOT attempted here: it means rewriting the
-  hottest path in the product — the live turn — and doing that carelessly to finish a
-  bonus feature is a bad trade against the 2,117 tests and the working scene loop.
-- **`gemini.py` is 790 lines**, against a project guideline of 800 max / under 500 preferred.
-  It is one class plus its parsing helpers and splitting it would scatter one dialect across
-  files, but it is at the ceiling and the next addition should split rather than grow it.
+  **That is not the same as working.** Those tests are fakes written from the same reference
+  documents as the code, so they cannot catch the code and the test being wrong together,
+  and the failure modes here are the silent kind: a media type answered differently in
+  practice falls back to the blocking path and logs nothing, and usage carried on an event
+  this reader does not ask blanks the player's context dial with no error. Expect the first
+  live stream of each to find something.
+
+  Two known gaps behind the same wall, both invisible offline. Anthropic **multi-turn
+  thinking is unsupported by construction** — the seam types a message as `dict[str, str]`,
+  so the `thinking` blocks the reference requires be replayed unmodified are already gone
+  before the adapter sees them; turn one succeeds and turn two is a 400. And Ollama reports
+  no prefix-cache figure at all, so the context dial reads "unknown" rather than a number on
+  every Ollama turn.
 - **Per-role model routing is still not possible.** "Cheap model for the planner, strong model
   for prose" is the main practical reason to hold several providers at once, and the seam does
   not deliver it: one global model id still serves ~25 agent call sites via the positional
@@ -49,6 +56,20 @@ Verified against the code on 2026-08-04.
   question — how the engine should spend money and latency — that is the owner's, not an
   implementation detail. **Human decision needed.**
 
+- **The library shell's 2026-08-31 rebuild was verified by tests and a production build, not
+  by eye.** Everything else in that change set was checked live at 320 / 390 / 1280 in a real
+  browser; the library half was not, because the agent's browser pane stopped revealing Next's
+  streamed content partway through the session — every route shows the `app/loading.tsx`
+  fallback while the real tree sits in a `hidden` container, meaning React's reveal script
+  never runs there. **This is the tooling, not the app**, and there is a control: checking out
+  the pre-session commit `af6a9f0` reproduces it exactly, as does `next build` + `next start`.
+  What was still verified: 1510 co-located tests including new ones pinning each structural
+  change, `tsc`, ESLint, the contrast and CSS gates, a clean production build, and real
+  measured geometry at 390px taken by un-hiding the SSR tree (header controls 44x44, the
+  wordmark folded, the duplicate column heading `display: none`, the tab bar's three tabs plus
+  its add button inside 390px, zero horizontal overflow). What was NOT: the scroll-snap hero
+  under an actual finger, and the vertical rhythm of the page as a whole. **Swipe the hero and
+  scroll the library on a real phone before trusting either.**
 - **The story player's mount-time long frames are unexplained.** Under 4x CPU throttle the player
   produces a ~240ms long animation frame (~190ms blocking) at `scrollY 0`, plus 11-12 frames over
   1.5x the 16.7ms median and 9-12% dropped frames. Phase 3 of the website overhaul removed two real
@@ -57,14 +78,22 @@ Verified against the code on 2026-08-04.
   headless, i.e. noise. Those are keystroke paths and nothing types during a scroll pass, so the cost
   is mount/hydration work instead. Needs a profile, not a guess; `--headful` first, since headless
   under-reports jank.
-- **Two frontend tests are flaky under full-suite load**, both timing-sensitive with real timers:
-  `ToastProvider.test.tsx` "holds the auto-dismiss timer while the pointer is over the toast", and
-  `CharacterModal.test.tsx` "drafts a full character from a seed into the form" (observed timing out
-  at 4091ms). Both pass in isolation and on re-run. Observed 2026-08-31. The fix is fake timers.
+- **At least eight frontend tests are flaky under full-suite load**, all timing-sensitive with
+  real timers. Two were known: `ToastProvider.test.tsx` "holds the auto-dismiss timer while the
+  pointer is over the toast" and `CharacterModal.test.tsx` "drafts a full character from a seed
+  into the form". Running the suite on 2026-08-31 while a production `next start` shared the
+  machine took six more down with it — in `ScenarioCard`, `ScenarioCarousel`, `CreateImageBar`
+  and `PortraitModal` — at 5-16 seconds each, against sub-second times in isolation. Every one
+  passed both in isolation and on a re-run with the server stopped.
+
+  The number is a symptom, not the finding: **these tests measure the machine, not the code.**
+  Any of them can fail on a busy CI runner, and a suite that fails for a reason unrelated to
+  the change under test teaches people to re-run rather than to read. The fix is fake timers,
+  not longer deadlines.
 - **`viewport-fit=cover` and safe-area insets are not adopted.** `app/layout.tsx` declares
   the viewport but deliberately omits `viewportFit: "cover"`, because that and
   `env(safe-area-inset-*)` are all-or-nothing: opting in makes every fixed/sticky element —
-  both header bars, the composer, every `Drawer`, `SceneRailBar` — responsible for insetting
+  both header bars, the composer, every `Drawer` — responsible for insetting
   itself, and landscape moves the insets to left/right. Without it the browser letterboxes
   into the safe area automatically (safe, with visible bars). Adopt both together or neither.
 - **`/storylines/new` and `/storylines/[id]/edit` render no header bar at all**, so there is
@@ -670,7 +699,7 @@ continuous turn, and the experiment is capable of saying the default is wrong.
 ## Known UI limitations
 
 - ~~Rails are hidden below `lg`; mobile drawers are unbuilt.~~ **Built 2026-08-22.** Below
-  `lg` both rails open as bottom sheets from `SceneRailBar`, directly above the composer, and
+  `lg` both rails open as bottom sheets from rows in the scene menu, and
   they mount the *same* `…Content` components as the desktop asides with the *same* prop
   objects — so per-character stats, presence controls, the turn order, the scene pulse, the
   scene state and the direction checklist are all reachable at every width. `TurnStatusStrip`

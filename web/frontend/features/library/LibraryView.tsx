@@ -36,10 +36,20 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
   const beginScenario = lib.modal?.type === "begin" ? lib.featured : null;
 
   return (
-    // h-dvh + overflow-hidden makes the Library self-contained: the page never
-    // scrolls, and the three columns each scroll within the remaining height.
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
+    // At `lg` the Library is self-contained — `h-dvh` + `overflow-hidden`, three columns
+    // each scrolling inside the remaining height, so the page itself never scrolls.
+    //
+    // Below `lg` that inverts: the page is the scroller. One column shows at a time, so
+    // there is nothing for a locked shell to buy, and a viewport-locked page with an
+    // inner scrolling pane fights the browser's own scroll on a phone — the address bar
+    // never collapses, and the hero and the list read as two surfaces moving separately.
+    <div className="flex min-h-dvh flex-col lg:h-dvh lg:min-h-0 lg:overflow-hidden">
       <h1 className="sr-only">Mytheca — Library</h1>
+      {/* Sticky below `lg`, where the page scrolls under it: the storyline switcher and
+          Create are the two things you reach for after scrolling, and a header that
+          leaves the screen makes both a scroll back to the top. `--header-h` already
+          drives `scroll-padding-top`, so anchors and focused elements clear it. */}
+      <div className="sticky top-0 z-[15] lg:static">
       <AppHeader
         query={lib.query}
         onQuery={lib.setQuery}
@@ -65,6 +75,7 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
         }
         optionsSlot={<OptionsMenu />}
       />
+      </div>
 
       {lib.error && !lib.modal && !lib.storylineToDelete ? (
         <div
@@ -93,7 +104,6 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
         statDefs={lib.statDefs}
         statsByCharId={lib.statsByCharId}
         index={lib.featuredIndex}
-        counterText={`${lib.featuredIndex + 1} / ${lib.scenarios.length}`}
         onPrev={() => lib.cycleFeatured(-1)}
         onNext={() => lib.cycleFeatured(1)}
         onSelect={lib.setFeaturedId}
@@ -104,7 +114,7 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
 
       {/* The three columns are the Library's main region — it had an `sr-only` h1 and no
           landmark to jump to. */}
-      <main id="main" tabIndex={-1} className="mt-lg flex min-h-0 flex-1 flex-col border-t border-hair-strong">
+      <main id="main" tabIndex={-1} className="mt-lg flex flex-col border-t border-hair-strong lg:min-h-0 lg:flex-1">
         <LibraryColumns lib={lib} />
       </main>
 

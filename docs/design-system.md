@@ -269,6 +269,20 @@ Elevation tokens are named `--elev-*`, **not** `--shadow-*`, because Tailwind v4
 `--shadow-*` theme namespace: a token of the same name mapped through `@theme inline` compiles to
 `--shadow-sm: var(--shadow-sm)`, a self-referential custom property.
 
+`--control` is the one square-chrome edge — **44px below `sm`, 34px above it**. The header's
+back link and menu trigger were sized by padding (`px-sm py-xs`), which made them ~10px taller
+than wide; a bar whose controls are each a slightly different rectangle reads as sloppiness. The
+breakpoint split is deliberate: on a phone the square **is** the WCAG 2.5.8 target rather than a
+projected one, and above `sm` the chrome returns to the dense size the design system asks for.
+
+Note what forced that split. The coarse-pointer floor in `styles/motion.css` sets
+`min-height: 44px`, and **`min-height` beats `height` regardless of specificity** — it is the box
+model, not the cascade — so a control that set its own height was grown anyway. The floor's own
+comment claimed the opposite, citing the 24px `IconButton` as an example of a control that "still
+wins"; measured, that button rendered 24 wide by 44 tall on a coarse pointer. The floor now
+exempts `.touch-target-overlay`, which is exactly the promise it wants: an element already
+projecting a 44x44 hit area from its centre gains nothing by growing its box.
+
 `--header-h` (56px) is also declared here. It was previously referenced by the `scroll-margin` rule in
 `globals.css` and **declared nowhere**, so the 4.5rem fallback always applied while the real bars were
 52px and 50px — deep links landed ~20px off. It now also drives `scroll-padding-top`, which is what
@@ -278,13 +292,40 @@ Each theme declares `color-scheme` (`light` on Parchment, `dark` on Ember and Sl
 dark themes were dark only in the parts Mytheca paints — native selects, date pickers, autofill
 grounds and Firefox scrollbars all rendered in light chrome.
 
+### The icon set
+
+`components/ui/Icon.tsx` is the only place an `<svg>` may be written. Eight components drew
+their own — fifteen drawings on their own grids at their own stroke weights — which is the
+scale problem one layer down: an icon tuned to look right beside one label cannot line up
+with an icon tuned beside another, because there is nothing to line up to.
+
+Three rules make it a set:
+
+- **One 24 viewBox and one stroke weight** (`1.7`), so two icons at the same `size` carry the
+  same visual mass. A path drawn on a 16 grid and scaled up arrives ~1.5x heavier.
+- **`currentColor`, never a literal.** Each of these sits inside a control that already
+  changes colour on hover, focus and `aria-pressed`. `filled` (fill from `none` to
+  `currentColor`) exists for `pin` alone, whose on/off state *is* the fill.
+- **`aria-hidden` by default.** Nearly every icon sits beside a visible label or inside a
+  control carrying its own `aria-label`, where announcing itself is a duplicate reading.
+  `label` promotes it to `role="img"` for the rare standalone case.
+
+Icons replace text glyphs (`✎ ⚙ ◍ ‹ ›`) in **chrome**, and that is not cosmetics: a glyph
+inherits the font stack, so it renders differently per platform, shifts the line box, and
+lands at whatever size the type scale gives it rather than at the size the control needs.
+The `❖` seal and `◆` diamond stay — they are brand marks in *content*, not controls.
+
+`Icon.test.tsx` enforces zero inline `<svg>` outside the set. Two files are exempt on a
+principle rather than a backlog: `ContextUsageDial` and `GraphCanvas` compute their geometry
+from live values, which is drawing, not iconography.
+
 ### Legacy geometry notes
 
 - **Radius:** cards/inputs/buttons `2–3px` (manuscript-flat); chat bubbles use asymmetric `3px 11px 11px 11px` (character) and `11px 3px 11px 11px` (player); pills/chips `11–20px`; modals/hero `4–6px`; avatars are circles.
 - **Borders:** hairline `1px` in `--card-bd`/`--hair`; selected state is a `2px` accent border on `--card-bg2`. Section headers use a thin double rule (`border-top:1px solid ink; border-bottom:1px solid hair-strong`).
 - **Elevation:** subtle, warm shadows — cards `0 1px 2px rgba(20,14,6,.06)`, hover `0 6px 16px rgba(40,30,16,.12)`, frames `0 6px 22px rgba(40,30,16,.16)`, modals `0 24px 60px rgba(14,9,4,.55)`. No glassmorphism, no neon glow.
 - **Avatars:** monogram circles — character initials in **Cinzel 700**, background `#EDE3CD` (light), `2px` ring in the character's color, text in the character's color. Sizes ~24–62px by context.
-- **Icons:** the ❖ seal and ◆ diamond are the brand glyphs; otherwise a single coherent line-icon family. Avoid generic AI brain / sparkle / network-node iconography.
+- **Icons:** the ❖ seal and ◆ diamond are the brand glyphs; otherwise the single line-icon family above. Avoid generic AI brain / sparkle / network-node iconography — the deliberation icon is a spark rather than a brain because a brain at 14px is a grey blob, not because a brain is on-brand.
 - **Spacing:** consistent rhythm — rails ~16–18px padding, cards ~11–14px, transcript column max-width **720px** centered with 16px gaps between beats.
 
 ## Story-Player Layout (the signature surface)
@@ -306,7 +347,7 @@ and the offline PostCSS pipeline and Turbopack order that merge differently — 
 
 **Below `sm` the scene header collapses into one overflow menu.** The control cluster is `flex-none` on purpose — letting it shrink pushes its children 50–150px past the viewport edge rather than 7px — so the fix is the *item model*, not the width. `SceneHeader` renders its cluster once, in one of two forms, chosen by `useMediaQuery("(min-width: 640px)")`: at `sm`+ the inline row; below `sm` only the **Chat ⇄ Graph** switch and the **model-health** glyph stay inline, and the play-through tray, theme, the memory toggle, the Inspector, Export, Writing… and the keyboard-shortcut sheet all live in `SceneMenu`. An item that owns a panel (the tray) is **drilled into in place** — its rows replace the menu's, with a `‹ Back` row — because a popover inside a popover has two Escape targets and a focus order nobody can follow. At 320×720 this took the header from **17px of clipped overflow to zero**, while *adding* two controls that width never had: the health indicator (previously `hidden sm:flex`) and the shortcut sheet (previously `?`-only).
 
-**Below `lg` the two rails become bottom sheets.** They are not reduced copies: `CastRail`, `DirectorRail` and `CharacterDossier` are each split into a `…Content` component and a thin `lg`-only `<aside>` shell, and the sheet mounts the *same* content component with the *same* prop object — so a capability added to a rail reaches the phone in the same edit. `SceneRailBar` (`lg:hidden`, directly above the composer, where a thumb already is) carries the triggers: **Cast** with the present-cast count, **Scene** with an amber badge counting what the direction still owes, and **Knows** for the scene-knowledge panel. The desktop rule that the dossier takes over the Director rail holds in the sheet too — selecting a character below `lg` raises the Scene sheet showing their dossier, since setting a profile that nothing renders reads as the app ignoring the tap. The sheets use the `Drawer` primitive (portal, shared focus trap, scroll lock, `@starting-style` entrance with a reduced-motion path); a sheet that is animating out is `aria-hidden`, so exactly one dialog is ever in the accessibility tree. The scene pulse and the direction checklist take `live={false}` inside a sheet — a log that mounts on open would otherwise announce the whole turn at once, after the fact.
+**Below `lg` the two rails become bottom sheets.** They are not reduced copies: `CastRail`, `DirectorRail` and `CharacterDossier` are each split into a `…Content` component and a thin `lg`-only `<aside>` shell, and the sheet mounts the *same* content component with the *same* prop object — so a capability added to a rail reaches the phone in the same edit. The triggers are **rows in the scene menu**: **Cast** with the present-cast count, **Scene** with an amber badge counting what the direction still owes, and **What the scene knows**. They were a `SceneRailBar` directly above the composer until 2026-08-31 — one tap rather than two, and one more horizontal band of chrome on the narrowest screen in the app, which is what it cost. A row that opens a sheet carries `closesMenu`, because a sheet raised under a still-open menu is a surface hidden by the thing that revealed it. The desktop rule that the dossier takes over the Director rail holds in the sheet too — selecting a character below `lg` raises the Scene sheet showing their dossier, since setting a profile that nothing renders reads as the app ignoring the tap. The sheets use the `Drawer` primitive (portal, shared focus trap, scroll lock, `@starting-style` entrance with a reduced-motion path); a sheet that is animating out is `aria-hidden`, so exactly one dialog is ever in the accessibility tree. The scene pulse and the direction checklist take `live={false}` inside a sheet — a log that mounts on open would otherwise announce the whole turn at once, after the fact.
 
 **The scene menu, and writing prompts at play time.** The scene header's right-hand cluster
 is `flex-none` on purpose — letting it shrink pushes its children 50–150px past the viewport
@@ -432,6 +473,20 @@ Read-only — the panel never changes the scene.
 - **Relationships:** short lines keyed by character color. Now displayed in `CharacterDossier` only (removed from the Director rail's main view for the same reason).
 
 ## Library Layout (the front page)
+
+**Below `lg` the Library is a normal document scroll; at `lg` it is a viewport-locked shell.**
+That inversion is deliberate. At `lg` three columns each scroll inside `h-dvh` + `overflow-hidden`
+so the page itself never moves. Below it there is one column at a time, so a locked shell buys
+nothing and costs something real: it fights the browser's own scroll on a phone, the address bar
+never collapses, and the hero and the list read as two surfaces moving separately. The header is
+`sticky` there (and `static` at `lg`), since the storyline switcher and Create are what you reach
+for after scrolling.
+
+The per-column `ColumnHeader` is `lg`-only for the same reason the "Recent" badge is gone: it
+restated the tab directly above it — "SCENARIOS 3" under a tab reading "Scenarios 3" — and pushed
+the first card down a screenful. Its `+` moved into the tab bar's `action` slot rather than
+disappearing with it.
+
 
 The Library makes the **Storyline** the organizing object. The header wordmark is followed
 by a prominent **storyline switcher** — an outlined button rendering the active storyline in

@@ -67,6 +67,17 @@ class ChatReply:
     prompt_tokens: int | None = None
     #: Prompt tokens served from a cache, or None when not reported.
     cached_tokens: int | None = None
+    #: Why generation stopped, in the PROVIDER'S OWN vocabulary — `length`
+    #: (OpenAI), `max_tokens` (Anthropic), `MAX_TOKENS` (Gemini), `length`
+    #: (Ollama). Not translated here: an adapter reports what the provider said,
+    #: and a caller that needs to compare does so against the set of spellings
+    #: rather than against one blessed word.
+    #:
+    #: Carried only to diagnose an EMPTY completion. "Hit the token limit" and
+    #: "spent the whole budget thinking and never answered" are different
+    #: problems with different fixes, and without this both reach the player as
+    #: "the model returned an empty response".
+    finish_reason: str | None = None
     #: The untouched provider payload. Always present, so a capability this
     #: abstraction does not cover is reachable without widening it.
     raw: dict = field(default_factory=dict)
@@ -80,18 +91,27 @@ class ProviderAdapter(Protocol):
     #: Human label for the provider dropdown.
     label: str
     #: Whether `llm.chat_complete_stream` can actually parse this provider's
-    #: stream. **Today only the OpenAI-compatible adapter can**: the streaming
-    #: loop still checks for an `event-stream` content type and reads `data:`
-    #: frames with `choices[0].delta.content` directly, rather than going through
-    #: `stream_delta`/`stream_done`.
+    #: stream. **All four adapters can, as of 2026-08-31**: the streaming loop
+    #: reads frames through `parse_stream_line` / `stream_delta` /
+    #: `stream_reasoning` / `stream_usage` / `stream_done` rather than hardcoding
+    #: the OpenAI SSE dialect.
     #:
-    #: This is surfaced rather than hidden because the failure is silent and
-    #: expensive: an unrecognised stream fails the content-type check, is added
-    #: to `_NO_STREAM`, and every turn degrades to the blocking path — the whole
-    #: passage arriving at once instead of typing out, with no error anywhere.
-    #: The Options picker says so next to any provider where it is False, so an
-    #: operator chooses knowing the cost instead of discovering it mid-scene.
+    #: The flag stays on the contract rather than being deleted with the branch
+    #: it fed, because the failure it describes is silent and expensive: an
+    #: unrecognised stream fails the media-type check, is added to `_NO_STREAM`,
+    #: and every turn degrades to the blocking path — the whole passage arriving
+    #: at once instead of typing out, with no error anywhere. A fifth adapter
+    #: that cannot stream (or can only stream through an SDK) declares `False`
+    #: here and the Options picker says so, instead of an operator discovering
+    #: it mid-scene.
     streaming_dispatched: bool
+
+    #: Substrings, any of which in the response `content-type` means "this is
+    #: the stream I asked for". OpenAI, Anthropic and Gemini all answer
+    #: `text/event-stream`; Ollama answers `application/x-ndjson`. Checking for
+    #: the wrong one is indistinguishable from an endpoint that refuses to
+    #: stream: the reader falls back to blocking and nothing is logged.
+    stream_media_types: tuple[str, ...]
 
     #: Whether `stop` sequences are safe to send while a reasoning channel is on.
     #: Measured on llama.cpp: a stop sequence matches the REASONING channel too,
@@ -99,7 +119,15 @@ class ProviderAdapter(Protocol):
     #: property of the ENGINE, not a universal truth, so it lives here.
     stop_matches_reasoning: bool
 
-    def chat_url(self, base_url: str, model: str) -> str: ...
+    def chat_url(self, base_url: str, model: str, *, stream: bool = False) -> str:
+        """Where this call goes. `stream` matters where the METHOD is in the URL.
+
+        Gemini is the case that forces this onto the protocol: it selects
+        `:streamGenerateContent?alt=sse` in the path, not `"stream": true` in
+        the body, so a caller that builds a streaming body against a
+        non-streaming URL gets one JSON blob back and a stream that never
+        arrives. The other three ignore it.
+        """
 
     def headers(self, api_key: str) -> dict[str, str]: ...
 
@@ -112,11 +140,56 @@ class ProviderAdapter(Protocol):
 
     def parse_models(self, payload: dict) -> list[str]: ...
 
+    def parse_stream_line(self, line: str) -> dict | None:
+        """One raw response line -> a parsed event, or None to skip it.
+
+        The framing, not the content: SSE `data:` prefixes and the `[DONE]`
+        sentinel for the three SSE dialects, bare JSON objects for Ollama's
+        NDJSON. Returning None for a line this dialect has nothing to say about
+        (a blank keepalive, an SSE `event:` name line, junk) is normal and must
+        never raise — a malformed frame mid-scene should cost one beat's text,
+        not the turn.
+        """
+
     def stream_delta(self, event: dict) -> str:
         """The incremental text carried by one streamed event ("" if none)."""
 
+    def stream_reasoning(self, event: dict) -> str:
+        """The private deliberation carried by one event ("" if none).
+
+        A separate channel from `stream_delta` because the model reports it
+        separately and because showing them differently is the whole point of
+        streaming a turn. Folding it into the text channel prints the model's
+        thinking into the scene as prose; dropping it reads as "this model does
+        no reasoning" rather than "we did not read it".
+        """
+
+    def stream_usage(self, event: dict) -> tuple[int | None, int | None]:
+        """`(prompt_tokens, cached_tokens)` carried by one event, or `(None, None)`.
+
+        Each dialect puts this somewhere different and at a different moment —
+        OpenAI in a trailing frame with empty `choices`, Anthropic split across
+        `message_start` and `message_delta`, Gemini on every frame, Ollama only
+        on the closing one. A reader that gives up on a frame before asking
+        throws away the only token count a streamed turn will ever report, and
+        the player-facing context dial goes blank with no error anywhere.
+        """
+
+    def stream_finish_reason(self, event: dict) -> str | None:
+        """Why generation stopped, if this event says. None when it does not.
+
+        Used only to diagnose an empty completion: "hit the token limit" and
+        "spent the whole budget thinking" are different problems with different
+        fixes, and without this both read as "the model returned nothing".
+        """
+
     def stream_done(self, event: dict) -> bool:
-        """Whether this event ends the stream."""
+        """Whether this event ends the stream.
+
+        Asked AFTER the event's text, usage and finish reason have been read:
+        Gemini's terminal frame carries prose, and Ollama's carries the only
+        usage figures in the stream. A reader that breaks first loses both.
+        """
 
 
 def normalize_base(base_url: str) -> str:

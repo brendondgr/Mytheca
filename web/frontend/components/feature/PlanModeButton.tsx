@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "@/components/ui/Icon";
+
 /**
  * **Plan mode** — whether the scene's plan runs straight through, or waits for you.
  *
@@ -25,27 +27,6 @@
  */
 
 export type PlanMode = "auto" | "plan" | "off";
-
-/** A clipboard-with-a-tick: the plan, as a thing you sign off. */
-function PlanIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1Z" />
-      <path d="M16 5h1a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1" />
-      <path d="m9 13 2 2 4-4" />
-    </svg>
-  );
-}
 
 const LABELS: Record<PlanMode, string> = {
   auto: "Auto",
@@ -89,10 +70,10 @@ export function PlanModeButton({
         // tells a screen-reader user what it is called, never what it will do.
         aria-label={`Plan mode: ${LABELS[mode]}. ${HELP[mode]}`}
         title={HELP[mode]}
-        className="flex flex-none items-center gap-2xs rounded-md border border-field-bd px-sm py-2xs font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute"
+        className="flex h-control w-control touch-target-overlay flex-none items-center justify-center gap-2xs rounded-md border border-field-bd font-mono text-eyebrow tracking-[0.12em] text-mute uppercase hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-field-bd disabled:hover:text-mute sm:w-auto sm:px-sm sm:py-2xs"
       >
-        <PlanIcon />
-        {LABELS[mode]}
+        <Icon name="plan" size={14} />
+        <span className="hidden sm:inline">{LABELS[mode]}</span>
       </button>
     );
   }

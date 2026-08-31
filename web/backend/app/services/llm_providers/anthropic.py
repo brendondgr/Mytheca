@@ -27,6 +27,7 @@ a version string.
 
 from __future__ import annotations
 
+import json
 import logging
 from copy import deepcopy
 
@@ -86,6 +87,10 @@ class AnthropicAdapter:
     #: Anthropic as evidence against this flag rather than as impossible.
     stop_matches_reasoning: bool = False
 
+    streaming_dispatched: bool = True
+
+    stream_media_types: tuple[str, ...] = ("event-stream",)
+
     #: Prefilled when an operator switches to this provider and has no URL yet.
     #: A blank field beside a provider that only ever has one endpoint is a
     #: question with one right answer, asked for no reason.
@@ -93,8 +98,9 @@ class AnthropicAdapter:
 
     # ---- Transport ---------------------------------------------------------
 
-    def chat_url(self, base_url: str, model: str) -> str:
-        # The model rides in the body, not the path, so ``model`` is unused here.
+    def chat_url(self, base_url: str, model: str, *, stream: bool = False) -> str:
+        # The model rides in the body and ``"stream": true`` asks for the
+        # stream, so neither argument changes the path. One endpoint, both ways.
         return f"{_base(base_url)}/v1/messages"
 
     def models_url(self, base_url: str) -> str:
@@ -226,6 +232,7 @@ class AnthropicAdapter:
             reasoning="\n\n".join(part for part in thinking_parts if part),
             prompt_tokens=prompt_tokens,
             cached_tokens=cached_tokens,
+            finish_reason=self.stream_finish_reason(payload),
             raw=payload if isinstance(payload, dict) else {},
         )
 
@@ -297,11 +304,10 @@ class AnthropicAdapter:
         ``choices[0].delta.content`` anywhere in that sequence; a consumer
         looking for one streams silence and then reports an empty completion.
 
-        ``thinking_delta`` returns "" rather than its text: the seam's streaming
-        contract has a single string channel, and folding deliberation into it
-        would print the model's private reasoning into the scene as prose. Until
-        the seam grows a second channel, thinking is only recoverable from the
-        non-streaming reply.
+        ``thinking_delta`` returns "" rather than its text — deliberately, and
+        it is not lost: it arrives on :meth:`stream_reasoning`, the seam's
+        second channel. Folding it in here would print the model's private
+        reasoning into the scene as prose.
         """
         if not isinstance(event, dict) or event.get("type") != "content_block_delta":
             return ""
@@ -313,6 +319,72 @@ class AnthropicAdapter:
             # all land here.
             return ""
         return str(delta.get("text") or "")
+
+    def parse_stream_line(self, line: str) -> dict | None:
+        """One SSE line -> its JSON payload, or ``None`` to skip.
+
+        Anthropic's stream carries BOTH an ``event:`` name line and a ``data:``
+        payload line for every event, plus blank separators and periodic
+        ``ping``s. Only the payload is read — the name is repeated inside it as
+        ``type``, which is what every method below dispatches on.
+
+        There is no ``[DONE]`` sentinel to translate; :meth:`stream_done` reads
+        the typed ``message_stop`` instead.
+        """
+        line = (line or "").strip()
+        if not line.startswith("data:"):
+            return None
+        data = line[len("data:") :].strip()
+        if not data:
+            return None
+        try:
+            parsed = json.loads(data)
+        except ValueError:
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+    def stream_reasoning(self, event: dict) -> str:
+        """The ``thinking_delta`` text on one event ("" for anything else).
+
+        ``signature_delta`` is excluded: it is one opaque provenance token, not
+        thought, and rendering it would put base64 in the thinking pane.
+        """
+        if not isinstance(event, dict) or event.get("type") != "content_block_delta":
+            return ""
+        delta = event.get("delta")
+        if not isinstance(delta, dict) or delta.get("type") != "thinking_delta":
+            return ""
+        return str(delta.get("thinking") or "")
+
+    def stream_usage(self, event: dict) -> tuple[int | None, int | None]:
+        """The token counts on ``message_start`` (and the tail ``message_delta``).
+
+        Delegates to :meth:`parse_usage`, which already reads the nested
+        ``message.usage`` shape a ``message_start`` uses — the input side is
+        reported ONCE, at the very beginning, unlike OpenAI's trailing frame.
+        """
+        if not isinstance(event, dict):
+            return None, None
+        if event.get("type") not in ("message_start", "message_delta"):
+            return None, None
+        return self.parse_usage(event)
+
+    def stream_finish_reason(self, event: dict) -> str | None:
+        """``delta.stop_reason`` from the tail ``message_delta``.
+
+        Anthropic says ``max_tokens`` where OpenAI says ``length``; the caller
+        compares case-insensitively against both, so the raw value is passed
+        through rather than translated into a foreign vocabulary here.
+        """
+        if not isinstance(event, dict):
+            return None
+        if event.get("type") == "message_delta":
+            delta = event.get("delta")
+            reason = delta.get("stop_reason") if isinstance(delta, dict) else None
+            if reason:
+                return str(reason)
+        reason = event.get("stop_reason")
+        return str(reason) if reason else None
 
     def stream_done(self, event: dict) -> bool:
         """Whether this event ends the stream.

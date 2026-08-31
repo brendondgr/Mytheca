@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 import { Monogram } from "@/components/ui/Monogram";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { useExitTransition } from "@/hooks/use-exit-transition";
+import { Icon } from "@/components/ui/Icon";
 
 export interface MultiSelectOption {
   id: string;
@@ -192,20 +193,12 @@ export function MultiSelect({
             </span>
           )}
         </span>
-        <svg
-          aria-hidden
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={cn("-mr-3xs flex-none text-mute transition-transform", open && "rotate-180")}
-        >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+        <Icon
+          name="down"
+          size={15}
+          strokeWidth={2.2}
+          className={cn("-mr-3xs text-mute transition-transform", open && "rotate-180")}
+        />
       </button>
       {listMounted && !isEmpty ? (
         <ul

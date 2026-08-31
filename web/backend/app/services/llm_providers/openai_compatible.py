@@ -53,7 +53,7 @@ from app.services.llm_providers.base import ChatReply, ChatRequest, normalize_ba
 # moving it to a new logger would silently take it out of their filter.
 logger = logging.getLogger("mytheca.llm")
 
-#: Marker key on :data:`STREAM_DONE`. ``llm._sse_payload`` distinguishes the SSE
+#: Marker key on :data:`STREAM_DONE`. :meth:`parse_stream_line` distinguishes the SSE
 #: terminator from "this line carried nothing" by object *identity* against a bare
 #: ``{}``, which stops working the moment the sentinel crosses a module boundary
 #: and gets copied or re-created. A marker key survives that; no provider chunk
@@ -121,9 +121,9 @@ class OpenAICompatibleAdapter:
     #: enters the sampled stream a stop sequence can match. The cost of the extra
     #: caution is an unbounded generation, never an error, so it stays True until
     #: someone measures a hosted endpoint rather than assuming one.
-    #: The one provider `llm.chat_complete_stream` can parse today — its loop
-    #: reads `data:` SSE frames and `choices[0].delta.content` directly.
     streaming_dispatched: bool = True
+
+    stream_media_types: tuple[str, ...] = ("event-stream",)
 
     stop_matches_reasoning: bool = True
 
@@ -154,11 +154,12 @@ class OpenAICompatibleAdapter:
 
     # ---- Routing ------------------------------------------------------------
 
-    def chat_url(self, base_url: str, model: str) -> str:
+    def chat_url(self, base_url: str, model: str, *, stream: bool = False) -> str:
         """``{base}/chat/completions`` — the base must ALREADY end in ``/v1``.
 
-        ``model`` is accepted and unused: this dialect names the model in the
-        body. Gemini puts it in the path, which is why the signature carries it.
+        ``model`` and ``stream`` are accepted and unused: this dialect names the
+        model in the body and asks for a stream with ``"stream": true``. Gemini
+        puts both in the URL, which is why the signature carries them.
 
         Nothing here supplies a missing ``/v1``; see :meth:`_warn_if_pathless` for
         why a bare ``http://host:8000`` is only warned about and not repaired.
@@ -373,6 +374,7 @@ class OpenAICompatibleAdapter:
             reasoning=self.reasoning_text(message),
             prompt_tokens=self.prompt_tokens(payload),
             cached_tokens=self.cached_tokens(payload),
+            finish_reason=self.stream_finish_reason(payload),
             raw=payload,
         )
 
@@ -562,3 +564,24 @@ class OpenAICompatibleAdapter:
         it, which this dialect answers by skipping, not by stopping.
         """
         return isinstance(event, dict) and event.get(_DONE_MARKER) is True
+
+    def stream_usage(self, event: dict) -> tuple[int | None, int | None]:
+        """The token counts on a streamed frame — the same shape as a reply's.
+
+        The usage frame arrives LAST and carries ``choices: []``, which is why
+        this is asked of every frame rather than only of ones with content.
+        It is present at all only because :meth:`build_body` sends
+        ``stream_options: {"include_usage": true}``.
+        """
+        if not isinstance(event, dict):
+            return None, None
+        return self.prompt_tokens(event), self.cached_tokens(event)
+
+    def stream_finish_reason(self, event: dict) -> str | None:
+        """``choices[0].finish_reason``, once the endpoint sets it."""
+        if not isinstance(event, dict):
+            return None
+        choices = event.get("choices") or []
+        choice = choices[0] if choices else {}
+        reason = choice.get("finish_reason") if isinstance(choice, dict) else None
+        return str(reason) if reason else None

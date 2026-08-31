@@ -92,7 +92,7 @@ _THINK_LEVELS: Final[dict[ReasoningEffort, str]] = {
 def _positive_int(value: object) -> int | None:
     """An int that is genuinely a count, else ``None``.
 
-    Mirrors ``llm._prompt_tokens``: a zero or missing figure degrades to "unknown"
+    Mirrors every other adapter: a zero or missing figure degrades to "unknown"
     so the caller estimates, rather than reporting a confident zero into the
     player-facing context dial.
     """
@@ -167,6 +167,13 @@ class OllamaAdapter:
     #: this is the flag to flip, and it belongs flipped with a measurement beside it.
     stop_matches_reasoning: bool = False
 
+    streaming_dispatched: bool = True
+
+    #: NDJSON, not SSE: one bare JSON object per line, no ``data:`` prefix and no
+    #: ``[DONE]``. A reader that insists on ``text/event-stream`` here rejects a
+    #: perfectly good stream and silently falls back to the blocking path.
+    stream_media_types: tuple[str, ...] = ("x-ndjson", "json")
+
     #: Prefilled when an operator switches to this provider and has no URL yet.
     #: A blank field beside a provider that only ever has one endpoint is a
     #: question with one right answer, asked for no reason.
@@ -214,7 +221,7 @@ class OllamaAdapter:
                 return base[: -len(suffix)]
         return base
 
-    def chat_url(self, base_url: str, model: str) -> str:
+    def chat_url(self, base_url: str, model: str, *, stream: bool = False) -> str:
         # ``model`` is unused: it rides in the body here, not the path. The
         # parameter is part of the seam because Gemini puts it in the URL.
         return f"{self._root(base_url)}/api/chat"
@@ -394,10 +401,39 @@ class OllamaAdapter:
             # prefix internally; it just does not say how much, so this stays None
             # rather than becoming a fabricated zero that reads as a cache miss.
             cached_tokens=None,
+            finish_reason=self.stream_finish_reason(payload),
             raw=payload,
         )
 
     # ---- streaming ---------------------------------------------------------
+
+    def parse_stream_line(self, line: str) -> dict | None:
+        """The protocol's name for :meth:`stream_payload`.
+
+        Both exist because they answer to two callers: the seam's streaming loop
+        dispatches on this name for every provider, and `stream_payload` was the
+        name this adapter shipped with. One implementation, so they cannot drift.
+        """
+        return self.stream_payload(line)
+
+    def stream_usage(self, event: dict) -> tuple[int | None, int | None]:
+        """``prompt_eval_count`` off the CLOSING frame — the only one that has it.
+
+        Ollama reports no prefix-cache figure at all, so the second element is
+        always ``None`` rather than a fabricated zero: the context dial shows
+        "no cache information", which is true, instead of "nothing was cached",
+        which would be a claim this server never makes.
+        """
+        if not isinstance(event, dict):
+            return None, None
+        return _positive_int(event.get("prompt_eval_count")), None
+
+    def stream_finish_reason(self, event: dict) -> str | None:
+        """``done_reason`` on the closing frame — ``length`` where the cap was hit."""
+        if not isinstance(event, dict):
+            return None
+        reason = event.get("done_reason")
+        return str(reason) if reason else None
 
     def stream_payload(self, line: str) -> dict | None:
         """One NDJSON line → its object, or ``None`` to skip. Raises on a failure frame.
