@@ -24,24 +24,31 @@ Verified against the code on 2026-08-04.
   is accepted, whether a stream frames the way the docs say, whether usage fields carry the
   names claimed. Treat them as "written carefully, unproven", and expect the first live call
   of each to find something.
-- **Streaming is not provider-dispatched.** `llm.chat_complete_stream` still parses the
-  OpenAI SSE dialect directly (`data:` frames, `[DONE]`, `choices[0].delta.content`), and
-  `llm.stop_is_safe` is still applied globally rather than per adapter. Each adapter
-  implements `stream_delta`/`stream_done` and carries `stop_matches_reasoning`, and neither
-  is read on the live streaming path. Selecting Anthropic, Gemini or Ollama therefore fails
-  the content-type check, lands in `_NO_STREAM`, and degrades every turn to the blocking
-  path — the whole passage arriving at once instead of typing out.
+- **Nothing has ever streamed from Anthropic, Gemini or Ollama.** The code exists as of
+  2026-08-31: `llm.chat_complete_stream` reads a stream entirely through the active adapter
+  (`stream_media_types` for the media check, `parse_stream_line` for framing, then
+  `stream_delta` / `stream_reasoning` / `stream_usage` / `stream_finish_reason` for the
+  contents), `llm.stop_is_safe` consults the adapter instead of hardcoding llama.cpp's
+  behaviour, and all four adapters declare `streaming_dispatched = True`. The blocking path
+  was half-wired the same way and is fixed in the same change: it built the URL and body
+  through the adapter and then sent a hardcoded `Authorization: Bearer` header and read
+  `choices[0].message.content` itself, so on Anthropic and Gemini a successful call parsed
+  as an empty completion. Thirteen dialect tests live in
+  `utils/tests/backend/services/test_llm_stream_dispatch.py`.
 
-  **This is no longer silent.** `ProviderAdapter.streaming_dispatched` carries it, the
-  config API exposes it, and the Options picker marks such a provider "· no live typing"
-  and explains the consequence in a sentence. An operator can still choose it and
-  everything else works; they simply choose knowing. Wiring the stream is the remaining
-  half of the seam, and it is deliberately NOT attempted here: it means rewriting the
-  hottest path in the product — the live turn — and doing that carelessly to finish a
-  bonus feature is a bad trade against the 2,117 tests and the working scene loop.
-- **`gemini.py` is 790 lines**, against a project guideline of 800 max / under 500 preferred.
-  It is one class plus its parsing helpers and splitting it would scatter one dialect across
-  files, but it is at the ceiling and the next addition should split rather than grow it.
+  **That is not the same as working.** Those tests are fakes written from the same reference
+  documents as the code, so they cannot catch the code and the test being wrong together,
+  and the failure modes here are the silent kind: a media type answered differently in
+  practice falls back to the blocking path and logs nothing, and usage carried on an event
+  this reader does not ask blanks the player's context dial with no error. Expect the first
+  live stream of each to find something.
+
+  Two known gaps behind the same wall, both invisible offline. Anthropic **multi-turn
+  thinking is unsupported by construction** — the seam types a message as `dict[str, str]`,
+  so the `thinking` blocks the reference requires be replayed unmodified are already gone
+  before the adapter sees them; turn one succeeds and turn two is a 400. And Ollama reports
+  no prefix-cache figure at all, so the context dial reads "unknown" rather than a number on
+  every Ollama turn.
 - **Per-role model routing is still not possible.** "Cheap model for the planner, strong model
   for prose" is the main practical reason to hold several providers at once, and the seam does
   not deliver it: one global model id still serves ~25 agent call sites via the positional

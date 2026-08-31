@@ -11,13 +11,13 @@ The HTTP client is built by ``get_http_client`` so tests can inject an
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import re
 import time
 from collections import OrderedDict
 from collections.abc import Generator
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import httpx
 
@@ -25,6 +25,12 @@ from app.core.config import get_settings
 from app.core.errors import APIError
 from app.schemas.reasoning import ReasoningEffort
 from app.schemas.settings import LlmModelsResponse, LlmParams, LlmTestResponse
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    # Runtime imports of this package stay INSIDE the functions that need it:
+    # `llm_providers` imports the adapters, which import this module's siblings,
+    # and a module-level import here closes that circle.
+    from app.services import llm_providers
 
 logger = logging.getLogger("mytheca.llm")
 
@@ -106,13 +112,6 @@ def _normalize(base_url: str) -> str:
     if not base:
         raise APIError(400, "bad_request", "A base URL is required (e.g. http://localhost:7070/v1).")
     return base
-
-
-def _headers(api_key: str) -> dict[str, str]:
-    headers = {"Content-Type": "application/json"}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-    return headers
 
 
 def _send(
@@ -218,7 +217,17 @@ def stop_is_safe(reasoning: ReasoningEffort | None) -> bool:
 
     A tag that has to survive the reasoning channel is parsed out of the finished text
     instead, the way ``<speaker:N>`` already is.
+
+    **This is a property of the engine, not a universal truth**, so the answer comes from
+    the active adapter's ``stop_matches_reasoning`` rather than from a constant here.
+    Anthropic separates deliberation into its own block and documents ``stop_sequences``
+    against the response text; hardcoding llama.cpp's behaviour would drop every stop
+    sequence on a provider that has no such problem.
     """
+    from app.services import llm_providers
+
+    if not getattr(llm_providers.active_adapter(), "stop_matches_reasoning", True):
+        return True
     return reasoning is ReasoningEffort.NONE
 
 
@@ -232,11 +241,19 @@ def _completion_request(
     reasoning: ReasoningEffort | None,
     extra_body: dict | None,
     stop: list[str] | None = None,
-) -> tuple[str, dict, tuple[str, str]]:
-    """Build the ``(url, body, limit_key)`` a chat completion needs.
+    stream: bool = False,
+) -> tuple[str, dict, tuple[str, str], "llm_providers.ProviderAdapter"]:
+    """Build the ``(url, body, limit_key, adapter)`` a chat completion needs.
 
     Shared by the blocking and streaming paths so they cannot drift on sampler fields,
-    the reasoning budget, or the learned context-window clamp.
+    the reasoning budget, the learned context-window clamp — or, since the streaming
+    path was wired through the seam, on which provider they are talking to.
+
+    ``stream`` reaches BOTH the URL and the body, because the four dialects disagree
+    about where it belongs: OpenAI, Anthropic and Ollama say ``"stream": true`` in the
+    body, while Gemini selects ``:streamGenerateContent?alt=sse`` in the path. Building
+    a streaming body against a non-streaming URL is not an error anywhere — it returns
+    one JSON blob and a stream that never types.
     """
     if not model:
         raise APIError(400, "bad_request", "A model is required to generate.")
@@ -244,7 +261,7 @@ def _completion_request(
 
     p = params or LlmParams()
     adapter = llm_providers.active_adapter()
-    url = adapter.chat_url(base_url, model)
+    url = adapter.chat_url(base_url, model, stream=stream)
     # For the OpenAI-compatible provider this reproduces the body this function
     # used to build literally — key order included, verified by a parity harness
     # against the previous implementation — so the path every existing install
@@ -257,6 +274,7 @@ def _completion_request(
             params=p,
             reasoning=reasoning,
             stop=list(stop) if stop else None,
+            stream=stream,
             extra_body=dict(extra_body or {}),
         )
     )
@@ -276,7 +294,7 @@ def _completion_request(
     known_limit = _CONTEXT_LIMITS.get(limit_key)
     if known_limit:
         _fit_max_tokens(body, known_limit)
-    return url, body, limit_key
+    return url, body, limit_key, adapter
 
 
 def chat_complete(
@@ -339,31 +357,40 @@ def chat_complete_usage(
     decoding (e.g. ``{"guided_choice": [...]}`` or ``{"guided_json": {...}}``) to pin the
     turn loop's constrained control fields. Ignored by providers that don't support it.
     """
-    url, body, limit_key = _completion_request(
+    url, body, limit_key, adapter = _completion_request(
         base_url, api_key, model, messages, params, reasoning=reasoning,
         extra_body=extra_body, stop=stop,
     )
     window = _gen_timeout(timeout_s)
-    res = _send("POST", url, headers=_headers(api_key), json=body, timeout=window)
+    # `adapter.headers`, not a hardcoded Bearer token. Anthropic authenticates with
+    # `x-api-key` plus `anthropic-version` and Gemini with `x-goog-api-key`; sending a
+    # Bearer token to either is a 401 that reads exactly like a bad key, so an operator
+    # who pasted a perfectly good one spends the afternoon regenerating it.
+    headers = adapter.headers(api_key)
+    res = _send("POST", url, headers=headers, json=body, timeout=window)
     if not res.is_success:
         limit = _learn_context_limit(limit_key, res)
         if limit and _fit_max_tokens(body, limit):
-            res = _send("POST", url, headers=_headers(api_key), json=body, timeout=window)
+            res = _send("POST", url, headers=headers, json=body, timeout=window)
     _ensure_ok(res)
     try:
         payload = res.json()
-        choices = payload.get("choices") or []
-        choice = choices[0] if choices else {}
-        message = choice.get("message", {}) or {}
-        content = (message.get("content") or "").strip()
-        # Reasoning endpoints report their deliberation in its own field. Reading it
-        # here is what lets an empty answer be diagnosed as "spent the budget thinking"
-        # rather than a bare blank reply.
-        raw_reasoning = _reasoning_field(message)
-        finish_reason = choice.get("finish_reason")
-        prompt_tokens = _prompt_tokens(payload)
-        _record_usage(usage_out, payload)
-    except (ValueError, AttributeError, IndexError, TypeError) as exc:
+        # `adapter.parse_reply`, not an inlined OpenAI read. This path used to dig out
+        # `choices[0].message.content` itself, which meant the seam was wired for the
+        # URL and the body and then ignored for the answer: on Anthropic the content is
+        # a LIST of typed blocks and on Gemini it is `candidates[0].content.parts`, so
+        # both parsed as an empty completion from a perfectly successful call.
+        reply = adapter.parse_reply(payload if isinstance(payload, dict) else {})
+        content = reply.text.strip()
+        raw_reasoning = reply.reasoning
+        finish_reason = reply.finish_reason
+        prompt_tokens = reply.prompt_tokens
+        _record_usage(usage_out, reply)
+    except APIError:
+        # Gemini raises a typed error for a safety block rather than returning an empty
+        # string, which is the more useful answer. Let it through unchanged.
+        raise
+    except (ValueError, AttributeError, IndexError, KeyError, TypeError) as exc:
         raise APIError(
             502, "upstream_error", "The model endpoint returned an unexpected response."
         ) from exc
@@ -439,6 +466,15 @@ def chat_complete_stream(
 
     Falls back to the blocking path (yielding the whole completion as one delta) when the
     endpoint refuses to stream, so a caller never has to care which it got.
+
+    **Provider-dispatched since 2026-08-31.** Every dialect-specific decision — the
+    request URL, the auth header, the media type that means "this is a stream", how one
+    line becomes an event, and where that event keeps its text, its deliberation, its
+    token counts and its finish reason — is asked of the active adapter. Before that,
+    this loop read ``data:`` frames and ``choices[0].delta.content`` directly, so
+    selecting Anthropic, Gemini or Ollama failed the content-type check, was remembered
+    in ``_NO_STREAM``, and degraded every turn to the blocking path: the whole passage
+    arriving at once instead of typing out, with no error anywhere.
     """
     stream_key = (_normalize(base_url), model)
     if stream_key in _NO_STREAM:
@@ -447,29 +483,27 @@ def chat_complete_stream(
             extra_body=extra_body, stop=stop, usage_out=usage_out, timeout_s=timeout_s,
         ))
 
-    url, body, limit_key = _completion_request(
+    url, body, limit_key, adapter = _completion_request(
         base_url, api_key, model, messages, params, reasoning=reasoning,
-        extra_body=extra_body, stop=stop,
+        extra_body=extra_body, stop=stop, stream=True,
     )
-    body["stream"] = True
-    body["stream_options"] = {"include_usage": True}
 
     from app.agents._common import InlineReasoningSplitter, strip_reasoning
 
     splitter = InlineReasoningSplitter()
     answer_parts: list[str] = []
     reasoning_parts: list[str] = []
-    prompt_tokens: int | None = None
+    usage = _StreamUsage()
     finish_reason: str | None = None
 
     client = get_http_client()
     try:
         with client:
             with client.stream(
-                "POST", url, headers=_headers(api_key), json=body,
+                "POST", url, headers=adapter.headers(api_key), json=body,
                 timeout=_gen_timeout(timeout_s),
             ) as res:
-                if not res.is_success or "event-stream" not in res.headers.get("content-type", ""):
+                if not res.is_success or not _is_stream(adapter, res):
                     res.read()
                     # A 400 naming the context limit is the blocking path's business —
                     # it knows how to clamp and retry. Anything else means "no streaming
@@ -482,27 +516,25 @@ def chat_complete_stream(
                         timeout_s=timeout_s,
                     ))
                 for line in res.iter_lines():
-                    chunk = _sse_payload(line)
-                    if chunk is None:
+                    event = adapter.parse_stream_line(line)
+                    if event is None:
                         continue
-                    if chunk is _SSE_DONE:
-                        break
-                    usage_tokens = _prompt_tokens(chunk)
-                    if usage_tokens is not None:
-                        prompt_tokens = usage_tokens
-                        _record_usage(usage_out, chunk)
-                    choices = chunk.get("choices") or []
-                    if not choices:
-                        continue
-                    choice = choices[0] or {}
-                    finish_reason = choice.get("finish_reason") or finish_reason
-                    delta = choice.get("delta") or {}
+                    # Read everything off the frame BEFORE asking whether it is the last
+                    # one. Gemini's terminal frame carries prose and Ollama's carries the
+                    # only token counts in the whole stream, so a loop that breaks first
+                    # loses a sentence on one provider and the context dial on another.
+                    usage.absorb(adapter.stream_usage(event))
+                    finish_reason = adapter.stream_finish_reason(event) or finish_reason
                     out = StreamDelta()
-                    raw_reasoning = _reasoning_field(delta)
+                    raw_reasoning = adapter.stream_reasoning(event)
                     if raw_reasoning:
                         out.reasoning += str(raw_reasoning)
-                    raw_content = delta.get("content") or ""
+                    raw_content = adapter.stream_delta(event)
                     if raw_content:
+                        # Kept dialect-neutral on purpose: an inline ``<think>`` block is
+                        # a property of the MODEL, not of the wire format, so a llama.cpp
+                        # model served through Ollama inlines its reasoning exactly as it
+                        # does through an OpenAI-compatible route.
                         answer_text, inline_reasoning = splitter.push(str(raw_content))
                         out.answer += answer_text
                         out.reasoning += inline_reasoning
@@ -510,11 +542,14 @@ def chat_complete_stream(
                         answer_parts.append(out.answer)
                         reasoning_parts.append(out.reasoning)
                         yield out
+                    if adapter.stream_done(event):
+                        break
     except httpx.HTTPError as exc:
         raise APIError(
             502, "bad_gateway", f"Could not reach the model endpoint: {exc.__class__.__name__}."
         ) from exc
 
+    _record_usage(usage_out, usage)
     delta_count = len(answer_parts)
     tail_answer, tail_reasoning = splitter.flush()
     if tail_answer or tail_reasoning:
@@ -538,26 +573,52 @@ def chat_complete_stream(
             len("".join(reasoning_parts)), finish_reason, joined[:400],
         )
         _raise_empty_completion(finish_reason, "".join(reasoning_parts))
-    return text, prompt_tokens
+    return text, usage.prompt_tokens
 
 
-#: Sentinel for the SSE terminator, distinct from "this line carried no payload".
-_SSE_DONE: dict = {}
+def _is_stream(adapter: "llm_providers.ProviderAdapter", res: httpx.Response) -> bool:
+    """Whether the response actually is the stream we asked for.
+
+    The media type is the only signal available before reading a byte, and it is
+    provider-specific: OpenAI, Anthropic and Gemini answer ``text/event-stream``, Ollama
+    answers ``application/x-ndjson``. Insisting on ``event-stream`` for all four rejects
+    a perfectly good Ollama stream and falls back to blocking — silently, since a
+    fallback is a normal outcome and logs nothing.
+
+    An adapter that declares no media types is trusted; the check exists to catch an
+    endpoint answering with a plain JSON error body under a 200, not to police adapters.
+    """
+    wanted = getattr(adapter, "stream_media_types", ()) or ()
+    if not wanted:
+        return True
+    content_type = res.headers.get("content-type", "")
+    return any(kind in content_type for kind in wanted)
 
 
-def _sse_payload(line: str) -> dict | None:
-    """Parse one SSE line into its JSON payload, ``_SSE_DONE``, or ``None`` to skip."""
-    line = (line or "").strip()
-    if not line or not line.startswith("data:"):
-        return None
-    data = line[len("data:") :].strip()
-    if data == "[DONE]":
-        return _SSE_DONE
-    try:
-        parsed = json.loads(data)
-    except ValueError:
-        return None
-    return parsed if isinstance(parsed, dict) else None
+@dataclass
+class _StreamUsage:
+    """The token counts seen so far in a stream, however late they arrive.
+
+    Each dialect reports usage at a different moment — OpenAI in a trailing frame with
+    empty ``choices``, Anthropic split across ``message_start`` (input) and the tail
+    ``message_delta``, Gemini cumulatively on every frame, Ollama only on the closing
+    one. Rather than teach the loop those four rhythms, every frame is offered and the
+    last non-``None`` value for each field wins.
+
+    ``None`` is never absorbed over a real figure: Gemini repeats its counts on frames
+    that are otherwise empty, and one such frame arriving last would blank a number the
+    stream had already reported.
+    """
+
+    prompt_tokens: int | None = None
+    cached_tokens: int | None = None
+
+    def absorb(self, counts: tuple[int | None, int | None]) -> None:
+        prompt, cached = counts
+        if prompt is not None:
+            self.prompt_tokens = prompt
+        if cached is not None:
+            self.cached_tokens = cached
 
 
 def _blocking_as_stream(
@@ -608,69 +669,22 @@ def _raise_empty_completion(finish_reason: str | None, reasoning: str) -> None:
     raise APIError(502, "upstream_error", "The model returned an empty response.")
 
 
-#: Field names carrying a model's deliberation, in the order they are checked.
-#:
-#: There is no standard here, and the difference is not cosmetic: reading only one spelling
-#: silently discards the whole channel on any endpoint that uses the other, which then
-#: looks like "this model does no reasoning" rather than "we did not read it".
-#:  * ``reasoning_content`` — llama.cpp.
-#:  * ``reasoning``         — vLLM (observed on qwen38-27B-awq behind the relay).
-_REASONING_FIELDS = ("reasoning_content", "reasoning")
-
-
-def _reasoning_field(payload: dict) -> str:
-    """The deliberation text from a delta or message, whichever spelling it uses."""
-    if not isinstance(payload, dict):
-        return ""
-    for name in _REASONING_FIELDS:
-        value = payload.get(name)
-        if value:
-            return str(value)
-    return ""
-
-
-def _cached_tokens(payload: dict) -> int | None:
-    """Extract ``usage.prompt_tokens_details.cached_tokens`` — the prefix-cache hit.
-
-    How many of this call's prompt tokens the server served from its KV cache instead of
-    re-processing. It is the only honest measure of whether the prompt is laid out so a
-    conversation's history can be reused between turns, and without it a cache regression
-    is completely silent: latency simply creeps up as the scene gets longer.
-
-    ``None`` when the endpoint reports no ``prompt_tokens_details`` (many do not).
-    """
-    usage = payload.get("usage") if isinstance(payload, dict) else None
-    details = usage.get("prompt_tokens_details") if isinstance(usage, dict) else None
-    value = details.get("cached_tokens") if isinstance(details, dict) else None
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        return None
-    return value
-
-
-def _record_usage(sink: dict | None, payload: dict) -> None:
+def _record_usage(sink: dict | None, reply: object) -> None:
     """Fill a caller-supplied dict with this call's token figures, if one was given.
 
     An out-parameter rather than a widened return type: ``(text, prompt_tokens)`` is
     unpacked in a dozen places and the cache figure is diagnostic, so paying for it with
     an optional kwarg keeps every existing caller untouched.
+
+    Takes anything carrying ``prompt_tokens``/``cached_tokens`` — a
+    :class:`~app.services.llm_providers.ChatReply` on the blocking path, a small
+    accumulator on the streaming one. It used to take a raw OpenAI payload and read the
+    two fields itself, which silently reported ``None`` for every other provider.
     """
     if sink is None:
         return
-    sink["prompt_tokens"] = _prompt_tokens(payload)
-    sink["cached_tokens"] = _cached_tokens(payload)
-
-
-def _prompt_tokens(payload: dict) -> int | None:
-    """Extract ``usage.prompt_tokens`` from an OpenAI-compatible completion payload.
-
-    Returns ``None`` when the endpoint omits ``usage`` or the value is not a positive
-    integer, so callers degrade to an estimate instead of surfacing a bogus zero.
-    """
-    usage = payload.get("usage") if isinstance(payload, dict) else None
-    value = usage.get("prompt_tokens") if isinstance(usage, dict) else None
-    if isinstance(value, bool) or not isinstance(value, int):
-        return None
-    return value if value > 0 else None
+    sink["prompt_tokens"] = getattr(reply, "prompt_tokens", None)
+    sink["cached_tokens"] = getattr(reply, "cached_tokens", None)
 
 
 def list_models(

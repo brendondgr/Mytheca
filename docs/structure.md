@@ -65,6 +65,7 @@ mytheca/
 │   │       │               #   scenarios · settings · stats · storylines
 │   │       ├── services/   # Turn loop, CRUD, graph, RAG glue, media, LLM transport (46 modules)
 │   │       │   └── llm_providers/  # The provider seam: base contract + 4 adapters
+│   │       │                       # (gemini splits its reply/frame reading into gemini_parse.py)
 │   │       ├── agents/     # LLM agents — authoring + turn loop + prompt_registry + storyline_edit/
 │   │       ├── content/    # graph_registry.py (type catalogue) + stats/*.md guidance
 │   │       ├── rag/        # schema · serializer · tokens · entries · embedder · store · indexer
