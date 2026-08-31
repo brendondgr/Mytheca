@@ -255,40 +255,47 @@ Stated up front, because an audit that overclaims is worse than one that is narr
 ### Minor
 
 ```
-[MAJOR · FUNCTIONAL] X-1  A quoted measurement traces to an experiment that was never run
-  where:    CLAUDE.md:31 (governing rules), docs/plans/binding-plan-and-execution-arms.md:11
-            and :133, docs/research/experiments/EXP-2026-08-017-.../PROTOCOL.md:12, :61, :125
-  observed: four documents cite EXP-2026-08-016 as having MEASURED things — "turns of 18, 22
-            and 24 beats on a three-character scene", a 66x latency swing, and that "a 3-hour
-            run answers a bounding question no better than a short one".
-            docs/research/experiments/EXP-2026-08-016-continuous-scene-script/ contains:
-            manifest.yaml `status: planned`, `title: <one line, specific enough to read in a
-            table>`, an unfilled template RESULTS.md, and zero files under data/ or logs/.
-            Its INDEX.md row still carries the template placeholders verbatim.
-            EXP-2026-08-015 is in the same state. Neither has been run, or neither was
-            written up after being run — the record cannot distinguish these.
-  why:      this is the exact failure the research contract forbids in its own words:
-            "Never report a metric in chat or a commit message without also writing it to
-            the corresponding manifest.yaml and RESULTS.md." A number quoted in a governing
-            document with nothing behind it is worse than no number, because every later
-            document that cites it inherits the authority it does not have — and three
-            already do. It is also the one finding in this audit that would damage the
-            repository's strongest asset, since the research record's value is precisely
-            that its numbers can be checked.
-  fix:      NOT mechanical, and NOT mine to make. Either (a) EXP-016 was run and never
-            written up — then RESULTS.md, manifest.yaml and the INDEX row get filled from
-            whatever data survives, and the citations become true; or (b) the number came
-            from an informal observation — then it is not an experimental result, the four
-            citing documents drop the EXP-016 attribution, and the claim is restated as the
-            observation it was. Assigning a status to an unlabelled experiment is the
-            owner's call, never an inference from the text.
-  interim:  applied in this restructure — CLAUDE.md now states plainly that the number
-            traces to nothing and must not be repeated until it does, and the citation was
-            removed from .env.example, where this audit had briefly introduced it. The
-            four citing documents are otherwise untouched: docs/plans/ and the EXP-017
-            protocol are historical records and get corrections appended, not edits.
-  effort:   30 minutes if the data exists; 15 minutes to restate if it does not
-  verify:   audit_experiments.py .   # expect: no number tracing to a `planned` experiment
+[MAJOR · FUNCTIONAL] X-1  A quoted measurement traced to an experiment with no write-up
+  status:   RESOLVED during this restructure. The number is real; the record was not.
+  where:    CLAUDE.md, docs/plans/binding-plan-and-execution-arms.md:11 and :133,
+            docs/research/experiments/EXP-2026-08-017-.../PROTOCOL.md:12, :61, :125
+  observed: three documents cited EXP-2026-08-016 for "turns of 18, 22 and 24 beats on a
+            three-character scene". That folder read `status: planned`, held zero data
+            files, carried an unfilled template RESULTS.md, and its INDEX row still had
+            `<one line, specific enough to read in a table>`. From the record alone the
+            number traced to nothing.
+  why:      the research contract forbids exactly this in its own words — "Never report a
+            metric without also writing it to the corresponding manifest.yaml and
+            RESULTS.md" — and the record's whole value is that its numbers can be checked.
+            Three documents had already inherited authority the source did not have.
+  what it turned out to be: the run HAPPENED, on 2026-08-25, and was never written up. Its
+            event log was still in the dev Postgres and was recovered on 2026-08-31,
+            minutes before the throwaway storyline holding it was deleted at the owner's
+            request. Two things then fell out that the citations had missed:
+              1. The quoted figure was the MILDER half. 18/24/22 are the `voiced` arm's
+                 worst turns; the `continuous` arm produced a 38-beat turn that appears in
+                 none of the three citing documents.
+              2. The arms are identifiable after all — ISSUES.md records in passing that
+                 "voiced turn 3 produced 18 beats and continuous turn 3 produced 3", which
+                 matches exactly one session each in the log.
+            ISSUES.md was doing the real record-keeping the whole time: its first entry
+            says "nothing ran" (true when written, 08-24/25) and the two entries below it
+            describe the run that then happened. A reader stopping at the first entry
+            concludes the experiment never ran.
+  fix applied: data/events.json (raw, 139 events) + make_metrics.py (computes every
+            reported number from it) + a filled RESULTS.md, manifest and INDEX row.
+            `status: failed`, following EXP-017's reading — the run could not produce what
+            the protocol asked for, since all three primary metrics were never computed.
+            `make validate-research` passes: 19 experiments, 0 warnings.
+            **The status is the owner's to revise** — assigning one is a judgement about
+            their own work, not an inference from the text.
+  residual: the `continuous` vs `voiced` question this experiment existed to answer is
+            still open, and so is EXP-2026-08-017's. Recorded in both RESULTS files.
+            Two process follow-ups are logged in EXP-016 §7: whether
+            `make validate-research` should fail when a document cites a `planned`
+            experiment, and whether the harness should persist an event log for every run
+            so an unwritten experiment is recoverable by design rather than by luck.
+  verify:   make validate-research && python3 docs/research/experiments/EXP-2026-08-016-continuous-scene-script/make_metrics.py
 ```
 
 ```
@@ -360,19 +367,23 @@ Stated up front, because an audit that overclaims is worse than one that is narr
 ```
 
 ```
-[MINOR · FUNCTIONAL] S-2  A UI defect would be visible in a library screenshot
-  where:    web/frontend/components/feature/CharacterCard.tsx, at the library's 3-column width
-  observed: at 1600px the "◆ IN THIS SCENE" badge overlaps the character name on cards whose
-            name wraps to two lines — "IN THIS SCENE" renders across "BROTHER ALDOUS".
-            Reproduced in both Parchment and Slate. Setting cards additionally render a
-            hatched placeholder with the literal text "setting plate" when no art exists.
-  why:      this is a website finding, not a repository one, and it is recorded here only
-            because it decides which screenshots may be committed. A screenshot showing
-            overlapping text is worse than no screenshot.
-  fix:      out of scope for this audit. Lead the README with the story player, which is
-            clean; hold the library shot until the overlap is fixed.
-  effort:   n/a here
-  verify:   re-screenshot the library after the fix
+[WITHDRAWN] S-2  Character-card badge overlapping the name — NOT A DEFECT
+  status:   withdrawn 2026-08-31. This finding was wrong and is kept rather than deleted.
+  claimed:  that at 1600px the "◆ In this scene" badge drew across character names that
+            wrap to two lines, in both Parchment and Slate.
+  observed: measured directly in the rendered DOM at the same viewport and theme the
+            screenshot was taken at. Badge bottom 645.97px, name top 649.97px — a 4px
+            gap. Same result on every affected card ("Wren Calloway", "Captain Doran
+            Hale"). The band is `position: absolute`, the badge is `display: block`,
+            `position: static`, and it stacks normally. There is no overlap.
+  cause of the error: read off a 3200px screenshot downscaled to 2000px for review. The
+            badge wraps to two lines on a narrow card, which puts four short lines of
+            text in a small band and reads as collision at that scale.
+  lesson:   a visual defect claimed from a downscaled screenshot is a hypothesis, not an
+            observation. This audit's own rule — record the file, the line, the command
+            run and the observed result — is what caught it, one measurement later.
+  consequence: the library screenshot was held back from the README for this finding.
+            It is now cleared and shipped.
 ```
 
 ### Advisory
