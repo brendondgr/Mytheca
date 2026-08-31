@@ -1090,6 +1090,12 @@ export interface LlmProviderOption {
    * shows a text field rather than an empty dropdown that looks broken.
    */
   supportsDiscovery: boolean;
+  /**
+   * False where the turn loop cannot yet parse this provider's stream. Selecting
+   * it works, but every turn arrives as one block instead of typing out — so the
+   * picker says so rather than letting an operator find out mid-scene.
+   */
+  streamingDispatched: boolean;
 }
 
 export interface LlmConfig {

@@ -210,9 +210,21 @@ export function LanguageModelsTab({ opts }: { opts: OptionsState }) {
               <option key={p.id} value={p.id}>
                 {p.label}
                 {p.configured ? " · configured" : ""}
+                {p.streamingDispatched ? "" : " · no live typing"}
               </option>
             ))}
           </select>
+          {current && !current.streamingDispatched ? (
+            // Said plainly, because the alternative is finding out mid-scene.
+            // An unrecognised stream fails the content-type check and every turn
+            // silently degrades to the blocking path — the whole passage landing
+            // at once, with no error anywhere.
+            <p className="mt-2xs font-mono text-eyebrow tracking-[0.04em] text-mute">
+              Turns from {current.label} arrive as one block rather than typing out:
+              the turn loop does not parse this provider&rsquo;s stream yet. Everything
+              else works.
+            </p>
+          ) : null}
         </label>
 
         <div className="flex flex-wrap items-end gap-sm">

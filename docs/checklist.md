@@ -28,10 +28,17 @@ Verified against the code on 2026-08-04.
   OpenAI SSE dialect directly (`data:` frames, `[DONE]`, `choices[0].delta.content`), and
   `llm.stop_is_safe` is still applied globally rather than per adapter. Each adapter
   implements `stream_delta`/`stream_done` and carries `stop_matches_reasoning`, and neither
-  is read on the live streaming path. Consequence: selecting Anthropic or Gemini would fail
-  the content-type check, be added to `_NO_STREAM`, and silently degrade every turn to the
-  blocking path — which destroys the live-typing behaviour with no error surfaced. Wiring the
-  stream is the remaining half of the provider seam.
+  is read on the live streaming path. Selecting Anthropic, Gemini or Ollama therefore fails
+  the content-type check, lands in `_NO_STREAM`, and degrades every turn to the blocking
+  path — the whole passage arriving at once instead of typing out.
+
+  **This is no longer silent.** `ProviderAdapter.streaming_dispatched` carries it, the
+  config API exposes it, and the Options picker marks such a provider "· no live typing"
+  and explains the consequence in a sentence. An operator can still choose it and
+  everything else works; they simply choose knowing. Wiring the stream is the remaining
+  half of the seam, and it is deliberately NOT attempted here: it means rewriting the
+  hottest path in the product — the live turn — and doing that carelessly to finish a
+  bonus feature is a bad trade against the 2,117 tests and the working scene loop.
 - **`gemini.py` is 790 lines**, against a project guideline of 800 max / under 500 preferred.
   It is one class plus its parsing helpers and splitting it would scatter one dialect across
   files, but it is at the ceiling and the next addition should split rather than grow it.

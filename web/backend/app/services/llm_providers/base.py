@@ -79,6 +79,20 @@ class ProviderAdapter(Protocol):
     id: str
     #: Human label for the provider dropdown.
     label: str
+    #: Whether `llm.chat_complete_stream` can actually parse this provider's
+    #: stream. **Today only the OpenAI-compatible adapter can**: the streaming
+    #: loop still checks for an `event-stream` content type and reads `data:`
+    #: frames with `choices[0].delta.content` directly, rather than going through
+    #: `stream_delta`/`stream_done`.
+    #:
+    #: This is surfaced rather than hidden because the failure is silent and
+    #: expensive: an unrecognised stream fails the content-type check, is added
+    #: to `_NO_STREAM`, and every turn degrades to the blocking path — the whole
+    #: passage arriving at once instead of typing out, with no error anywhere.
+    #: The Options picker says so next to any provider where it is False, so an
+    #: operator chooses knowing the cost instead of discovering it mid-scene.
+    streaming_dispatched: bool
+
     #: Whether `stop` sequences are safe to send while a reasoning channel is on.
     #: Measured on llama.cpp: a stop sequence matches the REASONING channel too,
     #: and killed a generation mid-thought, returning empty content. That is a

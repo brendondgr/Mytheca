@@ -52,6 +52,10 @@ class LlmProviderOption(CamelModel):
     #: False for providers that cannot list their models over the wire, so the UI
     #: shows a text field rather than an empty dropdown that looks broken.
     supports_discovery: bool = True
+    #: False where the turn loop cannot yet parse this provider's stream, so
+    #: every turn would silently arrive as one block instead of typing out. The
+    #: picker says so rather than letting an operator find out mid-scene.
+    streaming_dispatched: bool = False
 
 
 class LlmConfigRead(CamelModel):

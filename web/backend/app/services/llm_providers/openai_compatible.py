@@ -121,6 +121,10 @@ class OpenAICompatibleAdapter:
     #: enters the sampled stream a stop sequence can match. The cost of the extra
     #: caution is an unbounded generation, never an error, so it stays True until
     #: someone measures a hosted endpoint rather than assuming one.
+    #: The one provider `llm.chat_complete_stream` can parse today — its loop
+    #: reads `data:` SSE frames and `choices[0].delta.content` directly.
+    streaming_dispatched: bool = True
+
     stop_matches_reasoning: bool = True
 
     #: The thinking budget is NOT written by :meth:`build_body`, and that omission

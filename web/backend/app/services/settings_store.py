@@ -163,7 +163,13 @@ def _provider_options(doc: dict) -> list[LlmProviderOption]:
 
     slots = doc.get("providers") or {}
     out: list[LlmProviderOption] = []
-    for pid, label, default_base_url, supports_discovery in llm_providers.provider_options():
+    for (
+        pid,
+        label,
+        default_base_url,
+        supports_discovery,
+        streaming_dispatched,
+    ) in llm_providers.provider_options():
         slot = slots.get(pid) or {}
         out.append(
             LlmProviderOption(
@@ -172,6 +178,7 @@ def _provider_options(doc: dict) -> list[LlmProviderOption]:
                 configured=bool(slot.get("_apiKey") or slot.get("baseUrl")),
                 default_base_url=default_base_url,
                 supports_discovery=supports_discovery,
+                streaming_dispatched=streaming_dispatched,
             )
         )
     return out

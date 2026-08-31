@@ -117,14 +117,14 @@ def get_adapter(provider: str | None) -> ProviderAdapter:
     return adapters[DEFAULT_PROVIDER]
 
 
-def provider_options() -> list[tuple[str, str, str, bool]]:
-    """`(id, label, default_base_url, supports_discovery)` for every adapter.
+def provider_options() -> list[tuple[str, str, str, bool, bool]]:
+    """`(id, label, default_base_url, supports_discovery, streaming_dispatched)`.
 
     Pure config; no I/O. The Options panel renders its provider dropdown from
     this without touching the network, which is what keeps the panel usable when
     every configured endpoint happens to be down.
     """
-    out: list[tuple[str, str, str, bool]] = []
+    out: list[tuple[str, str, str, bool, bool]] = []
     for adapter in _adapters().values():
         out.append(
             (
@@ -132,6 +132,10 @@ def provider_options() -> list[tuple[str, str, str, bool]]:
                 adapter.label,
                 getattr(adapter, "default_base_url", ""),
                 getattr(adapter, "supports_discovery", True),
+                # Defaults to False: a new adapter is not streamed until someone
+                # has actually wired and checked it, and claiming otherwise is
+                # the silent degradation this flag exists to prevent.
+                getattr(adapter, "streaming_dispatched", False),
             )
         )
     return out

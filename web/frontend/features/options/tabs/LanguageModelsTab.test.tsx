@@ -22,8 +22,8 @@ function makeOpts(overrides: Partial<OptionsState["settings"]> = {}): OptionsSta
         maxContextTokens: 16384,
         reasoningVisibility: "summary" as const,
         providers: [
-          { id: "openai-compatible", label: "OpenAI-compatible", configured: true, defaultBaseUrl: "", supportsDiscovery: true },
-          { id: "anthropic", label: "Anthropic (Claude)", configured: false, defaultBaseUrl: "https://api.anthropic.com", supportsDiscovery: true },
+          { id: "openai-compatible", label: "OpenAI-compatible", configured: true, defaultBaseUrl: "", supportsDiscovery: true, streamingDispatched: true },
+          { id: "anthropic", label: "Anthropic (Claude)", configured: false, defaultBaseUrl: "https://api.anthropic.com", supportsDiscovery: true, streamingDispatched: true },
         ],
       },
       library: { defaultStorylineId: null, openLastStoryline: true },
@@ -91,8 +91,8 @@ describe("LanguageModelsTab", () => {
         maxContextTokens: 16384,
         reasoningVisibility: "summary" as const,
         providers: [
-          { id: "openai-compatible", label: "OpenAI-compatible", configured: true, defaultBaseUrl: "", supportsDiscovery: true },
-          { id: "anthropic", label: "Anthropic (Claude)", configured: false, defaultBaseUrl: "https://api.anthropic.com", supportsDiscovery: true },
+          { id: "openai-compatible", label: "OpenAI-compatible", configured: true, defaultBaseUrl: "", supportsDiscovery: true, streamingDispatched: true },
+          { id: "anthropic", label: "Anthropic (Claude)", configured: false, defaultBaseUrl: "https://api.anthropic.com", supportsDiscovery: true, streamingDispatched: true },
         ],
       },
     });
@@ -133,8 +133,8 @@ describe("LanguageModelsTab", () => {
         maxContextTokens: 16384,
         reasoningVisibility: "summary" as const,
         providers: [
-          { id: "openai-compatible", label: "OpenAI-compatible", configured: true, defaultBaseUrl: "", supportsDiscovery: true },
-          { id: "anthropic", label: "Anthropic (Claude)", configured: false, defaultBaseUrl: "https://api.anthropic.com", supportsDiscovery: true },
+          { id: "openai-compatible", label: "OpenAI-compatible", configured: true, defaultBaseUrl: "", supportsDiscovery: true, streamingDispatched: true },
+          { id: "anthropic", label: "Anthropic (Claude)", configured: false, defaultBaseUrl: "https://api.anthropic.com", supportsDiscovery: true, streamingDispatched: true },
         ],
       },
     });
@@ -191,6 +191,20 @@ describe("LanguageModelsTab", () => {
     render(<LanguageModelsTab opts={opts} />);
     await user.click(screen.getByRole("button", { name: /fetch models/i }));
     expect(await screen.findByText(/reports no models/i)).toBeInTheDocument();
+  });
+
+  it("says when a provider's turns will not type out", async () => {
+    const user = userEvent.setup();
+    const opts = makeOpts();
+    // Anthropic's stream is not parsed by the turn loop yet. Selecting it works,
+    // but every turn arrives as one block — which the picker must say, because
+    // the alternative is an operator discovering it mid-scene with no error.
+    opts.settings!.llm.providers = opts.settings!.llm.providers.map((p) =>
+      p.id === "anthropic" ? { ...p, streamingDispatched: false } : p,
+    );
+    render(<LanguageModelsTab opts={opts} />);
+    await user.selectOptions(screen.getByLabelText(/provider/i), "anthropic");
+    expect(screen.getByText(/arrive as one block/i)).toBeInTheDocument();
   });
 
   it("keeps each provider's endpoint and key separate when switching", async () => {
