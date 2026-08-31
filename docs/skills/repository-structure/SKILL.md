@@ -44,7 +44,7 @@ The authoritative tree lives in `docs/structure.md` — read it rather than dupl
 - **Frontend tests are co-located, not centralized.** `utils/tests/frontend/` contains only an `__init__.py` and must stay empty. All 84 frontend test files sit beside their subjects.
 - **Backend tests have five area folders**, not three: `api/`, `agents/`, `services/`, `rag/`, `data/`.
 - **`web/shared/contracts/` is empty.** The FE↔BE contract is hand-mirrored in `web/frontend/lib/events.ts` and `lib/types.ts`. Don't document it as a live source; if you change `app/events/envelope.py`, update the mirror in the same change.
-- **`libs/` is empty** and reserved for internal packages that outgrow a single helper.
+- **There is no `libs/`.** It existed as an empty placeholder until 2026-08-31 and was removed — a directory reserved for ten weeks and never used is a note, not a directory. Shared helpers live in `utils/`; if something genuinely outgrows that, create the package then.
 - **Neo4j and Qdrant are implemented**, not future seams. Graph code lives in `services/graph_{reader,writer}.py` and `services/type_registry.py`; RAG lives in `app/rag/`. Don't write "leave a seam for a vector DB" — it's built.
 - **Media output** goes to `MEDIA_DIR` (default `<repo>/media`), is gitignored, and is served read-only at `/media`.
 

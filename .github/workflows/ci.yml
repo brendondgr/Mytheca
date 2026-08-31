@@ -1,0 +1,61 @@
+# Runs the validation gate CONTRIBUTING.md defines as the definition of done.
+#
+# The job that earns its keep here is `docs` — it re-checks the documented setup path and
+# the README's links on a clean runner. Setup instructions rot because nothing re-runs them,
+# and this repository has already shipped a `.env.example` default that contradicted the
+# code and a Quickstart whose first command could not execute. Both were found by hand.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-groups
+      # Backend tests run against in-memory SQLite — no Docker, no data stores.
+      - run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # The theme gate: every token pair must clear WCAG AA.
+      - run: uv run python utils/scripts/check_contrast.py
+      # The stylesheet gate: works offline, no Tailwind build required.
+      - run: node utils/scripts/check_frontend_css.mjs
+      # Fails if a README or docs link points at something that does not exist.
+      - run: uv run python utils/scripts/check_doc_links.py

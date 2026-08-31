@@ -3,6 +3,8 @@ name = "mytheca"
 version = "0.0.0"
 description = "Mytheca — an AI-driven interactive narrative engine (FastAPI backend)."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115",

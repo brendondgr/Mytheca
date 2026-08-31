@@ -48,7 +48,7 @@ Do not add libraries speculatively. Every dependency needs a defined job and a r
 
 - Max file length 800 lines; aim under 500. Split oversized files into focused modules.
 - Python sub-packages need `__init__.py`.
-- Small helpers go in `utils/`; larger shared packages in `libs/`.
+- Helpers go in `utils/` (`utils/scripts/` for standalone tools). There is no `libs/`.
 - Frontend ownership: primitives in `components/ui/`, chrome in `components/layout/`, domain UI in `components/feature/`, route-level modules in `features/`, hooks in `hooks/`, helpers in `lib/`.
 - **Backend tests** live in `utils/tests/backend/{api,agents,services,rag,data}/` as `test_<behavior>.py`.
 - **Frontend tests are co-located** beside what they test (`Foo.tsx` → `Foo.test.tsx`). `utils/tests/frontend/` is empty and must stay that way.

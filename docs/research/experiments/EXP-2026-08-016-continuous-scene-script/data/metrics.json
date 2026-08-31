@@ -1,0 +1,151 @@
+{
+ "provenance": "recovered from the dev database 2026-08-31; see module docstring",
+ "arm_source": "ISSUES.md 2026-08-25: 'voiced turn 3 produced 18 beats and continuous turn 3 produced 3'. Those counts identify both sessions in the recovered log.",
+ "sessions": 2,
+ "player_turns": 11,
+ "beats_per_turn": [
+  {
+   "session": "ps_b59a06795e",
+   "arm": "continuous",
+   "turn": 1,
+   "beats": 3,
+   "by_type": {
+    "character_prose": 3
+   }
+  },
+  {
+   "session": "ps_b59a06795e",
+   "arm": "continuous",
+   "turn": 2,
+   "beats": 3,
+   "by_type": {
+    "character_prose": 3
+   }
+  },
+  {
+   "session": "ps_b59a06795e",
+   "arm": "continuous",
+   "turn": 3,
+   "beats": 3,
+   "by_type": {
+    "character_prose": 3
+   }
+  },
+  {
+   "session": "ps_b59a06795e",
+   "arm": "continuous",
+   "turn": 4,
+   "beats": 38,
+   "by_type": {
+    "character_prose": 38
+   }
+  },
+  {
+   "session": "ps_b59a06795e",
+   "arm": "continuous",
+   "turn": 5,
+   "beats": 2,
+   "by_type": {
+    "character_prose": 2
+   }
+  },
+  {
+   "session": "ps_c8d97156cc",
+   "arm": "voiced",
+   "turn": 1,
+   "beats": 4,
+   "by_type": {
+    "character_prose": 4
+   }
+  },
+  {
+   "session": "ps_c8d97156cc",
+   "arm": "voiced",
+   "turn": 2,
+   "beats": 8,
+   "by_type": {
+    "character_prose": 7,
+    "narration": 1
+   }
+  },
+  {
+   "session": "ps_c8d97156cc",
+   "arm": "voiced",
+   "turn": 3,
+   "beats": 18,
+   "by_type": {
+    "character_prose": 12,
+    "narration": 6
+   }
+  },
+  {
+   "session": "ps_c8d97156cc",
+   "arm": "voiced",
+   "turn": 4,
+   "beats": 24,
+   "by_type": {
+    "narration": 2,
+    "character_prose": 22
+   }
+  },
+  {
+   "session": "ps_c8d97156cc",
+   "arm": "voiced",
+   "turn": 5,
+   "beats": 22,
+   "by_type": {
+    "character_prose": 21,
+    "narration": 1
+   }
+  },
+  {
+   "session": "ps_c8d97156cc",
+   "arm": "voiced",
+   "turn": 6,
+   "beats": 3,
+   "by_type": {
+    "character_prose": 3
+   }
+  }
+ ],
+ "by_arm": {
+  "continuous": {
+   "turns": 5,
+   "beats": [
+    3,
+    3,
+    3,
+    38,
+    2
+   ],
+   "max": 38
+  },
+  "voiced": {
+   "turns": 6,
+   "beats": [
+    4,
+    8,
+    18,
+    24,
+    22,
+    3
+   ],
+   "max": 24
+  }
+ },
+ "beats_max": 38,
+ "turns_over_15_beats": [
+  18,
+  22,
+  24,
+  38
+ ],
+ "not_recovered": [
+  "per-call latency",
+  "token accounting",
+  "prefix-cache rate",
+  "cross_speaker_rate",
+  "voice_distinctness",
+  "misattribution_rate"
+ ]
+}

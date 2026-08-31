@@ -13,10 +13,9 @@ mytheca/
 ├── .env.example            # Every environment variable, documented
 ├── Makefile                # Research-record targets only — does NOT replace app.py
 ├── CONTRIBUTING.md         # Validation gate + how to run an experiment
-├── line_counter.py         # Standalone LOC-counting utility (not part of the app)
+├── LICENSE                 # MIT
 ├── images/                 # Brand kit — Basic.svg, Basic-Light.svg, DarkText.svg, LightText.svg
 ├── media/                  # Generated WebP output (portraits/, scenes/, moments/) — gitignored, served at /media
-├── libs/                   # Internal shared packages — currently empty (.gitkeep)
 ├── docs/                   # Source of truth
 │   ├── documentation.md    # Purpose, domain model, stack, status
 │   ├── structure.md        # This file
@@ -41,7 +40,10 @@ mytheca/
 │   │   ├── templates/      # Copied wholesale by `make new-experiment`
 │   │   ├── figures/        # Publication-ready ONLY, promoted from experiments
 │   │   ├── tables/ datasets/ paper/
-│   │   └── mytheca-research-audit.md   # External audit (3 Aug 2026); ledger provenance
+│   │   ├── mytheca-research-audit.md   # External audit (3 Aug 2026); ledger provenance
+│   │   └── mytheca-latency-report.pdf  # Written analysis: why turns take as long as they do
+│   ├── audit/              # Website audit + repository audit (profile, report, restructure plan)
+│   ├── assets/             # README screenshots — the only images referenced from the front page
 │   └── CharacterFrontpage/ # Locked-in visual reference mockups (HTML)
 ├── web/
 │   ├── frontend/           # Next.js 16 app (App Router, Turbopack) + React 19 + TS + Tailwind v4
@@ -82,7 +84,7 @@ mytheca/
 │   │   ├── backend/{api,agents,services,rag,data}/  # pytest, grouped by area + conftest.py
 │   │   ├── frontend/       # EMPTY (__init__.py only) — frontend tests are co-located
 │   │   └── tools/          # Research-record tooling tests (validator, scaffolder, capture)
-│   ├── scripts/            # check_contrast.py (WCAG-AA token gate)
+│   ├── scripts/            # check_contrast.py (WCAG-AA token gate) · line_counter.py (standalone LOC utility)
 │   │   └── research/       # new_experiment · validate_research · gen_index · record · run_scene · run_moment · run_live_turn_visibility
 │   └── workflows/          # ZiT-Workflow.json — the ComfyUI workflow loaded by services/comfyui.py
 ├── .claude/                # Claude Code — skill pointers + launch.json + worktrees/
@@ -121,7 +123,7 @@ Every module under `web/backend/app/` stays **under 800 lines**, enforced by
 
 ## Two things that trip people up
 
-1. **Frontend tests are co-located**, next to what they test (`Foo.tsx` → `Foo.test.tsx`) — 138 files, 1375 cases, across `app/`, `components/`, `features/`, `hooks/`, `lib/`. `utils/tests/frontend/` holds only an `__init__.py` and should be ignored.
+1. **Frontend tests are co-located**, next to what they test (`Foo.tsx` → `Foo.test.tsx`) — 141 files, 1513 cases, across `app/`, `components/`, `features/`, `hooks/`, `lib/`. `utils/tests/frontend/` holds only an `__init__.py` and should be ignored.
 2. **`web/shared/contracts/` is empty.** The live FE↔BE event and entity types are hand-written in `web/frontend/lib/events.ts` and `lib/types.ts`, kept in sync with `web/backend/app/events/envelope.py` by hand.
 
 ## Top-Level Path Purpose
@@ -134,7 +136,6 @@ Every module under `web/backend/app/` stays **under 800 lines**, enforced by
 | `web/frontend/` | The Next.js UI: library, storyline creator, story player, options. |
 | `web/backend/` | The FastAPI brain: routes, agents, services, events, persistence. |
 | `utils/` | Standalone helpers: `tests/`, `scripts/`, `workflows/`. Research tooling lives in `scripts/research/`, its tests in `tests/tools/`. |
-| `libs/` | Reserved for internal shared packages; empty today. |
 | `media/` | Generated WebP portraits and scene art. Path is `MEDIA_DIR` (default `<repo>/media`); gitignored, served read-only at `/media`. |
 | `images/` | Brand SVGs used by the README and the app header. |
 
