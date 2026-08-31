@@ -101,6 +101,93 @@ describe("ScenarioCarousel — the hero as a scroll track", () => {
     expect(slides[1].getAttribute("aria-hidden")).toBe("true");
   });
 
+  /**
+   * The scroll<->index guard, exercised directly.
+   *
+   * jsdom reports `clientWidth: 0` and never lays out, so the track's own numbers have to
+   * be forced. That makes these tests about the LOGIC — which is the part that cannot be
+   * checked by looking at it, and the part where a mistake is a jittering hero rather than
+   * a wrong pixel.
+   */
+  function trackWith(slides: ResolvedScenario[], index: number, onSelect = vi.fn()) {
+    const { container, rerender } = render(
+      <ScenarioCarousel
+        slides={slides}
+        index={index}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onSelect={onSelect}
+      />,
+    );
+    const track = container.querySelector<HTMLElement>(".scroll-track")!;
+    Object.defineProperty(track, "clientWidth", { configurable: true, value: 300 });
+    Object.defineProperty(track, "scrollLeft", { configurable: true, writable: true, value: index * 300 });
+    // A smooth scroll fires `scroll` MANY times on its way, at positions that are not
+    // the destination. Jumping straight there is the mistake that makes this fake useless:
+    // the guard's whole job is the frames in between, and a fake without them passes
+    // whether the guard is present or not (verified by deleting it).
+    track.scrollTo = vi.fn(({ left = 0 }: ScrollToOptions = {}) => {
+      const from = track.scrollLeft;
+      for (const t of [0.2, 0.6, 1]) {
+        Object.defineProperty(track, "scrollLeft", {
+          configurable: true,
+          writable: true,
+          value: from + (left - from) * t,
+        });
+        fireEvent.scroll(track);
+      }
+    }) as typeof track.scrollTo;
+    return { track, onSelect, rerender };
+  }
+
+  const two: ResolvedScenario[] = [scenario, { ...scenario, id: "sc2", title: "The Second Hunt" }];
+
+  it("reports the slide a finger settles on", () => {
+    const { track, onSelect } = trackWith(two, 0);
+    Object.defineProperty(track, "scrollLeft", { configurable: true, writable: true, value: 300 });
+    fireEvent.scroll(track);
+    expect(onSelect).toHaveBeenCalledWith("sc2");
+  });
+
+  it("does not report the slide it was just told to show", () => {
+    // The jitter this prevents: index changes -> effect scrolls -> the scroll fires ->
+    // onSelect reports the same index -> the effect runs again. One of the two writers
+    // has to stand down, and it is the one that did not initiate.
+    const { track, onSelect, rerender } = trackWith(two, 0);
+    onSelect.mockClear();
+    rerender(
+      <ScenarioCarousel
+        slides={two}
+        index={1}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onSelect={onSelect}
+      />,
+    );
+    expect(track.scrollTo).toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+
+    // ...and the guard clears, so the NEXT finger movement is heard again.
+    Object.defineProperty(track, "scrollLeft", { configurable: true, writable: true, value: 0 });
+    fireEvent.scroll(track);
+    expect(onSelect).toHaveBeenCalledWith("sc1");
+  });
+
+  it("does not scroll when the track is already where it was asked to be", () => {
+    const { track, rerender } = trackWith(two, 1);
+    (track.scrollTo as ReturnType<typeof vi.fn>).mockClear();
+    rerender(
+      <ScenarioCarousel
+        slides={two}
+        index={1}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(track.scrollTo).not.toHaveBeenCalled();
+  });
+
   it("hides the cast strip below lg", () => {
     // Two horizontally-scrolling strips nested inside each other is two swipe gestures
     // competing for one finger, and the cast is already on the Characters tab.

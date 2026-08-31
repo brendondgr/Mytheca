@@ -1,6 +1,6 @@
 # Mobile Shell & Provider Streaming
 
-**Status:** in progress · started 2026-08-31
+**Status:** complete · 2026-08-31 · merged in 5 commits
 **Mode:** B (no worktree) — feature branch off `main`, merged back at the end.
 
 ## Why
@@ -144,3 +144,31 @@ screenshots at 390px. **Commit.**
 | Chat shell | `components/layout/SceneHeader.tsx` · `components/feature/SceneMenu.tsx` · `components/feature/Composer.tsx` · `features/story-player/StoryPlayerView.tsx` · **deleted:** `CoachMark.tsx` `SceneRailBar.tsx` `hooks/use-coach-marks.ts` `lib/coachMarks.ts` + tests |
 | Library shell | `components/layout/AppHeader.tsx` · `CreateMenu.tsx` · `OptionsMenu.tsx` · `ScenarioCard.tsx` · `ScenarioCarousel.tsx` · `features/library/{LibraryView,LibraryColumns}.tsx` |
 | Docs | `docs/component-map.md` · `docs/design-system.md` · `docs/checklist.md` · `CLAUDE.md` |
+
+## What actually shipped, against the plan
+
+Five phases, five commits, all as planned except three decisions taken during the work:
+
+1. **The Options picker's "· no live typing" branch was kept, not removed.** The plan said to
+   delete it once every adapter streamed. It reads `streaming_dispatched`, which stays on the
+   contract for a fifth adapter that cannot stream — so the branch is now dormant and correct
+   rather than dead. Deleting it would mean rewriting it later.
+2. **Both LLM paths were fixed, not just the streaming one.** The blocking path turned out to
+   be half-wired the same way: it built the URL and body through the adapter and then sent a
+   hardcoded `Authorization: Bearer` and read `choices[0].message.content` itself. On Anthropic
+   and Gemini a successful call parsed as an empty completion. Streaming could not be made to
+   work without it.
+3. **`--control` became responsive (44px below `sm`, 34px above).** The plan asked for one
+   square edge. The coarse-pointer `min-height: 44px` floor beats an explicit `height` — box
+   model, not cascade — so a single 34px value rendered 34x44 on every phone. The floor now
+   exempts `.touch-target-overlay`, which is what its own comment already claimed it did.
+
+## Known gaps, all recorded in `docs/checklist.md`
+
+- Anthropic, Gemini and Ollama have still never streamed from a live endpoint. Thirteen dialect
+  tests cover the frame shapes their references document; a test written from the same document
+  as the code cannot catch both being wrong.
+- The library shell was verified by tests, gates, a production build and measured geometry, but
+  **not by eye** — the agent's browser pane stopped revealing Next's streamed content mid-session
+  (reproduced on the pre-session commit, so it is the tooling). The scroll-snap hero under an
+  actual finger is unverified.

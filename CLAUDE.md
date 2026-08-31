@@ -94,7 +94,7 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 | ComfyUI image generation | `docs/comfyui-image-generation.md` |
 | Original product briefing | `docs/briefings/storyline-chat-briefing.md` |
 | Locked visual reference mockups | `docs/CharacterFrontpage/` |
-| Active feature plans | `docs/plans/<feature-name>.md` — 29 files; `ls docs/plans/` to find one. The five-plan play-experience program is indexed by `docs/plans/play-experience-program.md` |
+| Active feature plans | `docs/plans/<feature-name>.md` — 38 files (`ls docs/plans/*.md | wc -l`; the line said 29, which was stale before this plan added one); `ls docs/plans/` to find one. The five-plan play-experience program is indexed by `docs/plans/play-experience-program.md` |
 | Shipped-feature plans (historical — **do not read while routing**) | `docs/plans/archive/` |
 | **Research record** — experiments, claims, figures, findings | `docs/research/` — contract: `docs/research/AGENT_INSTRUCTIONS.md` |
 

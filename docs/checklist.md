@@ -78,10 +78,18 @@ Verified against the code on 2026-08-04.
   headless, i.e. noise. Those are keystroke paths and nothing types during a scroll pass, so the cost
   is mount/hydration work instead. Needs a profile, not a guess; `--headful` first, since headless
   under-reports jank.
-- **Two frontend tests are flaky under full-suite load**, both timing-sensitive with real timers:
-  `ToastProvider.test.tsx` "holds the auto-dismiss timer while the pointer is over the toast", and
-  `CharacterModal.test.tsx` "drafts a full character from a seed into the form" (observed timing out
-  at 4091ms). Both pass in isolation and on re-run. Observed 2026-08-31. The fix is fake timers.
+- **At least eight frontend tests are flaky under full-suite load**, all timing-sensitive with
+  real timers. Two were known: `ToastProvider.test.tsx` "holds the auto-dismiss timer while the
+  pointer is over the toast" and `CharacterModal.test.tsx` "drafts a full character from a seed
+  into the form". Running the suite on 2026-08-31 while a production `next start` shared the
+  machine took six more down with it — in `ScenarioCard`, `ScenarioCarousel`, `CreateImageBar`
+  and `PortraitModal` — at 5-16 seconds each, against sub-second times in isolation. Every one
+  passed both in isolation and on a re-run with the server stopped.
+
+  The number is a symptom, not the finding: **these tests measure the machine, not the code.**
+  Any of them can fail on a busy CI runner, and a suite that fails for a reason unrelated to
+  the change under test teaches people to re-run rather than to read. The fix is fake timers,
+  not longer deadlines.
 - **`viewport-fit=cover` and safe-area insets are not adopted.** `app/layout.tsx` declares
   the viewport but deliberately omits `viewportFit: "cover"`, because that and
   `env(safe-area-inset-*)` are all-or-nothing: opting in makes every fixed/sticky element —

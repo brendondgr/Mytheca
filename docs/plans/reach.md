@@ -1,5 +1,12 @@
 # Reach — mobile, keyboard, and assistive-technology parity for the story player
 
+> **Superseded in part, 2026-08-31.** This plan shipped `SceneRailBar`, a `lg:hidden` row of
+> Cast / Scene / Knows triggers above the composer. That component is **deleted**: the rails it
+> opened are unchanged and now open from rows in `SceneMenu` instead, because a third horizontal
+> band of chrome on the narrowest screen in the app was itself the problem. See
+> `docs/plans/mobile-shell-and-provider-streaming.md`. Everything else here still describes the
+> code. Kept as the record of why the rails reach a phone at all.
+
 ## 1. Introduction
 
 Mytheca is a roleplay chat engine, and roleplay happens on a phone. Today it does not. Below
