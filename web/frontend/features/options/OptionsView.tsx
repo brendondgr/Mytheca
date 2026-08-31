@@ -1,6 +1,6 @@
 "use client";
 
-import { HeaderBar } from "@/components/layout/HeaderBar";
+import { HeaderBar, HeaderLead, HeaderTrail } from "@/components/layout/HeaderBar";
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
@@ -56,24 +56,32 @@ export function OptionsView() {
         content". A fragment is all this needs: the shell supplies the ground
         and the flex column. */}
       <HeaderBar elevated>
-        <div className="flex items-center gap-md">
+        {/* HeaderLead, not a bare flex div: it carries `min-w-0`, without which
+            this cluster cannot shrink and pushes the Library link past the
+            viewport edge. Measured at V8 — 390px with a 32px root font size,
+            the WCAG 1.4.4 "text at 200%" viewport — where the link overflowed
+            by 5px. Text-resize overflow is exactly the failure a fixed-width
+            header cluster produces and a page-width check never sees. */}
+        <HeaderLead>
           <span aria-hidden className="text-body text-accent-ink">
             ❖
           </span>
-          <span className="font-display text-step-2 font-bold tracking-[0.2em] text-ink">
+          <span className="truncate font-display text-step-2 font-bold tracking-[0.2em] text-ink">
             MYTHECA
           </span>
-          <span className="hidden h-5 w-px bg-hair-strong md:block" aria-hidden />
-          <span className="hidden font-mono text-eyebrow tracking-[0.18em] text-mute uppercase md:block">
+          <span className="hidden h-5 w-px flex-none bg-hair-strong md:block" aria-hidden />
+          <span className="hidden truncate font-mono text-eyebrow tracking-[0.18em] text-mute uppercase md:block">
             Options
           </span>
-        </div>
-        <Link
-          href="/"
-          className="rounded-xs border border-field-bd bg-field px-md py-xs font-mono text-eyebrow tracking-[0.1em] text-ink uppercase hover:border-accent hover:bg-hover hover:text-accent-ink"
-        >
-          ← Library
-        </Link>
+        </HeaderLead>
+        <HeaderTrail>
+          <Link
+            href="/"
+            className="rounded-xs border border-field-bd bg-field px-md py-xs font-mono text-eyebrow tracking-[0.1em] text-ink uppercase hover:border-accent hover:bg-hover hover:text-accent-ink"
+          >
+            ← Library
+          </Link>
+        </HeaderTrail>
       </HeaderBar>
 
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1120px] flex-1 px-lg py-xl sm:px-xl lg:w-[66%]">

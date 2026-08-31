@@ -231,3 +231,77 @@ Remediation order, dependency-first — each stage makes the next cheaper:
 5. **Keyboard pass** (fixes M-6, and the seven-item minimum pass).
 
 Re-audit as a **diff** against this report using the retained JSON.
+
+---
+
+# Re-audit — 2026-08-31, after the overhaul
+
+Same instruments, same seven routes, same profile. Reported as a **diff** against the
+baseline above, using the retained JSON. Nothing here is a fresh claim: every number has a
+before and an after measured the same way.
+
+## The numbers
+
+| Measure | Baseline | After | |
+| --- | ---: | ---: | --- |
+| iOS form auto-zoom (`ios-input-autozoom`) | **776** | **0** | eliminated |
+| Colour-contrast failures | **71** | **21** | −70 % |
+| All **major** findings | **856** | **31** | −96 % |
+| Blockers | 4 | 3 | the 3 are verified false positives, below |
+| Smallest text rendered anywhere | **7.5px** | **11px** | the caption floor |
+| Arbitrary font sizes in source | 625 over 30 values | **0** | on a 7-step scale |
+| Arbitrary spacing values in source | 1,335 over 165 values | **0** | on a 9-step scale |
+| Arbitrary border radii | 228 | **0** | on a 4-step scale |
+
+Per route, majors: home 29→7 · storyline 29→7 · player 46→4 · options 230→5 · new 58→1 ·
+edit 448→7 · documents 16→0.
+
+**Text size is the one whose count barely moved and whose reality moved most.** The rule flags
+anything under 14px, and Mytheca's caption tiers are 11–12px by design, so the count is
+similar (184 → 185). The distribution is not:
+
+| | baseline | after |
+| --- | --- | --- |
+| under 11px | **170 findings** (7.5px ×8, 8px ×25, 8.5px ×2, 9px ×24, 9.5px ×64, 10px ×8, 10.5px ×39) | **0** |
+| 11–12px | 14 | 185 |
+
+There is no longer any text below 11px anywhere in the app.
+
+## What is left, and why
+
+**3 blockers — all verified false positives.** Each was checked by hand rather than accepted:
+- `TriagePanel`'s upload panel is a **disclosure**, collapsed below `lg` and openable. The
+  script diffs visible text at 320px and 1280px and cannot see a toggle.
+- `PlaythroughTray`'s label folds to a glyph below `sm`; the action stays reachable in the
+  scene menu, and the button now carries an `sr-only` name (it previously had none — only a
+  `title`, which is a last-resort naming source and is not surfaced on touch at all).
+- The one **real** case — the storyline's name vanishing from the Documents header below
+  768px — is fixed.
+
+**21 contrast findings**, down from 71. Predominantly cream-on-accent at 12–13px, a trade-off
+the locked design system already documents and `check_contrast.py` already encodes at 3:1
+rather than 4.5:1. Not overridden silently.
+
+**7 `form-missing-autocomplete`** on `/…/edit` — stat-name fields axe reads as personal-data
+fields. **1 `aria-allowed-attr`** on the composer textarea. **1 `list`** on `/…/edit`. All
+carried over from the baseline and unfixed; recorded rather than quietly dropped.
+
+## One regression, found and fixed
+
+The re-audit surfaced a finding the baseline did **not** have: `horizontal-overflow` on
+`/options` at **V8** — 390px with a 32px root font size, the WCAG 1.4.4 "text at 200%"
+viewport. The Options header cluster was a bare flex `div` rather than `HeaderLead`, so it
+carried no `min-w-0`, could not shrink, and pushed the Library link 5px past the edge. Fixed
+by using the primitive; re-measured at 0.
+
+Worth stating plainly: **this was introduced by the overhaul and caught only because the
+re-audit ran the full viewport matrix.** A spot-check at 390px would have missed it — the
+overflow only exists once text doubles.
+
+## What this re-audit still cannot tell you
+
+Unchanged from the baseline, and still true: automated accessibility testing reaches ~30–40 %
+of WCAG issues; there is no field data, so every performance number remains lab-only; motion
+was measured headless, which under-reports jank; and one of the six WCAG 2.2 criteria is
+machine-checkable. The keyboard and dialog behaviour reported in Phase 7 was verified by
+driving a real browser, not by reading source — but a screen-reader pass has **not** been run.

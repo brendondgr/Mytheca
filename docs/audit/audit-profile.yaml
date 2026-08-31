@@ -76,7 +76,11 @@ content:
 # STACK
 # -----------------------------------------------------------------------------
 stack:
-  rendering:        unknown                  # ← VERIFY via raw-HTML vs rendered-DOM diff
+  rendering:        csr                      # VERIFIED 2026-08-31 by disabling JS:
+                                             # /embergate serves 35,376 bytes of HTML
+                                             # containing NONE of the storyline, cast or
+                                             # scenario content. Consequences (crawlers,
+                                             # indexing) are nil under seo.priority: none.
   cms:              null
   hosting:          local                    # `python app.py`; deployment target undecided
   licence_policy:   any
@@ -95,9 +99,14 @@ mobile:
 motion:
   budget:           expressive               # the owner asked for "pizazz" — content that
                                              # loads in visually appealing ways
-  scroll_reveals:   false                    # today. WILL become true → dynamic-loading.md
-                                             # fail-open checks become BLOCKER severity
-  reduced_motion_handled: false              # VERIFY — globals.css claims a blanket rule
+  scroll_reveals:   true                     # VERIFIED — `.reveal` runs on two paths
+                                             # (animation-timeline: view() in Chromium,
+                                             # IntersectionObserver elsewhere), both
+                                             # gated so every failure mode resolves to
+                                             # VISIBLE. Confirmed in Firefox 153.
+  reduced_motion_handled: true               # VERIFIED — the reveal paths are both
+                                             # gated on prefers-reduced-motion, and
+                                             # themes.css strips animation app-wide
 
 perf:
   device_floor:     mid-android-4g
@@ -126,5 +135,5 @@ engagement:
 
 meta:
   created:          2026-08-31
-  last_verified:    2026-08-31
+  last_verified:    2026-08-31              # baseline + post-overhaul re-audit both run
   verified_by:      "Claude Code — website-overhaul session"

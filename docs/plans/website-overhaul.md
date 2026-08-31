@@ -1,6 +1,12 @@
 # Mytheca — Website Overhaul
 
-**Status:** in progress · branch `claude/website-overhaul-22b48a` · started 2026-08-31
+**Status:** complete · branch `claude/website-overhaul-22b48a` · 2026-08-31
+
+**Landed in 8 commits, not 10.** Phases 4, 5 and 6 were planned as three per-surface
+rebuilds and landed as one, because the work turned out to be one problem rather than three:
+the same arbitrary-value habit in all 114 files, best fixed by a codemod. Phases 8 and 9
+landed together for the same reason — a provider seam is not useful until something selects
+a provider. The phase numbering in the commit messages records this.
 **Baseline audit:** `docs/audit/audit-report.md` · **Profile:** `docs/audit/audit-profile.yaml`
 
 ## 1. Introduction
