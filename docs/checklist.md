@@ -12,6 +12,20 @@ Verified against the code on 2026-08-04.
 | ~~**Stat lifecycle across scenarios**~~ | **Decided 2026-08-21 (owner decision D-1): reset, with an opt-in carry.** Stat *values* are scoped to a play-through (`session_character_stats`); `character_stats` holds the character's **authored** starting value and is what every new play-through begins from. `StatDefinition.carry_over` decides whether a play-through's ending value writes back onto the character when the session closes — so a stat carries between scenes only when it says so. Two play-throughs of one scenario no longer share a value, which is what makes branch and rewind correct. **`hidden` visibility is now implemented** (`depth-for-players.md` Phase 11): a hidden stat's `state_update` is persisted, traced and exported but **not streamed**, and `rehydrateFromHistory` skips it so a reload agrees with the live stream. The values were already excluded from the rails — `StatSchema` renders only `public` defs — so the gap was the changes, not the display. |
 | **Deployment target** | Undecided: containerized full-stack on one host vs. split hosting. Nothing is configured. |
 
+## Owed refactors
+
+- **`services/llm.py` is at 800 of 800 lines and the next addition fails the gate.**
+  `test_no_backend_module_exceeds_the_line_ceiling` caught it at 801 on 2026-08-31, after
+  the merge of `claude/coding-session-process-4cf348` added the `restart` field and its
+  stream handling. It was brought back to 800 by deleting one blank comment separator —
+  which is not a fix, it is a stay of execution. The test says what is actually owed:
+  *"Split them into their own phase rather than raising this number."*
+
+  The seams are visible: the module holds the blocking path, the streaming path, the
+  reasoning splitter plumbing, engine detection and the stop-sequence safety logic. The
+  streaming half is the obvious extraction — it is the part the provider adapters already
+  reach into, and `llm_backend.py` shows the pattern. **Do not raise `MAX_LINES`.**
+
 ## Unbuilt capabilities
 
 - **Only ONE of the four LLM providers is verified against a live endpoint.**
