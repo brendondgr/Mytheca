@@ -917,21 +917,46 @@ carry `.scroll-fade`.
 
 ## Beat controls and the take pager
 
-Every transcript beat carries the same control cluster (`BeatControls`), and the rule behind
-its visibility is worth stating because it is easy to get wrong:
+Every transcript beat carries the same control cluster (`BeatControls`), in **one thin bar
+under the beat, at its right**, alongside the take pager. It used to be two clusters hanging
+off opposite corners — the actions `absolute -top-sm`, *above* the beat, where they overlapped
+the beat before them.
 
-- **Quiet, never hidden.** At `sm` and up the cluster sits at `opacity-0` and appears on
+The bar is absolutely positioned (`-bottom-sm right-0`), not in flow. An in-flow bar revealed
+on hover would push every following beat down as the pointer crossed the transcript.
+
+The rules behind its visibility are worth stating because they are easy to get wrong:
+
+- **Quiet, never hidden.** At `sm` and up the bar sits at `opacity-0` and appears on
   `group-hover` **or** `group-focus-within`. It is never `display: none` — a hidden control is
   out of the tab order, which would make every one of these mouse-only.
-- **Below `sm` it is simply visible.** Touch has no hover, so an `opacity-0` cluster there
-  would be invisible *and* unreachable. The same row shows outright.
-- **Targets are sized responsively, not duplicated.** 44×44 below `sm`, 24×24 above it
-  (`h-[44px] w-[44px] … sm:h-[24px] sm:w-[24px]`). Collapsing the cluster into a disclosure
-  menu at small widths was tried and rejected: it renders the same action twice, which means
-  two identical accessible names for one control.
+- **A beat with more than one take keeps its bar visible.** "1 / 2" is *state*, not an action;
+  the player should not have to hover to discover that a beat has another version.
+- **Below `sm` the cluster collapses to a single `⋯` trigger** opening a menu of the same
+  actions, each with its icon *and its words*. Touch has no hover, so on a phone five 44×44
+  targets were 220px of permanently-visible chrome on every beat in the transcript — the same
+  mistake `SceneRailBar` was deleted for. An earlier attempt at this was rejected for rendering
+  the same action twice (two identical accessible names for one control); this one does not,
+  because the rendering is **chosen** by `useMediaQuery("(max-width: 639px)")` rather than
+  duplicated and CSS-hidden. That query is `false` on the server and wherever `matchMedia` is
+  absent, and that default is deliberate: the wide rendering is the superset, so an unknown
+  viewport gets every action present, named and in the tab order.
+- **Both renderings are built from one `controls` list**, so an action added to one cannot go
+  missing from the other.
+- **Targets.** 44×44 for the narrow trigger and for every menu row; 26×26 for the wide
+  toolbar's icon buttons, above WCAG 2.5.8's 24.
+- **Icons, not text glyphs.** The cluster drew itself with `✎ ⟳ ⟲ ⑂ ↺`, which inherit the font
+  stack — different per platform, sized by the type scale rather than by the control — and
+  asked the player to tell `⟳` from `⟲` at 12px, which is the same arrow with the head at the
+  other end. They are now `Icon` entries on the shared 24 grid: `pencil` `reroll` `rerun`
+  `branch` `rewind`, plus `more` for the narrow trigger and `back`/`forward` in the pager.
+  `reroll` and `rerun` differ by how much of the circle is drawn, not by which way one
+  arrowhead points.
 - **Destructive confirms in place; non-destructive does not.** Rewind removes content and
   asks first, naming how many beats go. Branch, edit and re-roll remove nothing and act on one
-  click. That asymmetry is the signal — the safe way to explore costs the least.
+  click. That asymmetry is the signal — the safe way to explore costs the least. In the narrow
+  menu the confirmation replaces the menu's body rather than closing it: the question has to
+  land where the finger already is.
 
 `BeatTakePager` ("1 / 2") appears only on a beat with **two or more** takes: one version is
 not a choice, and a dead pager on every beat is noise. Its count is an `aria-live="polite"`

@@ -95,24 +95,35 @@ describe("responsive floor", () => {
 });
 
 describe("beat controls at the 320px floor", () => {
-  it("sizes its targets to 44px below sm and 24px above", () => {
+  it("puts one 44px target below sm, not five", () => {
     const src = readFileSync("components/feature/BeatControls.tsx", "utf8");
-    // WCAG 2.5.8 asks for 24x24; the touch floor this repo holds itself to is 44.
-    expect(src).toContain("h-[44px] w-[44px]");
-    expect(src).toContain("sm:h-[24px] sm:w-[24px]");
+    // Below `sm` the cluster IS the `⋯` trigger, and it holds the repo's 44px touch floor.
+    // Five of them, permanently visible because touch has no hover, was 220px of chrome on
+    // every beat of the transcript.
+    expect(src).toContain('aria-haspopup="menu"');
+    expect(src).toContain('h-[44px] w-[44px]');
+    // …and every row the menu opens onto is a touch target in its own right.
+    expect(src).toContain('min-h-[44px]');
+  });
+
+  it("keeps the wide toolbar above WCAG 2.5.8's 24px", () => {
+    const src = readFileSync("components/feature/BeatControls.tsx", "utf8");
+    expect(src).toContain("h-[26px] w-[26px]");
   });
 
   it("never hides the cluster outright — a hidden control is out of the tab order", () => {
     const src = readFileSync("components/feature/BeatControls.tsx", "utf8");
     expect(src).not.toContain("hidden sm:flex");
-    // Quiet at sm+ via opacity, plainly visible below it (touch has no hover).
-    expect(src).toContain("sm:opacity-0");
+    // The hover reveal lives on the BAR that holds the cluster, not on the cluster: quiet at
+    // sm+ via opacity, plainly visible below it, where there is no pointer to hover with.
+    const view = readFileSync("features/story-player/StoryPlayerView.tsx", "utf8");
+    expect(view).toContain("sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100");
   });
 
   it("gives the take pager the same floor", () => {
     const src = readFileSync("components/feature/BeatTakePager.tsx", "utf8");
     expect(src).toContain("h-[44px] w-[44px]");
-    expect(src).toContain("sm:h-[24px] sm:w-[24px]");
+    expect(src).toContain("sm:h-[26px] sm:w-[26px]");
   });
 });
 

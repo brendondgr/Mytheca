@@ -609,10 +609,36 @@ export function StoryPlayerView({
                     scene.sending && i === scene.messages.length - 1 ? " min-h-[3.2em]" : ""
                   }`}
                 >
-                  {/* Only for beats that are actually persisted: a `choices` row and the
+                  {/* One thin bar under the beat, at its right — the take pager then the
+                      actions. It was two clusters hanging off opposite corners, the actions
+                      ABOVE the beat where they overlapped the beat before it.
+
+                      Absolutely positioned, so revealing it on hover costs no layout shift:
+                      an in-flow bar would push every following beat down as the pointer
+                      crossed the transcript. It stays visible when the beat has more than one
+                      take, because "1 / 2" is state rather than an action, and on a phone,
+                      where there is no hover to reveal anything.
+
+                      Only for beats that are actually persisted: a `choices` row and the
                       optimistic bubble of an in-flight turn have no row to point at. */}
                   {m.id && !scene.sending ? (
-                    <span className="absolute -top-sm right-0 z-10">
+                    <div
+                      className={`absolute -bottom-sm right-0 z-10 flex items-center gap-2xs rounded-xs border border-cardbd bg-card px-3xs py-3xs shadow-sm transition-opacity duration-150 ${
+                        m.takes && m.takes.count > 1
+                          ? ""
+                          : "sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                      }`}
+                    >
+                      {/* Only on a beat that has been re-rolled — one version is not a choice. */}
+                      {m.takes ? (
+                        <BeatTakePager
+                          count={m.takes.count}
+                          active={m.takes.active}
+                          label={beatLabel(m, byId)}
+                          onSelect={(take) => void scene.selectTake(m.id!, take)}
+                          disabled={scene.sending}
+                        />
+                      ) : null}
                       <BeatControls
                         label={beatLabel(m, byId)}
                         rewindBeatCount={scene.messages.length - turnStartIndex(scene.messages, i)}
@@ -632,19 +658,7 @@ export function StoryPlayerView({
                         onRewind={() => void scene.rewindTo(m.id!)}
                         disabled={scene.sending}
                       />
-                    </span>
-                  ) : null}
-                  {/* Only on a beat that has been re-rolled — one version is not a choice. */}
-                  {m.takes && m.id ? (
-                    <span className="absolute -bottom-sm right-0 z-10">
-                      <BeatTakePager
-                        count={m.takes.count}
-                        active={m.takes.active}
-                        label={beatLabel(m, byId)}
-                        onSelect={(take) => void scene.selectTake(m.id!, take)}
-                        disabled={scene.sending}
-                      />
-                    </span>
+                    </div>
                   ) : null}
                   {editingId && editingId === m.id ? (
                     <BeatEditor
