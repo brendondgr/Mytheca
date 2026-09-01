@@ -127,8 +127,13 @@ accessible name contains the visible title, `onChange` still returns the origina
 4. The "What the scene remembers" section keeps its prose — it is a *readout*, not
    a control, and there is nothing to hover for.
 
-**Validate:** `npx vitest run components/feature/SceneConfigMenu`, then re-measure
-the live panel: content height must be under 420 px (from 996 px).
+**Validate:** `npx vitest run components/feature/SceneConfigMenu`. The live
+re-measure is **deferred to Phase 5**, deliberately: the backend only allows CORS
+from `http://localhost:3346` (`Settings.frontend_origin`), the owner's own dev
+server is already on that port, and taking it over — or restarting the backend
+with a wider origin list — would interrupt a running session to read a number
+that is just as readable after the merge. Phase 5 measures on the owner's server
+once `main` has the change.
 **Commit:** `Mytheca — scene: the config popover fits on one screen again`
 
 ## Phase 4 — `SceneMenu` rows, and `CastRail` presence
