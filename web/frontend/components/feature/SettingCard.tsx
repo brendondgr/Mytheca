@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { Icon } from "@/components/ui/Icon";
 import { IconButton } from "@/components/ui/IconButton";
 import { SmartImage } from "@/components/ui/SmartImage";
 import { mediaUrl } from "@/lib/api";
@@ -67,13 +68,15 @@ export function SettingCard({
         </div>
       )}
 
+      {/* Same square, same glyph and same corner as `ScenarioCard`. */}
       {onEdit ? (
         <IconButton
           label={`Edit ${s.name}`}
           onClick={onEdit}
-          className="absolute right-[10px] top-sm z-[2]"
+          size={28}
+          className="absolute right-sm top-sm z-[2]"
         >
-          ✎
+          <Icon name="pencil" size={14} />
         </IconButton>
       ) : null}
 
