@@ -17,6 +17,12 @@ import { cn } from "@/lib/cn";
  * system asks for — "small and quiet" — is finally what desktop gets. Do not "simplify" this
  * to one size; the 16px is load-bearing below `sm` and wrong above it.
  *
+ * `focus:outline-none` is the field's opt-out from the boxy indicator in favour of
+ * `focus:border-accent`, and it applies to POINTER focus only: `globals.css`'s bare
+ * `:focus-visible` rule is UNLAYERED, so a Tailwind utility in `@layer utilities` cannot
+ * turn it off. A keyboard user keeps the 2px accent outline. That is the intended
+ * behaviour, not an oversight in the class list.
+ *
  * Height is not set here either. On a coarse pointer the global floor in `styles/motion.css`
  * grows every `select` to 44px, so a fixed height would either fight that rule or duplicate
  * it. Padding sets the resting size and the floor raises it where a finger is involved.

@@ -188,3 +188,23 @@ describe("CastRail shell vs. content", () => {
     expect(screen.getByLabelText("Presence for Mei")).toBeInTheDocument();
   });
 });
+
+describe("CastRail presence select density", () => {
+  it("carries the shared compact field size, not 16px monospace at every width", () => {
+    // The same complaint as the config popover, repeated once per cast member down a rail
+    // that is a bottom sheet on a phone. `Select` keeps 16px below `sm` — where iOS Safari
+    // would otherwise zoom the viewport on focus — and drops to the dense size above it.
+    renderRail({ setPresence: vi.fn() });
+    const select = screen.getAllByRole("combobox", { name: /^presence for /i })[0];
+    expect(select.className).toContain("text-field");
+    expect(select.className).toContain("sm:text-ui");
+  });
+
+  it("still offers every presence state", () => {
+    renderRail({ setPresence: vi.fn() });
+    const select = screen.getAllByRole("combobox", { name: /^presence for /i })[0];
+    expect(
+      [...select.querySelectorAll("option")].map((o) => (o as HTMLOptionElement).value),
+    ).toEqual(["present", "unconscious", "departed", "left", "dead"]);
+  });
+});
