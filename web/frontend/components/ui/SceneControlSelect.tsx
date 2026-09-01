@@ -99,7 +99,7 @@ export function SceneControlSelect<T extends string | number>({
   const selectId = useId();
   return (
     <div className={cn("flex flex-none flex-col gap-3xs", className)}>
-      <div className="flex items-center gap-2xs">
+      <div className="flex items-center gap-xs">
         <label
           htmlFor={selectId}
           // `text-ink`, not the `text-mute2` this used to carry. Muted was the other half of

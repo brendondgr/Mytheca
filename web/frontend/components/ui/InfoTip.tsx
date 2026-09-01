@@ -18,6 +18,13 @@ import { cn } from "@/lib/cn";
  * was a paragraph, open or closed, hovered or not — the tip is a *visual* affordance layered
  * on a description that never left.
  *
+ * **The 20px button is sized against WCAG 2.5.8, not by eye.** `.touch-target-overlay` projects
+ * a 44px hit area on a coarse pointer, but 2.5.8's 24px minimum applies to a mouse too, and
+ * the caller sits this button beside a 22px pin. At 20px with the caller's `gap-xs`, the two
+ * centres are 27px apart — clear of the 24px-circle spacing exception with room, where an
+ * 18px button at `gap-2xs` put them exactly tangent and relied on "tangent is not
+ * intersecting" to pass.
+ *
  * WCAG 1.4.13 (content on hover or focus), all three parts:
  * - **Hoverable** — the bubble is inside the same element the pointer entered, so moving onto
  *   it does not dismiss it.
@@ -83,9 +90,9 @@ export function InfoTip({
         onClick={() => setPinned((p) => !p)}
         onFocus={() => setPinned(true)}
         onBlur={() => setPinned(false)}
-        className="touch-target-overlay flex h-[18px] w-[18px] items-center justify-center rounded-full border border-field-bd text-mute hover:border-accent hover:text-accent-ink"
+        className="touch-target-overlay flex h-[20px] w-[20px] items-center justify-center rounded-full border border-field-bd text-mute hover:border-accent hover:text-accent-ink"
       >
-        <Icon name="info" size={11} />
+        <Icon name="info" size={12} />
       </button>
       {open ? (
         <span

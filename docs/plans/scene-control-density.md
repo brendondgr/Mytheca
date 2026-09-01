@@ -191,3 +191,26 @@ the same predicate `styles/motion.css` already uses to decide where the 44 px to
 applies, so the two rules now agree about what a phone is. The guard was narrowed to exempt
 exactly `pointer-fine:` and to keep failing `sm:`, with a test that pins the exemption's
 width.
+
+**The info button is 20 px, and the number came from a live measurement.** At the planned
+18 px with `gap-2xs`, the info button and the pin sat exactly 24 px centre to centre —
+passing WCAG 2.5.8's spacing exception only on the reading that tangent circles do not
+intersect. `.touch-target-overlay` does not help here: it projects 44 px on a *coarse*
+pointer, and 2.5.8 applies to a mouse as well. 20 px at `gap-xs` measures **27 px** between
+centres, which clears it with room.
+
+## Measured after
+
+Same conditions as the table at the top — 1280×720, Slate, default preset, `embergate/salt`:
+
+| Surface | Before | After |
+| --- | --- | --- |
+| Config panel content | 996 px (scrolls) | **448 px** (does not scroll at 720 px) |
+| Config selects | 16 px, 36 px tall | **13 px, 26 px tall** (still 16 px / 42 px on a coarse pointer at 320 px) |
+| Config titles | 17–52 px, four of six wrapped | **17 px each, none wrapped, none truncated** |
+| Scene-menu panel | 454 px, rows 71–88 px | **286 px, every row 46 px** |
+| Presence select | 16 px | **13 px** (16 px on a coarse pointer) |
+
+Checked at 320 / 768 / 1280: no horizontal document overflow, the panel fits its viewport at
+every width, the tip renders inside the panel without clipping (200×76 at its widest), and
+the tip's text measures ~14:1 against its own ground.
