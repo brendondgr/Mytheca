@@ -65,6 +65,9 @@ const PATHS = {
   person: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5a7.5 7.5 0 0 1 15 0",
   // A stage: the scene's own state, as distinct from who is standing in it.
   scene: "M3 5h18v11H3zM3 16l-2 3M21 16l2 3M8 16v3M16 16v3M9.5 8.5l4.5 2.5-4.5 2.5z",
+  // A description that is available rather than always on screen. Circle, stem, dot —
+  // the dot is a separate subpath because a 1.7 stroke cannot draw a dot.
+  info: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v6M12 7.6v.6",
   // What the scene remembers and is reading right now.
   knows: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v4.5l3 2M8 3.5A9 9 0 0 0 3.5 8",
   graph: "M6 7a2.2 2.2 0 1 0 0-4.4A2.2 2.2 0 0 0 6 7zM18 21.4a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4zM18 9.6a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4zM7.6 6.3l8.8 1M7.4 8.9l9.2 8.6",

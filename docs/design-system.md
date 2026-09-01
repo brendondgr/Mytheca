@@ -147,11 +147,47 @@ Disabling zoom is not the alternative — that is a WCAG 1.4.4 failure. The floo
 the token, an `@layer base` default in `globals.css` (in `base` so a component that genuinely wants
 larger still wins), and a source guard in `components/ui/design-scale.test.ts`.
 
+**One exemption, added 2026-09-01, and it is narrow: `pointer-fine:`.** The zoom the floor exists to
+prevent needs a touch keyboard; a mouse never triggers it, and paying the floor on a mouse is what put
+six 16px monospaced selects into a 264px popover. `components/ui/Select.tsx` is the one place that
+takes the exemption — `text-field pointer-fine:text-ui` — and `pointer: fine` is the same predicate
+`styles/motion.css` uses to decide where the 44px touch floor applies, so the two rules agree about
+what a phone is. A **breakpoint** prefix is deliberately *not* exempt and the guard still fails it:
+`sm:text-ui` looks like the same idea, but an iPhone 14 Pro Max in landscape is 932 CSS px wide, so a
+width-gated split hands the device that most needs the floor a 13px field.
+
 `--fs-tag` and `--fs-eyebrow` are caption tiers and stay **≥ 11px**. The same audit found 10.5px text
 making up 58.2 % of one route's visible copy. Anything that needs to be smaller than a tier here is
 decoration, and decoration does not carry information.
 
 The active preset is stored in `localStorage` key `mytheca-font-size` (default: `"default"`) and applied as a class on `<html>` (e.g., `.fs-comfortable`) by `lib/font-size.ts`'s no-flash inline script in `app/layout.tsx`. The hook is `useFontSize()` in `hooks/use-font-size.ts`. Tailwind utilities `text-eyebrow`, `text-label`, `text-ui`, `text-body-sm`, `text-body`, `text-field`, `text-tag` resolve from the live CSS variable via `@theme inline` in `globals.css`.
+
+### A control's description: on demand, never in the layout
+
+A setting needs a name *and* a consequence — a label alone never tells a player what happens if they
+change it. Both used to sit in flow: `SceneControlSelect` rendered its help as a paragraph under every
+control, and `SceneMenu` rendered its hint as a wrapped line under every row. Measured live on
+2026-09-01 at 1280×720, that put **996 px of content in the 264 px scene-config popover** (356 px of it
+prose) and **71–88 px per scene-menu row**.
+
+The rule that replaced it: **the consequence is reached, not displayed.**
+
+- A control gets a short title — short enough not to wrap at 264 px — plus an `InfoTip`
+  (`components/ui/InfoTip.tsx`) whose bubble opens on hover, on keyboard focus, and on tap.
+- **Nothing leaves the accessibility tree.** The bubble is `aria-hidden`; an `sr-only` twin holds the
+  same text under the id the control points `aria-describedby` at. A screen reader hears exactly what
+  it heard when this was a paragraph, open or closed.
+- WCAG 1.4.13 in full: hoverable (the bubble is inside the element the pointer entered), dismissible
+  (Escape), persistent. The Escape is `stopPropagation`'d — dismissing a tip must not also close the
+  popover the player is working in.
+- Where the title has to be shortened, the longer phrasing goes into the control's **accessible name**,
+  appended after the visible title, so the visible text stays a prefix of it (WCAG 2.5.3, label in
+  name) and a voice user can still say the words they see.
+- A **readout** is not a control and keeps its prose: the config popover's "What the scene remembers"
+  block has no setting in it, so there is nothing to defer.
+- Where a hint must stay visible (`SceneMenu` rows), it clamps to one line with `truncate` plus a
+  native `title`. `truncate` does not touch `textContent`, so the `aria-describedby` target still
+  carries the whole sentence.
 
 ### Entity colour on a surface
 
