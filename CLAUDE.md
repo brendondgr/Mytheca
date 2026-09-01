@@ -128,7 +128,7 @@ These trip people up because older prose said otherwise. All verified 2026-08-04
 | Helpers (18) | `lib/` | `api.ts` `types.ts` `events.ts` `theme.ts` `fonts.ts` (**self-hosted** via `next/font/local`) `font-size.ts` `shortcuts.ts` `promptLayers.ts` `motion.ts` `contextBudget.ts` `cardArt.ts` `graphColors.ts` `monogram.ts` `readDocs.ts` `seals.ts` `seed-data.ts` `cn.ts` |
 | Styles | `styles/themes.css`, `app/globals.css` | Three themes + `--fs-*` scale; Tailwind v4 `@theme inline` mapping |
 
-**Frontend tests are co-located** (`Foo.tsx` → `Foo.test.tsx`) — 149 files, 1520 cases. `utils/tests/frontend/` is empty; ignore it.
+**Frontend tests are co-located** (`Foo.tsx` → `Foo.test.tsx`) — 149 files, 1522 cases. `utils/tests/frontend/` is empty; ignore it.
 
 ## Backend tests — `utils/tests/backend/`
 

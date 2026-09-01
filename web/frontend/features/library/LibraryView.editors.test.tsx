@@ -121,4 +121,48 @@ describe("LibraryView — editors & modals", () => {
       within(dialog).getByRole("link", { name: /enter scene/i }),
     ).toHaveAttribute("href", "/embergate/embergate");
   });
+
+  it("the scenario card's trash square asks before anything is deleted", async () => {
+    const user = userEvent.setup();
+    render(<LibraryView />);
+    await screen.findAllByText("The Embergate Conspiracy");
+
+    // The columns render the scenario cards; the trash square is one of the two
+    // corner controls. Clicking it must open the confirm and delete NOTHING yet.
+    const [trash] = screen.getAllByRole("button", {
+      name: /^delete The Embergate Conspiracy$/i,
+    });
+    await user.click(trash);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByText(/delete .The Embergate Conspiracy.\?/i),
+    ).toBeInTheDocument();
+    expect(vi.mocked(api.deleteScenario)).not.toHaveBeenCalled();
+
+    // Backing out leaves the scene exactly where it was.
+    await user.click(within(dialog).getByRole("button", { name: /^cancel$/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(vi.mocked(api.deleteScenario)).not.toHaveBeenCalled();
+    expect(screen.getAllByText("The Embergate Conspiracy").length).toBeGreaterThan(0);
+  });
+
+  it("confirming in that dialog is what actually deletes the scenario", async () => {
+    // This file does not auto-clear mocks between tests, and the call COUNT is the
+    // assertion here — so clear it rather than inherit the test above's zero.
+    vi.mocked(api.deleteScenario).mockClear();
+    const user = userEvent.setup();
+    render(<LibraryView />);
+    await screen.findAllByText("The Embergate Conspiracy");
+
+    const [trash] = screen.getAllByRole("button", {
+      name: /^delete The Embergate Conspiracy$/i,
+    });
+    await user.click(trash);
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^delete scenario$/i }));
+
+    expect(vi.mocked(api.deleteScenario)).toHaveBeenCalledTimes(1);
+  });
+
 });
