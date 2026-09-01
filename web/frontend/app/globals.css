@@ -108,6 +108,7 @@
   --color-narrator-ink: var(--narrator-ink);
   --color-success-ink: var(--success-ink);
   --color-danger-ink: var(--danger-ink);
+  --color-prose-quote: var(--prose-quote);
 
   --color-entity: var(--entity-ink);
   --color-entity-strong: var(--entity-ink-strong);

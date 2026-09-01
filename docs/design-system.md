@@ -177,6 +177,7 @@ for fills, borders and focus rings — where the vivid hue is the point and the 
 | --- | --- | --- |
 | `text-accent-ink` | `--accent` at **72 %** | The accent has only three known values, not an open palette, so it can keep far more hue. 75 % is the limit; 72 % leaves margin. Raw accent measured 4.27:1 on Ember's card2, 4.05:1 on Slate's, 3.32:1 on Slate's hover ground. |
 | `text-gold-ink` · `text-gold-soft-ink` · `text-narrator-ink` · `text-success-ink` · `text-danger-ink` | each at **45 %** | These are theme-*agnostic* by design — one fixed hex cannot clear 4.5:1 against both a cream ground and a near-black one. `#a8762a` measured 4.08 / 3.61 / 3.11 across surfaces; `#1f8a5b` measured 3.30. |
+| `text-prose-quote` | `--accent` at **45 %** | Quoted dialogue inside a **free-text** passage, which has no speaker and so no character colour for `speechColor()` to tint toward. The 45 % mix, not `--accent-ink`'s 72 %: a passage can be half dialogue, and at 72 % the quoted runs stop reading as emphasis and start reading as a second voice over the prose. Measured 8.70 / 10.92 / 8.72 on the three themes' card ground. |
 
 `Monogram` is the one deliberate exception, and the exception proves the rule. Its ground is a fixed
 parchment `#EDE3CD` in **every** theme, so mixing toward the theme's ink would make Ember and Slate

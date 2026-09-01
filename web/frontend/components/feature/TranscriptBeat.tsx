@@ -53,20 +53,35 @@ export function NarratorCard({ text, streaming }: { text: string; streaming?: bo
 /**
  * One whole free-text turn: the room in a single passage.
  *
- * Deliberately **not** a card. `NarratorCard` wears a rule and a label because a narration
- * beat is one voice among several and the reader has to know which — a free-text passage is
- * the entire turn, there is nobody else it could be, and an attribution would be a claim
- * about a speaker the engine does not have.
+ * It carries **no attribution** — `NarratorCard` wears a rule and a label because a
+ * narration beat is one voice among several and the reader has to know which, where a
+ * free-text passage is the entire turn and a label would be a claim about a speaker the
+ * engine does not have.
  *
- * So it reads as a page: the prose measure, generous leading, paragraphs from the blank
- * lines the model wrote. Dialogue inside it is styled by `QuotedText`, the same treatment
- * speech gets everywhere else, which is what keeps a passage legible without labels.
+ * It does, however, carry a **surface**. It used to sit on the bare page ground, and the
+ * result was the one beat in the transcript with nothing under it: every other kind lands
+ * on a bubble, a tinted card or a centred rule, so the longest passage in the app — often
+ * the whole turn — read as unstyled text dropped onto the background. The panel is
+ * deliberately the plainest one in the transcript: a uniform radius (it is nobody's speech
+ * bubble, so no tail corner), the card ground, a hairline border and the smallest
+ * elevation, which is enough to say "this is the turn" without dressing prose up as chrome.
+ *
+ * Inside, the prose runs the **full width of the panel**. It was capped at a 66ch measure,
+ * which is the right call for a column of body copy on an open page and the wrong one here:
+ * the transcript column is already the measure, so a second cap inside it just left a ragged
+ * band of empty card down the right-hand side of every passage. Generous leading and the
+ * paragraphs from the blank lines the model wrote carry the readability instead.
+ *
+ * Dialogue is tinted `--prose-quote` — `speechColor()` is no
+ * help here, because there is no speaker to derive a colour from — so quoted runs stay bold
+ * and gain a warm tone that belongs to the palette instead of the white the plain `--ink`
+ * gave them on the dark themes.
  */
 export function SceneProseCard({ text, streaming }: { text: string; streaming?: boolean }) {
   return (
-    <div className="py-3xs">
-      <p className="max-w-[66ch] font-body text-body-sm leading-[1.72] whitespace-pre-line text-ink">
-        <QuotedText text={text} />
+    <div className="rounded-md border border-cardbd bg-card px-md py-sm shadow-sm">
+      <p className="font-body text-body-sm leading-[1.72] whitespace-pre-line text-ink">
+        <QuotedText text={text} color="var(--prose-quote)" />
         {streaming ? <StreamCaret /> : null}
       </p>
     </div>

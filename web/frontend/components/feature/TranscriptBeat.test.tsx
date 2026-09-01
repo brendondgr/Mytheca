@@ -27,6 +27,31 @@ function renderBeat(message: SceneMessage) {
 }
 
 describe("TranscriptBeat", () => {
+  it("gives a free-text passage a surface to sit on", () => {
+    const { container } = renderBeat({
+      kind: "scene",
+      text: 'The lamps gutter. "Sit," she says.',
+    });
+    const panel = container.firstElementChild as HTMLElement;
+    // The defect this fixes: the longest beat in the transcript was the only one with
+    // nothing under it. Ground + border + radius are what make it read as the turn.
+    expect(panel.className).toContain("bg-card");
+    expect(panel.className).toContain("border-cardbd");
+    expect(panel.className).toContain("rounded-md");
+    // …and the prose fills it. A second measure inside the transcript column left a band
+    // of empty card down the right-hand side of every passage.
+    const prose = screen.getByText(/The lamps gutter/).closest("p") as HTMLElement;
+    expect(prose.className).not.toContain("max-w-");
+  });
+
+  it("tints quoted dialogue in a free-text passage rather than leaving it plain ink", () => {
+    renderBeat({ kind: "scene", text: 'The lamps gutter. "Sit," she says.' });
+    const quote = screen.getByText('"Sit,"');
+    expect(quote.tagName).toBe("STRONG");
+    // Still bold, but no longer --ink (white on the dark themes).
+    expect(quote.style.color).toBe("var(--prose-quote)");
+  });
+
   it("renders narrator prose upright (no italic — feedback #6)", () => {
     renderBeat({ kind: "narrator", text: "Rain ticks against the shutters." });
     const prose = screen.getByText("Rain ticks against the shutters.");
