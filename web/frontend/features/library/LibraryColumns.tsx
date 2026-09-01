@@ -119,6 +119,7 @@ export function LibraryColumns({
             query={lib.query}
             onSelect={lib.setFeaturedId}
             onEdit={lib.editScenario}
+            onDelete={lib.requestDeleteScenario}
             onProfile={lib.openProfile}
             onAdd={() => lib.openCreate("scenario")}
             onClearQuery={clearQuery}

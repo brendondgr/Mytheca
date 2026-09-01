@@ -756,6 +756,42 @@ export function useLibraryState(initialStorylineId?: string) {
     }
   }
 
+  // ---- scenario delete (confirm → delete → refeature if it was the featured one) ----
+  // The card's trash square only *asks*; nothing is removed until this confirms. It is
+  // separate plumbing from `deleteEntity`, which deletes whatever the open editor holds —
+  // here there is no editor open, so there is no `modal.editId` to read.
+  const [deleteScenarioId, setDeleteScenarioId] = useState<string | null>(null);
+  const scenarioToDelete =
+    resolvedScenarios.find((s) => s.id === deleteScenarioId) ?? null;
+
+  function requestDeleteScenario(id: string) {
+    setDeleteScenarioId(id);
+    setError(null);
+  }
+  function cancelDeleteScenario() {
+    if (pending) return;
+    setError(null);
+    setDeleteScenarioId(null);
+  }
+  async function confirmDeleteScenario() {
+    const id = deleteScenarioId;
+    if (!id) return;
+    setPending(true);
+    setError(null);
+    try {
+      await api.deleteScenario(id);
+      setScenarios((xs) => xs.filter((x) => x.id !== id));
+      if (featuredId === id) {
+        setFeaturedId(scenarios.find((x) => x.id !== id)?.id ?? "");
+      }
+      setDeleteScenarioId(null);
+    } catch (e) {
+      setError(messageOf(e)); // keep the confirm open so the user can retry
+    } finally {
+      setPending(false);
+    }
+  }
+
   // ---- per-storyline writing-prompt overrides (gear in the storyline switcher) ----
   const [promptsStorylineId, setPromptsStorylineId] = useState<string | null>(null);
   const promptsStoryline =
@@ -1108,6 +1144,8 @@ export function useLibraryState(initialStorylineId?: string) {
     draftScenario, generateScenarioSceneArtPrompts, generateScenarioSceneArt,
     requestDeleteStoryline, confirmDeleteStoryline, cancelDeleteStoryline,
     storylineToDelete,
+    requestDeleteScenario, confirmDeleteScenario, cancelDeleteScenario,
+    scenarioToDelete,
     // per-storyline writing-prompt overrides
     promptsStorylineId, promptsStoryline,
     openStorylinePrompts, closeStorylinePrompts, applyStorylinePrompts,
