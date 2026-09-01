@@ -1,7 +1,7 @@
 # Scene Control Density — the config popover, the scene menu, and the presence selects
 
 **Branch:** `claude/config-menu-sizing-layout-09b32b`
-**Status:** in progress
+**Status:** shipped 2026-09-01
 **Owner:** frontend chrome (`components/ui/`, `components/feature/`)
 
 ## The problem, measured
@@ -71,8 +71,7 @@ Three distinct causes, and each needs its own fix:
    dot), keeping the one-viewBox/one-stroke rule. `ICON_NAMES` picks it up for the
    guard test automatically.
 2. `components/ui/Select.tsx` — **new primitive.** A native `<select>` carrying the
-   one field chrome the app should have: `text-field sm:text-ui` (16 px below
-   `sm`, 13 px above), `font-mono`, field tokens, `focus:border-accent`, sized by
+   one field chrome the app should have: `text-field pointer-fine:text-ui`, `font-mono`, field tokens, `focus:border-accent`, sized by
    padding rather than a fixed height. Forwards every native prop. The comment
    states the iOS-zoom reason for the split, because the next person to see
    `text-field sm:text-ui` will otherwise "simplify" it.
@@ -176,3 +175,19 @@ Re-measure: menu rows under 50 px at `sm+`, at or above 44 px below it.
 | `web/frontend/components/feature/CastRail.tsx` | presence select → shared `Select` |
 | co-located `*.test.tsx` | new + extended |
 | `docs/design-system.md`, `docs/component-map.md`, `CLAUDE.md` | the two new rules |
+
+---
+
+## What actually shipped that the plan did not say
+
+**The size split is on `pointer: fine`, not on `sm:`.** The plan said `sm:`, and the
+full-suite run caught why that is wrong before it shipped: `components/ui/design-scale.test.ts`
+guards every form control against the 16 px floor, and rather than widen the guard, the
+question "what is this floor actually for?" has a better answer than a breakpoint. iOS
+Safari zooms on focus because there is a touch keyboard, not because the viewport is narrow
+— and an iPhone 14 Pro Max in landscape is **932 CSS px wide**, so the planned `sm:` split
+would have handed the device that most needs the floor a 13 px field. `pointer: fine` is
+the same predicate `styles/motion.css` already uses to decide where the 44 px touch floor
+applies, so the two rules now agree about what a phone is. The guard was narrowed to exempt
+exactly `pointer-fine:` and to keep failing `sm:`, with a test that pins the exemption's
+width.

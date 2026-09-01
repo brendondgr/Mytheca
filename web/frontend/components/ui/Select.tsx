@@ -7,15 +7,17 @@ import { cn } from "@/lib/cn";
  *
  * **Why the size is two sizes.** `--fs-field` is pinned at 16px in every text-size preset
  * (`styles/themes.css`), Compact included, and the comment there says why: below 16px, iOS
- * Safari zooms the viewport when a form control takes focus. That is a real constraint on a
- * phone and no constraint at all on a mouse — but every select in the app paid it at every
- * width, which is how a 264px popover ended up with six 16px monospaced fields in it, each
- * the loudest thing on the screen.
+ * Safari zooms the viewport when a form control takes focus. That is a real constraint where
+ * there is a touch keyboard and no constraint at all where there is a mouse — but every
+ * select in the app paid it everywhere, which is how a 264px popover ended up holding six
+ * 16px monospaced fields, each the loudest thing on the screen.
  *
- * `text-field sm:text-ui` makes the same split `--control` already makes (44px below `sm`,
- * 34px above): the mobile contract is kept exactly, and the dense desktop chrome the design
- * system asks for — "small and quiet" — is finally what desktop gets. Do not "simplify" this
- * to one size; the 16px is load-bearing below `sm` and wrong above it.
+ * `text-field pointer-fine:text-ui` splits it on the condition that actually decides it.
+ * **Not on a breakpoint**, which was the first attempt and is wrong: an iPhone 14 Pro Max in
+ * landscape is 932 CSS px wide, so a `sm:` split hands the phone that most needs the floor a
+ * 13px field. `pointer: fine` is the same predicate `styles/motion.css` uses for the 44px
+ * touch floor, so the two rules agree about what a phone is. Do not "simplify" this to one
+ * size: the 16px is load-bearing on a coarse pointer and wrong on a fine one.
  *
  * `focus:outline-none` is the field's opt-out from the boxy indicator in favour of
  * `focus:border-accent`, and it applies to POINTER focus only: `globals.css`'s bare
@@ -35,7 +37,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
         {...props}
         className={cn(
           "rounded-xs border border-field-bd bg-field px-xs py-2xs font-mono text-field text-ink",
-          "focus:border-accent focus:outline-none disabled:opacity-60 sm:text-ui",
+          "focus:border-accent focus:outline-none disabled:opacity-60 pointer-fine:text-ui",
           className,
         )}
       />

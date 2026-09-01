@@ -76,9 +76,21 @@ describe("the form-control floor", () => {
    * one on a control is the bug this catches.
    *
    * Disabling zoom is NOT the alternative fix; that is a WCAG 1.4.4 failure.
+   *
+   * **One exemption, and it is narrow: `pointer-fine:`.** The zoom the floor
+   * exists to prevent needs a touch keyboard; a mouse never triggers it, and
+   * paying the floor on a mouse is what put six 16px monospaced selects into a
+   * 264px popover. `pointer: fine` is the same predicate `styles/motion.css`
+   * uses to decide where the 44px touch floor applies, so the two rules agree
+   * about what a phone is.
+   *
+   * A BREAKPOINT prefix is deliberately NOT exempt. `sm:text-ui` looks like the
+   * same idea and is not: an iPhone 14 Pro Max in landscape is 932 CSS px wide,
+   * so a width-gated split hands the device that most needs the floor a 13px
+   * field. If you are reaching for `sm:` here, you want `pointer-fine:`.
    */
   const CONTROL = /<(input|textarea|select)\b/g;
-  const UNDER_FLOOR_TOKEN = /\btext-(ui|label|tag|eyebrow|body-sm)\b/;
+  const UNDER_FLOOR_TOKEN = /(?<!pointer-fine:)\btext-(ui|label|tag|eyebrow|body-sm)\b/;
 
   /**
    * The end of the control's OWN opening tag.
@@ -135,7 +147,9 @@ describe("the form-control floor", () => {
         }
         const line = text.slice(0, match.index!).split("\n").length;
         const arbitrary = [...tag.matchAll(ARBITRARY_TEXT)].find(
-          (m) => Number.parseFloat(m[1]) < 16,
+          (m) =>
+            Number.parseFloat(m[1]) < 16 &&
+            !tag.slice(0, m.index!).endsWith("pointer-fine:"),
         );
         if (arbitrary) {
           offenders.push(`${path}:${line} <${match[1]}> ${arbitrary[0]}`);
@@ -164,6 +178,16 @@ describe("the form-control floor", () => {
     expect(css).toMatch(
       /@layer base \{[\s\S]*?input,\s*select,\s*textarea \{\s*font-size: var\(--fs-field\);/,
     );
+  });
+
+  it("exempts `pointer-fine:` and nothing else", () => {
+    // The exemption is the kind of hole that widens by accident. A bare token and a
+    // breakpoint-gated one must both still be caught — the second especially, because it is
+    // the plausible-looking mistake (an iPhone in landscape clears `sm:` and still zooms).
+    expect(UNDER_FLOOR_TOKEN.test("text-ui")).toBe(true);
+    expect(UNDER_FLOOR_TOKEN.test("sm:text-ui")).toBe(true);
+    expect(UNDER_FLOOR_TOKEN.test("lg:text-eyebrow")).toBe(true);
+    expect(UNDER_FLOOR_TOKEN.test("pointer-fine:text-ui")).toBe(false);
   });
 
   it("is respected by every form control", () => {
