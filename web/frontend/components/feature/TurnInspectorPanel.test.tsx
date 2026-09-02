@@ -18,6 +18,35 @@ function turn(id = "0", label = "I slide the coin pouch over."): TraceTurn {
 }
 
 describe("TurnInspectorPanel", () => {
+  it("labels the recall step instead of showing its raw step name", () => {
+    // A step with no STEP_META entry falls through to its raw name in grey — which is what
+    // `direction` did for a while, and what `memory` did when it was first emitted.
+    render(
+      <TurnInspectorPanel
+        open
+        onClose={() => {}}
+        turns={[
+          {
+            id: "0",
+            label: "x",
+            steps: [
+              {
+                type: "trace",
+                n: 1,
+                step: "memory",
+                title: "3 memory(s) recalled",
+                detail: "Dell: she went back for the cargo",
+                data: {},
+              },
+            ],
+          } as TraceTurn,
+        ]}
+      />,
+    );
+    expect(screen.getByText("Recalls")).toBeInTheDocument();
+    expect(screen.queryByText("memory")).not.toBeInTheDocument();
+  });
+
   it("renders nothing when closed", () => {
     const { container } = render(
       <TurnInspectorPanel open={false} onClose={() => {}} turns={[turn()]} />,

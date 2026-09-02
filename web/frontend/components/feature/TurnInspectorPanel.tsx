@@ -34,6 +34,12 @@ const STEP_META: Record<string, { tag: string; color: string }> = {
   // before that still render with a label instead of a raw step name.
   consistency: { tag: "Check", color: "#64748b" },
   relationship: { tag: "Ties", color: "#db2777" },
+  // What the speaker remembered, per turn: which memories were recalled, their score, and
+  // which subject cues fired. Emitted once per turn (recall runs once, not per beat), so
+  // this row is the turn-level view of the same thing the per-beat source control shows one
+  // line of. Without an entry here it rendered under its raw step name, exactly as
+  // `direction` did before it was given one.
+  memory: { tag: "Recalls", color: "#7c3aed" },
   action: { tag: "Acts", color: "#0891b2" },
   prose: { tag: "Writes", color: "#059669" },
   dialogue: { tag: "Speaks", color: "#059669" },

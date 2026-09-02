@@ -618,12 +618,15 @@ export function StoryPlayerView({
                     scene.sending && i === scene.messages.length - 1 ? " min-h-[3.2em]" : ""
                   }`}
                 >
-                  {/* Opposite the mutate cluster: everything on the right changes the
-                      record, this only reads it — so a mis-click here can never cost a beat.
-                      Shown only on a beat that actually had memory behind it; a control that
-                      usually answers "nothing" is noise on every other beat in the scene. */}
+                  {/* Bottom-LEFT, diagonally opposite the mutate cluster. Two reasons, and
+                      the second is the load-bearing one: everything on the right changes the
+                      record while this only reads it, so a mis-click here can never cost a
+                      beat — and a question about a line ("where did that come from?") is
+                      asked after reading it, so the control belongs under the prose rather
+                      than above it. Shown only on a beat that actually had memory behind it;
+                      a control that usually answers "nothing" is noise on every other beat. */}
                   {m.hasMemory && m.id && scene.sessionId && !scene.sending ? (
-                    <span className="absolute -top-sm left-0 z-10">
+                    <span className="absolute -bottom-sm left-0 z-10">
                       <MemorySource
                         scenarioId={scenario.id}
                         sessionId={scene.sessionId}
