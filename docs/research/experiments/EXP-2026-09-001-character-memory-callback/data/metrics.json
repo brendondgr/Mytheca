@@ -1,0 +1,101 @@
+{
+  "excluded_runs": 0,
+  "arms": {
+    "off": {
+      "verbatim_callback_rate": {
+        "mean": 0.0357,
+        "std": 0.0357,
+        "n": 2,
+        "runs": [
+          0.0,
+          0.0714
+        ]
+      },
+      "verbatim_callback_rate_loose": {
+        "mean": 0.0357,
+        "std": 0.0357,
+        "n": 2,
+        "runs": [
+          0.0,
+          0.0714
+        ]
+      },
+      "recall_fire_rate": {
+        "mean": 0.0,
+        "std": 0.0,
+        "n": 2,
+        "runs": [
+          0.0,
+          0.0
+        ]
+      },
+      "cue_share": null,
+      "quote_offer_share": null,
+      "memories_per_turn": {
+        "mean": 2.625,
+        "std": 0.375,
+        "n": 2,
+        "runs": [
+          3.0,
+          2.25
+        ]
+      }
+    },
+    "on": {
+      "verbatim_callback_rate": {
+        "mean": 0.0,
+        "std": 0.0,
+        "n": 2,
+        "runs": [
+          0.0,
+          0.0
+        ]
+      },
+      "verbatim_callback_rate_loose": {
+        "mean": 0.0,
+        "std": 0.0,
+        "n": 2,
+        "runs": [
+          0.0,
+          0.0
+        ]
+      },
+      "recall_fire_rate": {
+        "mean": 1.0,
+        "std": 0.0,
+        "n": 2,
+        "runs": [
+          1.0,
+          1.0
+        ]
+      },
+      "cue_share": {
+        "mean": 1.0,
+        "std": 0.0,
+        "n": 2,
+        "runs": [
+          1.0,
+          1.0
+        ]
+      },
+      "quote_offer_share": {
+        "mean": 0.3482,
+        "std": 0.2768,
+        "n": 2,
+        "runs": [
+          0.0714,
+          0.625
+        ]
+      },
+      "memories_per_turn": {
+        "mean": 2.625,
+        "std": 0.125,
+        "n": 2,
+        "runs": [
+          2.75,
+          2.5
+        ]
+      }
+    }
+  }
+}

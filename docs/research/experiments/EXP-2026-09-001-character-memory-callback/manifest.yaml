@@ -1,0 +1,97 @@
+# Experiment manifest — the machine-readable record.
+#
+# Every field below is required unless marked OPTIONAL. `make new-experiment`
+# pre-fills id, slug, dates, and the whole `code:` block from git.
+#
+# Do not delete a field you cannot fill. Write `unknown` and explain in ISSUES.md.
+# A back-filled experiment with three honest fields beats one with ten invented ones.
+
+id: EXP-2026-09-001
+slug: character-memory-callback
+title: Does episodic recall cause verbatim callbacks? (INVALID — arms ran different code)
+status: failed             # planned | running | complete | failed | superseded
+date_started: 2026-09-01
+date_completed: 2026-09-01
+authors: [brendondgr, Claude Opus 5]
+
+purpose: >
+  Whether episodic recall (docs/plans/character-memory-graph.md) causes characters to
+  reuse specific prior material in later turns, measured as a verbatim callback rate
+  against a recall-off baseline. FAILED: the two arms are separate backend processes and
+  were started from different working-tree states, so they differ by the treatment AND by
+  a phase of the feature. See ISSUES.md. Superseded by EXP-2026-09-002.
+
+hypothesis: >
+  Recall raises the verbatim callback rate above the recall-off baseline. Not tested:
+  the run is invalid as a comparison.
+
+# --- Reproducibility block (all fields mandatory) ---
+code:
+  commit: 08c73b66df8f4d98f93c04b1c62a8dd21b260fe0
+  branch: claude/character-memory-graph-3ad5f4
+  entrypoint: "uv run python -m utils.scripts.research.run_memory_callback --arm {on|off} --api http://localhost:{3355|3357}/api --run {1|2}"
+  dirty: true             # uncommitted changes at run time? if true, explain in ISSUES.md
+config:
+  path: null              # arms are one env var; the entrypoint is self-describing
+  hash: null
+data:
+  name: synthetic world "EXP-2026-09-001" — 3 characters, 1 setting, 4 fixed directions
+  version: built fresh per run by the entrypoint
+  split: n/a
+  n_examples: 4            # play-throughs (2 per arm)
+  dvc_path: null
+  hash: null               # generated per run; the worlds are retained, see runs.jsonl
+seeds: []                 # none: the model is not seedable through this path
+n_runs: 4
+environment:
+  python: "3.13"
+  lockfile: env/requirements.lock
+  container: null          # OPTIONAL
+compute:
+  hardware: "32-core CPU, 121 GB RAM; model served by a local relay"
+  wall_clock_hours: 0.75
+  estimated_cost_usd: 0.0
+
+# --- LLM / agentic block ---
+# Mytheca is an LLM system. Do not omit this block; if a run genuinely made no LLM
+# call, write `llm: null` and say why in PROTOCOL.md.
+llm:
+  model: "openai-compatible/skynet@local-relay-2026-09-01"
+  temperature: 0.7          # the app default; not overridden for this run
+  top_p: 1.0
+  max_tokens: 48000        # the configured app value
+  prompt_files: [web/backend/app/agents/reflection_agent.py, web/backend/app/agents/character_turn_agent.py]
+  prompt_hash: null        # unrecorded; a gap the successor closes
+  tool_schema_hash: null   # OPTIONAL — null if no tool schema is involved
+  total_input_tokens: 0    # unknown — not captured by this entrypoint
+  total_output_tokens: 0   # unknown — not captured by this entrypoint
+  nondeterminism_note: >
+    Provider-side nondeterminism remains even at temperature 0; results
+    are reported as mean ± std over n_runs.
+
+# --- Results block ---
+# `status: complete` with an empty `values` map fails validation. That is intentional.
+metrics:
+  primary: verbatim_callback_rate_on
+  # Recorded because they were measured, NOT because they are a comparison. The arms ran
+  # different code (ISSUES.md); no difference between them is attributable to recall.
+  values:
+    verbatim_callback_rate_off: {mean: 0.0357, std: 0.0357, n: 2}
+    verbatim_callback_rate_loose_off: {mean: 0.0357, std: 0.0357, n: 2}
+    recall_fire_rate_off: {mean: 0.0, std: 0.0, n: 2}
+    memories_per_turn_off: {mean: 2.625, std: 0.375, n: 2}
+    verbatim_callback_rate_on: {mean: 0.0, std: 0.0, n: 2}
+    verbatim_callback_rate_loose_on: {mean: 0.0, std: 0.0, n: 2}
+    recall_fire_rate_on: {mean: 1.0, std: 0.0, n: 2}
+    cue_share_on: {mean: 1.0, std: 0.0, n: 2}
+    quote_offer_share_on: {mean: 0.3482, std: 0.2768, n: 2}
+    memories_per_turn_on: {mean: 2.625, std: 0.125, n: 2}
+baselines_compared: []    # the intended baseline is arm `off`; see ISSUES.md
+statistical_test: null    # none; n=2 per arm, and the run is invalid regardless
+
+# --- Linkage ---
+supports_claims: []       # none — a failed run supports nothing
+figures: []                # every entry must have a file in figures/, and vice versa
+supersedes: null
+superseded_by: EXP-2026-09-002
+related: []
