@@ -172,6 +172,36 @@ def test_truncate_runs_without_redis_or_neo4j(db_session, played):
     assert result.cut_seq == 2
 
 
+def test_a_rewind_forgets_the_memories_the_cut_turns_formed(db_session, played, world):
+    """Transactional, unlike the graph prune beside it.
+
+    A rewound scene the cast still remembers is the exact defect the record controls
+    exist to prevent — and it would be invisible, since the memory reaches the next
+    prompt without appearing in the transcript.
+    """
+    from app.models import CharacterMemory
+    from app.services import memory_store
+    from app.services.memory_store import MemoryDraft
+
+    s = played["session"]
+    for seq, gloss in ((1, "kept"), (4, "cut away")):
+        memory_store.write(
+            db_session,
+            MemoryDraft(
+                storyline_id=world["storyline_id"], character_id=world["character_id"],
+                session_id=s.id, scenario_id=world["scenario_id"], turn_seq=seq,
+                gloss=gloss, salience=0.9,
+            ),
+            verify_texts=["Beat one."],
+        )
+    db_session.commit()
+
+    result = session_state.truncate_session(db_session, s.id, after_seq=2)
+
+    assert result.removed_memories == 1
+    assert [m.gloss for m in db_session.query(CharacterMemory).all()] == ["kept"]
+
+
 def test_truncate_rolls_back_the_graph_edges_the_cut_turns_created(db_session, played, monkeypatch):
     """Closes the last documented way a rewind fails to forget.
 

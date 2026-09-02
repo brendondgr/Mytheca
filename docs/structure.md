@@ -74,7 +74,7 @@ mytheca/
 │   │       │               #   · retriever · const
 │   │       ├── memory/     # buffer.py (Redis recent-turn buffer) · interior.py
 │   │       ├── events/     # envelope.py (9 story events) · stream.py (NDJSON + trace/error frames)
-│   │       ├── models/     # 13 SQLAlchemy tables
+│   │       ├── models/     # 15 SQLAlchemy tables (character_memory.py = durable episodic memory)
 │   │       ├── schemas/    # Pydantic request/response + event schemas
 │   │       └── core/       # config · db · redis · neo4j · qdrant · bootstrap · seed · errors · ids
 │   └── shared/
@@ -117,6 +117,7 @@ module names; this is the one that shipped, and a new one must not be invented b
 | `turn_finalize.py` | Suggestions → graph write → reflection → recency. |
 | `session_state.py` | The one owner of history mutation — truncate, copy, replay, rebuild. |
 | `beat_rerun.py` | Re-roll a beat or a turn, keeping takes. |
+| `memory_store.py` | The one owner of episodic memory: verbatim-quote verification, reinforce-don't-duplicate, lineage-scoped recall, transactional delete on rewind. |
 
 Every module under `web/backend/app/` stays **under 800 lines**, enforced by
 `utils/tests/backend/data/test_file_length_budget.py`.

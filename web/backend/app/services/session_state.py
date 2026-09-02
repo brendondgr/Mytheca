@@ -44,7 +44,7 @@ from app.core.errors import APIError
 from app.core.ids import new_id
 from app.memory import buffer, interior
 from app.models import Event, PlaySession, TurnTrace
-from app.services import graph_writer, history_compaction, session_stats
+from app.services import graph_writer, history_compaction, memory_store, session_stats
 
 #: Event types that carry prose into the recent-turn buffer, and the role each is pushed as.
 #: Mirrors what the live turn does (``turn_setup`` for the player's line, ``Emitter`` for the
@@ -72,6 +72,10 @@ class TruncationResult:
     cleared_interior: int = 0
     #: Outstanding requirements dropped because the turn that raised them was cut.
     dropped_standing: int = 0
+    #: Episodic memories the cut turns formed. Deleted in this transaction, not
+    #: best-effort: a rewound scene the cast still remembers is the defect these
+    #: controls exist to prevent.
+    removed_memories: int = 0
 
 
 # ---- preconditions --------------------------------------------------------
@@ -349,6 +353,7 @@ def truncate_session(db: Session, session_id: str, *, after_seq: int) -> Truncat
         .filter(TurnTrace.session_id == session_id, TurnTrace.turn > after_seq)
         .delete(synchronize_session=False)
     )
+    result.removed_memories = memory_store.delete_after(db, session_id, after_seq=after_seq)
     # A summary covering any of the cut beats now describes a scene that did not happen.
     # Clearing it is not tidiness: a stale summary is worse than none, because the cast would
     # confidently remember the very beats the player just removed.

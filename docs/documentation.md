@@ -38,7 +38,7 @@ Full envelope and payloads: `api-contract.md`.
 | --- | --- |
 | Frontend | Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 · Framer Motion 12 · `react-force-graph-2d` (Graph view) |
 | Backend | FastAPI · Python 3.13 · `uv` · SQLAlchemy 2.0 · Alembic |
-| Core data | PostgreSQL — 13 tables (storylines, characters, settings, scenarios, stat_definitions, character_stats, events, play_sessions, turn_traces, context_documents, context_document_links, app_settings, graph_type_definitions) |
+| Core data | PostgreSQL — 15 tables (storylines, characters, character_memories, settings, scenarios, stat_definitions, character_stats, session_character_stats, events, play_sessions, turn_traces, context_documents, context_document_links, app_settings, graph_type_definitions) |
 | Live state | Redis — recent-turn buffer, per-character interior state |
 | Story Graph | Neo4j 5.26 (custom APOC image) — typed nodes/edges, best-effort |
 | Semantic memory | Qdrant + fastembed `BAAI/bge-large-en-v1.5` (1024-dim), hybrid dense + BM25 + RRF — best-effort |
@@ -81,7 +81,7 @@ Detail: `architecture.md` (decisions), `data-flow.md` (the turn walkthrough), `a
 - **Server-side clamping** — proposed stat / relationship / presence changes are proposals; `validator.py` clamps or drops them.
 - **Best-effort substrates** — Neo4j, Qdrant, Redis and ComfyUI each degrade to a no-op when absent. CRUD and the full test suite run with none of them.
 - **No dice** — narrative resolution only; `branch_choices` carry `label` + `outcome`.
-- **Alembic is adopted**, not deferred: 12 migrations under `web/backend/alembic/versions/`, coexisting with `create_all` + an additive column reconciler.
+- **Alembic is adopted**, not deferred: 29 migrations under `web/backend/alembic/versions/`, coexisting with `create_all` + an additive column reconciler. (Counts in prose go stale — `ls web/backend/alembic/versions/*.py | wc -l` is the answer.)
 - **`uv` only** for Python; npm for the frontend.
 
 ## Current Status
