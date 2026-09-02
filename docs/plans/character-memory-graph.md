@@ -1,5 +1,38 @@
 # Character Memory — episodic recall across scenarios
 
+## 0. Status — what shipped, and where the plan was wrong
+
+**Phases 1–7 are implemented and committed** (branch `claude/character-memory-graph-3ad5f4`).
+Phase 8 is the experiment `docs/research/experiments/EXP-2026-09-001-character-memory-callback`.
+Open items for the shipped feature live in `docs/checklist.md`, not here.
+
+Five things the plan got wrong, kept as written above and corrected here rather than edited
+away — a plan quietly rewritten to match its outcome teaches nobody anything:
+
+1. **"The verbatim callback rate is zero today by construction"** (§Phase 8) is too strong.
+   A model handed a long transcript can reuse an earlier line with no memory layer at all.
+   The recall-off arm is a **measurement**, not a definitional zero, and the protocol says so.
+2. **Phase 5 called for a storyline-wide lexicon.** It was not needed. Cues only matter by
+   intersecting a candidate memory's own subjects, so the vocabulary scanned is the subjects
+   of the rows the recall query already loaded — the cue channel costs **no second query**.
+3. **Phase 3's quote rule was too weak.** "Appears in the turn's prose" accepts narration,
+   and a live run produced a character "quoting" the prose that described him. The match now
+   has to land inside a span of quoted speech. Found by playing a scene, not by a test.
+4. **The plan never mentioned the envelope.** Provenance was plumbed through the emitter, and
+   `persist_story_event` dropped it silently, because `event.data.model_dump()` discards any
+   field the Pydantic model does not declare. Nothing errored; the control simply never
+   appeared. `RecalledMixin` and a round-trip test now exist.
+5. **G3's free-text assumption was implemented more strictly than written.** The plan assumed
+   quotable-only memories under `freetext`; in fact that engine reads no memory note at all,
+   so it gets **no recall**. Memories are still written there, so enabling it later loses
+   nothing.
+
+One thing the plan got right and is worth naming: the Phase 3 checkpoint was a real gate, it
+was run against the real model rather than waved through, and it caught two defects that
+reasoning had missed.
+
+---
+
 ## 1. Introduction
 
 Today a character carries exactly one thing across a scenario boundary: a relationship

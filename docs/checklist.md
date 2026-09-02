@@ -329,6 +329,42 @@ Verified against the code on 2026-08-04.
   against an ordinary scene, and if it is inflation the fix is the floor constant in
   `memory_store`, not the prompt.
 
+- **Episodic memory — what shipped, and the five things it does not do.** The feature
+  (`docs/plans/character-memory-graph.md`, Phases 1–7) is in: memories are written by the
+  reflection pass, stored canonically in Postgres, recalled once per turn by a deterministic
+  scorer, reachable by subject cue when nobody from them is present, governed by a
+  quotable/shared/private disclosure class, and explained per beat by `MemorySource`.
+  Open, in rough order of how likely each is to matter:
+
+  1. **The free-text engine gets no recall.** `services/freetext_turn` has its own loop and
+     prompt and reads no memory note; memories are still *written* there. Stricter than the
+     plan's own assumption (G3) and deliberate — one generation writes the whole room, so
+     several characters' contradicting memories would land in a single prompt and be
+     reconciled into one agreed account. Turning it on means deciding what a single-prompt
+     engine should do with contradiction, which is a design question, not a wiring one.
+  2. **Which play-through of a re-played scenario counts as history** (plan gap G2, still
+     open). `memory_store._other_scenario_sessions` takes the most recently updated session
+     per scenario. That is an interim rule, flagged as such in the code. The alternative —
+     an explicit "this play-through is canon" marker on `PlaySession` — is a column, so it
+     is cheaper to decide before a world accumulates history than after.
+  3. **A character caught in a contradiction has no policy** (G4). Whether they concede or
+     dig in is left entirely to the model. The prompt carries no certainty clause yet: the
+     design called for one derived from salience and reinforcements, and it was not built,
+     so a memory reinforced five times reads exactly like one written once.
+  4. **Compound subject variants are not folded.** `normalize_subject` drops a leading
+     article; it does not stem plurals or fold compounds, so one live run produced `tunnel`
+     · `tunnels` · `tunnel-water` · `flooded-tunnel`. Harmless for recall (more surface
+     area, more chances to match) but it inflates the tag space and raises the bar a tag
+     must clear to be promoted to a `:Subject` node.
+  5. **No retention pass** (G5). Growth is bounded only by the salience floor and
+     reinforce-instead-of-duplicate. Nothing folds a faded tail into a summary, and nothing
+     has been measured about how a heavily-played world behaves; `visible_for` caps what it
+     loads, so the failure mode would be quiet dilution rather than slowness.
+
+  Not built and not planned: an authoring surface for memories (no editor, no dossier tab —
+  a "what Mara remembers about you" panel is the obvious follow-on), and any backfill for
+  play-throughs that predate the feature (G6).
+
 - **A rewind does not revert a relationship edge it only *reinforced*.** Narrowed from the
   former "graph edges from a rewound turn are not rolled back", which is now closed:
   `graph_writer.upsert_edge` stamps `created_session`/`created_seq`, `remove_edges_after`

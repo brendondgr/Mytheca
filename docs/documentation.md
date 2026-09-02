@@ -78,6 +78,19 @@ Detail: `architecture.md` (decisions), `data-flow.md` (the turn walkthrough), `a
 - **The player's direction is a contract, not a hint** — `direction_agent` turns it into ordered requirements and the engine schedules them into the scene's `maxTurns` budget, taking the decision off the planner once the budget is as tight as the direction is long. Each beat is told the outcome it owes, never the words. **A requirement is confirmed by the prose that landed, not by entering a prompt** (`direction_check`), an unconfirmed one is retried and then reported honestly, and whatever the turn could not deliver is **carried to the next turn** until it lands or the player dismisses it. The player can aim a line at one character by `@`-naming them, and a target they set is never silently re-owned by the narrator — if that character is not in the scene, the requirement waits and the scene *asks* whether to bring them in. **The AI never introduces a character on its own initiative.**
 - **One isolated LLM call per speaker** — no shared multi-POV prompt, to keep voices distinct.
 - **Situational adaptation is computed, not requested** — `planner_agent.plan_beats` returns the beat's **register** (`light`/`neutral`/`tense`/`grave`) and **stakes** on the call it was already making. The register is stated as fact in the character prompt's recency tail, selects which voice samples the speaker is shown, and tunes the sampler. Telling a character in prose to "adapt to the moment" loses to the concrete voice samples proving how it sounds at rest; giving it a different set of samples does not.
+- **Characters remember specific moments, across scenarios** — the reflection pass that already
+  runs after every turn also writes an **episodic memory**: what the moment meant to that
+  character in their own words, plus a verbatim line copied from the transcript and verified
+  against it (`character_memories`, canonical in Postgres; the graph is a mirror). Recall is
+  **deterministic and runs once per turn** — salience × fade × reinforcement, a bonus for
+  someone from the memory being present, a bonus for the live scene naming something it is
+  *about*, and a cooldown so one memory cannot win every beat. Subject cues are what reach a
+  memory whose people are dead or absent. A **disclosure class** (quotable / shared / private),
+  derived from who was there against who is in the room, decides whether it may be said aloud
+  or only shown. Memories are **subjective**: two characters can hold contradicting accounts of
+  one moment, and under `sceneFlow: voiced` neither prompt ever sees the other's version — the
+  per-beat source control is where a player can see that they disagree. `MEMORY_RECALL_ENABLED`
+  turns recall off without stopping the writing.
 - **Server-side clamping** — proposed stat / relationship / presence changes are proposals; `validator.py` clamps or drops them.
 - **Best-effort substrates** — Neo4j, Qdrant, Redis and ComfyUI each degrade to a no-op when absent. CRUD and the full test suite run with none of them.
 - **No dice** — narrative resolution only; `branch_choices` carry `label` + `outcome`.
