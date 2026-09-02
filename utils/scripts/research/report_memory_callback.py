@@ -1,4 +1,4 @@
-"""Turn EXP-2026-09-001's recorded runs into its tables and metrics.
+"""Turn EXP-2026-09-002's recorded runs into its tables and metrics.
 
 Reads ``data/runs.jsonl`` — the only source of truth for this experiment — and writes
 ``tables/per_run.md``, ``data/metrics.json``, and the YAML block to paste into
@@ -17,7 +17,7 @@ from pathlib import Path
 
 EXPERIMENT = (
     Path(__file__).resolve().parents[3]
-    / "docs/research/experiments/EXP-2026-09-001-character-memory-callback"
+    / "docs/research/experiments/EXP-2026-09-002-character-memory-callback-rerun"
 )
 
 #: Reported per arm. The primary first.

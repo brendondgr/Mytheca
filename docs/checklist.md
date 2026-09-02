@@ -329,6 +329,20 @@ Verified against the code on 2026-08-04.
   against an ordinary scene, and if it is inflation the fix is the floor constant in
   `memory_store`, not the prompt.
 
+- **The recall scorer is blind to whether a memory carries a quote.** `memory_recall.score`
+  weighs salience, fade, reinforcement, presence and cues — and never asks whether the memory
+  has the one thing that makes a verbatim callback possible. Suggested by
+  [`EXP-2026-09-002`](research/experiments/EXP-2026-09-002-character-memory-callback-rerun/),
+  where within the recall-on arm the run offering more quotes produced more callbacks (0.80
+  offer → 0.25 rate; 0.38 → 0.125).
+
+  **Evidence-suggested, not evidence-established.** Two points are not a trend, and that
+  experiment establishes no effect for recall overall. The change is a small preference term;
+  the reason to make it is that it is the lever the mechanism names, and the reason not to
+  rush it is that "the scorer should prefer quoted memories" is a hypothesis a third arm
+  could actually test — which turns "does memory cause callbacks" into the narrower and more
+  answerable "does *offering a quote* cause callbacks".
+
 - **Episodic memory — what shipped, and the five things it does not do.** The feature
   (`docs/plans/character-memory-graph.md`, Phases 1–7) is in: memories are written by the
   reflection pass, stored canonically in Postgres, recalled once per turn by a deterministic

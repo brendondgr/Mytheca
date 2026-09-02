@@ -1,4 +1,4 @@
-"""Two-arm runner for EXP-2026-09-001 — does episodic recall cause verbatim callbacks?
+"""Two-arm runner for EXP-2026-09-002 — does episodic recall cause verbatim callbacks?
 
 Plays a fixed scene through the real engine against the real model, once per arm, and
 computes the metrics fixed in ``PROTOCOL.md`` **from the persisted rows** rather than from
@@ -35,7 +35,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from utils.scripts.scene_smoke import Api, errors_from  # noqa: E402
 
-EXPERIMENT = REPO_ROOT / "docs/research/experiments/EXP-2026-09-001-character-memory-callback"
+EXPERIMENT = REPO_ROOT / "docs/research/experiments/EXP-2026-09-002-character-memory-callback-rerun"
 
 #: Held identical across arms and runs, so the only difference is the treatment.
 CAST = [
@@ -66,7 +66,7 @@ def build_world(api: Api) -> tuple[str, str]:
     storyline = api.post(
         "/storylines",
         {
-            "title": "EXP-2026-09-001",
+            "title": "EXP-2026-09-002",
             "genre": "grim maritime",
             "premise": "A flooded cargo tunnel under a harbour town, and the debts it leaves.",
         },

@@ -1,0 +1,97 @@
+# Experiment manifest — the machine-readable record.
+#
+# Every field below is required unless marked OPTIONAL. `make new-experiment`
+# pre-fills id, slug, dates, and the whole `code:` block from git.
+#
+# Do not delete a field you cannot fill. Write `unknown` and explain in ISSUES.md.
+# A back-filled experiment with three honest fields beats one with ten invented ones.
+
+id: EXP-2026-09-002
+slug: character-memory-callback-rerun
+title: Does episodic recall cause verbatim callbacks? Directional, not separable at n=2
+status: complete           # planned | running | complete | failed | superseded
+date_started: 2026-09-01
+date_completed: 2026-09-01
+authors: [brendondgr, Claude Opus 5]
+
+purpose: >
+  Whether episodic recall (docs/plans/character-memory-graph.md) causes characters to reuse
+  specific prior material in later turns, measured as a verbatim callback rate against a
+  recall-off baseline. Answer: the recall-on arm is directionally higher on both thresholds,
+  but the per-run ranges overlap — exactly, at 0.125 on the primary — so no effect is
+  established at two runs per arm. Supersedes EXP-2026-09-001, which failed on a confound.
+
+hypothesis: >
+  Recall raises the verbatim callback rate above the recall-off baseline. Directionally
+  consistent with the data; not established by it.
+
+# --- Reproducibility block (all fields mandatory) ---
+code:
+  commit: 69f0c83adb0860f7b8db81779afd0437dbfc4848
+  branch: claude/character-memory-graph-3ad5f4
+  entrypoint: "uv run python -m utils.scripts.research.run_memory_callback --arm {on|off} --api http://localhost:{3355|3357}/api --run {1|2}"
+  dirty: false            # both arms launched in one step from this commit; see PROTOCOL.md step 0
+config:
+  path: null              # the arms are one env var; the entrypoint is self-describing
+  hash: null
+data:
+  name: synthetic world "EXP-2026-09-002" — 3 characters, 1 setting, 4 fixed directions
+  version: built fresh per run by the entrypoint; worlds retained, ids in data/runs.jsonl
+  split: n/a
+  n_examples: 4            # play-throughs (2 per arm)
+  dvc_path: null
+  hash: null
+seeds: []                 # none: the model is not seedable through this path
+n_runs: 4
+environment:
+  python: "3.13"
+  lockfile: env/requirements.lock
+  container: null          # OPTIONAL
+compute:
+  hardware: "32-core CPU, 121 GB RAM; model served by a local relay"
+  wall_clock_hours: 0.6
+  estimated_cost_usd: 0.0
+
+# --- LLM / agentic block ---
+# Mytheca is an LLM system. Do not omit this block; if a run genuinely made no LLM
+# call, write `llm: null` and say why in PROTOCOL.md.
+llm:
+  model: "openai-compatible/skynet@local-relay-2026-09-01"
+  temperature: 0.7          # the app default; deliberately not overridden
+  top_p: 1.0
+  max_tokens: 48000        # the configured app value
+  prompt_files: [web/backend/app/agents/reflection_agent.py, web/backend/app/agents/character_turn_agent.py]
+  prompt_hash: null        # not captured by this entrypoint; recorded as a gap in RESULTS.md
+  tool_schema_hash: null   # OPTIONAL — null if no tool schema is involved
+  total_input_tokens: 0    # unknown — not captured by this entrypoint
+  total_output_tokens: 0   # unknown — not captured by this entrypoint
+  nondeterminism_note: >
+    Provider-side nondeterminism remains even at temperature 0; results
+    are reported as mean ± std over n_runs.
+
+# --- Results block ---
+# `status: complete` with an empty `values` map fails validation. That is intentional.
+metrics:
+  primary: verbatim_callback_rate_on
+  # std over n=2 is the spread of two points, not an error bar. Recorded because the schema
+  # requires it for n>1; RESULTS.md says what it is and is not.
+  values:
+    verbatim_callback_rate_off: {mean: 0.1079, std: 0.0171, n: 2}
+    verbatim_callback_rate_loose_off: {mean: 0.1079, std: 0.0171, n: 2}
+    recall_fire_rate_off: {mean: 0.0, std: 0.0, n: 2}
+    memories_per_turn_off: {mean: 2.375, std: 0.625, n: 2}
+    verbatim_callback_rate_on: {mean: 0.1875, std: 0.0625, n: 2}
+    verbatim_callback_rate_loose_on: {mean: 0.3125, std: 0.1875, n: 2}
+    recall_fire_rate_on: {mean: 1.0, std: 0.0, n: 2}
+    cue_share_on: {mean: 1.0, std: 0.0, n: 2}
+    quote_offer_share_on: {mean: 0.5923, std: 0.2077, n: 2}
+    memories_per_turn_on: {mean: 2.875, std: 0.125, n: 2}
+baselines_compared: [verbatim_callback_rate_off]
+statistical_test: null    # none run; with n=2 and overlapping ranges a test adds nothing the rows do not show
+
+# --- Linkage ---
+supports_claims: []       # none: the result is directional, not established
+figures: []               # none: four points do not need a plot, and a plot would imply a trend
+supersedes: EXP-2026-09-001
+superseded_by: null
+related: []
