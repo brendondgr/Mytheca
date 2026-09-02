@@ -230,6 +230,22 @@ def narration_only(text: str) -> str:
     return _QUOTED_RE.sub(" ", text or "")
 
 
+def quoted_spans(text: str) -> list[str]:
+    """Every span of quoted speech in ``text``, without its quote marks.
+
+    The complement of :func:`narration_only`, and the same one definition of what counts as
+    speech. ``services.memory_store`` uses it to hold a remembered quote to a line somebody
+    actually *said*: verifying only that the words appear somewhere in the turn accepts
+    narration, and a character quoting the prose that described them ("The current grabs my
+    ankle") reads as a bug even though every word of it is real.
+    """
+    return [
+        span.strip("\"\u201c\u201d").strip()
+        for span in _QUOTED_RE.findall(text or "")
+        if span.strip("\"\u201c\u201d").strip()
+    ]
+
+
 #: Second-person pronouns, contractions included. Word-boundary matched so a name that opens
 #: on the same letters ("Yourke") is not a hit.
 _SECOND_PERSON_RE = re.compile(

@@ -153,6 +153,83 @@ def relationship_note(
 
 
 
+#: How many memories reach one beat, and how many of those may carry a verbatim quote.
+#: One quote, hard: hand a model two verbatim callbacks and it uses both, and the character
+#: becomes someone who only speaks in flashback.
+_MEMORY_LINES = 2
+_MEMORY_QUOTES = 1
+
+
+def memory_note(ctx: TurnContext, speaker_id: str) -> str:
+    """What this speaker specifically remembers, for the volatile prompt tail.
+
+    Reads the shortlist ``memory_recall.recall_for_turn`` computed once for the whole turn —
+    no query, no scoring, no model call happens here. Returns ``""`` when there is nothing,
+    which must leave the prompt byte-identical to a build without the feature.
+
+    Only **this** speaker's memories are rendered, and that is what makes contradiction
+    possible: under ``sceneFlow: voiced`` each speaker's generation is its own call, so two
+    characters' incompatible accounts of one moment never meet in a single prompt and
+    neither gets reconciled into the other.
+    """
+    recalled = (getattr(ctx, "recalled", None) or {}).get(speaker_id) or []
+    if not recalled:
+        return ""
+    lines: list[str] = []
+    quotes_left = _MEMORY_QUOTES
+    for item in recalled[:_MEMORY_LINES]:
+        memory = item.memory
+        line = memory.gloss.rstrip(".")
+        if memory.quote and quotes_left > 0:
+            quotes_left -= 1
+            line += f'. They said, exactly: "{memory.quote}" — you may quote this back.'
+        else:
+            line += "."
+        lines.append(f"- {line}")
+    return (
+        "What you carry from before this scene (yours alone — not narration, and not "
+        "something to recap):\n" + "\n".join(lines)
+    )
+
+
+def memory_step(tracer: "Tracer", ctx: TurnContext) -> Generator[TurnTraceFrame, None, None]:
+    """Trace the turn's recall once, naming what each speaker was given.
+
+    One frame for the turn rather than one per beat, mirroring where the work happens: the
+    Inspector should show recall as the single up-front step it is, not as something the
+    loop does repeatedly.
+    """
+    recalled = getattr(ctx, "recalled", None) or {}
+    total = sum(len(v) for v in recalled.values())
+    if not total:
+        return
+    names = {m.id: m.name for m in ctx.cast}
+    detail = " · ".join(
+        f"{names.get(cid, cid)}: " + "; ".join(i.memory.gloss for i in items)
+        for cid, items in recalled.items()
+        if items
+    )
+    yield from tracer.emit(
+        "memory",
+        f"{total} memory(s) recalled",
+        detail=detail,
+        data={
+            "memories": [
+                {
+                    "characterId": cid,
+                    "memoryId": i.memory.id,
+                    "gloss": i.memory.gloss,
+                    "quoted": bool(i.memory.quote),
+                    "score": round(i.score, 3),
+                    "cues": i.cue_hits,
+                }
+                for cid, items in recalled.items()
+                for i in items
+            ]
+        },
+    )
+
+
 def relationship_step(
     tracer: "Tracer", name: str, character_id: str, note: str, scope: str
 ) -> Generator[TurnTraceFrame, None, None]:
@@ -324,6 +401,7 @@ def generate_speaker(
     show_reasoning: bool = False,
     directive: str | None = None,
     relationship_note: str | None = None,
+    memory_note_text: str | None = None,
     register: str | None = None,
     stakes: str = "",
     #: The plan's own reason for scheduling this beat. Handed to the writer so it executes a
@@ -364,6 +442,7 @@ def generate_speaker(
     _raw, prompt_tokens, streamed_impact, blocked = yield from stream_emission(
         db, ctx, speaker, emitter, turn_beats, consequences,
         roster=roster, directive=directive, relationship_note=relationship_note,
+        memory_note=memory_note_text,
         register=register, stakes=stakes, purpose=purpose, scene_direction=scene_direction, owed=owed,
         tracer=tr, show_reasoning=show_reasoning, usage_out=usage, replace=replace,
     )
@@ -386,6 +465,7 @@ def generate_speaker(
         _raw, prompt_tokens, streamed_impact, blocked = yield from stream_emission(
             db, ctx, speaker, emitter, turn_beats, consequences,
             roster=roster, directive=directive, relationship_note=relationship_note,
+            memory_note=memory_note_text,
             register=register, stakes=stakes, purpose=purpose, scene_direction=scene_direction, owed=owed,
             tracer=tr, show_reasoning=show_reasoning, usage_out=usage, replace=replace,
         )
@@ -511,6 +591,7 @@ def silent_backstop(
             db=db, ctx=ctx, emitter=emitter, turn_beats=turn_beats,
             consequences=consequences,
             show_reasoning=show_reasoning, relationship_note=note,
+            memory_note_text=memory_note(ctx, responder.id),
             register=register, direction=direction,
         )
         return 1

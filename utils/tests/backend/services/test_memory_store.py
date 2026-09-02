@@ -54,10 +54,21 @@ TRANSCRIPT = [f'Mara: "{THE_LINE}" She turned back toward the cargo.']
 
 
 def test_subjects_fold_to_one_spelling():
-    """A tag nobody can spell twice is a tag that never fires in the cue scan."""
-    assert memory_store.normalize_subject("the Flooded Tunnel") == "the-flooded-tunnel"
+    """A tag nobody can spell twice is a tag that never fires in the cue scan.
+
+    The leading article matters more than it looks: a live run returned one place as
+    ``tunnel``, ``the-tunnel``, ``flooded-tunnel`` and ``the-flooded-tunnel`` across eight
+    memories, and the setting's own name goes through this same function — so folding the
+    article is what makes the deterministic tag and the model's tag agree.
+    """
+    assert memory_store.normalize_subject("the Flooded Tunnel") == "flooded-tunnel"
     assert memory_store.normalize_subject("flooded tunnel!") == "flooded-tunnel"
     assert memory_store.normalize_subjects(["Ogres", "ogres", "  ", "Ogres!"]) == ["ogres"]
+
+
+def test_folding_the_article_does_not_eat_a_word_that_starts_with_it():
+    assert memory_store.normalize_subject("theatre") == "theatre"
+    assert memory_store.normalize_subject("Theodore") == "theodore"
 
 
 # ---- rule 1: a quote must be real --------------------------------------------
@@ -100,6 +111,25 @@ def test_quote_verification_tolerates_reflowed_whitespace_and_wrapping_quotes():
     assert not memory_store.quote_is_real("I am not dying for your conscience.", TRANSCRIPT)
     assert not memory_store.quote_is_real("", TRANSCRIPT)
     assert not memory_store.quote_is_real(None, TRANSCRIPT)
+
+
+def test_narration_is_not_quotable_however_real_its_words_are():
+    """Found in a live run, not reasoned about.
+
+    A character came back "quoting" *"The current grabs my ankle, cold and slick, and pulls
+    me sideways"* — every word of it in the turn's prose, and none of it said by anyone. A
+    substring check over the whole passage accepts that; requiring the match to land inside
+    a span of quoted speech does not.
+    """
+    passage = ["The current grabs Dell's ankle, cold and slick, and pulls him sideways."]
+    assert not memory_store.quote_is_real("The current grabs Dell's ankle", passage)
+    assert memory_store.quote_is_real(
+        "Hold on to me.", ['He got a hand under the beam. "Hold on to me."']
+    )
+
+
+def test_curly_quotes_count_as_speech():
+    assert memory_store.quote_is_real("Leave the ledger.", ["She said \u201cLeave the ledger.\u201d"])
 
 
 # ---- rule 2: reinforce, don't duplicate --------------------------------------

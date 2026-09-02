@@ -41,6 +41,12 @@ class InteriorRecord:
     retrospective: str = ""  # one line: how the beat landed, this character's POV
     # Anticipated stance per offered branch, keyed by the branch's outcome tag.
     branch_dispositions: dict[str, str] = field(default_factory=dict)
+    #: The optional durable memory this reflection proposed, before the write rules in
+    #: ``services.memory_store`` have had a say. It rides here rather than on a second
+    #: return value because it comes out of the same call and describes the same instant —
+    #: but it is the one part of this record that does NOT belong to Redis's lifecycle:
+    #: ``services.reflection`` persists it to Postgres, where it outlives the session.
+    memory: dict | None = None
     seq: int = 0  # the turn seq this was computed after (staleness / ordering)
 
 
@@ -124,5 +130,6 @@ def get_interior(session_id: str, character_id: str) -> InteriorRecord | None:
         branch_dispositions={
             str(k): str(v) for k, v in (data.get("branch_dispositions") or {}).items()
         },
+        memory=data.get("memory") if isinstance(data.get("memory"), dict) else None,
         seq=int(data.get("seq", 0) or 0),
     )

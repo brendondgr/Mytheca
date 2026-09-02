@@ -314,6 +314,7 @@ def generate_line(
     reasoning: ReasoningEffort = TURN_EFFORT,
     directive: str | None = None,
     relationship_note: str | None = None,
+    memory_note: str | None = None,
     register: str | None = None,
     stakes: str = "",
     purpose: str = "",
@@ -326,7 +327,7 @@ def generate_line(
     """
     raw, _ = generate_line_with_usage(
         db, ctx, speaker, turn_beats=turn_beats, reasoning=reasoning,
-        directive=directive, relationship_note=relationship_note,
+        directive=directive, relationship_note=relationship_note, memory_note=memory_note,
         register=register, stakes=stakes, purpose=purpose,
         scene_direction=scene_direction, requirements=requirements,
     )
@@ -342,6 +343,7 @@ def generate_line_with_usage(
     reasoning: ReasoningEffort = TURN_EFFORT,
     directive: str | None = None,
     relationship_note: str | None = None,
+    memory_note: str | None = None,
     register: str | None = None,
     stakes: str = "",
     purpose: str = "",
@@ -378,7 +380,8 @@ def generate_line_with_usage(
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(
         ctx, speaker, turn_beats, directive=directive,
-        relationship_note=relationship_note, register=register, stakes=stakes, purpose=purpose,
+        relationship_note=relationship_note, memory_note=memory_note,
+        register=register, stakes=stakes, purpose=purpose,
         scene_direction=scene_direction, requirements=requirements,
     )
     return llm.chat_complete_usage(
@@ -403,6 +406,7 @@ def stream_line(
     reasoning: ReasoningEffort = TURN_EFFORT,
     directive: str | None = None,
     relationship_note: str | None = None,
+    memory_note: str | None = None,
     register: str | None = None,
     stakes: str = "",
     purpose: str = "",
@@ -426,7 +430,8 @@ def stream_line(
     logger.debug("turn speaker=%s prefix-cache=%s", speaker.id, llm.prefix_cache_key(system))
     user = _build_user_prompt(
         ctx, speaker, turn_beats, directive=directive,
-        relationship_note=relationship_note, register=register, stakes=stakes, purpose=purpose,
+        relationship_note=relationship_note, memory_note=memory_note,
+        register=register, stakes=stakes, purpose=purpose,
         scene_direction=scene_direction, requirements=requirements,
     )
     if usage_out is not None:
@@ -467,6 +472,7 @@ def _build_user_prompt(
     *,
     directive: str | None = None,
     relationship_note: str | None = None,
+    memory_note: str | None = None,
     register: str | None = None,
     stakes: str = "",
     purpose: str = "",
@@ -586,6 +592,18 @@ def _build_user_prompt(
         # How this character actually relates to whom they're addressing (from the graph,
         # incl. 2-hop shared ties) so the reply is relationship-appropriate (D4).
         tail.append(f"Your ties in this scene: {relationship_note}")
+    if memory_note:
+        # Specific moments this character carries, chosen by `services/memory_recall.py`.
+        #
+        # In the volatile TAIL, never the stable prefix: the prefix is byte-identical for
+        # every speaker and every beat of a scene and is paid for once, and memories change
+        # every beat. Putting them in the prefix would not just cost this beat — it would
+        # stop the whole scene from reusing anything.
+        #
+        # Placed after the ties on purpose. Ties are how this character stands with the room
+        # *now*; a memory is one thing that happened, with the words that were said. Reading
+        # the general before the specific is the order that makes the specific land.
+        tail.append(memory_note)
     if scene_direction.strip():
         # Where the player is steering the scene. Every speaker sees it — including one with
         # no requirement of their own — so the whole cast plays toward the same destination

@@ -126,3 +126,80 @@ def test_empty_reflection_yields_none(monkeypatch):
         )
         is None
     )
+
+
+# ---- the optional durable memory --------------------------------------------
+
+
+def test_reflect_parses_the_memory_object(monkeypatch):
+    _patch(
+        monkeypatch,
+        json.dumps({
+            "disposition": "Shaken.",
+            "memory": {
+                "gloss": "she went back for the cargo and left me under the water",
+                "quote": "I'm not dying for your conscience.",
+                "quoteSpeaker": "Mara",
+                "salience": 0.9,
+                "valence": "Wound",
+                "subjects": ["drowning", " the cargo "],
+            },
+        }),
+    )
+    rec = reflection_agent.reflect(
+        _CONN, name="Dell", role="Runner", character_id="ch_dell",
+        stable_prefix="", transcript="...",
+    )
+    assert rec is not None and rec.memory is not None
+    assert rec.memory["quote"] == "I'm not dying for your conscience."
+    assert rec.memory["quoteSpeaker"] == "Mara"
+    assert rec.memory["salience"] == 0.9
+    assert rec.memory["valence"] == "wound"
+    assert rec.memory["subjects"] == ["drowning", "the cargo"]
+
+
+def test_a_turn_with_nothing_worth_carrying_records_no_memory(monkeypatch):
+    _patch(monkeypatch, json.dumps({"disposition": "Bored.", "memory": None}))
+    rec = reflection_agent.reflect(
+        _CONN, name="Dell", role="Runner", character_id="ch_dell",
+        stable_prefix="", transcript="...",
+    )
+    assert rec is not None and rec.memory is None
+
+
+def test_a_malformed_memory_costs_the_memory_not_the_reflection(monkeypatch):
+    """A model that fumbles one optional field must not lose the disposition too."""
+    _patch(
+        monkeypatch,
+        json.dumps({
+            "disposition": "Still angry.",
+            "memory": {"gloss": "", "salience": "very high", "subjects": None},
+        }),
+    )
+    rec = reflection_agent.reflect(
+        _CONN, name="Dell", role="Runner", character_id="ch_dell",
+        stable_prefix="", transcript="...",
+    )
+    assert rec is not None
+    assert rec.memory is None and rec.disposition == "Still angry."
+
+
+def test_salience_is_clamped_and_a_quoteless_memory_drops_its_speaker():
+    parsed = reflection_agent._parse_memory(
+        {"gloss": "she left", "salience": 4.2, "quoteSpeaker": "Mara"}
+    )
+    assert parsed["salience"] == 1.0
+    assert parsed["quote"] is None and parsed["quoteSpeaker"] is None
+    assert reflection_agent._parse_memory({"gloss": "x", "salience": -3})["salience"] == 0.0
+    assert reflection_agent._parse_memory("null") is None
+    assert reflection_agent._parse_memory({}) is None
+
+
+def test_a_memory_alone_is_enough_to_keep_the_record(monkeypatch):
+    """The empty-reflection guard must not throw away a turn that produced only a memory."""
+    _patch(monkeypatch, json.dumps({"memory": {"gloss": "she left me under", "salience": 0.8}}))
+    rec = reflection_agent.reflect(
+        _CONN, name="Dell", role="Runner", character_id="ch_dell",
+        stable_prefix="", transcript="...",
+    )
+    assert rec is not None and rec.memory is not None

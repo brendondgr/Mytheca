@@ -241,7 +241,9 @@ def test_a_tight_budget_collapses_the_last_beat_to_narration(client, storyline_i
     _configure_llm(client)
     monkeypatch.setattr(
         "app.services.turn_engine.get_settings",
-        lambda: type("S", (), {"turn_max_beats": 1, "turn_planner_lookahead": 1})(),
+        lambda: type(
+            "S", (), {"turn_max_beats": 1, "turn_planner_lookahead": 1, "memory_recall_enabled": True}
+        )(),
     )
     mei, kira, sid = _two(client, storyline_id)
     scid = _scenario(client, storyline_id, [mei, kira], sid)

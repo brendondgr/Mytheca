@@ -292,6 +292,32 @@ Verified against the code on 2026-08-04.
   carry, but inside the textarea an `@name` is plain text — there is no styled token, because
   a `<textarea>` cannot hold one. Doing it properly means a contenteditable or an overlay, and
   both were judged too large for `docs/plans/steering-the-scene.md`.
+- **The Phase 3 memory checkpoint passed, and what it cost.** `docs/plans/character-memory-graph.md`
+  makes the checkpoint mandatory before recall is built on the write path. It was run on
+  2026-09-01 (`utils/scripts/memory_smoke.py`, 3 turns, 41 beats, live model `skynet`) and
+  **passed**: 8 memories, all three characters represented, glosses clearly distinguishable
+  by turn, and the same moment held differently by different people (Mara "I chose the man
+  over the cargo", Kell "now I am the one who has to write down what that cost"). Worst
+  cross-character gloss similarity 0.55, well under the 0.85/0.90 merge thresholds — the
+  "one paragraph three times with the pronouns changed" failure did not occur, so
+  `agents/memory_agent.py` (Phase 3b) was **not** built. n = 1 run; this is a smoke test,
+  not an experiment, and no rate here should be quoted as a measurement.
+
+  It also found two real defects, both now fixed:
+  - 2 of 7 "quotes" were **narration**, not speech — every word real, nothing said by
+    anyone. `memory_store.quote_is_real` now requires the match to land inside a span of
+    quoted speech (`prose_guards.quoted_spans`, the engine's own definition).
+  - One place came back as five tags (`tunnel` · `tunnels` · `the-tunnel` ·
+    `flooded-tunnel` · `the-flooded-tunnel`). `normalize_subject` now folds a leading
+    article. **Plurals are still not folded** and would need stemming; the cue scan is
+    expected to absorb the near-miss, and that expectation is untested.
+
+  Still open from the same run: **salience is generous** — every character produced a
+  memory on every turn (2.7/turn for a 3-person cast), all scoring 0.6–0.9. The scene was
+  deliberately dramatic, so this may be correct rather than inflated; it has not been
+  checked against an ordinary scene, and if it is inflation the fix is the floor constant
+  in `memory_store`, not the prompt.
+
 - **A rewind does not revert a relationship edge it only *reinforced*.** Narrowed from the
   former "graph edges from a rewound turn are not rolled back", which is now closed:
   `graph_writer.upsert_edge` stamps `created_session`/`created_seq`, `remove_edges_after`

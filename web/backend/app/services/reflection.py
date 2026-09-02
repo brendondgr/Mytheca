@@ -14,6 +14,9 @@ state (which also lets P11 run the whole interlude on a background thread).
 
 from __future__ import annotations
 
+import logging
+import re
+from dataclasses import dataclass, field
 from functools import partial
 
 from sqlalchemy.orm import Session
@@ -22,11 +25,80 @@ from app.agents import reflection_agent
 from app.agents._common import resolve_llm
 from app.agents.reflection_agent import LlmConn
 from app.core.config import get_settings
+from app.core.db import SessionLocal
 from app.core.errors import APIError
 from app.memory import interior
 from app.memory.interior import InteriorRecord
-from app.services import concurrency
+from app.models import Character, Setting
+from app.services import concurrency, graph_writer, memory_store
 from app.services.assembler import CastMember, TurnContext
+from app.services.memory_store import MemoryDraft
+
+logger = logging.getLogger("mytheca.memory")
+
+
+@dataclass(frozen=True)
+class MemoryContext:
+    """Everything the memory write needs, resolved on the request thread.
+
+    ``reflect_and_store`` is deliberately free of any request-bound ``Session`` so the whole
+    interlude can run on a background thread. That is also why this exists: every value the
+    write depends on is read up front and carried as plain data, and the background job opens
+    its **own** short-lived session for the insert.
+    """
+
+    storyline_id: str
+    scenario_id: str
+    turn_seq: int
+    #: Character ids in the room. Stored on the memory so the disclosure class in Phase 5 is
+    #: a set comparison rather than a judgement call.
+    participants: list[str] = field(default_factory=list)
+    #: Prose this turn actually produced. A quote is verified against exactly this.
+    verify_texts: list[str] = field(default_factory=list)
+    #: ``(lowercased name, normalized tag)`` for every character and setting in the
+    #: storyline — the deterministic half of subject extraction. Sourced from Postgres, not
+    #: the graph, so subjects are identical on an install with Neo4j switched off.
+    known_entities: list[tuple[str, str]] = field(default_factory=list)
+    setting_tag: str = ""
+
+
+def build_memory_context(db: Session, ctx: TurnContext, turn_beats: list[dict], seq: int) -> MemoryContext:
+    """Resolve the memory write's inputs while a request Session is still in hand."""
+    storyline_id = ctx.storyline_id
+    known: list[tuple[str, str]] = []
+    for row in db.query(Character).filter(Character.storyline_id == storyline_id).all():
+        if row.name:
+            known.append((row.name.lower(), memory_store.normalize_subject(row.name)))
+    for row in db.query(Setting).filter(Setting.storyline_id == storyline_id).all():
+        if row.name:
+            known.append((row.name.lower(), memory_store.normalize_subject(row.name)))
+    return MemoryContext(
+        storyline_id=storyline_id,
+        scenario_id=ctx.scenario.id,
+        turn_seq=seq,
+        participants=[m.id for m in ctx.cast if m.is_present],
+        verify_texts=[str(b.get("text", "")) for b in turn_beats if str(b.get("text", "")).strip()],
+        known_entities=known,
+        setting_tag=memory_store.normalize_subject(ctx.setting.name) if ctx.setting else "",
+    )
+
+
+def derive_subjects(proposed: list[str], mem_ctx: MemoryContext) -> list[str]:
+    """The union of what the model proposed and what can be read off the turn directly.
+
+    Subjects are **text tags, not ids**, because Phase 5 finds a memory by scanning the live
+    scene for them — an id never appears in prose. The deterministic half (the setting, and
+    any known character or place actually named in the turn) means a memory is still findable
+    when the model proposes no tags at all.
+    """
+    tags = list(proposed)
+    if mem_ctx.setting_tag:
+        tags.append(mem_ctx.setting_tag)
+    haystack = " ".join(mem_ctx.verify_texts).lower()
+    for name, tag in mem_ctx.known_entities:
+        if name and re.search(rf"\b{re.escape(name)}\b", haystack):
+            tags.append(tag)
+    return memory_store.normalize_subjects(tags)
 
 
 def run_reflection(
@@ -58,6 +130,7 @@ def run_reflection(
         targets=[(c.id, c.name, c.role) for c in characters],
         branches=branches,
         seq=seq,
+        mem_ctx=build_memory_context(db, ctx, turn_beats, seq),
     )
 
 
@@ -94,6 +167,9 @@ def dispatch_reflection(
         targets=[(c.id, c.name, c.role) for c in characters],
         branches=branches,
         seq=seq,
+        # Resolved here, on the request thread, for the same reason the transcript and the
+        # LLM connection are: the job that receives it may run after this Session is gone.
+        mem_ctx=build_memory_context(db, ctx, turn_beats, seq),
     )
     concurrency.submit_background(job)
 
@@ -107,6 +183,7 @@ def reflect_and_store(
     targets: list[tuple[str, str, str]],
     branches: list[dict] | None = None,
     seq: int = 0,
+    mem_ctx: MemoryContext | None = None,
 ) -> None:
     """Reflect every target concurrently and write each interior record (best-effort).
 
@@ -128,10 +205,81 @@ def reflect_and_store(
             branches=branches,
             seq=seq,
         )
-        if record is not None:
-            interior.set_interior(session_id, character_id, record)
+        if record is None:
+            return
+        interior.set_interior(session_id, character_id, record)
+        if record.memory and mem_ctx is not None:
+            store_memory(session_id, character_id, record.memory, mem_ctx)
 
     concurrency.run_all([partial(_one, target) for target in targets])
+
+
+def store_memory(
+    session_id: str, character_id: str, proposed: dict, mem_ctx: MemoryContext
+) -> None:
+    """Persist one proposed memory in its **own** database session. Never raises.
+
+    The own-session part is not incidental. ``reflect_and_store`` is built to run on a
+    background thread after the HTTP stream has closed, so there is no request-bound
+    ``Session`` to borrow and borrowing one would be a use-after-close waiting for a busy
+    scene. A failure here costs one memory and nothing else — the turn is long since
+    delivered.
+    """
+    db = SessionLocal()
+    try:
+        draft = MemoryDraft(
+            storyline_id=mem_ctx.storyline_id,
+            character_id=character_id,
+            session_id=session_id,
+            scenario_id=mem_ctx.scenario_id,
+            turn_seq=mem_ctx.turn_seq,
+            gloss=str(proposed.get("gloss") or ""),
+            quote=proposed.get("quote"),
+            quote_speaker_id=None,  # a name, not an id, at this point — resolved below
+            valence=str(proposed.get("valence") or ""),
+            salience=float(proposed.get("salience") or 0.0),
+            participants=list(mem_ctx.participants),
+            subjects=derive_subjects(list(proposed.get("subjects") or []), mem_ctx),
+        )
+        draft.quote_speaker_id = _resolve_speaker(
+            db, mem_ctx.storyline_id, proposed.get("quoteSpeaker")
+        )
+        row = memory_store.write(db, draft, verify_texts=mem_ctx.verify_texts)
+        if row is None:
+            db.rollback()
+            return
+        db.commit()
+        graph_writer.mirror_memory_safe(
+            memory_id=row.id,
+            character_id=character_id,
+            event_node_id=f"evt_{session_id}_{mem_ctx.turn_seq}",
+            storyline_id=mem_ctx.storyline_id,
+            gloss=row.gloss,
+            salience=row.salience,
+            turn_seq=mem_ctx.turn_seq,
+            summary=row.gloss,
+        )
+    except Exception as exc:  # pragma: no cover - defensive; the turn is already delivered
+        logger.warning("memory write skipped (character %s): %s", character_id, exc)
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _resolve_speaker(db: Session, storyline_id: str, name: object) -> str | None:
+    """Map the quoted speaker's *name* to a character id, or ``None``.
+
+    The model answers with a name because that is what it sees in the transcript. An
+    unmatched name is not an error — the narrator and the player both say quotable things
+    and neither is a ``Character`` row.
+    """
+    label = str(name or "").strip().lower()
+    if not label:
+        return None
+    for row in db.query(Character).filter(Character.storyline_id == storyline_id).all():
+        if (row.name or "").strip().lower() == label:
+            return row.id
+    return None
 
 
 def refresh_dispositions(

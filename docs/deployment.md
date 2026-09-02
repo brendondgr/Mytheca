@@ -84,6 +84,7 @@ Copy `.env.example` → `.env` (gitignored). This table is the complete set read
 | `TURN_TRANSCRIPT_ANCHOR_BLOCK` | `20` | How far the transcript window's **start** jumps when it moves. Holds the prompt-cache prefix still for `block` beats at a time; `1` restores the per-beat slide |
 | `TURN_MAX_CONCURRENCY` | `4` | Bounds the off-hot-path worker pool (speech stays sequential) |
 | `TURN_REFLECTION_ENABLED` | `true` | Toggles the read-time reflection interlude |
+| `MEMORY_RECALL_ENABLED` | `true` | Whether episodic memories reach a beat's prompt. Off produces prompts byte-identical to a build without the feature; writing continues regardless |
 | `TURN_TTFT_SLO_MS` | `1200` | Informational time-to-first-token target for logging |
 | `TURN_ASYNC_FINALIZE` | `false` | Runs reflection off the request thread; never used on SQLite |
 | `TURN_MAX_BEATS` | `24` | Runaway backstop for the ReAct loop — the effective ceiling is `max(TURN_MAX_BEATS, 2·cast + 6)`, not a feature cap |

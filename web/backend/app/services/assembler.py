@@ -179,6 +179,12 @@ class TurnContext:
     # default → global → storyline → scenario by ``prompt_registry.resolve_prompts``. Each
     # writing agent reads its prompt from here, falling back to its registry default when a
     # key is absent (e.g. a directly-constructed context in tests).
+    #: This turn's episodic recall: ``{character_id: [Recalled, ...]}``, resolved ONCE by
+    #: ``memory_recall.recall_for_turn`` after the plan is bound, so every beat reads a
+    #: pre-computed shortlist instead of re-querying. Empty when recall is switched off,
+    #: when nothing scored above the bar, or when the store is unreachable — and an empty
+    #: map must produce prompts byte-identical to a build without the feature.
+    recalled: dict = field(default_factory=dict)
     prompts: dict[str, str] = field(default_factory=dict)
     #: The world's NARRATIVE STYLE GUIDE, resolved ``storyline → scenario``
     #: (``services.style_guide``). Carried on the context rather than re-resolved per beat

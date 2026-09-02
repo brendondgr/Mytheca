@@ -34,13 +34,20 @@ LlmConn = tuple[str, str, str, LlmParams]
 _SYSTEM = """You are the private inner voice of ONE character in a living scene, reflecting the instant AFTER a beat just happened. This is never shown to anyone — it only sets how you re-enter next.
 
 Return ONLY a JSON object, no prose, no commentary:
-{"disposition": "<your stance RIGHT NOW — how the moment has left you FEELING and what you want, first person, 2-3 sentences>", "retrospective": "<how the beat just landed, from your POV — one short line>", "branches": {"<option tag>": "<how you'd lean if the player takes that path — one short line>"}}
+{"disposition": "<your stance RIGHT NOW — how the moment has left you FEELING and what you want, first person, 2-3 sentences>", "retrospective": "<how the beat just landed, from your POV — one short line>", "branches": {"<option tag>": "<how you'd lean if the player takes that path — one short line>"}, "memory": null or {"gloss": "<the thing you will still be carrying about this months from now, first person, one line>", "quote": "<the exact words someone said, copied character-for-character from the text above, or null>", "quoteSpeaker": "<the name of whoever said that line, or null>", "salience": <0.0-1.0>, "valence": "<wound|warmth|fear|debt|shame|awe|relief>", "subjects": ["<short lowercase tag for what this was about>"]}}
 
 Rules:
 - "disposition" is mutable: it OVERRIDES your previous stance. Give it 2-3 sentences, in this order: how the moment has left you FEELING (shaken, grieving, afraid, relieved, emboldened — not a trait label), what you want now, and — if the moment shifted the ground under you — what you can no longer keep up. That last part matters most: say plainly when the joke, the swagger, the composure, or the distance you normally hold is not going to survive into the next beat. This is the one thing that carries an adapted manner forward, so a character who was just badly frightened re-enters frightened rather than snapping back to their default.
 - Stay fully in character; first person; never break the fourth wall.
 - Include "branches" ONLY if branch options are listed below — key each entry by its exact option tag. Otherwise return "branches": {}.
-- Keep "retrospective" and every branch line clipped. No prose outside the JSON object."""
+- Keep "retrospective" and every branch line clipped. No prose outside the JSON object.
+
+About "memory" — this one OUTLASTS the scene, so it is held to a harder standard than the rest:
+- Return null unless something happened here that you would still be carrying in a completely different place, weeks later. Most beats are not that. A shrug recorded as a memory crowds out a real one later.
+- "quote" must be copied EXACTLY from the text above — the same words, in the same order. Do not tidy it, do not shorten it, do not write what someone meant. If no line was said that you would still hear in your head, use null. A quote you compose is worse than no quote: it will be checked against what was actually said, and a mismatch throws it away.
+- "gloss" is YOUR reading of what happened, not a neutral report. You may be unfair. You may be wrong about why someone did something. Another character who was there may remember it differently, and that is allowed.
+- "salience": 1.0 is something that changes who you are, 0.5 is worth bringing up again, below 0.3 will be discarded.
+- "subjects": what it was ABOUT, as short lowercase tags — creatures, objects, places, dangers, the shape of the thing ("ogres", "drowning", "the north road"). This is how you find the memory again when the person involved is not in the room. Skip the names of people already in the scene; those are recorded for you."""
 
 
 def reflect(
@@ -108,12 +115,44 @@ def reflect(
             if tag in allowed and text:
                 branch_dispositions[tag] = text
 
-    if not (disposition or retrospective or branch_dispositions):
+    memory = _parse_memory(data.get("memory"))
+
+    if not (disposition or retrospective or branch_dispositions or memory):
         return None  # empty reflection — keep the last interior state
     return InteriorRecord(
         character_id=character_id,
         disposition=disposition,
         retrospective=retrospective,
         branch_dispositions=branch_dispositions,
+        memory=memory,
         seq=seq,
     )
+
+
+def _parse_memory(raw: object) -> dict | None:
+    """Normalize the optional ``memory`` object, or ``None`` when there isn't one.
+
+    Tolerant by design: a model that returns ``"null"``, an empty object, or a salience as
+    a string should cost this turn its memory, not its whole reflection. The *verification*
+    of the quote does not happen here — ``services.memory_store`` checks it against prose
+    the turn actually produced, because only the caller knows what that prose was.
+    """
+    if not isinstance(raw, dict):
+        return None
+    gloss = str(raw.get("gloss") or "").strip()
+    if not gloss:
+        return None
+    try:
+        salience = float(raw.get("salience", 0.0))
+    except (TypeError, ValueError):
+        salience = 0.0
+    quote = str(raw.get("quote") or "").strip() or None
+    subjects = [str(t).strip() for t in (raw.get("subjects") or []) if str(t).strip()]
+    return {
+        "gloss": gloss,
+        "quote": quote,
+        "quoteSpeaker": (str(raw.get("quoteSpeaker") or "").strip() or None) if quote else None,
+        "salience": max(0.0, min(1.0, salience)),
+        "valence": str(raw.get("valence") or "").strip().lower(),
+        "subjects": subjects,
+    }

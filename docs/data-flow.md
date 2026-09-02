@@ -1259,6 +1259,34 @@ established beats before it streamed; it was retired after EXP-2026-08-005 measu
 turn time (~10 s per later speaker) and identified it as the sole reason later beats could not
 stream their prose.
 
+**The same call also writes durable memory.** Alongside the volatile interior state, a reflection
+may return an optional `memory` object — a gloss in the character's own words, a **verbatim quote
+copied from the transcript**, a salience, a valence and subject tags. That costs **no additional
+model call**: it is extra fields on a call that already runs, for every present character, after
+the stream has closed. `services/reflection.store_memory` persists it through
+`services/memory_store.py` into `character_memories` (Postgres, **canonical** — unlike the rest of
+the Story Graph, memory is not best-effort), then best-effort-mirrors it into Neo4j as
+`(:Character)-[:remembers]->(:Event)` for traversal.
+
+Three details are load-bearing:
+
+- **The quote is verified, not trusted.** `memory_store.write` refuses a quote that is not a
+  substring of prose the turn actually produced, and stores the memory *without* it rather than
+  discarding the row. A character quoting a line nobody said is indistinguishable, to a player,
+  from the engine losing track.
+- **The write opens its own `SessionLocal`.** `reflect_and_store` is deliberately free of any
+  request-bound `Session` so it can run on a background thread; borrowing one would be a
+  use-after-close. Everything the write depends on is resolved on the request thread into a frozen
+  `MemoryContext` and carried as plain data.
+- **Subjects are text tags, not ids** — the setting, any character actually *named* in the turn's
+  prose, and whatever the model proposed. Recall finds a memory by scanning the live scene for
+  them, and an id never appears in prose. The deterministic half means a memory stays findable
+  when the model proposes no tags at all.
+
+Memories are **subjective**: two characters can hold contradicting accounts of one moment, and
+under `sceneFlow: voiced` each speaker's generation sees only their own — which is why the
+contradiction survives to reach the page instead of being smoothed into one agreed version.
+
 **Reactive Turn Director (Produce band overhaul).** The player's line is first **interpreted**
 (`agents/intent_agent`) into narrate / address / **puppet** / whole-group intent; a puppeted
 character then *performs* the direction in its own voice (not a bystander answering the player).

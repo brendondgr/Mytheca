@@ -246,6 +246,56 @@ def attach_consequence(
 # ---- best-effort top level (what CRUD calls) --------------------------------
 
 
+def mirror_memory_safe(
+    *,
+    memory_id: str,
+    character_id: str,
+    event_node_id: str,
+    storyline_id: str,
+    gloss: str,
+    salience: float,
+    turn_seq: int,
+    summary: str,
+) -> None:
+    """Mirror one episodic memory into the graph as ``(:Character)-[:remembers]->(:Event)``.
+
+    Traversal only, and the one place in the memory feature that is best-effort: Postgres
+    already holds the row, so losing this costs the ability to walk from a person to a
+    moment, never the memory itself.
+
+    The ``:Event`` node is upserted rather than assumed. ``turn_writer`` only appends one on
+    a turn that produced durable *consequences*, and a turn can be memorable without moving
+    a single stat — the quiet ones often are. Upsert is idempotent, so a turn that wrote
+    both ends up with one node either way.
+    """
+    if not neo4j.is_enabled():
+        return
+    try:
+        with neo4j.write_session() as session:
+            upsert_node(
+                session,
+                node_id=event_node_id,
+                type_name="Event",
+                label=(summary or gloss)[:80],
+                storyline=storyline_id,
+                metadata={"summary": summary or gloss, "seq": turn_seq},
+            )
+            upsert_edge(
+                session,
+                source_id=character_id,
+                target_id=event_node_id,
+                type_name="remembers",
+                metadata={
+                    "memory": memory_id,
+                    "gloss": gloss,
+                    "salience": salience,
+                    "weight": salience,
+                },
+            )
+    except Exception as exc:  # pragma: no cover - defensive; never blocks the interlude
+        logger.warning("memory graph mirror (%s) skipped: %s", memory_id, exc)
+
+
 def sync_character(db: Session, char: Character) -> None:
     """Upsert a Character node. Best-effort: no-ops/logs when the graph is absent."""
     if not neo4j.is_enabled():

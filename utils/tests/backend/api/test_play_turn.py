@@ -410,7 +410,9 @@ def test_the_runaway_backstop_counts_narration_too(client, storyline_id, monkeyp
     _configure_llm(client)
     monkeypatch.setattr(
         "app.services.turn_engine.get_settings",
-        lambda: type("S", (), {"turn_max_beats": 1, "turn_planner_lookahead": 1})(),
+        lambda: type(
+            "S", (), {"turn_max_beats": 1, "turn_planner_lookahead": 1, "memory_recall_enabled": True}
+        )(),
     )
     _plan_routed(monkeypatch, [{"action": "narrate"}] + [{"action": "speak", "actor": 1}] * 20)
     cid, sid = _refs(client, storyline_id)

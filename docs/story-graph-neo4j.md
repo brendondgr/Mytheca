@@ -70,6 +70,19 @@ appends an `:Event` node tied to its setting (`occurred_at`) **and to every char
 present** (`involved`). This is separate from `crud.py`'s `sync_*` hooks, which
 only mirror Character/Setting *nodes* on create/edit/delete.
 
+### Episodic memory is mirrored here, not stored here
+
+`(:Character)-[:remembers {memory, gloss, salience}]->(:Event)` is a **mirror** of a
+`character_memories` row, written best-effort by `graph_writer.mirror_memory_safe` after the
+Postgres commit. Losing it costs the ability to walk from a person to a moment; it never
+costs the memory. The `:Event` node is upserted rather than assumed, because `turn_writer`
+only appends one on a turn with durable *consequences* and a turn can be memorable without
+moving a single stat — the quiet ones often are.
+
+`remembers` carries no `decay` in the registry, unlike the feeling edges: fade and
+reinforcement are computed by the recall path over the Postgres row, so a decay declared
+here would be a second, unread answer to the same question.
+
 ### Edge provenance and what a rewind rolls back
 
 A relationship edge written during play carries its **`reason`** — the same field

@@ -203,6 +203,7 @@ def stream_emission(
     roster: dict[int, str],
     directive: str | None,
     relationship_note: str | None,
+    memory_note: str | None,
     register: str | None,
     stakes: str,
     purpose: str,
@@ -227,7 +228,7 @@ def stream_emission(
     """
     stream = character_turn_agent.stream_line(
         db, ctx, speaker, turn_beats=turn_beats, directive=directive,
-        relationship_note=relationship_note, register=register, stakes=stakes,
+        relationship_note=relationship_note, memory_note=memory_note, register=register, stakes=stakes,
         purpose=purpose,
         scene_direction=scene_direction, requirements=owed, usage_out=usage_out,
     )

@@ -162,6 +162,10 @@ BUILTIN_EDGE_TYPES: list[dict] = [
     _edge("involved", "An event involved a character (§4.4).", VALENCE_NEUTRAL),
     # Subject pointer for a Secret (§5.4 'subject' — who it's about).
     _edge("subject", "A secret is about a character (§5.4).", VALENCE_NEUTRAL),
+    # Episodic memory. The edge is a graph *mirror* of a `character_memories` row, which
+    # is canonical in Postgres — so unlike the feeling edges it carries no decay here:
+    # fade and reinforcement are computed by `services.memory_recall` over the row.
+    _edge("remembers", "A character carries a memory of an event.", VALENCE_NEUTRAL),
 ]
 
 BUILTIN_TYPES: list[dict] = BUILTIN_NODE_TYPES + BUILTIN_EDGE_TYPES

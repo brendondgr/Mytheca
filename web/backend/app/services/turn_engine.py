@@ -63,7 +63,7 @@ from app.services import (
     turn_plan,
 )
 
-from app.services import beat_runner
+from app.services import beat_runner, memory_recall
 from app.services import turn_setup
 from app.services import direction_runtime
 from app.services import turn_effects
@@ -255,6 +255,7 @@ def run_turn(
         yield from beat_runner.generate_speaker(
             db, ctx, speaker, emitter, turn_beats, consequences,
             show_reasoning=show_reasoning, directive=intent.directive, relationship_note=note,
+            memory_note_text=beat_runner.memory_note(ctx, speaker.id),
             register=unplanned_register,
             direction=direction, requirements=owed, tracer=tracer,
         )
@@ -315,6 +316,29 @@ def run_turn(
     bound = verdict == "run"
     if bound:
         max_beats = max(max_beats, len(planned))
+
+    # Episodic recall, ONCE, here — after the plan is bound and before the first beat.
+    #
+    # This position is the whole latency story of the feature. The plan names every speaker
+    # this turn, so one query covers all of them and each beat then reads a pre-computed
+    # shortlist. Doing it per beat would repeat the same lookup twenty-plus times to retrieve
+    # material that barely changed between one beat and the next.
+    #
+    # An unbound plan (the planner's endpoint was unreachable, or its reply would not parse)
+    # names nobody, so the present cast stands in: one slightly larger query, still one round
+    # trip, and a turn that degrades to today's behaviour rather than to no memory at all.
+    if get_settings().memory_recall_enabled:
+        present_ids = [m.id for m in ctx.cast if m.is_present]
+        speakers = [d.actor_id for d in planned if d.actor_id] if bound else present_ids
+        ctx.recalled = memory_recall.recall_for_turn(
+            db,
+            storyline_id=ctx.storyline_id,
+            session=session,
+            speaker_ids=speakers or present_ids,
+            present_ids=present_ids,
+            now_seq=seq0,
+        )
+        yield from beat_runner.memory_step(tracer, ctx)
     # Continuous flow writes the planned turn in one generation, and everything after the
     # loop runs unchanged. See `beat_runner.continuous_turn`.
     scripted, planned = yield from beat_runner.continuous_turn(

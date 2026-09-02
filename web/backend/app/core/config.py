@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     turn_transcript_anchor_block: int = 20
     turn_max_concurrency: int = 4
     turn_reflection_enabled: bool = True
+    # Episodic recall — whether a character's own memories reach their beat. Off produces
+    # prompts byte-identical to a build without the feature, so a recall that reads badly
+    # in a live scene can be stopped without a deploy or a rollback. Writing is deliberately
+    # NOT gated by this: memories keep accumulating while recall is off, so turning it back
+    # on does not start from an empty store.
+    memory_recall_enabled: bool = True
     turn_ttft_slo_ms: int = 1200
     turn_async_finalize: bool = False
     # Runaway backstop for the ReAct planner loop — NOT a feature cap. The loop runs

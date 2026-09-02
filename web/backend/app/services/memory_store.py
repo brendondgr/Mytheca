@@ -33,6 +33,7 @@ from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import CharacterMemory, PlaySession, Scenario
+from app.services import prose_guards
 
 logger = logging.getLogger("mytheca.memory")
 
@@ -76,13 +77,20 @@ _SUBJECT_STRIP = re.compile(r"[^a-z0-9]+")
 
 
 def normalize_subject(raw: str) -> str:
-    """Fold a subject to its stored form: lowercase, kebab, no punctuation.
+    """Fold a subject to its stored form: lowercase, kebab, no punctuation, no leading "the".
 
-    ``"the Flooded Tunnel"`` and ``"flooded tunnel!"`` must land on one tag, because the
-    cue scan in Phase 5 matches stored tags against scene text and a tag nobody can spell
-    twice is a tag that never fires.
+    A tag nobody can spell twice is a tag that never fires, and a live run showed exactly
+    how fast that happens: one place came back as ``tunnel``, ``tunnels``, ``the-tunnel``,
+    ``flooded-tunnel`` and ``the-flooded-tunnel`` across eight memories. Dropping a leading
+    article collapses the article half of that, and — because the setting's own name goes
+    through this same function — makes the deterministic tag and the model's tag for one
+    place agree instead of sitting beside each other.
+
+    Plurals are deliberately left alone: stemming ``tunnels`` to ``tunnel`` would also stem
+    words where the plural is the point, and the cue scan can afford the near-miss.
     """
-    return _SUBJECT_STRIP.sub("-", (raw or "").strip().lower()).strip("-")
+    tag = _SUBJECT_STRIP.sub("-", (raw or "").strip().lower()).strip("-")
+    return tag[4:] if tag.startswith("the-") else tag
 
 
 def normalize_subjects(raws: list[str] | None) -> list[str]:
@@ -115,18 +123,29 @@ class MemoryDraft:
 
 
 def quote_is_real(quote: str | None, verify_texts: list[str]) -> bool:
-    """True when ``quote`` appears verbatim in prose the turn actually produced.
+    """True when ``quote`` is verbatim from something somebody **said** this turn.
 
-    Whitespace is collapsed on both sides before comparing: a model reproducing a line
-    faithfully still tends to normalise a line break into a space, and rejecting that
-    would throw away correct quotes to catch nothing.
+    Two conditions, and the second was added on evidence. Matching the words anywhere in the
+    turn's prose was the obvious rule and it is too weak: a live run produced a character
+    "quoting" *"The current grabs my ankle, cold and slick, and pulls me sideways"* — every
+    word real, and narration describing him rather than anything he said. So the match has to
+    land inside a span of quoted speech, using ``prose_guards``' own definition of one rather
+    than a second copy of it.
+
+    Whitespace is collapsed on both sides first: a model reproducing a line faithfully still
+    tends to normalise a line break into a space, and rejecting that throws away correct
+    quotes to catch nothing.
     """
     if not quote:
         return False
-    needle = " ".join(quote.split()).strip().strip('"“”').lower()
+    needle = " ".join(quote.split()).strip().strip('"\u201c\u201d').lower()
     if not needle:
         return False
-    return any(needle in " ".join((t or "").split()).lower() for t in verify_texts)
+    for text in verify_texts:
+        for span in prose_guards.quoted_spans(text or ""):
+            if needle in " ".join(span.split()).lower():
+                return True
+    return False
 
 
 def _tokens(text: str) -> set[str]:
