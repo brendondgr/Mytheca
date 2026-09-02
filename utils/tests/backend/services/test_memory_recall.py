@@ -196,3 +196,127 @@ def test_the_note_marks_the_memories_private_and_not_for_recap():
     """A model handed context without a job will summarise it back at the reader."""
     note = _note([Recalled(memory=_mem(), score=1.0)])
     assert "yours alone" in note and "not narration" in note
+
+
+# ---- the semantic channel, and its gate --------------------------------------
+
+
+class _Session:
+    id = "ps1"
+    scenario_id = "sc1"
+    parent_session_id = None
+    fork_seq = None
+    updated_at = None
+
+
+def _rows(monkeypatch, rows):
+    from app.services import memory_store
+
+    monkeypatch.setattr(memory_store, "visible_for", lambda *a, **k: rows)
+
+
+def test_the_semantic_channel_stays_shut_when_the_tags_already_fired(monkeypatch):
+    """The gate, and the whole cost story of this channel.
+
+    It answers "did the dictionary miss?", and the dictionary having matched is a direct
+    answer to that — so a second opinion on memories the tags already found is never bought.
+    """
+    _rows(monkeypatch, [_mem(subjects=["ogres"])])
+    called = {"n": 0}
+    monkeypatch.setattr(
+        memory_recall, "semantic_boosts", lambda *a, **k: called.__setitem__("n", called["n"] + 1) or {}
+    )
+    memory_recall.recall_for_turn(
+        None, storyline_id="w1", session=_Session(), speaker_ids=["ch_dell"],
+        present_ids=["ch_dell"], now_seq=5, scene_texts=["An ogre steps out."],
+    )
+    assert called["n"] == 0
+
+
+def test_the_semantic_channel_fires_when_no_tag_matched(monkeypatch):
+    _rows(monkeypatch, [_mem(subjects=["drowning"])])
+    seen: list[str] = []
+
+    def _boosts(db, *, storyline_id, query, candidate_ids):
+        seen.append(query)
+        return {"cm_1": 0.3}
+
+    monkeypatch.setattr(memory_recall, "semantic_boosts", _boosts)
+    memory_recall.recall_for_turn(
+        None, storyline_id="w1", session=_Session(), speaker_ids=["ch_dell"],
+        present_ids=["ch_dell"], now_seq=5, scene_texts=["The water is high tonight."],
+    )
+    assert seen and "water is high" in seen[0]
+
+
+def test_the_semantic_channel_can_be_switched_off_entirely(monkeypatch):
+    _rows(monkeypatch, [_mem(subjects=["drowning"])])
+    called = {"n": 0}
+    monkeypatch.setattr(
+        memory_recall, "semantic_boosts", lambda *a, **k: called.__setitem__("n", 1) or {}
+    )
+    memory_recall.recall_for_turn(
+        None, storyline_id="w1", session=_Session(), speaker_ids=["ch_dell"],
+        present_ids=["ch_dell"], now_seq=5, scene_texts=["The water is high."], semantic=False,
+    )
+    assert called["n"] == 0
+
+
+def test_a_semantic_hit_lifts_a_memory_the_tags_could_not_reach(monkeypatch):
+    """The "water's high tonight" case: nobody from that night is here and no tag matches."""
+    _rows(monkeypatch, [_mem(id="cm_far", salience=0.15, subjects=["drowning"], turn_seq=0)])
+    monkeypatch.setattr(memory_recall, "semantic_boosts", lambda *a, **k: {"cm_far": 0.4})
+    out = memory_recall.recall_for_turn(
+        None, storyline_id="w1", session=_Session(), speaker_ids=["ch_dell"],
+        present_ids=["ch_dell"], now_seq=5, scene_texts=["The water is high tonight."],
+    )
+    assert [r.memory.id for r in out["ch_dell"]] == ["cm_far"]
+
+
+def test_without_the_boost_that_same_memory_is_below_the_bar(monkeypatch):
+    """The other half of the pair. Both use the same faint memory on purpose: if it cleared
+    MIN_SCORE on its own, the test above would pass whether the boost did anything or not."""
+    _rows(monkeypatch, [_mem(id="cm_far", salience=0.15, subjects=["drowning"], turn_seq=0)])
+    monkeypatch.setattr(memory_recall, "semantic_boosts", lambda *a, **k: {})
+    out = memory_recall.recall_for_turn(
+        None, storyline_id="w1", session=_Session(), speaker_ids=["ch_dell"],
+        present_ids=["ch_dell"], now_seq=5, scene_texts=["The water is high tonight."],
+    )
+    assert out["ch_dell"] == []
+
+
+def test_semantic_boosts_ignore_hits_outside_this_turn_s_candidates():
+    """The corpus holds settings and documents too; only a candidate memory may be lifted."""
+
+    class _Hit:
+        def __init__(self, entry_id):
+            self.entry_id = entry_id
+
+    import app.rag.retriever as retriever_mod
+
+    original = retriever_mod.retrieve
+    retriever_mod.retrieve = lambda *a, **k: [_Hit("st_setting"), _Hit("cm_1")]
+    try:
+        boosts = memory_recall.semantic_boosts(
+            None, storyline_id="w1", query="water", candidate_ids={"cm_1"}
+        )
+    finally:
+        retriever_mod.retrieve = original
+    assert set(boosts) == {"cm_1"}
+
+
+def test_a_store_that_is_down_leaves_recall_exactly_as_it_was():
+    import app.rag.retriever as retriever_mod
+
+    original = retriever_mod.retrieve
+
+    def _boom(*a, **k):
+        raise RuntimeError("qdrant down")
+
+    retriever_mod.retrieve = _boom
+    try:
+        assert memory_recall.semantic_boosts(
+            None, storyline_id="w1", query="water", candidate_ids={"cm_1"}
+        ) == {}
+    finally:
+        retriever_mod.retrieve = original

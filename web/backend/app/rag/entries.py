@@ -15,6 +15,7 @@ from app.rag.schema import EntryType, Frontmatter, LoreEntry
 
 if TYPE_CHECKING:
     from app.models.character import Character
+    from app.models.character_memory import CharacterMemory
     from app.models.context_document import ContextDocument
     from app.models.scenario import Scenario
     from app.models.setting import Setting
@@ -137,6 +138,40 @@ def entry_from_scenario(sc: Scenario) -> LoreEntry:
         storyline_id=sc.storyline_id,
         entity_type="scenario",
         entity_id=sc.id,
+    )
+
+
+def entry_from_memory(memory: "CharacterMemory", *, owner_name: str) -> LoreEntry:
+    """One character's episodic memory as an indexable entry.
+
+    The corpus has only ever held material authored **before** play — storylines,
+    characters, settings, scenarios, documents. This is the first thing in it that
+    *happened*, and it is what lets a memory be found by meaning when the cue scan's exact
+    tags miss: "the water's high tonight" reaches the night someone nearly drowned without
+    the word *drowning* appearing anywhere in the scene.
+
+    Scoped per **character**, not per moment: Dell's version and Mara's version of one turn
+    are two entries, because they are two memories and recall only ever wants the asking
+    character's own. The owner's name leads the body so a query naming them ranks their
+    memories, and the subject tags ride as front-matter tags where the hybrid retriever's
+    sparse half can match them literally.
+    """
+    from app.rag.schema import EntryType, Frontmatter
+
+    quote = f'Someone said: "{memory.quote}"' if memory.quote else ""
+    fm = Frontmatter(
+        id=memory.id,
+        type=EntryType.event,
+        name=f"{owner_name} remembers",
+        tags=list(memory.subjects or []),
+        summary=(memory.gloss or "")[:_SUMMARY_CHARS],
+    )
+    return LoreEntry(
+        fm=fm,
+        body=_join(f"{owner_name} remembers: {memory.gloss}", quote),
+        storyline_id=memory.storyline_id,
+        entity_type="memory",
+        entity_id=memory.id,
     )
 
 

@@ -83,6 +83,19 @@ moving a single stat — the quiet ones often are.
 reinforcement are computed by the recall path over the Postgres row, so a decay declared
 here would be a second, unread answer to the same question.
 
+### Subjects are promoted, never authored
+
+A subject tag on a memory (`ogres`, `the-north-road`) becomes a `:Subject` node only once it
+**recurs** — three or more memories, or two or more scenarios — via
+`graph_writer.promote_subjects_safe`, on the cold path. The threshold is the whole point:
+without it every noun anyone mentions becomes a permanent node and traversal gets slower for
+nothing. `ogres` earns a node in a world precisely because ogres kept mattering there.
+
+Promoted nodes buy **traversal** — "who fears ogres", "every memory about the north road" —
+and nothing the hot path depends on: the cue scan matches tags straight off the memory rows,
+so a promotion that never happens costs a query nobody is running yet. Memories link to them
+with `concerns`.
+
 ### Edge provenance and what a rewind rolls back
 
 A relationship edge written during play carries its **`reason`** — the same field

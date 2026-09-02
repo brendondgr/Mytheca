@@ -296,6 +296,47 @@ def mirror_memory_safe(
         logger.warning("memory graph mirror (%s) skipped: %s", memory_id, exc)
 
 
+def promote_subjects_safe(
+    storyline_id: str, promoted: dict[str, int], links: dict[str, list[str]]
+) -> None:
+    """Give recurring subject tags their own nodes, linked from the memories that carry them.
+
+    Cold path only, and best-effort. A `:Subject` node buys **traversal** — "who fears
+    ogres", "every memory about the north road", and eventually the transitive step from a
+    fear to the places it makes someone avoid. It buys nothing on the hot path, where the
+    cue scan matches tags directly off the memory rows, so losing this costs a query nobody
+    is running yet and never a memory.
+
+    ``links`` maps each promoted tag to the memory ids carrying it; the edge is drawn from
+    the memory's mirrored ``:Event`` when one exists, which is why this runs after the
+    memories themselves are mirrored.
+    """
+    if not neo4j.is_enabled() or not promoted:
+        return
+    try:
+        with neo4j.write_session() as session:
+            for tag, mentions in promoted.items():
+                node_id = f"subj_{storyline_id}_{tag}"
+                upsert_node(
+                    session,
+                    node_id=node_id,
+                    type_name="Subject",
+                    label=tag.replace("-", " "),
+                    storyline=storyline_id,
+                    metadata={"tag": tag, "mentions": mentions},
+                )
+                for memory_id in links.get(tag, []):
+                    upsert_edge(
+                        session,
+                        source_id=memory_id,
+                        target_id=node_id,
+                        type_name="concerns",
+                        metadata={},
+                    )
+    except Exception as exc:  # pragma: no cover - defensive; never blocks the interlude
+        logger.warning("subject promotion (%s) skipped: %s", storyline_id, exc)
+
+
 def sync_character(db: Session, char: Character) -> None:
     """Upsert a Character node. Best-effort: no-ops/logs when the graph is absent."""
     if not neo4j.is_enabled():

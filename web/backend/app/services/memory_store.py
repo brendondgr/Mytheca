@@ -393,6 +393,20 @@ def contradictions(db: Session, memory: CharacterMemory) -> list[CharacterMemory
     return [row for row in others if not _same_moment(row.gloss or "", memory.gloss or "")]
 
 
+def all_for_storyline(db: Session, storyline_id: str) -> list[CharacterMemory]:
+    """Every memory in a world. Cold path only — recall uses :func:`visible_for`.
+
+    Deliberately unscoped by lineage: promotion asks "what does this *world* keep being
+    about", which is a question about the corpus rather than about one play-through, and a
+    subject that recurred down a branch the player abandoned still recurred.
+    """
+    return list(
+        db.scalars(
+            select(CharacterMemory).where(CharacterMemory.storyline_id == storyline_id)
+        )
+    )
+
+
 def by_ids(db: Session, memory_ids: list[str]) -> list[CharacterMemory]:
     """Load memories by id, preserving the order asked for."""
     if not memory_ids:

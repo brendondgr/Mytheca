@@ -100,3 +100,33 @@ def outsiders(participants: list[str] | None, *, others_present: set[str]) -> se
     instruction the model can follow.
     """
     return others_present - {p for p in (participants or [])}
+
+
+# ---- promotion -----------------------------------------------------------------
+
+#: How many memories must carry a tag, or how many scenarios it must span, before it earns
+#: a graph node. Arithmetic, not judgement — and the threshold is the whole point: without
+#: it every noun anyone mentions becomes a permanent node and traversal gets slower for
+#: nothing. `ogres` becomes a node in a world precisely because ogres kept mattering.
+PROMOTE_MENTIONS = 3
+PROMOTE_SCENARIOS = 2
+
+
+def promotable(memories: list) -> dict[str, int]:
+    """Subject tags that have recurred enough to deserve a node, with their mention counts.
+
+    Counts **normalized** tags, which is why `normalize_subject` folding matters here twice
+    over: a place spelled four ways is four tags that each fall short of the bar, and would
+    never promote however central it was to the story.
+    """
+    mentions: dict[str, int] = {}
+    scenarios: dict[str, set[str]] = {}
+    for memory in memories:
+        for tag in set(memory.subjects or []):
+            mentions[tag] = mentions.get(tag, 0) + 1
+            scenarios.setdefault(tag, set()).add(memory.scenario_id)
+    return {
+        tag: count
+        for tag, count in mentions.items()
+        if count >= PROMOTE_MENTIONS or len(scenarios.get(tag, ())) >= PROMOTE_SCENARIOS
+    }

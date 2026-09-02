@@ -63,6 +63,14 @@ CUE_HITS_CONSIDERED = 3
 COOLDOWN_TURNS = 6
 COOLDOWN_PENALTY = 0.5
 
+#: Rank-fusion constant for the semantic channel (the RRF `k` the hybrid retriever uses).
+#: Fused by RANK, never by adding scores: a recall score and a cosine similarity are on
+#: incomparable scales, which is exactly why `rag/retriever.rrf_fuse` exists.
+RRF_K = 60
+#: What a top semantic hit can add. Capped low on purpose — this channel is the safety net
+#: for what the exact tags missed, not a second opinion on memories the tags already found.
+SEMANTIC_WEIGHT = 0.35
+
 #: A memory has to be worth the prompt space it takes.
 MIN_SCORE = 0.15
 #: How many reach one speaker's beat. Two, because a third is almost never the reason a line
@@ -142,6 +150,7 @@ def rank(
     now_seq: int,
     present_ids: set[str],
     cues: set[str],
+    boosts: dict[str, float] | None = None,
     limit: int = PER_SPEAKER_LIMIT,
 ) -> list[Recalled]:
     """Score, threshold and cut one character's candidates. Ties break on id, not row order.
@@ -155,6 +164,7 @@ def rank(
         value, hits = score(
             memory, session_id=session_id, now_seq=now_seq, present_ids=present_ids, cues=cues
         )
+        value += (boosts or {}).get(memory.id, 0.0)
         if value >= MIN_SCORE:
             scored.append(
                 Recalled(
@@ -173,6 +183,41 @@ def rank(
     return scored[:limit]
 
 
+def semantic_boosts(
+    db: Session, *, storyline_id: str, query: str, candidate_ids: set[str]
+) -> dict[str, float]:
+    """Rank-fused boosts for memories the hybrid corpus surfaces for ``query``.
+
+    **Gated by the caller**, and the gate is the point: this is the only channel with a real
+    cost (an embedding plus a vector search), and it exists for what the exact tag scan
+    cannot reach — "the water's high tonight" finding the night someone nearly drowned with
+    the word *drowning* nowhere in the scene. When the tags already fired, running it would
+    be paying for a second opinion on memories that were found.
+
+    Best-effort → ``{}``: Qdrant off, unreachable, or holding nothing leaves recall exactly
+    as it was without this phase.
+    """
+    if not query.strip() or not candidate_ids:
+        return {}
+    try:
+        from app.rag import retriever
+
+        hits = retriever.retrieve(db, storyline_id, query, k=8)
+    except Exception as exc:  # pragma: no cover - defensive; a turn never fails on recall
+        logger.debug("semantic memory recall unavailable: %s", exc)
+        return {}
+    boosts: dict[str, float] = {}
+    for rank_index, hit in enumerate(hits):
+        # A memory entry's `entry_id` IS the memory id (`entries.entry_from_memory` sets the
+        # front-matter id to it). The corpus also holds characters, settings and documents,
+        # so intersecting with this turn's candidates is what keeps a setting's description
+        # from boosting anything.
+        memory_id = str(getattr(hit, "entry_id", "") or "")
+        if memory_id in candidate_ids:
+            boosts[memory_id] = SEMANTIC_WEIGHT * (RRF_K / (RRF_K + rank_index + 1))
+    return boosts
+
+
 def recall_for_turn(
     db: Session,
     *,
@@ -183,6 +228,7 @@ def recall_for_turn(
     now_seq: int,
     cues: set[str] | None = None,
     scene_texts: list[str] | None = None,
+    semantic: bool = True,
     limit: int = PER_SPEAKER_LIMIT,
 ) -> dict[str, list[Recalled]]:
     """Every planned speaker's shortlist, from **one** query. Best-effort → ``{}``.
@@ -212,9 +258,23 @@ def recall_for_turn(
     # lexicon. Cues only ever matter by intersecting a memory's own subjects, so scanning the
     # scene for tags no candidate carries could not change any score — and the rows are
     # already in hand, which is why the whole cue channel costs no second query.
+    cues = set(cues or set())
     if scene_texts:
-        cues = set(cues or set()) | memory_cues.scan(
+        cues |= memory_cues.scan(
             scene_texts, {t for row in rows for t in (row.subjects or [])}
+        )
+
+    # The semantic channel fires only when the exact tags found NOTHING. That is the whole
+    # gate, and it is stricter than a heuristic about the player's phrasing would be: the
+    # question this channel answers is "did the dictionary miss?", and the dictionary having
+    # matched is a direct answer to it.
+    boosts: dict[str, float] = {}
+    if not cues and semantic and scene_texts:
+        boosts = semantic_boosts(
+            db,
+            storyline_id=storyline_id,
+            query=" ".join(t for t in scene_texts if t)[-600:],
+            candidate_ids={row.id for row in rows},
         )
 
     return {
@@ -225,7 +285,8 @@ def recall_for_turn(
             # A speaker is not "present" to their own memory — counting them would give every
             # memory they own the participant bonus, which is the same as giving it to none.
             present_ids=present - {cid},
-            cues=cues or set(),
+            cues=cues,
+            boosts=boosts,
             limit=limit,
         )
         for cid, rows_for in by_character.items()

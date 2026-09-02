@@ -30,7 +30,8 @@ from app.core.errors import APIError
 from app.memory import interior
 from app.memory.interior import InteriorRecord
 from app.models import Character, Setting
-from app.services import concurrency, graph_writer, memory_store
+from app.rag import indexer
+from app.services import concurrency, graph_writer, memory_cues, memory_store
 from app.services.assembler import CastMember, TurnContext
 from app.services.memory_store import MemoryDraft
 
@@ -249,6 +250,9 @@ def store_memory(
             db.rollback()
             return
         db.commit()
+        # Into the hybrid corpus, so the memory is findable by MEANING when the exact tag
+        # scan misses. Best-effort and after the commit, exactly like the graph mirror.
+        indexer.sync_memory(row, owner_name=_character_name(db, character_id))
         graph_writer.mirror_memory_safe(
             memory_id=row.id,
             character_id=character_id,
@@ -259,11 +263,40 @@ def store_memory(
             turn_seq=mem_ctx.turn_seq,
             summary=row.gloss,
         )
+        _promote_subjects(db, mem_ctx.storyline_id, row)
     except Exception as exc:  # pragma: no cover - defensive; the turn is already delivered
         logger.warning("memory write skipped (character %s): %s", character_id, exc)
         db.rollback()
     finally:
         db.close()
+
+
+def _promote_subjects(db: Session, storyline_id: str, row) -> None:
+    """Promote this memory's subject tags to graph nodes once they have recurred enough.
+
+    Scoped to the tags **this** memory carries: promotion can only ever be triggered by a new
+    mention, so re-evaluating the whole world's tag space on every write would be the same
+    answer at a higher price. Cold path, best-effort, and worth nothing on the hot path —
+    the cue scan matches tags straight off the memory rows, so a `:Subject` node buys
+    traversal ("who fears ogres") and nothing recall depends on.
+    """
+    tags = set(row.subjects or [])
+    if not tags:
+        return
+    corpus = memory_store.all_for_storyline(db, storyline_id)
+    promoted = {t: n for t, n in memory_cues.promotable(corpus).items() if t in tags}
+    if not promoted:
+        return
+    links = {
+        tag: [m.id for m in corpus if tag in (m.subjects or [])] for tag in promoted
+    }
+    graph_writer.promote_subjects_safe(storyline_id, promoted, links)
+
+
+def _character_name(db: Session, character_id: str) -> str:
+    """The remembering character's name, for the corpus entry. Falls back rather than raises."""
+    row = db.get(Character, character_id)
+    return (row.name if row is not None else "") or "Someone"
 
 
 def _resolve_speaker(db: Session, storyline_id: str, name: object) -> str | None:

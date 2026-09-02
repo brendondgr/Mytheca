@@ -121,6 +121,17 @@ BUILTIN_NODE_TYPES: list[dict] = [
         ],
     ),
     _node(
+        "Subject",
+        "A thing memories keep being about — a creature, an object, a danger, a place that "
+        "is not a Setting. Created by PROMOTION, never authored: a subject tag becomes a "
+        "node once it recurs, so the graph fills with what actually mattered in play rather "
+        "than with every noun anyone mentioned.",
+        [
+            {"name": "tag", "kind": "scalar", "description": "The normalized subject tag."},
+            {"name": "mentions", "kind": "numeric", "description": "Memories carrying it when promoted."},
+        ],
+    ),
+    _node(
         "Consequence",
         "The reified consequence record (§6.4) — one shared type attached to an edge "
         "contribution, an acquired trait, or a setting timeline entry. Gives every "
@@ -166,6 +177,8 @@ BUILTIN_EDGE_TYPES: list[dict] = [
     # is canonical in Postgres — so unlike the feeling edges it carries no decay here:
     # fade and reinforcement are computed by `services.memory_recall` over the row.
     _edge("remembers", "A character carries a memory of an event.", VALENCE_NEUTRAL),
+    # A promoted subject: what a recurring memory keeps being about.
+    _edge("concerns", "A memory is about a recurring subject.", VALENCE_NEUTRAL),
 ]
 
 BUILTIN_TYPES: list[dict] = BUILTIN_NODE_TYPES + BUILTIN_EDGE_TYPES

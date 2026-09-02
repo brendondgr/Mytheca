@@ -156,3 +156,26 @@ bug). All persisted, RAG-flagged docs feed retrieval.
 - **Neo4j `related` KG edges** + 1-hop expansion — the `related` front-matter field
   exists on `Frontmatter` but is not yet written into the Story Graph.
 - **RAGAS eval harness** — once real query traffic exists.
+
+## Played memories are part of the corpus
+
+Everything else indexed here was authored **before** play — storylines, characters, settings,
+scenarios, context documents. `rag/entries.entry_from_memory` adds the first thing that
+*happened*: one entry per `character_memories` row, indexed by `indexer.sync_memory` from the
+post-turn interlude after the Postgres commit.
+
+Scoped per **character**, not per moment. Dell's version and Mara's version of one turn are
+two entries because they are two memories, and recall only ever wants the asking character's
+own. The entry's front-matter `id` **is** the memory id, which is how
+`services/memory_recall.semantic_boosts` intersects search hits with the turn's candidates —
+the corpus also holds settings and documents, and only a candidate memory may be lifted.
+
+**The search is gated to the case it exists for.** It fires only when the lexical cue scan
+matched *nothing*, because the question this channel answers is "did the exact tags miss?"
+and the tags having matched is a direct answer to it. So on most turns it does not run at
+all, and when it does it costs one embedding and one search for the whole turn. Results are
+fused by **rank** (RRF), never by adding scores — a recall score and a cosine similarity are
+on incomparable scales, the same reason `retriever.rrf_fuse` exists.
+
+Best-effort throughout: Qdrant off, unreachable, or empty leaves recall behaving exactly as
+it did before this channel existed.

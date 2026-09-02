@@ -177,6 +177,16 @@ def sync_scenario(sc: Scenario) -> None:
     _sync(adapters.entry_from_scenario(sc))
 
 
+def sync_memory(memory, *, owner_name: str) -> None:
+    """Index one episodic memory. Best-effort: Qdrant off/down is a clean no-op.
+
+    Called from the post-turn interlude after the Postgres commit, beside the graph mirror
+    and for the same reason — the memory is already durable, so losing its index costs the
+    ability to find it *by meaning*, never the memory.
+    """
+    _sync(adapters.entry_from_memory(memory, owner_name=owner_name))
+
+
 def sync_context_document(doc: ContextDocument) -> None:
     _sync(adapters.entry_from_context_document(doc))
 

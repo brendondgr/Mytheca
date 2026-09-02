@@ -167,3 +167,33 @@ def test_ranking_attaches_the_disclosure_class_and_the_outsiders():
     assert picked[0].disclosure == PRIVATE
     assert picked[0].outsiders == ["ch_mara"]
     assert picked[0].cue_hits == ["ogres"]
+
+
+# ---- promotion ---------------------------------------------------------------
+
+
+class _Mem:
+    def __init__(self, subjects, scenario_id="sc1"):
+        self.subjects = subjects
+        self.scenario_id = scenario_id
+
+
+def test_a_tag_that_keeps_coming_up_earns_a_node():
+    """`ogres` becomes a node in a world precisely because ogres kept mattering."""
+    corpus = [_Mem(["ogres"]), _Mem(["ogres", "rain"]), _Mem(["ogres"])]
+    assert memory_cues.promotable(corpus) == {"ogres": 3}
+
+
+def test_a_tag_mentioned_once_does_not(): 
+    """Without the threshold every noun anyone mentions becomes a permanent node."""
+    assert memory_cues.promotable([_Mem(["a-lantern"]), _Mem(["rain"])]) == {}
+
+
+def test_spanning_two_scenarios_is_enough_on_its_own():
+    """Recurring across scenes is a stronger signal than recurring within one."""
+    corpus = [_Mem(["the-ledger"], "sc1"), _Mem(["the-ledger"], "sc2")]
+    assert memory_cues.promotable(corpus) == {"the-ledger": 2}
+
+
+def test_one_memory_repeating_a_tag_counts_once():
+    assert memory_cues.promotable([_Mem(["ogres", "ogres"])]) == {}
