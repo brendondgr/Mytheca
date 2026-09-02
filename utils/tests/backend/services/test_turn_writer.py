@@ -108,3 +108,114 @@ def test_event_node_appended_and_tied_to_setting(monkeypatch):
     assert event_node["metadata"]["scenario"] == "sc1" and event_node["metadata"]["seq"] == 3
     occurred = [p for c, p in rec.calls if "MERGE (a)-[r:$($type)]->(b)" in c and p["type"] == "occurred_at"]
     assert occurred and occurred[0]["tgt"] == "set_hearth"
+
+
+# ---- provenance: reason, session/turn stamps, and who was in the room -------
+
+
+def test_play_written_edge_carries_its_reason(monkeypatch):
+    """The bug this closes: a tie formed in play reached the next scene as a bare verb.
+
+    ``relationships.ensure_seeded`` has always written ``reason`` at seed time, so
+    ``graph_reader.relationship_context`` renders it — but the play path dropped it, and a
+    model given "You resent Mara" with no why invents one, routinely contradicting the
+    scene the player actually played.
+    """
+    rec = _RecSession()
+    _enable(monkeypatch, rec)
+    turn_writer.write_turn(
+        None, scenario=_scenario(), session_id="ps1", turn_seq=6, summary="x",
+        consequences=[
+            Consequence(
+                id="cons_9", summary="Kira turns on the player", source_id="ch_kira",
+                target_id="player", edge_type="resents", weight=0.7,
+                reason="she went back for the cargo while you were under the water",
+            )
+        ],
+    )
+    edges = [p for c, p in rec.calls if "MERGE (a)-[r:$($type)]->(b)" in c]
+    resents = next(p for p in edges if p["type"] == "resents")
+    assert resents["metadata"]["reason"] == "she went back for the cargo while you were under the water"
+    assert resents["metadata"]["origin"] == "play"
+
+
+def test_edge_reason_falls_back_to_the_summary(monkeypatch):
+    rec = _RecSession()
+    _enable(monkeypatch, rec)
+    turn_writer.write_turn(
+        None, scenario=_scenario(), session_id="ps1", turn_seq=6, summary="x",
+        consequences=[
+            Consequence(id="c1", summary="Kira stops trusting the player", source_id="ch_kira",
+                        target_id="player", edge_type="resents", weight=0.4)
+        ],
+    )
+    edges = [p for c, p in rec.calls if "MERGE (a)-[r:$($type)]->(b)" in c]
+    resents = next(p for p in edges if p["type"] == "resents")
+    assert resents["metadata"]["reason"] == "Kira stops trusting the player"
+
+
+def test_edges_and_consequences_are_stamped_with_session_and_turn(monkeypatch):
+    """Provenance is what makes a rewind able to delete what it invalidated."""
+    rec = _RecSession()
+    _enable(monkeypatch, rec)
+    turn_writer.write_turn(
+        None, scenario=_scenario(), session_id="ps1", turn_seq=6, summary="x",
+        consequences=[
+            Consequence(id="c1", summary="s", source_id="ch_kira", target_id="player",
+                        edge_type="resents", weight=0.4)
+        ],
+    )
+    edges = [p for c, p in rec.calls if "MERGE (a)-[r:$($type)]->(b)" in c]
+    resents = next(p for p in edges if p["type"] == "resents")
+    assert resents["session"] == "ps1" and resents["seq"] == 6
+    assert resents["metadata"]["session"] == "ps1" and resents["metadata"]["seq"] == 6
+    cons = next(p for c, p in rec.calls if "CREATE (c:" in c)
+    assert cons["session"] == "ps1" and cons["seq"] == 6
+
+
+def test_derived_edges_are_not_stamped(monkeypatch):
+    """``occurred_at``/``involved`` belong to the Event node, which a rewind prunes whole."""
+    rec = _RecSession()
+    _enable(monkeypatch, rec)
+    turn_writer.write_turn(
+        None, scenario=_scenario(), session_id="ps1", turn_seq=6, summary="x",
+        consequences=[Consequence(id="c1", summary="s", source_id="ch_kira")],
+        present_ids=["ch_kira"],
+    )
+    edges = [p for c, p in rec.calls if "MERGE (a)-[r:$($type)]->(b)" in c]
+    for edge in edges:
+        if edge["type"] in ("occurred_at", "involved"):
+            assert edge["session"] is None and edge["seq"] is None
+
+
+def test_event_links_to_the_people_in_it(monkeypatch):
+    """``involved`` is a built-in edge type nothing had ever written.
+
+    Without it an event is reachable only from its *setting*, so "what has happened
+    between these two people" is a question the graph has no path to answer.
+    """
+    rec = _RecSession()
+    _enable(monkeypatch, rec)
+    turn_writer.write_turn(
+        None, scenario=_scenario(), session_id="ps1", turn_seq=3, summary="A tense beat",
+        consequences=[Consequence(id="c1", summary="s", source_id="ch_kira")],
+        present_ids=["ch_kira", "ch_dell"],
+    )
+    involved = [
+        p for c, p in rec.calls
+        if "MERGE (a)-[r:$($type)]->(b)" in c and p["type"] == "involved"
+    ]
+    assert [p["tgt"] for p in involved] == ["ch_kira", "ch_dell"]
+    assert all(p["src"] == "evt_ps1_3" for p in involved)
+
+
+def test_absent_cast_gets_no_involved_edge(monkeypatch):
+    rec = _RecSession()
+    _enable(monkeypatch, rec)
+    turn_writer.write_turn(
+        None, scenario=_scenario(), session_id="ps1", turn_seq=3, summary="x",
+        consequences=[Consequence(id="c1", summary="s", source_id="ch_kira")],
+        present_ids=[],
+    )
+    involved = [p for c, p in rec.calls if p.get("type") == "involved"]
+    assert involved == []

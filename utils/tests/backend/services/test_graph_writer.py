@@ -183,3 +183,85 @@ def test_sync_character_graceful_when_session_raises(db_session, monkeypatch):
     monkeypatch.setattr(neo4j_mod, "write_session", _boom)
     # The exception is swallowed + logged; CRUD callers never see it.
     graph_writer.sync_character(db_session, char)
+
+
+# ---- edge provenance + rewind rollback --------------------------------------
+
+
+def test_upsert_edge_without_provenance_writes_no_stamps():
+    """The authoring path and the derived edges are unchanged by the rollback feature."""
+    rec = _RecSession()
+    graph_writer.upsert_edge(
+        rec, source_id="a", target_id="b", type_name="knows", metadata={"weight": 1.0}
+    )
+    _, params = rec.calls[0]
+    assert "session" not in params["metadata"] and "seq" not in params["metadata"]
+    assert params["session"] is None and params["seq"] is None
+
+
+def test_upsert_edge_stamps_creation_and_last_touch():
+    rec = _RecSession()
+    graph_writer.upsert_edge(
+        rec, source_id="a", target_id="b", type_name="resents", metadata={"weight": 0.4},
+        session_id="ps1", turn_seq=7,
+    )
+    cypher, params = rec.calls[0]
+    assert "ON CREATE SET r.created_session = $session, r.created_seq = $seq" in cypher
+    assert params["session"] == "ps1" and params["seq"] == 7
+    assert params["metadata"]["session"] == "ps1" and params["metadata"]["seq"] == 7
+
+
+def test_remove_edges_after_deletes_by_creation_seq_not_last_touch():
+    """Deleting on ``created_seq`` is the exact half of the rollback.
+
+    An edge created after the cut never existed before the removed turns, so deleting it
+    is precise. An edge created *before* the cut and merely reinforced afterwards is
+    deliberately left alone — over-deleting it would erase a relationship the surviving
+    transcript still explains.
+    """
+    rec = _RecSession()
+    graph_writer.remove_edges_after(rec, session_id="ps1", after_seq=12)
+    edge_cypher, edge_params = rec.calls[0]
+    assert "r.created_session = $session AND r.created_seq > $seq" in edge_cypher
+    assert "r.seq >" not in edge_cypher  # last-touch must not drive deletion
+    assert edge_params == {"session": "ps1", "seq": 12}
+
+
+def test_remove_edges_after_also_drops_the_consequences():
+    rec = _RecSession()
+    graph_writer.remove_edges_after(rec, session_id="ps1", after_seq=12)
+    cons_cypher, cons_params = rec.calls[1]
+    assert "MATCH (c:Consequence)" in cons_cypher and "DETACH DELETE c" in cons_cypher
+    assert cons_params == {"session": "ps1", "seq": 12}
+
+
+def test_attach_consequence_writes_queryable_provenance():
+    """``origin`` carried the same values as JSON prose, which no predicate can filter on."""
+    rec = _RecSession()
+    graph_writer.attach_consequence(
+        rec, target_id="ch_kira", record={"id": "c1", "reason": "r"},
+        session_id="ps1", turn_seq=6,
+    )
+    cypher, params = rec.calls[0]
+    assert "session: $session, seq: $seq" in cypher
+    assert params["session"] == "ps1" and params["seq"] == 6
+
+
+def test_remove_edges_after_safe_noops_when_disabled(monkeypatch):
+    opened = {"n": 0}
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: False)
+    monkeypatch.setattr(neo4j_mod, "write_session", lambda **k: opened.__setitem__("n", 1))
+    graph_writer.remove_edges_after_safe("ps1", 3)
+    assert opened["n"] == 0
+
+
+def test_remove_edges_after_safe_swallows_a_graph_failure(monkeypatch):
+    """A rewind must never fail on the graph — Postgres stays canonical."""
+
+    class _Boom:
+        def run(self, *a, **k):
+            raise RuntimeError("neo4j down")
+
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
+    monkeypatch.setattr(neo4j_mod, "write_session", _ws_returning(_Boom()))
+    graph_writer.remove_edges_after_safe("ps1", 3)  # must not raise

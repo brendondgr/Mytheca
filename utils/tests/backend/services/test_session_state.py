@@ -172,6 +172,25 @@ def test_truncate_runs_without_redis_or_neo4j(db_session, played):
     assert result.cut_seq == 2
 
 
+def test_truncate_rolls_back_the_graph_edges_the_cut_turns_created(db_session, played, monkeypatch):
+    """Closes the last documented way a rewind fails to forget.
+
+    Pruning the ``:Event`` node was already done; the relationship edges and consequences
+    those turns wrote survived, so a rewound scene could leave a tie
+    ``graph_reader.relationship_context()`` then put in the next prompt — a relationship
+    the transcript no longer explains.
+    """
+    seen: list[tuple[str, int]] = []
+    monkeypatch.setattr(
+        session_state.graph_writer,
+        "remove_edges_after_safe",
+        lambda session_id, after_seq: seen.append((session_id, after_seq)),
+    )
+    s = played["session"]
+    session_state.truncate_session(db_session, s.id, after_seq=2)
+    assert seen == [(s.id, 2)]
+
+
 def test_rebuild_buffer_without_redis_offers_the_prose_rows_and_stores_nothing(db_session, played):
     """The suite has no Redis. The rebuild must still complete, and must count what it would
     have written: the two player lines and the two prose beats — never the `state_update`

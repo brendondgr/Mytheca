@@ -66,8 +66,29 @@ today, on the cold path, by `services/turn_writer.py` — after every turn with
 durable consequences it routes each one by the "…toward whom?" rule (a relational
 target becomes an `upsert_edge` + `attach_consequence`; a non-relational change was
 already applied as a stat on the hot path and is recorded here only for audit) and
-appends an `:Event` node. This is separate from `crud.py`'s `sync_*` hooks, which
+appends an `:Event` node tied to its setting (`occurred_at`) **and to every character
+present** (`involved`). This is separate from `crud.py`'s `sync_*` hooks, which
 only mirror Character/Setting *nodes* on create/edit/delete.
+
+### Edge provenance and what a rewind rolls back
+
+A relationship edge written during play carries its **`reason`** — the same field
+`services/relationships.py` writes at seed time, so `graph_reader.relationship_context()`
+renders a tie formed in play and a tie read off a bio identically. It also carries
+`origin: "play"` and `status: "active"`.
+
+Every edge and `:Consequence` written by the turn path is stamped with its origin:
+`created_session`/`created_seq` (written once, on creation) and `session`/`seq` (last
+touch). `graph_writer.remove_edges_after` deletes on the **creation** stamp, and
+`session_state.truncate_session` calls it on every rewind.
+
+That rollback is exact for the case that matters — an edge whose `created_seq` is above
+the cut never existed before the removed turns, and a relationship *formed* by cut turns
+is precisely such an edge. It does **not** revert an edge that existed before the cut and
+was merely reinforced afterwards: that edge keeps its post-cut `weight`, because
+recomputing it would mean replaying contributions from a log this schema does not keep in
+a queryable form. The residue is a number being too high, not a relationship with no story
+behind it.
 
 ## Read path (§7.2 + §7.4)
 

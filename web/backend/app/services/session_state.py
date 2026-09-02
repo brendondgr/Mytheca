@@ -311,6 +311,17 @@ def prune_graph_events(session_id: str, removed_turn_seqs: list[int]) -> None:
         graph_writer.remove_node(f"evt_{session_id}_{turn_seq}")
 
 
+def prune_graph_edges(session_id: str, after_seq: int) -> None:
+    """Drop relationship edges and consequences the cut turns **created**. Best-effort.
+
+    Sits beside :func:`prune_graph_events` rather than inside it because it is keyed on the
+    cut seq, not on the list of removed turns: an edge is deleted by comparing the seq that
+    created it against the cut, which needs no enumeration of what went. See
+    ``graph_writer.remove_edges_after`` for the one case this does not recover.
+    """
+    graph_writer.remove_edges_after_safe(session_id, after_seq)
+
+
 def truncate_session(db: Session, session_id: str, *, after_seq: int) -> TruncationResult:
     """Cut everything after ``after_seq`` and re-derive what depended on it.
 
@@ -356,6 +367,7 @@ def truncate_session(db: Session, session_id: str, *, after_seq: int) -> Truncat
     db.commit()
 
     prune_graph_events(session_id, result.removed_turn_seqs)
+    prune_graph_edges(session_id, after_seq)
     result.replayed_stat_keys = replay_stats(db, session_id)
     rebuild_buffer(db, session_id)
     # Cleared, not rebuilt: a character's stance was derived from beats that are now gone and

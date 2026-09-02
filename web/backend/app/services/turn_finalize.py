@@ -117,6 +117,7 @@ def finalize_turn(
         turn_seq=seq0,
         summary=turn_summary(turn_beats),
         consequences=consequences,
+        present_ids=[m.id for m in ctx.cast if m.is_present],
     )
 
     # Read-time reflection interlude (Band 4 / §P9): characters reflect while the player

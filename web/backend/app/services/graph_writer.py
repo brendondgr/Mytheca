@@ -132,32 +132,105 @@ def upsert_edge(
     target_id: str,
     type_name: str,
     metadata: dict[str, Any],
+    session_id: str | None = None,
+    turn_seq: int | None = None,
 ) -> None:
-    """MERGE a directed relationship of the given (dynamic) type between two nodes."""
+    """MERGE a directed relationship of the given (dynamic) type between two nodes.
+
+    ``session_id``/``turn_seq`` stamp **provenance**: ``created_session``/``created_seq`` are
+    written once, on creation, and ``session``/``seq`` track the last touch. Only the
+    create-time pair is authoritative for rollback — see :func:`remove_edges_after` for what
+    that does and does not recover. Both are omitted entirely when not supplied, so the
+    authoring path and the derived ``present_at``/``occurred_at`` edges are unchanged.
+    """
+    props = dict(metadata)
+    if session_id is not None:
+        props["session"] = session_id
+    if turn_seq is not None:
+        props["seq"] = turn_seq
     session.run(
         f"MATCH (a:{BASE_LABEL} {{id: $src}}), (b:{BASE_LABEL} {{id: $tgt}}) "
         "MERGE (a)-[r:$($type)]->(b) "
+        "ON CREATE SET r.created_session = $session, r.created_seq = $seq "
         "SET r += $metadata",
         src=source_id,
         tgt=target_id,
         type=type_name,
-        metadata=metadata,
+        metadata=props,
+        session=session_id,
+        seq=turn_seq,
     ).consume()
 
 
-def attach_consequence(session: Any, *, target_id: str, record: dict[str, Any]) -> None:
+def remove_edges_after(session: Any, *, session_id: str, after_seq: int) -> None:
+    """Delete edges and consequences a play-session **created** after ``after_seq``.
+
+    The rollback a rewind needs, and an honest half of one. An edge whose ``created_seq``
+    is above the cut never existed before the removed turns, so deleting it is exact —
+    that is the case the checklist described as "a rewound scene can leave a relationship
+    the transcript no longer explains", because a relationship *formed* by cut turns is
+    precisely an edge created by them.
+
+    What it does **not** recover: an edge that already existed before the cut and was
+    merely reinforced afterwards keeps its post-cut ``weight``. Reverting that would mean
+    replaying the surviving ``:Consequence`` contributions to recompute the weight, which
+    needs a contribution log this schema does not keep in a queryable form (``origin`` is
+    JSON-encoded prose). The residue is a number being too high, not a relationship that
+    has no story behind it.
+    """
+    session.run(
+        f"MATCH (a:{BASE_LABEL})-[r]->(b:{BASE_LABEL}) "
+        "WHERE r.created_session = $session AND r.created_seq > $seq "
+        "DELETE r",
+        session=session_id,
+        seq=after_seq,
+    ).consume()
+    session.run(
+        f"MATCH (c:{CONSEQUENCE_LABEL}) "
+        "WHERE c.session = $session AND c.seq > $seq "
+        "DETACH DELETE c",
+        session=session_id,
+        seq=after_seq,
+    ).consume()
+
+
+def remove_edges_after_safe(session_id: str, after_seq: int) -> None:
+    """Best-effort :func:`remove_edges_after` — no-ops when the graph is off/unreachable."""
+    if not neo4j.is_enabled():
+        return
+    try:
+        with neo4j.write_session() as session:
+            remove_edges_after(session, session_id=session_id, after_seq=after_seq)
+    except Exception as exc:  # pragma: no cover - defensive; a rewind never fails on the graph
+        logger.warning("graph edge rollback (%s > %s) skipped: %s", session_id, after_seq, exc)
+
+
+def attach_consequence(
+    session: Any,
+    *,
+    target_id: str,
+    record: dict[str, Any],
+    session_id: str | None = None,
+    turn_seq: int | None = None,
+) -> None:
     """Attach a reified ``:Consequence`` node (§6.4) to a target node.
 
     Neo4j can't hang data off a relationship, so the recurring consequence record
     (reason / origin / delta / status) is its own node, linked from whatever it
     modified — giving every change uniform decay/audit/status, queryable in
     aggregate. ``origin`` is JSON-encoded (nested maps aren't valid properties).
+
+    ``session_id``/``turn_seq`` are written as flat, **queryable** properties beside the
+    JSON ``origin``. The origin blob has carried the same two values since this was
+    written, but as encoded prose no Cypher predicate can filter on — which is why a
+    rewind could not delete the consequences it invalidated.
     """
     origin = record.get("origin")
     session.run(
         f"MATCH (t:{BASE_LABEL} {{id: $target}}) "
         f"CREATE (c:{BASE_LABEL}:{CONSEQUENCE_LABEL} "
-        "{id: $cid, reason: $reason, origin: $origin, delta: $delta, status: $status}) "
+        "{id: $cid, reason: $reason, origin: $origin, delta: $delta, status: $status, "
+        "session: $session, seq: $seq}) "
         "MERGE (t)-[:HAS_CONSEQUENCE]->(c)",
         target=target_id,
         cid=record.get("id"),
@@ -165,6 +238,8 @@ def attach_consequence(session: Any, *, target_id: str, record: dict[str, Any]) 
         origin=origin if isinstance(origin, str) or origin is None else json.dumps(origin),
         delta=record.get("delta"),
         status=record.get("status", "active"),
+        session=session_id,
+        seq=turn_seq,
     ).consume()
 
 

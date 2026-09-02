@@ -292,21 +292,23 @@ Verified against the code on 2026-08-04.
   carry, but inside the textarea an `@name` is plain text — there is no styled token, because
   a `<textarea>` cannot hold one. Doing it properly means a contenteditable or an overlay, and
   both were judged too large for `docs/plans/steering-the-scene.md`.
-- **Graph edges from a rewound turn are not rolled back — now the last thing a rewind fails to
-  forget.** `session_state.truncate_session` prunes the `:Event` node each cut turn wrote
-  (deterministic id `evt_{session_id}_{turn_seq}`), but the relationship **edges** and
-  `:Consequence` nodes those turns wrote stay. The graph is a best-effort accumulator with no
-  per-turn provenance index, and adding one was out of scope for
-  `docs/plans/control-over-the-record.md`. The effect is that a rewound scene can leave a
-  relationship the transcript no longer explains, and `graph_reader.relationship_context()` puts
-  it in the next prompt. Fixing it means recording the turn seq on every edge write in
-  `graph_writer` and deleting by it.
+- **A rewind does not revert a relationship edge it only *reinforced*.** Narrowed from the
+  former "graph edges from a rewound turn are not rolled back", which is now closed:
+  `graph_writer.upsert_edge` stamps `created_session`/`created_seq`, `remove_edges_after`
+  deletes on the creation stamp, and `session_state.truncate_session` calls it beside the
+  existing `:Event` prune. An edge *created* by cut turns is now deleted exactly — which was
+  the failure mode that mattered, since a relationship formed by removed turns is precisely
+  an edge created by them, and `graph_reader.relationship_context()` was putting it in the
+  next prompt.
 
-  **Measured, not assumed:** [`EXP-2026-08-014`](research/experiments/EXP-2026-08-014-record-controls/)
-  records `graph_edges_before` / `graph_edges_after` on a live rewind. As of that run the other
-  two leaks it found — interior state and the standing direction — are closed, so this is the
-  only known channel by which a rewound scene can still know something the transcript does not.
-  n = 1 scene, so the *size* of the leak is not established; its existence is.
+  What remains: an edge that existed **before** the cut and was reinforced afterwards keeps
+  its post-cut `weight`. Reverting it means replaying the surviving `:Consequence`
+  contributions to recompute the weight, and `origin` is JSON-encoded prose no Cypher
+  predicate can filter on. The residue is a number being too high, not a relationship the
+  transcript cannot explain — a materially smaller leak than the one that was closed, and
+  not measured. [`EXP-2026-08-014`](research/experiments/EXP-2026-08-014-record-controls/)
+  recorded `graph_edges_before`/`graph_edges_after` on a live rewind against the **old**
+  behaviour; it has not been re-run since, so no figure here describes the current code.
 
 - **A turn can write the same narration more than once.** Observed live on 2026-08-22
   ([`EXP-2026-08-014`](research/experiments/EXP-2026-08-014-record-controls/) `ISSUES.md`

@@ -47,11 +47,14 @@ def write_turn(
     turn_seq: int,
     summary: str,
     consequences: list[Consequence],
+    present_ids: list[str] | None = None,
 ) -> None:
     """Reify the turn's consequences + append an :Event node (best-effort, non-blocking).
 
     No-op when there are no consequences (the cold path runs on *consequence turns*
-    only) or when the graph is disabled/unreachable.
+    only) or when the graph is disabled/unreachable. ``present_ids`` are the characters
+    in the room, linked to the turn's ``:Event`` so the moment is reachable from the
+    people in it and not only from the place it happened.
     """
     if not consequences:
         return
@@ -60,13 +63,17 @@ def write_turn(
     try:
         with neo4j.write_session() as session:
             for cons in consequences:
-                _write_consequence(session, scenario.storyline_id, cons)
-            _append_event(session, scenario, session_id, turn_seq, summary)
+                _write_consequence(session, scenario.storyline_id, cons, session_id, turn_seq)
+            _append_event(
+                session, scenario, session_id, turn_seq, summary, present_ids or []
+            )
     except Exception as exc:  # never surfaces to the player — Postgres stays canonical
         logger.warning("cold-path turn-writer skipped (session %s): %s", session_id, exc)
 
 
-def _write_consequence(session, storyline_id: str, cons: Consequence) -> None:
+def _write_consequence(
+    session, storyline_id: str, cons: Consequence, session_id: str, turn_seq: int
+) -> None:
     """Reify the shared :Consequence node; add the edge when the change is relational."""
     graph_writer.attach_consequence(
         session,
@@ -78,6 +85,8 @@ def _write_consequence(session, storyline_id: str, cons: Consequence) -> None:
             "delta": cons.weight,
             "status": "active",
         },
+        session_id=session_id,
+        turn_seq=turn_seq,
     )
     # "…toward whom?": a relational target makes it an edge; otherwise it was a stat
     # (already applied + clamped on the hot path during validation).
@@ -87,12 +96,33 @@ def _write_consequence(session, storyline_id: str, cons: Consequence) -> None:
             source_id=cons.source_id,
             target_id=cons.target_id,
             type_name=cons.edge_type,
-            metadata={"via": cons.id, "weight": cons.weight},
+            # ``reason`` matches the shape ``relationships.ensure_seeded`` writes at seed
+            # time, so ``graph_reader.relationship_context`` renders a tie formed in play
+            # and a tie read off a bio identically. Without it every relationship the
+            # story itself created arrived at the next scene as a bare verb and a weight,
+            # and the model invented a reason for it — routinely one contradicting the
+            # scene the player had actually played.
+            metadata={
+                "via": cons.id,
+                "weight": cons.weight,
+                "reason": cons.reason or cons.summary,
+                "origin": "play",
+                "status": "active",
+            },
+            session_id=session_id,
+            turn_seq=turn_seq,
         )
 
 
-def _append_event(session, scenario, session_id: str, turn_seq: int, summary: str) -> None:
-    """Append an :Event node for the turn (and tie it to the setting, if any)."""
+def _append_event(
+    session,
+    scenario,
+    session_id: str,
+    turn_seq: int,
+    summary: str,
+    present_ids: list[str],
+) -> None:
+    """Append an :Event node for the turn, tied to its setting and to who was there."""
     event_id = f"evt_{session_id}_{turn_seq}"
     graph_writer.upsert_node(
         session,
@@ -113,5 +143,18 @@ def _append_event(session, scenario, session_id: str, turn_seq: int, summary: st
             source_id=event_id,
             target_id=scenario.setting_id,
             type_name="occurred_at",
+            metadata={},
+        )
+    # Who was in the room. ``involved`` has been a built-in edge type since the registry was
+    # written and nothing had ever written one, so an event was reachable only from its
+    # *setting* — "what has happened between these two people" was a question the graph had
+    # no path to answer. Deliberately not provenance-stamped: these edges belong to the
+    # Event node, and pruning that node on rewind takes them with it.
+    for character_id in present_ids:
+        graph_writer.upsert_edge(
+            session,
+            source_id=event_id,
+            target_id=character_id,
+            type_name="involved",
             metadata={},
         )
