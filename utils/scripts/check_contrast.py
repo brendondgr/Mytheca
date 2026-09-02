@@ -86,6 +86,14 @@ PAIRS: list[tuple[str, str, str, float, bool]] = [
     ("accent-ink / modal", "--accent-ink", "--modal-bg", 4.5, True),
     ("accent-ink / surface", "--accent-ink", "--surface", 4.5, True),
     ("accent-ink / hover", "--accent-ink", "--hover-bg", 4.5, True),
+    # Quoted dialogue inside a free-text passage. The passage sits on --card-bg,
+    # but the beat is plain prose that could be re-grounded, so it is checked
+    # against every content tier the transcript can put under it.
+    ("prose-quote / card", "--prose-quote", "--card-bg", 4.5, True),
+    ("prose-quote / card2", "--prose-quote", "--card-bg2", 4.5, True),
+    ("prose-quote / page", "--prose-quote", "--page-bg", 4.5, True),
+    ("prose-quote / surface", "--prose-quote", "--surface", 4.5, True),
+    ("prose-quote / modal", "--prose-quote", "--modal-bg", 4.5, True),
     # NOT a text pair. Accent on the menu ground is 3.67:1 in Slate and 4.40:1 in Ember, so
     # it may carry a border or a glyph inside a popover and must never carry copy — the
     # scene-config pins are the live case (their scope is stated in text, in `--ink`).
@@ -172,21 +180,26 @@ def parse_themes(css: str) -> dict[str, dict[str, str]]:
     return themes
 
 
-ACCENT_INK_RE = re.compile(
-    r"--accent-ink:\s*color-mix\(\s*in\s+oklab\s*,\s*var\(--accent\)\s+([0-9.]+)%"
+# Tokens declared as a mix of the theme's own --accent toward its --ink. They
+# are `color-mix()`, not hex, so the gate derives them from the percentage the
+# CSS declares — the same read-it-from-the-CSS rule the entity recipe uses, so
+# the gate cannot check a colour the browser never renders.
+ACCENT_MIX_TOKENS = ("--accent-ink", "--prose-quote")
+
+ACCENT_MIX_RE = re.compile(
+    r"(--accent-ink|--prose-quote):\s*color-mix\(\s*in\s+oklab\s*,"
+    r"\s*var\(--accent\)\s+([0-9.]+)%"
 )
 
 
 def resolve_hex(tokens: dict[str, str], ref: str) -> str:
     """Resolve a token name (optionally `--grad:N` for gradient stop N) or literal hex.
 
-    `--accent-ink` is a `color-mix`, not a hex, so it is derived here from the
-    percentage declared in themes.css — the same read-it-from-the-CSS rule the
-    entity recipe uses, so the gate cannot check a colour the browser never
-    renders.
+    The ACCENT_MIX_TOKENS are `color-mix`, not hex, so each is derived here
+    from the percentage declared in themes.css.
     """
-    if ref == "--accent-ink":
-        weight = _accent_ink_weight()
+    if ref in ACCENT_MIX_TOKENS:
+        weight = _accent_mix_weight(ref)
         return mix_oklab(resolve_hex(tokens, "--accent"), resolve_hex(tokens, "--ink"), weight)
     if ref.startswith("#"):
         return ref
@@ -201,11 +214,11 @@ def resolve_hex(tokens: dict[str, str], ref: str) -> str:
     return hexes[0]
 
 
-def _accent_ink_weight() -> float:
-    match = ACCENT_INK_RE.search(THEMES_CSS.read_text())
-    if not match:
-        raise ValueError("themes.css does not declare --accent-ink as a color-mix of --accent")
-    return float(match.group(1)) / 100.0
+def _accent_mix_weight(token: str) -> float:
+    for match in ACCENT_MIX_RE.finditer(THEMES_CSS.read_text()):
+        if match.group(1) == token:
+            return float(match.group(2)) / 100.0
+    raise ValueError(f"themes.css does not declare {token} as a color-mix of --accent")
 
 
 def srgb_channel(value: int) -> float:

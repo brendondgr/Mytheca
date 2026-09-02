@@ -618,15 +618,19 @@ export function StoryPlayerView({
                     scene.sending && i === scene.messages.length - 1 ? " min-h-[3.2em]" : ""
                   }`}
                 >
-                  {/* Bottom-LEFT, diagonally opposite the mutate cluster. Two reasons, and
-                      the second is the load-bearing one: everything on the right changes the
-                      record while this only reads it, so a mis-click here can never cost a
-                      beat — and a question about a line ("where did that come from?") is
-                      asked after reading it, so the control belongs under the prose rather
-                      than above it. Shown only on a beat that actually had memory behind it;
-                      a control that usually answers "nothing" is noise on every other beat. */}
+                  {/* The read side of the beat's controls, opposite the write side.
+                      Everything in the bar on the right CHANGES the record — edit, re-roll,
+                      branch, rewind — and this only reads it, so a mis-click here can never
+                      cost a beat. Under the prose rather than over it for the same reason
+                      that bar moved: a question about a line ("where did that come from?")
+                      is asked after reading it.
+
+                      It wears the bar's chrome and its reveal rule so the two read as one
+                      system rather than a styled bar beside a loose icon. Shown only on a
+                      beat that actually had memory behind it — a control that usually
+                      answers "nothing" is noise on every other beat in the scene. */}
                   {m.hasMemory && m.id && scene.sessionId && !scene.sending ? (
-                    <span className="absolute -bottom-sm left-0 z-10">
+                    <div className="absolute -bottom-sm left-0 z-10 flex items-center rounded-xs border border-cardbd bg-card px-3xs py-3xs shadow-sm transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                       <MemorySource
                         scenarioId={scenario.id}
                         sessionId={scene.sessionId}
@@ -634,12 +638,38 @@ export function StoryPlayerView({
                         label={beatLabel(m, byId)}
                         onJumpTo={setJumpToId}
                       />
-                    </span>
+                    </div>
                   ) : null}
-                  {/* Only for beats that are actually persisted: a `choices` row and the
+                  {/* One thin bar under the beat, at its right — the take pager then the
+                      actions. It was two clusters hanging off opposite corners, the actions
+                      ABOVE the beat where they overlapped the beat before it.
+
+                      Absolutely positioned, so revealing it on hover costs no layout shift:
+                      an in-flow bar would push every following beat down as the pointer
+                      crossed the transcript. It stays visible when the beat has more than one
+                      take, because "1 / 2" is state rather than an action, and on a phone,
+                      where there is no hover to reveal anything.
+
+                      Only for beats that are actually persisted: a `choices` row and the
                       optimistic bubble of an in-flight turn have no row to point at. */}
                   {m.id && !scene.sending ? (
-                    <span className="absolute -top-sm right-0 z-10">
+                    <div
+                      className={`absolute -bottom-sm right-0 z-10 flex items-center gap-2xs rounded-xs border border-cardbd bg-card px-3xs py-3xs shadow-sm transition-opacity duration-150 ${
+                        m.takes && m.takes.count > 1
+                          ? ""
+                          : "sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                      }`}
+                    >
+                      {/* Only on a beat that has been re-rolled — one version is not a choice. */}
+                      {m.takes ? (
+                        <BeatTakePager
+                          count={m.takes.count}
+                          active={m.takes.active}
+                          label={beatLabel(m, byId)}
+                          onSelect={(take) => void scene.selectTake(m.id!, take)}
+                          disabled={scene.sending}
+                        />
+                      ) : null}
                       <BeatControls
                         label={beatLabel(m, byId)}
                         rewindBeatCount={scene.messages.length - turnStartIndex(scene.messages, i)}
@@ -659,19 +689,7 @@ export function StoryPlayerView({
                         onRewind={() => void scene.rewindTo(m.id!)}
                         disabled={scene.sending}
                       />
-                    </span>
-                  ) : null}
-                  {/* Only on a beat that has been re-rolled — one version is not a choice. */}
-                  {m.takes && m.id ? (
-                    <span className="absolute -bottom-sm right-0 z-10">
-                      <BeatTakePager
-                        count={m.takes.count}
-                        active={m.takes.active}
-                        label={beatLabel(m, byId)}
-                        onSelect={(take) => void scene.selectTake(m.id!, take)}
-                        disabled={scene.sending}
-                      />
-                    </span>
+                    </div>
                   ) : null}
                   {editingId && editingId === m.id ? (
                     <BeatEditor

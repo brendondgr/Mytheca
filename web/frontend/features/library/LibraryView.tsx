@@ -13,6 +13,7 @@ import { EntityModal } from "@/components/feature/EntityModal";
 import { CharacterModal } from "@/components/feature/CharacterModal";
 import { SettingModal } from "@/components/feature/SettingModal";
 import { StorylineDeleteModal } from "@/components/feature/StorylineDeleteModal";
+import { ScenarioDeleteModal } from "@/components/feature/ScenarioDeleteModal";
 import { PromptOverridesModal } from "@/components/feature/PromptOverridesModal";
 import { CharacterProfileModal } from "@/components/feature/CharacterProfileModal";
 import { BeginSceneModal } from "@/components/feature/BeginSceneModal";
@@ -77,7 +78,7 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
       />
       </div>
 
-      {lib.error && !lib.modal && !lib.storylineToDelete ? (
+      {lib.error && !lib.modal && !lib.storylineToDelete && !lib.scenarioToDelete ? (
         <div
           role="alert"
           className="mx-lg mt-md flex items-center justify-between gap-md rounded-sm border border-cardbd bg-card px-lg py-sm"
@@ -127,6 +128,13 @@ export function LibraryView({ initialStorylineId }: { initialStorylineId?: strin
         error={lib.error}
         onConfirm={lib.confirmDeleteStoryline}
         onCancel={lib.cancelDeleteStoryline}
+      />
+      <ScenarioDeleteModal
+        scenario={lib.scenarioToDelete}
+        pending={lib.pending}
+        error={lib.error}
+        onConfirm={lib.confirmDeleteScenario}
+        onCancel={lib.cancelDeleteScenario}
       />
       {lib.promptsStoryline ? (
         <PromptOverridesModal

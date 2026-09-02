@@ -147,11 +147,47 @@ Disabling zoom is not the alternative — that is a WCAG 1.4.4 failure. The floo
 the token, an `@layer base` default in `globals.css` (in `base` so a component that genuinely wants
 larger still wins), and a source guard in `components/ui/design-scale.test.ts`.
 
+**One exemption, added 2026-09-01, and it is narrow: `pointer-fine:`.** The zoom the floor exists to
+prevent needs a touch keyboard; a mouse never triggers it, and paying the floor on a mouse is what put
+six 16px monospaced selects into a 264px popover. `components/ui/Select.tsx` is the one place that
+takes the exemption — `text-field pointer-fine:text-ui` — and `pointer: fine` is the same predicate
+`styles/motion.css` uses to decide where the 44px touch floor applies, so the two rules agree about
+what a phone is. A **breakpoint** prefix is deliberately *not* exempt and the guard still fails it:
+`sm:text-ui` looks like the same idea, but an iPhone 14 Pro Max in landscape is 932 CSS px wide, so a
+width-gated split hands the device that most needs the floor a 13px field.
+
 `--fs-tag` and `--fs-eyebrow` are caption tiers and stay **≥ 11px**. The same audit found 10.5px text
 making up 58.2 % of one route's visible copy. Anything that needs to be smaller than a tier here is
 decoration, and decoration does not carry information.
 
 The active preset is stored in `localStorage` key `mytheca-font-size` (default: `"default"`) and applied as a class on `<html>` (e.g., `.fs-comfortable`) by `lib/font-size.ts`'s no-flash inline script in `app/layout.tsx`. The hook is `useFontSize()` in `hooks/use-font-size.ts`. Tailwind utilities `text-eyebrow`, `text-label`, `text-ui`, `text-body-sm`, `text-body`, `text-field`, `text-tag` resolve from the live CSS variable via `@theme inline` in `globals.css`.
+
+### A control's description: on demand, never in the layout
+
+A setting needs a name *and* a consequence — a label alone never tells a player what happens if they
+change it. Both used to sit in flow: `SceneControlSelect` rendered its help as a paragraph under every
+control, and `SceneMenu` rendered its hint as a wrapped line under every row. Measured live on
+2026-09-01 at 1280×720, that put **996 px of content in the 264 px scene-config popover** (356 px of it
+prose) and **71–88 px per scene-menu row**.
+
+The rule that replaced it: **the consequence is reached, not displayed.**
+
+- A control gets a short title — short enough not to wrap at 264 px — plus an `InfoTip`
+  (`components/ui/InfoTip.tsx`) whose bubble opens on hover, on keyboard focus, and on tap.
+- **Nothing leaves the accessibility tree.** The bubble is `aria-hidden`; an `sr-only` twin holds the
+  same text under the id the control points `aria-describedby` at. A screen reader hears exactly what
+  it heard when this was a paragraph, open or closed.
+- WCAG 1.4.13 in full: hoverable (the bubble is inside the element the pointer entered), dismissible
+  (Escape), persistent. The Escape is `stopPropagation`'d — dismissing a tip must not also close the
+  popover the player is working in.
+- Where the title has to be shortened, the longer phrasing goes into the control's **accessible name**,
+  appended after the visible title, so the visible text stays a prefix of it (WCAG 2.5.3, label in
+  name) and a voice user can still say the words they see.
+- A **readout** is not a control and keeps its prose: the config popover's "What the scene remembers"
+  block has no setting in it, so there is nothing to defer.
+- Where a hint must stay visible (`SceneMenu` rows), it clamps to one line with `truncate` plus a
+  native `title`. `truncate` does not touch `textContent`, so the `aria-describedby` target still
+  carries the whole sentence.
 
 ### Entity colour on a surface
 
@@ -177,6 +213,7 @@ for fills, borders and focus rings — where the vivid hue is the point and the 
 | --- | --- | --- |
 | `text-accent-ink` | `--accent` at **72 %** | The accent has only three known values, not an open palette, so it can keep far more hue. 75 % is the limit; 72 % leaves margin. Raw accent measured 4.27:1 on Ember's card2, 4.05:1 on Slate's, 3.32:1 on Slate's hover ground. |
 | `text-gold-ink` · `text-gold-soft-ink` · `text-narrator-ink` · `text-success-ink` · `text-danger-ink` | each at **45 %** | These are theme-*agnostic* by design — one fixed hex cannot clear 4.5:1 against both a cream ground and a near-black one. `#a8762a` measured 4.08 / 3.61 / 3.11 across surfaces; `#1f8a5b` measured 3.30. |
+| `text-prose-quote` | `--accent` at **45 %** | Quoted dialogue inside a **free-text** passage, which has no speaker and so no character colour for `speechColor()` to tint toward. The 45 % mix, not `--accent-ink`'s 72 %: a passage can be half dialogue, and at 72 % the quoted runs stop reading as emphasis and start reading as a second voice over the prose. Measured 8.70 / 10.92 / 8.72 on the three themes' card ground. |
 
 `Monogram` is the one deliberate exception, and the exception proves the rule. Its ground is a fixed
 parchment `#EDE3CD` in **every** theme, so mixing toward the theme's ink would make Ember and Slate
@@ -916,21 +953,46 @@ carry `.scroll-fade`.
 
 ## Beat controls and the take pager
 
-Every transcript beat carries the same control cluster (`BeatControls`), and the rule behind
-its visibility is worth stating because it is easy to get wrong:
+Every transcript beat carries the same control cluster (`BeatControls`), in **one thin bar
+under the beat, at its right**, alongside the take pager. It used to be two clusters hanging
+off opposite corners — the actions `absolute -top-sm`, *above* the beat, where they overlapped
+the beat before them.
 
-- **Quiet, never hidden.** At `sm` and up the cluster sits at `opacity-0` and appears on
+The bar is absolutely positioned (`-bottom-sm right-0`), not in flow. An in-flow bar revealed
+on hover would push every following beat down as the pointer crossed the transcript.
+
+The rules behind its visibility are worth stating because they are easy to get wrong:
+
+- **Quiet, never hidden.** At `sm` and up the bar sits at `opacity-0` and appears on
   `group-hover` **or** `group-focus-within`. It is never `display: none` — a hidden control is
   out of the tab order, which would make every one of these mouse-only.
-- **Below `sm` it is simply visible.** Touch has no hover, so an `opacity-0` cluster there
-  would be invisible *and* unreachable. The same row shows outright.
-- **Targets are sized responsively, not duplicated.** 44×44 below `sm`, 24×24 above it
-  (`h-[44px] w-[44px] … sm:h-[24px] sm:w-[24px]`). Collapsing the cluster into a disclosure
-  menu at small widths was tried and rejected: it renders the same action twice, which means
-  two identical accessible names for one control.
+- **A beat with more than one take keeps its bar visible.** "1 / 2" is *state*, not an action;
+  the player should not have to hover to discover that a beat has another version.
+- **Below `sm` the cluster collapses to a single `⋯` trigger** opening a menu of the same
+  actions, each with its icon *and its words*. Touch has no hover, so on a phone five 44×44
+  targets were 220px of permanently-visible chrome on every beat in the transcript — the same
+  mistake `SceneRailBar` was deleted for. An earlier attempt at this was rejected for rendering
+  the same action twice (two identical accessible names for one control); this one does not,
+  because the rendering is **chosen** by `useMediaQuery("(max-width: 639px)")` rather than
+  duplicated and CSS-hidden. That query is `false` on the server and wherever `matchMedia` is
+  absent, and that default is deliberate: the wide rendering is the superset, so an unknown
+  viewport gets every action present, named and in the tab order.
+- **Both renderings are built from one `controls` list**, so an action added to one cannot go
+  missing from the other.
+- **Targets.** 44×44 for the narrow trigger and for every menu row; 26×26 for the wide
+  toolbar's icon buttons, above WCAG 2.5.8's 24.
+- **Icons, not text glyphs.** The cluster drew itself with `✎ ⟳ ⟲ ⑂ ↺`, which inherit the font
+  stack — different per platform, sized by the type scale rather than by the control — and
+  asked the player to tell `⟳` from `⟲` at 12px, which is the same arrow with the head at the
+  other end. They are now `Icon` entries on the shared 24 grid: `pencil` `reroll` `rerun`
+  `branch` `rewind`, plus `more` for the narrow trigger and `back`/`forward` in the pager.
+  `reroll` and `rerun` differ by how much of the circle is drawn, not by which way one
+  arrowhead points.
 - **Destructive confirms in place; non-destructive does not.** Rewind removes content and
   asks first, naming how many beats go. Branch, edit and re-roll remove nothing and act on one
-  click. That asymmetry is the signal — the safe way to explore costs the least.
+  click. That asymmetry is the signal — the safe way to explore costs the least. In the narrow
+  menu the confirmation replaces the menu's body rather than closing it: the question has to
+  land where the finger already is.
 
 `BeatTakePager` ("1 / 2") appears only on a beat with **two or more** takes: one version is
 not a choice, and a dead pager on every beat is noise. Its count is an `aria-live="polite"`

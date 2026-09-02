@@ -1,6 +1,7 @@
 import { Monogram } from "@/components/ui/Monogram";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { TypingDots } from "@/components/ui/TypingDots";
+import { Select } from "@/components/ui/Select";
 import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { liveValueFor } from "@/components/feature/DirectorRail";
@@ -63,7 +64,19 @@ const PRESENCE_LABEL: Record<PresenceStatus, string> = {
   dead: "Dead",
 };
 
-/** The manual presence control: a labeled native select (keyboard-operable, full control). */
+/**
+ * The manual presence control: a labelled native select (keyboard-operable, full control).
+ *
+ * It carries the shared {@link Select} chrome rather than its own. The hand-rolled version
+ * set `font-mono text-field` — 16px monospace — once per cast member down a rail narrow
+ * enough to be a bottom sheet on a phone, which made the "in the scene / unconscious /
+ * departed / left / dead" dropdown the loudest thing in the rail. `Select` keeps the 16px
+ * where it is load-bearing (below `sm`, against iOS auto-zoom) and drops to the dense size
+ * above it.
+ *
+ * No visible title: the row already prints the status beside the name when a character is
+ * away, and a caption per member would spend a line saying what the control already shows.
+ */
 function PresenceControl({
   character,
   status,
@@ -74,18 +87,18 @@ function PresenceControl({
   onChange: (status: PresenceStatus) => void;
 }) {
   return (
-    <select
+    <Select
       aria-label={`Presence for ${character.name}`}
       value={status}
       onChange={(e) => onChange(e.target.value as PresenceStatus)}
-      className="mt-xs w-full rounded-xs border border-cardbd bg-card px-xs py-3xs font-mono text-field tracking-[0.04em] text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="mt-xs w-full border-cardbd bg-card tracking-[0.04em] text-ink-soft"
     >
       {PRESENCE_OPTIONS.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
 

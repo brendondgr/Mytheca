@@ -57,4 +57,51 @@ describe("useLibraryState — scenario authoring", () => {
     expect(result.current.error).toBe("LLM unavailable");
     expect(result.current.generating).toBe(false);
   });
+
+  // ---- delete, from the card's trash square (no editor open) ----
+
+  it("asking to delete resolves the scenario but calls nothing until confirmed", async () => {
+    const { result } = await mountReady();
+    const id = result.current.resolvedScenarios[0].id;
+
+    act(() => result.current.requestDeleteScenario(id));
+    expect(result.current.scenarioToDelete?.id).toBe(id);
+    expect(vi.mocked(api.deleteScenario)).not.toHaveBeenCalled();
+
+    act(() => result.current.cancelDeleteScenario());
+    expect(result.current.scenarioToDelete).toBeNull();
+    expect(vi.mocked(api.deleteScenario)).not.toHaveBeenCalled();
+  });
+
+  it("confirming deletes it, drops it from the list, and refeatures another scene", async () => {
+    const { result } = await mountReady();
+    const before = result.current.scenarios.map((s) => s.id);
+    const id = result.current.featuredId;
+
+    act(() => result.current.requestDeleteScenario(id));
+    await act(async () => {
+      await result.current.confirmDeleteScenario();
+    });
+
+    expect(vi.mocked(api.deleteScenario)).toHaveBeenCalledWith(id);
+    expect(result.current.scenarios.map((s) => s.id)).toEqual(before.filter((x) => x !== id));
+    expect(result.current.scenarioToDelete).toBeNull();
+    expect(result.current.featuredId).not.toBe(id);
+  });
+
+  it("keeps the confirm open on failure so the delete can be retried", async () => {
+    vi.mocked(api.deleteScenario).mockRejectedValueOnce(new Error("Scene is locked"));
+    const { result } = await mountReady();
+    const id = result.current.resolvedScenarios[0].id;
+
+    act(() => result.current.requestDeleteScenario(id));
+    await act(async () => {
+      await result.current.confirmDeleteScenario();
+    });
+
+    expect(result.current.error).toBe("Scene is locked");
+    expect(result.current.scenarioToDelete?.id).toBe(id);
+    expect(result.current.scenarios.some((s) => s.id === id)).toBe(true);
+  });
+
 });

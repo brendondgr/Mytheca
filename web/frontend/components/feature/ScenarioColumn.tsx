@@ -15,6 +15,7 @@ export function ScenarioColumn({
   query,
   onSelect,
   onEdit,
+  onDelete,
   onProfile,
   onAdd,
   onClearQuery,
@@ -26,6 +27,8 @@ export function ScenarioColumn({
   query: string;
   onSelect: (id: string) => void;
   onEdit: (id: string) => void;
+  /** Asks to delete a scenario — the confirm lives above this column. */
+  onDelete?: (id: string) => void;
   onProfile: (id: string) => void;
   onAdd?: () => void;
   onClearQuery?: () => void;
@@ -70,6 +73,7 @@ export function ScenarioColumn({
                 featured={s.id === featuredId}
                 onSelect={() => onSelect(s.id)}
                 onEdit={() => onEdit(s.id)}
+                onDelete={onDelete ? () => onDelete(s.id) : undefined}
                 onProfile={onProfile}
               />
               </div>

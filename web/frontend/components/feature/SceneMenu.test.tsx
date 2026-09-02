@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { SceneMenu, type SceneMenuItem } from "./SceneMenu";
@@ -127,5 +127,34 @@ describe("SceneMenu drill-down", () => {
     await open(items, <p>foot</p>);
     await userEvent.click(screen.getByRole("menuitem", { name: "Play-throughs" }));
     expect(screen.queryByText("foot")).not.toBeInTheDocument();
+  });
+});
+
+describe("SceneMenu row density", () => {
+  it("keeps the hint to one line while leaving it in the accessibility tree", async () => {
+    // Measured before this change: the hint wrapped to two or three lines of 12px mono in a
+    // 248px menu, putting rows at 71–88px and filling the viewport with six of them.
+    // `truncate` is a visual clamp — `textContent` is untouched, so the row's
+    // `aria-describedby` target still carries the whole sentence.
+    const user = userEvent.setup();
+    const hint = "what the scene read, who it chose, and why it chose them";
+    render(<SceneMenu items={[{ key: "insp", label: "Turn Inspector", hint, onSelect: () => {} }]} />);
+    await user.click(screen.getByRole("button", { name: "Scene menu" }));
+    const row = screen.getByRole("menuitem", { name: "Turn Inspector" });
+    expect(row).toHaveAccessibleDescription(hint);
+    const hintEl = screen.getByText(hint);
+    expect(hintEl.className).toContain("truncate");
+    // ...and a pointer can still read the rest.
+    expect(hintEl).toHaveAttribute("title", hint);
+  });
+
+  it("keeps the touch row size below `sm` and tightens above it", () => {
+    // The same split `--control` makes. Shrinking the row at every width would trade a
+    // WCAG 2.5.8 target on a phone for density on a desktop that already had room.
+    render(<SceneMenu items={[{ key: "a", label: "A", onSelect: () => {} }]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Scene menu" }));
+    const cls = screen.getByRole("menuitem", { name: "A" }).className;
+    expect(cls).toContain("py-sm");
+    expect(cls).toContain("sm:py-2xs");
   });
 });

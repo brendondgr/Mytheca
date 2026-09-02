@@ -262,3 +262,57 @@ describe("SceneConfigMenu says what each control does", () => {
 
 
   
+describe("SceneConfigMenu density", () => {
+  it("shows a short title per control and keeps the long name for a screen reader", async () => {
+    // Measured live before this change: four of the six titles wrapped in the 264px panel,
+    // "Follow-up ideas offered after each turn" to 52px of wide-tracked capitals. Shortening
+    // the visible title is the fix; losing the sentence is not, so it moves into the
+    // accessible name and the info tip rather than being deleted.
+    const user = userEvent.setup();
+    setup({ onSceneModeChange: vi.fn(), onSceneFlowChange: vi.fn() });
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    for (const title of ["Turn shape", "Follow-ups", "Prose style", "History", "Pitch"]) {
+      expect(screen.getByText(title)).toBeInTheDocument();
+    }
+    // ...and the long phrasing still names the control, which is what a voice user says and
+    // what this file's other tests query by.
+    expect(
+      screen.getByRole("combobox", { name: /follow-up ideas offered after each turn/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: /how the scene is written/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("puts every description behind an info button rather than in the panel", async () => {
+    const user = userEvent.setup();
+    setup({ onSceneModeChange: vi.fn(), onSceneFlowChange: vi.fn() });
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    // One per control — six controls, six info buttons.
+    expect(screen.getAllByRole("button", { name: /^what .+ does$/i })).toHaveLength(6);
+    // Nothing about the director is on screen until it is asked for; the description is
+    // still attached to the control the whole time.
+    expect(screen.queryAllByText(/a director reads each moment, decides who speaks/i)).toHaveLength(
+      1,
+    );
+    expect(
+      screen.getByRole("combobox", { name: /turn planning/i }),
+    ).toHaveAccessibleDescription(/a director reads each moment/i);
+    await user.hover(screen.getByRole("button", { name: /what turn planning does/i }));
+    expect(screen.queryAllByText(/a director reads each moment, decides who speaks/i)).toHaveLength(
+      2,
+    );
+  });
+
+  it("keeps the memory readout as prose — it is a readout, not a control", async () => {
+    // Nothing to hover for: there is no setting here, so there is no description to defer.
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole("button", { name: /scene configuration/i }));
+    const region = screen.getByRole("region", { name: /what the scene remembers/i });
+    expect(region).toHaveTextContent(/once the scene starts/i);
+    expect(
+      screen.queryByRole("button", { name: /what what the scene remembers does/i }),
+    ).not.toBeInTheDocument();
+  });
+});

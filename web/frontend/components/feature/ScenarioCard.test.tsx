@@ -96,4 +96,29 @@ describe("ScenarioCard", () => {
     expect(onProfile).toHaveBeenCalledWith("c1");
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it("shows a delete square beside edit, and only asks — the card never deletes itself", async () => {
+    const onDelete = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <ScenarioCard
+        scenario={base}
+        featured={false}
+        onSelect={onSelect}
+        onEdit={vi.fn()}
+        onDelete={onDelete}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Delete The Salt Ledger" }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    // Clicking a corner control must not also feature the scenario underneath it.
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("omits the delete square when no handler is given", () => {
+    render(<ScenarioCard scenario={base} featured={false} onSelect={vi.fn()} onEdit={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Edit The Salt Ledger" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Delete The Salt Ledger" })).toBeNull();
+  });
+
 });

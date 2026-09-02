@@ -29,6 +29,10 @@ import type { BeatMemory, RecalledMemory } from "@/lib/events";
  * The fetch is deferred until the panel opens. A transcript holds dozens of beats and the
  * player asks about one at a time, so resolving every beat's provenance up front would be
  * work done for a question nobody asked.
+ *
+ * Quiet-until-hover is **not** here: the wrapper in `StoryPlayerView` owns it, exactly as it
+ * owns the reveal for the actions bar opposite. Two elements revealing themselves on the
+ * same hover is two chances for them to disagree about when.
  */
 export function MemorySource({
   scenarioId,
@@ -102,10 +106,6 @@ export function MemorySource({
         onClick={() => setOpen(true)}
         disabled={disabled}
         aria-expanded={open}
-        // Quiet until the beat is hovered or contains focus, and never `display: none` —
-        // exactly the rule `BeatControls` uses, including its touch exception: below `sm`
-        // there is no hover to reveal it with, so it stays visible there.
-        className="transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
       >
         <Icon name="memory" size={14} />
       </IconButton>

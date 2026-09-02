@@ -21,7 +21,7 @@ import { cn } from "@/lib/cn";
  *   duplicate reading. Passing `label` promotes it to `role="img"` for the rare case
  *   where the icon is the only content and the parent is not a labelled control.
  *
- * They replace glyph characters (`✎ ⚙ ◍ ❖ ‹ ›`) in chrome, which is not cosmetics: a
+ * They replace glyph characters (`✎ ⚙ ◍ ❖ ‹ › ⟳ ⟲ ⑂ ↺`) in chrome, which is not cosmetics: a
  * text glyph inherits the font stack, so it renders differently per platform, shifts the
  * line box, and lands at whatever size the type scale gives it rather than at the size
  * the control needs.
@@ -65,11 +65,31 @@ const PATHS = {
   person: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5a7.5 7.5 0 0 1 15 0",
   // A stage: the scene's own state, as distinct from who is standing in it.
   scene: "M3 5h18v11H3zM3 16l-2 3M21 16l2 3M8 16v3M16 16v3M9.5 8.5l4.5 2.5-4.5 2.5z",
+  // A description that is available rather than always on screen. Circle, stem, dot —
+  // the dot is a separate subpath because a 1.7 stroke cannot draw a dot.
+  info: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v6M12 7.6v.6",
   // What the scene remembers and is reading right now.
   knows: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v4.5l3 2M8 3.5A9 9 0 0 0 3.5 8",
   graph: "M6 7a2.2 2.2 0 1 0 0-4.4A2.2 2.2 0 0 0 6 7zM18 21.4a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4zM18 9.6a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4zM7.6 6.3l8.8 1M7.4 8.9l9.2 8.6",
   chat: "M4.5 5.5h15v11h-9l-4 3.5v-3.5h-2z",
   image: "M4 5h16v14H4zM4 15l4.5-4.5 4 4L16 11l4 4M15.5 8.7a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2z",
+
+  // ---- the record (per-beat controls) ----
+  // Re-roll ONE beat: a single closed loop with one head. Its partner `rerun` is a
+  // double loop, so the two differ by how much of the circle is drawn rather than by
+  // which way one arrowhead points — `⟳` vs `⟲` at 12px was a coin flip.
+  reroll: "M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.2v3.5h-3.5",
+  // Re-run the whole TURN: both halves of the cycle, both heads.
+  rerun: "M20 11a8 8 0 0 0-13.4-4.6M4 13a8 8 0 0 0 13.4 4.6M20 11h-3.4M20 11V7.6M4 13h3.4M4 13v3.4",
+  // Fork the play-through: the trunk continues, a second line leaves it. Three nodes,
+  // because a branch with two is a bend.
+  branch: "M7 8.2a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6zM7 20.4a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6zM17 8.2a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6zM7 8.2v7.6M17 8.2a6 6 0 0 1-6 6H8.5",
+  // Cut back to here: two chevrons running into a wall, the transport control everyone
+  // already reads as rewind. NOT `undo`, which is one step back, not a cut.
+  rewind: "M21 6.5L13.4 12 21 17.5zM12 6.5L4.4 12 12 17.5zM3 6.5v11",
+  // The narrow-viewport collapse of the whole cluster. Drawn as dots — the one caller
+  // besides `pin` that passes `filled`.
+  more: "M6.6 10.7a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6zM12 10.7a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6zM17.4 10.7a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z",
 
   // ---- the composer ----
   send: "M3.5 12h13M12 6.5l5.5 5.5-5.5 5.5",

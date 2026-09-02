@@ -2,6 +2,7 @@ import { Monogram } from "@/components/ui/Monogram";
 import { SmartImage } from "@/components/ui/SmartImage";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { IconButton } from "@/components/ui/IconButton";
+import { Icon } from "@/components/ui/Icon";
 import { mediaUrl } from "@/lib/api";
 import { PORTRAIT_SCRIM, OVER_ART } from "@/lib/cardArt";
 import { cn } from "@/lib/cn";
@@ -71,14 +72,17 @@ export function CharacterCard({
         className="absolute inset-0 z-0 cursor-pointer rounded-sm"
       />
 
-      {/* Edit pencil (top-right) — sibling above the stretched button. */}
+      {/* Edit pencil (top-right) — sibling above the stretched button. Same square,
+          same glyph and same corner as `ScenarioCard`: one edit affordance across
+          all three columns, not a pencil character here and an icon there. */}
       {onEdit ? (
         <IconButton
           label={`Edit ${c.name}`}
           onClick={onEdit}
-          className="absolute right-[10px] top-sm z-[2]"
+          size={28}
+          className="absolute right-sm top-sm z-[2]"
         >
-          ✎
+          <Icon name="pencil" size={14} />
         </IconButton>
       ) : null}
 

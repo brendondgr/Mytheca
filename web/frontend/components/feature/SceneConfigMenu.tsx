@@ -117,7 +117,7 @@ function PinToggle({
       // UNLAYERED and a Tailwind utility (in `@layer utilities`) cannot override it, so the
       // class would be inert and imply a suppression that never happens. The 2px accent
       // outline is the focus indicator; the border change is a second, quieter signal.
-      className={`flex h-[24px] w-[24px] flex-none items-center justify-center rounded-sm border focus-visible:border-accent disabled:opacity-50 ${
+      className={`touch-target-overlay flex h-[22px] w-[22px] flex-none items-center justify-center rounded-sm border focus-visible:border-accent disabled:opacity-50 ${
         pinned
           ? "border-field-bd text-mute2 hover:border-accent hover:text-accent-ink"
           : "border-accent text-accent-ink"
@@ -287,7 +287,7 @@ export function SceneConfigMenu({
           // -386px and the first three controls were off-screen and unreachable, with the
           // panel itself not scrollable. Bounding it to the viewport is what keeps a control
           // added by the next phase reachable rather than silently lost off the top.
-          className={`absolute left-0 z-40 flex max-h-[calc(100dvh-140px)] w-[264px] flex-col gap-md overflow-y-auto mytheca-menu p-lg focus:outline-none ${
+          className={`absolute left-0 z-40 flex max-h-[calc(100dvh-140px)] w-[264px] flex-col gap-sm overflow-y-auto mytheca-menu p-md focus:outline-none sm:w-[296px] ${
             openUp ? "bottom-2xl" : "top-2xl"
           }`}
         >
@@ -300,14 +300,15 @@ export function SceneConfigMenu({
               those are disabled under it rather than left looking operative — a control that
               silently does nothing teaches the player that none of them work. */}
           <SceneControlSelect
-            label="How a turn is built"
+            label="Turn shape"
+            accessibleName="how a turn is built"
             value={sceneMode}
             options={[
               { value: "structured", label: "Beat by beat" },
               { value: "freetext", label: "One long passage" },
             ]}
             onChange={(v) => onSceneModeChange?.(v as SceneMode)}
-            help={
+            description={
               sceneMode === "freetext"
                 ? "The whole turn arrives as one piece of writing — everyone acting and answering in the same passage, as long as the moment needs. Nobody is scheduled, so there are no speaker cards and no portraits inside it."
                 : "The turn is planned first, then played out as separate beats, each one attributed to whoever it belongs to."
@@ -326,11 +327,12 @@ export function SceneConfigMenu({
           />
 
           <SceneControlSelect
-            label="Follow-up ideas offered after each turn"
+            label="Follow-ups"
+            accessibleName="follow-up ideas offered after each turn"
             value={suggestionsCount}
             options={SUGGESTION_OPTIONS}
             onChange={(v) => onSuggestionsCountChange?.(v)}
-            help="Shown under the last beat. 0 turns them off."
+            description="Shown under the last beat. 0 turns them off."
             action={
               <PinToggle
                 controlKey="suggestionsCount"
@@ -366,7 +368,7 @@ export function SceneConfigMenu({
               { value: "off", label: "Off · the cast answers in order" },
             ]}
             onChange={(v) => onPlannerModeChange?.(v as PlanMode)}
-            help={
+            description={
               sceneMode === "freetext"
                 ? "Not used while a turn is one long passage — nobody is being scheduled, so there is nothing for a director to decide."
                 : plannerMode === "off"
@@ -391,14 +393,15 @@ export function SceneConfigMenu({
               copy states the trade rather than naming the modes, because "voiced" and
               "continuous" mean nothing to somebody who has not read the code. */}
           <SceneControlSelect
-            label="How the scene is written"
+            label="Prose style"
+            accessibleName="how the scene is written"
             value={sceneFlow}
             options={[
               { value: "voiced", label: "Character by character" },
               { value: "continuous", label: "All at once" },
             ]}
             onChange={(v) => onSceneFlowChange?.(v as SceneFlow)}
-            help={
+            description={
               sceneMode === "freetext"
                 ? "Not used while a turn is one long passage — there are no separate beats for the writing to be split across."
                 : sceneFlow === "continuous"
@@ -422,11 +425,12 @@ export function SceneConfigMenu({
               engine already makes every beat with a wider id list; only the third adds one.
               Disabled-with-a-reason when there is no graph at all. */}
           <SceneControlSelect
-            label="How much history a character carries"
+            label="History"
+            accessibleName="how much history a character carries"
             value={tieScope}
             options={TIE_OPTIONS}
             onChange={(v) => onTieScopeChange?.(v as TieScope)}
-            help={
+            description={
               graphAvailable
                 ? TIE_HELP[tieScope]
                 : "The story graph is off for this install, so nobody carries their history into a beat."
@@ -450,11 +454,12 @@ export function SceneConfigMenu({
               do, because a control called "register" sitting under "who speaks" invites
               exactly that misreading. */}
           <SceneControlSelect
-            label="How this moment is pitched"
+            label="Pitch"
+            accessibleName="how this moment is pitched"
             value={register ?? AUTO}
             options={REGISTER_OPTIONS}
             onChange={(v) => onRegisterChange?.(v === AUTO ? null : (v as Register))}
-            help="Pins how this moment is pitched for your next message only. It picks which of a character's voice samples they draw on and how far their word choice can wander — it does not decide who speaks."
+            description="Pins how this moment is pitched for your next message only. It picks which of a character's voice samples they draw on and how far their word choice can wander — it does not decide who speaks."
             scopeNote="· this turn"
             disabled={disabled || !onRegisterChange}
             className="w-full [&_select]:w-full"

@@ -1,10 +1,12 @@
 import { useId, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
+import { InfoTip } from "@/components/ui/InfoTip";
+import { Select } from "@/components/ui/Select";
 
 /**
- * An option whose rendered text differs from its value — for enums like the beat-length
- * tiers, where the wire carries `"short"` and the reader should see `"Short (1–2 ¶)"`.
+ * An option whose rendered text differs from its value — for enums like the presence
+ * states, where the wire carries `"unconscious"` and the reader should see `"Unconscious"`.
  */
 export type SceneControlOption<T extends string | number> = {
   value: T;
@@ -20,39 +22,58 @@ function normalize<T extends string | number>(
 }
 
 /**
- * Compact labeled dropdown for the scene composer controls (turn limit, follow-up
- * suggestion count, beat length). A tiny mono caption sits above a native `<select>`
- * styled to the field tokens — native so it stays keyboard/screen-reader accessible.
+ * One scene setting: a **short title**, an **info button**, and a **dropdown**.
  *
- * Generic over `string | number` so an enum and a count can share one control. The value
- * type is inferred from `value`, and `onChange` is handed back the ORIGINAL option value
- * rather than the DOM's string: a native `<select>` stringifies everything, and the old
- * unconditional `Number(...)` coercion is exactly why this could not carry an enum. Values
- * are matched by their string form, so a numeric caller still receives a number.
+ * **What this used to be, and why it changed.** The title was a sentence — "Follow-up ideas
+ * offered after each turn" — set in the design system's label style, which is mono, uppercase
+ * and tracked at `.12em`. That treatment is right for a label and ruinous for a sentence:
+ * measured live, four of the config popover's six titles wrapped, one to 52px of wide-tracked
+ * capitals. Underneath each sat its description as a paragraph in flow, 356px of prose across
+ * the panel, to say something a reader needs exactly once.
+ *
+ * So the title is now short enough to stay on one line, and the sentence moved into
+ * {@link InfoTip} — where it is still the control's `aria-describedby` target, so a screen
+ * reader hears what it always heard. `accessibleName` carries the longer phrasing into the
+ * select's own name; the visible title stays a PREFIX of it, which is what WCAG 2.5.3
+ * (label in name) requires and what lets a voice user say the words they can see.
+ *
+ * Generic over `string | number` so an enum and a count can share one control. `onChange`
+ * receives the ORIGINAL option value rather than the DOM's string: a native `<select>`
+ * stringifies everything, and an unconditional `Number(...)` coercion is exactly why this
+ * could not carry an enum. Values are matched by their string form, so a numeric caller
+ * still receives a number.
  */
 export function SceneControlSelect<T extends string | number>({
   label,
+  accessibleName,
   value,
   options,
   onChange,
-  help,
+  description,
   cost,
   action,
   scopeNote,
   disabled = false,
   className,
 }: {
+  /** The visible title. Keep it short — it must not wrap at 264px. */
   label: string;
+  /**
+   * The longer phrasing of what this control is, appended to the visible title to form the
+   * select's accessible name. Omit when the title already says the whole thing.
+   */
+  accessibleName?: string;
   value: T;
   /** Selectable values — bare, or `{value, label}` when the text should differ. */
   options: readonly (T | SceneControlOption<T>)[];
   onChange: (value: T) => void;
   /**
-   * One line saying what this control *does* — announced with the control rather than
-   * floating beside it, via `aria-describedby`. A label alone tells a player what a setting
-   * is called; it never tells them what happens if they change it.
+   * One or two sentences saying what this control *does*. Reached by pointer, touch or
+   * keyboard through the info button, and announced with the control via `aria-describedby`
+   * whether the bubble is open or not. A label alone tells a player what a setting is
+   * called; it never tells them what happens if they change it.
    */
-  help?: ReactNode;
+  description?: ReactNode;
   /** What it costs, when there is an honest number — tokens, seconds, beats. */
   cost?: ReactNode;
   /**
@@ -78,28 +99,45 @@ export function SceneControlSelect<T extends string | number>({
   const selectId = useId();
   return (
     <div className={cn("flex flex-none flex-col gap-3xs", className)}>
-      <div className="flex items-center justify-between gap-xs">
+      <div className="flex items-center gap-xs">
         <label
           htmlFor={selectId}
-          className="font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase"
+          // `text-ink`, not the `text-mute2` this used to carry. Muted was the other half of
+          // "the text is hard to read": a 12px tracked mono caption set in the second-quietest
+          // ink on the menu ground is legible in a screenshot and not while playing.
+          // `truncate` is a backstop, not the plan — the titles are short enough not to need
+          // it, and it keeps a longer one from reflowing the row if a later phase adds one.
+          className="min-w-0 flex-1 truncate font-mono text-eyebrow tracking-[0.1em] text-ink uppercase"
         >
           {label}
           {scopeNote ? (
-            // The leading space is not decoration — the same trap as `cost` below: a CSS
-            // margin separates these visually but `textContent` concatenates them, so the
-            // caption read "…SAYS AT ONCE· this turn".
-            // `text-ink`, not `text-accent-ink`: accent on the menu ground is 3.67:1 in Slate
-            // and 4.40:1 in Ember, which is fine for a border and fails AA for text. The
-            // pin glyph beside it is what carries the accent.
-            <span className="ml-2xs text-ink normal-case">
+            // The leading space is not decoration — the same trap as `cost`: a CSS margin
+            // separates these visually but `textContent` concatenates them, so the caption
+            // read "…SAYS AT ONCE· this turn".
+            <span className="ml-2xs text-ink-soft normal-case">
               {" "}
               {scopeNote}
             </span>
           ) : null}
         </label>
+        {description ? (
+          <InfoTip id={helpId} label={label}>
+            {description}
+            {cost ? (
+              // The cost sits with the consequence, not in a separate readout: "what it does"
+              // and "what it costs" are one decision, and separating them makes the player
+              // read twice to make it once. The leading space is the `textContent` trap
+              // again — the description ran together as "its own length.≈ 260 tokens a beat".
+              <span className="ml-2xs font-mono text-eyebrow tracking-[0.04em] text-ink-soft">
+                {" "}
+                {cost}
+              </span>
+            ) : null}
+          </InfoTip>
+        ) : null}
         {action}
       </div>
-      <select
+      <Select
         id={selectId}
         value={String(value)}
         onChange={(e) => {
@@ -107,33 +145,15 @@ export function SceneControlSelect<T extends string | number>({
           if (picked) onChange(picked.value);
         }}
         disabled={disabled}
-        aria-label={label}
-        aria-describedby={help ? helpId : undefined}
-        className="rounded-xs border border-field-bd bg-field p-[7px_8px] font-mono text-field text-ink focus:border-accent focus:outline-none disabled:opacity-60"
+        aria-label={accessibleName ? `${label} — ${accessibleName}` : label}
+        aria-describedby={description ? helpId : undefined}
       >
         {items.map((o) => (
           <option key={String(o.value)} value={String(o.value)}>
             {o.label}
           </option>
         ))}
-      </select>
-      {help ? (
-        <p id={helpId} className="font-body text-eyebrow leading-[1.4] text-mute2">
-          {help}
-          {cost ? (
-            // The cost sits with the consequence, not in a separate readout: "what it does"
-            // and "what it costs" are one decision, and separating them makes the player
-            // read twice to make it once.
-            // The leading space is not decoration: a CSS margin separates these visually but
-            // `textContent` concatenates them, so the accessible description ran the two
-            // together — "its own length.≈ 260 tokens a beat".
-            <span className="ml-2xs font-mono text-eyebrow tracking-[0.04em] text-ink-soft">
-              {" "}
-              {cost}
-            </span>
-          ) : null}
-        </p>
-      ) : null}
+      </Select>
     </div>
   );
 }

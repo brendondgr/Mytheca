@@ -93,7 +93,7 @@ describe("SceneControlSelect consequence + cost", () => {
         value={5}
         options={[1, 5]}
         onChange={() => {}}
-        help="The cap on replies — narrator beats count too."
+        description="The cap on replies — narrator beats count too."
       />,
     );
     expect(
@@ -110,7 +110,7 @@ describe("SceneControlSelect consequence + cost", () => {
         value={5}
         options={[1, 5]}
         onChange={() => {}}
-        help="The cap on replies."
+        description="The cap on replies."
         cost="≈ 4s per extra beat"
       />,
     );
@@ -135,7 +135,7 @@ describe("SceneControlSelect consequence + cost", () => {
         value={1}
         options={[1, 2]}
         onChange={() => {}}
-        help="Just the consequence."
+        description="Just the consequence."
       />,
     );
     expect(screen.getByRole("combobox", { name: "Bare" })).toHaveAccessibleDescription(
@@ -144,3 +144,71 @@ describe("SceneControlSelect consequence + cost", () => {
   });
 });
 
+
+describe("SceneControlSelect layout: title, info button, dropdown", () => {
+  it("shows the short title and keeps the long phrasing in the accessible name", () => {
+    // WCAG 2.5.3 (label in name): the visible words must be a PREFIX of what a screen reader
+    // or a voice-control user is given, or "click Follow-ups" stops working the moment the
+    // visible title is shortened.
+    render(
+      <SceneControlSelect
+        label="Follow-ups"
+        accessibleName="follow-up ideas offered after each turn"
+        value={4}
+        options={[0, 4]}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByText("Follow-ups")).toBeInTheDocument();
+    const select = screen.getByRole("combobox", {
+      name: /follow-ups — follow-up ideas offered after each turn/i,
+    });
+    expect(select).toBeInTheDocument();
+    // The old test suite queried these by their long names. That must keep working, because
+    // it is the same thing a voice user says.
+    expect(
+      screen.getByRole("combobox", { name: /follow-up ideas offered after each turn/i }),
+    ).toBe(select);
+  });
+
+  it("puts the description behind an info button instead of in the layout", async () => {
+    // The point of the change: the copy costs nothing until it is asked for, and costs a
+    // screen reader nothing either way.
+    const user = userEvent.setup();
+    render(
+      <SceneControlSelect
+        label="Planning"
+        value="auto"
+        options={["auto", "off"]}
+        onChange={() => {}}
+        description="A director reads each moment."
+      />,
+    );
+    const select = screen.getByRole("combobox", { name: "Planning" });
+    // Described before anything is hovered — the description never left the a11y tree.
+    expect(select).toHaveAccessibleDescription("A director reads each moment.");
+    const info = screen.getByRole("button", { name: /what planning does/i });
+    // ...and only ONE copy is on screen (the sr-only one) until the tip is opened.
+    expect(screen.queryAllByText("A director reads each moment.")).toHaveLength(1);
+    await user.hover(info);
+    expect(screen.queryAllByText("A director reads each moment.")).toHaveLength(2);
+  });
+
+  it("has no info button when there is nothing to describe", () => {
+    render(<SceneControlSelect label="Bare" value={1} options={[1, 2]} onChange={() => {}} />);
+    expect(screen.queryByRole("button", { name: /what bare does/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the scope note visible beside the title, not carried by colour", () => {
+    render(
+      <SceneControlSelect
+        label="Pitch"
+        value="light"
+        options={["light", "grave"]}
+        onChange={() => {}}
+        scopeNote="· this turn"
+      />,
+    );
+    expect(screen.getByText(/· this turn/)).toBeInTheDocument();
+  });
+});

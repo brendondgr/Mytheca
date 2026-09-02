@@ -185,7 +185,7 @@ export function SceneMenu({
             item.render ? (
               <div
                 key={item.key}
-                className="flex items-center justify-between gap-sm rounded-xs px-md py-sm"
+                className="flex items-center justify-between gap-sm rounded-xs px-md py-sm sm:px-sm sm:py-2xs"
               >
                 <span className="font-display text-label font-semibold text-ink">
                   {item.label}
@@ -224,7 +224,7 @@ export function SceneMenu({
                   // as does a toggle that opens a surface this menu would sit on top of.
                   if (item.pressed === undefined || item.closesMenu) close();
                 }}
-                className="flex w-full flex-col gap-3xs rounded-xs px-md py-sm text-left hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent aria-checked:text-accent-ink"
+                className="flex w-full flex-col gap-3xs rounded-xs px-md py-sm text-left hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent aria-checked:text-accent-ink sm:px-sm sm:py-2xs"
               >
                 <span className="flex w-full items-center gap-xs font-display text-label font-semibold text-ink">
                   {item.icon ? <span aria-hidden className="flex-none">{item.icon}</span> : null}
@@ -244,9 +244,17 @@ export function SceneMenu({
                   ) : null}
                 </span>
                 {item.hint ? (
+                  // One line, `truncate`, with the full text on the native `title`.
+                  //
+                  // Measured: the hint wrapped to two or three lines in a 248px menu, which
+                  // put rows at 71-88px and filled a 720px viewport with six of them. Nothing
+                  // is lost to a screen reader — this element is still the row's
+                  // `aria-describedby` target and `textContent` is untouched by `truncate` —
+                  // and nothing is lost to a pointer, which gets the rest on hover.
                   <span
                     id={`${panelId}-${item.key}-hint`}
-                    className="font-mono text-tag tracking-[0.04em] text-mute"
+                    title={item.hint}
+                    className="w-full truncate font-mono text-tag tracking-[0.04em] text-mute"
                   >
                     {item.hint}
                   </span>
