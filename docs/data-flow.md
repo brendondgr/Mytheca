@@ -1287,6 +1287,44 @@ Memories are **subjective**: two characters can hold contradicting accounts of o
 under `sceneFlow: voiced` each speaker's generation sees only their own — which is why the
 contradiction survives to reach the page instead of being smoothed into one agreed version.
 
+**Recall runs once per turn, and it is arithmetic.** `services/memory_recall.py` is called from
+`turn_engine.run_turn` immediately after the plan is bound — the plan names every speaker, so one
+`memory_store.visible_for` query covers all of them and each beat then reads a pre-computed
+shortlist. Nothing queries, scores or calls a model per beat. On the planner's fallback path the
+present cast stands in: one larger query, still one round trip.
+
+Scoring is `salience × fade × reinforcement`, plus a bonus when someone from the memory is present,
+plus a bonus for cue hits, minus a **cooldown** penalty for anything surfaced in the last few
+turns. Cooldown is not optional — without it one memory wins every beat. `fade` is the first thing
+in the codebase to compute the `half_life_turns` the graph registry declares on every feeling edge;
+across a session boundary it degrades to a flat attenuation, because seq numbers are per-session
+and "how many turns ago" is undefined there.
+
+**Two cue channels reach a memory.** *Participants* — someone from it is in the room. *Subjects* —
+the live scene (the player's line, the setting, this turn's prose) names something the memory is
+about, matched lexically by `services/memory_cues.scan`. The second is what makes a memory
+reachable when its people are dead or absent, and it costs **no extra query**: the vocabulary
+scanned is the subjects of the candidate rows the recall query already loaded, since a tag no
+candidate carries could not change any score.
+
+**Disclosure decides what may be said**, and is a set comparison between who was at the source
+event and who is in the room — so it is a property of the memory *and the room*, computed per turn:
+
+| Everyone present was there | `quotable` | may be said, and the verbatim quote is offered |
+| Some were, some were not | `shared` | may be alluded to; the quote is withheld |
+| Nobody present was there | `private` | shapes behaviour; the prompt names who must not learn it |
+
+Getting this wrong is worse than no recall: narrating a private memory hands the room knowledge it
+was never given, and that reaches the next prompt as fact while being invisible in the transcript.
+
+**The free-text engine gets no recall at all.** `services/freetext_turn` has its own loop and its
+own prompt (`services/freetext_context`), and neither reads `memory_note`. Memories are still
+*written* there — free-text shares `turn_finalize` — so nothing is lost by turning it on later.
+This is stricter than it needs to be and deliberately so: one generation writes the whole room, so
+several characters' private and contradicting memories would land in a single prompt and be
+reconciled into one agreed account, which is the same failure that makes contradiction a `voiced`
+property.
+
 **Reactive Turn Director (Produce band overhaul).** The player's line is first **interpreted**
 (`agents/intent_agent`) into narrate / address / **puppet** / whole-group intent; a puppeted
 character then *performs* the direction in its own voice (not a bystander answering the player).

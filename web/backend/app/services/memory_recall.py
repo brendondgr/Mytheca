@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from sqlalchemy.orm import Session
 
 from app.models import CharacterMemory, PlaySession
-from app.services import memory_store
+from app.services import memory_cues, memory_store
 
 logger = logging.getLogger("mytheca.memory")
 
@@ -78,6 +78,12 @@ class Recalled:
     score: float
     #: Which cues fired, for the trace and the provenance panel.
     cue_hits: list[str] = field(default_factory=list)
+    #: Whether this may be said aloud in front of the people currently in the room —
+    #: ``quotable`` / ``shared`` / ``private``. A property of the memory **and** the room.
+    disclosure: str = memory_cues.QUOTABLE
+    #: Who is here now and was not at the source event. Named in the prompt so "do not tell
+    #: this" is an instruction rather than an abstraction.
+    outsiders: list[str] = field(default_factory=list)
 
 
 def _fade(memory: CharacterMemory, *, session_id: str, now_seq: int) -> float:
@@ -150,7 +156,19 @@ def rank(
             memory, session_id=session_id, now_seq=now_seq, present_ids=present_ids, cues=cues
         )
         if value >= MIN_SCORE:
-            scored.append(Recalled(memory=memory, score=value, cue_hits=hits))
+            scored.append(
+                Recalled(
+                    memory=memory,
+                    score=value,
+                    cue_hits=hits,
+                    disclosure=memory_cues.disclosure(
+                        memory.participants, others_present=present_ids
+                    ),
+                    outsiders=sorted(
+                        memory_cues.outsiders(memory.participants, others_present=present_ids)
+                    ),
+                )
+            )
     scored.sort(key=lambda r: (-r.score, r.memory.id))
     return scored[:limit]
 
@@ -164,6 +182,7 @@ def recall_for_turn(
     present_ids: list[str],
     now_seq: int,
     cues: set[str] | None = None,
+    scene_texts: list[str] | None = None,
     limit: int = PER_SPEAKER_LIMIT,
 ) -> dict[str, list[Recalled]]:
     """Every planned speaker's shortlist, from **one** query. Best-effort → ``{}``.
@@ -188,6 +207,16 @@ def recall_for_turn(
         by_character.setdefault(row.character_id, []).append(row)
 
     present = set(present_ids or [])
+
+    # The cue vocabulary is built from the candidates themselves, not from a storyline-wide
+    # lexicon. Cues only ever matter by intersecting a memory's own subjects, so scanning the
+    # scene for tags no candidate carries could not change any score — and the rows are
+    # already in hand, which is why the whole cue channel costs no second query.
+    if scene_texts:
+        cues = set(cues or set()) | memory_cues.scan(
+            scene_texts, {t for row in rows for t in (row.subjects or [])}
+        )
+
     return {
         cid: rank(
             rows_for,

@@ -22,7 +22,7 @@ from app.agents.direction_agent import DirectionRequirement, SceneDirection
 from app.core.errors import APIError
 from app.events.envelope import StoryEvent
 from app.events.stream import TurnReasoningFrame, TurnTraceFrame
-from app.services import graph_reader
+from app.services import graph_reader, memory_cues
 from app.services.assembler import CastMember, TurnContext
 from app.services.beat_stream import stream_emission
 from app.services.turn_emit import Emitter, Tracer
@@ -175,16 +175,30 @@ def memory_note(ctx: TurnContext, speaker_id: str) -> str:
     recalled = (getattr(ctx, "recalled", None) or {}).get(speaker_id) or []
     if not recalled:
         return ""
+    names = {m.id: m.name for m in ctx.cast}
     lines: list[str] = []
     quotes_left = _MEMORY_QUOTES
     for item in recalled[:_MEMORY_LINES]:
         memory = item.memory
         line = memory.gloss.rstrip(".")
-        if memory.quote and quotes_left > 0:
+        # A quote is only offered when everyone in the room was also there. Handing a
+        # verbatim line to a character who would be quoting it AT someone who was not
+        # present is how a private moment becomes common knowledge in one beat.
+        if memory.quote and quotes_left > 0 and item.disclosure == memory_cues.QUOTABLE:
             quotes_left -= 1
             line += f'. They said, exactly: "{memory.quote}" — you may quote this back.'
         else:
             line += "."
+        if item.disclosure != memory_cues.QUOTABLE:
+            who = ", ".join(names.get(cid, "someone") for cid in item.outsiders) or "someone here"
+            if item.disclosure == memory_cues.PRIVATE:
+                # The instruction has to name the people, not describe the rule. "Do not
+                # narrate private memories" is a policy; "Mara does not know this" is
+                # something a character can act on — and acting on it is better writing than
+                # the exposition would have been.
+                line += f" {who} does not know this. Do not tell it. Let it show."
+            else:
+                line += f" {who} was not there — do not talk about it as if they were."
         lines.append(f"- {line}")
     return (
         "What you carry from before this scene (yours alone — not narration, and not "

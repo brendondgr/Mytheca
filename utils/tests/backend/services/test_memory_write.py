@@ -88,6 +88,60 @@ def test_a_name_inside_a_longer_word_does_not_count_as_a_mention(world):
     assert reflection.derive_subjects([], ctx) == []
 
 
+# ---- memory follows presence -------------------------------------------------
+
+
+class _Member:
+    def __init__(self, cid, name, present=True):
+        self.id, self.name, self._present = cid, name, present
+
+    @property
+    def is_present(self):
+        return self._present
+
+
+class _Setting:
+    name = "The Flooded Tunnel"
+
+
+class _Scenario:
+    def __init__(self, sid):
+        self.id = sid
+
+
+class _Ctx:
+    def __init__(self, world, cast):
+        self.storyline_id = world["storyline_id"]
+        self.scenario = _Scenario(world["scenario"])
+        self.cast = cast
+        self.setting = _Setting()
+
+
+def test_a_character_who_was_not_in_the_room_is_not_a_participant(db_session, world):
+    """Memory follows presence.
+
+    The rule that stops a character knowing something they were never told: a memory
+    records who was actually there, and everything downstream — the participant cue, the
+    quotable/shared/private class — is a set comparison against that list. Being *told*
+    later is a different event with its own, weaker memory.
+    """
+    cast = [
+        _Member(world["dell"], "Dell"),
+        _Member(world["mara"], "Mara"),
+        _Member("ch_absent", "Sera", present=False),
+    ]
+    mem_ctx = reflection.build_memory_context(db_session, _Ctx(world, cast), [{"text": BEAT}], 4)
+    assert mem_ctx.participants == [world["dell"], world["mara"]]
+    assert "ch_absent" not in mem_ctx.participants
+
+
+def test_the_memory_context_reads_the_storyline_s_names_for_subject_matching(db_session, world):
+    mem_ctx = reflection.build_memory_context(db_session, _Ctx(world, []), [{"text": BEAT}], 4)
+    names = {name for name, _tag in mem_ctx.known_entities}
+    assert {"dell", "mara", "the flooded tunnel"} <= names
+    assert mem_ctx.setting_tag == "flooded-tunnel"
+
+
 # ---- the write ---------------------------------------------------------------
 
 

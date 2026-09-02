@@ -118,6 +118,8 @@ module names; this is the one that shipped, and a new one must not be invented b
 | `session_state.py` | The one owner of history mutation — truncate, copy, replay, rebuild. |
 | `beat_rerun.py` | Re-roll a beat or a turn, keeping takes. |
 | `memory_store.py` | The one owner of episodic memory: verbatim-quote verification, reinforce-don't-duplicate, lineage-scoped recall, transactional delete on rewind. |
+| `memory_recall.py` | Which memories reach a beat — deterministic scoring, once per turn for every planned speaker. |
+| `memory_cues.py` | Reaching a memory nobody present was part of (lexical subject scan), and the quotable/shared/private class. |
 
 Every module under `web/backend/app/` stays **under 800 lines**, enforced by
 `utils/tests/backend/data/test_file_length_budget.py`.

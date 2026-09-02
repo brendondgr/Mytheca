@@ -337,6 +337,16 @@ def run_turn(
             speaker_ids=speakers or present_ids,
             present_ids=present_ids,
             now_seq=seq0,
+            # What the scene is currently *about*, for the cue scan: the player's line, the
+            # setting, and this turn's prose so far. This is how a memory whose people are
+            # dead or absent is still reachable — "an ogre steps out of the treeline" finds
+            # the night an ogre killed someone, with nobody from it in the room.
+            scene_texts=[
+                setup.text,
+                (ctx.setting.desc or "") if ctx.setting else "",
+                (ctx.setting.current_state or "") if ctx.setting else "",
+                *[str(b.get("text", "")) for b in turn_beats],
+            ],
         )
         yield from beat_runner.memory_step(tracer, ctx)
     # Continuous flow writes the planned turn in one generation, and everything after the
