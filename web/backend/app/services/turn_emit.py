@@ -67,11 +67,14 @@ class Emitter:
         seq: int,
         character_id: str | None,
         visibility: Visibility | None,
+        recalled: list[str] | None = None,
     ) -> StoryEvent:
         """The DB-authoritative row for a streamed event: the whole text, ``done``."""
         data: dict[str, Any] = {"text": text, "done": True}
         if character_id is not None:
             data["characterId"] = character_id
+        if recalled:
+            data["recalled"] = list(recalled)
         return build_event(
             type_,
             data,
@@ -119,6 +122,7 @@ class Emitter:
         visibility: Visibility | None = None,
         buffer_role: str | None = None,
         replace: tuple[str, int] | None = None,
+        recalled: list[str] | None = None,
     ) -> "LiveSegment":
         """Start streaming one event; the caller drives it with ``delta``/``close``.
 
@@ -132,6 +136,7 @@ class Emitter:
             visibility=visibility,
             buffer_role=buffer_role,
             replace=replace,
+            recalled=recalled,
         )
 
     def emit(
@@ -222,12 +227,19 @@ class LiveSegment:
         visibility: Visibility | None,
         buffer_role: str | None,
         replace: tuple[str, int] | None = None,
+        recalled: list[str] | None = None,
     ) -> None:
         self._emitter = emitter
         self._type = type_
         self._character_id = character_id
         self._visibility = visibility
         self._buffer_role = buffer_role
+        #: Ids of the episodic memories this beat was written with. Rides on the event's own
+        #: `data` — a beat's provenance belongs to the beat, and `Event.data` is already a
+        #: JSON column, so this needs no table and no migration. It is what the per-beat
+        #: source control reads, and what makes "she remembered that" checkable by the
+        #: player rather than something they have to take on trust.
+        self._recalled = list(recalled or [])
         # **Replace mode** (a re-roll): stream into an EXISTING beat's id and seq instead of
         # claiming new ones, so the re-take lands in the same transcript position and `close`
         # updates that row rather than inserting a second one. Taking a new seq here is what
@@ -278,6 +290,7 @@ class LiveSegment:
             seq=self._seq,
             character_id=self._character_id,
             visibility=self._visibility,
+            recalled=self._recalled,
         )
         if self._replacing:
             # The row already exists; its `takes` bookkeeping belongs to the caller, which
@@ -293,6 +306,12 @@ class LiveSegment:
         data: dict[str, Any] = {"text": chunk, "done": done}
         if self._character_id is not None:
             data["characterId"] = self._character_id
+        if self._recalled:
+            # On every frame, not just the first. The client builds a beat from whichever
+            # frame it sees first and only appends text afterwards, and a re-roll can start
+            # a beat mid-stream — so pinning this to frame zero would be a correctness bet
+            # for the sake of a couple of short ids.
+            data["recalled"] = list(self._recalled)
         event = build_event(
             self._type,
             data,

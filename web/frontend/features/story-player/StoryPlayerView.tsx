@@ -30,6 +30,7 @@ import {
   PlaythroughTray,
   PlaythroughTrayContent,
 } from "@/components/feature/PlaythroughTray";
+import { MemorySource } from "@/components/feature/MemorySource";
 import { BeatControls } from "@/components/feature/BeatControls";
 import { BeatEditor } from "@/components/feature/BeatEditor";
 import { BeatTakePager } from "@/components/feature/BeatTakePager";
@@ -281,7 +282,15 @@ export function StoryPlayerView({
   // Clamped during render rather than corrected in an effect: editing the query shortens the
   // list under a stale index, and an effect would render one frame pointing past the end.
   const activeMatch = matchTotal ? Math.min(matchIndex, matchTotal - 1) : 0;
-  const highlighted = matchTotal ? matches[activeMatch].index : -1;
+  const searchHit = matchTotal ? matches[activeMatch].index : -1;
+
+  // Where the source panel sent the reader. It shares the search highlight's machinery
+  // rather than growing a second one: "the beat you are being pointed at" is one idea, and
+  // two ways of drawing it would drift. Search wins a tie, because the player is actively
+  // typing in that case and a stale jump should not fight them for the viewport.
+  const [jumpToId, setJumpToId] = useState<string | null>(null);
+  const jumpIndex = jumpToId ? scene.messages.findIndex((m) => m.id === jumpToId) : -1;
+  const highlighted = searchHit !== -1 ? searchHit : jumpIndex;
 
   const wide = useMediaQuery("(min-width: 1024px)");
 
@@ -609,6 +618,21 @@ export function StoryPlayerView({
                     scene.sending && i === scene.messages.length - 1 ? " min-h-[3.2em]" : ""
                   }`}
                 >
+                  {/* Opposite the mutate cluster: everything on the right changes the
+                      record, this only reads it — so a mis-click here can never cost a beat.
+                      Shown only on a beat that actually had memory behind it; a control that
+                      usually answers "nothing" is noise on every other beat in the scene. */}
+                  {m.hasMemory && m.id && scene.sessionId && !scene.sending ? (
+                    <span className="absolute -top-sm left-0 z-10">
+                      <MemorySource
+                        scenarioId={scenario.id}
+                        sessionId={scene.sessionId}
+                        eventId={m.id}
+                        label={beatLabel(m, byId)}
+                        onJumpTo={setJumpToId}
+                      />
+                    </span>
+                  ) : null}
                   {/* Only for beats that are actually persisted: a `choices` row and the
                       optimistic bubble of an in-flight turn have no row to point at. */}
                   {m.id && !scene.sending ? (

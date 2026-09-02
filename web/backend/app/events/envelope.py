@@ -71,12 +71,32 @@ class TakesMixin(CamelModel):
     active_take: int = 0
 
 
+class RecalledMixin(CamelModel):
+    """Ids of the episodic memories a beat was written with.
+
+    A beat's provenance belongs to the beat, so it rides in the beat's own ``data`` for the
+    same reason takes do — and ``Event.data`` is already a JSON column, so this needs no
+    table and no migration. Empty by default, so every row written before memory existed,
+    every delta frame and every existing test is unchanged.
+
+    **It has to be declared here to survive.** ``events_store.persist_story_event`` writes
+    ``event.data.model_dump()``, so a field the model does not know about is dropped on the
+    way to the database without an error anywhere — which is exactly what happened when this
+    was first plumbed through the emitter alone.
+
+    The ids are not resolved on the wire: the source control fetches the memories by beat id
+    when the player asks. What this field decides is whether there is anything to ask about.
+    """
+
+    recalled: list[str] = Field(default_factory=list)
+
+
 class NarrationData(TakesMixin):
     text: str
     done: bool = True
 
 
-class CharacterProseData(TakesMixin):
+class CharacterProseData(TakesMixin, RecalledMixin):
     """One character beat as a single first-person passage.
 
     The whole beat — what they notice, what they do, what they say — in their own voice,
@@ -108,7 +128,7 @@ class SceneProseData(TakesMixin):
     done: bool = True
 
 
-class CharacterDialogueData(TakesMixin):
+class CharacterDialogueData(TakesMixin, RecalledMixin):
     character_id: str
     text: str
     done: bool = True

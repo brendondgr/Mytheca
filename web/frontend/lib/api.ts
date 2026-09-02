@@ -12,6 +12,7 @@ import type {
   GhostwriteStreamFrame,
   PersistedEvent,
   PresenceStatus,
+  BeatMemory,
   SceneKnowledge,
   SessionHistory,
   StandingItem,
@@ -412,6 +413,19 @@ export const getLlmHealth = () => request<LlmHealth>("/options/llm/health");
  */
 export const getSceneKnowledge = (scenarioId: string, sessionId: string) =>
   request<SceneKnowledge>(`/play/${scenarioId}/sessions/${sessionId}/context`);
+
+/**
+ * The memories behind one beat.
+ *
+ * Fetched on demand rather than carried in transcript state: a transcript holds dozens of
+ * beats and the player asks about one of them at a time, so resolving every beat's
+ * provenance up front would be work done for a question nobody asked. A beat with nothing
+ * behind it answers with an empty list, not an error.
+ */
+export const getBeatMemory = (scenarioId: string, sessionId: string, eventId: string) =>
+  request<BeatMemory>(
+    `/play/${scenarioId}/sessions/${sessionId}/beats/${eventId}/memory`,
+  );
 
 /**
  * Stop asking for some (or all) of what the scene still owes.

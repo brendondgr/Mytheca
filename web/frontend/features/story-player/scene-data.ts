@@ -98,6 +98,15 @@ export interface SceneMessage {
    */
   takes?: { count: number; active: number };
   /**
+   * True when this beat was written with episodic memory behind it, so the source control
+   * is offered on it and not on beats that came from nowhere in particular.
+   *
+   * A boolean rather than the ids: the panel fetches the memories by beat id when the
+   * player asks, so the ids would be dead weight in transcript state. What the transcript
+   * needs to know is only whether there is anything to ask about.
+   */
+  hasMemory?: boolean;
+  /**
    * Context documents this player turn carried as reference. Persisted on the `user_turn`
    * row, so a resumed scene can show what a past turn was given rather than leaving the
    * player to remember.

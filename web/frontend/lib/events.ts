@@ -52,6 +52,22 @@ export interface Takes {
   activeTake?: number;
 }
 
+/**
+ * Ids of the episodic memories a beat was written with, if any.
+ *
+ * Rides in the beat's own `data` for the same reason takes do — a beat's provenance belongs
+ * to the beat — and arrives on **every** delta frame rather than only the first, because the
+ * client builds a beat from whichever frame it sees first and a re-roll can start one
+ * mid-stream. Optional and absent by default, so beats recorded before memory existed parse
+ * unchanged.
+ *
+ * The ids are not resolved here: the source panel fetches the memories by beat id when the
+ * player asks. What this field decides is whether there is anything to ask about.
+ */
+export interface RecalledMemories {
+  recalled?: string[];
+}
+
 /** Narrator prose. Delta-streamed: same id, incremental `text`, `done` flips true last. */
 export interface NarrationEvent extends PlayEnvelope {
   type: "narration";
@@ -80,13 +96,13 @@ export interface SceneProseEvent extends PlayEnvelope {
  */
 export interface CharacterProseEvent extends PlayEnvelope {
   type: "character_prose";
-  data: { characterId: string; text: string; done: boolean } & Takes;
+  data: { characterId: string; text: string; done: boolean } & Takes & RecalledMemories;
 }
 
 /** A character's spoken line. Delta-streamed (same id, incremental `text`, `done`). */
 export interface CharacterDialogueEvent extends PlayEnvelope {
   type: "character_dialogue";
-  data: { characterId: string; text: string; done: boolean } & Takes;
+  data: { characterId: string; text: string; done: boolean } & Takes & RecalledMemories;
 }
 
 /** A character's physical beat. Sent as one full event. */
@@ -458,6 +474,44 @@ export interface PersistedTrace {
  * resumed scene — which is exactly when a player most wants to ask what a long session still
  * remembers.
  */
+/** Someone else's version of a moment this character also remembers. */
+export interface MemoryContradiction {
+  characterId: string;
+  characterName: string;
+  gloss: string;
+}
+
+/**
+ * One memory a beat was written with — the player-facing answer to "where did that come
+ * from?".
+ *
+ * Deliberately in the language of the fiction: the moment, the words that were said, where
+ * to find it, and whether anyone remembers it differently. Scores and cue hits are engine
+ * internals and stay in the Turn Inspector.
+ */
+export interface RecalledMemory {
+  id: string;
+  characterId: string;
+  characterName: string;
+  gloss: string;
+  quote?: string | null;
+  quoteSpeakerName?: string | null;
+  scenarioId: string;
+  scenarioTitle: string;
+  sessionId: string;
+  turnSeq: number;
+  /** The beat to scroll to — only reachable when `inThisSession`. */
+  eventId?: string | null;
+  /** A memory from an earlier scenario is real history, but not in this transcript. */
+  inThisSession: boolean;
+  contradictedBy: MemoryContradiction[];
+}
+
+export interface BeatMemory {
+  eventId: string;
+  memories: RecalledMemory[];
+}
+
 export interface SceneKnowledge {
   windowBeats: number;
   windowSource: string;

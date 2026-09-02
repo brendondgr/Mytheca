@@ -12,6 +12,7 @@ import {
   latestGuidance,
   clearBeatForReroll,
   takesOf,
+  hasMemoryOf,
   replaceBeatText,
   NARRATOR_REASONING,
   NO_DIRECTION,
@@ -1289,6 +1290,54 @@ describe("clearBeatForReroll", () => {
     const messages: SceneMessage[] = [{ kind: "narrator", id: "n1", text: "Before." }];
     const next = mergeFrame(messages, { type: "beat_reroll", eventId: "n1", take: 1 });
     expect(next[0].text).toBe("");
+  });
+});
+
+describe("hasMemoryOf", () => {
+  it("is false for a beat written from the scene alone", () => {
+    expect(hasMemoryOf({ text: "x" })).toBe(false);
+    expect(hasMemoryOf({ text: "x", recalled: [] })).toBe(false);
+    expect(hasMemoryOf(undefined)).toBe(false);
+  });
+
+  it("is true once the beat carries recalled memory", () => {
+    expect(hasMemoryOf({ text: "x", recalled: ["cm_1"] })).toBe(true);
+  });
+});
+
+describe("memory provenance on a beat", () => {
+  it("marks a live prose beat that was written with memory", () => {
+    const next = mergeFrame([], {
+      type: "character_prose",
+      id: "p1",
+      data: { characterId: "c1", text: "He said nothing.", done: false, recalled: ["cm_1"] },
+    } as unknown as TurnStreamFrame);
+    expect(next[0].hasMemory).toBe(true);
+  });
+
+  it("leaves an ordinary beat unmarked, so the control is not offered on it", () => {
+    const next = mergeFrame([], {
+      type: "character_prose",
+      id: "p1",
+      data: { characterId: "c1", text: "He said nothing.", done: false },
+    } as unknown as TurnStreamFrame);
+    expect(next[0].hasMemory).toBeUndefined();
+  });
+
+  it("keeps the mark while later chunks accumulate", () => {
+    const first = mergeFrame([], {
+      type: "character_prose",
+      id: "p1",
+      data: { characterId: "c1", text: "He said ", done: false, recalled: ["cm_1"] },
+    } as unknown as TurnStreamFrame);
+    const next = mergeFrame(first, {
+      type: "character_prose",
+      id: "p1",
+      data: { characterId: "c1", text: "nothing.", done: true, recalled: ["cm_1"] },
+    } as unknown as TurnStreamFrame);
+    expect(next).toHaveLength(1);
+    expect(next[0].text).toBe("He said nothing.");
+    expect(next[0].hasMemory).toBe(true);
   });
 });
 

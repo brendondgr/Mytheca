@@ -76,6 +76,13 @@ const PATHS = {
   // A quill with a spark — "write this line for me", not "send it".
   write: "M4 20l3.5-.5L19 8a2.1 2.1 0 0 0-3-3L4.5 16.5zM15 5l3 3M19.5 15.5l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6z",
   undo: "M4 9h10a5 5 0 0 1 0 10H8M4 9l4-4M4 9l4 4",
+
+  // ---- the record ----
+  // A closing quotation mark: the per-beat source control's payoff is the verbatim line a
+  // character kept, so the glyph is the mark of a quotation rather than anything about
+  // storage. `knows` is a clock and already means "what the scene is reading right now".
+  memory:
+    "M6.5 16.5c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3c0 2.7-1.2 4.7-3.5 6M17 16.5c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3c0 2.7-1.2 4.7-3.5 6",
 } as const;
 
 export type IconName = keyof typeof PATHS;

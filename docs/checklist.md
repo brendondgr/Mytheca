@@ -312,11 +312,22 @@ Verified against the code on 2026-08-04.
     article. **Plurals are still not folded** and would need stemming; the cue scan is
     expected to absorb the near-miss, and that expectation is untested.
 
-  Still open from the same run: **salience is generous** — every character produced a
-  memory on every turn (2.7/turn for a 3-person cast), all scoring 0.6–0.9. The scene was
-  deliberately dramatic, so this may be correct rather than inflated; it has not been
-  checked against an ordinary scene, and if it is inflation the fix is the floor constant
-  in `memory_store`, not the prompt.
+  A second run on 2026-09-01, after both fixes and with the whole feature in place (49 beats,
+  3 turns, 9 memories), confirms the quote rule tightened as intended: **3/9 verified, down
+  from 7/8** — the difference is narration no longer passing as speech. It also shows the
+  subject fix only went half way. Article folding collapsed `the-tunnel`/`tunnel`, but
+  *compound* variants survive: one run produced `tunnel` · `tunnels` · `tunnel-water` ·
+  `flooded-tunnel`, and `debt` · `moral-debt` · `ledger` · `morality-ledger`. The cue scan's
+  one-character plural allowance absorbs `tunnel`/`tunnels` and nothing else, so the rest are
+  separate tags that each match separately. Not harmful — a memory carrying four near-synonyms
+  is *more* findable, not less — but it inflates the tag space, and it is why tag→node
+  promotion (plan Phase 6) should count normalised forms rather than raw tags.
+
+  Still open from both runs: **salience is generous** — every character produced a memory on
+  every turn (2.7 and 3.0 per turn for a 3-person cast), all scoring 0.6–0.9. Both scenes were
+  deliberately dramatic, so this may be correct rather than inflated; it has not been checked
+  against an ordinary scene, and if it is inflation the fix is the floor constant in
+  `memory_store`, not the prompt.
 
 - **A rewind does not revert a relationship edge it only *reinforced*.** Narrowed from the
   former "graph edges from a rewound turn are not rolled back", which is now closed:

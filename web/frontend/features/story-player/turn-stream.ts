@@ -246,15 +246,27 @@ export function mergeFrame(prev: SceneMessage[], frame: TurnStreamFrame): SceneM
         return mergeDelta(prev, event.id, { kind: "char", who: event.data.characterId }, event.data.text);
       }
       // First chunk: merge into the speaker's still-open beat (their thought/action).
+      const memory = hasMemoryOf(event.data as unknown as Record<string, unknown>);
       const last = prev[prev.length - 1];
       if (isOpenCharBeat(last, event.data.characterId)) {
         const next = prev.slice();
-        next[next.length - 1] = { ...last, id: event.id, text: event.data.text };
+        next[next.length - 1] = {
+          ...last,
+          id: event.id,
+          text: event.data.text,
+          ...(memory ? { hasMemory: true } : {}),
+        };
         return next;
       }
       return [
         ...prev,
-        { kind: "char", id: event.id, who: event.data.characterId, text: event.data.text },
+        {
+          kind: "char",
+          id: event.id,
+          who: event.data.characterId,
+          text: event.data.text,
+          ...(memory ? { hasMemory: true } : {}),
+        },
       ];
     }
 
@@ -540,6 +552,18 @@ export function clearBeatForReroll(
   return changed ? next : messages;
 }
 
+/**
+ * Whether an event was written with episodic memory behind it.
+ *
+ * Reads the ids the engine stamps on the beat's own `data` but returns only a boolean —
+ * see `SceneMessage.hasMemory` for why the ids themselves are not carried in transcript
+ * state.
+ */
+export function hasMemoryOf(data: Record<string, unknown> | undefined): boolean {
+  const recalled = data?.recalled;
+  return Array.isArray(recalled) && recalled.length > 0;
+}
+
 /** Read the take count/active index off an event's data, if it carries them. */
 export function takesOf(
   data: Record<string, unknown> | undefined,
@@ -651,6 +675,12 @@ export function rehydrateFromHistory(
     const takes = takesOf(e.data);
     if (takes) {
       messages = messages.map((m) => (m.id === e.id ? { ...m, takes } : m));
+    }
+    // Same idiom as takes, and for the same reason: read off the persisted row on rehydrate
+    // rather than threaded through the delta accumulator, which stays about accumulating
+    // text. A reopened scene must offer the source control exactly where a live one did.
+    if (hasMemoryOf(e.data)) {
+      messages = messages.map((m) => (m.id === e.id ? { ...m, hasMemory: true } : m));
     }
   }
 

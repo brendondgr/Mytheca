@@ -1317,6 +1317,21 @@ event and who is in the room — so it is a property of the memory *and the room
 Getting this wrong is worse than no recall: narrating a private memory hands the room knowledge it
 was never given, and that reaches the next prompt as fact while being invisible in the transcript.
 
+**A beat records what it was written with.** When a character beat streams, the ids of the
+memories its speaker was given are stamped onto the event's own `data.recalled` — `Event.data`
+is already a JSON column, so this needs no table and no migration. `GET
+/play/{scenarioId}/sessions/{sessionId}/beats/{eventId}/memory` reads them back for the
+per-beat source control, which means provenance costs the turn path nothing and survives a
+reload.
+
+`recalled` is declared on `CharacterProseData` / `CharacterDialogueData` in
+`events/envelope.py` (via `RecalledMixin`) and mirrored in `web/frontend/lib/events.ts`. That
+declaration is load-bearing rather than decorative: `events_store.persist_story_event` writes
+`event.data.model_dump()`, so a field the model does not know about is dropped on the way to
+the database **with no error anywhere** — which is exactly what happened when this was first
+plumbed through the emitter alone, and what a test in `utils/tests/backend/data/test_events.py`
+now pins.
+
 **The free-text engine gets no recall at all.** `services/freetext_turn` has its own loop and its
 own prompt (`services/freetext_context`), and neither reads `memory_note`. Memories are still
 *written* there — free-text shares `turn_finalize` — so nothing is lost by turning it on later.

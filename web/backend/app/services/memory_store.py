@@ -372,6 +372,38 @@ def mark_recalled(db: Session, memory_ids: list[str], *, session_id: str, seq: i
         db.add(row)
 
 
+def contradictions(db: Session, memory: CharacterMemory) -> list[CharacterMemory]:
+    """Other characters' memories of the **same moment** that read differently.
+
+    Same session and same turn is what "the same moment" means here — the two memories were
+    formed from one turn's prose. Sameness of *gloss* is then the engine's own comparison
+    (:func:`_same_moment`), so a character who simply agrees is not reported as contradicting.
+
+    This is the query behind the "Mara remembers this differently" line. Without it a cast
+    that remembers subjectively produces characters who flatly disagree and no way for a
+    player to tell that apart from the app losing track of its own story.
+    """
+    others = db.scalars(
+        select(CharacterMemory).where(
+            CharacterMemory.session_id == memory.session_id,
+            CharacterMemory.turn_seq == memory.turn_seq,
+            CharacterMemory.character_id != memory.character_id,
+        )
+    ).all()
+    return [row for row in others if not _same_moment(row.gloss or "", memory.gloss or "")]
+
+
+def by_ids(db: Session, memory_ids: list[str]) -> list[CharacterMemory]:
+    """Load memories by id, preserving the order asked for."""
+    if not memory_ids:
+        return []
+    rows = {
+        row.id: row
+        for row in db.scalars(select(CharacterMemory).where(CharacterMemory.id.in_(memory_ids)))
+    }
+    return [rows[mid] for mid in memory_ids if mid in rows]
+
+
 def delete_after(db: Session, session_id: str, *, after_seq: int) -> int:
     """Forget everything this session formed after ``after_seq``. Returns the row count.
 

@@ -529,6 +529,19 @@ def emit_segment_delta(
                 # explained the line that no longer exists, and leaving it would stack a
                 # fresh thought beside a stale one on every re-roll.
                 replace=(replace or {}).get(seg.type),
+                # Only the spoken/written beat carries provenance — an internal thought is
+                # not something the player can ask the source of, and stamping it there
+                # would put a source control on a beat that has no visible line.
+                recalled=(
+                    []
+                    if seg.type == "internal_thought"
+                    else [
+                        item.memory.id
+                        for item in (getattr(ctx, "recalled", None) or {}).get(
+                            seg.character_id or "", []
+                        )
+                    ]
+                ),
             )
             open_segments[seg.index] = live_seg
         if seg.text:

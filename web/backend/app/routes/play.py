@@ -14,12 +14,18 @@ from collections.abc import Iterator
 
 from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.errors import APIError
 from app.events.stream import TurnErrorFrame, build_event, to_ndjson_line, with_keepalive
-from app.models import Character, PlaySession
+from app.models import Character, Event, PlaySession, Scenario
+from app.schemas.memory import (
+    BeatMemoryResponse,
+    MemoryContradiction,
+    RecalledMemory,
+)
 from app.schemas.play import (
     MomentRequest,
     MomentStageFrame,
@@ -43,6 +49,7 @@ from app.services import (
     events_store,
     history_compaction,
     graph_reader,
+    memory_store,
     presence,
     scene_knowledge,
     scene_moment,
@@ -245,6 +252,74 @@ def _standing(session) -> list[StandingItem]:
         )
         for r in direction_runtime.load_standing(session)
     ]
+
+
+@router.get(
+    "/{scenario_id}/sessions/{session_id}/beats/{event_id}/memory",
+    response_model=BeatMemoryResponse,
+)
+def beat_memory(
+    scenario_id: str, session_id: str, event_id: str, db: Session = Depends(get_db)
+):
+    """The memories one beat was written with — the player-facing "where did this come from?".
+
+    Reads the ids stamped on the beat's own ``Event.data`` when it was streamed, so it costs
+    the turn path nothing and works on a reopened scene. A beat with no memory behind it
+    returns an **empty list, not a 404**: "this line came from nowhere in particular" is a
+    real and common answer, and the caller should not have to treat it as an error.
+
+    Deliberately player-facing. Scores, fade multipliers and cue hits are not here — those
+    are engine internals and the Turn Inspector already shows them.
+    """
+    crud.get_scenario(db, scenario_id)
+    events_store.get_session(db, scenario_id, session_id)  # 404/400
+    row = db.get(Event, event_id)
+    if row is None or row.session_id != session_id:
+        raise APIError(404, "not_found", "No such beat in this play-through.")
+
+    ids = [str(i) for i in ((row.data or {}).get("recalled") or [])]
+    memories = memory_store.by_ids(db, ids)
+    if not memories:
+        return BeatMemoryResponse(eventId=event_id, memories=[])
+
+    names = {c.id: c.name for c in db.query(Character).all()}
+    titles = {sc.id: sc.title for sc in db.query(Scenario).all()}
+    out: list[RecalledMemory] = []
+    for memory in memories:
+        # Resolved from (session, turn) rather than stored on the row: an edit or a re-roll
+        # replaces a beat's text in place, and a stored event id could point at a line that
+        # no longer says what the memory is about. The turn is the stable unit.
+        source = db.scalars(
+            select(Event)
+            .where(Event.session_id == memory.session_id, Event.seq >= memory.turn_seq)
+            .order_by(Event.seq)
+            .limit(1)
+        ).first()
+        out.append(
+            RecalledMemory(
+                id=memory.id,
+                characterId=memory.character_id,
+                characterName=names.get(memory.character_id, "Someone"),
+                gloss=memory.gloss,
+                quote=memory.quote,
+                quoteSpeakerName=names.get(memory.quote_speaker_id or ""),
+                scenarioId=memory.scenario_id,
+                scenarioTitle=titles.get(memory.scenario_id, "an earlier scene"),
+                sessionId=memory.session_id,
+                turnSeq=memory.turn_seq,
+                eventId=source.id if source is not None else None,
+                inThisSession=memory.session_id == session_id,
+                contradictedBy=[
+                    MemoryContradiction(
+                        characterId=other.character_id,
+                        characterName=names.get(other.character_id, "Someone"),
+                        gloss=other.gloss,
+                    )
+                    for other in memory_store.contradictions(db, memory)
+                ],
+            )
+        )
+    return BeatMemoryResponse(eventId=event_id, memories=out)
 
 
 @router.get(
