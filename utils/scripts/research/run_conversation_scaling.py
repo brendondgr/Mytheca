@@ -90,6 +90,26 @@ def _patch(path: str, payload: dict) -> dict:
         return json.load(res)
 
 
+def delete_world(storyline_id: str, record=None) -> None:
+    """Tear down a throwaway world. Never raises.
+
+    A measurement's scaffolding is not something to leave sitting in the author's library:
+    every run of every probe here builds a storyline, and without this they accumulate one
+    per run until somebody deletes them by hand. Shared by the runners that import from this
+    module, so the three of them cannot drift on how cleanup is done.
+
+    Swallows failures on purpose — cleanup must never mask a run's result, and a world that
+    could not be deleted is a note, not a failed experiment.
+    """
+    try:
+        req = urllib.request.Request(f"{API}/storylines/{storyline_id}", method="DELETE")
+        with urllib.request.urlopen(req, timeout=60):
+            pass
+    except Exception:  # noqa: BLE001 - see above
+        if record is not None:
+            record.note(f"cleanup: throwaway storyline {storyline_id} could not be deleted")
+
+
 def build_world(max_turns: int, suggestions: int, context_beats: int) -> tuple[str, str]:
     """Create a throwaway storyline + cast + setting + scenario at the given settings."""
     sl = _post("/storylines", {
@@ -264,27 +284,32 @@ def mode_conversation(args, record: RunRecord) -> None:
     record.note(f"scenario={scenario} storyline={storyline} "
                 f"maxTurns={args.max_turns} suggestions={args.suggestions} "
                 f"contextBeats={args.context_beats}")
-    session: str | None = None
-    for turn in range(1, args.turns + 1):
-        text = PLAYER_LINES[(turn - 1) % len(PLAYER_LINES)]
-        try:
-            row = run_turn(scenario, session, text)
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            row = {"error": f"{exc.__class__.__name__}: {exc}"}
-            record.note(f"turn {turn} FAILED: {row['error']}")
-        session = row.get("session_id") or session
-        row["turn"] = turn
-        record.add_run(row)
-        print(
-            f"turn {turn:>2}: first_visible={row.get('first_visible_s')}s "
-            f"total={row.get('total_s')}s beats={row.get('beats')} "
-            f"prompt={row.get('prompt_tokens_max')} reuse={row.get('reuse_ratio_mean')} "
-            f"plan_calls={row.get('planner_calls')} first_reason={row.get('first_reasoning_s')} "
-            f"hit={row.get('cache_hit_ratio')}",
-            flush=True,
-        )
-        if row.get("error"):
-            record.note(f"turn {turn} reported an error frame: {row['error']}")
+    # Torn down however the mode ends. This is the only mode here that builds a world,
+    # and every run of it used to leave one behind.
+    try:
+        session: str | None = None
+        for turn in range(1, args.turns + 1):
+            text = PLAYER_LINES[(turn - 1) % len(PLAYER_LINES)]
+            try:
+                row = run_turn(scenario, session, text)
+            except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                row = {"error": f"{exc.__class__.__name__}: {exc}"}
+                record.note(f"turn {turn} FAILED: {row['error']}")
+            session = row.get("session_id") or session
+            row["turn"] = turn
+            record.add_run(row)
+            print(
+                f"turn {turn:>2}: first_visible={row.get('first_visible_s')}s "
+                f"total={row.get('total_s')}s beats={row.get('beats')} "
+                f"prompt={row.get('prompt_tokens_max')} reuse={row.get('reuse_ratio_mean')} "
+                f"plan_calls={row.get('planner_calls')} first_reason={row.get('first_reasoning_s')} "
+                f"hit={row.get('cache_hit_ratio')}",
+                flush=True,
+            )
+            if row.get("error"):
+                record.note(f"turn {turn} reported an error frame: {row['error']}")
+    finally:
+        delete_world(storyline, record)
 
 
 # ---- layout mode ------------------------------------------------------------

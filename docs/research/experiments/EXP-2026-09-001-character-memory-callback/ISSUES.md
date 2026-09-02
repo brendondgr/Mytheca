@@ -58,6 +58,12 @@ the same one in the same step.
 
 ## What is kept
 
-`data/runs.jsonl` and the four play-throughs it names (`storylineId` per row) are retained.
+`data/runs.jsonl` and, for three of the four runs, a full archive under `data/sessions/`.
 They are a valid record of *what happened*, and the beat-count signal above is worth being
 able to re-read. They are not evidence about recall.
+
+**One run cannot be archived: `on#1` (storyline `8e527250`).** Its world was deleted before
+archiving existed, so only its metrics row survives. That is the concrete cost of the
+retention mistake this experiment also made — worlds were kept *in the database* instead of
+being written out — and it is why the successor archives to a file and then tears the world
+down.

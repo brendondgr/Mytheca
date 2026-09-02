@@ -100,11 +100,16 @@ and it is also what the kill switch actually does in production.
    work with in turn 1, so a 3-turn scene offers only two opportunities.
 3. Metrics are computed from the persisted `events` and `turn_traces` rows — never from
    the stream — so a reload would produce the same numbers.
-4. **The worlds are kept, not torn down.** Each run records its `storylineId`, `scenarioId`
-   and `sessionId` so the exact rows behind every number can be re-read. A deleted storyline
-   takes its events, traces and memories with it, which would leave the record
-   un-examinable — the one thing this contract exists to prevent. Cleaning them up later is
-   a `DELETE /storylines/{id}` per row in `data/runs.jsonl`.
+4. **Each run is archived to a file, then its world is torn down.** `data/sessions/{arm}-{run}.json`
+   carries the app's own session export plus the `character_memories` rows, so every row
+   behind every number stays readable without leaving scaffolding in the author's library.
+
+   *This was the reverse when the runs were made: worlds were kept and nothing was written
+   out.* The instinct was right and the place was wrong — a dev database is not a research
+   record, and it proved the point directly, since one of `EXP-2026-09-001`'s four worlds had
+   already been deleted by the time anyone looked. The archives here were back-filled from
+   the surviving worlds before they were removed; all four of this experiment's runs were
+   still present, so nothing was lost. Later runs archive as they go.
 
 ## Reporting rules
 

@@ -175,6 +175,60 @@ def measure(session_id: str) -> dict:
         db.close()
 
 
+def archive(session_id: str, arm: str, run: int) -> str:
+    """Write the whole play-through to a file, so deleting the world costs the record nothing.
+
+    **A dev database is not a research record.** The first version of this runner kept its
+    worlds so the rows behind every number stayed readable, which was the right instinct
+    aimed at the wrong place: it left a growing pile of throwaway storylines in the author's
+    library, and it was fragile besides — one of `EXP-2026-09-001`'s four worlds had already
+    been deleted by the time anyone looked. A file under `data/sessions/` is the artifact
+    that actually satisfies the contract.
+
+    Carries the app's own session export (`session_export.render_json`, so a run reads the
+    way an exported scene does) plus the `character_memories` rows, which that exporter has
+    no reason to know about and which are the whole subject here.
+    """
+    from app.core.db import SessionLocal
+    from app.models import Character, CharacterMemory, Event, PlaySession, Scenario, TurnTrace
+    from app.services import session_export
+
+    db = SessionLocal()
+    try:
+        session = db.get(PlaySession, session_id)
+        scenario = db.get(Scenario, session.scenario_id)
+        events = db.query(Event).filter(Event.session_id == session_id).order_by(Event.seq).all()
+        traces = (
+            db.query(TurnTrace)
+            .filter(TurnTrace.session_id == session_id)
+            .order_by(TurnTrace.turn, TurnTrace.n)
+            .all()
+        )
+        names = {c.id: c.name for c in db.query(Character).all()}
+        memories = [
+            {
+                "id": m.id, "character": names.get(m.character_id, m.character_id),
+                "turnSeq": m.turn_seq, "gloss": m.gloss, "quote": m.quote,
+                "quoteSpeaker": names.get(m.quote_speaker_id or "", m.quote_speaker_id),
+                "salience": m.salience, "valence": m.valence,
+                "subjects": list(m.subjects or []), "reinforcements": m.reinforcements,
+            }
+            for m in db.query(CharacterMemory)
+            .filter(CharacterMemory.session_id == session_id)
+            .order_by(CharacterMemory.turn_seq)
+            .all()
+        ]
+        payload = json.loads(session_export.render_json(scenario, session, events, traces, names))
+        payload["characterMemories"] = memories
+    finally:
+        db.close()
+
+    out = EXPERIMENT / "data" / "sessions" / f"{arm}-{run}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    return str(out.relative_to(EXPERIMENT))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--arm", required=True, choices=["on", "off"])
@@ -182,11 +236,11 @@ def main() -> int:
     ap.add_argument("--run", type=int, required=True)
     ap.add_argument("--turns", type=int, default=len(TURNS))
     ap.add_argument(
-        "--delete-world",
+        "--keep-world",
         action="store_true",
-        help="Tear the world down afterwards. OFF by default: the contract's whole point is "
-        "that a recorded run can be re-examined, and a deleted storyline takes its events, "
-        "traces and memories with it.",
+        help="Leave the throwaway storyline in the library afterwards. Off by default: the "
+        "run is archived to data/sessions/ first, so the record survives the teardown and "
+        "the author's library does not fill up with scaffolding.",
     )
     args = ap.parse_args()
     try:
@@ -212,8 +266,11 @@ def main() -> int:
             broken.extend(f"turn {i}: {e}" for e in errs)
             print(f"[{args.arm}#{args.run}] turn {i} done ({len(errs)} error frame(s))")
         row = measure(session or "")
+        # Archive BEFORE the teardown, and let a failure to archive stop the teardown: a
+        # world deleted with nothing written out is a run that happened and cannot be read.
+        row["archive"] = archive(session or "", args.arm, args.run)
     finally:
-        if args.delete_world:
+        if not args.keep_world:
             api.delete(f"/storylines/{storyline}")
 
     row.update({

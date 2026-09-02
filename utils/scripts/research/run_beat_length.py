@@ -45,7 +45,7 @@ from .record import (
     write_environment,
     write_metrics,
 )
-from .run_conversation_scaling import API, PLAYER_LINES, _patch, _post
+from .run_conversation_scaling import API, PLAYER_LINES, _patch, _post, delete_world
 from .run_prose_end_to_end import (
     CHARACTER_KINDS,
     METRIC_KEYS,
@@ -167,49 +167,55 @@ def main() -> int:
 
     # Interleaved BY TURN: every arm plays turn N before any arm plays turn N+1, so a drift
     # in endpoint state spreads across the arms instead of landing on whichever ran last.
-    for turn in range(1, args.turns + 1):
-        text = PLAYER_LINES[(turn - 1) % len(PLAYER_LINES)]
-        for arm, scenario in zip(ARMS, scenarios, strict=True):
-            try:
-                got = drive_turn(scenario, sessions[arm], text)
-            except (urllib.error.URLError, TimeoutError, OSError) as exc:
-                failed_turns += 1
-                record.note(f"{arm} turn {turn} FAILED: {exc.__class__.__name__}: {exc}")
-                record.add_run({"arm": arm, "turn": turn, "error": f"{exc.__class__.__name__}"})
-                print(f"{arm:<7} turn {turn:>2}: FAILED {exc}", flush=True)
-                continue
-            sessions[arm] = got["session_id"] or sessions[arm]
-            if got["error"]:
-                record.note(f"{arm} turn {turn} returned an error frame: {got['error']}")
+    # Wrapped so the throwaway world is torn down however the run ends. A measurement's
+    # scaffolding is not something to leave sitting in the author's library.
+    try:
+        for turn in range(1, args.turns + 1):
+            text = PLAYER_LINES[(turn - 1) % len(PLAYER_LINES)]
+            for arm, scenario in zip(ARMS, scenarios, strict=True):
+                try:
+                    got = drive_turn(scenario, sessions[arm], text)
+                except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                    failed_turns += 1
+                    record.note(f"{arm} turn {turn} FAILED: {exc.__class__.__name__}: {exc}")
+                    record.add_run({"arm": arm, "turn": turn, "error": f"{exc.__class__.__name__}"})
+                    print(f"{arm:<7} turn {turn:>2}: FAILED {exc}", flush=True)
+                    continue
+                sessions[arm] = got["session_id"] or sessions[arm]
+                if got["error"]:
+                    record.note(f"{arm} turn {turn} returned an error frame: {got['error']}")
 
-            for index, beat in enumerate(got["beats"]):
-                row = {
-                    "arm": arm,
-                    "turn": turn,
-                    "beat": index,
-                    "type": beat["type"],
-                    **measure(beat["text"]),
-                }
-                # Narration is recorded but excluded from the aggregate: it is third person,
-                # forbidden dialogue, and NOT governed by `beat_length` at all — mixing it in
-                # would dilute the very effect under test.
-                if beat["type"] in CHARACTER_KINDS:
-                    record.add_run(row)
-                transcript.append({**row, "text": beat["text"]})
+                for index, beat in enumerate(got["beats"]):
+                    row = {
+                        "arm": arm,
+                        "turn": turn,
+                        "beat": index,
+                        "type": beat["type"],
+                        **measure(beat["text"]),
+                    }
+                    # Narration is recorded but excluded from the aggregate: it is third person,
+                    # forbidden dialogue, and NOT governed by `beat_length` at all — mixing it in
+                    # would dilute the very effect under test.
+                    if beat["type"] in CHARACTER_KINDS:
+                        record.add_run(row)
+                    transcript.append({**row, "text": beat["text"]})
 
-            record.llm_calls += len(got["beats"])
-            chars = [b for b in got["beats"] if b["type"] in CHARACTER_KINDS]
-            paragraphs = [b["text"].count("\n\n") + 1 for b in chars]
-            lo, hi = TARGET_PARAGRAPHS[arm]
-            in_range = sum(1 for p in paragraphs if lo <= p <= hi)
-            print(
-                f"{arm:<7} turn {turn:>2}: beats={len(chars)} "
-                f"paras={paragraphs} in_range={in_range}/{len(chars)} "
-                f"chars={[len(b['text']) for b in chars]} "
-                f"discards={ {k: v for k, v in got['discards'].items() if v} } "
-                f"{got['elapsed_s']}s {got['error'] or ''}",
-                flush=True,
-            )
+                record.llm_calls += len(got["beats"])
+                chars = [b for b in got["beats"] if b["type"] in CHARACTER_KINDS]
+                paragraphs = [b["text"].count("\n\n") + 1 for b in chars]
+                lo, hi = TARGET_PARAGRAPHS[arm]
+                in_range = sum(1 for p in paragraphs if lo <= p <= hi)
+                print(
+                    f"{arm:<7} turn {turn:>2}: beats={len(chars)} "
+                    f"paras={paragraphs} in_range={in_range}/{len(chars)} "
+                    f"chars={[len(b['text']) for b in chars]} "
+                    f"discards={ {k: v for k, v in got['discards'].items() if v} } "
+                    f"{got['elapsed_s']}s {got['error'] or ''}",
+                    flush=True,
+                )
+    finally:
+        delete_world(storyline, record)
+
     record.wall_clock_seconds = time.monotonic() - started_all
 
     values: dict[str, Any] = {}

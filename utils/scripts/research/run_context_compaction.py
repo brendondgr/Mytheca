@@ -168,53 +168,59 @@ def _session_transcript(scenario: str, session: str) -> str:
 def run_scene(arm: str, index: int, turns: int) -> dict[str, Any]:
     """Plant, fill, probe. Returns one row — never an aggregate."""
     scenario, storyline = _build_scene(arm, index)
-    session: str | None = None
-    prompt_tokens: list[int] = []
-    reuse: list[float] = []
-    seconds: list[float] = []
-    started = time.monotonic()
+    # The scene's throwaway world is torn down however this returns — including the
+    # early return on a failed turn, which is the path that used to leak one world per
+    # failure. Nothing in `main` reads the storyline back off the row.
+    try:
+        session: str | None = None
+        prompt_tokens: list[int] = []
+        reuse: list[float] = []
+        seconds: list[float] = []
+        started = time.monotonic()
 
-    lines = [PLANT, *FILLER[: max(0, turns - 2)], PROBE]
-    for i, line in enumerate(lines):
-        row = run_turn(scenario, session, line)
-        session = row["session_id"]
-        if row.get("error"):
-            return {
-                "arm": arm, "scene": index, "status": "failed",
-                "failed_at_turn": i, "error": row["error"],
-            }
-        seconds.append(row["total_s"])
-        if isinstance(row.get("prompt_tokens_max"), int):
-            prompt_tokens.append(row["prompt_tokens_max"])
-        if isinstance(row.get("reuse_ratio_mean"), (int, float)):
-            reuse.append(float(row["reuse_ratio_mean"]))
+        lines = [PLANT, *FILLER[: max(0, turns - 2)], PROBE]
+        for i, line in enumerate(lines):
+            row = run_turn(scenario, session, line)
+            session = row["session_id"]
+            if row.get("error"):
+                return {
+                    "arm": arm, "scene": index, "status": "failed",
+                    "failed_at_turn": i, "error": row["error"],
+                }
+            seconds.append(row["total_s"])
+            if isinstance(row.get("prompt_tokens_max"), int):
+                prompt_tokens.append(row["prompt_tokens_max"])
+            if isinstance(row.get("reuse_ratio_mean"), (int, float)):
+                reuse.append(float(row["reuse_ratio_mean"]))
 
-    # Counted from the session's own trace rows rather than threaded through the shared
-    # `run_turn` (which EXP-2026-08-005 also uses): a runner two experiments depend on is the
-    # wrong place to add a field only one of them reads.
-    recap_calls = _compaction_calls(scenario, session or "")
+        # Counted from the session's own trace rows rather than threaded through the shared
+        # `run_turn` (which EXP-2026-08-005 also uses): a runner two experiments depend on is the
+        # wrong place to add a field only one of them reads.
+        recap_calls = _compaction_calls(scenario, session or "")
 
-    # The probe's answer is the last turn's prose.
-    transcript = _session_transcript(scenario, session or "")
-    answer = transcript[-2000:]
-    score = _scored(answer)
+        # The probe's answer is the last turn's prose.
+        transcript = _session_transcript(scenario, session or "")
+        answer = transcript[-2000:]
+        score = _scored(answer)
 
-    return {
-        "arm": arm,
-        "scene": index,
-        "status": "ok",
-        "scenario": scenario,
-        "storyline": storyline,
-        "session": session,
-        "turns": len(lines),
-        "probe_score": round(score, 3),
-        "probe_hit": score >= 0.34,
-        "prompt_tokens_mean": round(statistics.fmean(prompt_tokens), 1) if prompt_tokens else None,
-        "reusable_prefix_share": round(statistics.fmean(reuse), 4) if reuse else None,
-        "recap_calls": recap_calls,
-        "turn_seconds_mean": round(statistics.fmean(seconds), 2) if seconds else None,
-        "wall_seconds": round(time.monotonic() - started, 1),
-    }
+        return {
+            "arm": arm,
+            "scene": index,
+            "status": "ok",
+            "scenario": scenario,
+            "storyline": storyline,
+            "session": session,
+            "turns": len(lines),
+            "probe_score": round(score, 3),
+            "probe_hit": score >= 0.34,
+            "prompt_tokens_mean": round(statistics.fmean(prompt_tokens), 1) if prompt_tokens else None,
+            "reusable_prefix_share": round(statistics.fmean(reuse), 4) if reuse else None,
+            "recap_calls": recap_calls,
+            "turn_seconds_mean": round(statistics.fmean(seconds), 2) if seconds else None,
+            "wall_seconds": round(time.monotonic() - started, 1),
+        }
+    finally:
+        scaling.delete_world(storyline)
 
 
 def main() -> int:

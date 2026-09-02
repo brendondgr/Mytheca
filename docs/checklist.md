@@ -329,6 +329,19 @@ Verified against the code on 2026-08-04.
   against an ordinary scene, and if it is inflation the fix is the floor constant in
   `memory_store`, not the prompt.
 
+- **A script that builds a throwaway world must tear it down, and a test now enforces it.**
+  Every smoke harness and research runner creates a real storyline against a real backend.
+  Three runners (`run_beat_length`, `run_context_compaction`, `run_conversation_scaling`)
+  shipped with no teardown, so each run left one behind until somebody deleted it by hand;
+  they now use the shared `run_conversation_scaling.delete_world` in a `finally`, and
+  `utils/tests/backend/data/test_script_teardown.py` fails on the next script that forgets.
+
+  `run_memory_callback` had the opposite default *on purpose* — keeping worlds so a recorded
+  run could be re-read — which was the right instinct aimed at the wrong place. It now
+  archives the play-through to `data/sessions/` and then deletes the world: a file in the
+  experiment folder is the artifact the research contract actually asks for, and a dev
+  database is not one. The old approach had already lost a world.
+
 - **The recall scorer is blind to whether a memory carries a quote.** `memory_recall.score`
   weighs salience, fade, reinforcement, presence and cues — and never asks whether the memory
   has the one thing that makes a verbatim callback possible. Suggested by

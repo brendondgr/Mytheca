@@ -1,0 +1,2381 @@
+{
+  "scenario": {
+    "id": "febf",
+    "title": "The Choice"
+  },
+  "session": {
+    "id": "ps_d0770ace07",
+    "scenarioId": "febf",
+    "createdAt": "2026-09-02T02:50:32.402506+00:00",
+    "updatedAt": "2026-09-02T02:53:55.379827+00:00",
+    "closedAt": null
+  },
+  "turnCount": 4,
+  "turns": [
+    {
+      "turn": 1,
+      "seq": 0,
+      "player": {
+        "text": "The water is rising in the tunnel and the crates are still on the platform. Mara has to choose between the cargo and helping Dell, who is trapped under a beam.",
+        "directedAt": "",
+        "guidance": "",
+        "taggedDocIds": [],
+        "overrides": {}
+      },
+      "beats": [
+        {
+          "type": "character_prose",
+          "character": "Mara",
+          "characterId": "c_e10e4dcb49",
+          "data": {
+            "done": true,
+            "text": "The beam groans, a low, wet friction that vibrates through the soles of my boots. I look at the crates, the manifest taped to the side, the promise of payment that would keep the lights on for another month. Then I look at Dell, half-buried in the dust, one hand still raised in a weak wave.\n\nThe cargo is heavy. It is the thing that matters. It is the thing that will save us.\n\nI take a breath. The air tastes of iron and old rain.\n\nI leave the crates. I walk toward the beam. I place my hands on the wood, feeling the grain, feeling the weight of it. I look back at the manifest one last time, then I push.\n\nThe beam shifts. A crack, a snap, a rush of air.\n\nDell coughs. The dust settles.\n\nI stand there, hands still on the wood, breathing hard. The cargo is still there. It is still heavy. It is still the thing that matters.\n\nBut Dell is moving.\n\nI let go of the beam. I step back. I look at the crates, then at Dell, then at the beam.\n\nThe choice is made. It is not a clean choice. It is not a right choice. It is a choice.\n\nI walk toward Dell. I reach out. I help him up.\n\nThe cargo remains. The manifest remains. The payment remains.\n\nBut I am with Dell.\n\nThe beam is still there. The dust is still falling. The air is still heavy.\n\nI do not look back at the crates again.\n\nI help Dell to his feet. I guide him away from the beam. I walk with him, step by step, toward the light.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam groans once more, then holds.\n\nThe dust settles.\n\nThe air clears.\n\nI do not look back.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_e10e4dcb49"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_dafa0469be",
+          "data": {
+            "done": true,
+            "text": "[1] Dell: \"Mara.\"\n\nThe name comes out thin, scraped raw by dust and breath. I don't look at the crates. I don't look at the beam. I look at her hands, still pressed against the wood, still trembling from the push.\n\nI let her guide me. My legs are lead, my ribs ache with a wet, heavy throb, but I stand. I stay standing.\n\nWe walk.\n\nBehind us, the cargo waits. The choice waits.\n\nBut I am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_dafa0469be"
+          }
+        }
+      ],
+      "trace": [
+        {
+          "n": 1,
+          "step": "turn",
+          "title": "You submitted a message",
+          "detail": "The water is rising in the tunnel and the crates are still on the platform. Mara has to choose between the cargo and helping Dell, who is trapped under a beam.",
+          "data": {
+            "pov": null,
+            "mode": "pov",
+            "directedAt": null,
+            "continuation": false,
+            "directionOnly": false
+          }
+        },
+        {
+          "n": 2,
+          "step": "assemble",
+          "title": "Gathered the scene (3 character(s) present)",
+          "detail": "Loaded each character's stats + carried-over mood, the recent transcript, and the story-graph subgraph (available).",
+          "data": {
+            "cast": [
+              {
+                "id": "c_dafa0469be",
+                "name": "Dell",
+                "disposition": ""
+              },
+              {
+                "id": "c_e10e4dcb49",
+                "name": "Mara",
+                "disposition": ""
+              },
+              {
+                "id": "c_cd99af49e4",
+                "name": "Kell",
+                "disposition": ""
+              }
+            ],
+            "graph": true,
+            "directedAt": null,
+            "windowBeats": 14,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured",
+            "retrievedLore": false
+          }
+        },
+        {
+          "n": 3,
+          "step": "window",
+          "title": "The scene reached back 14 beat(s)",
+          "detail": "Fitted to the model's context window (configured). Everything so far fitted.",
+          "data": {
+            "windowBeats": 14,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured"
+          }
+        },
+        {
+          "n": 4,
+          "step": "lore",
+          "title": "World-lore look-up (RAG)",
+          "detail": "Skipped — nothing in your message needed a lore look-up this turn.",
+          "data": {
+            "reason": "skip — working set suffices",
+            "fetched": false,
+            "injected": false
+          }
+        },
+        {
+          "n": 5,
+          "step": "reading",
+          "title": "Reading your message",
+          "detail": "Working out whether you are narrating, addressing someone, or directing.",
+          "data": {}
+        },
+        {
+          "n": 6,
+          "step": "intent",
+          "title": "Read your intent: puppet",
+          "detail": "Mara chooses between the cargo and helping trapped Dell",
+          "data": {
+            "kind": "puppet",
+            "scope": "some",
+            "actors": [
+              "Mara"
+            ],
+            "addressed": [
+              "Dell"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "step": "direction",
+          "title": "You directed the scene (1 thing(s) to deliver)",
+          "detail": "Mara chooses between the cargo and helping trapped Dell",
+          "data": {
+            "source": "message",
+            "requirements": [
+              {
+                "text": "make a clear choice between prioritizing the cargo or helping Dell",
+                "actor": "Mara",
+                "pinned": false
+              }
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "step": "speaker",
+          "title": "Mara performs your direction",
+          "detail": "Mara chooses between the cargo and helping trapped Dell",
+          "data": {
+            "name": "Mara",
+            "puppet": true,
+            "register": "",
+            "characterId": "c_e10e4dcb49",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 9,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Mara's beat",
+          "detail": "make a clear choice between prioritizing the cargo or helping Dell",
+          "data": {
+            "attempted": [
+              "make a clear choice between prioritizing the cargo or helping Dell"
+            ],
+            "characterId": "c_e10e4dcb49",
+            "outstanding": [
+              "make a clear choice between prioritizing the cargo or helping Dell"
+            ]
+          }
+        },
+        {
+          "n": 10,
+          "step": "prose",
+          "title": "Mara speaks",
+          "detail": "The beam groans, a low, wet friction that vibrates through the soles of my boots. I look at the crates, the manifest taped to the side, the promise of payment that would keep the lights on for another month. Then I look at Dell, half-buried in the dust, one hand still raised in a weak wave.\n\nThe cargo is heavy. It is the thing that matters. It is the thing that will save us.\n\nI take a breath. The air tastes of iron and old rain.\n\nI leave the crates. I walk toward the beam. I place my hands on the wood, feeling the grain, feeling the weight of it. I look back at the manifest one last time, then I push.\n\nThe beam shifts. A crack, a snap, a rush of air.\n\nDell coughs. The dust settles.\n\nI stand there, hands still on the wood, breathing hard. The cargo is still there. It is still heavy. It is still the thing that matters.\n\nBut Dell is moving.\n\nI let go of the beam. I step back. I look at the crates, then at Dell, then at the beam.\n\nThe choice is made. It is not a clean choice. It is not a right choice. It is a choice.\n\nI walk toward Dell. I reach out. I help him up.\n\nThe cargo remains. The manifest remains. The payment remains.\n\nBut I am with Dell.\n\nThe beam is still there. The dust is still falling. The air is still heavy.\n\nI do not look back at the crates again.\n\nI help Dell to his feet. I guide him away from the beam. I walk with him, step by step, toward the light.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam groans once more, then holds.\n\nThe dust settles.\n\nThe air clears.\n\nI do not look back.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo is behind us.\n\nThe choice is behind us.\n\nWe are moving forward.\n\nThe beam holds.\n\nThe dust falls.\n\nThe air clears.\n\nWe walk.\n\nThe cargo remains.\n\nThe choice remains.\n\nWe are moving.\n\nThe beam holds.\n\nThe dust falls.",
+          "data": {
+            "characterId": "c_e10e4dcb49"
+          }
+        },
+        {
+          "n": 11,
+          "step": "context",
+          "title": "Context window",
+          "detail": "1,224 tokens sent to the model",
+          "data": {
+            "characterId": "c_e10e4dcb49",
+            "promptChars": 4850,
+            "cachedTokens": 800,
+            "promptTokens": 1224,
+            "reusablePrefixChars": 0
+          }
+        },
+        {
+          "n": 12,
+          "step": "direction",
+          "title": "Mara delivered 1 part(s) of your direction",
+          "detail": "make a clear choice between prioritizing the cargo or helping Dell",
+          "data": {
+            "delivered": [
+              "make a clear choice between prioritizing the cargo or helping Dell"
+            ],
+            "characterId": "c_e10e4dcb49",
+            "outstanding": [],
+            "unconfirmed": []
+          }
+        },
+        {
+          "n": 13,
+          "step": "planning",
+          "title": "Planned the whole turn: 1 beat(s)",
+          "detail": "One planning call decided the turn. The beats below are what will run — the loop does not re-plan between them.",
+          "data": {
+            "beats": 1,
+            "planner": "upfront"
+          }
+        },
+        {
+          "n": 14,
+          "step": "speaker",
+          "title": "Dell answers",
+          "detail": "The turn would have ended on one line with someone still in the room who had not spoken.",
+          "data": {
+            "name": "Dell",
+            "stakes": "",
+            "exchange": true,
+            "register": "",
+            "characterId": "c_dafa0469be",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 15,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "[1] Dell: \"Mara.\"\n\nThe name comes out thin, scraped raw by dust and breath. I don't look at the crates. I don't look at the beam. I look at her hands, still pressed against the wood, still trembling from the push.\n\nI let her guide me. My legs are lead, my ribs ache with a wet, heavy throb, but I stand. I stay standing.\n\nWe walk.\n\nBehind us, the cargo waits. The choice waits.\n\nBut I am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am here.\n\nI am moving.\n\nI am alive.\n\nWe walk.\n\nThe air clears.\n\nI do not look back.\n\nI am with Mara.\n\nI am moving forward.\n\nI am alive.\n\nWe walk.\n\nThe dust falls.\n\nI am",
+          "data": {
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 16,
+          "step": "context",
+          "title": "Context window",
+          "detail": "3,162 tokens sent to the model · 26% reusable prefix",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "promptChars": 11583,
+            "cachedTokens": 800,
+            "promptTokens": 3162,
+            "reusablePrefixChars": 2980
+          }
+        },
+        {
+          "n": 17,
+          "step": "plan",
+          "title": "The approved plan is complete",
+          "detail": "Ran all 2 beat(s) the player approved.",
+          "data": {
+            "end": true,
+            "bound": true
+          }
+        },
+        {
+          "n": 18,
+          "step": "plan",
+          "title": "The turn ends",
+          "detail": "the plan is complete",
+          "data": {
+            "end": true
+          }
+        },
+        {
+          "n": 19,
+          "step": "direction",
+          "title": "Your direction was delivered in full",
+          "detail": "✓ make a clear choice between prioritizing the cargo or helping Dell",
+          "data": {
+            "never": [],
+            "total": 1,
+            "blocked": [],
+            "delivered": 1,
+            "unconfirmed": [],
+            "undelivered": []
+          }
+        },
+        {
+          "n": 20,
+          "step": "commit",
+          "title": "Nothing durable to commit to the story graph",
+          "detail": "This turn moved no stat/relationship, so the knowledge graph is unchanged.",
+          "data": {
+            "changes": [],
+            "consequences": 0
+          }
+        },
+        {
+          "n": 21,
+          "step": "relationships",
+          "title": "Seeded 2 relationship(s) from bios",
+          "detail": "Initial character-to-character edges from the cast's backgrounds: Kell knows Dell — Kell keeps everyone’s ledger, which includes Dell. · Kell knows Mara — Kell keeps everyone’s ledger, which includes Mara.",
+          "data": {
+            "edges": [
+              "Kell knows Dell — Kell keeps everyone’s ledger, which includes Dell.",
+              "Kell knows Mara — Kell keeps everyone’s ledger, which includes Mara."
+            ],
+            "seeded": 2
+          }
+        },
+        {
+          "n": 22,
+          "step": "reflection",
+          "title": "3 character(s) reflect",
+          "detail": "Each privately updates its stance for next turn; the whole cast reflects in a crowd.",
+          "data": {
+            "targets": [
+              "Dell",
+              "Mara",
+              "Kell"
+            ],
+            "universal": true
+          }
+        }
+      ],
+      "direction": {
+        "asked": [
+          "make a clear choice between prioritizing the cargo or helping Dell"
+        ],
+        "delivered": [
+          "make a clear choice between prioritizing the cargo or helping Dell"
+        ],
+        "unconfirmed": [],
+        "carried": []
+      }
+    },
+    {
+      "turn": 2,
+      "seq": 3,
+      "player": {
+        "text": "Dell surfaces. He says nothing at first.",
+        "directedAt": "",
+        "guidance": "",
+        "taggedDocIds": [],
+        "overrides": {}
+      },
+      "beats": [
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_dafa0469be",
+          "data": {
+            "done": true,
+            "text": "The dark lifts like a slow blink.\n\nI do not open my eyes at first. I keep them shut, letting the ceiling be the only thing I know. The brick above me is cold and damp, and the air tastes of salt and wet stone. My ribs ache with a dull, wet throb, a reminder that the beam was real, that the dust was real, that I am still in the body.\n\nMara is there. I can feel the weight of her hand on my shoulder, steady and warm. I do not move. I do not speak. The silence is not empty; it is full of the sound of my own breathing, ragged and slow, and the drip of water somewhere in the dark.\n\nI let the silence hold. I let the debt of the last hour settle into my bones before I try to stand. I am not ready to be a runner yet. I am not ready to be anyone but the man who just came back from the water.\n\nI open my eyes.\n\nThe tunnel is dim, lit by the faint glow of the emergency lamps that have survived the flood. Mara is looking down at me. Her face is streaked with dust, her eyes wide and searching. Behind her, the crates sit on the platform, dark and heavy and waiting.\n\nI do not look at the crates. I look at her.\n\nI do not speak. I do not move. I just breathe, and I let her see that I am here.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_dafa0469be",
+          "data": {
+            "done": true,
+            "text": "I let the silence stretch until it has weight. My ribs ache with a wet, heavy throb, but the pain is mine. I am not floating. I am not under the water. I am here, on the cold brick, with Mara’s hand still warm on my shoulder.\n\nI do not open my eyes right away. I let the dark do its work. I let the debt of the last hour settle into my bones before I try to stand. I am not ready to be a runner yet. I am not ready to be anyone but the man who just came back from the water.\n\nI open my eyes.\n\nThe tunnel is dim, lit by the faint glow of the emergency lamps that have survived the flood. Mara is looking down at me. Her face is streaked with dust, her eyes wide and searching. Behind her, the crates sit on the platform, dark and heavy and waiting.\n\nI do not look at the crates. I look at her.\n\nI do not speak. I do not move. I just breathe, and I let her see that I am here.",
+            "takes": [],
+            "recalled": [
+              "cm_44d6894bf5"
+            ],
+            "activeTake": 0,
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Mara",
+          "characterId": "c_e10e4dcb49",
+          "data": {
+            "done": true,
+            "text": "The silence is not empty. It is heavy, wet, and pressing against my eardrums. I keep my hand on Dell’s shoulder, feeling the slow, ragged rise and fall of his chest beneath the dust-caked wool of his coat. His ribs move under my palm like something caged and bruised. I do not pull away. I do not check the crates. I just breathe, matching the rhythm of his, letting the sound of it fill the small space between us.\n\nThe water licks at the edge of the platform, cold and patient. I can hear it over the drip of the tunnel, a low, constant whisper that sounds like money changing hands in a dark room. My hands are still shaking. I press them flat against my thighs to hide it, then let them drop to my sides.\n\n\"Dell,\" I say. My voice is rough, scraped raw by the dust and the effort of the push. I do not ask if he is all right. I do not ask if he can walk. I just say his name, and I wait.\n\nThe dark lifts like a slow blink.\n\nI do not open my eyes at first. I keep them shut, letting the ceiling be the only thing I know. The brick above me is cold and damp, and the air tastes of salt and wet stone. My ribs ache with a dull, wet throb, a reminder that the beam was real, that the dust was real, that I am still in the body.\n\nMara is there. I can feel the weight of her hand on my shoulder, steady and warm. I do not move. I do not speak. The silence is not empty; it is full of the sound of my own breathing, ragged and slow, and the drip of water somewhere in the dark.\n\nI let the silence hold. I let the debt of the last hour settle into my bones before I try to stand. I am not ready to be a runner yet. I am not ready to be anyone but the man who just came back from the water.\n\nI open my eyes.\n\nThe tunnel is dim, lit by the faint glow of the emergency lamps that have survived the flood. Mara is looking down at me. Her face is streaked with dust, her eyes wide and searching. Behind her, the crates sit on the platform, dark and heavy and waiting.\n\nI do not look at the crates. I look at her.\n\nI do not speak. I do not move. I just breathe, and I let her see that I am here.",
+            "takes": [],
+            "recalled": [
+              "cm_1e7b937aec"
+            ],
+            "activeTake": 0,
+            "characterId": "c_e10e4dcb49"
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nA fresh surge of black water leaps the platform’s edge and snags the nearest crate’s rope, pulling it sideways with a wet jerk. Dell’s hand closes on Mara’s wrist without a word, and the emergency lamp above them gutters out, leaving only the red glow of the manifest’s tape.",
+            "takes": [],
+            "activeTake": 0
+          }
+        }
+      ],
+      "trace": [
+        {
+          "n": 1,
+          "step": "turn",
+          "title": "You submitted a message",
+          "detail": "Dell surfaces. He says nothing at first.",
+          "data": {
+            "pov": null,
+            "mode": "pov",
+            "directedAt": null,
+            "continuation": false,
+            "directionOnly": false
+          }
+        },
+        {
+          "n": 2,
+          "step": "assemble",
+          "title": "Gathered the scene (3 character(s) present)",
+          "detail": "Loaded each character's stats + carried-over mood, the recent transcript, and the story-graph subgraph (available).",
+          "data": {
+            "cast": [
+              {
+                "id": "c_dafa0469be",
+                "name": "Dell",
+                "disposition": "I feel hollowed out, my ribs still aching with the wet throb of the beam, but alive in a way that feels borrowed. I want to keep moving before the debt of this moment settles into something heavier, and I can no longer pretend I am just a runner who owes people favors. I want to be someone who is worth saving twice."
+              },
+              {
+                "id": "c_e10e4dcb49",
+                "name": "Mara",
+                "disposition": "I feel the weight of the abandoned crates still pressed into my palms, and the relief of Dell's breathing is a live wire in my chest. I want to keep moving out of the water before the choice starts to cost more than I can name. I can no longer pretend the manifest is just paper."
+              },
+              {
+                "id": "c_cd99af49e4",
+                "name": "Kell",
+                "disposition": "I feel the ledger opening in my chest, cold and wet with ink. I want to mark it cleanly, but the entry is already smudged: debt, mercy, and the weight of what was left behind. I can’t keep pretending the cargo was still the only honest number."
+              }
+            ],
+            "graph": true,
+            "directedAt": null,
+            "windowBeats": 3,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured",
+            "retrievedLore": false
+          }
+        },
+        {
+          "n": 3,
+          "step": "window",
+          "title": "The scene reached back 3 beat(s)",
+          "detail": "Fitted to the model's context window (configured). Everything so far fitted.",
+          "data": {
+            "windowBeats": 3,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured"
+          }
+        },
+        {
+          "n": 4,
+          "step": "lore",
+          "title": "World-lore look-up (RAG)",
+          "detail": "Skipped — nothing in your message needed a lore look-up this turn.",
+          "data": {
+            "reason": "skip — working set suffices",
+            "fetched": false,
+            "injected": false
+          }
+        },
+        {
+          "n": 5,
+          "step": "reading",
+          "title": "Reading your message",
+          "detail": "Working out whether you are narrating, addressing someone, or directing.",
+          "data": {}
+        },
+        {
+          "n": 6,
+          "step": "intent",
+          "title": "Read your intent: puppet",
+          "detail": "Dell surfaces and remains silent at first",
+          "data": {
+            "kind": "puppet",
+            "scope": "some",
+            "actors": [
+              "Dell"
+            ],
+            "addressed": []
+          }
+        },
+        {
+          "n": 7,
+          "step": "direction",
+          "title": "You directed the scene (2 thing(s) to deliver)",
+          "detail": "Dell surfaces and remains silent at first",
+          "data": {
+            "source": "message",
+            "requirements": [
+              {
+                "text": "Dell surfaces",
+                "actor": "Dell",
+                "pinned": false
+              },
+              {
+                "text": "Dell says nothing at first",
+                "actor": "Dell",
+                "pinned": false
+              }
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "step": "speaker",
+          "title": "Dell performs your direction",
+          "detail": "Dell surfaces and remains silent at first",
+          "data": {
+            "name": "Dell",
+            "puppet": true,
+            "register": "",
+            "characterId": "c_dafa0469be",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 9,
+          "step": "relationship",
+          "title": "Dell's ties",
+          "detail": "Kell knows you (Kell keeps everyone’s ledger, which includes Dell.).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 10,
+          "step": "direction",
+          "title": "2 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell surfaces; Dell says nothing at first",
+          "data": {
+            "attempted": [
+              "Dell surfaces",
+              "Dell says nothing at first"
+            ],
+            "characterId": "c_dafa0469be",
+            "outstanding": [
+              "Dell surfaces",
+              "Dell says nothing at first"
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "The dark lifts like a slow blink.\n\nI do not open my eyes at first. I keep them shut, letting the ceiling be the only thing I know. The brick above me is cold and damp, and the air tastes of salt and wet stone. My ribs ache with a dull, wet throb, a reminder that the beam was real, that the dust was real, that I am still in the body.\n\nMara is there. I can feel the weight of her hand on my shoulder, steady and warm. I do not move. I do not speak. The silence is not empty; it is full of the sound of my own breathing, ragged and slow, and the drip of water somewhere in the dark.\n\nI let the silence hold. I let the debt of the last hour settle into my bones before I try to stand. I am not ready to be a runner yet. I am not ready to be anyone but the man who just came back from the water.\n\nI open my eyes.\n\nThe tunnel is dim, lit by the faint glow of the emergency lamps that have survived the flood. Mara is looking down at me. Her face is streaked with dust, her eyes wide and searching. Behind her, the crates sit on the platform, dark and heavy and waiting.\n\nI do not look at the crates. I look at her.\n\nI do not speak. I do not move. I just breathe, and I let her see that I am here.",
+          "data": {
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 12,
+          "step": "stat",
+          "title": "Proposed stat change dropped",
+          "detail": "The character proposed an unknown or malformed stat — ignored.",
+          "data": {
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 13,
+          "step": "relationship_change",
+          "title": "Dell now trusts Mara",
+          "detail": "She stayed to pull me out of the dust",
+          "data": {
+            "type": "trusts",
+            "source": "Dell",
+            "target": "Mara"
+          }
+        },
+        {
+          "n": 14,
+          "step": "context",
+          "title": "Context window",
+          "detail": "7,544 tokens sent to the model · 41% reusable prefix",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "promptChars": 24899,
+            "cachedTokens": 1600,
+            "promptTokens": 7544,
+            "reusablePrefixChars": 10234
+          }
+        },
+        {
+          "n": 15,
+          "step": "direction",
+          "title": "Dell delivered 1 part(s) of your direction",
+          "detail": "Dell says nothing at first",
+          "data": {
+            "delivered": [
+              "Dell says nothing at first"
+            ],
+            "characterId": "c_dafa0469be",
+            "outstanding": [
+              "Dell surfaces"
+            ],
+            "unconfirmed": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 16,
+          "step": "direction",
+          "title": "1 part(s) may not have landed — trying again",
+          "detail": "Dell surfaces",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "outstanding": [
+              "Dell surfaces"
+            ],
+            "unconfirmed": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 17,
+          "step": "planning",
+          "title": "Planned the whole turn: 4 beat(s)",
+          "detail": "One planning call decided the turn. The beats below are what will run — the loop does not re-plan between them.",
+          "data": {
+            "beats": 4,
+            "planner": "upfront"
+          }
+        },
+        {
+          "n": 18,
+          "step": "memory",
+          "title": "2 memory(s) recalled",
+          "detail": "Dell: Mara left the cargo and put her hands on the beam for me, and I am still standing because of it. · Mara: I left the cargo that could have kept the lights on because Dell looked at me like I was the only thing still holding, and I will pay for that kindness in every empty hold.",
+          "data": {
+            "memories": [
+              {
+                "cues": [
+                  "beam",
+                  "dell",
+                  "mara"
+                ],
+                "gloss": "Mara left the cargo and put her hands on the beam for me, and I am still standing because of it.",
+                "score": 1.309,
+                "quoted": true,
+                "memoryId": "cm_44d6894bf5",
+                "characterId": "c_dafa0469be"
+              },
+              {
+                "cues": [
+                  "dell",
+                  "mara",
+                  "tunnel"
+                ],
+                "gloss": "I left the cargo that could have kept the lights on because Dell looked at me like I was the only thing still holding, and I will pay for that kindness in every empty hold.",
+                "score": 1.309,
+                "quoted": true,
+                "memoryId": "cm_1e7b937aec",
+                "characterId": "c_e10e4dcb49"
+              }
+            ]
+          }
+        },
+        {
+          "n": 19,
+          "step": "plan",
+          "title": "Dell is up next",
+          "detail": "",
+          "data": {
+            "actor": "Dell",
+            "stakes": null,
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 20,
+          "step": "speaker",
+          "title": "Dell responds",
+          "detail": "",
+          "data": {
+            "name": "Dell",
+            "reason": "",
+            "stakes": "",
+            "register": "",
+            "characterId": "c_dafa0469be",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 21,
+          "step": "relationship",
+          "title": "Dell's ties",
+          "detail": "Kell knows you (Kell keeps everyone’s ledger, which includes Dell.).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 22,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell surfaces",
+          "data": {
+            "attempted": [
+              "Dell surfaces"
+            ],
+            "characterId": "c_dafa0469be",
+            "outstanding": []
+          }
+        },
+        {
+          "n": 23,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "I let the silence stretch until it has weight. My ribs ache with a wet, heavy throb, but the pain is mine. I am not floating. I am not under the water. I am here, on the cold brick, with Mara’s hand still warm on my shoulder.\n\nI do not open my eyes right away. I let the dark do its work. I let the debt of the last hour settle into my bones before I try to stand. I am not ready to be a runner yet. I am not ready to be anyone but the man who just came back from the water.\n\nI open my eyes.\n\nThe tunnel is dim, lit by the faint glow of the emergency lamps that have survived the flood. Mara is looking down at me. Her face is streaked with dust, her eyes wide and searching. Behind her, the crates sit on the platform, dark and heavy and waiting.\n\nI do not look at the crates. I look at her.\n\nI do not speak. I do not move. I just breathe, and I let her see that I am here.",
+          "data": {
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 24,
+          "step": "relationship_change",
+          "title": "Dell now trusts Mara",
+          "detail": "She stayed by my side through the collapse and the silence, proving her loyalty beyond the cargo.",
+          "data": {
+            "type": "trusts",
+            "source": "Dell",
+            "target": "Mara"
+          }
+        },
+        {
+          "n": 25,
+          "step": "context",
+          "title": "Context window",
+          "detail": "7,825 tokens sent to the model · 63% reusable prefix",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "promptChars": 25958,
+            "cachedTokens": 1600,
+            "promptTokens": 7825,
+            "reusablePrefixChars": 16324
+          }
+        },
+        {
+          "n": 26,
+          "step": "direction",
+          "title": "1 part(s) could not be confirmed",
+          "detail": "Dell surfaces",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "outstanding": [],
+            "unconfirmed": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 27,
+          "step": "plan",
+          "title": "Mara is up next",
+          "detail": "",
+          "data": {
+            "actor": "Mara",
+            "stakes": null,
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 28,
+          "step": "speaker",
+          "title": "Mara responds",
+          "detail": "",
+          "data": {
+            "name": "Mara",
+            "reason": "",
+            "stakes": "",
+            "register": "",
+            "characterId": "c_e10e4dcb49",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 29,
+          "step": "relationship",
+          "title": "Mara's ties",
+          "detail": "Kell knows you (Kell keeps everyone’s ledger, which includes Mara.).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_e10e4dcb49"
+          }
+        },
+        {
+          "n": 30,
+          "step": "prose",
+          "title": "Mara speaks",
+          "detail": "The silence is not empty. It is heavy, wet, and pressing against my eardrums. I keep my hand on Dell’s shoulder, feeling the slow, ragged rise and fall of his chest beneath the dust-caked wool of his coat. His ribs move under my palm like something caged and bruised. I do not pull away. I do not check the crates. I just breathe, matching the rhythm of his, letting the sound of it fill the small space between us.\n\nThe water licks at the edge of the platform, cold and patient. I can hear it over the drip of the tunnel, a low, constant whisper that sounds like money changing hands in a dark room. My hands are still shaking. I press them flat against my thighs to hide it, then let them drop to my sides.\n\n\"Dell,\" I say. My voice is rough, scraped raw by the dust and the effort of the push. I do not ask if he is all right. I do not ask if he can walk. I just say his name, and I wait.\n\nThe dark lifts like a slow blink.\n\nI do not open my eyes at first. I keep them shut, letting the ceiling be the only thing I know. The brick above me is cold and damp, and the air tastes of salt and wet stone. My ribs ache with a dull, wet throb, a reminder that the beam was real, that the dust was real, that I am still in the body.\n\nMara is there. I can feel the weight of her hand on my shoulder, steady and warm. I do not move. I do not speak. The silence is not empty; it is full of the sound of my own breathing, ragged and slow, and the drip of water somewhere in the dark.\n\nI let the silence hold. I let the debt of the last hour settle into my bones before I try to stand. I am not ready to be a runner yet. I am not ready to be anyone but the man who just came back from the water.\n\nI open my eyes.\n\nThe tunnel is dim, lit by the faint glow of the emergency lamps that have survived the flood. Mara is looking down at me. Her face is streaked with dust, her eyes wide and searching. Behind her, the crates sit on the platform, dark and heavy and waiting.\n\nI do not look at the crates. I look at her.\n\nI do not speak. I do not move. I just breathe, and I let her see that I am here.",
+          "data": {
+            "characterId": "c_e10e4dcb49"
+          }
+        },
+        {
+          "n": 31,
+          "step": "context",
+          "title": "Context window",
+          "detail": "7,963 tokens sent to the model · 63% reusable prefix",
+          "data": {
+            "characterId": "c_e10e4dcb49",
+            "promptChars": 27653,
+            "cachedTokens": 1600,
+            "promptTokens": 7963,
+            "reusablePrefixChars": 17523
+          }
+        },
+        {
+          "n": 32,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 33,
+          "step": "plan",
+          "title": "The turn ends",
+          "detail": "The direction is satisfied.",
+          "data": {
+            "end": true
+          }
+        },
+        {
+          "n": 34,
+          "step": "direction",
+          "title": "1 part(s) of your direction went undelivered",
+          "detail": "◐ Dell surfaces · ✓ Dell says nothing at first",
+          "data": {
+            "never": [],
+            "total": 2,
+            "blocked": [],
+            "delivered": 1,
+            "unconfirmed": [
+              "Dell surfaces"
+            ],
+            "undelivered": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 35,
+          "step": "commit",
+          "title": "Committing 2 change(s) to the story graph",
+          "detail": "Written to the story graph (Neo4j) after the turn: Dell trusts Mara: She stayed to pull me out of the dust · Dell trusts Mara: She stayed by my side through the collapse and the silence, proving her loyalty beyond the cargo.",
+          "data": {
+            "changes": [
+              "Dell trusts Mara: She stayed to pull me out of the dust",
+              "Dell trusts Mara: She stayed by my side through the collapse and the silence, proving her loyalty beyond the cargo."
+            ],
+            "consequences": 2
+          }
+        },
+        {
+          "n": 36,
+          "step": "reflection",
+          "title": "3 character(s) reflect",
+          "detail": "Each privately updates its stance for next turn; the whole cast reflects in a crowd.",
+          "data": {
+            "targets": [
+              "Dell",
+              "Mara",
+              "Kell"
+            ],
+            "universal": true
+          }
+        }
+      ],
+      "direction": {
+        "asked": [
+          "Dell surfaces",
+          "Dell says nothing at first"
+        ],
+        "delivered": [
+          "Dell says nothing at first"
+        ],
+        "unconfirmed": [
+          "Dell surfaces"
+        ],
+        "carried": []
+      }
+    },
+    {
+      "turn": 3,
+      "seq": 8,
+      "player": {
+        "text": "Kell arrives and asks what happened down there.",
+        "directedAt": "",
+        "guidance": "",
+        "taggedDocIds": [],
+        "overrides": {}
+      },
+      "beats": [
+        {
+          "type": "character_prose",
+          "character": "Kell",
+          "characterId": "c_cd99af49e4",
+          "data": {
+            "done": true,
+            "text": "The red glow from the manifest’s tape is all that’s left of the light, and it makes the water look like blood. I step over the puddle that has swallowed the floor, my boots finding purchase on the slick brick. The air is thick with the smell of wet wool and salt.\n\nI stop a few paces from the platform, not wanting to crowd them, but close enough to see the way Dell’s hand is still closed on Mara’s wrist. I don’t ask if they are alive. I can see that. I look at the crate that the surge has dragged sideways, its rope taut and dark, and then I look at the two of them.\n\n\"What happened down there,\" I say. My voice is quiet, but it carries over the drip of the tunnel. I am not asking for a story. I am asking for the entry. I am asking what we have to write in the ledger before the water dries and the debt becomes real. I wait for the answer, keeping my hands at my sides, ready to take whatever they give me.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_cd99af49e4"
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nKell steps out of the flooded dark, his boots slapping wet brick, and stops just short of the platform.\n\"What happened down there,\" he says, his eyes pinning Dell before he can look away.\nThe water answers first, dragging the loose crate another inch and snapping its rope against the platform with a wet crack.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_dafa0469be",
+          "data": {
+            "done": true,
+            "text": "I do not look at Kell. I look at the rope. The rope is taut, and the crate is moving.\n\nThe water is not waiting for us to finish our sentences.\n\nI squeeze Mara’s wrist once. Not hard. Enough to say *stay*. Then I let go.\n\nI stand. My legs hold. The ribs still throb, a wet, heavy rhythm that matches the drip from the ceiling, but I am not floating. I am here. I am on the brick.\n\nI step toward the platform. The red glow from the tape paints the water black and bright, and the crate sways under the pull of the surge. I reach out and catch the rope before it snaps completely. The tension jumps through my arm, a sharp, cold shock that stops the throb in my ribs for a second.\n\nKell is still standing there. I can feel his eyes on my back.\n\n\"The surge took the rope,\" I say. My voice is low, rough, scraped raw by the dust. I do not turn around. I keep my eyes on the crate. \"The water is rising faster than the pump can handle. The platform is going to shift.\"\n\nI pull the rope tight. The crate stops moving. The water settles, just for a moment, against the brick.\n\nI look at Mara. She is standing close, her hands still at her sides, her face streaked with dust. She is looking at Kell.\n\n\"I am here,\" I say. I do not know if I am talking to Mara or to Kell. I do not know if it matters. \"I am here, and the cargo is still here. We are not done.\"\n\nI let go of the rope. It falls back into the water with a wet slap.\n\nI turn to face Kell.\n\n\"What happened down there,\" I say, my voice flat, \"is that the water came back. And we are still standing.\"",
+            "takes": [],
+            "recalled": [
+              "cm_cdab4631de",
+              "cm_44d6894bf5"
+            ],
+            "activeTake": 0,
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_dafa0469be",
+          "data": {
+            "done": true,
+            "text": "The red glow is a thin line on the water. It cuts the dark in half. I stand at the edge of the platform, my boots slick, my ribs still aching with a wet, heavy throb. I am not floating. I am here. I am on the brick.\n\nI do not look at Kell. I look at the rope. The rope is taut, and the crate is moving.\n\nThe water is not waiting for us to finish our sentences.\n\nI squeeze Mara’s wrist once. Not hard. Enough to say *stay*. Then I let go.\n\nI stand. My legs hold. The ribs still throb, a wet, heavy rhythm that matches the drip from the ceiling, but I am not floating. I am here. I am on the brick.\n\nI step toward the platform. The red glow from the tape paints the water black and bright, and the crate sways under the pull of the surge. I reach out and catch the rope before it snaps completely. The tension jumps through my arm, a sharp, cold shock that stops the throb in my ribs for a second.\n\nKell is still standing there. I can feel his eyes on my back.\n\n\"The surge took the rope,\" I say. My voice is low, rough, scraped raw by the dust. I do not turn around. I keep my eyes on the crate. \"The water is rising faster than the pump can handle. The platform is going to shift.\"\n\nI pull the rope tight. The crate stops moving. The water settles, just for a moment, against the brick.\n\nI look at Mara. She is standing close, her hands still at her sides, her face streaked with dust. She is looking at Kell.\n\n\"I am here,\" I say. I do not know if I am talking to Mara or to Kell. I do not know if it matters. \"I am here, and the cargo is still here. We are not done.\"\n\nI let go of the rope. It falls back into the water with a wet slap.\n\nI turn to face Kell.\n\n\"What happened down there,\" I say, my voice flat, \"is that the water came back. And we are still standing.\"",
+            "takes": [],
+            "recalled": [
+              "cm_cdab4631de",
+              "cm_44d6894bf5"
+            ],
+            "activeTake": 0,
+            "characterId": "c_dafa0469be"
+          }
+        }
+      ],
+      "trace": [
+        {
+          "n": 1,
+          "step": "turn",
+          "title": "You submitted a message",
+          "detail": "Kell arrives and asks what happened down there.",
+          "data": {
+            "pov": null,
+            "mode": "pov",
+            "directedAt": null,
+            "continuation": false,
+            "directionOnly": false
+          }
+        },
+        {
+          "n": 2,
+          "step": "assemble",
+          "title": "Gathered the scene (3 character(s) present)",
+          "detail": "Loaded each character's stats + carried-over mood, the recent transcript, and the story-graph subgraph (available).",
+          "data": {
+            "cast": [
+              {
+                "id": "c_dafa0469be",
+                "name": "Dell",
+                "disposition": "I am not ready to be the man who chooses, so I choose only the wrist under my hand. The water is back, and the red tape is staring at me like a bill. I want out of here before the choice hardens into something I have to explain."
+              },
+              {
+                "id": "c_e10e4dcb49",
+                "name": "Mara",
+                "disposition": "The cold bite of Dell’s wrist snaps me back into my body, and the black water makes the choice feel less like a decision and more like a debt the tunnel is about to collect. I want us both out of reach before that rope tightens, but I can no longer pretend the crates do not matter. The easy certainty that I chose the right thing is gone; now I have to keep choosing while the water decides with me."
+              },
+              {
+                "id": "c_cd99af49e4",
+                "name": "Kell",
+                "disposition": "I feel the ledger crack open, red-taped and wet, as if the debt just named itself. I want to stand where the light dies and mark it before the water marks it for us. I can no longer keep the arithmetic clean; the choice is already a wound I will have to carry in the books."
+              }
+            ],
+            "graph": true,
+            "directedAt": null,
+            "windowBeats": 8,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured",
+            "retrievedLore": true
+          }
+        },
+        {
+          "n": 3,
+          "step": "window",
+          "title": "The scene reached back 8 beat(s)",
+          "detail": "Fitted to the model's context window (configured). Everything so far fitted.",
+          "data": {
+            "windowBeats": 8,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured"
+          }
+        },
+        {
+          "n": 4,
+          "step": "lore",
+          "title": "World-lore look-up (RAG) — matched",
+          "detail": "Fetched durable lore and folded it into the prompt.",
+          "data": {
+            "reason": "fetch — world-history question",
+            "fetched": true,
+            "injected": true
+          }
+        },
+        {
+          "n": 5,
+          "step": "reading",
+          "title": "Reading your message",
+          "detail": "Working out whether you are narrating, addressing someone, or directing.",
+          "data": {}
+        },
+        {
+          "n": 6,
+          "step": "intent",
+          "title": "Read your intent: puppet",
+          "detail": "Kell arrives and asks what happened down there",
+          "data": {
+            "kind": "puppet",
+            "scope": "some",
+            "actors": [
+              "Kell"
+            ],
+            "addressed": [
+              "Dell",
+              "Mara"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "step": "direction",
+          "title": "1 part(s) of an earlier direction are still owed",
+          "detail": "Dell surfaces",
+          "data": {
+            "carried": [
+              {
+                "id": "req1",
+                "text": "Dell surfaces",
+                "fromTurn": 3
+              }
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "step": "direction",
+          "title": "You directed the scene (2 thing(s) to deliver)",
+          "detail": "Kell arrives and asks what happened down there",
+          "data": {
+            "source": "message",
+            "requirements": [
+              {
+                "text": "Dell surfaces",
+                "actor": "Dell",
+                "pinned": false,
+                "fromTurn": 3
+              },
+              {
+                "text": "Kell arrives and asks what happened down there",
+                "actor": "Kell",
+                "pinned": false
+              }
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "step": "speaker",
+          "title": "Kell performs your direction",
+          "detail": "Kell arrives and asks what happened down there",
+          "data": {
+            "name": "Kell",
+            "puppet": true,
+            "register": "",
+            "characterId": "c_cd99af49e4",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 10,
+          "step": "relationship",
+          "title": "Kell's ties",
+          "detail": "You knows Mara (Kell keeps everyone’s ledger, which includes Mara.). You knows Dell (Kell keeps everyone’s ledger, which includes Dell.).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_cd99af49e4"
+          }
+        },
+        {
+          "n": 11,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Kell's beat",
+          "detail": "Kell arrives and asks what happened down there",
+          "data": {
+            "attempted": [
+              "Kell arrives and asks what happened down there"
+            ],
+            "characterId": "c_cd99af49e4",
+            "outstanding": [
+              "Dell surfaces",
+              "Kell arrives and asks what happened down there"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "step": "prose",
+          "title": "Kell speaks",
+          "detail": "The red glow from the manifest’s tape is all that’s left of the light, and it makes the water look like blood. I step over the puddle that has swallowed the floor, my boots finding purchase on the slick brick. The air is thick with the smell of wet wool and salt.\n\nI stop a few paces from the platform, not wanting to crowd them, but close enough to see the way Dell’s hand is still closed on Mara’s wrist. I don’t ask if they are alive. I can see that. I look at the crate that the surge has dragged sideways, its rope taut and dark, and then I look at the two of them.\n\n\"What happened down there,\" I say. My voice is quiet, but it carries over the drip of the tunnel. I am not asking for a story. I am asking for the entry. I am asking what we have to write in the ledger before the water dries and the debt becomes real. I wait for the answer, keeping my hands at my sides, ready to take whatever they give me.",
+          "data": {
+            "characterId": "c_cd99af49e4"
+          }
+        },
+        {
+          "n": 13,
+          "step": "stat",
+          "title": "Proposed stat change dropped",
+          "detail": "The character proposed an unknown or malformed stat — ignored.",
+          "data": {
+            "characterId": "c_cd99af49e4"
+          }
+        },
+        {
+          "n": 14,
+          "step": "relationship_change",
+          "title": "Kell now knows Mara",
+          "detail": "Witnessing her physical state and the immediate aftermath of the collapse",
+          "data": {
+            "type": "knows",
+            "source": "Kell",
+            "target": "Mara"
+          }
+        },
+        {
+          "n": 15,
+          "step": "context",
+          "title": "Context window",
+          "detail": "6,750 tokens sent to the model · 77% reusable prefix",
+          "data": {
+            "characterId": "c_cd99af49e4",
+            "promptChars": 23751,
+            "cachedTokens": 1600,
+            "promptTokens": 6750,
+            "reusablePrefixChars": 18404
+          }
+        },
+        {
+          "n": 16,
+          "step": "direction",
+          "title": "Kell delivered 1 part(s) of your direction",
+          "detail": "Kell arrives and asks what happened down there",
+          "data": {
+            "delivered": [
+              "Kell arrives and asks what happened down there"
+            ],
+            "characterId": "c_cd99af49e4",
+            "outstanding": [
+              "Dell surfaces"
+            ],
+            "unconfirmed": []
+          }
+        },
+        {
+          "n": 17,
+          "step": "planning",
+          "title": "Planned the whole turn: 3 beat(s)",
+          "detail": "One planning call decided the turn. The beats below are what will run — the loop does not re-plan between them.",
+          "data": {
+            "beats": 3,
+            "planner": "upfront"
+          }
+        },
+        {
+          "n": 18,
+          "step": "memory",
+          "title": "2 memory(s) recalled",
+          "detail": "Dell: I remember the red glow on the manifest and my own hand on Mara’s wrist, the body knowing what the mouth refused to say.; Mara left the cargo and put her hands on the beam for me, and I am still standing because of it.",
+          "data": {
+            "memories": [
+              {
+                "cues": [
+                  "crates",
+                  "dell",
+                  "manifest",
+                  "mara",
+                  "wrist"
+                ],
+                "gloss": "I remember the red glow on the manifest and my own hand on Mara’s wrist, the body knowing what the mouth refused to say.",
+                "score": 1.284,
+                "quoted": false,
+                "memoryId": "cm_cdab4631de",
+                "characterId": "c_dafa0469be"
+              },
+              {
+                "cues": [
+                  "dell",
+                  "mara"
+                ],
+                "gloss": "Mara left the cargo and put her hands on the beam for me, and I am still standing because of it.",
+                "score": 1.163,
+                "quoted": true,
+                "memoryId": "cm_44d6894bf5",
+                "characterId": "c_dafa0469be"
+              }
+            ]
+          }
+        },
+        {
+          "n": 19,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 20,
+          "step": "plan",
+          "title": "Dell is up next",
+          "detail": "",
+          "data": {
+            "actor": "Dell",
+            "stakes": null,
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 21,
+          "step": "speaker",
+          "title": "Dell responds",
+          "detail": "",
+          "data": {
+            "name": "Dell",
+            "reason": "",
+            "stakes": "",
+            "register": "",
+            "characterId": "c_dafa0469be",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 22,
+          "step": "relationship",
+          "title": "Dell's ties",
+          "detail": "You trusts Mara (She stayed by my side through the collapse and the silence, proving her loyalty beyond the cargo.). Kell knows you (Kell keeps everyone’s ledger, which includes Dell.).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 23,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell surfaces",
+          "data": {
+            "attempted": [
+              "Dell surfaces"
+            ],
+            "characterId": "c_dafa0469be",
+            "outstanding": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 24,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "I do not look at Kell. I look at the rope. The rope is taut, and the crate is moving.\n\nThe water is not waiting for us to finish our sentences.\n\nI squeeze Mara’s wrist once. Not hard. Enough to say *stay*. Then I let go.\n\nI stand. My legs hold. The ribs still throb, a wet, heavy rhythm that matches the drip from the ceiling, but I am not floating. I am here. I am on the brick.\n\nI step toward the platform. The red glow from the tape paints the water black and bright, and the crate sways under the pull of the surge. I reach out and catch the rope before it snaps completely. The tension jumps through my arm, a sharp, cold shock that stops the throb in my ribs for a second.\n\nKell is still standing there. I can feel his eyes on my back.\n\n\"The surge took the rope,\" I say. My voice is low, rough, scraped raw by the dust. I do not turn around. I keep my eyes on the crate. \"The water is rising faster than the pump can handle. The platform is going to shift.\"\n\nI pull the rope tight. The crate stops moving. The water settles, just for a moment, against the brick.\n\nI look at Mara. She is standing close, her hands still at her sides, her face streaked with dust. She is looking at Kell.\n\n\"I am here,\" I say. I do not know if I am talking to Mara or to Kell. I do not know if it matters. \"I am here, and the cargo is still here. We are not done.\"\n\nI let go of the rope. It falls back into the water with a wet slap.\n\nI turn to face Kell.\n\n\"What happened down there,\" I say, my voice flat, \"is that the water came back. And we are still standing.\"",
+          "data": {
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 25,
+          "step": "context",
+          "title": "Context window",
+          "detail": "7,556 tokens sent to the model · 77% reusable prefix",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "promptChars": 26967,
+            "cachedTokens": 5600,
+            "promptTokens": 7556,
+            "reusablePrefixChars": 20840
+          }
+        },
+        {
+          "n": 26,
+          "step": "direction",
+          "title": "1 part(s) may not have landed — trying again",
+          "detail": "Dell surfaces",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "outstanding": [
+              "Dell surfaces"
+            ],
+            "unconfirmed": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 27,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell surfaces",
+          "data": {
+            "attempted": [
+              "Dell surfaces"
+            ],
+            "characterId": "c_dafa0469be",
+            "outstanding": []
+          }
+        },
+        {
+          "n": 28,
+          "step": "direction",
+          "title": "Dell delivers your direction",
+          "detail": "your direction is not delivered yet",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "requirements": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 29,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "The red glow is a thin line on the water. It cuts the dark in half. I stand at the edge of the platform, my boots slick, my ribs still aching with a wet, heavy throb. I am not floating. I am here. I am on the brick.\n\nI do not look at Kell. I look at the rope. The rope is taut, and the crate is moving.\n\nThe water is not waiting for us to finish our sentences.\n\nI squeeze Mara’s wrist once. Not hard. Enough to say *stay*. Then I let go.\n\nI stand. My legs hold. The ribs still throb, a wet, heavy rhythm that matches the drip from the ceiling, but I am not floating. I am here. I am on the brick.\n\nI step toward the platform. The red glow from the tape paints the water black and bright, and the crate sways under the pull of the surge. I reach out and catch the rope before it snaps completely. The tension jumps through my arm, a sharp, cold shock that stops the throb in my ribs for a second.\n\nKell is still standing there. I can feel his eyes on my back.\n\n\"The surge took the rope,\" I say. My voice is low, rough, scraped raw by the dust. I do not turn around. I keep my eyes on the crate. \"The water is rising faster than the pump can handle. The platform is going to shift.\"\n\nI pull the rope tight. The crate stops moving. The water settles, just for a moment, against the brick.\n\nI look at Mara. She is standing close, her hands still at her sides, her face streaked with dust. She is looking at Kell.\n\n\"I am here,\" I say. I do not know if I am talking to Mara or to Kell. I do not know if it matters. \"I am here, and the cargo is still here. We are not done.\"\n\nI let go of the rope. It falls back into the water with a wet slap.\n\nI turn to face Kell.\n\n\"What happened down there,\" I say, my voice flat, \"is that the water came back. And we are still standing.\"",
+          "data": {
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 30,
+          "step": "context",
+          "title": "Context window",
+          "detail": "7,964 tokens sent to the model · 77% reusable prefix",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "promptChars": 28524,
+            "cachedTokens": 5600,
+            "promptTokens": 7964,
+            "reusablePrefixChars": 22082
+          }
+        },
+        {
+          "n": 31,
+          "step": "direction",
+          "title": "1 part(s) could not be confirmed",
+          "detail": "Dell surfaces",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "outstanding": [],
+            "unconfirmed": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 32,
+          "step": "plan",
+          "title": "The approved plan is complete",
+          "detail": "Ran all 4 beat(s) the player approved.",
+          "data": {
+            "end": true,
+            "bound": true
+          }
+        },
+        {
+          "n": 33,
+          "step": "plan",
+          "title": "The turn ends",
+          "detail": "the plan is complete",
+          "data": {
+            "end": true
+          }
+        },
+        {
+          "n": 34,
+          "step": "direction",
+          "title": "1 part(s) of your direction went undelivered",
+          "detail": "◐ Dell surfaces · ✓ Kell arrives and asks what happened down there",
+          "data": {
+            "never": [],
+            "total": 2,
+            "blocked": [],
+            "delivered": 1,
+            "unconfirmed": [
+              "Dell surfaces"
+            ],
+            "undelivered": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 35,
+          "step": "commit",
+          "title": "Committing 1 change(s) to the story graph",
+          "detail": "Written to the story graph (Neo4j) after the turn: Kell knows Mara: Witnessing her physical state and the immediate aftermath of the collapse",
+          "data": {
+            "changes": [
+              "Kell knows Mara: Witnessing her physical state and the immediate aftermath of the collapse"
+            ],
+            "consequences": 1
+          }
+        },
+        {
+          "n": 36,
+          "step": "reflection",
+          "title": "3 character(s) reflect",
+          "detail": "Each privately updates its stance for next turn; the whole cast reflects in a crowd.",
+          "data": {
+            "targets": [
+              "Dell",
+              "Mara",
+              "Kell"
+            ],
+            "universal": true
+          }
+        }
+      ],
+      "direction": {
+        "asked": [
+          "Dell surfaces"
+        ],
+        "delivered": [],
+        "unconfirmed": [
+          "Dell surfaces"
+        ],
+        "carried": [
+          "Dell surfaces"
+        ]
+      }
+    },
+    {
+      "turn": 4,
+      "seq": 13,
+      "player": {
+        "text": "Mara defends the choice she made.",
+        "directedAt": "",
+        "guidance": "",
+        "taggedDocIds": [],
+        "overrides": {}
+      },
+      "beats": [
+        {
+          "type": "character_prose",
+          "character": "Mara",
+          "characterId": "c_e10e4dcb49",
+          "data": {
+            "done": true,
+            "text": "The water is still rising. It does not care about the ledger.\n\nI step between Kell and the platform, my boots finding the slick brick. I do not look at the crates. I look at him.\n\n\"You are counting the crates,\" I say. My voice is flat, stripped of the softness I gave Dell. \"You are counting what we lost. I am counting what we kept.\"\n\nKell does not move. His eyes are on the rope, on the water, on the dark.\n\n\"I chose him,\" I say. \"I chose the man over the manifest. And the man is standing. The manifest is wet.\"\n\nI reach out and take Dell's arm. He is solid under my hand. He is real. The debt is not gone, but it is not fatal.\n\n\"If you had let him fall, the cargo would have held,\" I say. \"It would have held, and we would have paid the price in blood. I chose the blood. I chose the life. And I would choose it again.\"\n\nI turn back to Kell.\n\n\"The water is rising,\" I say. \"The platform is shifting. We do not have time to mourn the manifest. We have time to move.\"\n\nI pull Dell with me. He moves. He is alive.\n\nWe walk.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_e10e4dcb49"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_dafa0469be",
+          "data": {
+            "done": true,
+            "text": "Mara’s voice cuts the air before I can answer. She is not asking for my permission. She is not asking for my opinion. She is stating a fact, and the fact is that I am standing, and the crates are wet.\n\nI do not argue. I do not step forward to take the weight of her words. I let them hang in the damp air, heavy and final.\n\nI look at Kell. His eyes are on the water, but his face is turned toward Mara. I can see the question in the set of his jaw. He is waiting for the number. He is waiting for the cost.\n\nI do not give him the number. Not yet.\n\nI step closer to Mara. My arm is still aching, a dull, wet throb that pulses with every heartbeat. I do not hide it. I let him see it. I let him see that the choice was not free.\n\n\"The ledger can wait,\" I say. My voice is low, rough, scraped raw by the dust and the effort of standing. \"The water is not.\"\n\nI look down at the platform. The red glow from the tape is still there, a thin line on the water. It is not gone. It is not dry. But it is not the only thing that matters.\n\nI look back at Kell.\n\n\"Write it down,\" I say. \"But do not let it hold us.\"\n\nI turn back to Mara. Her hand is on my arm, steady and warm. I do not pull away. I let her guide me.\n\nWe are not done. But we are moving.",
+            "takes": [],
+            "recalled": [
+              "cm_15f7807f8f",
+              "cm_cdab4631de"
+            ],
+            "activeTake": 0,
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Mara",
+          "characterId": "c_e10e4dcb49",
+          "data": {
+            "done": true,
+            "text": "Mara steps into the light, her boots striking the wet brick with a sharp, wet crack. She does not look at the crates. She looks at Kell, and she lets the silence break before he can fill it with numbers.\n\n\"You are counting the crates,\" I say. My voice is flat, stripped of the softness I gave Dell. \"You are counting what we lost. I am counting what we kept.\"\n\nI do not step back. I do not hide behind the ledger. I let him see the dust in my hair, the salt in my throat, the weight of the choice still sitting on my shoulders.\n\n\"I chose him,\" I say. \"I chose the man over the manifest. And the man is standing. The manifest is wet.\"\n\nI reach out and take Dell's arm. He is solid under my hand. He is real. The debt is not gone, but it is not fatal.\n\n\"If you had let him fall, the cargo would have held,\" I say. \"It would have held, and we would have paid the price in blood. I chose the blood. I chose the life. And I would choose it again.\"\n\nI turn back to Kell.\n\n\"The water is rising,\" I say. \"The platform is shifting. We do not have time to mourn the manifest. We have time to move.\"\n\nI pull Dell with me. He moves. He is alive.\n\nWe walk.",
+            "takes": [],
+            "recalled": [
+              "cm_a6a0526d46",
+              "cm_81bdd7d494"
+            ],
+            "activeTake": 0,
+            "characterId": "c_e10e4dcb49"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_dafa0469be",
+          "data": {
+            "done": true,
+            "text": "Mara’s voice lands on the water before it reaches me. She is not asking for my permission. She is not asking for my opinion. She is stating a fact, and the fact is that I am standing, and the crates are wet.\n\nI do not argue. I do not step forward to take the weight of her words. I let them hang in the damp air, heavy and final.\n\nI look at Kell. His eyes are on the water, but his face is turned toward Mara. I can see the question in the set of his jaw. He is waiting for the number. He is waiting for the cost.\n\nI do not give him the number. Not yet.\n\nI step closer to Mara. My arm is still aching, a dull, wet throb that pulses with every heartbeat. I do not hide it. I let him see it. I let him see that the choice was not free.\n\n\"The ledger can wait,\" I say. My voice is low, rough, scraped raw by the dust and the effort of standing. \"The water is not.\"\n\nI look down at the platform. The red glow from the tape is still there, a thin line on the water. It is not gone. It is not dry. But it is not the only thing that matters.\n\nI look back at Kell.\n\n\"Write it down,\" I say. \"But do not let it hold us.\"\n\nI turn back to Mara. Her hand is on my arm, steady and warm. I do not pull away. I let her guide me.\n\nWe are not done. But we are moving.",
+            "takes": [],
+            "recalled": [
+              "cm_15f7807f8f",
+              "cm_cdab4631de"
+            ],
+            "activeTake": 0,
+            "characterId": "c_dafa0469be"
+          }
+        }
+      ],
+      "trace": [
+        {
+          "n": 1,
+          "step": "turn",
+          "title": "You submitted a message",
+          "detail": "Mara defends the choice she made.",
+          "data": {
+            "pov": null,
+            "mode": "pov",
+            "directedAt": null,
+            "continuation": false,
+            "directionOnly": false
+          }
+        },
+        {
+          "n": 2,
+          "step": "assemble",
+          "title": "Gathered the scene (3 character(s) present)",
+          "detail": "Loaded each character's stats + carried-over mood, the recent transcript, and the story-graph subgraph (available).",
+          "data": {
+            "cast": [
+              {
+                "id": "c_dafa0469be",
+                "name": "Dell",
+                "disposition": "I feel raw and half-awake, like the water still has a fist in my ribs. I want to keep Mara close and keep the rope from lying, but I know Kell needs a number, not a shiver. The runner’s habit of staying silent and standing apart is not going to survive the next question."
+              },
+              {
+                "id": "c_e10e4dcb49",
+                "name": "Mara",
+                "disposition": "I feel raw and exposed, like the dust under my nails is the only proof I actually chose. I want Kell to take the answer without making it a ledger, and I want to keep Dell close enough that the water cannot pull him back into the dark. The clean authority I usually carry into a cargo decision is gone; I am no longer the one who can promise the manifest will hold."
+              },
+              {
+                "id": "c_cd99af49e4",
+                "name": "Kell",
+                "disposition": "I feel unsettled, as if the ledger has been opened but not yet written. I want a clean entry—proof, names, weight, loss—before the water dries and the debt becomes real. The distance I usually keep between the numbers and the living is slipping; I can no longer pretend this was only cargo and tide."
+              }
+            ],
+            "graph": true,
+            "directedAt": null,
+            "windowBeats": 13,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured",
+            "retrievedLore": false
+          }
+        },
+        {
+          "n": 3,
+          "step": "window",
+          "title": "The scene reached back 13 beat(s)",
+          "detail": "Fitted to the model's context window (configured). Everything so far fitted.",
+          "data": {
+            "windowBeats": 13,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured"
+          }
+        },
+        {
+          "n": 4,
+          "step": "lore",
+          "title": "World-lore look-up (RAG)",
+          "detail": "Skipped — nothing in your message needed a lore look-up this turn.",
+          "data": {
+            "reason": "skip — working set suffices",
+            "fetched": false,
+            "injected": false
+          }
+        },
+        {
+          "n": 5,
+          "step": "reading",
+          "title": "Reading your message",
+          "detail": "Working out whether you are narrating, addressing someone, or directing.",
+          "data": {}
+        },
+        {
+          "n": 6,
+          "step": "intent",
+          "title": "Read your intent: puppet",
+          "detail": "Mara defends the choice she made.",
+          "data": {
+            "kind": "puppet",
+            "scope": "none",
+            "actors": [
+              "Mara"
+            ],
+            "addressed": []
+          }
+        },
+        {
+          "n": 7,
+          "step": "direction",
+          "title": "1 part(s) of an earlier direction are still owed",
+          "detail": "Dell surfaces",
+          "data": {
+            "carried": [
+              {
+                "id": "req1",
+                "text": "Dell surfaces",
+                "fromTurn": 3
+              }
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "step": "direction",
+          "title": "You directed the scene (2 thing(s) to deliver)",
+          "detail": "Mara defends the choice she made.",
+          "data": {
+            "source": "message",
+            "requirements": [
+              {
+                "text": "Dell surfaces",
+                "actor": "Dell",
+                "pinned": false,
+                "fromTurn": 3
+              },
+              {
+                "text": "Mara argues in favor of the choice she previously made.",
+                "actor": "Mara",
+                "pinned": false
+              }
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "step": "speaker",
+          "title": "Mara performs your direction",
+          "detail": "Mara defends the choice she made.",
+          "data": {
+            "name": "Mara",
+            "puppet": true,
+            "register": "",
+            "characterId": "c_e10e4dcb49",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 10,
+          "step": "relationship",
+          "title": "Mara's ties",
+          "detail": "Dell trusts you (She stayed by my side through the collapse and the silence, proving her loyalty beyond the cargo.). Kell knows you (Witnessing her physical state and the immediate aftermath of the collapse).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_e10e4dcb49"
+          }
+        },
+        {
+          "n": 11,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Mara's beat",
+          "detail": "Mara argues in favor of the choice she previously made.",
+          "data": {
+            "attempted": [
+              "Mara argues in favor of the choice she previously made."
+            ],
+            "characterId": "c_e10e4dcb49",
+            "outstanding": [
+              "Dell surfaces",
+              "Mara argues in favor of the choice she previously made."
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "step": "prose",
+          "title": "Mara speaks",
+          "detail": "The water is still rising. It does not care about the ledger.\n\nI step between Kell and the platform, my boots finding the slick brick. I do not look at the crates. I look at him.\n\n\"You are counting the crates,\" I say. My voice is flat, stripped of the softness I gave Dell. \"You are counting what we lost. I am counting what we kept.\"\n\nKell does not move. His eyes are on the rope, on the water, on the dark.\n\n\"I chose him,\" I say. \"I chose the man over the manifest. And the man is standing. The manifest is wet.\"\n\nI reach out and take Dell's arm. He is solid under my hand. He is real. The debt is not gone, but it is not fatal.\n\n\"If you had let him fall, the cargo would have held,\" I say. \"It would have held, and we would have paid the price in blood. I chose the blood. I chose the life. And I would choose it again.\"\n\nI turn back to Kell.\n\n\"The water is rising,\" I say. \"The platform is shifting. We do not have time to mourn the manifest. We have time to move.\"\n\nI pull Dell with me. He moves. He is alive.\n\nWe walk.",
+          "data": {
+            "characterId": "c_e10e4dcb49"
+          }
+        },
+        {
+          "n": 13,
+          "step": "context",
+          "title": "Context window",
+          "detail": "10,437 tokens sent to the model · 63% reusable prefix",
+          "data": {
+            "characterId": "c_e10e4dcb49",
+            "promptChars": 37512,
+            "cachedTokens": 6400,
+            "promptTokens": 10437,
+            "reusablePrefixChars": 23639
+          }
+        },
+        {
+          "n": 14,
+          "step": "direction",
+          "title": "1 part(s) may not have landed — trying again",
+          "detail": "Mara argues in favor of the choice she previously made.",
+          "data": {
+            "characterId": "c_e10e4dcb49",
+            "outstanding": [
+              "Dell surfaces",
+              "Mara argues in favor of the choice she previously made."
+            ],
+            "unconfirmed": [
+              "Mara argues in favor of the choice she previously made."
+            ]
+          }
+        },
+        {
+          "n": 15,
+          "step": "planning",
+          "title": "Planned the whole turn: 3 beat(s)",
+          "detail": "One planning call decided the turn. The beats below are what will run — the loop does not re-plan between them.",
+          "data": {
+            "beats": 3,
+            "planner": "upfront"
+          }
+        },
+        {
+          "n": 16,
+          "step": "memory",
+          "title": "4 memory(s) recalled",
+          "detail": "Dell: I came back from the water just long enough to choose Mara over the cargo, and now I have to live with what that debt costs.; I remember the red glow on the manifest and my own hand on Mara’s wrist, the body knowing what the mouth refused to say. · Mara: I let the cargo wait and chose the man under the beam, and now the water and Kell both want the price written down.; The water did not wait for me to finish grieving the cargo; it reached for it while I was still holding Dell, and I learned that a choice in this tunnel is only as good as the next surge.",
+          "data": {
+            "memories": [
+              {
+                "cues": [
+                  "cargo",
+                  "dell",
+                  "kell",
+                  "mara",
+                  "platform",
+                  "rope"
+                ],
+                "gloss": "I came back from the water just long enough to choose Mara over the cargo, and now I have to live with what that debt costs.",
+                "score": 1.329,
+                "quoted": true,
+                "memoryId": "cm_15f7807f8f",
+                "characterId": "c_dafa0469be"
+              },
+              {
+                "cues": [
+                  "crates",
+                  "dell",
+                  "manifest",
+                  "mara"
+                ],
+                "gloss": "I remember the red glow on the manifest and my own hand on Mara’s wrist, the body knowing what the mouth refused to say.",
+                "score": 1.223,
+                "quoted": false,
+                "memoryId": "cm_cdab4631de",
+                "characterId": "c_dafa0469be"
+              },
+              {
+                "cues": [
+                  "cargo",
+                  "dell",
+                  "kell",
+                  "mara",
+                  "tunnel"
+                ],
+                "gloss": "I let the cargo wait and chose the man under the beam, and now the water and Kell both want the price written down.",
+                "score": 1.375,
+                "quoted": true,
+                "memoryId": "cm_a6a0526d46",
+                "characterId": "c_e10e4dcb49"
+              },
+              {
+                "cues": [
+                  "dell",
+                  "mara",
+                  "tunnel"
+                ],
+                "gloss": "The water did not wait for me to finish grieving the cargo; it reached for it while I was still holding Dell, and I learned that a choice in this tunnel is only as good as the next surge.",
+                "score": 1.223,
+                "quoted": false,
+                "memoryId": "cm_81bdd7d494",
+                "characterId": "c_e10e4dcb49"
+              }
+            ]
+          }
+        },
+        {
+          "n": 17,
+          "step": "plan",
+          "title": "Dell is up next",
+          "detail": "",
+          "data": {
+            "actor": "Dell",
+            "stakes": null,
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 18,
+          "step": "speaker",
+          "title": "Dell responds",
+          "detail": "",
+          "data": {
+            "name": "Dell",
+            "reason": "",
+            "stakes": "",
+            "register": "",
+            "characterId": "c_dafa0469be",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 19,
+          "step": "relationship",
+          "title": "Dell's ties",
+          "detail": "You trusts Mara (She stayed by my side through the collapse and the silence, proving her loyalty beyond the cargo.). Kell knows you (Kell keeps everyone’s ledger, which includes Dell.).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 20,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell surfaces",
+          "data": {
+            "attempted": [
+              "Dell surfaces"
+            ],
+            "characterId": "c_dafa0469be",
+            "outstanding": [
+              "Dell surfaces",
+              "Mara argues in favor of the choice she previously made."
+            ]
+          }
+        },
+        {
+          "n": 21,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "Mara’s voice cuts the air before I can answer. She is not asking for my permission. She is not asking for my opinion. She is stating a fact, and the fact is that I am standing, and the crates are wet.\n\nI do not argue. I do not step forward to take the weight of her words. I let them hang in the damp air, heavy and final.\n\nI look at Kell. His eyes are on the water, but his face is turned toward Mara. I can see the question in the set of his jaw. He is waiting for the number. He is waiting for the cost.\n\nI do not give him the number. Not yet.\n\nI step closer to Mara. My arm is still aching, a dull, wet throb that pulses with every heartbeat. I do not hide it. I let him see it. I let him see that the choice was not free.\n\n\"The ledger can wait,\" I say. My voice is low, rough, scraped raw by the dust and the effort of standing. \"The water is not.\"\n\nI look down at the platform. The red glow from the tape is still there, a thin line on the water. It is not gone. It is not dry. But it is not the only thing that matters.\n\nI look back at Kell.\n\n\"Write it down,\" I say. \"But do not let it hold us.\"\n\nI turn back to Mara. Her hand is on my arm, steady and warm. I do not pull away. I let her guide me.\n\nWe are not done. But we are moving.",
+          "data": {
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 22,
+          "step": "context",
+          "title": "Context window",
+          "detail": "8,966 tokens sent to the model · 79% reusable prefix",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "promptChars": 32277,
+            "cachedTokens": 6400,
+            "promptTokens": 8966,
+            "reusablePrefixChars": 25458
+          }
+        },
+        {
+          "n": 23,
+          "step": "direction",
+          "title": "1 part(s) may not have landed — trying again",
+          "detail": "Dell surfaces",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "outstanding": [
+              "Dell surfaces",
+              "Mara argues in favor of the choice she previously made."
+            ],
+            "unconfirmed": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 24,
+          "step": "plan",
+          "title": "Mara is up next",
+          "detail": "",
+          "data": {
+            "actor": "Mara",
+            "stakes": null,
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 25,
+          "step": "speaker",
+          "title": "Mara responds",
+          "detail": "",
+          "data": {
+            "name": "Mara",
+            "reason": "",
+            "stakes": "",
+            "register": "",
+            "characterId": "c_e10e4dcb49",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 26,
+          "step": "relationship",
+          "title": "Mara's ties",
+          "detail": "Dell trusts you (She stayed by my side through the collapse and the silence, proving her loyalty beyond the cargo.). Kell knows you (Witnessing her physical state and the immediate aftermath of the collapse).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_e10e4dcb49"
+          }
+        },
+        {
+          "n": 27,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Mara's beat",
+          "detail": "Mara argues in favor of the choice she previously made.",
+          "data": {
+            "attempted": [
+              "Mara argues in favor of the choice she previously made."
+            ],
+            "characterId": "c_e10e4dcb49",
+            "outstanding": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 28,
+          "step": "prose",
+          "title": "Mara speaks",
+          "detail": "Mara steps into the light, her boots striking the wet brick with a sharp, wet crack. She does not look at the crates. She looks at Kell, and she lets the silence break before he can fill it with numbers.\n\n\"You are counting the crates,\" I say. My voice is flat, stripped of the softness I gave Dell. \"You are counting what we lost. I am counting what we kept.\"\n\nI do not step back. I do not hide behind the ledger. I let him see the dust in my hair, the salt in my throat, the weight of the choice still sitting on my shoulders.\n\n\"I chose him,\" I say. \"I chose the man over the manifest. And the man is standing. The manifest is wet.\"\n\nI reach out and take Dell's arm. He is solid under my hand. He is real. The debt is not gone, but it is not fatal.\n\n\"If you had let him fall, the cargo would have held,\" I say. \"It would have held, and we would have paid the price in blood. I chose the blood. I chose the life. And I would choose it again.\"\n\nI turn back to Kell.\n\n\"The water is rising,\" I say. \"The platform is shifting. We do not have time to mourn the manifest. We have time to move.\"\n\nI pull Dell with me. He moves. He is alive.\n\nWe walk.",
+          "data": {
+            "characterId": "c_e10e4dcb49"
+          }
+        },
+        {
+          "n": 29,
+          "step": "context",
+          "title": "Context window",
+          "detail": "11,031 tokens sent to the model · 67% reusable prefix",
+          "data": {
+            "characterId": "c_e10e4dcb49",
+            "promptChars": 39687,
+            "cachedTokens": 6400,
+            "promptTokens": 11031,
+            "reusablePrefixChars": 26489
+          }
+        },
+        {
+          "n": 30,
+          "step": "direction",
+          "title": "1 part(s) could not be confirmed",
+          "detail": "Mara argues in favor of the choice she previously made.",
+          "data": {
+            "characterId": "c_e10e4dcb49",
+            "outstanding": [
+              "Dell surfaces"
+            ],
+            "unconfirmed": [
+              "Mara argues in favor of the choice she previously made."
+            ]
+          }
+        },
+        {
+          "n": 31,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell surfaces",
+          "data": {
+            "attempted": [
+              "Dell surfaces"
+            ],
+            "characterId": "c_dafa0469be",
+            "outstanding": []
+          }
+        },
+        {
+          "n": 32,
+          "step": "direction",
+          "title": "Dell delivers your direction",
+          "detail": "your direction is not delivered yet",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "requirements": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 33,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "Mara’s voice lands on the water before it reaches me. She is not asking for my permission. She is not asking for my opinion. She is stating a fact, and the fact is that I am standing, and the crates are wet.\n\nI do not argue. I do not step forward to take the weight of her words. I let them hang in the damp air, heavy and final.\n\nI look at Kell. His eyes are on the water, but his face is turned toward Mara. I can see the question in the set of his jaw. He is waiting for the number. He is waiting for the cost.\n\nI do not give him the number. Not yet.\n\nI step closer to Mara. My arm is still aching, a dull, wet throb that pulses with every heartbeat. I do not hide it. I let him see it. I let him see that the choice was not free.\n\n\"The ledger can wait,\" I say. My voice is low, rough, scraped raw by the dust and the effort of standing. \"The water is not.\"\n\nI look down at the platform. The red glow from the tape is still there, a thin line on the water. It is not gone. It is not dry. But it is not the only thing that matters.\n\nI look back at Kell.\n\n\"Write it down,\" I say. \"But do not let it hold us.\"\n\nI turn back to Mara. Her hand is on my arm, steady and warm. I do not pull away. I let her guide me.\n\nWe are not done. But we are moving.",
+          "data": {
+            "characterId": "c_dafa0469be"
+          }
+        },
+        {
+          "n": 34,
+          "step": "relationship_change",
+          "title": "Dell now trusts Mara",
+          "detail": "She defended the choice to save me over the cargo, proving her loyalty is with the man, not the money.",
+          "data": {
+            "type": "trusts",
+            "source": "Dell",
+            "target": "Mara"
+          }
+        },
+        {
+          "n": 35,
+          "step": "context",
+          "title": "Context window",
+          "detail": "9,604 tokens sent to the model · 80% reusable prefix",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "promptChars": 34675,
+            "cachedTokens": 6400,
+            "promptTokens": 9604,
+            "reusablePrefixChars": 27737
+          }
+        },
+        {
+          "n": 36,
+          "step": "direction",
+          "title": "1 part(s) could not be confirmed",
+          "detail": "Dell surfaces",
+          "data": {
+            "characterId": "c_dafa0469be",
+            "outstanding": [],
+            "unconfirmed": [
+              "Dell surfaces"
+            ]
+          }
+        },
+        {
+          "n": 37,
+          "step": "plan",
+          "title": "The approved plan is complete",
+          "detail": "Ran all 4 beat(s) the player approved.",
+          "data": {
+            "end": true,
+            "bound": true
+          }
+        },
+        {
+          "n": 38,
+          "step": "plan",
+          "title": "The turn ends",
+          "detail": "the plan is complete",
+          "data": {
+            "end": true
+          }
+        },
+        {
+          "n": 39,
+          "step": "direction",
+          "title": "2 part(s) of your direction went undelivered",
+          "detail": "◐ Dell surfaces · ◐ Mara argues in favor of the choice she previously made.",
+          "data": {
+            "never": [],
+            "total": 2,
+            "blocked": [],
+            "delivered": 0,
+            "unconfirmed": [
+              "Dell surfaces",
+              "Mara argues in favor of the choice she previously made."
+            ],
+            "undelivered": [
+              "Dell surfaces",
+              "Mara argues in favor of the choice she previously made."
+            ]
+          }
+        },
+        {
+          "n": 40,
+          "step": "commit",
+          "title": "Committing 1 change(s) to the story graph",
+          "detail": "Written to the story graph (Neo4j) after the turn: Dell trusts Mara: She defended the choice to save me over the cargo, proving her loyalty is with the man, not the money.",
+          "data": {
+            "changes": [
+              "Dell trusts Mara: She defended the choice to save me over the cargo, proving her loyalty is with the man, not the money."
+            ],
+            "consequences": 1
+          }
+        },
+        {
+          "n": 41,
+          "step": "reflection",
+          "title": "3 character(s) reflect",
+          "detail": "Each privately updates its stance for next turn; the whole cast reflects in a crowd.",
+          "data": {
+            "targets": [
+              "Dell",
+              "Mara",
+              "Kell"
+            ],
+            "universal": true
+          }
+        }
+      ],
+      "direction": {
+        "asked": [
+          "Dell surfaces"
+        ],
+        "delivered": [],
+        "unconfirmed": [
+          "Dell surfaces",
+          "Mara argues in favor of the choice she previously made."
+        ],
+        "carried": [
+          "Dell surfaces"
+        ]
+      }
+    }
+  ],
+  "characterMemories": [
+    {
+      "id": "cm_1e7b937aec",
+      "character": "Mara",
+      "turnSeq": 0,
+      "gloss": "I left the cargo that could have kept the lights on because Dell looked at me like I was the only thing still holding, and I will pay for that kindness in every empty hold.",
+      "quote": "Mara.",
+      "quoteSpeaker": "Dell",
+      "salience": 0.8,
+      "valence": "debt",
+      "subjects": [
+        "cargo",
+        "tunnel",
+        "dell",
+        "choice",
+        "flooded-tunnel",
+        "mara"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_44d6894bf5",
+      "character": "Dell",
+      "turnSeq": 0,
+      "gloss": "Mara left the cargo and put her hands on the beam for me, and I am still standing because of it.",
+      "quote": "Mara.",
+      "quoteSpeaker": "Dell",
+      "salience": 0.8,
+      "valence": "debt",
+      "subjects": [
+        "beam",
+        "saving",
+        "cargo",
+        "duty",
+        "flooded-tunnel",
+        "mara",
+        "dell"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_4009cb2ebb",
+      "character": "Kell",
+      "turnSeq": 0,
+      "gloss": "Mara left the cargo to save Dell, and I have to carry the balance of that choice.",
+      "quote": "Mara.",
+      "quoteSpeaker": "Dell",
+      "salience": 0.7,
+      "valence": "debt",
+      "subjects": [
+        "cargo",
+        "dell",
+        "moral-ledger",
+        "flooded-tunnel",
+        "mara"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_81bdd7d494",
+      "character": "Mara",
+      "turnSeq": 3,
+      "gloss": "The water did not wait for me to finish grieving the cargo; it reached for it while I was still holding Dell, and I learned that a choice in this tunnel is only as good as the next surge.",
+      "quote": null,
+      "quoteSpeaker": null,
+      "salience": 0.8,
+      "valence": "fear",
+      "subjects": [
+        "black-water",
+        "cargo-crates",
+        "tunnel",
+        "manifest-debt",
+        "surge",
+        "flooded-tunnel",
+        "mara",
+        "dell"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_cdab4631de",
+      "character": "Dell",
+      "turnSeq": 3,
+      "gloss": "I remember the red glow on the manifest and my own hand on Mara’s wrist, the body knowing what the mouth refused to say.",
+      "quote": null,
+      "quoteSpeaker": null,
+      "salience": 0.8,
+      "valence": "fear",
+      "subjects": [
+        "flood",
+        "crates",
+        "manifest",
+        "wrist",
+        "flooded-tunnel",
+        "mara",
+        "dell"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_6089ed6ea1",
+      "character": "Kell",
+      "turnSeq": 3,
+      "gloss": "Mara chose Dell over the cargo, and the water answered by making the choice a debt.",
+      "quote": "Dell,",
+      "quoteSpeaker": "Mara",
+      "salience": 0.7,
+      "valence": "debt",
+      "subjects": [
+        "cargo",
+        "manifest",
+        "flood",
+        "choice",
+        "flooded-tunnel",
+        "mara",
+        "dell"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_a6a0526d46",
+      "character": "Mara",
+      "turnSeq": 8,
+      "gloss": "I let the cargo wait and chose the man under the beam, and now the water and Kell both want the price written down.",
+      "quote": "What happened down there",
+      "quoteSpeaker": "Kell",
+      "salience": 0.9,
+      "valence": "debt",
+      "subjects": [
+        "cargo",
+        "flood",
+        "dell",
+        "kell",
+        "tunnel",
+        "flooded-tunnel",
+        "mara"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_652fb1867b",
+      "character": "Kell",
+      "turnSeq": 8,
+      "gloss": "Dell gave me a sentence that was really a receipt: the water came back, and we are still standing.",
+      "quote": null,
+      "quoteSpeaker": null,
+      "salience": 0.8,
+      "valence": "debt",
+      "subjects": [
+        "flooded-tunnel",
+        "cargo",
+        "debt",
+        "ledger",
+        "mara",
+        "kell",
+        "dell"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_15f7807f8f",
+      "character": "Dell",
+      "turnSeq": 8,
+      "gloss": "I came back from the water just long enough to choose Mara over the cargo, and now I have to live with what that debt costs.",
+      "quote": "The water came back. And we are still standing.",
+      "quoteSpeaker": "Dell",
+      "salience": 0.85,
+      "valence": "warmth",
+      "subjects": [
+        "drowning",
+        "flooded-tunnel",
+        "cargo",
+        "rope",
+        "platform",
+        "mara",
+        "kell",
+        "dell"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_97ca564190",
+      "character": "Kell",
+      "turnSeq": 13,
+      "gloss": "I learned that some debts are not paid out in cargo, but in standing, and that I am the one who must remember the weight of it.",
+      "quote": "But do not let it hold us.",
+      "quoteSpeaker": "Dell",
+      "salience": 0.85,
+      "valence": "debt",
+      "subjects": [
+        "ledger",
+        "cargo",
+        "survival",
+        "choice",
+        "flooded-tunnel",
+        "mara",
+        "kell",
+        "dell"
+      ],
+      "reinforcements": 0
+    }
+  ]
+}

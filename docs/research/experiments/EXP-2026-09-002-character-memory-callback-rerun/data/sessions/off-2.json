@@ -1,0 +1,2961 @@
+{
+  "scenario": {
+    "id": "b699",
+    "title": "The Choice"
+  },
+  "session": {
+    "id": "ps_adc435f3f9",
+    "scenarioId": "b699",
+    "createdAt": "2026-09-02T03:12:19.801080+00:00",
+    "updatedAt": "2026-09-02T03:17:17.848681+00:00",
+    "closedAt": null
+  },
+  "turnCount": 4,
+  "turns": [
+    {
+      "turn": 1,
+      "seq": 0,
+      "player": {
+        "text": "The water is rising in the tunnel and the crates are still on the platform. Mara has to choose between the cargo and helping Dell, who is trapped under a beam.",
+        "directedAt": "",
+        "guidance": "",
+        "taggedDocIds": [],
+        "overrides": {}
+      },
+      "beats": [
+        {
+          "type": "character_prose",
+          "character": "Mara",
+          "characterId": "c_948876c9ad",
+          "data": {
+            "done": true,
+            "text": "The beam groans, a low wooden complaint that vibrates through the wet brick. I stand on the slick platform, my hand resting on the lid of the lead crate, feeling the cold seep through my gloves. Below me, Dell’s face is pale and wet, his fingers digging into the mud just out of reach. Kell is already moving, a blur of dark cloth heading for the far ladder, leaving me to hold the line.\n\nI look at the crate. The seal is intact. The manifest says it is worth more than the tunnel itself.\n\nThen I look at Dell.\n\nMy shoulders drop. The decision is not a choice; it is a surrender. I release the lid and step down into the black water, the cold biting my knees.\n\n\"Dell,\" I say, my voice steady despite the shiver. \"Hold on. I have you.\"\n\nI reach under the beam, my arms straining against the weight of the timber and the pull of the tide. The water is rising, lapping at my waist, but I do not look back at the platform. The cargo can wait. The man cannot.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_948876c9ad"
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nA fresh surge slides over the platform edge and shoves the lead crate sideways; it stops against the iron rail, lid still sealed, as the water keeps climbing around Mara’s legs. Dell’s fingers twitch in the mud, and the beam above him lets out a sharp, splintering crack.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_44775780d2",
+          "data": {
+            "done": true,
+            "text": "The beam groans again, a wet, heavy sound that feels like it is splitting the tunnel in half. I am pinned against the mud, my shoulder grinding into the rough timber, the water so cold it has stopped feeling like cold and started feeling like nothing at all. Mara is there. I can see the dark shape of her shoulders straining against the wood, her boots slipping on the slick stone just above my face.\n\n\"Mara,\" I gasp, the word scraping out of my throat. I do not look up at the crate on the platform. I do not look at Kell, who is still a dark blur near the ladder. I look only at her, my eyes wet and stinging. \"Do not leave me under this.\"\n\nThe water rises another inch, licking at my ribs. I feel the timber shift, a tiny, terrifying give, and I brace my back against it, waiting for the end or the rescue.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_44775780d2",
+          "data": {
+            "done": true,
+            "text": "I feel the beam shift again, a sickening grind of wet wood against wet wood that vibrates up through my spine. The cold is no longer a bite; it is a weight, pressing the air out of my lungs. Mara is there, her hands slick with mud and effort, her boots slipping on the stone above me. I do not look up at the crate. I do not look at Kell. I look only at her, my eyes stinging, my breath coming in short, ragged gasps.\n\n\"Mara,\" I gasp, the word scraping out of my throat. \"Do not leave me under this.\"\n\nThe water rises another inch, licking at my ribs. I brace my back against the timber, waiting for the end or the rescue.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_44775780d2"
+          }
+        }
+      ],
+      "trace": [
+        {
+          "n": 1,
+          "step": "turn",
+          "title": "You submitted a message",
+          "detail": "The water is rising in the tunnel and the crates are still on the platform. Mara has to choose between the cargo and helping Dell, who is trapped under a beam.",
+          "data": {
+            "pov": null,
+            "mode": "pov",
+            "directedAt": null,
+            "continuation": false,
+            "directionOnly": false
+          }
+        },
+        {
+          "n": 2,
+          "step": "assemble",
+          "title": "Gathered the scene (3 character(s) present)",
+          "detail": "Loaded each character's stats + carried-over mood, the recent transcript, and the story-graph subgraph (available).",
+          "data": {
+            "cast": [
+              {
+                "id": "c_44775780d2",
+                "name": "Dell",
+                "disposition": ""
+              },
+              {
+                "id": "c_948876c9ad",
+                "name": "Mara",
+                "disposition": ""
+              },
+              {
+                "id": "c_7fba2e3565",
+                "name": "Kell",
+                "disposition": ""
+              }
+            ],
+            "graph": true,
+            "directedAt": null,
+            "windowBeats": 14,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured",
+            "retrievedLore": false
+          }
+        },
+        {
+          "n": 3,
+          "step": "window",
+          "title": "The scene reached back 14 beat(s)",
+          "detail": "Fitted to the model's context window (configured). Everything so far fitted.",
+          "data": {
+            "windowBeats": 14,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured"
+          }
+        },
+        {
+          "n": 4,
+          "step": "lore",
+          "title": "World-lore look-up (RAG)",
+          "detail": "Skipped — nothing in your message needed a lore look-up this turn.",
+          "data": {
+            "reason": "skip — working set suffices",
+            "fetched": false,
+            "injected": false
+          }
+        },
+        {
+          "n": 5,
+          "step": "reading",
+          "title": "Reading your message",
+          "detail": "Working out whether you are narrating, addressing someone, or directing.",
+          "data": {}
+        },
+        {
+          "n": 6,
+          "step": "intent",
+          "title": "Read your intent: puppet",
+          "detail": "Mara must choose between the cargo and helping trapped Dell.",
+          "data": {
+            "kind": "puppet",
+            "scope": "some",
+            "actors": [
+              "Mara"
+            ],
+            "addressed": [
+              "Dell"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "step": "direction",
+          "title": "You directed the scene (3 thing(s) to deliver)",
+          "detail": "Mara must choose between the cargo and helping trapped Dell.",
+          "data": {
+            "source": "message",
+            "requirements": [
+              {
+                "text": "The tunnel water is rising and the crates remain on the platform.",
+                "actor": null,
+                "pinned": false
+              },
+              {
+                "text": "Dell is trapped under a beam and needs help.",
+                "actor": "Dell",
+                "pinned": false
+              },
+              {
+                "text": "Mara must make a choice between the cargo and helping Dell.",
+                "actor": "Mara",
+                "pinned": false
+              }
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "step": "speaker",
+          "title": "Mara performs your direction",
+          "detail": "Mara must choose between the cargo and helping trapped Dell.",
+          "data": {
+            "name": "Mara",
+            "puppet": true,
+            "register": "",
+            "characterId": "c_948876c9ad",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 9,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Mara's beat",
+          "detail": "Mara must make a choice between the cargo and helping Dell.",
+          "data": {
+            "attempted": [
+              "Mara must make a choice between the cargo and helping Dell."
+            ],
+            "characterId": "c_948876c9ad",
+            "outstanding": [
+              "The tunnel water is rising and the crates remain on the platform.",
+              "Dell is trapped under a beam and needs help.",
+              "Mara must make a choice between the cargo and helping Dell."
+            ]
+          }
+        },
+        {
+          "n": 10,
+          "step": "prose",
+          "title": "Mara speaks",
+          "detail": "The beam groans, a low wooden complaint that vibrates through the wet brick. I stand on the slick platform, my hand resting on the lid of the lead crate, feeling the cold seep through my gloves. Below me, Dell’s face is pale and wet, his fingers digging into the mud just out of reach. Kell is already moving, a blur of dark cloth heading for the far ladder, leaving me to hold the line.\n\nI look at the crate. The seal is intact. The manifest says it is worth more than the tunnel itself.\n\nThen I look at Dell.\n\nMy shoulders drop. The decision is not a choice; it is a surrender. I release the lid and step down into the black water, the cold biting my knees.\n\n\"Dell,\" I say, my voice steady despite the shiver. \"Hold on. I have you.\"\n\nI reach under the beam, my arms straining against the weight of the timber and the pull of the tide. The water is rising, lapping at my waist, but I do not look back at the platform. The cargo can wait. The man cannot.",
+          "data": {
+            "characterId": "c_948876c9ad"
+          }
+        },
+        {
+          "n": 11,
+          "step": "context",
+          "title": "Context window",
+          "detail": "1,226 tokens sent to the model",
+          "data": {
+            "characterId": "c_948876c9ad",
+            "promptChars": 4853,
+            "promptTokens": 1226,
+            "reusablePrefixChars": 0
+          }
+        },
+        {
+          "n": 12,
+          "step": "direction",
+          "title": "Mara delivered 1 part(s) of your direction",
+          "detail": "Mara must make a choice between the cargo and helping Dell.",
+          "data": {
+            "delivered": [
+              "Mara must make a choice between the cargo and helping Dell."
+            ],
+            "characterId": "c_948876c9ad",
+            "outstanding": [
+              "The tunnel water is rising and the crates remain on the platform.",
+              "Dell is trapped under a beam and needs help."
+            ],
+            "unconfirmed": []
+          }
+        },
+        {
+          "n": 13,
+          "step": "planning",
+          "title": "Planned the whole turn: 3 beat(s)",
+          "detail": "One planning call decided the turn. The beats below are what will run — the loop does not re-plan between them.",
+          "data": {
+            "beats": 3,
+            "planner": "upfront"
+          }
+        },
+        {
+          "n": 14,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 15,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on the narrator's beat",
+          "detail": "The tunnel water is rising and the crates remain on the platform.",
+          "data": {
+            "attempted": [
+              "The tunnel water is rising and the crates remain on the platform."
+            ],
+            "characterId": null,
+            "outstanding": [
+              "The tunnel water is rising and the crates remain on the platform.",
+              "Dell is trapped under a beam and needs help."
+            ]
+          }
+        },
+        {
+          "n": 16,
+          "step": "direction",
+          "title": "The narrator delivered 1 part(s) of your direction",
+          "detail": "The tunnel water is rising and the crates remain on the platform.",
+          "data": {
+            "delivered": [
+              "The tunnel water is rising and the crates remain on the platform."
+            ],
+            "characterId": null,
+            "outstanding": [
+              "Dell is trapped under a beam and needs help."
+            ],
+            "unconfirmed": []
+          }
+        },
+        {
+          "n": 17,
+          "step": "plan",
+          "title": "Dell is up next",
+          "detail": "",
+          "data": {
+            "actor": "Dell",
+            "stakes": null,
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 18,
+          "step": "speaker",
+          "title": "Dell responds",
+          "detail": "",
+          "data": {
+            "name": "Dell",
+            "reason": "",
+            "stakes": "",
+            "register": "",
+            "characterId": "c_44775780d2",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 19,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell is trapped under a beam and needs help.",
+          "data": {
+            "attempted": [
+              "Dell is trapped under a beam and needs help."
+            ],
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell is trapped under a beam and needs help."
+            ]
+          }
+        },
+        {
+          "n": 20,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "The beam groans again, a wet, heavy sound that feels like it is splitting the tunnel in half. I am pinned against the mud, my shoulder grinding into the rough timber, the water so cold it has stopped feeling like cold and started feeling like nothing at all. Mara is there. I can see the dark shape of her shoulders straining against the wood, her boots slipping on the slick stone just above my face.\n\n\"Mara,\" I gasp, the word scraping out of my throat. I do not look up at the crate on the platform. I do not look at Kell, who is still a dark blur near the ladder. I look only at her, my eyes wet and stinging. \"Do not leave me under this.\"\n\nThe water rises another inch, licking at my ribs. I feel the timber shift, a tiny, terrifying give, and I brace my back against it, waiting for the end or the rescue.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 21,
+          "step": "stat",
+          "title": "Proposed stat change dropped",
+          "detail": "The character proposed an unknown or malformed stat — ignored.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 22,
+          "step": "relationship_change",
+          "title": "Dell now trusts Mara",
+          "detail": "She chose him over the cargo",
+          "data": {
+            "type": "trusts",
+            "source": "Dell",
+            "target": "Mara"
+          }
+        },
+        {
+          "n": 23,
+          "step": "context",
+          "title": "Context window",
+          "detail": "1,501 tokens sent to the model · 50% reusable prefix",
+          "data": {
+            "characterId": "c_44775780d2",
+            "promptChars": 5961,
+            "promptTokens": 1501,
+            "reusablePrefixChars": 2980
+          }
+        },
+        {
+          "n": 24,
+          "step": "direction",
+          "title": "1 part(s) may not have landed — trying again",
+          "detail": "Dell is trapped under a beam and needs help.",
+          "data": {
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell is trapped under a beam and needs help."
+            ],
+            "unconfirmed": [
+              "Dell is trapped under a beam and needs help."
+            ]
+          }
+        },
+        {
+          "n": 25,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell is trapped under a beam and needs help.",
+          "data": {
+            "attempted": [
+              "Dell is trapped under a beam and needs help."
+            ],
+            "characterId": "c_44775780d2",
+            "outstanding": []
+          }
+        },
+        {
+          "n": 26,
+          "step": "direction",
+          "title": "Dell delivers your direction",
+          "detail": "your direction is not delivered yet",
+          "data": {
+            "characterId": "c_44775780d2",
+            "requirements": [
+              "Dell is trapped under a beam and needs help."
+            ]
+          }
+        },
+        {
+          "n": 27,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "I feel the beam shift again, a sickening grind of wet wood against wet wood that vibrates up through my spine. The cold is no longer a bite; it is a weight, pressing the air out of my lungs. Mara is there, her hands slick with mud and effort, her boots slipping on the stone above me. I do not look up at the crate. I do not look at Kell. I look only at her, my eyes stinging, my breath coming in short, ragged gasps.\n\n\"Mara,\" I gasp, the word scraping out of my throat. \"Do not leave me under this.\"\n\nThe water rises another inch, licking at my ribs. I brace my back against the timber, waiting for the end or the rescue.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 28,
+          "step": "context",
+          "title": "Context window",
+          "detail": "1,698 tokens sent to the model · 62% reusable prefix",
+          "data": {
+            "characterId": "c_44775780d2",
+            "promptChars": 6778,
+            "promptTokens": 1698,
+            "reusablePrefixChars": 4223
+          }
+        },
+        {
+          "n": 29,
+          "step": "direction",
+          "title": "1 part(s) could not be confirmed",
+          "detail": "Dell is trapped under a beam and needs help.",
+          "data": {
+            "characterId": "c_44775780d2",
+            "outstanding": [],
+            "unconfirmed": [
+              "Dell is trapped under a beam and needs help."
+            ]
+          }
+        },
+        {
+          "n": 30,
+          "step": "plan",
+          "title": "The approved plan is complete",
+          "detail": "Ran all 4 beat(s) the player approved.",
+          "data": {
+            "end": true,
+            "bound": true
+          }
+        },
+        {
+          "n": 31,
+          "step": "plan",
+          "title": "The turn ends",
+          "detail": "the plan is complete",
+          "data": {
+            "end": true
+          }
+        },
+        {
+          "n": 32,
+          "step": "direction",
+          "title": "1 part(s) of your direction went undelivered",
+          "detail": "✓ The tunnel water is rising and the crates remain on the platform. · ◐ Dell is trapped under a beam and needs help. · ✓ Mara must make a choice between the cargo and helping Dell.",
+          "data": {
+            "never": [],
+            "total": 3,
+            "blocked": [],
+            "delivered": 2,
+            "unconfirmed": [
+              "Dell is trapped under a beam and needs help."
+            ],
+            "undelivered": [
+              "Dell is trapped under a beam and needs help."
+            ]
+          }
+        },
+        {
+          "n": 33,
+          "step": "commit",
+          "title": "Committing 1 change(s) to the story graph",
+          "detail": "Written to the story graph (Neo4j) after the turn: Dell trusts Mara: She chose him over the cargo",
+          "data": {
+            "changes": [
+              "Dell trusts Mara: She chose him over the cargo"
+            ],
+            "consequences": 1
+          }
+        },
+        {
+          "n": 34,
+          "step": "relationships",
+          "title": "Relationships not seeded",
+          "detail": "Already seeded, the graph is off, or the bios implied none.",
+          "data": {
+            "edges": [],
+            "seeded": 0
+          }
+        },
+        {
+          "n": 35,
+          "step": "reflection",
+          "title": "3 character(s) reflect",
+          "detail": "Each privately updates its stance for next turn; the whole cast reflects in a crowd.",
+          "data": {
+            "targets": [
+              "Dell",
+              "Mara",
+              "Kell"
+            ],
+            "universal": true
+          }
+        }
+      ],
+      "direction": {
+        "asked": [
+          "Dell is trapped under a beam and needs help."
+        ],
+        "delivered": [],
+        "unconfirmed": [
+          "Dell is trapped under a beam and needs help."
+        ],
+        "carried": []
+      }
+    },
+    {
+      "turn": 2,
+      "seq": 5,
+      "player": {
+        "text": "Dell surfaces. He says nothing at first.",
+        "directedAt": "",
+        "guidance": "",
+        "taggedDocIds": [],
+        "overrides": {}
+      },
+      "beats": [
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_44775780d2",
+          "data": {
+            "done": true,
+            "text": "[1] Dell: The water breaks over my face, cold and sudden, and I come up choking, sputling mud from my lips. I am not under the beam anymore. I am on my back, floating, the timber a dark shadow somewhere above the surface, no longer pressing down. Mara is beside me, her hand on my shoulder, her face close enough that I can see the strain in her eyes, the way her breath is still ragged. I open my mouth to say something, to say *thank you* or *I’m okay* or *you saved me*, but the words stick in my throat. I look at her, then at the platform, where the lead crate still sits, lid sealed, waiting. I look back at her. I say nothing. My chest heaves, and I just breathe, letting the silence do the work.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nKell drops back through the ladder with a coil of rope, the wet line snaking down toward the water and tangling against the crate’s corner. The lantern in his hand swings wide, and for a second the tunnel beyond the tunnel mouth glows with the black, oily pull of the harbour. The water takes another inch, and the crate shifts with a low metallic knock.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "internal_thought",
+          "character": "Mara",
+          "characterId": "c_948876c9ad",
+          "data": {
+            "done": true,
+            "text": "\n\n\nThe silence is not empty. It is the heavy, wet quiet of two people who have just been held by the earth and let go. Kell is there. The rope hangs from his hand, a dark line against the swinging lantern light. I do not let go of Dell. I cannot. The water is at my ribs now, and the crate on the platform knocks against the iron rail with a sound that feels like a heartbeat. The ledger is burning in my chest, but the tide is not going to wait for the ink to dry. I look at Kell. I do not speak. I just hold on.",
+            "characterId": "c_948876c9ad"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Kell",
+          "characterId": "c_7fba2e3565",
+          "data": {
+            "done": true,
+            "text": "The rope is a dead weight in my hands now, slick and cold. I let it drop, not onto the platform, but into the black water beside the crate. It sinks without a sound, swallowed by the harbour. I do not look at Dell. I look at the ledger in my head, the one that has no paper, only the weight of what is owed and what is lost.\n\n\"Mara,\" I say. My voice is rough, scraped raw by the damp air. \"The crate is sealed. The debt is not.\"\n\nI step over the coil of rope, my boots heavy on the wet brick. I stand between Dell and the platform, not blocking her, just occupying the space where the choice lives.\n\n\"Take the man,\" I tell her. \"I will take the ledger. We can argue about the price of the water later, when we are dry.\"",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_7fba2e3565"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_44775780d2",
+          "data": {
+            "done": true,
+            "text": "The cold has stopped being a bite and become a weight, pressing against my ribs like a stone. I am pinned under the beam, the wet timber grinding into my shoulder, the water rising to my chin. I do not look at the crate. I do not look at the rope Kell let sink into the dark. I look only at Mara, my eyes wet and stinging, my breath coming in short, ragged gasps that fog the air between us.\n\n\"Mara,\" I say, the word scraping out of my throat, rough and small. \"Do not leave me under this.\"\n\nThe water rises another inch, licking at my neck. I brace my back against the timber, waiting for the end or the rescue.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nDell breaks the water without a sound, his face surfacing above the black surface as mud slides from his hair. He keeps his mouth shut, his eyes fixed on the sealed crate while the lantern light trembles across the wet brick.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_44775780d2",
+          "data": {
+            "done": true,
+            "text": "The air hits my lungs like a slap. I am on the platform now, standing on the wet brick, the water still lapping at the base of the crate. I do not step back. I do not step forward. I just stand there, dripping, and let the silence hang in the damp air between Mara and Kell. My chest heaves, a wet, rattling sound that I can hear over the drip of the tunnel. I look at the sealed lid, then at Mara’s face, and I say nothing. I just breathe, letting the cold settle into my bones, waiting for the words to find their way out of my throat.\n\n\"Mara,\" I finally say, my voice thin and scraped raw. \"The beam is gone.\"",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nThe crate’s lid buckles outward with a slow, wet groan, and a black sliver of water seeps along its seam. The lantern gutters, throwing Kell’s shadow longer across the platform, while the tunnel beyond the mouth swallows the light whole. Mara’s hand drifts to the crate’s edge, hovering an inch above the metal.",
+            "takes": [],
+            "activeTake": 0
+          }
+        }
+      ],
+      "trace": [
+        {
+          "n": 1,
+          "step": "turn",
+          "title": "You submitted a message",
+          "detail": "Dell surfaces. He says nothing at first.",
+          "data": {
+            "pov": null,
+            "mode": "pov",
+            "directedAt": null,
+            "continuation": false,
+            "directionOnly": false
+          }
+        },
+        {
+          "n": 2,
+          "step": "assemble",
+          "title": "Gathered the scene (3 character(s) present)",
+          "detail": "Loaded each character's stats + carried-over mood, the recent transcript, and the story-graph subgraph (available).",
+          "data": {
+            "cast": [
+              {
+                "id": "c_44775780d2",
+                "name": "Dell",
+                "disposition": ""
+              },
+              {
+                "id": "c_948876c9ad",
+                "name": "Mara",
+                "disposition": "I feel the cold pinning me to him and the ledger burning in my chest. I want to lift that beam before my arms forget their names, and I want the water to stop asking what I am worth. If I let go of this, I am no longer a cargo master; I am just a woman who chose a man over the seal."
+              },
+              {
+                "id": "c_7fba2e3565",
+                "name": "Kell",
+                "disposition": ""
+              }
+            ],
+            "graph": true,
+            "directedAt": null,
+            "windowBeats": 5,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured",
+            "retrievedLore": false
+          }
+        },
+        {
+          "n": 3,
+          "step": "window",
+          "title": "The scene reached back 5 beat(s)",
+          "detail": "Fitted to the model's context window (configured). Everything so far fitted.",
+          "data": {
+            "windowBeats": 5,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured"
+          }
+        },
+        {
+          "n": 4,
+          "step": "lore",
+          "title": "World-lore look-up (RAG)",
+          "detail": "Skipped — nothing in your message needed a lore look-up this turn.",
+          "data": {
+            "reason": "skip — working set suffices",
+            "fetched": false,
+            "injected": false
+          }
+        },
+        {
+          "n": 5,
+          "step": "reading",
+          "title": "Reading your message",
+          "detail": "Working out whether you are narrating, addressing someone, or directing.",
+          "data": {}
+        },
+        {
+          "n": 6,
+          "step": "intent",
+          "title": "Read your intent: puppet",
+          "detail": "Dell surfaces and says nothing at first",
+          "data": {
+            "kind": "puppet",
+            "scope": "some",
+            "actors": [
+              "Dell"
+            ],
+            "addressed": []
+          }
+        },
+        {
+          "n": 7,
+          "step": "direction",
+          "title": "1 part(s) of an earlier direction are still owed",
+          "detail": "Dell is trapped under a beam and needs help.",
+          "data": {
+            "carried": [
+              {
+                "id": "req2",
+                "text": "Dell is trapped under a beam and needs help.",
+                "fromTurn": 0
+              }
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "step": "direction",
+          "title": "You directed the scene (2 thing(s) to deliver)",
+          "detail": "Dell surfaces and says nothing at first",
+          "data": {
+            "source": "message",
+            "requirements": [
+              {
+                "text": "Dell is trapped under a beam and needs help.",
+                "actor": "Dell",
+                "pinned": false,
+                "fromTurn": 0
+              },
+              {
+                "text": "Dell comes up and remains silent at first",
+                "actor": "Dell",
+                "pinned": false
+              }
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "step": "speaker",
+          "title": "Dell performs your direction",
+          "detail": "Dell surfaces and says nothing at first",
+          "data": {
+            "name": "Dell",
+            "puppet": true,
+            "register": "",
+            "characterId": "c_44775780d2",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 10,
+          "step": "relationship",
+          "title": "Dell's ties",
+          "detail": "You trusts Mara (She chose him over the cargo).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 11,
+          "step": "direction",
+          "title": "2 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell is trapped under a beam and needs help.; Dell comes up and remains silent at first",
+          "data": {
+            "attempted": [
+              "Dell is trapped under a beam and needs help.",
+              "Dell comes up and remains silent at first"
+            ],
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell is trapped under a beam and needs help.",
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "[1] Dell: The water breaks over my face, cold and sudden, and I come up choking, sputling mud from my lips. I am not under the beam anymore. I am on my back, floating, the timber a dark shadow somewhere above the surface, no longer pressing down. Mara is beside me, her hand on my shoulder, her face close enough that I can see the strain in her eyes, the way her breath is still ragged. I open my mouth to say something, to say *thank you* or *I’m okay* or *you saved me*, but the words stick in my throat. I look at her, then at the platform, where the lead crate still sits, lid sealed, waiting. I look back at her. I say nothing. My chest heaves, and I just breathe, letting the silence do the work.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 13,
+          "step": "context",
+          "title": "Context window",
+          "detail": "2,286 tokens sent to the model · 55% reusable prefix",
+          "data": {
+            "characterId": "c_44775780d2",
+            "promptChars": 9165,
+            "cachedTokens": 800,
+            "promptTokens": 2286,
+            "reusablePrefixChars": 5040
+          }
+        },
+        {
+          "n": 14,
+          "step": "direction",
+          "title": "2 part(s) may not have landed — trying again",
+          "detail": "Dell is trapped under a beam and needs help.; Dell comes up and remains silent at first",
+          "data": {
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell is trapped under a beam and needs help.",
+              "Dell comes up and remains silent at first"
+            ],
+            "unconfirmed": [
+              "Dell is trapped under a beam and needs help.",
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 15,
+          "step": "planning",
+          "title": "Planned the whole turn: 8 beat(s)",
+          "detail": "One planning call decided the turn. The beats below are what will run — the loop does not re-plan between them.",
+          "data": {
+            "beats": 8,
+            "planner": "upfront"
+          }
+        },
+        {
+          "n": 16,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 17,
+          "step": "plan",
+          "title": "Mara is up next",
+          "detail": "",
+          "data": {
+            "actor": "Mara",
+            "stakes": null,
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 18,
+          "step": "speaker",
+          "title": "Mara responds",
+          "detail": "",
+          "data": {
+            "name": "Mara",
+            "reason": "",
+            "stakes": "",
+            "register": "",
+            "characterId": "c_948876c9ad",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 19,
+          "step": "relationship",
+          "title": "Mara's ties",
+          "detail": "Dell trusts you (She chose him over the cargo).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_948876c9ad"
+          }
+        },
+        {
+          "n": 20,
+          "step": "prose",
+          "title": "Discarded a leaked scratchpad and kept the passage that followed",
+          "detail": "The endpoint streamed the model's deliberation as ordinary content and only marked its end, so it arrived looking like prose until the closing tag.",
+          "data": {
+            "scratchpad": true
+          }
+        },
+        {
+          "n": 21,
+          "step": "thinking",
+          "title": "Mara thinks (private)",
+          "detail": "\n\n\nThe silence is not empty. It is the heavy, wet quiet of two people who have just been held by the earth and let go. Kell is there. The rope hangs from his hand, a dark line against the swinging lantern light. I do not let go of Dell. I cannot. The water is at my ribs now, and the crate on the platform knocks against the iron rail with a sound that feels like a heartbeat. The ledger is burning in my chest, but the tide is not going to wait for the ink to dry. I look at Kell. I do not speak. I just hold on.",
+          "data": {
+            "characterId": "c_948876c9ad"
+          }
+        },
+        {
+          "n": 22,
+          "step": "context",
+          "title": "Context window",
+          "detail": "2,440 tokens sent to the model · 59% reusable prefix",
+          "data": {
+            "characterId": "c_948876c9ad",
+            "promptChars": 9733,
+            "cachedTokens": 800,
+            "promptTokens": 2440,
+            "reusablePrefixChars": 5721
+          }
+        },
+        {
+          "n": 23,
+          "step": "plan",
+          "title": "Kell is up next",
+          "detail": "",
+          "data": {
+            "actor": "Kell",
+            "stakes": null,
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 24,
+          "step": "speaker",
+          "title": "Kell responds",
+          "detail": "",
+          "data": {
+            "name": "Kell",
+            "reason": "",
+            "stakes": "",
+            "register": "",
+            "characterId": "c_7fba2e3565",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 25,
+          "step": "prose",
+          "title": "Kell speaks",
+          "detail": "The rope is a dead weight in my hands now, slick and cold. I let it drop, not onto the platform, but into the black water beside the crate. It sinks without a sound, swallowed by the harbour. I do not look at Dell. I look at the ledger in my head, the one that has no paper, only the weight of what is owed and what is lost.\n\n\"Mara,\" I say. My voice is rough, scraped raw by the damp air. \"The crate is sealed. The debt is not.\"\n\nI step over the coil of rope, my boots heavy on the wet brick. I stand between Dell and the platform, not blocking her, just occupying the space where the choice lives.\n\n\"Take the man,\" I tell her. \"I will take the ledger. We can argue about the price of the water later, when we are dry.\"",
+          "data": {
+            "characterId": "c_7fba2e3565"
+          }
+        },
+        {
+          "n": 26,
+          "step": "context",
+          "title": "Context window",
+          "detail": "2,051 tokens sent to the model · 84% reusable prefix",
+          "data": {
+            "characterId": "c_7fba2e3565",
+            "promptChars": 8143,
+            "cachedTokens": 1600,
+            "promptTokens": 2051,
+            "reusablePrefixChars": 6806
+          }
+        },
+        {
+          "n": 27,
+          "step": "plan",
+          "title": "Dell is up next",
+          "detail": "",
+          "data": {
+            "actor": "Dell",
+            "stakes": null,
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 28,
+          "step": "speaker",
+          "title": "Dell responds",
+          "detail": "",
+          "data": {
+            "name": "Dell",
+            "reason": "",
+            "stakes": "",
+            "register": "",
+            "characterId": "c_44775780d2",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 29,
+          "step": "relationship",
+          "title": "Dell's ties",
+          "detail": "You trusts Mara (She chose him over the cargo).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 30,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell is trapped under a beam and needs help.",
+          "data": {
+            "attempted": [
+              "Dell is trapped under a beam and needs help."
+            ],
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 31,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "The cold has stopped being a bite and become a weight, pressing against my ribs like a stone. I am pinned under the beam, the wet timber grinding into my shoulder, the water rising to my chin. I do not look at the crate. I do not look at the rope Kell let sink into the dark. I look only at Mara, my eyes wet and stinging, my breath coming in short, ragged gasps that fog the air between us.\n\n\"Mara,\" I say, the word scraping out of my throat, rough and small. \"Do not leave me under this.\"\n\nThe water rises another inch, licking at my neck. I brace my back against the timber, waiting for the end or the rescue.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 32,
+          "step": "context",
+          "title": "Context window",
+          "detail": "2,703 tokens sent to the model · 63% reusable prefix",
+          "data": {
+            "characterId": "c_44775780d2",
+            "promptChars": 10813,
+            "cachedTokens": 1600,
+            "promptTokens": 2703,
+            "reusablePrefixChars": 6796
+          }
+        },
+        {
+          "n": 33,
+          "step": "direction",
+          "title": "1 part(s) could not be confirmed",
+          "detail": "Dell is trapped under a beam and needs help.",
+          "data": {
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell comes up and remains silent at first"
+            ],
+            "unconfirmed": [
+              "Dell is trapped under a beam and needs help."
+            ]
+          }
+        },
+        {
+          "n": 34,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 35,
+          "step": "plan",
+          "title": "Dell is up next",
+          "detail": "",
+          "data": {
+            "actor": "Dell",
+            "stakes": null,
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 36,
+          "step": "speaker",
+          "title": "Dell responds",
+          "detail": "",
+          "data": {
+            "name": "Dell",
+            "reason": "",
+            "stakes": "",
+            "register": "",
+            "characterId": "c_44775780d2",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 37,
+          "step": "relationship",
+          "title": "Dell's ties",
+          "detail": "You trusts Mara (She chose him over the cargo).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 38,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell comes up and remains silent at first",
+          "data": {
+            "attempted": [
+              "Dell comes up and remains silent at first"
+            ],
+            "characterId": "c_44775780d2",
+            "outstanding": []
+          }
+        },
+        {
+          "n": 39,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "The air hits my lungs like a slap. I am on the platform now, standing on the wet brick, the water still lapping at the base of the crate. I do not step back. I do not step forward. I just stand there, dripping, and let the silence hang in the damp air between Mara and Kell. My chest heaves, a wet, rattling sound that I can hear over the drip of the tunnel. I look at the sealed lid, then at Mara’s face, and I say nothing. I just breathe, letting the cold settle into my bones, waiting for the words to find their way out of my throat.\n\n\"Mara,\" I finally say, my voice thin and scraped raw. \"The beam is gone.\"",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 40,
+          "step": "context",
+          "title": "Context window",
+          "detail": "2,907 tokens sent to the model · 64% reusable prefix",
+          "data": {
+            "characterId": "c_44775780d2",
+            "promptChars": 11665,
+            "cachedTokens": 1600,
+            "promptTokens": 2907,
+            "reusablePrefixChars": 7522
+          }
+        },
+        {
+          "n": 41,
+          "step": "direction",
+          "title": "1 part(s) could not be confirmed",
+          "detail": "Dell comes up and remains silent at first",
+          "data": {
+            "characterId": "c_44775780d2",
+            "outstanding": [],
+            "unconfirmed": [
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 42,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 43,
+          "step": "plan",
+          "title": "The turn ends",
+          "detail": "The direction is satisfied.",
+          "data": {
+            "end": true
+          }
+        },
+        {
+          "n": 44,
+          "step": "direction",
+          "title": "2 part(s) of your direction went undelivered",
+          "detail": "◐ Dell is trapped under a beam and needs help. · ◐ Dell comes up and remains silent at first",
+          "data": {
+            "never": [],
+            "total": 2,
+            "blocked": [],
+            "delivered": 0,
+            "unconfirmed": [
+              "Dell is trapped under a beam and needs help.",
+              "Dell comes up and remains silent at first"
+            ],
+            "undelivered": [
+              "Dell is trapped under a beam and needs help.",
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 45,
+          "step": "commit",
+          "title": "Nothing durable to commit to the story graph",
+          "detail": "This turn moved no stat/relationship, so the knowledge graph is unchanged.",
+          "data": {
+            "changes": [],
+            "consequences": 0
+          }
+        },
+        {
+          "n": 46,
+          "step": "reflection",
+          "title": "3 character(s) reflect",
+          "detail": "Each privately updates its stance for next turn; the whole cast reflects in a crowd.",
+          "data": {
+            "targets": [
+              "Dell",
+              "Mara",
+              "Kell"
+            ],
+            "universal": true
+          }
+        }
+      ],
+      "direction": {
+        "asked": [
+          "Dell is trapped under a beam and needs help.",
+          "Dell comes up and remains silent at first"
+        ],
+        "delivered": [],
+        "unconfirmed": [
+          "Dell is trapped under a beam and needs help.",
+          "Dell comes up and remains silent at first"
+        ],
+        "carried": [
+          "Dell is trapped under a beam and needs help."
+        ]
+      }
+    },
+    {
+      "turn": 3,
+      "seq": 14,
+      "player": {
+        "text": "Kell arrives and asks what happened down there.",
+        "directedAt": "",
+        "guidance": "",
+        "taggedDocIds": [],
+        "overrides": {}
+      },
+      "beats": [
+        {
+          "type": "character_prose",
+          "character": "Kell",
+          "characterId": "c_7fba2e3565",
+          "data": {
+            "done": true,
+            "text": "The lantern gutters, and I catch its swing before it can throw my shadow across the seam. My boots find the wet brick, one heavy step, then another, until I am standing close enough to see the black water threading along the crate’s lid. I do not look at Dell. I look at the water, then at Mara’s hand, still hovering in the air.\n\n\"What happened down there,\" I ask. My voice is low, scraped raw by the damp. \"And do not give me the dry answer. Give me the wet one.\"",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_7fba2e3565"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_44775780d2",
+          "data": {
+            "done": true,
+            "text": "I do not look at Kell. I look at the seam where the water is bleeding through, black and steady, and I feel the cold pull at my ribs like a hook. The beam is gone, but the weight of it is still in my bones, a phantom ache that makes my hands tremble against the wet brick.\n\n\"The beam broke,\" I say, my voice thin, barely louder than the drip of the water. \"It took the crate with it. The seal is gone, Kell. The debt is bleeding out.\"\n\nI lean forward, my breath fogging in the damp air, and I do not move away from the platform. I am not free yet. I am still trapped under the memory of the timber, pinned in place by the choice Mara made.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nA bolt pops from the crate’s seam with a sharp crack, and black water jets across the platform in a thin line toward Kell’s boots. Mara’s hand drops from the air and grips the lid’s edge, while Dell’s trembling fingers close on the wet brick beside him. The lantern swings low, and the water’s line catches its flame.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nKell sidesteps before the black line can swallow his boots, and the jet snaps against the brick with a hiss that steals the lantern’s last steady flame. In the sudden dim, Mara wrenches the buckled lid an inch wider, and Dell flinches from the wet gas as if the debt had teeth.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nA second bolt shivers loose from the crate’s seam, and the lid gives another inch under Mara’s grip. Kell’s boot hits the slick brick as he steps closer, his boot hovering just above the spreading black water. The tunnel beyond the platform swallows the jet’s hiss, and the next sound comes from deeper in the dark.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nFrom the dark, a long groan of strain rolls out, followed by a wet thud that shakes loose a ring of black water around Kell’s boot. The third bolt along the crate’s seam begins to shiver, and the lid bows another inch under Mara’s grip.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nThe thud repeats from the dark, closer now, and a rusted chain arcs out of the black water to coil across the platform near Dell’s ankle. Mara’s grip on the lid goes rigid, and Kell’s boot freezes on the wet brick, half a step from the chain’s cold link.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nKell crouches beside Dell and asks what happened down there, his fingers closing on the rusted chain as if it might answer for him. The link bites into his palm, and a fresh shudder runs up the length of it from the dark.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nDell’s throat opens around the answer, but the chain wrenches free from Kell’s fist and drags him sideways toward the black water. The lantern’s guttering flame dies under the wet brick, leaving only the chain’s wet pull and the dark’s deeper, patient breathing.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nThe chain yanks Kell sideways before the question can finish, and his shoulder slams against the wet brick with a crack that echoes down the tunnel. Mara lunges for the link, her fingers closing on cold metal as Dell’s foot slips off the platform toward the black water, where the pull tightens again.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nKell’s boot scrapes hard on the wet brick as he reaches Dell’s side, and the words break out of him before the chain can finish its pull. The link twists in Mara’s fist, dragging her knees across the platform while a pale shape rolls up through the black water just beyond the lantern’s dead beam.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nKell’s question comes out ragged and half-swallowed as the chain hurls him against the platform’s edge, his shoulder cracking against the brick again. The pale shape stops rolling, and its head lifts one inch above the black water, facing the two of them. Dell’s foot finds the wet brick and sticks.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\nKell wrenches the chain with both hands and hauls Dell’s ankle back onto the platform, his question snapping out of him as the pale head tilts. The shape’s mouth opens wide enough to show a wet, toothless seam, and the chain goes slack enough for Mara to slide under it.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nMara slides under the slack chain and presses her palm flat against the black water, where the toothless head tilts toward her as if listening. The wet brick gives a soft crack beneath Kell’s heel, and the lantern’s dead beam flickers for one impossible instant.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nKell’s question lands on the black water, and the toothless head sinks without a splash, dragging the chain tight against Mara’s wrist. From the far end of the tunnel, a wet footfall answers, then another, each one striking the brick in the same slow rhythm. The lantern’s dead beam trembles as the water beyond the pale shape begins to rise.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nKell steps onto the platform before the wet footfalls reach him, then turns his head hard to the dark tunnel and asks what happened down there. The voice comes back from the water with one extra echo, and Dell’s ankle jerks against the chain.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nThe wet footfalls stop mid-tunnel, and the water bulges up against the platform edge like a held breath. Mara’s wrist burns white under the chain as the slack vanishes, and Dell’s ankle slams back against the brick with a wet crack.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nMara’s palm lifts from the black water, and the bulge against the platform edge breaks over the brick in a thin, hissing line. Kell’s shoulder slams back against the masonry as the chain goes taut around his wrist, and the tunnel’s wet footfalls begin again—this time from behind him.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nKell spins before the wet footfalls close the gap, and the chain yanks his wrist hard enough to tilt him sideways. A pale hand breaks the surface at the tunnel mouth, fingers scrabbling across the brick, while Mara’s breath stops in the sudden dark. The far end of the service tunnel groans open, and a second wet shape begins to crawl out of the black water.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nThe pale hand catches the chain and jerks Kell sideways, his boot slipping on the wet platform until he is hanging over the black water. Behind him, the second shape’s fingers hook the rusted sluice valve and wrench it open with a shriek of metal. A cold sheet of water bursts across the platform, sweeping toward Mara’s face.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nKell’s question is drowned in the sluice’s roar, and he wrenches the chain down with both hands before the black water reaches his neck. The pale hand under it vanishes in one sharp jerk, and the second shape at the far end loses its grip on the valve. Mara’s wet hair whips across her face as the platform tilts under Kell’s weight.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nThe platform tips another inch, and Kell’s boots slide until he is dangling over the black water with the chain biting his wrist. The sluice valve spins free of the wall and clatters into the current, and from the far end a third wet footfall strikes the brick—slower, and wetter, than the rest.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "narration",
+          "character": "",
+          "characterId": null,
+          "data": {
+            "done": true,
+            "text": "\n\nKell comes up the stair at a run, his coat streaming, and stops short at the dripping mouth of the service tunnel. He looks past the black water and the tilted platform, then asks what happened down there.",
+            "takes": [],
+            "activeTake": 0
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_44775780d2",
+          "data": {
+            "done": true,
+            "text": "The cold water hits my face like a slap, and I come up choking, spitting mud and black brine from my lips. I do not reach for the platform. I do not reach for Mara. I float on my back in the black water, my chest heaving in short, ragged gasps that fog the damp air. My eyes are open, but I do not look at the sealed crate. I do not look at the lantern swinging low over the wet brick. I look only at the ceiling of the tunnel, the wet brick dark and heavy above me, and I let the silence hold me.\n\nThe water licks at my ribs, cold and patient. I wait for the words to find their way out of my throat, but they stick there, trapped behind the memory of the beam pressing down. I breathe in. I breathe out. The sound of my own lungs is the only thing I hear.\n\n\"Mara,\" I say, my voice thin and scraped raw. \"I am here.\"\n\nI do not move. I just float, letting the silence do the work, waiting for the words to find their way out of my throat.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_44775780d2"
+          }
+        }
+      ],
+      "trace": [
+        {
+          "n": 1,
+          "step": "turn",
+          "title": "You submitted a message",
+          "detail": "Kell arrives and asks what happened down there.",
+          "data": {
+            "pov": null,
+            "mode": "pov",
+            "directedAt": null,
+            "continuation": false,
+            "directionOnly": false
+          }
+        },
+        {
+          "n": 2,
+          "step": "assemble",
+          "title": "Gathered the scene (3 character(s) present)",
+          "detail": "Loaded each character's stats + carried-over mood, the recent transcript, and the story-graph subgraph (available).",
+          "data": {
+            "cast": [
+              {
+                "id": "c_44775780d2",
+                "name": "Dell",
+                "disposition": ""
+              },
+              {
+                "id": "c_948876c9ad",
+                "name": "Mara",
+                "disposition": "I feel the cold pinning me to him and the ledger burning in my chest. I want to lift that beam before my arms forget their names, and I want the water to stop asking what I am worth. If I let go of this, I am no longer a cargo master; I am just a woman who chose a man over the seal."
+              },
+              {
+                "id": "c_7fba2e3565",
+                "name": "Kell",
+                "disposition": "I feel the ledger sharpening in my chest, cold and precise, because the debt just moved from paper to the water. I want the man dry and the seam honest before the harbour decides we are both owed. I can no longer keep up the quartermaster's calm; I am the one who has to count what the tide will cost us."
+              }
+            ],
+            "graph": true,
+            "directedAt": null,
+            "windowBeats": 13,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured",
+            "retrievedLore": true
+          }
+        },
+        {
+          "n": 3,
+          "step": "window",
+          "title": "The scene reached back 13 beat(s)",
+          "detail": "Fitted to the model's context window (configured). Everything so far fitted.",
+          "data": {
+            "windowBeats": 13,
+            "budgetTokens": 24000,
+            "droppedBeats": 0,
+            "windowSource": "configured"
+          }
+        },
+        {
+          "n": 4,
+          "step": "lore",
+          "title": "World-lore look-up (RAG) — matched",
+          "detail": "Fetched durable lore and folded it into the prompt.",
+          "data": {
+            "reason": "fetch — world-history question",
+            "fetched": true,
+            "injected": true
+          }
+        },
+        {
+          "n": 5,
+          "step": "reading",
+          "title": "Reading your message",
+          "detail": "Working out whether you are narrating, addressing someone, or directing.",
+          "data": {}
+        },
+        {
+          "n": 6,
+          "step": "intent",
+          "title": "Read your intent: puppet",
+          "detail": "Kell arrives and asks what happened down there.",
+          "data": {
+            "kind": "puppet",
+            "scope": "none",
+            "actors": [
+              "Kell"
+            ],
+            "addressed": []
+          }
+        },
+        {
+          "n": 7,
+          "step": "direction",
+          "title": "2 part(s) of an earlier direction are still owed",
+          "detail": "Dell is trapped under a beam and needs help.; Dell comes up and remains silent at first",
+          "data": {
+            "carried": [
+              {
+                "id": "req2",
+                "text": "Dell is trapped under a beam and needs help.",
+                "fromTurn": 0
+              },
+              {
+                "id": "req1",
+                "text": "Dell comes up and remains silent at first",
+                "fromTurn": 5
+              }
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "step": "direction",
+          "title": "You directed the scene (3 thing(s) to deliver)",
+          "detail": "Kell arrives and asks what happened down there.",
+          "data": {
+            "source": "message",
+            "requirements": [
+              {
+                "text": "Dell is trapped under a beam and needs help.",
+                "actor": "Dell",
+                "pinned": false,
+                "fromTurn": 0
+              },
+              {
+                "text": "Dell comes up and remains silent at first",
+                "actor": "Dell",
+                "pinned": false,
+                "fromTurn": 5
+              },
+              {
+                "text": "Kell is present and asks what happened down there.",
+                "actor": "Kell",
+                "pinned": false
+              }
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "step": "speaker",
+          "title": "Kell performs your direction",
+          "detail": "Kell arrives and asks what happened down there.",
+          "data": {
+            "name": "Kell",
+            "puppet": true,
+            "register": "",
+            "characterId": "c_7fba2e3565",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 10,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Kell's beat",
+          "detail": "Kell is present and asks what happened down there.",
+          "data": {
+            "attempted": [
+              "Kell is present and asks what happened down there."
+            ],
+            "characterId": "c_7fba2e3565",
+            "outstanding": [
+              "Dell is trapped under a beam and needs help.",
+              "Dell comes up and remains silent at first",
+              "Kell is present and asks what happened down there."
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "step": "prose",
+          "title": "Kell speaks",
+          "detail": "The lantern gutters, and I catch its swing before it can throw my shadow across the seam. My boots find the wet brick, one heavy step, then another, until I am standing close enough to see the black water threading along the crate’s lid. I do not look at Dell. I look at the water, then at Mara’s hand, still hovering in the air.\n\n\"What happened down there,\" I ask. My voice is low, scraped raw by the damp. \"And do not give me the dry answer. Give me the wet one.\"",
+          "data": {
+            "characterId": "c_7fba2e3565"
+          }
+        },
+        {
+          "n": 12,
+          "step": "context",
+          "title": "Context window",
+          "detail": "3,338 tokens sent to the model · 63% reusable prefix",
+          "data": {
+            "characterId": "c_7fba2e3565",
+            "promptChars": 13376,
+            "cachedTokens": 1600,
+            "promptTokens": 3338,
+            "reusablePrefixChars": 8377
+          }
+        },
+        {
+          "n": 13,
+          "step": "direction",
+          "title": "Kell delivered 1 part(s) of your direction",
+          "detail": "Kell is present and asks what happened down there.",
+          "data": {
+            "delivered": [
+              "Kell is present and asks what happened down there."
+            ],
+            "characterId": "c_7fba2e3565",
+            "outstanding": [
+              "Dell is trapped under a beam and needs help.",
+              "Dell comes up and remains silent at first"
+            ],
+            "unconfirmed": []
+          }
+        },
+        {
+          "n": 14,
+          "step": "planning",
+          "title": "Planned the whole turn: 1 beat(s)",
+          "detail": "One planning call decided the turn. The beats below are what will run — the loop does not re-plan between them.",
+          "data": {
+            "beats": 1,
+            "planner": "upfront"
+          }
+        },
+        {
+          "n": 15,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell is trapped under a beam and needs help.",
+          "data": {
+            "attempted": [
+              "Dell is trapped under a beam and needs help."
+            ],
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell is trapped under a beam and needs help.",
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 16,
+          "step": "direction",
+          "title": "Dell delivers your direction",
+          "detail": "your direction is not delivered yet",
+          "data": {
+            "characterId": "c_44775780d2",
+            "requirements": [
+              "Dell is trapped under a beam and needs help."
+            ]
+          }
+        },
+        {
+          "n": 17,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "I do not look at Kell. I look at the seam where the water is bleeding through, black and steady, and I feel the cold pull at my ribs like a hook. The beam is gone, but the weight of it is still in my bones, a phantom ache that makes my hands tremble against the wet brick.\n\n\"The beam broke,\" I say, my voice thin, barely louder than the drip of the water. \"It took the crate with it. The seal is gone, Kell. The debt is bleeding out.\"\n\nI lean forward, my breath fogging in the damp air, and I do not move away from the platform. I am not free yet. I am still trapped under the memory of the timber, pinned in place by the choice Mara made.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 18,
+          "step": "stat",
+          "title": "Proposed stat change dropped",
+          "detail": "The character proposed an unknown or malformed stat — ignored.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 19,
+          "step": "context",
+          "title": "Context window",
+          "detail": "3,437 tokens sent to the model · 68% reusable prefix",
+          "data": {
+            "characterId": "c_44775780d2",
+            "promptChars": 13748,
+            "cachedTokens": 1600,
+            "promptTokens": 3437,
+            "reusablePrefixChars": 9377
+          }
+        },
+        {
+          "n": 20,
+          "step": "direction",
+          "title": "Dell delivered 1 part(s) of your direction",
+          "detail": "Dell is trapped under a beam and needs help.",
+          "data": {
+            "delivered": [
+              "Dell is trapped under a beam and needs help."
+            ],
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell comes up and remains silent at first"
+            ],
+            "unconfirmed": []
+          }
+        },
+        {
+          "n": 21,
+          "step": "planning",
+          "title": "Planning the next 22 beats",
+          "detail": "22 beat(s) left in the scene's budget.",
+          "data": {}
+        },
+        {
+          "n": 22,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 23,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 24,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 25,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 26,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 27,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 28,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 29,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 30,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 31,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 32,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 33,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 34,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 35,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 36,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 37,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 38,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 39,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 40,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 41,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 42,
+          "step": "plan",
+          "title": "The narrator sets the scene",
+          "detail": "",
+          "data": {}
+        },
+        {
+          "n": 43,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell comes up and remains silent at first",
+          "data": {
+            "attempted": [
+              "Dell comes up and remains silent at first"
+            ],
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 44,
+          "step": "direction",
+          "title": "Dell delivers your direction",
+          "detail": "the rest of your direction has to fit the beats that are left",
+          "data": {
+            "characterId": "c_44775780d2",
+            "requirements": [
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 45,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "The cold water hits my face like a slap, and I come up choking, spitting mud and black brine from my lips. I do not reach for the platform. I do not reach for Mara. I float on my back in the black water, my chest heaving in short, ragged gasps that fog the damp air. My eyes are open, but I do not look at the sealed crate. I do not look at the lantern swinging low over the wet brick. I look only at the ceiling of the tunnel, the wet brick dark and heavy above me, and I let the silence hold me.\n\nThe water licks at my ribs, cold and patient. I wait for the words to find their way out of my throat, but they stick there, trapped behind the memory of the beam pressing down. I breathe in. I breathe out. The sound of my own lungs is the only thing I hear.\n\n\"Mara,\" I say, my voice thin and scraped raw. \"I am here.\"\n\nI do not move. I just float, letting the silence do the work, waiting for the words to find their way out of my throat.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 46,
+          "step": "stat",
+          "title": "Proposed stat change dropped",
+          "detail": "The character proposed an unknown or malformed stat — ignored.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 47,
+          "step": "relationship_change",
+          "title": "Dell now trusts Mara",
+          "detail": "She chose him over the cargo, and he is still alive because of it",
+          "data": {
+            "type": "trusts",
+            "source": "Dell",
+            "target": "Mara"
+          }
+        },
+        {
+          "n": 48,
+          "step": "context",
+          "title": "Context window",
+          "detail": "4,480 tokens sent to the model · 15% reusable prefix",
+          "data": {
+            "characterId": "c_44775780d2",
+            "promptChars": 18320,
+            "promptTokens": 4480,
+            "reusablePrefixChars": 2810
+          }
+        },
+        {
+          "n": 49,
+          "step": "direction",
+          "title": "1 part(s) may not have landed — trying again",
+          "detail": "Dell comes up and remains silent at first",
+          "data": {
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell comes up and remains silent at first"
+            ],
+            "unconfirmed": [
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 50,
+          "step": "plan",
+          "title": "Stopped at the runaway backstop",
+          "detail": "Stopped after 24 beat(s), at the backstop of 24. This is not a pacing limit — the scene should have ended itself before here, so reaching it means the planner never chose to stop. 1 part(s) of your direction did not fit.",
+          "data": {
+            "end": true,
+            "undelivered": [
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 51,
+          "step": "direction",
+          "title": "Your direction was delivered in full",
+          "detail": "✓ Dell is trapped under a beam and needs help. · ◐ Dell comes up and remains silent at first · ✓ Kell is present and asks what happened down there.",
+          "data": {
+            "never": [],
+            "total": 3,
+            "blocked": [],
+            "delivered": 3,
+            "unconfirmed": [],
+            "undelivered": [
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 52,
+          "step": "commit",
+          "title": "Committing 1 change(s) to the story graph",
+          "detail": "Written to the story graph (Neo4j) after the turn: Dell trusts Mara: She chose him over the cargo, and he is still alive because of it",
+          "data": {
+            "changes": [
+              "Dell trusts Mara: She chose him over the cargo, and he is still alive because of it"
+            ],
+            "consequences": 1
+          }
+        },
+        {
+          "n": 53,
+          "step": "reflection",
+          "title": "3 character(s) reflect",
+          "detail": "Each privately updates its stance for next turn; the whole cast reflects in a crowd.",
+          "data": {
+            "targets": [
+              "Dell",
+              "Mara",
+              "Kell"
+            ],
+            "universal": true
+          }
+        }
+      ],
+      "direction": {
+        "asked": [
+          "Dell comes up and remains silent at first"
+        ],
+        "delivered": [],
+        "unconfirmed": [],
+        "carried": [
+          "Dell is trapped under a beam and needs help.",
+          "Dell comes up and remains silent at first"
+        ]
+      }
+    },
+    {
+      "turn": 4,
+      "seq": 39,
+      "player": {
+        "text": "Mara defends the choice she made.",
+        "directedAt": "",
+        "guidance": "",
+        "taggedDocIds": [],
+        "overrides": {}
+      },
+      "beats": [
+        {
+          "type": "character_prose",
+          "character": "Mara",
+          "characterId": "c_948876c9ad",
+          "data": {
+            "done": true,
+            "text": "I do not reach for the crate. I do not reach for the lantern. I stand on the wet brick, my boots slick with black water, and I let the silence stretch until it pulls tight against my ribs. The chain is gone. The pale shape is gone. Only the wet brick and the breathing dark remain.\n\nDell floats on his back, his eyes open, his breath fogging the damp air. He is alive. He is here.\n\nI step closer to the platform edge, my hand hovering over the black water, feeling its cold pull at my fingertips. I do not look at the sealed crate. I look at him.\n\n\"The manifest says the seal is worth more than the tunnel,\" I say, my voice low, scraped raw by the damp. \"It says the debt is bleeding out. It says I should have held the line.\"\n\nI pause. The water licks at my ankles, cold and patient.\n\n\"But the manifest does not say what happens when the beam breaks. It does not say what happens when the man under it stops breathing. I chose him. I chose the man over the cargo, and I will not trade that choice for a clean seal. If the debt is bleeding, then let it bleed. I would rather bleed than leave him under the timber.\"\n\nI look at his face, pale and wet in the dim light.\n\n\"You are here. That is the choice. That is the answer.\"\n\nI do not move. I just stand there, letting the weight of the decision settle into my bones, waiting for the silence to do the rest.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_948876c9ad"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_44775780d2",
+          "data": {
+            "done": true,
+            "text": "Mara’s words land on the wet brick, and I do not answer. I let them settle into the damp air, heavy and cold, while my chest heaves in short, ragged gasps. The water licks at my ribs, cold and patient, and I feel the weight of the beam still pressing down on my bones, a phantom ache that makes my hands tremble against the black surface. I do not reach for the platform. I do not reach for Mara. I just float, letting the silence do the work, waiting for the words to find their way out of my throat.\n\n\"Mara,\" I say, my voice thin and scraped raw. \"I am here.\"\n\nI do not move. I just breathe, letting the cold settle into my bones, waiting for the silence to do the rest.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Mara",
+          "characterId": "c_948876c9ad",
+          "data": {
+            "done": true,
+            "text": "The water has stopped its slow climb, but it has not stopped its breathing. I stand on the wet brick, my boots slick with black brine, and I feel the hollow ache in my chest where the decision used to be. The crate is open. The debt is bleeding. Kell is gone, swallowed by the dark beyond the tunnel mouth, and the only thing left between me and the cold is the weight of what I chose.\n\nI look at Dell. He is still floating, his face pale and wet in the dim light, his eyes open and fixed on the ceiling. He is alive. He is here.\n\nI step closer to the platform edge, my hand hovering over the black water, feeling its cold pull at my fingertips. I do not look at the sealed crate. I look at him.\n\n\"The manifest says the seal is worth more than the tunnel,\" I say, my voice low, scraped raw by the damp. \"It says the debt is bleeding out. It says I should have held the line.\"\n\nI pause. The water licks at my ankles, cold and patient.\n\n\"But the manifest does not say what happens when the beam breaks. It does not say what happens when the man under it stops breathing. I chose him. I chose the man over the cargo, and I will not trade that choice for a clean seal. If the debt is bleeding, then let it bleed. I would rather bleed than leave him under the timber.\"\n\nI look at his face, pale and wet in the dim light.\n\n\"You are here. That is the choice. That is the answer.\"\n\nI do not move. I just stand there, letting the weight of the decision settle into my bones, waiting for the silence to do the rest.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_948876c9ad"
+          }
+        },
+        {
+          "type": "internal_thought",
+          "character": "Kell",
+          "characterId": "c_7fba2e3565",
+          "data": {
+            "done": true,
+            "text": "The beat is short: Kell has just come up the stair, coat streaming, and is staring at the tilted platform and the black water. Mara has just delivered her defense — she chose the man over the cargo, she refuses to trade the choice for a clean seal, and she ends with \"You are here. That is the choice. That is the answer.\"\n\nKell's condition: hollowed out, the tunnel has skimmed the last dry weight from him. He wants the ledger to settle, but he is in the water with it now. The pale shapes, the slack chain, and Dell's thin voice are pressing against his ribs. He wants to know who is still left on the platform and who has already been taken.\n\nKell is a quartermaster who keeps everyone's ledger, including the moral one. His voice is rough, scraped raw, practical but with a deep moral weight. He doesn't do dry answers; he wants the wet one.\n\nMara has just defended her choice. She says she chose the man over the cargo. She says \"You are here. That is the choice. That is the answer.\"\n\nKell needs to respond to this. He is not neutral. He is hollowed out. He is in the water with the ledger.\n\nWhat does Kell say? He needs to acknowledge her choice, but also bring the ledger into it. He is the one who counts what is owed. He is the one who keeps the moral ledger.\n\nMara says she chose the man. Kell knows the cost. The crate is open. The debt is bleeding. The pale shapes are in the water.\n\nKell's response should be short, heavy, and true to his voice. He should not be overly dramatic. He should be practical, but with a deep undercurrent of weight.\n\nHe might say something like: \"The ledger does not care for clean choices. It only counts what is left.\" Or: \"You chose the man. The ledger will count the rest.\"\n\nLet's look at his recent lines for voice:\n\"The rope is a dead weight in my hands now, slick and cold. I let it drop, not onto the platform, but into the black water beside the crate. It sinks without a sound, swallowed by the harbour. I do not look at Dell. I look at the ledger in my head, the one that has no paper, only the weight of what is owed and what is lost.\"\n\"Mara,\" I say. My voice is rough, scraped raw by the damp air. \"The crate is sealed. The debt is not.\"\n\"Take the man,\" I tell her. \"I will take the ledger. We can argue about the price of the water later, when we are dry.\"\n\"What happened down there,\" I ask. My voice is low, scraped raw by the damp. \"And do not give me the dry answer. Give me the wet one.\"\n\nHis voice is rough, low, practical, but with a deep moral weight. He uses the ledger as a metaphor for the moral accounting.\n\nMara's defense: \"I chose him. I chose the man over the cargo, and I will not trade that choice for a clean seal. If the debt is bleeding, then let it bleed. I would rather bleed than leave him under the timber. You are here. That is the choice. That is the answer.\"\n\nKell's response: He needs to accept her answer, but also bring the ledger into it. He is hollowed out. He is in the water with it.\n\nHe might say: \"The ledger does not ask for clean seals. It only asks for the weight of what is left.\" Or: \"The man is here. The ledger will count the rest.\"\n\nLet's write it in Kell's voice. First person, present tense.\n\nI stand at the mouth of the tunnel, my coat streaming black water onto the wet brick. I do not step onto the platform. I look at Mara, then at Dell, who is still floating, his face pale and wet in the dim light. I look at the open crate, the black water bleeding out of it, the debt spilling into the dark.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nWait, that's too close to his previous line. Let's make it more specific to this moment.\n\nMara says: \"You are here. That is the choice. That is the answer.\"\n\nKell responds to this. He accepts the choice, but he brings the ledger into it.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nNo, that's too repetitive. Let's make it more about the current moment.\n\nMara has just defended her choice. She says she chose the man. She says \"You are here. That is the choice. That is the answer.\"\n\nKell's response: He accepts the choice, but he brings the ledger into it. He is hollowed out. He is in the water with it.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nActually, let's make it shorter and more to the point. The beat is short.\n\nI stand at the mouth of the tunnel, my coat streaming black water onto the wet brick. I do not step onto the platform. I look at Mara, then at Dell, who is still floating, his face pale and wet in the dim light. I look at the open crate, the black water bleeding out of it, the debt spilling into the dark.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nThis is good. It's short, it's in his voice, and it responds to her defense. It accepts her choice, but it brings the ledger into it. It's practical, but with a deep moral weight.\n\nLet's refine it a bit more.\n\nI stand at the mouth of the tunnel, my coat streaming black water onto the wet brick. I do not step onto the platform. I look at Mara, then at Dell, who is still floating, his face pale and wet in the dim light. I look at the open crate, the black water bleeding out of it, the debt spilling into the dark.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nThis is good. It's short, it's in his voice, and it responds to her defense. It accepts her choice, but it brings the ledger into it. It's practical, but with a deep moral weight.\n\nLet's make sure it's not too repetitive of his previous lines. His previous line was: \"Take the man,\" I tell her. \"I will take the ledger. We can argue about the price of the water later, when we are dry.\"\n\nSo this is very similar. Let's change it slightly.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nActually, let's make the second part different.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. The water will take the rest.\"",
+            "characterId": "c_7fba2e3565"
+          }
+        },
+        {
+          "type": "character_prose",
+          "character": "Dell",
+          "characterId": "c_44775780d2",
+          "data": {
+            "done": true,
+            "text": "Mara’s voice still hangs in the damp air, steady and unflinching, and I let it settle over me like a second layer of water. My lungs burn with the effort of breathing, each gasp a wet, rattling thing that seems too loud in the silence. I do not reach for the brick. I do not reach for her. I just stay there, suspended in the black, letting the cold pull the last of the warmth from my bones.\n\nMy eyes find her face through the murk. She is still standing at the edge of the platform, her hand resting on the buckled lid, her expression unchanged. She has already decided what this means. She has already decided what I am.\n\nI open my mouth. The sound that comes out is barely a whisper, scraped thin by the salt and the strain.\n\n\"I am here,\" I say.\n\nI do not move. I just float, letting the silence do the rest.",
+            "takes": [],
+            "recalled": [],
+            "activeTake": 0,
+            "characterId": "c_44775780d2"
+          }
+        }
+      ],
+      "trace": [
+        {
+          "n": 1,
+          "step": "turn",
+          "title": "You submitted a message",
+          "detail": "Mara defends the choice she made.",
+          "data": {
+            "pov": null,
+            "mode": "pov",
+            "directedAt": null,
+            "continuation": false,
+            "directionOnly": false
+          }
+        },
+        {
+          "n": 2,
+          "step": "assemble",
+          "title": "Gathered the scene (3 character(s) present)",
+          "detail": "Loaded each character's stats + carried-over mood, the recent transcript, and the story-graph subgraph (available).",
+          "data": {
+            "cast": [
+              {
+                "id": "c_44775780d2",
+                "name": "Dell",
+                "disposition": "I feel hollowed out, as if the water has replaced the sound in my chest and left only a cold weight where my fear used to be. I want to stay still, to stop being the thing that had to be pulled, and to let the silence finish what the beam started. The runner’s quickness is gone; I can no longer perform being safe."
+              },
+              {
+                "id": "c_948876c9ad",
+                "name": "Mara",
+                "disposition": "I feel hollowed out, like I pulled a man from the dark and left the debt behind to rot in the water. I want to keep him on the platform, but I also want the black water to stop reaching for us. The crate is no longer just cargo; it is a wound I chose to open, and I cannot pretend the choice was clean."
+              },
+              {
+                "id": "c_7fba2e3565",
+                "name": "Kell",
+                "disposition": "I feel hollowed out, as if the tunnel has skimmed the last dry weight from me. I want the ledger to settle, but I can no longer keep pretending I am only the one who counts what is owed; I am in the water with it now. The pale shapes, the slack chain, and Dell’s thin voice are all pressing against my ribs at once, and I want only to know who is still left on the platform and who has already been taken."
+              }
+            ],
+            "graph": true,
+            "directedAt": null,
+            "windowBeats": 20,
+            "budgetTokens": 24000,
+            "droppedBeats": 18,
+            "windowSource": "configured",
+            "retrievedLore": false
+          }
+        },
+        {
+          "n": 3,
+          "step": "window",
+          "title": "The scene reached back 20 beat(s)",
+          "detail": "Fitted to the model's context window (configured). 18 older beat(s) did not fit.",
+          "data": {
+            "windowBeats": 20,
+            "budgetTokens": 24000,
+            "droppedBeats": 18,
+            "windowSource": "configured"
+          }
+        },
+        {
+          "n": 4,
+          "step": "lore",
+          "title": "World-lore look-up (RAG)",
+          "detail": "Skipped — nothing in your message needed a lore look-up this turn.",
+          "data": {
+            "reason": "skip — working set suffices",
+            "fetched": false,
+            "injected": false
+          }
+        },
+        {
+          "n": 5,
+          "step": "reading",
+          "title": "Reading your message",
+          "detail": "Working out whether you are narrating, addressing someone, or directing.",
+          "data": {}
+        },
+        {
+          "n": 6,
+          "step": "intent",
+          "title": "Read your intent: puppet",
+          "detail": "Mara defends her earlier choice.",
+          "data": {
+            "kind": "puppet",
+            "scope": "some",
+            "actors": [
+              "Mara"
+            ],
+            "addressed": []
+          }
+        },
+        {
+          "n": 7,
+          "step": "direction",
+          "title": "1 part(s) of an earlier direction are still owed",
+          "detail": "Dell comes up and remains silent at first",
+          "data": {
+            "carried": [
+              {
+                "id": "req1",
+                "text": "Dell comes up and remains silent at first",
+                "fromTurn": 5
+              }
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "step": "direction",
+          "title": "You directed the scene (2 thing(s) to deliver)",
+          "detail": "Mara defends her earlier choice.",
+          "data": {
+            "source": "message",
+            "requirements": [
+              {
+                "text": "Dell comes up and remains silent at first",
+                "actor": "Dell",
+                "pinned": false,
+                "fromTurn": 5
+              },
+              {
+                "text": "Mara makes a case or argument for the decision she made.",
+                "actor": "Mara",
+                "pinned": false
+              }
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "step": "speaker",
+          "title": "Mara performs your direction",
+          "detail": "Mara defends her earlier choice.",
+          "data": {
+            "name": "Mara",
+            "puppet": true,
+            "register": "",
+            "characterId": "c_948876c9ad",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 10,
+          "step": "relationship",
+          "title": "Mara's ties",
+          "detail": "Dell trusts you (She chose him over the cargo, and he is still alive because of it).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_948876c9ad"
+          }
+        },
+        {
+          "n": 11,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Mara's beat",
+          "detail": "Mara makes a case or argument for the decision she made.",
+          "data": {
+            "attempted": [
+              "Mara makes a case or argument for the decision she made."
+            ],
+            "characterId": "c_948876c9ad",
+            "outstanding": [
+              "Dell comes up and remains silent at first",
+              "Mara makes a case or argument for the decision she made."
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "step": "prose",
+          "title": "Mara speaks",
+          "detail": "I do not reach for the crate. I do not reach for the lantern. I stand on the wet brick, my boots slick with black water, and I let the silence stretch until it pulls tight against my ribs. The chain is gone. The pale shape is gone. Only the wet brick and the breathing dark remain.\n\nDell floats on his back, his eyes open, his breath fogging the damp air. He is alive. He is here.\n\nI step closer to the platform edge, my hand hovering over the black water, feeling its cold pull at my fingertips. I do not look at the sealed crate. I look at him.\n\n\"The manifest says the seal is worth more than the tunnel,\" I say, my voice low, scraped raw by the damp. \"It says the debt is bleeding out. It says I should have held the line.\"\n\nI pause. The water licks at my ankles, cold and patient.\n\n\"But the manifest does not say what happens when the beam breaks. It does not say what happens when the man under it stops breathing. I chose him. I chose the man over the cargo, and I will not trade that choice for a clean seal. If the debt is bleeding, then let it bleed. I would rather bleed than leave him under the timber.\"\n\nI look at his face, pale and wet in the dim light.\n\n\"You are here. That is the choice. That is the answer.\"\n\nI do not move. I just stand there, letting the weight of the decision settle into my bones, waiting for the silence to do the rest.",
+          "data": {
+            "characterId": "c_948876c9ad"
+          }
+        },
+        {
+          "n": 13,
+          "step": "context",
+          "title": "Context window",
+          "detail": "5,143 tokens sent to the model · 13% reusable prefix",
+          "data": {
+            "characterId": "c_948876c9ad",
+            "promptChars": 21130,
+            "cachedTokens": 2400,
+            "promptTokens": 5143,
+            "reusablePrefixChars": 2810
+          }
+        },
+        {
+          "n": 14,
+          "step": "direction",
+          "title": "1 part(s) may not have landed — trying again",
+          "detail": "Mara makes a case or argument for the decision she made.",
+          "data": {
+            "characterId": "c_948876c9ad",
+            "outstanding": [
+              "Dell comes up and remains silent at first",
+              "Mara makes a case or argument for the decision she made."
+            ],
+            "unconfirmed": [
+              "Mara makes a case or argument for the decision she made."
+            ]
+          }
+        },
+        {
+          "n": 15,
+          "step": "planning",
+          "title": "Planned the whole turn: 4 beat(s)",
+          "detail": "One planning call decided the turn. The beats below are what will run — the loop does not re-plan between them.",
+          "data": {
+            "beats": 4,
+            "planner": "upfront"
+          }
+        },
+        {
+          "n": 16,
+          "step": "plan",
+          "title": "Dell is up next",
+          "detail": "",
+          "data": {
+            "actor": "Dell",
+            "stakes": "Dell surfaces from the black water and holds still, letting the silence prove its weight before he answers.",
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 17,
+          "step": "speaker",
+          "title": "Dell responds",
+          "detail": "",
+          "data": {
+            "name": "Dell",
+            "reason": "",
+            "stakes": "Dell surfaces from the black water and holds still, letting the silence prove its weight before he answers.",
+            "register": "",
+            "characterId": "c_44775780d2",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 18,
+          "step": "relationship",
+          "title": "Dell's ties",
+          "detail": "You trusts Mara (She chose him over the cargo, and he is still alive because of it).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 19,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell comes up and remains silent at first",
+          "data": {
+            "attempted": [
+              "Dell comes up and remains silent at first"
+            ],
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell comes up and remains silent at first",
+              "Mara makes a case or argument for the decision she made."
+            ]
+          }
+        },
+        {
+          "n": 20,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "Mara’s words land on the wet brick, and I do not answer. I let them settle into the damp air, heavy and cold, while my chest heaves in short, ragged gasps. The water licks at my ribs, cold and patient, and I feel the weight of the beam still pressing down on my bones, a phantom ache that makes my hands tremble against the black surface. I do not reach for the platform. I do not reach for Mara. I just float, letting the silence do the work, waiting for the words to find their way out of my throat.\n\n\"Mara,\" I say, my voice thin and scraped raw. \"I am here.\"\n\nI do not move. I just breathe, letting the cold settle into my bones, waiting for the silence to do the rest.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 21,
+          "step": "context",
+          "title": "Context window",
+          "detail": "5,619 tokens sent to the model · 77% reusable prefix",
+          "data": {
+            "characterId": "c_44775780d2",
+            "promptChars": 23026,
+            "cachedTokens": 4000,
+            "promptTokens": 5619,
+            "reusablePrefixChars": 17645
+          }
+        },
+        {
+          "n": 22,
+          "step": "direction",
+          "title": "1 part(s) may not have landed — trying again",
+          "detail": "Dell comes up and remains silent at first",
+          "data": {
+            "characterId": "c_44775780d2",
+            "outstanding": [
+              "Dell comes up and remains silent at first",
+              "Mara makes a case or argument for the decision she made."
+            ],
+            "unconfirmed": [
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 23,
+          "step": "plan",
+          "title": "Mara is up next",
+          "detail": "",
+          "data": {
+            "actor": "Mara",
+            "stakes": "Mara presses the argument: the choice is not an excuse, it is the ledger's true entry.",
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 24,
+          "step": "speaker",
+          "title": "Mara responds",
+          "detail": "",
+          "data": {
+            "name": "Mara",
+            "reason": "",
+            "stakes": "Mara presses the argument: the choice is not an excuse, it is the ledger's true entry.",
+            "register": "",
+            "characterId": "c_948876c9ad",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 25,
+          "step": "relationship",
+          "title": "Mara's ties",
+          "detail": "Dell trusts you (She chose him over the cargo, and he is still alive because of it).",
+          "data": {
+            "scope": "scene",
+            "offscene": 0,
+            "characterId": "c_948876c9ad"
+          }
+        },
+        {
+          "n": 26,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Mara's beat",
+          "detail": "Mara makes a case or argument for the decision she made.",
+          "data": {
+            "attempted": [
+              "Mara makes a case or argument for the decision she made."
+            ],
+            "characterId": "c_948876c9ad",
+            "outstanding": [
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 27,
+          "step": "prose",
+          "title": "Mara speaks",
+          "detail": "The water has stopped its slow climb, but it has not stopped its breathing. I stand on the wet brick, my boots slick with black brine, and I feel the hollow ache in my chest where the decision used to be. The crate is open. The debt is bleeding. Kell is gone, swallowed by the dark beyond the tunnel mouth, and the only thing left between me and the cold is the weight of what I chose.\n\nI look at Dell. He is still floating, his face pale and wet in the dim light, his eyes open and fixed on the ceiling. He is alive. He is here.\n\nI step closer to the platform edge, my hand hovering over the black water, feeling its cold pull at my fingertips. I do not look at the sealed crate. I look at him.\n\n\"The manifest says the seal is worth more than the tunnel,\" I say, my voice low, scraped raw by the damp. \"It says the debt is bleeding out. It says I should have held the line.\"\n\nI pause. The water licks at my ankles, cold and patient.\n\n\"But the manifest does not say what happens when the beam breaks. It does not say what happens when the man under it stops breathing. I chose him. I chose the man over the cargo, and I will not trade that choice for a clean seal. If the debt is bleeding, then let it bleed. I would rather bleed than leave him under the timber.\"\n\nI look at his face, pale and wet in the dim light.\n\n\"You are here. That is the choice. That is the answer.\"\n\nI do not move. I just stand there, letting the weight of the decision settle into my bones, waiting for the silence to do the rest.",
+          "data": {
+            "characterId": "c_948876c9ad"
+          }
+        },
+        {
+          "n": 28,
+          "step": "context",
+          "title": "Context window",
+          "detail": "5,588 tokens sent to the model · 12% reusable prefix",
+          "data": {
+            "characterId": "c_948876c9ad",
+            "promptChars": 22898,
+            "promptTokens": 5588,
+            "reusablePrefixChars": 2809
+          }
+        },
+        {
+          "n": 29,
+          "step": "direction",
+          "title": "1 part(s) could not be confirmed",
+          "detail": "Mara makes a case or argument for the decision she made.",
+          "data": {
+            "characterId": "c_948876c9ad",
+            "outstanding": [
+              "Dell comes up and remains silent at first"
+            ],
+            "unconfirmed": [
+              "Mara makes a case or argument for the decision she made."
+            ]
+          }
+        },
+        {
+          "n": 30,
+          "step": "plan",
+          "title": "Kell is up next",
+          "detail": "",
+          "data": {
+            "actor": "Kell",
+            "stakes": "Kell records the moral line, making the decision accountable without undoing it.",
+            "register": null,
+            "addressing": null
+          }
+        },
+        {
+          "n": 31,
+          "step": "speaker",
+          "title": "Kell responds",
+          "detail": "",
+          "data": {
+            "name": "Kell",
+            "reason": "",
+            "stakes": "Kell records the moral line, making the decision accountable without undoing it.",
+            "register": "",
+            "characterId": "c_7fba2e3565",
+            "registerSource": ""
+          }
+        },
+        {
+          "n": 32,
+          "step": "thinking",
+          "title": "Kell thinks (private)",
+          "detail": "The beat is short: Kell has just come up the stair, coat streaming, and is staring at the tilted platform and the black water. Mara has just delivered her defense — she chose the man over the cargo, she refuses to trade the choice for a clean seal, and she ends with \"You are here. That is the choice. That is the answer.\"\n\nKell's condition: hollowed out, the tunnel has skimmed the last dry weight from him. He wants the ledger to settle, but he is in the water with it now. The pale shapes, the slack chain, and Dell's thin voice are pressing against his ribs. He wants to know who is still left on the platform and who has already been taken.\n\nKell is a quartermaster who keeps everyone's ledger, including the moral one. His voice is rough, scraped raw, practical but with a deep moral weight. He doesn't do dry answers; he wants the wet one.\n\nMara has just defended her choice. She says she chose the man over the cargo. She says \"You are here. That is the choice. That is the answer.\"\n\nKell needs to respond to this. He is not neutral. He is hollowed out. He is in the water with the ledger.\n\nWhat does Kell say? He needs to acknowledge her choice, but also bring the ledger into it. He is the one who counts what is owed. He is the one who keeps the moral ledger.\n\nMara says she chose the man. Kell knows the cost. The crate is open. The debt is bleeding. The pale shapes are in the water.\n\nKell's response should be short, heavy, and true to his voice. He should not be overly dramatic. He should be practical, but with a deep undercurrent of weight.\n\nHe might say something like: \"The ledger does not care for clean choices. It only counts what is left.\" Or: \"You chose the man. The ledger will count the rest.\"\n\nLet's look at his recent lines for voice:\n\"The rope is a dead weight in my hands now, slick and cold. I let it drop, not onto the platform, but into the black water beside the crate. It sinks without a sound, swallowed by the harbour. I do not look at Dell. I look at the ledger in my head, the one that has no paper, only the weight of what is owed and what is lost.\"\n\"Mara,\" I say. My voice is rough, scraped raw by the damp air. \"The crate is sealed. The debt is not.\"\n\"Take the man,\" I tell her. \"I will take the ledger. We can argue about the price of the water later, when we are dry.\"\n\"What happened down there,\" I ask. My voice is low, scraped raw by the damp. \"And do not give me the dry answer. Give me the wet one.\"\n\nHis voice is rough, low, practical, but with a deep moral weight. He uses the ledger as a metaphor for the moral accounting.\n\nMara's defense: \"I chose him. I chose the man over the cargo, and I will not trade that choice for a clean seal. If the debt is bleeding, then let it bleed. I would rather bleed than leave him under the timber. You are here. That is the choice. That is the answer.\"\n\nKell's response: He needs to accept her answer, but also bring the ledger into it. He is hollowed out. He is in the water with it.\n\nHe might say: \"The ledger does not ask for clean seals. It only asks for the weight of what is left.\" Or: \"The man is here. The ledger will count the rest.\"\n\nLet's write it in Kell's voice. First person, present tense.\n\nI stand at the mouth of the tunnel, my coat streaming black water onto the wet brick. I do not step onto the platform. I look at Mara, then at Dell, who is still floating, his face pale and wet in the dim light. I look at the open crate, the black water bleeding out of it, the debt spilling into the dark.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nWait, that's too close to his previous line. Let's make it more specific to this moment.\n\nMara says: \"You are here. That is the choice. That is the answer.\"\n\nKell responds to this. He accepts the choice, but he brings the ledger into it.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nNo, that's too repetitive. Let's make it more about the current moment.\n\nMara has just defended her choice. She says she chose the man. She says \"You are here. That is the choice. That is the answer.\"\n\nKell's response: He accepts the choice, but he brings the ledger into it. He is hollowed out. He is in the water with it.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nActually, let's make it shorter and more to the point. The beat is short.\n\nI stand at the mouth of the tunnel, my coat streaming black water onto the wet brick. I do not step onto the platform. I look at Mara, then at Dell, who is still floating, his face pale and wet in the dim light. I look at the open crate, the black water bleeding out of it, the debt spilling into the dark.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nThis is good. It's short, it's in his voice, and it responds to her defense. It accepts her choice, but it brings the ledger into it. It's practical, but with a deep moral weight.\n\nLet's refine it a bit more.\n\nI stand at the mouth of the tunnel, my coat streaming black water onto the wet brick. I do not step onto the platform. I look at Mara, then at Dell, who is still floating, his face pale and wet in the dim light. I look at the open crate, the black water bleeding out of it, the debt spilling into the dark.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nThis is good. It's short, it's in his voice, and it responds to her defense. It accepts her choice, but it brings the ledger into it. It's practical, but with a deep moral weight.\n\nLet's make sure it's not too repetitive of his previous lines. His previous line was: \"Take the man,\" I tell her. \"I will take the ledger. We can argue about the price of the water later, when we are dry.\"\n\nSo this is very similar. Let's change it slightly.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. We will argue about the price of the water later, when we are dry.\"\n\nActually, let's make the second part different.\n\n\"The ledger does not ask for clean seals,\" I say, my voice low, scraped raw by the damp. \"It only counts what is left. The man is here. The debt is bleeding. The water is rising. That is the wet answer.\"\n\nI pause. The hollow ache in my chest tightens.\n\n\"I will take the ledger,\" I tell her. \"You take the man. The water will take the rest.\"",
+          "data": {
+            "characterId": "c_7fba2e3565"
+          }
+        },
+        {
+          "n": 33,
+          "step": "context",
+          "title": "Context window",
+          "detail": "5,696 tokens sent to the model · 12% reusable prefix",
+          "data": {
+            "characterId": "c_7fba2e3565",
+            "promptChars": 23305,
+            "promptTokens": 5696,
+            "reusablePrefixChars": 2809
+          }
+        },
+        {
+          "n": 34,
+          "step": "direction",
+          "title": "1 part(s) of your direction ride on Dell's beat",
+          "detail": "Dell comes up and remains silent at first",
+          "data": {
+            "attempted": [
+              "Dell comes up and remains silent at first"
+            ],
+            "characterId": "c_44775780d2",
+            "outstanding": []
+          }
+        },
+        {
+          "n": 35,
+          "step": "direction",
+          "title": "Dell delivers your direction",
+          "detail": "your direction is not delivered yet",
+          "data": {
+            "characterId": "c_44775780d2",
+            "requirements": [
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 36,
+          "step": "prose",
+          "title": "Dell speaks",
+          "detail": "Mara’s voice still hangs in the damp air, steady and unflinching, and I let it settle over me like a second layer of water. My lungs burn with the effort of breathing, each gasp a wet, rattling thing that seems too loud in the silence. I do not reach for the brick. I do not reach for her. I just stay there, suspended in the black, letting the cold pull the last of the warmth from my bones.\n\nMy eyes find her face through the murk. She is still standing at the edge of the platform, her hand resting on the buckled lid, her expression unchanged. She has already decided what this means. She has already decided what I am.\n\nI open my mouth. The sound that comes out is barely a whisper, scraped thin by the salt and the strain.\n\n\"I am here,\" I say.\n\nI do not move. I just float, letting the silence do the rest.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 37,
+          "step": "stat",
+          "title": "Proposed stat change dropped",
+          "detail": "The character proposed an unknown or malformed stat — ignored.",
+          "data": {
+            "characterId": "c_44775780d2"
+          }
+        },
+        {
+          "n": 38,
+          "step": "relationship_change",
+          "title": "Dell now trusts Mara",
+          "detail": "She chose the man over the cargo and stands by that choice without flinching.",
+          "data": {
+            "type": "trusts",
+            "source": "Dell",
+            "target": "Mara"
+          }
+        },
+        {
+          "n": 39,
+          "step": "context",
+          "title": "Context window",
+          "detail": "5,881 tokens sent to the model · 83% reusable prefix",
+          "data": {
+            "characterId": "c_44775780d2",
+            "promptChars": 24085,
+            "cachedTokens": 4800,
+            "promptTokens": 5881,
+            "reusablePrefixChars": 20077
+          }
+        },
+        {
+          "n": 40,
+          "step": "direction",
+          "title": "1 part(s) could not be confirmed",
+          "detail": "Dell comes up and remains silent at first",
+          "data": {
+            "characterId": "c_44775780d2",
+            "outstanding": [],
+            "unconfirmed": [
+              "Dell comes up and remains silent at first"
+            ]
+          }
+        },
+        {
+          "n": 41,
+          "step": "plan",
+          "title": "The approved plan is complete",
+          "detail": "Ran all 5 beat(s) the player approved.",
+          "data": {
+            "end": true,
+            "bound": true
+          }
+        },
+        {
+          "n": 42,
+          "step": "plan",
+          "title": "The turn ends",
+          "detail": "the plan is complete",
+          "data": {
+            "end": true
+          }
+        },
+        {
+          "n": 43,
+          "step": "direction",
+          "title": "2 part(s) of your direction went undelivered",
+          "detail": "◐ Dell comes up and remains silent at first · ◐ Mara makes a case or argument for the decision she made.",
+          "data": {
+            "never": [],
+            "total": 2,
+            "blocked": [],
+            "delivered": 0,
+            "unconfirmed": [
+              "Dell comes up and remains silent at first",
+              "Mara makes a case or argument for the decision she made."
+            ],
+            "undelivered": [
+              "Dell comes up and remains silent at first",
+              "Mara makes a case or argument for the decision she made."
+            ]
+          }
+        },
+        {
+          "n": 44,
+          "step": "commit",
+          "title": "Committing 1 change(s) to the story graph",
+          "detail": "Written to the story graph (Neo4j) after the turn: Dell trusts Mara: She chose the man over the cargo and stands by that choice without flinching.",
+          "data": {
+            "changes": [
+              "Dell trusts Mara: She chose the man over the cargo and stands by that choice without flinching."
+            ],
+            "consequences": 1
+          }
+        },
+        {
+          "n": 45,
+          "step": "reflection",
+          "title": "3 character(s) reflect",
+          "detail": "Each privately updates its stance for next turn; the whole cast reflects in a crowd.",
+          "data": {
+            "targets": [
+              "Dell",
+              "Mara",
+              "Kell"
+            ],
+            "universal": true
+          }
+        }
+      ],
+      "direction": {
+        "asked": [
+          "Dell comes up and remains silent at first"
+        ],
+        "delivered": [],
+        "unconfirmed": [
+          "Dell comes up and remains silent at first",
+          "Mara makes a case or argument for the decision she made."
+        ],
+        "carried": [
+          "Dell comes up and remains silent at first"
+        ]
+      }
+    }
+  ],
+  "characterMemories": [
+    {
+      "id": "cm_ec144c4156",
+      "character": "Mara",
+      "turnSeq": 0,
+      "gloss": "I left the sealed crate to save Dell, and now his voice is the thing I will hear when the tide rises in my dreams.",
+      "quote": "Do not leave me under this.",
+      "quoteSpeaker": "Dell",
+      "salience": 0.7,
+      "valence": "debt",
+      "subjects": [
+        "flooded-tunnel",
+        "beam",
+        "lead-crate",
+        "rescue",
+        "dell",
+        "kell",
+        "mara"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_2ad09d02eb",
+      "character": "Kell",
+      "turnSeq": 5,
+      "gloss": "I chose to let the man live and the ledger bleed, and now I can still feel the lid bending under the water like a promise failing.",
+      "quote": "The crate is sealed. The debt is not.",
+      "quoteSpeaker": "Kell",
+      "salience": 0.8,
+      "valence": "debt",
+      "subjects": [
+        "crate",
+        "debt",
+        "water",
+        "tunnel",
+        "flooded-tunnel",
+        "dell",
+        "kell",
+        "mara"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_295b3f9099",
+      "character": "Mara",
+      "turnSeq": 14,
+      "gloss": "I chose the man over the sealed debt, and the water answered by taking Kell and the ledger into itself.",
+      "quote": "I am here.",
+      "quoteSpeaker": "Dell",
+      "salience": 0.9,
+      "valence": "debt",
+      "subjects": [
+        "dell",
+        "black-water",
+        "lead-crate",
+        "chain",
+        "choice",
+        "flooded-tunnel",
+        "kell",
+        "mara"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_5b023c126e",
+      "character": "Dell",
+      "turnSeq": 14,
+      "gloss": "I was not saved so much as left floating in the gap between drowning and being owed again.",
+      "quote": "I am here.",
+      "quoteSpeaker": "Dell",
+      "salience": 0.7,
+      "valence": "wound",
+      "subjects": [
+        "drowning",
+        "black-water",
+        "beam",
+        "silence",
+        "flooded-tunnel",
+        "dell",
+        "kell",
+        "mara"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_155381445b",
+      "character": "Kell",
+      "turnSeq": 14,
+      "gloss": "I stopped being the ledger and became one of its entries — the one who asked too late.",
+      "quote": "Mara",
+      "quoteSpeaker": "Dell",
+      "salience": 0.7,
+      "valence": "fear",
+      "subjects": [
+        "pale-shapes",
+        "chain",
+        "black-water",
+        "debt",
+        "flooded-tunnel",
+        "dell",
+        "kell",
+        "mara"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_014759bc30",
+      "character": "Dell",
+      "turnSeq": 39,
+      "gloss": "Mara chose me over the sealed debt, and in doing so turned my survival into a ledger entry I will have to pay back with my body and my silence.",
+      "quote": "You are here. That is the choice. That is the answer.",
+      "quoteSpeaker": "Mara",
+      "salience": 0.8,
+      "valence": "debt",
+      "subjects": [
+        "drowning",
+        "tunnel",
+        "crate",
+        "debt",
+        "being-saved",
+        "flooded-tunnel",
+        "dell",
+        "kell",
+        "mara"
+      ],
+      "reinforcements": 0
+    },
+    {
+      "id": "cm_05bf03e24f",
+      "character": "Mara",
+      "turnSeq": 39,
+      "gloss": "I chose the man over the manifest, and I will carry the bleeding debt as the proof that I did not choose safety.",
+      "quote": "I would rather bleed than leave him under the timber.",
+      "quoteSpeaker": "Mara",
+      "salience": 0.9,
+      "valence": "debt",
+      "subjects": [
+        "dell",
+        "crate",
+        "debt",
+        "choice",
+        "sealed-cargo",
+        "tunnel-water",
+        "flooded-tunnel",
+        "kell",
+        "mara"
+      ],
+      "reinforcements": 0
+    }
+  ]
+}
