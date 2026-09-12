@@ -183,3 +183,70 @@ def test_reported_sylvarra_beat_parses_clean():
     # is checked — the state_update segment IS raw JSON by design.
     assert "type:" not in segs[0].text and "{" not in segs[0].text
     assert all(s.character_id == "syl" for s in segs)
+
+
+# ---- untagged JSON blocks ---------------------------------------------------
+# The contract asks for `<type:state_update>` before a proposed change. Models write the
+# object and skip the tag, which used to render the JSON verbatim under the beat AND drop
+# the change it proposed.
+
+
+def _parse(raw: str):
+    return parse_emission(raw, roster={1: "mei"}, fallback_speaker_id="mei")
+
+
+def test_untagged_stat_block_is_lifted_out_of_the_prose():
+    segs = _parse('She turns the page.\n\n{"key": "patience", "delta": -1, "reason": "pressed"}')
+
+    assert [s.type for s in segs] == ["character_prose", "state_update"]
+    assert segs[0].text == "She turns the page."
+    assert "delta" not in segs[0].text
+    assert segs[1].text == '{"key": "patience", "delta": -1, "reason": "pressed"}'
+
+
+def test_several_untagged_blocks_all_come_out():
+    segs = _parse(
+        'She turns the page.\n\n'
+        '{"key": "patience", "delta": -1, "reason": "a"}\n\n'
+        '{"key": "suspicion", "delta": 1, "reason": "b"}'
+    )
+    assert [s.type for s in segs] == ["character_prose", "state_update", "state_update"]
+
+
+def test_untagged_blocks_are_typed_by_their_shape():
+    rel = _parse('He steps back.\n\n{"type": "fears", "target": "Mei", "reason": "the ledger"}')
+    pres = _parse('He walks out.\n\n{"status": "left", "reason": "done here"}')
+    assert rel[-1].type == "relationship_update"
+    assert pres[-1].type == "presence_change"
+
+
+def test_prose_that_merely_contains_a_brace_is_untouched():
+    segs = _parse("She writes {} on the slate and laughs.")
+    assert [s.type for s in segs] == ["character_prose"]
+    assert segs[0].text == "She writes {} on the slate and laughs."
+
+
+def test_an_unrecognised_trailing_object_stays_prose():
+    """A brace that does not match a validator's shape never cuts the passage."""
+    segs = _parse('She turns the page.\n\n{"mood": "wary"}')
+    assert [s.type for s in segs] == ["character_prose"]
+    assert '{"mood": "wary"}' in segs[0].text
+
+
+def test_text_after_an_untagged_block_is_trailing_and_dropped():
+    """Matches the tagged path: prose after a JSON body is not a second passage."""
+    segs = _parse('She turns the page.\n\n{"key": "trust", "delta": 1}\n\nAnd then she left.')
+    assert [s.type for s in segs] == ["character_prose", "state_update"]
+    assert segs[0].text == "She turns the page."
+    assert "And then she left." not in segs[0].text
+
+
+def test_an_unparseable_trailing_brace_stays_prose():
+    segs = _parse("She turns the page.\n\n{key: patience, delta:")
+    assert [s.type for s in segs] == ["character_prose"]
+
+
+def test_a_tagged_block_still_wins():
+    """The documented form is unaffected — it never reaches the bare-JSON path."""
+    segs = _parse('She turns the page.\n<type:state_update>\n{"key": "trust", "delta": 1}')
+    assert [s.type for s in segs] == ["character_prose", "state_update"]

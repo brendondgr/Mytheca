@@ -71,6 +71,16 @@ EMISSIONS = [
     # A presence change.
     "<speaker:1><type:character_dialogue>\"I am leaving.\"</type:character_dialogue>"
     '<type:presence_change>{"status": "left"}</type:presence_change>',
+    # An UNTAGGED JSON block appended to the passage — what models actually do.
+    'She turns the page.\n\n{"key": "patience", "delta": -1, "reason": "pressed"}',
+    # Two of them.
+    'She turns the page.\n\n{"key": "patience", "delta": -1}\n\n{"key": "trust", "delta": 1}',
+    # A brace that never closes stays prose, and must survive arbitrary chunking.
+    "She turns the page.\n\n{key: patience, delta:",
+    # A trailing object of an unrecognised shape stays prose.
+    'She turns the page.\n\n{"mood": "wary"}',
+    # Prose after an untagged block — trailing, dropped by both parsers alike.
+    'She turns the page.\n\n{"key": "trust", "delta": 1}\n\nAnd then she left.',
 ]
 
 

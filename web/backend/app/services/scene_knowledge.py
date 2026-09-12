@@ -17,6 +17,8 @@ question, and the honest answer is a set of zeroes, not a 404.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -56,14 +58,18 @@ def scene_knowledge(db: Session, session: PlaySession) -> SceneKnowledgeResponse
             reason=str(lore.get("reason") or ""),
             matched=bool(lore.get("injected")),
         ),
-        # One line per character whose ties reached a prompt this turn. `detail` is already
-        # written as plain language by `beat_runner.relationship_note`, so it needs no
-        # rewriting here — only attribution.
-        relationships=[
+        # One line per DISTINCT set of ties that reached a prompt this turn. `detail` is
+        # already written as plain language by `beat_runner.relationship_note`, so it needs
+        # no rewriting here — only attribution, and de-duplication: a speaker who takes
+        # three beats in a turn writes the same note three times, and a live panel showed
+        # one character's ties repeated verbatim three times in a list of eight. Exact
+        # repeats collapse; a note that genuinely changed mid-turn still shows twice, which
+        # is the more truthful answer to "what does the scene know now".
+        relationships=_unique(
             f"{_name(assemble, r.data.get('characterId'))}: {r.detail}".strip(": ")
             for r in by_step.get("relationship", [])
             if r.detail
-        ],
+        ),
         direction=_direction(by_step),
         summary=SceneKnowledgeSummary(
             text=(session.summary_text or "").strip(),
@@ -71,6 +77,11 @@ def scene_knowledge(db: Session, session: PlaySession) -> SceneKnowledgeResponse
             updated_at=session.summary_updated_at,
         ),
     )
+
+
+def _unique(lines: Iterable[str]) -> list[str]:
+    """De-duplicate while preserving first-seen order."""
+    return list(dict.fromkeys(lines))
 
 
 def _latest_turn(db: Session, session_id: str) -> list[TurnTrace]:

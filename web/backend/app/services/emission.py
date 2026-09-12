@@ -14,6 +14,7 @@ falls back to the engine's intended speaker (it already knows who is up).
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -65,6 +66,67 @@ def _clean(body: str) -> str:
     return _TAG_CLEAN.sub("", body).strip()
 
 
+#: A line-opening ``{`` — where an untagged JSON block can begin.
+_LINE_JSON = re.compile(r"(?:\A|(?<=\n))[ \t]*\{")
+_DECODER = json.JSONDecoder()
+
+
+def _classify(obj: object) -> str | None:
+    """Which JSON block type ``obj`` is, by its shape — ``None`` if it is not one.
+
+    The three shapes are the ones the validators accept, so a misread is harmless: a block
+    typed wrongly fails validation downstream and is dropped, rather than being rendered.
+    """
+    if not isinstance(obj, dict):
+        return None
+    if "key" in obj and ("delta" in obj or "value" in obj):
+        return _STAT_TYPE
+    if "type" in obj and "target" in obj:
+        return _REL_TYPE
+    if "status" in obj:
+        return _PRESENCE_TYPE
+    return None
+
+
+def split_bare_json(chunk: str) -> tuple[str, list[tuple[str, str]]]:
+    """Split ``chunk`` into its prose and any UNTAGGED JSON blocks that follow it.
+
+    The contract asks a character to put ``<type:state_update>`` before a proposed change.
+    Models routinely write the object and skip the tag, and nothing recognised that: the
+    object fell through as prose and was rendered verbatim under the beat, *and* the change
+    it proposed was silently dropped. Both halves were observed live, on ten of the twelve
+    beats of one turn, with a model that was otherwise following the format exactly.
+
+    A run is lifted only where it begins on a line-opening ``{`` **and** its first value
+    parses and matches one of the three shapes the validators accept — which narrative prose
+    does not do — so the passage is never cut short on the strength of a stray brace. The run
+    then extends over every following value that also parses and classifies. Anything after
+    it is **trailing**: returned in neither half, exactly as trailing prose after a *tagged*
+    JSON block is already dropped by the one-passage rule.
+
+    Returns ``(prose, [(kind, raw_json), …])``; an empty block list is the common case.
+    """
+    for match in _LINE_JSON.finditer(chunk):
+        start = match.end() - 1
+        blocks: list[tuple[str, str]] = []
+        cursor = start
+        while cursor < len(chunk):
+            try:
+                obj, end = _DECODER.raw_decode(chunk, cursor)
+            except ValueError:
+                break
+            kind = _classify(obj)
+            if kind is None:
+                break
+            blocks.append((kind, chunk[cursor:end]))
+            cursor = end
+            while cursor < len(chunk) and chunk[cursor] in " \t\r\n":
+                cursor += 1
+        if blocks:
+            return chunk[:start], blocks
+    return chunk, []
+
+
 @dataclass
 class Segment:
     """One parsed unit of a character's emission → one story event."""
@@ -110,10 +172,13 @@ def _segments_for_run(chunk: str, speaker_id: str) -> list[Segment]:
     # of the text, so stray closers cannot fragment one beat into several.
     type_marks = [m for m in _TYPE_RE.finditer(chunk) if m.group(1).lower() in _JSON_TYPES]
     if not type_marks:
-        # The expected shape: no tags at all, one first-person passage.
-        body = _clean(chunk)
+        # The expected shape: no tags at all, one first-person passage — possibly with an
+        # untagged JSON block appended, which :func:`split_bare_json` lifts back out.
+        prose, blocks = split_bare_json(chunk)
+        body = _clean(prose)
         if body:
             segments.append(Segment(_PROSE, body, speaker_id))
+        segments.extend(Segment(kind, raw, speaker_id) for kind, raw in blocks)
         return segments
 
     # Prose before the first tag is the beat itself, not a preamble to discard: the expected
@@ -303,20 +368,40 @@ class EmissionAccumulator:
         return out
 
     def finish(self) -> list[SegmentDelta]:
-        """Close the emission; return the final deltas."""
+        """Close the emission; return the final deltas.
+
+        The held tail is split here rather than in :meth:`push`, because whether a
+        line-opening ``{`` is a JSON block or the start of a very odd sentence is only
+        knowable once the emission ends.
+        """
         out: list[SegmentDelta] = []
+        blocks: list[tuple[str, str]] = []
         if self._buf:
-            out.extend(self._consume_text(self._buf))
+            prose, blocks = split_bare_json(self._buf)
             self._buf = ""
+            if prose:
+                out.extend(self._consume_text(prose))
+        for kind, raw in blocks:
+            out.extend(self._close_open())
+            out.extend(self._open(kind))
+            out.extend(self._grow(raw))
         out.extend(self._close_open())
         return out
 
     # -- internals -----------------------------------------------------------
 
     def _safe_prefix(self, text: str) -> int:
-        """How much of ``text`` cannot still turn out to be part of a tag."""
+        """How much of ``text`` cannot still turn out to be part of a tag or a JSON block.
+
+        A line-opening ``{`` may be the start of an untagged JSON block (see
+        :func:`split_bare_json`), and a passage cannot un-send prose it has already
+        streamed — so everything from that brace is held until :meth:`finish` can see
+        whether it closes as JSON. If it never does, it is released as prose there.
+        """
         start = text.rfind("<")
-        return len(text) if start == -1 or ">" in text[start:] else start
+        tag_safe = len(text) if start == -1 or ">" in text[start:] else start
+        brace = _LINE_JSON.search(text)
+        return tag_safe if brace is None else min(tag_safe, brace.end() - 1)
 
     def _handle_tag(self, tag: str) -> list[SegmentDelta]:
         speaker = _SPEAKER_RE.fullmatch(tag)
