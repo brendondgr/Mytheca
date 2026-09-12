@@ -26,12 +26,15 @@ class _RecWriteSession:
 
 
 class _FakeReadSession:
-    def __init__(self, node_rows, edge_rows):
+    def __init__(self, node_rows, edge_rows, neighbour_rows=None):
         self.node_rows, self.edge_rows = node_rows, edge_rows
+        self.neighbour_rows = neighbour_rows or []
         self.calls: list[tuple[str, dict]] = []
 
     def run(self, cypher: str, **params):
         self.calls.append((cypher, params))
+        if "count(DISTINCT a) AS anchors" in cypher:
+            return _Result(self.neighbour_rows)
         if "properties(n)" in cypher:
             return _Result(self.node_rows)
         if "type(r)" in cypher:
@@ -134,7 +137,13 @@ def test_scenario_graph_unavailable_when_disabled(db_session):
     # autouse fixture leaves Neo4j disabled.
     scenario = _seed_scene(db_session)
     result = graph_reader.scenario_graph(db_session, scenario.id)
-    assert result == {"available": False, "scenario_id": "sc1", "nodes": [], "edges": []}
+    assert result == {
+        "available": False,
+        "scenario_id": "sc1",
+        "anchor_ids": [],
+        "nodes": [],
+        "edges": [],
+    }
 
 
 def test_scenario_graph_reads_via_read_session(db_session, monkeypatch):
@@ -251,3 +260,73 @@ def test_offscene_ties_never_raises(monkeypatch):
     monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
     monkeypatch.setattr(neo4j_mod, "read_session", _boom)
     assert graph_reader.offscene_ties("mei", ["mei"], "embergate") == []
+
+
+# ---- the one-hop expansion around a scene ----------------------------------
+
+
+def test_neighbour_ids_scopes_to_the_storyline_and_caps():
+    session = _FakeReadSession([], [], neighbour_rows=[{"id": "court"}, {"id": "harbor"}])
+
+    ids = graph_reader.neighbour_ids(session, ["maerin", "saltworn"], "embergate", limit=5)
+
+    assert ids == ["court", "harbor"]
+    cypher, params = session.calls[0]
+    # The anchors are excluded IN the query, so the cap applies to rows that will be used.
+    assert "NOT b.id IN $ids" in cypher
+    assert "b.storyline = $storyline" in cypher
+    assert params == {"ids": ["maerin", "saltworn"], "storyline": "embergate", "limit": 5}
+
+
+def test_neighbour_ids_is_empty_without_anchors_or_storyline():
+    session = _FakeReadSession([], [])
+    assert graph_reader.neighbour_ids(session, [], "embergate") == []
+    assert graph_reader.neighbour_ids(session, ["maerin"], "") == []
+    assert session.calls == []  # never runs an unscoped traversal
+
+
+def test_scenario_graph_reads_the_cast_plus_one_hop(db_session, monkeypatch):
+    """A seeded Faction is invisible without the expansion — both endpoints must be in $ids."""
+    scenario = _seed_scene(db_session)
+    node_rows = [
+        {"id": "c1", "type": "Character", "label": "Mei", "storyline": "w1", "props": {"id": "c1"}},
+        {"id": "s1", "type": "Setting", "label": "Tavern", "storyline": "w1", "props": {"id": "s1"}},
+        {"id": "f1", "type": "Faction", "label": "The Court", "storyline": "w1", "props": {"id": "f1"}},
+    ]
+    edge_rows = [{"source": "c1", "target": "f1", "type": "member_of", "props": {}}]
+    read_session = _FakeReadSession(node_rows, edge_rows, neighbour_rows=[{"id": "f1"}])
+
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
+    monkeypatch.setattr(neo4j_mod, "write_session", _cm_returning(_RecWriteSession()))
+    monkeypatch.setattr(neo4j_mod, "read_session", _cm_returning(read_session))
+
+    result = graph_reader.scenario_graph(db_session, scenario.id)
+
+    assert {n["id"] for n in result["nodes"]} == {"c1", "s1", "f1"}
+    # The anchors stay distinguishable from the context reached around them.
+    assert set(result["anchor_ids"]) == {"c1", "c2", "s1"}
+    # The node/edge read is scoped to anchors + neighbours, not to anchors alone.
+    node_call = next(p for c, p in read_session.calls if "properties(n)" in c)
+    assert "f1" in node_call["ids"]
+
+
+def test_scenario_relationships_ignores_characters_reached_by_the_expansion(db_session, monkeypatch):
+    """The panel answers 'who is in this room', so a one-hop character is not an entry."""
+    scenario = _seed_scene(db_session)
+    node_rows = [
+        {"id": "c1", "type": "Character", "label": "Mei", "storyline": "w1", "props": {"id": "c1"}},
+        {"id": "c2", "type": "Character", "label": "John", "storyline": "w1", "props": {"id": "c2"}},
+        {"id": "c9", "type": "Character", "label": "Offscene", "storyline": "w1", "props": {"id": "c9"}},
+    ]
+    edge_rows = [
+        {"source": "c1", "target": "c2", "type": "trusts", "props": {"reason": "years of it"}},
+        {"source": "c1", "target": "c9", "type": "resents", "props": {}},
+    ]
+    read_session = _FakeReadSession(node_rows, edge_rows, neighbour_rows=[{"id": "c9"}])
+    monkeypatch.setattr(neo4j_mod, "is_enabled", lambda: True)
+    monkeypatch.setattr(neo4j_mod, "write_session", _cm_returning(_RecWriteSession()))
+    monkeypatch.setattr(neo4j_mod, "read_session", _cm_returning(read_session))
+
+    rels = graph_reader.scenario_relationships(db_session, scenario.id)
+
+    assert [(r["sourceName"], r["type"], r["targetName"]) for r in rels] == [("Mei", "trusts", "John")]

@@ -198,8 +198,9 @@ class ScenarioDraftResponse(CamelModel):
 
 
 # ---- the Story-Graph read on scenario load (§7.2) ---------------------------
-# Returned by GET /scenarios/{id}/graph: the cast + setting subgraph read live
-# from Neo4j. ``available`` is False (empty lists) when the graph is off/unreachable.
+# Returned by GET /scenarios/{id}/graph: the cast + setting, plus one hop out into the
+# lore they are attached to, read live from Neo4j. ``available`` is False (empty lists)
+# when the graph is off/unreachable.
 
 
 class GraphNodeRead(CamelModel):
@@ -220,6 +221,9 @@ class GraphEdgeRead(CamelModel):
 class ScenarioGraphRead(CamelModel):
     available: bool
     scenario_id: str
+    #: The scene's own cast + setting, before the one-hop expansion. Everything else in
+    #: ``nodes`` is context the cast is attached to, not something standing in the room.
+    anchor_ids: list[str] = Field(default_factory=list)
     nodes: list[GraphNodeRead] = Field(default_factory=list)
     edges: list[GraphEdgeRead] = Field(default_factory=list)
 

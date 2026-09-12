@@ -4,7 +4,7 @@
 
 1. waits for the database and pings Redis,
 2. ensures the schema (``create_all``), and
-3. seeds the Embergate world if empty.
+3. seeds the Embergate world if empty, and merges its Story-Graph lore layer.
 
 Bringing the Postgres + Redis **containers** up is *not* done here — that is
 owned entirely by ``app.py`` (``ensure_docker_services``), which runs before this
@@ -35,6 +35,7 @@ from app.core.qdrant import is_enabled as qdrant_enabled
 from app.core.qdrant import ping as qdrant_ping
 from app.core.redis import ping as redis_ping
 from app.core.seed import seed_if_empty
+from app.core.seed_graph import seed_embergate_lore
 from app.services.type_registry import seed_builtin_types
 
 log = logging.getLogger(__name__)
@@ -279,7 +280,18 @@ def run_preflight(*, seed: bool = True) -> PreflightReport:
     if seed:
         with Session(engine) as session:
             created = seed_if_empty(session)
+            # The Embergate lore layer — factions, secrets, events, the map of what adjoins
+            # what. Story-Graph only, and MERGE-based, so it converges on every boot rather
+            # than riding on whether the Postgres seed happened to write this time.
+            lore_nodes, lore_edges = seed_embergate_lore(session)
         report.add("seed", True, "seeded Embergate" if created else "already present")
+        if lore_nodes:
+            report.add(
+                "graph lore",
+                True,
+                f"{lore_nodes} nodes / {lore_edges} edges merged",
+                required=False,
+            )
 
     engine.dispose()
     return report

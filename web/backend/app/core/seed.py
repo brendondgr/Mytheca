@@ -11,7 +11,15 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.models import Character, Scenario, Setting, StatDefinition, Storyline
+from app.core.seed_docs import DOCUMENTS
+from app.models import (
+    Character,
+    ContextDocument,
+    Scenario,
+    Setting,
+    StatDefinition,
+    Storyline,
+)
 
 SEED_STORYLINE_ID = "embergate"
 
@@ -33,6 +41,8 @@ _SETTINGS: list[dict] = [
     {"id": "keep", "name": "Tidewatch Keep", "type": "Fortress", "desc": "The guard's stone fist clenched over the bay.", "atmosphere": "Cold stone and iron, echoing halls, the smell of oil and old smoke; every footfall carries and every door is heavy.", "features": "A barred gatehouse, the muster yard, the records vault, and the bell tower that signals the turning of the tide.", "current_state": "Shift change at the watch; gates barred, braziers lit in the yard, the duty captain on the wall."},
     {"id": "market", "name": "The Drowned Market", "type": "Black Market", "desc": "Below the tideline, where nothing is illegal.", "atmosphere": "Brine and tallow and rot; dripping vaulted stone, lantern-light on standing water, voices kept low and faces kept hooded.", "features": "Submerged vault rows, plank walkways above the waterline, the ledger-keeper's cage, and tide-warden posts at every arch.", "current_state": "Tide rising; the bells beginning to count it down, walkways crowded, the lowest stalls already ankle-deep."},
     {"id": "sanctum", "name": "The Oracle's Sanctum", "type": "Sacred", "desc": "Salt-circles and the hush before a truth.", "atmosphere": "Still and cold, salt crusting the floor in pale rings; the hush before a truth, broken only by slow breathing and the far drip of water.", "features": "Concentric salt-circles, a tide-reading basin, guttered candles, and a curtained recess where the Oracle sits.", "current_state": "Deep night; candles low, the circles freshly drawn, the Oracle waiting and unhurried."},
+    {"id": "chapel", "name": "The Drowned Chapel", "type": "Sacred", "desc": "A burnt nave above an undercroft the tide takes twice a day.", "atmosphere": "Cold char and wet stone; the smell of a fire two winters old that the damp never finished washing out, and below it the slow breathing of water in the dark.", "features": "The collapsed upper nave open to the sky, a sealed stair down to the flooded undercroft, eleven names cut into the lintel, and the tide-mark higher every year.", "current_state": "Tide halfway up the stair; the nave empty, one candle burning where nobody will admit to lighting it."},
+    {"id": "customs", "name": "The Customs House", "type": "Fortress", "desc": "Where the harbor's arithmetic is made to agree.", "atmosphere": "Lamp-oil and dry paper in a building that smells of neither damp nor sea — the only room in the lower town the tide has not reached, and it is guarded like it.", "features": "The long clerks' hall, the bonded store, a strongroom of duplicate returns, and the Guild's own scale that no one is allowed to check.", "current_state": "Ledgers closed for the night; one lamp still lit at the far desk, and the duty clerk pretending not to notice who walks past it."},
 ]
 
 _SCENARIOS: list[dict] = [
@@ -150,6 +160,21 @@ def seed_if_empty(session: Session) -> bool:
         storyline.scenarios.append(Scenario(position=i, **scenario))
     for stat in _STATS:
         storyline.stat_definitions.append(StatDefinition(**stat))
+    # The reference corpus the retrieval gate searches. Rows only — embedding is an
+    # explicit step from the Documents page, because it downloads a model.
+    for i, doc in enumerate(DOCUMENTS):
+        storyline.context_documents.append(
+            ContextDocument(
+                name=doc["name"],
+                content=doc["content"],
+                category="other",
+                include_draft=True,
+                include_rag=True,
+                source="seed",
+                char_count=len(doc["content"]),
+                position=i,
+            )
+        )
 
     session.add(storyline)
     session.commit()

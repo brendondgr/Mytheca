@@ -4,7 +4,10 @@ The hot path is reads only (§8). When a Scenario is loaded, Mytheca:
   1. **materializes** the scenario's cast + setting from Postgres into Neo4j —
      an idempotent upsert (so the seeded world appears in the graph on first load,
      and the present_at "who's in this scene" edges (§4.3) are drawn);
-  2. **reads** the resulting subgraph through pre-written, parameterized Cypher
+  2. **expands** one hop out from those anchors, storyline-scoped and capped, so the
+     lore the cast is attached to — factions, secrets, events, promoted subjects,
+     adjacent settings, off-scene ties — arrives with them rather than being invisible;
+  3. **reads** the resulting subgraph through pre-written, parameterized Cypher
      **templates** (§7.2) in a **read-only** transaction (§7.4 — a stray write is
      rejected by the server, not by convention).
 
@@ -40,6 +43,11 @@ _RELATIONSHIP_TYPES = frozenset(
 # Default metadata for the derived live-casting edge (§4.3 present_at).
 _PRESENT_AT_META = {"weight": 1.0, "visibility": "public", "status": "active"}
 
+#: How many one-hop neighbours a scene graph draws around its anchors. High enough that a
+#: hand-authored world's lore layer arrives whole, low enough that one hub character in a
+#: long-played world cannot turn the scene view into the whole graph.
+SCENE_NEIGHBOUR_LIMIT = 60
+
 # ---- parameterized templates (§7.2) — read-only --------------------------
 
 _NODES_BY_ID = (
@@ -50,6 +58,23 @@ _NODES_BY_ID = (
 _EDGES_AMONG = (
     "MATCH (a:Node)-[r]->(b:Node) WHERE a.id IN $ids AND b.id IN $ids "
     "RETURN a.id AS source, b.id AS target, type(r) AS type, properties(r) AS props"
+)
+#: One hop out from the scene's anchors — the factions, secrets, events, promoted subjects,
+#: adjacent settings and off-scene characters the cast is actually attached to.
+#:
+#: Without this the scene graph can only ever show its own cast and its own room, because
+#: ``_EDGES_AMONG`` requires BOTH endpoints to be anchors: a seeded Faction or Secret node
+#: is invisible no matter how many edges reach it. Storyline-scoped so a hop cannot cross
+#: worlds, and capped, because a hub node in a large world has unbounded degree.
+#:
+#: Ordering is by how many anchors each neighbour touches, so when the cap does bite it
+#: keeps what the scene is most attached to rather than an arbitrary slice; ``id`` breaks
+#: the tie, which makes the result stable across runs.
+_NEIGHBOURS = (
+    "MATCH (a:Node)-[]-(b:Node) "
+    "WHERE a.id IN $ids AND NOT b.id IN $ids AND b.storyline = $storyline "
+    "RETURN b.id AS id, count(DISTINCT a) AS anchors "
+    "ORDER BY anchors DESC, id LIMIT $limit"
 )
 _PRESENCE_CASTING = (
     "MATCH (c:Character)-[:present_at]->(s:Setting {id: $setting_id}) "
@@ -113,6 +138,18 @@ def scenario_subgraph(session: Any, ids: list[str]) -> tuple[list[dict], list[di
     nodes = [_node_from_row(r) for r in session.run(_NODES_BY_ID, ids=ids)]
     edges = [_edge_from_row(r) for r in session.run(_EDGES_AMONG, ids=ids)]
     return nodes, edges
+
+
+def neighbour_ids(session: Any, ids: list[str], storyline: str, *, limit: int = SCENE_NEIGHBOUR_LIMIT) -> list[str]:
+    """The ids one hop out from ``ids``, within ``storyline`` and capped at ``limit``.
+
+    Read-only and parameterised. Returns ``[]`` for an empty anchor set or a missing
+    storyline rather than running an unscoped traversal.
+    """
+    if not ids or not storyline:
+        return []
+    rows = session.run(_NEIGHBOURS, ids=ids, storyline=storyline, limit=limit)
+    return [r["id"] for r in rows]
 
 
 def presence_casting(session: Any, setting_id: str) -> list[dict]:
@@ -254,7 +291,11 @@ def scenario_relationships(db: Session, scenario_id: str) -> list[dict]:
     graph = scenario_graph(db, scenario_id)
     if not graph.get("available"):
         return []
-    names = {n["id"]: n["label"] for n in graph.get("nodes", [])}
+    # Scoped to the scene's own anchors, not to every node the expanded read returned: this
+    # panel answers "how do the people in this room stand with each other", and an off-scene
+    # character reached by the one-hop expansion is not in the room.
+    anchors = set(graph.get("anchor_ids") or [])
+    names = {n["id"]: n["label"] for n in graph.get("nodes", []) if n["id"] in anchors}
     out: list[dict] = []
     for edge in graph.get("edges", []):
         if edge.get("type") not in _RELATIONSHIP_TYPES:
@@ -283,14 +324,27 @@ def scenario_graph(db: Session, scenario_id: str) -> dict:
     the graph.
     """
     scenario = crud.get_scenario(db, scenario_id)  # 404 if the scenario is unknown
-    empty = {"available": False, "scenario_id": scenario_id, "nodes": [], "edges": []}
+    empty = {
+        "available": False,
+        "scenario_id": scenario_id,
+        "anchor_ids": [],
+        "nodes": [],
+        "edges": [],
+    }
     if not neo4j.is_enabled():
         return empty
     try:
-        ids = ensure_scenario_materialized(db, scenario)
+        anchors = ensure_scenario_materialized(db, scenario)
         with neo4j.read_session() as session:  # READ access mode (§7.4)
-            nodes, edges = scenario_subgraph(session, ids)
-        return {"available": True, "scenario_id": scenario_id, "nodes": nodes, "edges": edges}
+            around = neighbour_ids(session, anchors, scenario.storyline_id)
+            nodes, edges = scenario_subgraph(session, anchors + around)
+        return {
+            "available": True,
+            "scenario_id": scenario_id,
+            "anchor_ids": anchors,
+            "nodes": nodes,
+            "edges": edges,
+        }
     except Exception as exc:
         logger.warning("scenario graph (%s) unavailable: %s", scenario_id, exc)
         return empty

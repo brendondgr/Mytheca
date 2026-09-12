@@ -9,6 +9,15 @@ with no vector store and no embedding model.
 Source brief: `Documents/Plans/Mytheca/1.mytheca-rag-implementation-plan.md`.
 Implementation plan: `docs/plans/mytheca-rag-implementation.md`.
 
+**The seeded world ships a corpus.** `core/seed_docs.py` writes eight Embergate reference
+documents — the factions, the Salt Writ, the chapel fire, the drowned ledger, the tides,
+the Oracle, what the salt is for, and who owes whom — as storyline-level
+`ContextDocument` rows with `include_rag` on. Without them the retrieval gate on a fresh
+install opens onto an empty index, which on screen is indistinguishable from a gate that
+never opened. Seeding writes **rows only**: embedding stays an explicit step
+(`POST /storylines/{id}/rag/reindex/stream`, or the Documents page's re-index action)
+because it downloads a model, and startup should not wait on an advisory feature.
+
 ## Pipeline
 
 ```

@@ -594,11 +594,19 @@ export interface GraphEdge {
   metadata: Record<string, unknown>;
 }
 
-/** The subgraph for one scenario: its cast + setting and the edges among them. */
+/**
+ * The subgraph for one scenario: its cast + setting, plus one hop out into the factions,
+ * secrets, events, subjects and adjacent places they are attached to.
+ */
 export interface ScenarioGraph {
   /** False (with empty lists) when the graph is disabled or unreachable. */
   available: boolean;
   scenarioId: string;
+  /**
+   * The scene's own cast + setting. Every other node is context reached by the one-hop
+   * expansion — attached to the scene, not standing in it.
+   */
+  anchorIds: string[];
   nodes: GraphNode[];
   edges: GraphEdge[];
 }

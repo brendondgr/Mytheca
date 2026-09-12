@@ -631,6 +631,7 @@ export function makeApiMock() {
     getScenarioGraph: vi.fn(async (scenarioId: string) => ({
       available: false,
       scenarioId,
+      anchorIds: [],
       nodes: [],
       edges: [],
     })),

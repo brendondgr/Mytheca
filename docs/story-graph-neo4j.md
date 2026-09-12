@@ -120,11 +120,22 @@ behind it.
 
 `GET /api/scenarios/{id}/graph` **materializes** the scenario's cast + setting from
 Postgres into Neo4j (idempotent `MERGE`, drawing `present_at` edges — so the seeded
-world appears on first load), then **reads** the subgraph through pre-written,
-parameterized Cypher templates in a **read-only** transaction (a stray write is
-rejected by the server). Returns `{ available, scenarioId, nodes[], edges[] }`. This
-is the **visualization** read path only (the story player's Graph view, below) —
-it does not feed the LLM.
+world appears on first load), **expands one hop** out from those anchors, then **reads**
+the resulting subgraph through pre-written, parameterized Cypher templates in a
+**read-only** transaction (a stray write is rejected by the server). Returns
+`{ available, scenarioId, anchorIds, nodes[], edges[] }`. This is the **visualization**
+read path only (the story player's Graph view, below) — it does not feed the LLM.
+
+**The one-hop expansion.** The edge template requires *both* endpoints to be in the id
+set, so a scene scoped to its own anchors can only ever show its cast standing in its
+room: a `Faction`, `Secret` or `Event` node is invisible no matter how many edges reach
+it. `graph_reader.neighbour_ids` adds the nodes one hop out — storyline-scoped, so a hop
+cannot cross worlds, and capped at `SCENE_NEIGHBOUR_LIMIT` (60), because a hub node in a
+long-played world has unbounded degree. Neighbours are ordered by how many anchors each
+touches, so a truncation keeps what the scene is most attached to. `anchorIds` names the
+cast + setting, which is how a consumer tells the room from the context around it:
+`scenario_relationships` uses it to keep the story player's Relationships panel to the
+people actually present.
 
 ### Turn-loop read path — the graph's actual influence on dialogue
 
@@ -144,6 +155,24 @@ boolean `available` flag folded into the diagnostic trace (`graph_available` in
 **Unused query templates.** `graph_reader.presence_casting` and
 `graph_reader.secret_reachability` are defined Cypher templates with no callers
 anywhere in the codebase today — reserved for future use, not currently live.
+
+## The seeded lore layer
+
+`core/seed.py` writes the Embergate world's Postgres rows; `core/seed_graph.py` writes the
+graph layer that has no Postgres home — four `Faction` nodes, nine `Secret` nodes, five
+`Event` nodes, and roughly ninety authored edges covering membership, territory, setting
+adjacency, what happened where, who each secret is about, who knows or merely suspects it,
+and how the cast stands with each other. It runs from preflight on every boot; every write
+is a `MERGE`, so it converges rather than duplicating, and it is entirely best-effort.
+
+It also materializes the **whole** cast and every setting, not just one scenario's. An
+authored edge is a `MATCH` on both endpoints and silently does nothing if either is
+missing, and characters outside the opening scene would otherwise never reach the graph at
+all — taking `offscene_ties` with them.
+
+Two built-in node types are deliberately never seeded. `Subject` is created by promotion
+when a memory tag recurs, so authoring one would misreport how it got there, and
+`Consequence` records a change that happened in play.
 
 ## Deferred seams (prerequisites don't exist yet)
 

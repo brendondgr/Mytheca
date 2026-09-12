@@ -49,7 +49,7 @@ vi.mock("@/components/feature/GraphCanvas", () => ({
 import { GraphView } from "@/components/feature/GraphView";
 
 function graph(partial: Partial<ScenarioGraph>): ScenarioGraph {
-  return { available: true, scenarioId: "sc1", nodes: [], edges: [], ...partial };
+  return { available: true, scenarioId: "sc1", anchorIds: [], nodes: [], edges: [], ...partial };
 }
 
 const POPULATED = graph({
