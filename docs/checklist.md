@@ -28,6 +28,28 @@ Verified against the code on 2026-08-04.
 
 ## Unbuilt capabilities
 
+- **The one-hop scene graph is capped, and nothing tells the reader when it bit.**
+  `graph_reader.neighbour_ids` stops at `SCENE_NEIGHBOUR_LIMIT` (60) and orders neighbours
+  by how many anchors each touches, so a truncation keeps the most-attached context. The
+  response does not say that a truncation happened, and the Graph view therefore cannot
+  distinguish "this is the whole neighbourhood" from "this is the first 60 of it". The
+  seeded Embergate world reads 43 nodes, so the cap is untested against a world that
+  actually exceeds it, and what the right number is has not been measured — 60 is a guess
+  at the point where a force-directed canvas stops being readable.
+- **The seeded reference corpus is not embedded at seed time.** `core/seed_docs.py` writes
+  eight `ContextDocument` rows; turning them into a searchable index still requires
+  `POST /storylines/{id}/rag/reindex/stream` (the Documents page's re-index action). So a
+  fresh install's first lore question opens the gate onto an empty index unless the player
+  has found that button. Doing it at startup would make preflight download an embedding
+  model, which is the wrong trade; surfacing it in the UI as a prompt is the open work.
+- **Whether the seeded lore layer changes the prose is unmeasured.** The `Faction`,
+  `Secret` and `Event` nodes reach a character prompt only through
+  `graph_reader.relationship_context`, which queries character↔character edges — so today
+  the layer is visible in the Graph view and in retrieval, and is **not** established to
+  affect a single generated line. Treat "the graph conditions how characters speak" as
+  true of the feeling edges and unproven of the lore nodes until an experiment says
+  otherwise.
+
 - **Only ONE of the four LLM providers is verified against a live endpoint.**
   `openai-compatible` is exercised constantly — it is what this install runs on, its adapter
   was verified byte-identical to the previous implementation (key order included) by a parity
@@ -613,6 +635,18 @@ continuous turn, and the experiment is capable of saying the default is wrong.
   unmeasured-lexical-rule position `direction_check` is already in.
 
 ## Known defects and rough edges
+
+- **Deleting a play session leaves its memory mirrors in the graph forever.** `memory_store`
+  is transactional against Postgres, which is canonical, and `graph_writer.mirror_memory_safe`
+  writes an `Event` node per memory keyed `evt_{session}_{seq}`. Nothing removes those nodes
+  when the session they belong to is deleted. Found on 2026-09-12 on the dev install: of 191
+  memory mirrors in the graph, **184 belonged to play sessions that no longer existed**, and
+  because the scene graph now reads one hop out they all rendered in the Graph view — one of
+  them carrying a throwaway line the author had typed into a scrapped session two months
+  earlier. They were deleted by hand. The fix belongs beside session deletion (delete the
+  mirrors in the same operation, the way rewind already deletes memories transactionally);
+  a sweep in `media_cleanup`'s spirit would catch the backlog. Until then a long-lived
+  install's Graph view fills with the residue of sessions that are gone.
 
 - ~~**The prompt cache is wasted, and it IS worth reclaiming at the configured settings.**~~
   **Reclaimed 2026-08-20.** `_build_user_prompt` put the speaker's current stat values,

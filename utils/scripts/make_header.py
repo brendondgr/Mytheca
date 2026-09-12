@@ -1,0 +1,135 @@
+"""Generate the README banner from the Mytheca mark.
+
+Run: ``uv run python utils/scripts/make_header.py``
+
+Reads ``images/Basic-Light.svg`` (the light-on-dark mark) and writes
+``images/header.svg``, which ``README.md`` shows centred. The mark's paths are copied on
+every run, so the logo file stays the only copy of the drawing — GitHub will not render
+one SVG referenced inside another, and a hand-pasted copy is wrong the first time the
+logo changes.
+
+Four constraints shape the output, all of them GitHub's:
+
+- **No web fonts.** README images render in a sandbox with no network, so fonts are
+  asked for by stack and will differ on someone else's machine.
+- **No stylesheet.** Every colour is a literal.
+- **Two page backgrounds.** The same file renders on the light theme and the dark one,
+  so the banner paints its own panel instead of hoping to read on both.
+- **Text width is unknowable** before rendering. Headline text is centred with
+  ``text-anchor="middle"``, which is font-independent; the chip rows are laid out by hand
+  in a **monospace** stack, whose advance width is close enough to ``0.6 × font-size``
+  to centre a row.
+
+The banner's tagline is a second copy of the README's opening sentence. Changing one
+means changing the other and re-running this.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+LOGO = ROOT / "images/Basic-Light.svg"  # the light-on-dark mark: cream book, ember flame
+LOGO_W, LOGO_H = 417.0, 471.1488  # its viewBox — not square, so both are needed
+OUT = ROOT / "images/header.svg"
+
+TITLE = "MYTHECA"
+TAGLINE = (
+    "An AI-driven, multi-character roleplay engine.",
+    "The model returns typed, validated story events — never a page of prose.",
+)
+LANGUAGES = [  # dot colours are GitHub's own, from github/linguist
+    ("Python", "#3572a5"),
+    ("TypeScript", "#3178c6"),
+    ("CSS", "#663399"),
+]
+STACK = [(n, None) for n in ("FastAPI", "Next.js", "PostgreSQL", "Neo4j", "Qdrant")]
+
+# Mytheca's own Ember theme, as literals (see web/frontend/styles/themes.css).
+PANEL_BG, PANEL_EDGE = "#0d0a05", "#52422a"
+CHIP_BG, CHIP_EDGE = "#191208", "#332818"
+TEXT, CHIP_TEXT, MUTED = "#f1e5cc", "#c8b694", "#a9946b"
+ACCENT = "#d3694f"
+
+SANS = "ui-serif,Georgia,'Iowan Old Style','Palatino Linotype',Palatino,'Times New Roman',serif"
+MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,'DejaVu Sans Mono',monospace"
+
+W = 1000
+MARK_H, MARK_CY = 150.0, 116.0  # mark height, and its centre from the top
+TITLE_Y, TITLE_SIZE, TITLE_TRACK = 258, 62, 8.0
+RULE_Y, RULE_W = 284, 120
+TAGLINE_Y, TAGLINE_SIZE, LINE_H = 320, 19, 28
+ROWS_Y, ROW_H = 392, 46
+CHIP_H, CHIP_FS, CHIP_GAP, CHIP_PAD = 32, 14.0, 10.0, 15.0
+DOT_R, DOT_GUTTER, ADVANCE = 4.0, 13.0, 0.6
+
+rows = [r for r in (LANGUAGES, STACK) if r]
+H = int(ROWS_Y + ROW_H * (len(rows) - 1) + CHIP_H + 26)
+
+
+def logo_paths() -> str:
+    """The mark's drawing, without its wrapper or Inkscape metadata block."""
+    raw = re.sub(r"<metadata[\s\S]*?</metadata>", "", LOGO.read_text())
+    return raw[raw.index(">", raw.index("<svg")) + 1 : raw.rindex("</svg>")].strip()
+
+
+def chip_row(items: list[tuple[str, str | None]], y: float) -> str:
+    """One centred row of pill chips, each optionally led by a language dot."""
+    widths = [
+        CHIP_PAD * 2 + len(label) * CHIP_FS * ADVANCE + (DOT_GUTTER if dot else 0.0)
+        for label, dot in items
+    ]
+    x = (W - (sum(widths) + CHIP_GAP * (len(items) - 1))) / 2
+    parts: list[str] = []
+    for (label, dot), width in zip(items, widths, strict=True):
+        text_x = x + CHIP_PAD
+        parts.append(
+            f'<rect x="{x:.1f}" y="{y:g}" width="{width:.1f}" height="{CHIP_H}" '
+            f'rx="{CHIP_H / 2:g}" fill="{CHIP_BG}" stroke="{CHIP_EDGE}" />'
+        )
+        if dot:
+            parts.append(
+                f'<circle cx="{text_x + DOT_R:.1f}" cy="{y + CHIP_H / 2:.1f}" '
+                f'r="{DOT_R:g}" fill="{dot}" />'
+            )
+            text_x += DOT_GUTTER
+        parts.append(
+            f'<text x="{text_x:.1f}" y="{y + CHIP_H / 2 + 5:.1f}" font-family="{MONO}" '
+            f'font-size="{CHIP_FS:g}" fill="{CHIP_TEXT}">{label}</text>'
+        )
+        x += width + CHIP_GAP
+    return "\n  ".join(parts)
+
+
+cx = W / 2
+scale = MARK_H / LOGO_H
+# `text-anchor="middle"` counts the letter-space added *after* the final glyph, so a
+# tracked-out title lands half a track to the right of centre. Take it back.
+taglines = "\n  ".join(
+    f'<text x="{cx:g}" y="{TAGLINE_Y + i * LINE_H:g}" text-anchor="middle" '
+    f'font-family="{MONO}" font-size="{TAGLINE_SIZE}" fill="{MUTED}">{line}</text>'
+    for i, line in enumerate(TAGLINE)
+)
+chips = "\n  ".join(chip_row(row, ROWS_Y + i * ROW_H) for i, row in enumerate(rows))
+
+OUT.write_text(
+    f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" \
+width="{W}" height="{H}" role="img" aria-label="{TITLE}">
+  <!-- Generated by utils/scripts/make_header.py - edit that, not this. -->
+  <rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="24" fill="{PANEL_BG}" \
+stroke="{PANEL_EDGE}" />
+  <g transform="translate({cx - LOGO_W * scale / 2:.1f},{MARK_CY - MARK_H / 2:.1f}) \
+scale({scale:.6f})">
+    {logo_paths()}
+  </g>
+  <text x="{cx - TITLE_TRACK / 2:g}" y="{TITLE_Y}" text-anchor="middle" font-family="{SANS}" \
+font-size="{TITLE_SIZE}" font-weight="600" letter-spacing="{TITLE_TRACK:g}" \
+fill="{TEXT}">{TITLE}</text>
+  <rect x="{cx - RULE_W / 2:g}" y="{RULE_Y}" width="{RULE_W}" height="1.5" fill="{ACCENT}" />
+  {taglines}
+  {chips}
+</svg>
+"""
+)
+print(f"wrote {OUT.relative_to(ROOT)}  ({W}x{H})")

@@ -76,7 +76,8 @@ mytheca/
 │   │       ├── events/     # envelope.py (9 story events) · stream.py (NDJSON + trace/error frames)
 │   │       ├── models/     # 15 SQLAlchemy tables (character_memory.py = durable episodic memory)
 │   │       ├── schemas/    # Pydantic request/response + event schemas
-│   │       └── core/       # config · db · redis · neo4j · qdrant · bootstrap · seed · errors · ids
+│   │       └── core/       # config · db · redis · neo4j · qdrant · bootstrap · errors · ids
+│   │                       #   seed (Postgres world) · seed_graph (lore layer) · seed_docs (corpus)
 │   └── shared/
 │       └── contracts/      # Intended FE↔BE contract home — currently EMPTY (.gitkeep)
 ├── utils/

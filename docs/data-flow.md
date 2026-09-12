@@ -10,7 +10,7 @@ How data originates and moves through Mytheca. The streaming/event path is first
 | --- | --- | --- |
 | PostgreSQL (core state) | storylines, characters, settings, scenarios, stat definitions, character stats, events, play sessions, turn traces, context documents (+ links), app settings, graph type definitions | `web/backend/app/models/` |
 | Redis (live/cache) | active scenario state, stream pub/sub, cached reads | `web/backend/app/core/` (client), used by `services/` |
-| Neo4j (Story Graph) | character/setting nodes + their edges (the one knowledge graph); instances only — the type system lives in Postgres | `app/core/neo4j.py` (client), `app/services/graph_{writer,reader}.py` |
+| Neo4j (Story Graph) | character/setting/faction/secret/event/subject nodes + their edges (the one knowledge graph); instances only — the type system lives in Postgres | `app/core/neo4j.py` (client), `app/services/graph_{writer,reader}.py` |
 | YAML config | hand-authored storylines, characters, settings, stat definitions | loaded by `app/core/` → `services/` (State manager) |
 | Markdown guidance | one file per stat (what raises/lowers it, bands, behavior) | `app/core/` loader → injected into agent context |
 | LLM providers | model completions for agents | `web/backend/app/core/` (provider interface) → `app/agents/` |
@@ -1215,7 +1215,13 @@ Read (scenario load) — GET /api/scenarios/{id}/graph:
     → ensure_scenario_materialized: upsert the cast + setting (+ present_at edges)
       from Postgres into Neo4j (idempotent; so the seeded world appears on first load)
     → neo4j.read_session (READ access mode, §7.4) → parameterized Cypher templates (§7.2)
-    → { available, scenarioId, nodes[], edges[] }   (available:false when off/unreachable)
+        → neighbour_ids: one hop out from the anchors, storyline-scoped, capped at 60
+        → scenario_subgraph over anchors + neighbours
+    → { available, scenarioId, anchorIds, nodes[], edges[] }  (available:false when off)
+
+Seed (every boot) — core/seed_graph.seed_embergate_lore:
+  bootstrap.run_preflight → MERGE the whole cast + every setting, then the authored
+  lore layer (Faction / Secret / Event nodes + ~90 edges). Best-effort; converges.
 ```
 
 The **Type Registry** (`graph_type_definitions` in Postgres) is the semantic
