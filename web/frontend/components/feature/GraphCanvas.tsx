@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType, type MutableRefObject } from "react";
 import dynamic from "next/dynamic";
-import type { ForceGraphProps } from "react-force-graph-2d";
+import type {
+  ForceGraphMethods,
+  ForceGraphProps,
+  LinkObject,
+  NodeObject,
+} from "react-force-graph-2d";
 import type { GraphEdge, GraphNode } from "@/lib/types";
 import { edgeColor, nodeColor } from "@/lib/graphColors";
 import { useTheme } from "@/hooks/use-theme";
@@ -26,6 +31,28 @@ interface RFLink {
   edge: GraphEdge;
 }
 
+/** The renderer's imperative handle, as this component's node/link types see it. */
+type GraphHandle = ForceGraphMethods<NodeObject<RFNode>, LinkObject<RFNode, RFLink>>;
+
+type GraphProps = ForceGraphProps<RFNode, RFLink> & {
+  graphRef?: MutableRefObject<GraphHandle | undefined>;
+};
+
+/**
+ * How much of a node's label the canvas draws.
+ *
+ * A `Character` or `Setting` label is a name and is always short. An `Event` label is the
+ * gloss of something that happened and an authored `Secret` is a whole clause, so a
+ * well-played world draws dozens of sentence-length labels over each other and the graph
+ * stops being readable at exactly the point it becomes interesting. The full text stays on
+ * the node's hover tooltip, which is where a reader who wants it is already looking.
+ */
+const LABEL_MAX = 30;
+
+export function shortLabel(name: string): string {
+  return name.length > LABEL_MAX ? `${name.slice(0, LABEL_MAX - 1).trimEnd()}…` : name;
+}
+
 /** A stable identity for an edge (there can be several between two nodes). */
 export function edgeKey(e: { source: string; target: string; type: string }): string {
   return `${e.source}|${e.target}|${e.type}`;
@@ -37,14 +64,26 @@ export function edgeKey(e: { source: string; target: string; type: string }): st
 // bundle: it is fetched the first time a scene is switched to Graph mode. The
 // dynamic() wrapper erases the component's generics, so we re-apply our node/
 // link types here to keep the accessor callbacks typed.
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase">
-      ❖ Loading graph…
-    </div>
-  ),
-}) as unknown as ComponentType<ForceGraphProps<RFNode, RFLink>>;
+// `next/dynamic` does not forward refs, and the zoom-to-fit below needs the graph
+// instance — so the loader wraps the real component and hands the ref through as a
+// plain prop. Everything else is passed straight down.
+const ForceGraph2D = dynamic(
+  async () => {
+    const Inner = (await import("react-force-graph-2d")).default;
+    function ForceGraphWithRef({ graphRef, ...props }: GraphProps) {
+      return <Inner ref={graphRef} {...props} />;
+    }
+    return ForceGraphWithRef;
+  },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center font-mono text-eyebrow tracking-[0.12em] text-mute2 uppercase">
+        ❖ Loading graph…
+      </div>
+    ),
+  },
+) as unknown as ComponentType<GraphProps>;
 
 /** Read a themed hex from a CSS custom property on <html>. */
 function cssVar(name: string, fallback: string): string {
@@ -82,6 +121,7 @@ export function GraphCanvas({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const hoverId = useRef<string | null>(null);
+  const graphRef = useRef<GraphHandle | undefined>(undefined);
   const { theme } = useTheme(); // subscribe so a theme switch re-renders + repaints
 
   // Re-read the themed draw colors (label ink + halo) on every render; reading
@@ -133,9 +173,14 @@ export function GraphCanvas({
           nodeLabel={(n: RFNode) => `${n.name}${n.type ? ` — ${n.type}` : ""}`}
           linkColor={(l: RFLink) => edgeColor(l.type)}
           linkWidth={(l: RFLink) => (edgeKey(l.edge) === selectedEdgeKey ? 3 : 1)}
+          graphRef={graphRef}
           warmupTicks={20}
           cooldownTicks={120}
           cooldownTime={4000}
+          // Frame the whole graph once the layout settles. Without this the view sits at
+          // zoom 1 around the origin, which reads as a small knot adrift in a large empty
+          // canvas — and gets worse, not better, the more the graph has in it.
+          onEngineStop={() => graphRef.current?.zoomToFit(400, 48)}
           onNodeHover={(n: RFNode | null) => {
             hoverId.current = n?.id ?? null;
           }}
@@ -177,9 +222,10 @@ export function GraphCanvas({
             const ly = y + r + 2 / globalScale;
             ctx.lineWidth = 3 / globalScale;
             ctx.strokeStyle = halo;
-            ctx.strokeText(n.name, x, ly);
+            const label = shortLabel(n.name);
+            ctx.strokeText(label, x, ly);
             ctx.fillStyle = ink;
-            ctx.fillText(n.name, x, ly);
+            ctx.fillText(label, x, ly);
           }}
         />
       ) : null}

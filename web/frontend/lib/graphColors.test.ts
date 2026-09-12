@@ -5,7 +5,7 @@ const HEX = /^#[0-9a-f]{6}$/i;
 
 describe("graphColors", () => {
   it("gives each built-in node type a distinct, valid hex color", () => {
-    const types = ["Character", "Setting", "Event", "Faction", "Secret", "Consequence"];
+    const types = ["Character", "Setting", "Event", "Faction", "Secret", "Subject", "Consequence"];
     const colors = types.map(nodeColor);
     colors.forEach((c) => expect(c).toMatch(HEX));
     expect(new Set(colors).size).toBe(types.length); // all distinct

@@ -15,13 +15,14 @@
  * on color alone (WCAG 1.4.1).
  */
 
-/** Distinct colors for the six built-in node types (§5 of the type registry). */
+/** Distinct colors for the seven built-in node types (§5 of the type registry). */
 const NODE_COLORS: Record<string, string> = {
   Character: "#B0492F", // ember red
   Setting: "#2F7D6B", // teal green
   Event: "#C56A1F", // amber
   Faction: "#6B4A8A", // violet
   Secret: "#B0506A", // rose
+  Subject: "#7E8A2B", // olive — what memories keep being about
   Consequence: "#3A5A78", // steel blue
 };
 

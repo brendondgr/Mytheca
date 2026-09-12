@@ -175,15 +175,21 @@ function CastMemberRow({
         >
           <Monogram mono={c.mono} color={c.color} src={c.portrait ? mediaUrl(c.portrait) : undefined} size={34} fontSize={13} />
           <span className="min-w-0 flex-1">
+            {/* `break-normal` against the global `overflow-wrap: break-word`. A cast card
+                loses width whenever the Speaking badge appears beside it, and the global
+                rule then splits the name mid-word — a live rail read "Captai / n Doran
+                Hale" and "ANTAGONI / ST". Both the name and the role wrap between words
+                instead, onto a second line where they need one: a two-line name is fine,
+                and a clipped or hyphen-free-broken one is not. */}
             <span
               className={cn(
-                "block font-display text-body-sm font-semibold leading-[1.05] text-ink",
+                "block break-normal font-display text-body-sm font-semibold leading-[1.05] text-ink",
                 status === "dead" && "line-through",
               )}
             >
               {c.name}
             </span>
-            <Eyebrow size={8} tracking="0.08em" entity={c.color} className="mt-3xs block">
+            <Eyebrow size={8} tracking="0.08em" entity={c.color} className="mt-3xs block break-normal">
               {c.role}
             </Eyebrow>
           </span>
